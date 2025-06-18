@@ -1,0 +1,38 @@
+package com.skrymer.udgaard.model.strategy
+
+import com.skrymer.udgaard.model.StockQuote
+
+/**
+ * Entry strategy based on the ovtlyr 9 criteria:
+ *
+ * Market:
+ *  Market breadth is in an uptrend
+ *  Spy is in an uptrend
+ *  Spy has a buy signal
+ *
+ * Sector:
+ *  Sector breadth is in an uptrend
+ *  Sector heatmap is getting greedier
+ *
+ * Stock:
+ *  is in an uptrend
+ *  has a buy signal within the last 2 days
+ *  heatmap is getting greedier
+ *  close price is over the 10EMA
+ */
+class Ovtlyr9EntryStrategy : EntryStrategy {
+    override fun test(quote: StockQuote) =
+        quote.isInUptrend()
+            .and(quote.isSpyInUptrend())
+            .and(quote.hasSpyBuySignal())
+            .and(quote.sectorIsInUptrend())
+            .and(quote.sectorIsGettingGreedier())
+            .and(quote.isInUptrend())
+            .and(quote.hasCurrentBuySignal())
+            .and(quote.isGettingGreedier())
+            .and(quote.closePrice > quote.closePriceEMA10)
+
+    override fun description(): String {
+        return "Ovtlyr 9 entry strategy"
+    }
+}
