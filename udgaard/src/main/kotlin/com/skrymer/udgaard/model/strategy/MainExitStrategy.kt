@@ -11,7 +11,7 @@ class MainExitStrategy: ExitStrategy {
             PriceUnder10EmaExitStrategy(),
             TenEMACrossingUnderTwentyEMA(),
             PriceUnderFiftyEMA(),
-            FearfulExitStrategy(),
+            LessGreedyExitStrategy(),
             SellSignalExitStrategy(),
             HeatmapExitStrategy(),
             MarketAndSectorBreadthReversesExitStrategy()
@@ -19,22 +19,13 @@ class MainExitStrategy: ExitStrategy {
     }
 
     override fun test(
-        entryQuote: StockQuote,
+        entryQuote: StockQuote?,
         quote: StockQuote
     ): Boolean {
         return exitStrategies.map { it.test(entryQuote, quote) }.any { it }
-
-//        HalfAtrExitStrategy().test(entryQuote, quote)
-//            .and(PriceUnder10EmaExitStrategy().test(entryQuote, quote))
-//            .and(TenEMACrossingUnderTwentyEMA().test(entryQuote, quote))
-//            .and(PriceUnderFiftyEMA().test(entryQuote, quote))
-//            .and(FearfulExitStrategy().test(entryQuote, quote))
-//            .and(SellSignalExitStrategy().test(entryQuote, quote))
-//            .and(HeatmapExitStrategy().test(entryQuote, quote))
-//            .and(MarketAndSectorBreadthReversesExitStrategy().test(entryQuote, quote))
     }
 
-    override fun reason(entryQuote: StockQuote, quote: StockQuote): String {
+    override fun reason(entryQuote: StockQuote?, quote: StockQuote): String {
         return exitStrategies.firstNotNullOf { it.testAndExitReason(entryQuote, quote).second }
     }
 

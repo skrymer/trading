@@ -62,4 +62,11 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     fun numberOfLosingTrades() = losingTrades.size
 
+    /**
+     *
+     */
+    fun mostProfitable(): Stock {
+        return winningTrades.maxBy { it.calculateProfit() }.stock
+    }
+
 }

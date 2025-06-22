@@ -11,9 +11,10 @@ class OvtlyrMarketBreadth {
     val quotes: List<OvtlyrMarketBreadthQuote> = emptyList()
 
     fun toModel(): MarketBreadth {
-        val modelQuotes = if (quotes != null)
-            quotes.stream().map<MarketBreadthQuote?> { it: OvtlyrMarketBreadthQuote? -> it!!.toModel() }.toList()
-        else mutableListOf<MarketBreadthQuote?>()
+        val modelQuotes = quotes.stream()
+            .map { it: OvtlyrMarketBreadthQuote? -> it!!.toModel() }
+            .toList()
+
         return MarketBreadth(getMarketSymbol(), modelQuotes)
     }
 
@@ -21,10 +22,7 @@ class OvtlyrMarketBreadth {
         "Symbol: ${getMarketSymbol()}, Number of quotes: ${quotes.size}"
 
     private fun getMarketSymbol(): MarketSymbol {
-        return if (quotes != null)
-            MarketSymbol.valueOf(quotes[0].symbol)
-        else
-            MarketSymbol.UNK
+        return MarketSymbol.valueOf(quotes[0].symbol)
     }
 }
 

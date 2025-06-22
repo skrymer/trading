@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient
 @Component
 class OvtlyrClient {
     fun getStockInformation(symbol: String): OvtlyrStockInformation? {
+        try{
         val restClient: RestClient = RestClient.builder()
             .baseUrl("https://api.ovtlyr.com/v1.0/StockSymbol/GetAllDashboardChartBySymbolWithFiltersAndSort")
             .build()
@@ -28,6 +29,10 @@ class OvtlyrClient {
             .retrieve()
             .toEntity<OvtlyrStockInformation?>(OvtlyrStockInformation::class.java)
             .getBody()
+        } catch (e: Exception){
+            println("Exception occurred fetching stock: $symbol message: ${e.message}")
+            return null
+        }
     }
 
     /**

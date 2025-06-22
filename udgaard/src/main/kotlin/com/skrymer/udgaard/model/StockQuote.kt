@@ -12,25 +12,21 @@ class StockQuote {
      * The stock symbol
      */
     var symbol: String = ""
-        private set
 
     /**
      * The date when the stock quote was taken.
      */
     var date: LocalDate? = null
-        private set
 
     /**
      * The stock price at close.
      */
     var closePrice: Double = 0.0
-        private set
 
     /**
      * The stock price at open.
      */
     var openPrice: Double = 0.0
-        private set
 
     /**
      * The heatmap value of the stock.
@@ -69,49 +65,41 @@ class StockQuote {
      * The ovtlyr Buy/Sell signal or null if neither.
      */
     var signal: String? = null
-        private set
 
     /**
      * The 10 ema value on close
      */
     var closePriceEMA10: Double = 0.0
-        private set
 
     /**
      * The 20 ema value on close
      */
     var closePriceEMA20: Double = 0.0
-        private set
 
     /**
      * The 5 ema value on close
      */
     var closePriceEMA5: Double = 0.0
-        private set
 
     /**
      * The 50 ema value on close
      */
     var closePriceEMA50: Double = 0.0
-        private set
 
     /**
      * Is the stock in an Uptrend or Downtrend
      */
     var trend: String? = null
-        private set
 
     /**
      * The date of the last buy signal
      */
     var lastBuySignal: LocalDate? = null
-        private set
 
     /**
      * The date of the last sell signal
      */
     var lastSellSignal: LocalDate? = null
-        private set
 
     /**
      * Current SPY Buy/Sell signal.
@@ -122,20 +110,18 @@ class StockQuote {
      * SPY is in an uptrend
      */
     var spyInUptrend: Boolean = false
-        private set
 
     /**
      * Market is in an uptrend
      */
     var marketIsInUptrend: Boolean = false
-        private set
 
     var previousQuoteDate: LocalDate? = null
 
     /**
      * The average true range for this quote.
      */
-    private var atr: Double = 0.0
+    var atr: Double = 0.0
 
     constructor()
 

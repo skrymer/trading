@@ -69,4 +69,7 @@ class Stock {
     fun getQuoteAfter(quote: StockQuote) =
         quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
 
+    override fun toString(): String {
+        return symbol.toString();
+    }
 }

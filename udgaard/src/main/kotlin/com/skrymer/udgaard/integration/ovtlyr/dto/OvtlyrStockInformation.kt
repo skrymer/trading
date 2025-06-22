@@ -94,8 +94,8 @@ class OvtlyrStockInformation {
      */
     @JsonProperty("stkDetail")
     private fun unpackNested(stkDetail: MutableMap<String?, Any?>) {
-        this.stockName = stkDetail.get("stockSymbol") as String?
-        this.sectorSymbol = stkDetail.get("sectorSymbol") as String?
+        this.stockName = stkDetail["stockSymbol"] as String?
+        this.sectorSymbol = stkDetail["sectorSymbol"] as String?
     }
 
     /**

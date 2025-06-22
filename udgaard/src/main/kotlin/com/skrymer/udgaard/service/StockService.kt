@@ -7,6 +7,7 @@ import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.model.Trade
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
@@ -38,7 +39,29 @@ class StockService(
     })
   }
 
-  fun backtest(entryStrategy: EntryStrategy, exitStrategy: ExitStrategy, vararg stocks: Stock): BacktestReport {
+  /**
+   * Loads the stocks by symbol from DB if exists, else load it from Ovtlyr and save it.
+   */
+  fun getStocks(symbols: List<StockSymbol>): List<Stock> {
+    val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+
+    return symbols.mapNotNull {
+      stockRepository.findById(it.name).orElseGet(java.util.function.Supplier {
+        val stockInformation = ovtlyrClient.getStockInformation(it.name)
+
+        if(stockInformation == null) {
+          return@Supplier null
+        }
+
+        val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
+        val sectorMarketBreadth: MarketBreadth? = marketBreadthRepository
+          .findByIdOrNull(MarketSymbol.valueOf(stockInformation.sectorSymbol))
+        stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy!!))
+      })
+    }
+  }
+
+  fun backtest(entryStrategy: EntryStrategy, exitStrategy: ExitStrategy, stocks: List<Stock>): BacktestReport {
     val winningTrades = ArrayList<Trade>()
     val losingTrades = ArrayList<Trade>()
 
