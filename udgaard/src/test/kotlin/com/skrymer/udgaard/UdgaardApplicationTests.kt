@@ -1,11 +1,8 @@
 package com.skrymer.udgaard
 
 import com.skrymer.udgaard.integration.ovtlyr.DataLoader
-import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.model.strategy.MainExitStrategy
 import com.skrymer.udgaard.model.strategy.Ovtlyr9EntryStrategy
-import com.skrymer.udgaard.repository.MarketBreadthRepository
-import com.skrymer.udgaard.repository.StockRepository
 import com.skrymer.udgaard.service.StockService
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

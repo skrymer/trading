@@ -36,7 +36,7 @@ class Stock {
 
     /**
      *
-     * @param starDate - the date to start the simulation from.
+     * @param entryQuote - the entry quote to start the simulation from.
      * @param exitStrategy - the exit strategy being used.
      * @return
      */
@@ -70,6 +70,6 @@ class Stock {
         quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
 
     override fun toString(): String {
-        return symbol.toString();
+        return symbol.toString()
     }
 }

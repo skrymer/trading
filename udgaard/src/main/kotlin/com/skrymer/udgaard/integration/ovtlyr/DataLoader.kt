@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.integration.ovtlyr
 
 import com.skrymer.udgaard.model.MarketSymbol
-import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrMarketBreadth
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.repository.MarketBreadthRepository

@@ -44,7 +44,7 @@ class OvtlyrClient {
         val restClient: RestClient = RestClient.builder()
             .baseUrl("https://ovtlyr.com/market-breadth?handler=GetFormulaDashboardPlotValues")
             .build()
-        val requestBody: String =
+        val requestBody =
             "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
 
         // TODO extract preoprties

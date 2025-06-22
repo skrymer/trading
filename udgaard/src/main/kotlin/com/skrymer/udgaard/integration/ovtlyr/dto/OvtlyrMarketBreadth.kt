@@ -2,7 +2,6 @@ package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.skrymer.udgaard.model.MarketBreadth
-import com.skrymer.udgaard.model.MarketBreadthQuote
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.valueOf
 
