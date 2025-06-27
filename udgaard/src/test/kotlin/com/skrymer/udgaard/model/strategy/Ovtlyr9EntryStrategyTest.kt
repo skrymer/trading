@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 internal class Ovtlyr9EntryStrategyTest {
 
     @Test
-    fun shouldPassOvtlyr9EntryStrategyWhenAllCriteriaAreTrue(){
+    fun `should pass Ovtlyr9-EntryStrategy when all criteria are true`(){
         val ovtlyr9EntryStrategy = Ovtlyr9EntryStrategy()
 
         // given stock quote matches the ovtlyr 9 entry strategy

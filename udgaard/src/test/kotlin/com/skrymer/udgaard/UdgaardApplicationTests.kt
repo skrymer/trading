@@ -1,12 +1,18 @@
 package com.skrymer.udgaard
 
 import com.skrymer.udgaard.integration.ovtlyr.DataLoader
+import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
+import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.model.strategy.MainExitStrategy
 import com.skrymer.udgaard.model.strategy.Ovtlyr9EntryStrategy
 import com.skrymer.udgaard.service.StockService
+import de.siegmar.fastcsv.writer.CsvWriter
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.time.LocalDate
 
 @SpringBootTest
 internal class UdgaardApplicationTests {
@@ -16,12 +22,44 @@ internal class UdgaardApplicationTests {
     @Autowired
     lateinit var stockService: StockService
 
+    @Autowired
+    lateinit var ovtlyrClient: OvtlyrClient
+
     @Test
     fun contextLoads() {
     }
 
     @Test
-    fun loadStocks() {
+    fun screener() {
+        var screenerResults = ovtlyrClient.getScreenerStocks()?.stocks
+            ?.filter { it.buySellDate?.equals(LocalDate.now()) == true || it.buySellDate?.equals(LocalDate.now().minusDays(1)) == true  }
+            ?.sortedByDescending { it.ovtlySignalReturn }
+        val file: Path = Paths.get("output.csv")
+
+        val stocks = stockService.getStocks(screenerResults?.mapNotNull{ it.symbol} ?: emptyList())
+
+        CsvWriter.builder().build(file).use { csv ->
+            csv.writeRecord("Symbol", "Buy sell date", "Ovtlyr return", "Close price", "Sector", "Signal", "Sector greedier", "Order block", "Liquidity")
+
+            screenerResults
+            ?.forEach {
+                val stockQuote = stocks.find { stock -> it.symbol?.equals(stock.symbol) == true }?.getQuoteByDate(it.buySellDate ?: LocalDate.now())
+                println(stockQuote)
+                csv.writeRecord(
+                it.symbol,
+                it.buySellDate.toString(),
+                it.ovtlySignalReturn.format(2),
+                it.closePrice.format(2),
+                it.sector,
+                it.signal
+            )}
+        }
+
+        println(screenerResults)
+    }
+
+    @Test
+    fun generateBacktestReport() {
         println("===================== Getting stocks =====================")
         val stocks = dataLoader.loadTopStocks()
 
@@ -76,4 +114,6 @@ internal class UdgaardApplicationTests {
     fun loadMarketBreadth() {
         dataLoader.loadData()
     }
+
+    fun Double.format(scale: Int) = "%.${scale}f".format(this)
 }

@@ -25,7 +25,7 @@ class DataLoader(
     }
 
     fun loadTopStocks(): List<Stock> {
-        return stockService.getStocks(StockSymbol.entries)
+        return stockService.getStocks(StockSymbol.entries.map { it.name })
     }
 
     private fun loadMarkBreadthForAllSectors() {

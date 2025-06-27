@@ -233,5 +233,5 @@ class StockQuote {
      */
     fun hasSellSignal() = signal == "Sell"
 
-    override fun toString() = "Symbol: $symbol"
+    override fun toString() = "Symbol: $symbol heatmap: $heatmap previous heatmap: $previousHeatmap"
 }

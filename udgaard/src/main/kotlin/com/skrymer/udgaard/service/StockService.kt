@@ -30,33 +30,27 @@ class StockService(
    */
   fun getStock(symbol: String): Stock {
     return stockRepository.findById(symbol).orElseGet(java.util.function.Supplier {
-      val stockInformation = ovtlyrClient.getStockInformation(symbol)
-      val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
-      val sectorMarketBreadth: MarketBreadth? = marketBreadthRepository
-        .findByIdOrNull(MarketSymbol.valueOf(stockInformation?.sectorSymbol))
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
-      stockRepository.save(stockInformation!!.toModel(marketBreadth, sectorMarketBreadth, spy!!))
+      fetchStock(symbol, spy)
     })
   }
 
   /**
    * Loads the stocks by symbol from DB if exists, else load it from Ovtlyr and save it.
+   *
+   * @param symbols - the stocks to load
+   * @param forceFetch - force fetching stocks from ovtlyr api
    */
-  fun getStocks(symbols: List<StockSymbol>): List<Stock> {
+  fun getStocks(symbols: List<String>, forceFetch: Boolean = false): List<Stock> {
     val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
 
     return symbols.mapNotNull {
-      stockRepository.findById(it.name).orElseGet(java.util.function.Supplier {
-        val stockInformation = ovtlyrClient.getStockInformation(it.name)
+      if(forceFetch){
+        return@mapNotNull fetchStock(it, spy)
+      }
 
-        if(stockInformation == null) {
-          return@Supplier null
-        }
-
-        val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
-        val sectorMarketBreadth: MarketBreadth? = marketBreadthRepository
-          .findByIdOrNull(MarketSymbol.valueOf(stockInformation.sectorSymbol))
-        stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy!!))
+      stockRepository.findById(it).orElseGet(java.util.function.Supplier {
+        fetchStock(it, spy)
       })
     }
   }
@@ -86,5 +80,19 @@ class StockService(
       }
     }
     return BacktestReport(winningTrades, losingTrades)
+  }
+
+  private fun fetchStock(symbol: String, spy: OvtlyrStockInformation?): Stock? {
+    val stockInformation = ovtlyrClient.getStockInformation(symbol)
+
+    if(stockInformation == null) {
+      return null
+    }
+
+    val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
+    val sectorMarketBreadth: MarketBreadth? = marketBreadthRepository
+      .findByIdOrNull(MarketSymbol.valueOf(stockInformation.sectorSymbol))
+
+    return stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy!!))
   }
 }

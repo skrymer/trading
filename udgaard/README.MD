@@ -8,4 +8,13 @@ Compare entry/exit strategies - strategy battle
 
 UI.
 
+Plot on a graph winning and losing trades. Could help analyse which periods the strategy
+works and which where it does not.
+
+Libs
+
+https://fastcsv.org/guides/quickstart/
+https://apexcharts.com/
+
+
 

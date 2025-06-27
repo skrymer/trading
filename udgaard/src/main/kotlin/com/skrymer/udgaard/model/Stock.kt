@@ -4,6 +4,7 @@ import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
+import java.time.LocalDate
 import java.util.*
 
 /**
@@ -70,6 +71,9 @@ class Stock {
         quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
 
     override fun toString(): String {
-        return symbol.toString()
+        return "Symbol: $symbol"
     }
+
+  fun getQuoteByDate(date: LocalDate) =
+    quotes.find { it.date?.equals(date) == true }
 }

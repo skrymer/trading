@@ -2,6 +2,7 @@ package com.skrymer.udgaard.integration.ovtlyr
 
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrMarketBreadth
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
+import com.skrymer.udgaard.integration.ovtlyr.dto.ScreenerResult
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -62,6 +63,31 @@ class OvtlyrClient {
             .retrieve()
             .toEntity(OvtlyrMarketBreadth::class.java)
             .getBody()
+    }
+
+    fun getScreenerStocks(): ScreenerResult? {
+        val restClient: RestClient = RestClient.builder()
+            .baseUrl("https://ovtlyr.com/stocks-etfs?handler=GetStocks")
+            .build()
+        val requestBody =
+            "{\"searchKeyword\":null,\"filter_sectorIds\":null,\"filter_industryNames\":null,\"page_size\":150,\"page_index\":0,\"filter_OvtlyrSignalReturn\":null,\"filter_OvtlyrCapitalEfficency\":null,\"filter_min30DayAvgVol\":null,\"filter_max30DayAvgVol\":null,\"filter_CurrentBuySellStatus\":null,\"filter_PriceCorrectionPeriod\":null,\"filter_PriceCorrectionValue\":null,\"filter_minMarkerCap\":null,\"filter_maxMarkerCap\":null,\"filter_minClosePrice\":null,\"filter_maxClosePrice\":null,\"filter_minHeatMap\":null,\"filter_maxHeatMap\":null,\"isShowUpTreandIndicator\":null,\"isShowDownTreandIndicator\":null,\"isShowNeutralIndicator\":null,\"sortBy\":null,\"sortOrder\":null,\"filterByOscilatorMovingUpDown\":null,\"selectedFilterId\":null}"
+
+        // TODO extract preoprties
+        return restClient.post()
+            .header("Host", "api.ovtlyr.com")
+            .header("Origin", "https://ovtlyr.com")
+            .cookie("UserId", "GlXBX/Fz8FdGaAM6ewG6aQ==")
+            .cookie(
+                "Token",
+                "bHLj4DV1toLEOjxwBiStiIYkCod5Amw4b9qrVA9vixDkcCX8A+0pQZXWc/4qtw9FukzAuKKWO0xnDI/wI2b959/2MHHY6aRiQLut6rOSuce+G0cWhzjAtD4GnsVSqsC4"
+            )
+            .header("ProjectId", "Ovtlyr.com_project1")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(requestBody)
+            .retrieve()
+            .toEntity(ScreenerResult::class.java)
+            .getBody()
+
     }
 
     companion object {

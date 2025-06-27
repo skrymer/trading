@@ -9,8 +9,8 @@ class MainExitStrategy: ExitStrategy {
         exitStrategies = listOf(
             HalfAtrExitStrategy(),
             PriceUnder10EmaExitStrategy(),
-            TenEMACrossingUnderTwentyEMA(),
-            PriceUnderFiftyEMA(),
+            TenEmaCrossingUnderTwentyEma(),
+            PriceUnder50EmaExitStrategy(),
             LessGreedyExitStrategy(),
             SellSignalExitStrategy(),
             HeatmapExitStrategy(),

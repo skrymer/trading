@@ -112,7 +112,7 @@ class OvtlyrStockQuote {
     /**
      * The heatmap of the sector the stock belongs to.
      *
-     * A value bewtween 0 and 100, 0 being max fear and 100 max greed.
+     * A value between 0 and 100, 0 being max fear and 100 max greed.
      */
     @JsonProperty("net_weighted_FG_display")
     private val sectorHeatmap: Double? = null

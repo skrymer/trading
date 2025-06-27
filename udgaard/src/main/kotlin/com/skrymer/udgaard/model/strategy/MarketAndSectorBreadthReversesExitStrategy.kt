@@ -10,7 +10,7 @@ class MarketAndSectorBreadthReversesExitStrategy: ExitStrategy {
     override fun test(
         entryQuote: StockQuote?,
         quote: StockQuote
-    ) = ! (quote.sectorIsInUptrend && quote.marketIsInUptrend)
+    ) = !quote.sectorIsInUptrend && !quote.marketIsInUptrend
 
     override fun reason(entryQuote: StockQuote?, quote: StockQuote) =
         "Market and sector breadth has turned bearish"
