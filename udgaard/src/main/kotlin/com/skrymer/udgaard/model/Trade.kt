@@ -19,12 +19,13 @@ class Trade(
      * Calculate the profit of this trade: "exit close price" - "entry close price"
      * @return
      */
-    fun calculateProfit() = (exitQuote?.closePrice ?: 0.0) - entryQuote.closePrice
+    val profit: Double
+        get() = (exitQuote?.closePrice ?: 0.0) - entryQuote.closePrice
 
     /**
      * Calculate the profit of this trade: "exit close price" - "entry close price"
      * @return
      */
-    fun calculatePercentageProfit() = (calculateProfit() / entryQuote.closePrice) * 100.0
-
+    val profitPercentage: Double
+        get() = (profit / entryQuote.closePrice) * 100.0
 }

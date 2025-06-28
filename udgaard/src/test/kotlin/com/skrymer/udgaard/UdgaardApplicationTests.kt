@@ -70,8 +70,8 @@ internal class UdgaardApplicationTests {
         println("===================== Back test executing =====================")
         println("Using entry strategy: ${entryStrategy.description()}")
         println("Using exit strategy: ${exitStrategy.description()}")
-        println("Number of wins: ${backtestReport.numberOfWinningTrades()}")
-        println("Number of losses: ${backtestReport.numberOfLosingTrades()}")
+        println("Number of wins: ${backtestReport.numberOfWinningTrades}")
+        println("Number of losses: ${backtestReport.numberOfLosingTrades}")
 
         println("Winning trades: (${backtestReport.winningTrades.size})")
         backtestReport.winningTrades.forEach { trade ->
@@ -84,7 +84,7 @@ internal class UdgaardApplicationTests {
             }
             println("Exit date ${exitQuote?.date} exit price@close: ${exitQuote?.closePrice} entry price@close ${entryQuote.closePrice}")
             println("Reason for exiting: ${trade.exitReason}")
-            println("Wining: ${trade.calculatePercentageProfit()} percent\n")
+            println("Wining: ${trade.profitPercentage} percent\n")
         }
 
         println("Losing trades: (${backtestReport.losingTrades.size})")
@@ -98,7 +98,7 @@ internal class UdgaardApplicationTests {
             }
             println("Exit date ${exitQuote?.date} exit price@close: ${exitQuote?.closePrice} entry price@close ${entryQuote.closePrice}")
             println("Reason for exiting: ${trade.exitReason}")
-            println("Loss: ${trade.calculatePercentageProfit()} percent\n")
+            println("Loss: ${trade.profitPercentage} percent\n")
         }
 
         println("========================= Stats:: =====================")
@@ -107,7 +107,7 @@ internal class UdgaardApplicationTests {
         println("Loss rate ${backtestReport.lossRate * 100}")
         println("Average loss amount ${backtestReport.averageLossAmount}")
         println("The average profit you can expect per trade ${backtestReport.edge}")
-        println("Most profitable stock ${backtestReport.mostProfitable()}")
+        println("Most profitable stock ${backtestReport.mostProfitable}")
     }
 
     @Test

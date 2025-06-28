@@ -1,0 +1,44 @@
+Symbol,Buy sell date,Ovtlyr return,Close price,Sector,Signal,Sector greedier,Order block,Liquidity
+NVDA,2025-06-26,1482.68,155.02,Technology,Buy
+ANET,2025-06-26,715.38,101.59,Technology,Buy
+LLY,2025-06-26,453.79,795.12,Health Care,Buy
+PSTG,2025-06-26,375.03,55.62,Technology,Buy
+ARES,2025-06-26,320.10,171.11,Financials,Buy
+TSM,2025-06-27,302.58,224.01,Technology,Buy
+SEDG,2025-06-27,291.63,20.07,Technology,Buy
+LNW,2025-06-26,255.04,95.65,Discretionary,Buy
+UBS,2025-06-27,236.14,33.07,Financials,Buy
+AKRO,2025-06-26,202.95,56.28,Health Care,Buy
+DKS,2025-06-26,192.51,195.88,Discretionary,Buy
+SLM,2025-06-26,188.62,32.95,Financials,Buy
+MSFT,2025-06-26,174.62,497.45,Technology,Buy
+PSN,2025-06-27,171.68,71.25,Industrials,Buy
+FLEX,2025-06-26,168.58,50.09,Technology,Buy
+VRNS,2025-06-26,166.03,50.93,Technology,Buy
+XYL,2025-06-26,156.85,129.50,Industrials,Buy
+HASI,2025-06-26,147.29,27.77,Financials,Buy
+FUTU,2025-06-26,118.05,123.21,Financials,Buy
+NVT,2025-06-26,114.65,73.13,Industrials,Buy
+HDB,2025-06-26,113.26,76.92,Financials,Buy
+WBS,2025-06-26,112.69,54.68,Financials,Buy
+HQY,2025-06-27,109.33,104.86,Health Care,Buy
+CEG,2025-06-27,106.96,322.51,Utilities,Buy
+DAL,2025-06-27,99.50,48.97,Industrials,Buy
+AZEK,2025-06-27,96.40,52.95,Industrials,Buy
+CRWD,2025-06-26,90.98,505.22,Technology,Buy
+PCAR,2025-06-26,88.36,94.88,Industrials,Buy
+CFLT,2025-06-26,87.75,24.85,Technology,Buy
+CMA,2025-06-26,74.34,59.08,Financials,Buy
+FLS,2025-06-26,68.67,51.88,Industrials,Buy
+GFL,2025-06-27,64.01,50.58,Industrials,Buy
+MRNA,2025-06-27,63.12,27.54,Health Care,Buy
+ASO,2025-06-27,61.78,45.70,Discretionary,Buy
+FLUT,2025-06-27,57.80,271.26,Discretionary,Buy
+GD,2025-06-26,54.08,291.39,Industrials,Buy
+KNX,2025-06-26,53.13,44.22,Industrials,Buy
+USB,2025-06-26,51.57,45.62,Financials,Buy
+TECH,2025-06-26,49.90,52.80,Health Care,Buy
+DHR,2025-06-26,41.31,201.46,Health Care,Buy
+TWST,2025-06-26,36.95,36.94,Health Care,Buy
+LNC,2025-06-27,6.91,34.52,Financials,Buy
+KMT,2025-06-26,0.91,23.27,Industrials,Buy

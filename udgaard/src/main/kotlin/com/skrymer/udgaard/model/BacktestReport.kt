@@ -17,7 +17,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageWinAmount: Double
         get() {
-            val totalWinningAmount = winningTrades.sumOf { it.calculatePercentageProfit() }
+            val totalWinningAmount = winningTrades.sumOf { it.profitPercentage }
             return totalWinningAmount / winningTrades.size
         }
 
@@ -34,7 +34,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageLossAmount: Double
         get() {
-            val totalLosingAmount = losingTrades.sumOf { it.calculatePercentageProfit() }
+            val totalLosingAmount = losingTrades.sumOf { it.profitPercentage }
             return abs(totalLosingAmount / losingTrades.size)
         }
 
@@ -55,18 +55,19 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
     /**
      * The number of winning trades
      */
-    fun numberOfWinningTrades() = winningTrades.size
+    val numberOfWinningTrades: Int
+        get() = winningTrades.size
 
     /**
      * The number of losing trades
      */
-    fun numberOfLosingTrades() = losingTrades.size
+    val numberOfLosingTrades: Int
+        get() = losingTrades.size
 
     /**
      *
      */
-    fun mostProfitable(): Stock {
-        return winningTrades.maxBy { it.calculateProfit() }.stock
-    }
+    val mostProfitable: Stock
+        get() = winningTrades.maxBy { it.profitPercentage }.stock
 
 }
