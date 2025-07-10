@@ -16,7 +16,7 @@ import com.skrymer.udgaard.model.StockQuote
  *
  * Stock:
  *  is in an uptrend
- *  has a buy signal within the last 2 days
+ *  has a buy signal
  *  heatmap is getting greedier
  *  close price is over the 10EMA
  */

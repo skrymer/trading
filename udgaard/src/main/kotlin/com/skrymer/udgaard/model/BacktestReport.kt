@@ -65,9 +65,23 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         get() = losingTrades.size
 
     /**
-     *
+     * The most profitable stock
      */
     val mostProfitable: Stock
         get() = winningTrades.maxBy { it.profitPercentage }.stock
 
+    /**
+     * Profitable stocks with their profits (based on stock price).
+     */
+    val stockProfits: List<Pair<Stock, Double>>
+        get() =  (winningTrades + losingTrades)
+            .groupBy { it.stock }
+            .map { map -> Pair(map.key, map.value.sumOf { it.profit }) }
+            .sortedByDescending { it.second }
+
+    /**
+     * All trades, winning and losing.
+     */
+    val trades: List<Trade>
+        get() = (winningTrades + losingTrades).sortedBy { it.entryQuote.date }
 }

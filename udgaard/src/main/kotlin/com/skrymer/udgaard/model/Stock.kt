@@ -65,10 +65,16 @@ class Stock {
     /**
      *
      * @param quote
-     * @return the quote after the given [quote]
+     * @return the next quote after the given [quote]
      */
-    fun getQuoteAfter(quote: StockQuote) =
+    fun getNextQuote(quote: StockQuote) =
         quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
+
+    /**
+     * Get the quote previous to the given [quote]
+     */
+    fun getPreviousQuote(quote: StockQuote) =
+        quotes.sortedByDescending { it.date }.firstOrNull { it -> it.date?.isBefore(quote.date) == true }
 
     override fun toString(): String {
         return "Symbol: $symbol"

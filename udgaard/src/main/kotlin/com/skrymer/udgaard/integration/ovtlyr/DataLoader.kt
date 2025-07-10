@@ -14,12 +14,15 @@ import org.springframework.stereotype.Component
 class DataLoader(
     private val ovtlyrClient: OvtlyrClient,
     private val marketBreadthRepository: MarketBreadthRepository,
-    private val stockService: StockService) {
+    private val stockService: StockService
+) {
+
     fun loadData() {
         try {
             loadMarkBreadthForAllSectors()
             loadTopStocks()
         } catch (e: Exception) {
+            System.err.println("Could not load market breadth ${e.message}")
             // TODO: handle exception logging
         }
     }

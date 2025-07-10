@@ -7,7 +7,6 @@ import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.model.Trade
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
@@ -66,9 +65,9 @@ class StockService(
         val quotesMatchingExitStrategy = stock.getQuotesMatchingExitStrategy(entryQuote, exitStrategy)
         val exitQuote: StockQuote? = if (quotesMatchingExitStrategy.second.isEmpty()) {
           // When next quote did not match the exit strategy
-          stock.getQuoteAfter(entryQuote)
+          stock.getNextQuote(entryQuote)
         } else {
-          stock.getQuoteAfter(quotesMatchingExitStrategy.second.last())
+          stock.getNextQuote(quotesMatchingExitStrategy.second.last())
         }
         val profit = (exitQuote?.closePrice ?: 0.0) - entryQuote.closePrice
         val trade = Trade(stock, entryQuote, exitQuote, quotesMatchingExitStrategy.second, quotesMatchingExitStrategy.first)

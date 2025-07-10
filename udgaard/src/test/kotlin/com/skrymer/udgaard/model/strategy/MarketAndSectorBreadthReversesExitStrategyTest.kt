@@ -95,7 +95,10 @@ class MarketAndSectorBreadthReversesExitStrategyTest {
     // Market is in an uptrend
     marketIsInUptrend = true,
     previousQuoteDate = LocalDate.now(),
-    atr = 1.0
+    atr = 1.0,
+    sectorStocksInUptrend = 10,
+    sectorStocksInDowntrend = 5,
+    sectorBullPercentage = 75.0
   )
 
 }

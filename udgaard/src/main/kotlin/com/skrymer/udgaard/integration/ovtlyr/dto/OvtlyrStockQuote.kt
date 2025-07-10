@@ -158,6 +158,24 @@ class OvtlyrStockQuote {
      */
     val sectorSymbol: String? = null
 
+    /**
+     * The number of stocks in the sector that are in a downtrend.
+     */
+    @JsonProperty("downtrend")
+    val sectorDowntrend: Int = 0
+
+    /**
+     * The number of stocks in the sector that are in an uptrend.
+     */
+    @JsonProperty("uptrend")
+    val sectorUptrend: Int = 0
+
+    /**
+     * Percentage of stocks in an uptrend for the sector.
+     */
+    @JsonProperty("bull_per")
+    val sectorBullPercentage: Double = 0.0
+
     fun toModel(
         stock: OvtlyrStockInformation,
         marketBreadthQuote: MarketBreadthQuote?,
@@ -165,6 +183,7 @@ class OvtlyrStockQuote {
         spy: OvtlyrStockInformation
     ): StockQuote {
         val previousQuote = stock.getPreviousQuote(this)
+        val previousPreviousQuote = if(previousQuote != null) stock.getPreviousQuote(previousQuote) else null
         val sectorIsInUptrend = sectorMarketBreadthQuote?.isInUptrend() ?: false
         val lastBuySignal = stock.getLastBuySignal(date!!)
         val lastSellSignal = stock.getLastSellSignal(date)
@@ -178,10 +197,10 @@ class OvtlyrStockQuote {
             date = this.date,
             closePrice = this.closePrice,
             openPrice = this.openPrice ?: 0.0,
-            heatmap = this.heatmap ?: 0.0,
-            previousHeatmap = previousQuote?.heatmap ?: 0.0,
-            sectorHeatmap = this.sectorHeatmap ?: 0.0,
-            previousSectorHeatmap = previousQuote?.sectorHeatmap ?: 0.0,
+            heatmap = previousQuote?.heatmap ?: 0.0,
+            previousHeatmap = previousPreviousQuote?.heatmap ?: 0.0,
+            sectorHeatmap = previousQuote?.sectorHeatmap ?: 0.0,
+            previousSectorHeatmap = previousPreviousQuote?.sectorHeatmap ?: 0.0,
             sectorIsInUptrend = sectorIsInUptrend,
             signal = this.signal,
             closePriceEMA10 = this.closePriceEMA10 ?: 0.0,
@@ -195,7 +214,10 @@ class OvtlyrStockQuote {
             spyIsInUptrend = spyIsInUptrend,
             marketIsInUptrend = marketIsInUptrend,
             previousQuoteDate = previousQuote?.getDate(),
-            atr = atr
+            atr = atr,
+            sectorStocksInDowntrend = sectorDowntrend,
+            sectorStocksInUptrend = sectorUptrend,
+            sectorBullPercentage = previousQuote?.sectorBullPercentage ?: 0.0
         )
     }
 
@@ -224,14 +246,14 @@ class OvtlyrStockQuote {
      * ATR = (TR1 + TR2...Tn) / n where n is the number of periods, default 14.
      *
      * @param stock - the stock
-     * @param n - the number of periods, default 14
+     * @param nPeriods - the number of periods, default 14
      */
-    private fun calculateATR(stock: OvtlyrStockInformation, n: Int = 14): Double {
+    private fun calculateATR(stock: OvtlyrStockInformation, nPeriods: Int = 14): Double {
         val previousQuotes = stock.getQuotes()
             .sortedByDescending { it?.getDate() }
             .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
 
-        val toIndex = if(previousQuotes.size < n) previousQuotes.size else n
+        val toIndex = if(previousQuotes.size < nPeriods) previousQuotes.size else nPeriods
         val atrCalculationQuotes = previousQuotes.subList(0, toIndex)
 
         return atrCalculationQuotes.mapNotNull { it?.calculateTR(stock) }.sum() / atrCalculationQuotes.size

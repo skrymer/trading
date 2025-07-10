@@ -48,7 +48,7 @@ class HeatmapExitStrategyTest {
     val exitQuote = validStockQuote()
     exitQuote.heatmap = 62.9
 
-    // then exit signal is true
+    // then exit signal is false
     assertFalse(heatmapExitStrategy.test(entryQuote, exitQuote))
   }
 
@@ -171,7 +171,10 @@ class HeatmapExitStrategyTest {
     // Market is in an uptrend
     marketIsInUptrend = true,
     previousQuoteDate = LocalDate.now(),
-    atr = 1.0
+    atr = 1.0,
+    sectorStocksInUptrend = 10,
+    sectorStocksInDowntrend = 5,
+    sectorBullPercentage = 75.0
   )
 
 }

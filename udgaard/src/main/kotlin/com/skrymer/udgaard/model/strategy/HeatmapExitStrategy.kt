@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.format
 import com.skrymer.udgaard.model.StockQuote
 
 class HeatmapExitStrategy: ExitStrategy {
@@ -18,14 +19,17 @@ class HeatmapExitStrategy: ExitStrategy {
         return true
       }
 
+      val entryHeatmapValue = entryQuote.heatmap
+      val currentHeatmapValue = quote.heatmap
+
       return when {
-        entryQuote.heatmap >= 50 && entryQuote.heatmap <= 75 -> quote.heatmap >= (entryQuote.heatmap + 10)
-        entryQuote.heatmap > 75 -> quote.heatmap >= (entryQuote.heatmap + 5)
-        else -> quote.heatmap >= 63
+        entryHeatmapValue >= 50 && entryHeatmapValue <= 75 -> currentHeatmapValue >= (entryHeatmapValue + 10)
+        entryHeatmapValue >= 75 -> currentHeatmapValue >= (entryHeatmapValue + 5)
+        else -> currentHeatmapValue >= 63
       }
     }
 
-    override fun reason(entryQuote: StockQuote?, quote: StockQuote) = "Stock heatmap has reached max value. Heatmap at entry ${entryQuote?.heatmap} now ${quote.heatmap}"
+    override fun reason(entryQuote: StockQuote?, quote: StockQuote) = "Stock heatmap has reached max value. Heatmap at entry ${entryQuote?.heatmap?.format(2)} now ${quote.heatmap.format(2)}"
 
     override fun description() = "Heatmap exit strategy"
 }

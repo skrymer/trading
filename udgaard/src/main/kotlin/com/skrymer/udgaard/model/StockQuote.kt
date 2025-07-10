@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.LocalDate
 import kotlin.Boolean
 import kotlin.String
@@ -31,7 +32,7 @@ class StockQuote {
     /**
      * The heatmap value of the stock.
      *
-     * A value bewtween 0 and 100, 0 being max fear and 100 max greed.
+     * A value between 0 and 100, 0 being max fear and 100 max greed.
      */
     var heatmap: Double = 0.0
 
@@ -116,12 +117,35 @@ class StockQuote {
      */
     var marketIsInUptrend: Boolean = false
 
+    /**
+     * Previous quote date.
+     */
     var previousQuoteDate: LocalDate? = null
+
+    /**
+     *
+     */
+    var sectorBreadth: Double = 0.0
+
+    /**
+     * The number of stocks in the sector that are in a downtrend.
+     */
+    var sectorStocksInDowntrend: Int = 0
+
+    /**
+     * The number of stocks in the sector that are in an uptrend.
+     */
+    var sectorStocksInUptrend: Int = 0
 
     /**
      * The average true range for this quote.
      */
     var atr: Double = 0.0
+
+    /**
+     * Percentage of stocks in an uptrend for the sector.
+     */
+    var sectorBullPercentage: Double = 0.0
 
     constructor()
 
@@ -147,7 +171,10 @@ class StockQuote {
         spyIsInUptrend: Boolean,
         marketIsInUptrend: Boolean,
         previousQuoteDate: LocalDate?,
-        atr: Double
+        atr: Double,
+        sectorStocksInDowntrend: Int,
+        sectorStocksInUptrend: Int,
+        sectorBullPercentage: Double
     ) {
         this.symbol = symbol
         this.date = date
@@ -171,6 +198,9 @@ class StockQuote {
         this.marketIsInUptrend = marketIsInUptrend
         this.previousQuoteDate = previousQuoteDate
         this.atr = atr
+        this.sectorStocksInUptrend = sectorStocksInUptrend
+        this.sectorStocksInDowntrend = sectorStocksInDowntrend
+        this.sectorBullPercentage = sectorBullPercentage
     }
 
     fun isInUptrend() = "Uptrend" == trend
@@ -217,10 +247,10 @@ class StockQuote {
      */
     fun hasCurrentBuySignal(): Boolean {
         return lastBuySignal != null &&
-                // The buy signal is within the last 2 days of the quote
-                lastBuySignal?.isAfter(date!!.minusDays(2)) == true &&
-                // and buy signal is after sell signal
-                (lastSellSignal == null || lastBuySignal?.isAfter(lastSellSignal) == true)
+            // The buy signal today or yesterday is within the last 2 days of the quote
+            (lastBuySignal?.equals(date) == true || lastBuySignal?.equals(date!!.minusDays(1)) == true) &&
+            // and buy signal is after sell signal
+            (lastSellSignal == null || lastBuySignal?.isAfter(lastSellSignal) == true)
     }
 
     /**
@@ -233,5 +263,5 @@ class StockQuote {
      */
     fun hasSellSignal() = signal == "Sell"
 
-    override fun toString() = "Symbol: $symbol heatmap: $heatmap previous heatmap: $previousHeatmap"
+    override fun toString() = "Symbol: $symbol Close price: $closePrice Heatmap: $heatmap Previous heatmap: $previousHeatmap"
 }
