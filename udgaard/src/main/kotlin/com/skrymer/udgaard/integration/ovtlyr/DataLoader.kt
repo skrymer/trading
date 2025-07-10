@@ -12,34 +12,36 @@ import org.springframework.stereotype.Component
  */
 @Component
 class DataLoader(
-    private val ovtlyrClient: OvtlyrClient,
-    private val marketBreadthRepository: MarketBreadthRepository,
-    private val stockService: StockService
+  private val ovtlyrClient: OvtlyrClient,
+  private val marketBreadthRepository: MarketBreadthRepository,
+  private val stockService: StockService
 ) {
 
-    fun loadData() {
-        try {
-            loadMarkBreadthForAllSectors()
-            loadTopStocks()
-        } catch (e: Exception) {
-            System.err.println("Could not load market breadth ${e.message}")
-            // TODO: handle exception logging
-        }
+  fun loadData() {
+    try {
+      loadMarkBreadthForAllSectors()
+      loadTopStocks()
+    } catch (e: Exception) {
+      System.err.println("Could not load market breadth ${e.message}")
+      // TODO: handle exception logging
     }
+  }
 
-    fun loadTopStocks(): List<Stock> {
-        return stockService.getStocks(StockSymbol.entries.map { it.name })
-    }
+  fun loadTopStocks(): List<Stock> {
+    return stockService.getStocks(StockSymbol.entries.map { it.name })
+  }
 
-    private fun loadMarkBreadthForAllSectors() {
-        MarketSymbol.entries.forEach { symbol ->
-            val response = ovtlyrClient.getMarketBreadth(symbol.name)
-            if(response != null) {
-                marketBreadthRepository.save(response.toModel())
-            } else {
-                println("Could not load market breadth for sector ${symbol.description}")
-            }
-            println(response)
+  private fun loadMarkBreadthForAllSectors() {
+    MarketSymbol.entries
+      .filter { it != MarketSymbol.UNK }
+      .forEach { symbol ->
+        val response = ovtlyrClient.getMarketBreadth(symbol.name)
+        if (response != null) {
+          marketBreadthRepository.save(response.toModel())
+        } else {
+          println("Could not load market breadth for sector ${symbol.description}")
         }
-    }
+        println(response)
+      }
+  }
 }

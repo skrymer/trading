@@ -32,7 +32,7 @@ internal class UdgaardApplicationTests {
     fun screener() {
         val screenerResults = ovtlyrClient.getScreenerStocks()
             ?.stocks
-            ?.filter { it.buySellDate?.isAfter(LocalDate.of(2025, 7, 6)) == true  }
+            ?.filter { it.buySellDate?.isAfter(LocalDate.of(2025, 7, 8)) == true  }
             ?.sortedByDescending { it.ovtlySignalReturn }
         val file: Path = Paths.get("output.csv")
         val stocks = stockService.getStocks(screenerResults?.mapNotNull{ it.symbol} ?: emptyList(), true)

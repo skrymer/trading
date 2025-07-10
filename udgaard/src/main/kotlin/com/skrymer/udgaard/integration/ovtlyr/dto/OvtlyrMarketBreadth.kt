@@ -6,6 +6,8 @@ import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.valueOf
 
 class OvtlyrMarketBreadth {
+    val resultDetail: String? = ""
+
     @JsonProperty("lst_h")
     val quotes: List<OvtlyrMarketBreadthQuote> = emptyList()
 

@@ -9,13 +9,11 @@ import java.time.LocalDate
  * Represents stock information comming from the Ovtlyr service.
  */
 class OvtlyrStockInformation {
-    @JsonProperty("resultDetail")
-    val result: String? = null
+    val resultDetail: String? = null
     var stockName: String? = null
         private set
     var sectorSymbol: String? = null
         private set
-
     @JsonProperty("lst_h")
     private val quotes: List<OvtlyrStockQuote> = emptyList()
 
