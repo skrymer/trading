@@ -10,8 +10,6 @@ import org.springframework.web.client.RestClient
 
 @Component
 class OvtlyrClient(
-  @Value("\${ovtlyr.header.host}") val ovtlyrHostHeader: String,
-  @Value("\${ovtlyr.header.origin}") val ovtlyrOriginHeader: String,
   @Value("\${ovtlyr.header.projectId}") val projectIdHeader: String,
   @Value("\${ovtlyr.cookies.token}") val cookieToken: String,
   @Value("\${ovtlyr.cookies.userid}") val cookieUserId: String,

@@ -10,10 +10,10 @@ Prerequisites:
 2. Run docker compose using the supplied compose.yaml `docker compose up -d`
 3. Create a file `secure.properties` and add it to directory `udgaard\src\main\resources`
 4. Add the following properties (check network on ovtlyr website for values):
-   5. ovtlyr.cookie.token=XXX
-      ovtlyr.cookie.userid=XXX
-      ovtlyr.stockinformation.token=XXX
-      ovtlyr.stockinformation.userid=XXX 
+    * ovtlyr.cookies.token=XXX
+    * ovtlyr.cookies.userid=XXX
+    * ovtlyr.stockinformation.token=XXX
+    * ovtlyr.stockinformation.userid=XXX 
 6. Build backend `./gradlew build`
 7. Run backend `java -jar build/libs/udgaard-0.0.1-SNAPSHOT.jar`
 
