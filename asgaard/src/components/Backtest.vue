@@ -7,159 +7,106 @@
             <ul class="text-body-1" style="list-style: none;">
               <li>{{ `Number of wins: ${backTestreport?.numberOfWinningTrades || "0"}` }}</li>
               <li>{{ `Number of losses: ${backTestreport?.numberOfLosingTrades || "0"}` }}</li>
-              <li>{{ `Win rate ${backTestreport?.winRate.toFixed(2) || "0"}` }}</li>
+              <li>{{ `Win rate ${((backTestreport?.winRate || 0) * 100).toFixed(2)}%` }}</li>
               <li>{{ `Average win amount ${backTestreport?.averageWinAmount.toFixed(2) || "0"}$` }}</li>
-              <li>{{ `Loss rate ${backTestreport?.lossRate.toFixed(2) || "0"}` }}</li>
+              <li>{{ `Loss rate ${((backTestreport?.lossRate || 0) * 100).toFixed(2)}%` }}</li>
               <li>{{ `Average loss amount ${backTestreport?.averageLossAmount.toFixed(2) || "0"}$` }}</li>
-              <li>{{ `Edge: ${backTestreport?.edge.toFixed(2) || "0"}$` }}</li>
+              <li>{{ `Edge: ${backTestreport?.edge.toFixed(2) || "0"}%` }}</li>
             </ul>
           </v-card-text>
         </v-card>
-        
-        <v-form fast-fail @submit.prevent>
-          <v-container class="fill-width">
-            <v-row>
-              <v-col cols="12" md="8">
-                <v-text-field density="compact" v-model="symbol" label="Symbol" required></v-text-field>
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-btn type="submit" @click="handleSubmit" block>Submit</v-btn>
-              </v-col>
-            </v-row>
-          </v-container>
-        </v-form>
+
+        <v-card class="mt-4">
+          <v-card-text>
+            <v-form fast-fail @submit.prevent>
+              <v-container class="fill-width">
+                <v-row>
+                  <v-col sm="12" cols="8">
+                    <v-text-field density="compact" v-model="symbol" label="Symbol" required />
+                    <v-checkbox label="Refresh" v-model="refresh" />
+                  </v-col>
+                </v-row>
+                <v-row>
+                  <v-col cols="4" offset="8">
+                    <v-btn type="submit" @click="handleSubmit" block>Submit</v-btn>
+                  </v-col>
+                </v-row>
+              </v-container>
+            </v-form>
+          </v-card-text>
+        </v-card>
       </v-col>
 
       <v-col cols="9">
-        <apexchart height="550" type="bar" :options="chartOptions" :series="series" />
-      </v-col>      
+        <v-card>
+          <v-card-text>
+            <trades-chart :report="backTestreport" @trade-selected="(trade) => selectedTrade = trade"/>
+          </v-card-text>
+        </v-card>
+      </v-col>
     </v-row>
     <v-row>
-      <v-data-table :headers="headers" :items="selectedTrade ? [selectedTrade?.entryQuote, ...selectedTrade?.quotes, selectedTrade?.exitQuote] : []"></v-data-table>
+      <v-col cols="3">
+        <v-card title="Trade results">
+          <v-card-text>
+            <ul class="text-body-1" style="list-style: none;">
+              <li>{{ `Exit reason: ${selectedTrade?.exitReason}` }}</li>
+              <li>{{ `Profit percentage: ${selectedTrade?.profitPercentage.toFixed(2) || "0"}%` }}</li>
+              <li>{{ `Profit: ${selectedTrade?.profit.toFixed(2) || "0"}$` }}</li>
+            </ul>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="9">
+        <v-card>
+          <v-card-text>
+            <v-data-table :headers="headers"
+              :items="selectedTrade ? [selectedTrade?.entryQuote, ...selectedTrade?.quotes, selectedTrade?.exitQuote] : []" />
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+    <v-row>
+      <v-col cols="12">
+        <trade-chart :trade="selectedTrade" />
+      </v-col>
     </v-row>
   </v-container>
+  <loader :loading="loading" />
 </template>
 
 <script setup lang="ts">
+import type { BacktestReport, ChartOption, Serie, Trade } from '@/types';
 import axios from 'axios'
 
 // variables
 const headers = [
-  { title: 'Date', value: 'date' }, 
-  {title: "Close price", value: "closePrice"},
-  {title: "Heatmap", value: "heatmap"},
-  {title: "Sector heatmap", value: "sectorHeatmap"}
+  { title: 'Date', value: 'date' },
+  { title: "Close price", value: "closePrice" },
+  { title: "Heatmap", value: "heatmap" },
+  { title: "Sector heatmap", value: "sectorHeatmap" }
 ]
-const chartOptions = ref<ChartOption>({
-  chart: {
-    id: 'trades',
-    events: {
-      dataPointSelection: function (e, c, config) {
-        handleChartClicked(e, c, config)
-      }
-    },
-  },
-  colors: ['#000000'],
-  xaxis: {
-    categories: [],
-  },
-});
-const series = ref<Serie[]>([
-  { name: 'winning', data: [] },
-]);
+
 const symbol = ref<string>("")
-const backTestreport = ref<BacktestReport | null>(null)
+const refresh = ref<boolean>(false)
+const backTestreport = ref<BacktestReport | undefined>()
 const selectedTrade = ref<Trade | undefined>()
+const loading = ref<boolean>(false)
 
 // Functions
-
-const handleChartClicked = (e: any, c: any, config: {dataPointIndex: number}) => {
-  console.log(config.dataPointIndex);
-  selectedTrade.value = backTestreport.value?.trades[config.dataPointIndex]  
-  console.log(selectedTrade.value);
-  
-}
 
 const handleSubmit = () => {
   fetchTrades(symbol.value)
 }
 
 // TODO move into a Service function
-// TODO spinner
 const fetchTrades = async (symbol: String) => {
-  const resp = await axios.get(`http://localhost:8080/api/report?stock=${symbol}`)
-  backTestreport.value = resp.data
-  const entryDates = backTestreport.value?.trades?.map((it: Trade) => {
-    return it.entryQuote.date
-  })
-  const profit = backTestreport.value?.trades?.map((it: Trade) => {
-    return { x: it.entryQuote.date, y: it.profit.toFixed(2), fillColor: it.profit > 0 ? '#39fc03' : "#fc2403" }
-  })
-
-  chartOptions.value = {
-    ...chartOptions.value,
-    xaxis: {
-      categories: entryDates
-    }
-  }
-  series.value = [{
-    ...series.value[0],
-    data: profit
-  }]  
-}
-
-// TODO extract types
-
-interface BacktestReport {
-  trades: Trade[]
-  numberOfLosingTrades: number
-  numberOfWinningTrades: number
-  winRate: number
-  averageWinAmount: number
-  lossRate: number
-  averageLossAmount: number
-  totalTrades: number
-  edge: number
-  mostProfitable: any
-  stockProfits: any
-}
-
-interface StockQuote {
-  date: string
-  closePrice: number
-  heatmap: number
-  sectorHeatmap: number
-}
-
-interface Trade {
-  profit: number
-  entryQuote: StockQuote
-  exitQuote: StockQuote
-  quotes: StockQuote[]
-}
-
-interface Serie {
-  name: string
-  data: Data[] | undefined
-}
-
-interface Data {
-  x: number | string | undefined
-  y: number | string | undefined
-  fillColor: string | undefined
-}
-
-interface ChartOption {
-  colors: string[] | undefined
-  chart: {
-    id: string
-    events: {
-      dataPointSelection: (event: any, chartContext: any, config: any) => void
-    }
-  }
-  xaxis: {
-    categories: number[] | string[] | undefined
+  loading.value = true
+  try {
+    const resp = await axios.get(`http://localhost:8080/api/report?stockSymbol=${symbol}&refresh=${refresh.value}`)
+    backTestreport.value = resp.data
+  } finally {
+    loading.value = false
   }
 }
-
 </script>

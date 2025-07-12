@@ -30,6 +30,16 @@ class StockQuote {
     var openPrice: Double = 0.0
 
     /**
+     * The quote high price
+     */
+    var high: Double = 0.0
+
+    /**
+     * The quote low price
+     */
+    var low: Double = 0.0
+
+    /**
      * The heatmap value of the stock.
      *
      * A value between 0 and 100, 0 being max fear and 100 max greed.
@@ -174,7 +184,9 @@ class StockQuote {
         atr: Double,
         sectorStocksInDowntrend: Int,
         sectorStocksInUptrend: Int,
-        sectorBullPercentage: Double
+        sectorBullPercentage: Double,
+        high: Double,
+        low: Double
     ) {
         this.symbol = symbol
         this.date = date
@@ -201,6 +213,8 @@ class StockQuote {
         this.sectorStocksInUptrend = sectorStocksInUptrend
         this.sectorStocksInDowntrend = sectorStocksInDowntrend
         this.sectorBullPercentage = sectorBullPercentage
+        this.high = high
+        this.low = low
     }
 
     fun isInUptrend() = "Uptrend" == trend

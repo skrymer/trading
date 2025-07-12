@@ -16,6 +16,7 @@ java {
 
 repositories {
 	mavenCentral()
+	maven { url "https://jitpack.io" }
 }
 
 dependencies {
@@ -25,6 +26,7 @@ dependencies {
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
 	implementation "de.siegmar:fastcsv:4.0.0"
 	implementation "org.apache.httpcomponents.client5:httpclient5-win:5.2.3"
+	implementation "com.github.polygon-io:client-jvm:v5.1.2"
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

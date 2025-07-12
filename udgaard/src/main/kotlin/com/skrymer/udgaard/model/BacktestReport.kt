@@ -17,27 +17,44 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageWinAmount: Double
         get() {
-            val totalWinningAmount = winningTrades.sumOf { it.profitPercentage }
+            val totalWinningAmount = winningTrades.sumOf { it.profit }
             return totalWinningAmount / winningTrades.size
         }
 
     /**
-     * Calculated as number of lossing trades / total trades
+     * The average
+     */
+    val averageWinPercent: Double
+        get() {
+            val totalWinPercentage = winningTrades.sumOf { it.profitPercentage }
+            return totalWinPercentage / winningTrades.size
+        }
+
+    /**
+     * Calculated as number of losing trades / total trades
      * @return the loss rate
      */
     val lossRate: Double
         get() = (losingTrades.size.toDouble() / this.totalTrades)
 
     /**
-     * Calculated as the totalLossingAmount / totalLosses
+     * Calculated as the totalLossAmount / totalLosses
      * @return the absolute average loss amount
      */
     val averageLossAmount: Double
         get() {
-            val totalLosingAmount = losingTrades.sumOf { it.profitPercentage }
-            return abs(totalLosingAmount / losingTrades.size)
+            val totalLossAmount = losingTrades.sumOf { it.profit }
+            return abs(totalLossAmount / losingTrades.size)
         }
 
+    /**
+     * The average
+     */
+    val averageLossPercent: Double
+        get() {
+            val totalLossPercentage = losingTrades.sumOf { it.profitPercentage }
+            return totalLossPercentage / losingTrades.size
+        }
     /**
      *
      * @return the number total trades
@@ -46,11 +63,11 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         get() = winningTrades.size + losingTrades.size
 
     /**
-     * (WinRate × AvgWin) − ((1−WinRate) × AvgLoss)
-     * @return - the average profit you can expect per trade.
+     * (AvgWin × WinRate) − ((1−WinRate) × AvgLoss)
+     * @return - the average profit percentage you can expect per trade.
      */
     val edge: Double
-        get() = (this.winRate * this.averageWinAmount) - ((1 - this.winRate) * this.averageLossAmount)
+        get() = (this.averageWinPercent * this.winRate) - ((1 - this.winRate) * this.averageLossPercent)
 
     /**
      * The number of winning trades
@@ -65,16 +82,10 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         get() = losingTrades.size
 
     /**
-     * The most profitable stock
-     */
-    val mostProfitable: Stock
-        get() = winningTrades.maxBy { it.profitPercentage }.stock
-
-    /**
      * Profitable stocks with their profits (based on stock price).
      */
     val stockProfits: List<Pair<Stock, Double>>
-        get() =  (winningTrades + losingTrades)
+        get() = (winningTrades + losingTrades)
             .groupBy { it.stock }
             .map { map -> Pair(map.key, map.value.sumOf { it.profit }) }
             .sortedByDescending { it.second }

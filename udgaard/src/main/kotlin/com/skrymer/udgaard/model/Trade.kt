@@ -23,7 +23,7 @@ class Trade(
         get() = (exitQuote?.closePrice ?: 0.0) - entryQuote.closePrice
 
     /**
-     * Calculate the profit of this trade: "exit close price" - "entry close price"
+     * Calculate the profit percentage of this trade: (profit/entry close price) * 100
      * @return
      */
     val profitPercentage: Double

@@ -1,6 +1,6 @@
 <template>
   <v-app-bar>
-    <v-app-bar-title>Asgaard trading platform</v-app-bar-title>
+    <v-app-bar-title>MATOM (Make a ton of money) trading analysis platform</v-app-bar-title>
   </v-app-bar>
   
   <v-navigation-drawer v-model="drawer" :rail="rail" permanent @click="rail = false">
@@ -21,7 +21,7 @@
     </v-list>
   </v-navigation-drawer>
 
-  <v-main>
+  <v-main class="bg-grey-lighten-3">
     <router-view />
   </v-main>
 

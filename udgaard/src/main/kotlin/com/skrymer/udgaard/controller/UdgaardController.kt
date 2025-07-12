@@ -18,11 +18,22 @@ class UdgaardController(val stockService: StockService) {
 
     @GetMapping("/report")
     @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
-    fun generateBacktestReport(@RequestParam(name = "stock", defaultValue = "nvda") stock: String): ResponseEntity<BacktestReport>{
+    fun generateBacktestReport(
+      @RequestParam(name = "stockSymbol") stockSymbol: String?,
+      @RequestParam(name = "refresh") refresh: Boolean = false
+    ): ResponseEntity<BacktestReport>{
+
+      if(stockSymbol.isNullOrBlank()){
+        return ResponseEntity(HttpStatus.BAD_REQUEST)
+      }
+      val stock = stockService.getStock(stockSymbol.uppercase(), refresh)
+      if(stock == null){
+        return ResponseEntity(HttpStatus.BAD_REQUEST)
+      }
+
       val entryStrategy = Ovtlyr9EntryStrategy()
       val exitStrategy = MainExitStrategy()
-
-      val backtestReport = stockService.backtest(entryStrategy, exitStrategy, listOf(stockService.getStock(stock)))
+      val backtestReport = stockService.backtest(entryStrategy, exitStrategy, listOf(stock))
       return ResponseEntity(backtestReport, HttpStatus.OK)
     }
 }

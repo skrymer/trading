@@ -27,6 +27,11 @@ class DataLoader(
     }
   }
 
+  fun loadStockByMarket(marketSymbol: MarketSymbol, forceFetch: Boolean = false): List<Stock> {
+    val stockSymbols = StockSymbol.entries.filter { it.market == marketSymbol }.map { it.name }
+    return stockService.getStocks(stockSymbols, forceFetch)
+  }
+
   fun loadTopStocks(): List<Stock> {
     return stockService.getStocks(StockSymbol.entries.map { it.name })
   }

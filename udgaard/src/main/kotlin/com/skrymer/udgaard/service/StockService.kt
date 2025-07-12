@@ -26,8 +26,15 @@ class StockService(
 
   /**
    * Loads the stock from DB if exists, else load it from Ovtlyr and save it.
+   * @param symbol - the [symbol] of the stock to get
+   * @param forceFetch - force fetch the stock from the ovtlyr API
    */
-  fun getStock(symbol: String): Stock {
+  fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
+    if(forceFetch){
+      val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+      return fetchStock(symbol, spy)
+    }
+
     return stockRepository.findById(symbol).orElseGet(java.util.function.Supplier {
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
       fetchStock(symbol, spy)
@@ -54,6 +61,14 @@ class StockService(
     }
   }
 
+  /**
+   * Run backtest for the given [entryStrategy] and [exitStrategy] using the [stocks] given
+   * @param entryStrategy - the entry strategy
+   * @param exitStrategy - the exit strategy
+   * @param stocks - the stocks to generate the report for
+   * @return a backtest report
+   *
+   */
   fun backtest(entryStrategy: EntryStrategy, exitStrategy: ExitStrategy, stocks: List<Stock>): BacktestReport {
     val winningTrades = ArrayList<Trade>()
     val losingTrades = ArrayList<Trade>()

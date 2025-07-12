@@ -16,7 +16,7 @@ class UdgaardControllerTest {
   @Autowired
   private lateinit var mockMvc: MockMvc
 
-//  @Test
+  @Test
   fun `get backtest report for tsla`() {
     mockMvc.perform(get("/api/report")
       .param("stock", "TSLA")

@@ -11,7 +11,10 @@ declare module 'vue' {
     AppFooter: typeof import('./components/AppFooter.vue')['default']
     Backtest: typeof import('./components/Backtest.vue')['default']
     HelloWorld: typeof import('./components/Backtest.vue')['default']
+    Loader: typeof import('./components/Loader.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TradeChart: typeof import('./components/TradeChart.vue')['default']
+    TradesChart: typeof import('./components/TradesChart.vue')['default']
   }
 }

@@ -217,7 +217,9 @@ class OvtlyrStockQuote {
             atr = atr,
             sectorStocksInDowntrend = sectorDowntrend,
             sectorStocksInUptrend = sectorUptrend,
-            sectorBullPercentage = previousQuote?.sectorBullPercentage ?: 0.0
+            sectorBullPercentage = previousQuote?.sectorBullPercentage ?: 0.0,
+            high = high,
+            low = low
         )
     }
 

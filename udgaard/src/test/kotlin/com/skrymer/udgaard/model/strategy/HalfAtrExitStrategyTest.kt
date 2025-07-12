@@ -94,7 +94,9 @@ class HalfAtrExitStrategyTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 110.0,
+    low = 5.0
   )
 }
 
