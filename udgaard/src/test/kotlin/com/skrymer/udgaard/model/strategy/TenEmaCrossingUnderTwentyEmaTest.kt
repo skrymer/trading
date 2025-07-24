@@ -18,7 +18,7 @@ class TenEmaCrossingUnderTwentyEmaTest {
     exitQuote.closePriceEMA20 = 10.0
 
     // then exit signal is true
-    assertTrue(tenEmaCrossingUnderTwentyEma.test(null, exitQuote))
+    assertTrue(tenEmaCrossingUnderTwentyEma.match(null, exitQuote))
   }
 
   @Test
@@ -31,7 +31,7 @@ class TenEmaCrossingUnderTwentyEmaTest {
     exitQuote.closePriceEMA20 = 9.9
 
     // then exit signal is true
-    assertFalse(tenEmaCrossingUnderTwentyEma.test(null, exitQuote))
+    assertFalse(tenEmaCrossingUnderTwentyEma.match(null, exitQuote))
   }
 
   fun validStockQuote() = StockQuote(
@@ -68,6 +68,8 @@ class TenEmaCrossingUnderTwentyEmaTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 115.0,
+    low = 55.6
   )
 }

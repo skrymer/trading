@@ -24,14 +24,14 @@ class HalfAtrExitStrategyTest {
     exitStockQuote.closePrice = 98.9
 
     // then exit signal is true
-    assertTrue(halfAtrExitStrategy.test(entryStockQuote, exitStockQuote))
+    assertTrue(halfAtrExitStrategy.match(entryStockQuote, exitStockQuote))
   }
 
   @Test
   fun `close-price is equal to entry close-price minus half an ATR`(){
     val halfAtrExitStrategy = HalfAtrExitStrategy()
 
-    // given close price is below 1/2 ATR
+    // given close price is equal to entry close-price minus half an ATR
     val entryStockQuote = validStockQuote()
     entryStockQuote.atr = 2.0
     entryStockQuote.closePrice = 100.0
@@ -40,7 +40,7 @@ class HalfAtrExitStrategyTest {
     exitStockQuote.closePrice = 99.0
 
     // then exit signal is false
-    assertFalse(halfAtrExitStrategy.test(entryStockQuote, exitStockQuote))
+    assertFalse(halfAtrExitStrategy.match(entryStockQuote, exitStockQuote))
   }
 
   @Test
@@ -57,7 +57,7 @@ class HalfAtrExitStrategyTest {
     exitStockQuote.closePrice = 99.1
 
     // then exit signal is false
-    assertFalse(halfAtrExitStrategy.test(entryStockQuote, exitStockQuote))
+    assertFalse(halfAtrExitStrategy.match(entryStockQuote, exitStockQuote))
   }
 
   fun validStockQuote() = StockQuote(

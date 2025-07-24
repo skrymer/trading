@@ -9,9 +9,10 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppFooter: typeof import('./components/AppFooter.vue')['default']
-    Backtest: typeof import('./components/Backtest.vue')['default']
-    HelloWorld: typeof import('./components/Backtest.vue')['default']
+    Backtest: typeof import('./pages/Backtest.vue')['default']
+    HelloWorld: typeof import('./pages/Backtest.vue')['default']
     Loader: typeof import('./components/Loader.vue')['default']
+    MarketBreadthChart: typeof import('./components/MarketBreadthChart.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TradeChart: typeof import('./components/TradeChart.vue')['default']

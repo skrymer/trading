@@ -70,7 +70,7 @@ class OvtlyrMarketBreadthQuote {
     @JsonProperty("Bull_EMA_50")
     val ema_50: Double = 0.0
 
-    fun toModel(): MarketBreadthQuote {
+    fun toModel(marketBreadth: OvtlyrMarketBreadth): MarketBreadthQuote {
         return MarketBreadthQuote(
             symbol,
             quoteDate,
@@ -83,7 +83,19 @@ class OvtlyrMarketBreadthQuote {
             ema_10,
             ema_20,
             ema_50,
-            bull_per
+            bull_per,
+            donchianUpperBand = calculateDonchianUpperBand(marketBreadth, this),
+            previousDonchianUpperBand = calculateDonchianUpperBand(marketBreadth, marketBreadth.getPreviousQuote(this)),
+            donchianLowerBand = calculateDonchianLowerBand(marketBreadth, this),
+            previousDonchianLowerBand = calculateDonchianLowerBand(marketBreadth, marketBreadth.getPreviousQuote(this))
         )
     }
+
+    fun calculateDonchianUpperBand(marketBreadth: OvtlyrMarketBreadth, quote: OvtlyrMarketBreadthQuote, lookback: Int = 4) =
+        (listOf(quote) + marketBreadth.getPreviousQuotes(quote, lookback -1))
+            .maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+
+    fun calculateDonchianLowerBand(marketBreadth: OvtlyrMarketBreadth, quote: OvtlyrMarketBreadthQuote, lookback: Int = 4) =
+        (listOf(quote) + marketBreadth.getPreviousQuotes(quote, lookback -1))
+            .minOfOrNull { it.numberOfStocksInDowntrend.toDouble() } ?: 0.0
 }

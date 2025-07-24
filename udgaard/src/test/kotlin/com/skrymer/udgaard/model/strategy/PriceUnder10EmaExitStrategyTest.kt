@@ -18,7 +18,7 @@ class PriceUnder10EmaExitStrategyTest {
     exitQuote.closePriceEMA10 = 10.0
 
     // then exit signal is true
-    assertTrue(priceUnder10EmaExitStrategy.test(null, exitQuote))
+    assertTrue(priceUnder10EmaExitStrategy.match(null, exitQuote))
   }
 
   @Test
@@ -31,7 +31,7 @@ class PriceUnder10EmaExitStrategyTest {
     exitQuote.closePriceEMA10 = 9.9
 
     // then exit signal is true
-    assertFalse(priceUnder10EmaExitStrategy.test(null, exitQuote))
+    assertFalse(priceUnder10EmaExitStrategy.match(null, exitQuote))
   }
 
   fun validStockQuote() = StockQuote(
@@ -68,7 +68,9 @@ class PriceUnder10EmaExitStrategyTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 115.0,
+    low = 55.6
   )
 
 }

@@ -10,9 +10,10 @@ class HeatmapExitStrategy: ExitStrategy {
      * If entry heatmap value was between 50 and 75, return true when value is 10pt higher than entry value.
      * If entry heatmap value was greater than 75, return true when value is 5pt higher than entry value.
      */
-    override fun test(
+    override fun match(
         entryQuote: StockQuote?,
-        quote: StockQuote
+        quote: StockQuote,
+        previousQuote: StockQuote?
     ): Boolean {
 
       if(entryQuote == null){
@@ -29,7 +30,7 @@ class HeatmapExitStrategy: ExitStrategy {
       }
     }
 
-    override fun reason(entryQuote: StockQuote?, quote: StockQuote) = "Stock heatmap has reached max value. Heatmap at entry ${entryQuote?.heatmap?.format(2)} now ${quote.heatmap.format(2)}"
+    override fun reason(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) = "Stock heatmap has reached max value."
 
     override fun description() = "Heatmap exit strategy"
 }

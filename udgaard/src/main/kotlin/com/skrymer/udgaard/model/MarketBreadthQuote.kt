@@ -39,7 +39,7 @@ class MarketBreadthQuote {
     /**
      * The 10 ema percentage value of stocks with a buy signal in this market.
      */
-    private var ema_10: Double = 0.0
+    var ema_10: Double = 0.0
 
     /**
      * The 20 ema percentage value of stocks with a buy signal in this market.
@@ -52,6 +52,26 @@ class MarketBreadthQuote {
      */
     var ema_50: Double = 0.0
         private set
+
+    /**
+     * Donchian upper band the max value over the past 5 days.
+     */
+    var donchianUpperBand: Double = 0.0
+
+    /**
+     * Previous donchian upper band value.
+     */
+    var previousDonchianUpperBand: Double = 0.0
+
+    /**
+     * Donchian lower band the min value over the past 5 days.
+     */
+    var donchianLowerBand: Double = 0.0
+
+    /**
+     * Previous donchian lower band value.
+     */
+    var previousDonchianLowerBand: Double = 0.0
 
     constructor()
 
@@ -67,7 +87,11 @@ class MarketBreadthQuote {
         ema_10: Double,
         ema_20: Double,
         ema_50: Double,
-        bullStocksPercentage: Double
+        bullStocksPercentage: Double,
+        donchianUpperBand: Double,
+        previousDonchianUpperBand: Double,
+        donchianLowerBand: Double,
+        previousDonchianLowerBand: Double
     ) {
         this.symbol = symbol
         this.quoteDate = quoteDate
@@ -81,6 +105,10 @@ class MarketBreadthQuote {
         this.ema_20 = ema_20
         this.ema_50 = ema_50
         this.bullStocksPercentage = bullStocksPercentage
+        this.donchianUpperBand = donchianUpperBand
+        this.previousDonchianUpperBand = previousDonchianUpperBand
+        this.donchianLowerBand = donchianLowerBand
+        this.previousDonchianLowerBand = previousDonchianLowerBand
     }
 
     /**

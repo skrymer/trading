@@ -2,7 +2,6 @@ package com.skrymer.udgaard.model.strategy
 
 import com.skrymer.udgaard.model.StockQuote
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.NullAndEmptySource
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.LocalDate
@@ -21,7 +20,7 @@ class SellSignalExitStrategyTest {
     exitQuote.signal = "Sell"
 
     // then exit signal is true
-    assertTrue(sellSignalExitStrategy.test(null, exitQuote))
+    assertTrue(sellSignalExitStrategy.match(null, exitQuote))
   }
 
   @ParameterizedTest
@@ -35,7 +34,7 @@ class SellSignalExitStrategyTest {
     exitQuote.signal = signal
 
     // then exit signal is false
-    assertFalse(sellSignalExitStrategy.test(null, exitQuote))
+    assertFalse(sellSignalExitStrategy.match(null, exitQuote))
   }
 
   fun validStockQuote() = StockQuote(
@@ -72,7 +71,9 @@ class SellSignalExitStrategyTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 115.0,
+    low = 55.6
   )
 
 }

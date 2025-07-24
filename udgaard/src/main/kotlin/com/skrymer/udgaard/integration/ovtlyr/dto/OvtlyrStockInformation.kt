@@ -28,7 +28,7 @@ class OvtlyrStockInformation {
             this.quotes.map { quote ->
                 val sectorBreadthQuote = sectorMarketBreadth?.getQuoteForDate(quote.getDate())
                 val marketBreadthQuote = marketBreadth?.getQuoteForDate(quote.getDate())
-                quote.toModel(this, marketBreadthQuote, sectorBreadthQuote, spy)
+                quote.toModel(this, marketBreadth, sectorMarketBreadth, spy)
             }
         )
     }
@@ -143,4 +143,18 @@ class OvtlyrStockInformation {
 
     fun getPreviousQuote(quote: OvtlyrStockQuote) =
         getQuotes().sortedByDescending { it?.getDate() }.firstOrNull { quote.getDate().isAfter(it!!.getDate()) }
+
+    /**
+     * Get previous quotes
+     */
+    fun getPreviousQuotes(quote: OvtlyrStockQuote, lookBack: Int): List<OvtlyrStockQuote> {
+        val sortedByDateAsc = quotes.sortedBy { it.getDate() }
+        val quoteIndex = sortedByDateAsc.indexOf(quote)
+
+        return if(quoteIndex < lookBack){
+            sortedByDateAsc.subList(0, quoteIndex)
+        } else {
+            sortedByDateAsc.subList(quoteIndex - lookBack, quoteIndex)
+        }
+    }
 }

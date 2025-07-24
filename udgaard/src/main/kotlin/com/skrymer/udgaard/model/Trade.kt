@@ -11,16 +11,10 @@ package com.skrymer.udgaard.model
 class Trade(
     var stock: Stock,
     var entryQuote: StockQuote,
-    var exitQuote: StockQuote?,
     var quotes: List<StockQuote>,
-    var exitReason: String
+    var exitReason: String,
+    var profit: Double = 0.0
 ) {
-    /**
-     * Calculate the profit of this trade: "exit close price" - "entry close price"
-     * @return
-     */
-    val profit: Double
-        get() = (exitQuote?.closePrice ?: 0.0) - entryQuote.closePrice
 
     /**
      * Calculate the profit percentage of this trade: (profit/entry close price) * 100
@@ -28,4 +22,6 @@ class Trade(
      */
     val profitPercentage: Double
         get() = (profit / entryQuote.closePrice) * 100.0
+
+    fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)
 }

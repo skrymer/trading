@@ -18,7 +18,7 @@ class LessGreedyExitStrategyTest {
     stockQuote.heatmap = 9.9
 
     // then exit signal is true
-    assertTrue(lessGreedyExitStrategy.test(null, stockQuote))
+    assertTrue(lessGreedyExitStrategy.match(null, stockQuote))
   }
 
   @Test
@@ -31,7 +31,7 @@ class LessGreedyExitStrategyTest {
     stockQuote.heatmap = 10.1
 
     // then exit signal is false
-    assertFalse(lessGreedyExitStrategy.test(null, stockQuote))
+    assertFalse(lessGreedyExitStrategy.match(null, stockQuote))
   }
 
   fun validStockQuote() = StockQuote(
@@ -68,6 +68,8 @@ class LessGreedyExitStrategyTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 115.0,
+    low = 55.6
   )
 }

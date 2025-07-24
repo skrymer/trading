@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketBreadthQuote
 import com.skrymer.udgaard.model.StockQuote
 import java.time.LocalDate
@@ -178,19 +179,20 @@ class OvtlyrStockQuote {
 
     fun toModel(
         stock: OvtlyrStockInformation,
-        marketBreadthQuote: MarketBreadthQuote?,
-        sectorMarketBreadthQuote: MarketBreadthQuote?,
+        marketBreadth: MarketBreadth?,
+        sectorMarketBreadth: MarketBreadth?,
         spy: OvtlyrStockInformation
     ): StockQuote {
+        val sectorBreadthQuote = sectorMarketBreadth?.getQuoteForDate(this.getDate())
+        val marketBreadthQuote = marketBreadth?.getQuoteForDate(this.getDate())
         val previousQuote = stock.getPreviousQuote(this)
         val previousPreviousQuote = if(previousQuote != null) stock.getPreviousQuote(previousQuote) else null
-        val sectorIsInUptrend = sectorMarketBreadthQuote?.isInUptrend() ?: false
+        val sectorIsInUptrend = sectorBreadthQuote?.isInUptrend() ?: false
         val lastBuySignal = stock.getLastBuySignal(date!!)
         val lastSellSignal = stock.getLastSellSignal(date)
         val spySignal = spy.getCurrentSignalFrom(date)
         val spyIsInUptrend = spy.getQuoteForDate(date)?.isInUptrend ?: false
         val marketIsInUptrend = marketBreadthQuote?.isInUptrend() ?: false
-        val atr = calculateATR(stock)
 
         return StockQuote(
             symbol = this.symbol ?: "",
@@ -214,12 +216,14 @@ class OvtlyrStockQuote {
             spyIsInUptrend = spyIsInUptrend,
             marketIsInUptrend = marketIsInUptrend,
             previousQuoteDate = previousQuote?.getDate(),
-            atr = atr,
+            atr = calculateATR(stock),
             sectorStocksInDowntrend = sectorDowntrend,
             sectorStocksInUptrend = sectorUptrend,
             sectorBullPercentage = previousQuote?.sectorBullPercentage ?: 0.0,
             high = high,
-            low = low
+            low = low,
+            donchianUpperBand = calculateDonchianUpperBand(stock),
+            donchianUpperBandMarket = calculateDonchianUpperBandMarket(marketBreadth)
         )
     }
 
@@ -240,7 +244,6 @@ class OvtlyrStockQuote {
 
     override fun toString() =
         "Symbol: $symbol Signal: $signal Trend: $trend Date: $date"
-
 
     /**
      * Calculate the ATR (Average True Range)
@@ -273,4 +276,46 @@ class OvtlyrStockQuote {
         val lowPreviousCloseDiff = low - (previousQuote?.closePrice ?: 0.0)
         return highLowDiff.coerceAtLeast(highPreviousCloseDiff.coerceAtLeast(lowPreviousCloseDiff))
     }
+
+    fun calculateDonchianUpperBand(stock: OvtlyrStockInformation, periods: Int = 5) =
+      stock.getPreviousQuotes(this, periods)
+          .maxOfOrNull { it.closePrice } ?: 0.0
+
+    /**
+     * Calculate the donchian upper band for the full number of stocks that are in an uptrend.
+     */
+    fun calculateDonchianUpperBandMarket(market: MarketBreadth?, periods: Int = 5) =
+        market?.getPreviousQuotes(this.date, periods)
+            ?.maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+
+    override fun equals(other: Any?): Boolean {
+        return if(other !is OvtlyrStockQuote){
+            false
+        } else {
+            other.date?.equals(date) == true && other.symbol.equals(symbol)
+        }
+    }
+
+  override fun hashCode(): Int {
+    var result = closePrice.hashCode()
+    result = 31 * result + (openPrice?.hashCode() ?: 0)
+    result = 31 * result + low.hashCode()
+    result = 31 * result + high.hashCode()
+    result = 31 * result + (heatmap?.hashCode() ?: 0)
+    result = 31 * result + (sectorHeatmap?.hashCode() ?: 0)
+    result = 31 * result + (closePriceEMA10?.hashCode() ?: 0)
+    result = 31 * result + (closePriceEMA20?.hashCode() ?: 0)
+    result = 31 * result + (closePriceEMA5?.hashCode() ?: 0)
+    result = 31 * result + (closePriceEMA50?.hashCode() ?: 0)
+    result = 31 * result + sectorDowntrend
+    result = 31 * result + sectorUptrend
+    result = 31 * result + sectorBullPercentage.hashCode()
+    result = 31 * result + (symbol?.hashCode() ?: 0)
+    result = 31 * result + (date?.hashCode() ?: 0)
+    result = 31 * result + (signal?.hashCode() ?: 0)
+    result = 31 * result + (trend?.hashCode() ?: 0)
+    result = 31 * result + (sectorSymbol?.hashCode() ?: 0)
+    result = 31 * result + isInUptrend.hashCode()
+    return result
+  }
 }

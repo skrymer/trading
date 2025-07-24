@@ -12,74 +12,88 @@ import java.util.*
  */
 @Document(collection = "stocks")
 class Stock {
-    @Id
-    var symbol: String? = null
-    var sectorSymbol: String? = null
-    private var quotes: List<StockQuote> = emptyList()
+  @Id
+  var symbol: String? = null
+  var sectorSymbol: String? = null
+  var quotes: List<StockQuote> = emptyList()
 
-    constructor()
+  constructor()
 
-    constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>) {
-        this.symbol = symbol
-        this.sectorSymbol = sectorSymbol
-        this.quotes = quotes
+  constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>) {
+    this.symbol = symbol
+    this.sectorSymbol = sectorSymbol
+    this.quotes = quotes
+  }
+
+  /**
+   *
+   * @param entryStrategy
+   * @param after - quotes after the date
+   * @param before - quotes before the date
+   * @return quotes that matches the given entry strategy.
+   */
+  fun getQuotesMatchingEntryStrategy(entryStrategy: EntryStrategy, after: LocalDate?, before: LocalDate?) =
+    quotes
+      .filter { after == null || it.date?.isAfter(after) == true }
+      .filter { before == null || it.date?.isBefore(before) == true }
+      .filter { entryStrategy.test(it, getPreviousQuote(it)) }
+
+  /**
+   *
+   * @param entryQuote - the entry quote to start the simulation from.
+   * @param exitStrategy - the exit strategy being used.
+   * @return an ExitReport.
+   */
+  fun testExitStrategy(
+    entryQuote: StockQuote,
+    exitStrategy: ExitStrategy
+  ): ExitReport {
+    val quotesToTest = this.quotes
+      .sortedBy { it.date }
+      // Find quotes that are after the entry quote date
+      .filter { it -> it.date?.isAfter(entryQuote.date) == true }
+
+    val quotes = ArrayList<StockQuote>()
+    var exitReason = ""
+    var exitPrice = 0.0
+    for (quote in quotesToTest) {
+      val exitStrategyReport = exitStrategy.test(
+        entryQuote = entryQuote,
+        quote = quote,
+        previousQuote = getPreviousQuote(quote)
+      )
+
+      quotes.add(quote)
+
+      if (exitStrategyReport.match) {
+        exitReason = exitStrategyReport.exitReason ?: ""
+        exitPrice = exitStrategyReport.exitPrice
+        break
+      }
     }
 
-    /**
-     *
-     * @param entryStrategy
-     * @return quotes that matches the given entry strategy.
-     */
-    fun getQuotesMatchingEntryStrategy(entryStrategy: EntryStrategy): List<StockQuote> {
-        val filteredQuotes = quotes.filter { entryStrategy.test(it) }
-        return filteredQuotes
-    }
+    return ExitReport(exitReason, quotes, exitPrice)
+  }
 
-    /**
-     *
-     * @param entryQuote - the entry quote to start the simulation from.
-     * @param exitStrategy - the exit strategy being used.
-     * @return
-     */
-    fun getQuotesMatchingExitStrategy(entryQuote: StockQuote, exitStrategy: ExitStrategy): Pair<String, List<StockQuote>> {
-        val quotesToTest = quotes
-            .sortedBy { it.date }
-            // Find quotes that are after the entry quote date
-            .filter { it -> it.date?.isAfter(entryQuote.date) == true }
+  /**
+   *
+   * @param quote
+   * @return the next quote after the given [quote]
+   */
+  fun getNextQuote(quote: StockQuote) =
+    quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
 
-        val quotesMatchingTestCriteria = ArrayList<StockQuote>()
-        var exitReason = ""
-        for (quote in quotesToTest) {
-            val testOutcome = exitStrategy.testAndExitReason(entryQuote = entryQuote, quote = quote)
-            if (!testOutcome.first) {
-                quotesMatchingTestCriteria.add(quote)
-            } else {
-                exitReason = testOutcome.second ?: ""
-                break
-            }
-        }
+  /**
+   * Get the quote previous to the given [quote]
+   */
+  fun getPreviousQuote(quote: StockQuote) =
+    quotes.sortedByDescending { it.date }.firstOrNull { it -> it.date?.isBefore(quote.date) == true }
 
-        return Pair(exitReason,  quotesMatchingTestCriteria)
-    }
-
-    /**
-     *
-     * @param quote
-     * @return the next quote after the given [quote]
-     */
-    fun getNextQuote(quote: StockQuote) =
-        quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
-
-    /**
-     * Get the quote previous to the given [quote]
-     */
-    fun getPreviousQuote(quote: StockQuote) =
-        quotes.sortedByDescending { it.date }.firstOrNull { it -> it.date?.isBefore(quote.date) == true }
-
-    override fun toString(): String {
-        return "Symbol: $symbol"
-    }
-
+  /**
+   * get the quote for the given [date]
+   */
   fun getQuoteByDate(date: LocalDate) =
     quotes.find { it.date?.equals(date) == true }
+
+  override fun toString() = "Symbol: $symbol"
 }

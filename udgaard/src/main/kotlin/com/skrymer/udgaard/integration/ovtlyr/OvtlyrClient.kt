@@ -35,8 +35,7 @@ class OvtlyrClient(
       println("User id $stockinformationUserId")
       println("Token: $stockinformationToken")
       println("requestBody: $requestBody")
-
-      return restClient.post()
+      val response = restClient.post()
         .header("UserId", stockinformationUserId)
         .header("Token", stockinformationToken)
         .header("ProjectId", projectIdHeader)
@@ -45,6 +44,8 @@ class OvtlyrClient(
         .retrieve()
         .toEntity(OvtlyrStockInformation::class.java)
         .getBody()
+      println("Response received: $response")
+      return response
     } catch (e: Exception) {
       println("Exception occurred fetching stock: $symbol message: ${e.message} skipping")
       return null

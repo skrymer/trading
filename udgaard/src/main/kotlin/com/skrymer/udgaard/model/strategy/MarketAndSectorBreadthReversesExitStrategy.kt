@@ -7,12 +7,13 @@ class MarketAndSectorBreadthReversesExitStrategy: ExitStrategy {
     /**
      * @return true if both the sector and market breadth are in a downtrend.
      */
-    override fun test(
+    override fun match(
         entryQuote: StockQuote?,
-        quote: StockQuote
+        quote: StockQuote,
+        previousQuote: StockQuote?
     ) = !quote.sectorIsInUptrend && !quote.marketIsInUptrend
 
-    override fun reason(entryQuote: StockQuote?, quote: StockQuote) =
+    override fun reason(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) =
         "Market and sector breadth has turned bearish"
 
     override fun description(): String {

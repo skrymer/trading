@@ -8,7 +8,7 @@ import java.time.LocalDate
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class HeatmapExitStrategyTest {
+internal class HeatmapExitStrategyTest {
 
   /**
    * Test that exit signal is true
@@ -28,7 +28,7 @@ class HeatmapExitStrategyTest {
     exitQuote.heatmap = 63.1
 
     // then exit signal is true
-    assertTrue(heatmapExitStrategy.test(entryQuote, exitQuote))
+    assertTrue(heatmapExitStrategy.match(entryQuote, exitQuote))
   }
 
   /**
@@ -49,7 +49,7 @@ class HeatmapExitStrategyTest {
     exitQuote.heatmap = 62.9
 
     // then exit signal is false
-    assertFalse(heatmapExitStrategy.test(entryQuote, exitQuote))
+    assertFalse(heatmapExitStrategy.match(entryQuote, exitQuote))
   }
 
   /**
@@ -71,7 +71,7 @@ class HeatmapExitStrategyTest {
     exitQuote.heatmap = exitHeatmap
 
     // then exit signal is true
-    assertTrue(heatmapExitStrategy.test(entryQuote, exitQuote))
+    assertTrue(heatmapExitStrategy.match(entryQuote, exitQuote))
   }
 
   /**
@@ -93,7 +93,7 @@ class HeatmapExitStrategyTest {
     exitQuote.heatmap = exitHeatmap
 
     // then exit signal is false
-    assertFalse(heatmapExitStrategy.test(entryQuote, exitQuote))
+    assertFalse(heatmapExitStrategy.match(entryQuote, exitQuote))
   }
 
   /**
@@ -115,7 +115,7 @@ class HeatmapExitStrategyTest {
     exitQuote.heatmap = exitHeatmap
 
     // then exit signal is true
-    assertTrue(heatmapExitStrategy.test(entryQuote, exitQuote))
+    assertTrue(heatmapExitStrategy.match(entryQuote, exitQuote))
   }
 
   /**
@@ -137,7 +137,7 @@ class HeatmapExitStrategyTest {
     exitQuote.heatmap = exitHeatmap
 
     // then exit signal is false
-    assertFalse(heatmapExitStrategy.test(entryQuote, exitQuote))
+    assertFalse(heatmapExitStrategy.match(entryQuote, exitQuote))
   }
 
   fun validStockQuote() = StockQuote(
@@ -174,7 +174,9 @@ class HeatmapExitStrategyTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 115.0,
+    low = 55.6
   )
 
 }

@@ -3,13 +3,14 @@ package com.skrymer.udgaard.model.strategy
 import com.skrymer.udgaard.model.StockQuote
 
 class LessGreedyExitStrategy: ExitStrategy {
-    override fun test(
+    override fun match(
         entryQuote: StockQuote?,
-        quote: StockQuote
+        quote: StockQuote,
+        previousQuote: StockQuote?
     ) = quote.isGettingMoreFearful()
 
-    override fun reason(entryQuote: StockQuote?, quote: StockQuote) =
-        "Heatmap is getting more fearful. Current value ${quote.heatmap} previous value ${quote.previousHeatmap}"
+    override fun reason(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) =
+        "Heatmap is getting more fearful."
 
     override fun description() = "Buyers  are getting more fearful"
 }

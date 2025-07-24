@@ -19,7 +19,7 @@ class MarketAndSectorBreadthReversesExitStrategyTest {
     exitQuote.marketIsInUptrend = false
 
     // then exit signal is true
-    assertTrue(marketAndSectorBreadthReversesExitStrategy.test(null, exitQuote))
+    assertTrue(marketAndSectorBreadthReversesExitStrategy.match(null, exitQuote))
   }
 
   @Test
@@ -33,7 +33,7 @@ class MarketAndSectorBreadthReversesExitStrategyTest {
     exitQuote.marketIsInUptrend = true
 
     // then exit signal is false
-    assertFalse(marketAndSectorBreadthReversesExitStrategy.test(null, exitQuote))
+    assertFalse(marketAndSectorBreadthReversesExitStrategy.match(null, exitQuote))
   }
 
   @Test
@@ -47,7 +47,7 @@ class MarketAndSectorBreadthReversesExitStrategyTest {
     exitQuote.marketIsInUptrend = false
 
     // then exit signal is false
-    assertFalse(marketAndSectorBreadthReversesExitStrategy.test(null, exitQuote))
+    assertFalse(marketAndSectorBreadthReversesExitStrategy.match(null, exitQuote))
   }
 
   @Test
@@ -61,7 +61,7 @@ class MarketAndSectorBreadthReversesExitStrategyTest {
     exitQuote.marketIsInUptrend = true
 
     // then exit signal is false
-    assertFalse(marketAndSectorBreadthReversesExitStrategy.test(null, exitQuote))
+    assertFalse(marketAndSectorBreadthReversesExitStrategy.match(null, exitQuote))
   }
 
   fun validStockQuote() = StockQuote(
@@ -98,7 +98,9 @@ class MarketAndSectorBreadthReversesExitStrategyTest {
     atr = 1.0,
     sectorStocksInUptrend = 10,
     sectorStocksInDowntrend = 5,
-    sectorBullPercentage = 75.0
+    sectorBullPercentage = 75.0,
+    high = 115.0,
+    low = 55.6
   )
 
 }

@@ -18,13 +18,8 @@ class DataLoader(
 ) {
 
   fun loadData() {
-    try {
-      loadMarkBreadthForAllSectors()
-      loadTopStocks()
-    } catch (e: Exception) {
-      System.err.println("Could not load market breadth ${e.message}")
-      // TODO: handle exception logging
-    }
+    loadMarkBreadthForAllSectors()
+//    loadTopStocks()
   }
 
   fun loadStockByMarket(marketSymbol: MarketSymbol, forceFetch: Boolean = false): List<Stock> {
@@ -36,17 +31,25 @@ class DataLoader(
     return stockService.getStocks(StockSymbol.entries.map { it.name })
   }
 
-  private fun loadMarkBreadthForAllSectors() {
+  private fun loadMarkBreadthForAllSectors() =
     MarketSymbol.entries
       .filter { it != MarketSymbol.UNK }
-      .forEach { symbol ->
-        val response = ovtlyrClient.getMarketBreadth(symbol.name)
-        if (response != null) {
-          marketBreadthRepository.save(response.toModel())
-        } else {
-          println("Could not load market breadth for sector ${symbol.description}")
-        }
-        println(response)
-      }
+      .forEach { loadMarketBreadth(it) }
+
+  private fun loadMarketBreadth(symbol: MarketSymbol) {
+    val response = try{
+      ovtlyrClient.getMarketBreadth(symbol.name)
+    } catch (e: Exception){
+      throw CouldNotLoadMarketBreadth("Could not load market breadth for market ${symbol.description}", e)
+    }
+
+    if (response != null) {
+      marketBreadthRepository.save(response.toModel())
+      println(response)
+    } else {
+      throw CouldNotLoadMarketBreadth("Could not load market breadth for market ${symbol.description}")
+    }
   }
 }
+
+class CouldNotLoadMarketBreadth(message: String, cause: Throwable? = null): RuntimeException(message, cause)

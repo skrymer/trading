@@ -4,7 +4,7 @@ import kotlin.math.abs
 
 class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trade>) {
     /**
-     * Calculated as number of winning trades / total trades
+     * Calculated as (number of winning trades / total trades)
      * @return the win rate
      */
     val winRate: Double
@@ -12,7 +12,6 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
 
     /**
      * Calculated as totalWinningAmount / totalWins
-     *
      * @return the average win amount
      */
     val averageWinAmount: Double
@@ -22,7 +21,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         }
 
     /**
-     * The average
+     * The average win percentage.
      */
     val averageWinPercent: Double
         get() {
@@ -31,14 +30,14 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         }
 
     /**
-     * Calculated as number of losing trades / total trades
+     * Calculated as (number of losing trades / total trades)
      * @return the loss rate
      */
     val lossRate: Double
         get() = (losingTrades.size.toDouble() / this.totalTrades)
 
     /**
-     * Calculated as the totalLossAmount / totalLosses
+     * Calculated as the (totalLossAmount / totalLosses)
      * @return the absolute average loss amount
      */
     val averageLossAmount: Double
@@ -48,26 +47,27 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         }
 
     /**
-     * The average
+     * The average loss percentage
      */
     val averageLossPercent: Double
         get() {
             val totalLossPercentage = losingTrades.sumOf { it.profitPercentage }
-            return totalLossPercentage / losingTrades.size
+            return abs(totalLossPercentage / losingTrades.size)
         }
+
     /**
      *
-     * @return the number total trades
+     * @return the number of total trades
      */
     val totalTrades: Int
         get() = winningTrades.size + losingTrades.size
 
     /**
-     * (AvgWin × WinRate) − ((1−WinRate) × AvgLoss)
-     * @return - the average profit percentage you can expect per trade.
+     * (AvgWinPercentage × WinRate) − ((1−WinRate) × AvgLossPercentage)
+     * @return - the average percentage gain to expect per trade.
      */
     val edge: Double
-        get() = (this.averageWinPercent * this.winRate) - ((1 - this.winRate) * this.averageLossPercent)
+        get() = (this.averageWinPercent * this.winRate) - ((1.0 - this.winRate) * this.averageLossPercent)
 
     /**
      * The number of winning trades
@@ -82,12 +82,12 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
         get() = losingTrades.size
 
     /**
-     * Profitable stocks with their profits (based on stock price).
+     * Profitable stocks with their profit percentage (based on stock price).
      */
     val stockProfits: List<Pair<Stock, Double>>
         get() = (winningTrades + losingTrades)
             .groupBy { it.stock }
-            .map { map -> Pair(map.key, map.value.sumOf { it.profit }) }
+            .map { map -> Pair(map.key, map.value.sumOf { it.profitPercentage }) }
             .sortedByDescending { it.second }
 
     /**
@@ -95,4 +95,10 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val trades: List<Trade>
         get() = (winningTrades + losingTrades).sortedBy { it.entryQuote.date }
+
+    /**
+     * Exit reason grouped by count
+     */
+    val exitReasonCount: Map<String, Int>
+        get() = trades.groupingBy { it.exitReason }.eachCount()
 }

@@ -21,7 +21,7 @@ import com.skrymer.udgaard.model.StockQuote
  *  close price is over the 10EMA
  */
 class Ovtlyr9EntryStrategy : EntryStrategy {
-    override fun test(quote: StockQuote) =
+    override fun test(quote: StockQuote, previousQuote: StockQuote?) =
         quote.isInUptrend()
             .and(quote.isSpyInUptrend())
             .and(quote.hasSpyBuySignal())
@@ -31,6 +31,7 @@ class Ovtlyr9EntryStrategy : EntryStrategy {
             .and(quote.hasCurrentBuySignal())
             .and(quote.isGettingGreedier())
             .and(quote.closePrice > quote.closePriceEMA10)
+            .and(quote.donchianUpperBandMarket > (previousQuote?.donchianUpperBandMarket ?: 0.0))
 
     override fun description(): String {
         return "Ovtlyr 9 entry strategy"

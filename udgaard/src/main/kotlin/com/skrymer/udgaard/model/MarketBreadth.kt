@@ -19,15 +19,31 @@ import java.util.*
 class MarketBreadth {
     @Id
     var symbol: MarketSymbol? = null
-    private var quotes: List<MarketBreadthQuote> = emptyList()
-
-    constructor()
+    var quotes: List<MarketBreadthQuote> = emptyList()
 
     constructor(symbol: MarketSymbol, quotes: List<MarketBreadthQuote>) {
         this.symbol = symbol
         this.quotes = quotes
     }
 
-    fun getQuoteForDate(date: LocalDate) =
+    val inUptrend: Boolean
+        get() = quotes.last().isInUptrend()
+
+    fun getQuoteForDate(date: LocalDate?) =
         quotes.firstOrNull{ date == it.quoteDate }
+
+    fun getPreviousQuotes(date: LocalDate?, lookBack: Int): List<MarketBreadthQuote> {
+        val quote = getQuoteForDate(date)
+        if(quote == null){
+            return emptyList()
+        }
+
+        val quotesSortedByDateAsc = quotes.sortedBy { it.quoteDate }
+        val quoteIndex = quotesSortedByDateAsc.indexOf(quote)
+        return if(quoteIndex < lookBack){
+            quotesSortedByDateAsc.subList(0, quoteIndex)
+        } else {
+            quotesSortedByDateAsc.subList(quoteIndex - lookBack, quoteIndex)
+        }
+    }
 }

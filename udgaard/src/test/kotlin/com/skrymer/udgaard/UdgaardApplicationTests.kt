@@ -3,12 +3,12 @@ package com.skrymer.udgaard
 import com.skrymer.udgaard.integration.ovtlyr.DataLoader
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.model.MarketSymbol
+import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.strategy.MainExitStrategy
 import com.skrymer.udgaard.model.strategy.Ovtlyr9EntryStrategy
 import com.skrymer.udgaard.service.StockService
 import de.siegmar.fastcsv.writer.CsvWriter
 import io.polygon.kotlin.sdk.rest.PolygonRestClient
-import io.polygon.kotlin.sdk.rest.options.getSnapshot
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -43,13 +43,14 @@ internal class UdgaardApplicationTests {
         val stocks = stockService.getStocks(screenerResults?.mapNotNull{ it.symbol} ?: emptyList(), true)
         val entryStrategy = Ovtlyr9EntryStrategy()
         val exitStrategy = MainExitStrategy()
-        val backtestReport = stockService.backtest(entryStrategy, exitStrategy, stocks)
-
-        val polygonClient = PolygonRestClient(
-            apiKey = ""
+        val backtestReport = stockService.backtest(
+            entryStrategy,
+            exitStrategy,
+            stocks,
+            LocalDate.of(2024, 1, 1),
+            LocalDate.now()
         )
 
-//        polygonClient.optionsClient.getSnapshot()
         val csvHeaders = listOf(
             "Symbol",
             "Buy sell date",
@@ -107,11 +108,17 @@ internal class UdgaardApplicationTests {
     @Test
     fun generateBacktestReport() {
         println("===================== Getting stocks =====================")
-        val stocks = dataLoader.loadStockByMarket(MarketSymbol.XLK, false)
-//        val stock = stockService.getStocks(listOf("DT"), true).first()
+        val stocks = dataLoader.loadTopStocks()
+//        val stock = stockService.getStocks(listOf("SMTC"), true).first()
         val entryStrategy = Ovtlyr9EntryStrategy()
         val exitStrategy = MainExitStrategy()
-        val backtestReport = stockService.backtest(entryStrategy, exitStrategy, stocks)
+        val backtestReport = stockService.backtest(entryStrategy, exitStrategy, stocks, LocalDate.of(2024, 1, 1),
+            LocalDate.now())
+//        val quoteStrings = generateTestDataAsString(
+//            stock,
+//            LocalDate.of(2025, 6, 25),
+//            LocalDate.of(2025,7,2)
+//        )
 
         println("===================== Back test executing:: =====================")
         println("Using entry strategy: ${entryStrategy.description()}")
@@ -123,8 +130,12 @@ internal class UdgaardApplicationTests {
         println("Average win amount ${backtestReport.averageWinAmount.format(2)}$")
         println("Loss rate ${(backtestReport.lossRate * 100).format(2)}%")
         println("Average loss amount ${backtestReport.averageLossAmount.format(2)}$")
-        println("The percentage you can expect to win per trade ${backtestReport.edge.format(2)}%")
+        println("The percentage you can expect to win per trade ${(backtestReport.edge).format(2)}%")
         println("========================= Stock information:: =========================")
+        println("Exit reason count")
+        val exitReasonCount = backtestReport.exitReasonCount
+        exitReasonCount.forEach { (reason, count) -> println("$reason count $count") }
+
         println("Stocks ordered by profitability")
         backtestReport.stockProfits.forEach {
             println("Symbol: ${it.first.symbol} profit ${it.second.format(2)}")
@@ -134,5 +145,44 @@ internal class UdgaardApplicationTests {
     @Test
     fun loadMarketBreadth() {
         dataLoader.loadData()
+    }
+
+    fun generateTestDataAsString(stock: Stock, after: LocalDate, before: LocalDate): String{
+        return stock.quotes
+            .filter { it.date?.isAfter(after ) == true }
+            .filter { it.date?.isBefore(before) == true }
+            .map { """
+            StockQuote(
+                symbol = "${it.symbol}",
+                date = LocalDate.of(${it.date?.year}, ${it.date?.monthValue}, ${it.date?.dayOfMonth}),
+                openPrice = ${it.openPrice},
+                heatmap = ${it.heatmap},
+                previousHeatmap = ${it.previousHeatmap},
+                sectorHeatmap = ${it.sectorHeatmap},
+                previousSectorHeatmap = ${it.previousSectorHeatmap},
+                sectorIsInUptrend = ${if(it.sectorIsInUptrend) "true" else "false" },
+                signal = ${it.signal},
+                closePrice = ${it.closePrice},
+                closePriceEMA10 = ${it.closePriceEMA10},
+                closePriceEMA5 = ${it.closePriceEMA5},
+                closePriceEMA20 = ${it.closePriceEMA20},
+                closePriceEMA50 = ${it.closePriceEMA50},
+                trend = "${it.trend}",
+                lastBuySignal = LocalDate.of(${it.lastBuySignal?.year}, ${it.lastBuySignal?.monthValue}, ${it.lastBuySignal?.dayOfMonth}),
+                lastSellSignal = LocalDate.of(${it.lastSellSignal?.year}, ${it.lastSellSignal?.monthValue}, ${it.lastSellSignal?.dayOfMonth}),
+                spySignal = "${it.spySignal}",
+                spyIsInUptrend = ${if(it.spyInUptrend) "true" else "false" },
+                marketIsInUptrend = ${if(it.marketIsInUptrend) "true" else "false" },
+                previousQuoteDate = LocalDate.of(${it.previousQuoteDate?.year}, ${it.previousQuoteDate?.monthValue}, ${it.previousQuoteDate?.dayOfMonth}),
+                atr = ${it.atr},
+                sectorStocksInUptrend = ${it.sectorStocksInUptrend},
+                sectorStocksInDowntrend = ${it.sectorStocksInUptrend},
+                sectorBullPercentage = ${it.sectorBullPercentage},
+                high = ${it.high},
+                low = ${it.low}
+        )
+        """.trimIndent() }
+            .reduce { s1,s2 -> s1+s2 }
+
     }
 }

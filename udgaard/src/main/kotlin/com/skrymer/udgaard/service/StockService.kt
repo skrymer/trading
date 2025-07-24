@@ -6,7 +6,6 @@ import com.skrymer.udgaard.model.BacktestReport
 import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.Trade
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
@@ -15,6 +14,7 @@ import com.skrymer.udgaard.repository.MarketBreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 import java.util.*
 
 @Service
@@ -35,10 +35,10 @@ class StockService(
       return fetchStock(symbol, spy)
     }
 
-    return stockRepository.findById(symbol).orElseGet(java.util.function.Supplier {
+    return stockRepository.findById(symbol).orElseGet {
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
       fetchStock(symbol, spy)
-    })
+    }
   }
 
   /**
@@ -69,27 +69,30 @@ class StockService(
    * @return a backtest report
    *
    */
-  fun backtest(entryStrategy: EntryStrategy, exitStrategy: ExitStrategy, stocks: List<Stock>): BacktestReport {
+  fun backtest(
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    stocks: List<Stock>,
+    after: LocalDate,
+    before: LocalDate
+  ): BacktestReport {
     val winningTrades = ArrayList<Trade>()
     val losingTrades = ArrayList<Trade>()
 
     stocks.forEach { stock ->
-      val quotesMatchingEntryStrategy = stock.getQuotesMatchingEntryStrategy(entryStrategy)
+      val quotesMatchingEntryStrategy = stock.getQuotesMatchingEntryStrategy(entryStrategy, after, before)
 
       quotesMatchingEntryStrategy.forEach { entryQuote ->
-        val quotesMatchingExitStrategy = stock.getQuotesMatchingExitStrategy(entryQuote, exitStrategy)
-        val exitQuote: StockQuote? = if (quotesMatchingExitStrategy.second.isEmpty()) {
-          // When next quote did not match the exit strategy
-          stock.getNextQuote(entryQuote)
-        } else {
-          stock.getNextQuote(quotesMatchingExitStrategy.second.last())
-        }
-        val profit = (exitQuote?.closePrice ?: 0.0) - entryQuote.closePrice
-        val trade = Trade(stock, entryQuote, exitQuote, quotesMatchingExitStrategy.second, quotesMatchingExitStrategy.first)
-        if (profit > 0) {
-          winningTrades.add(trade)
-        } else {
-          losingTrades.add(trade)
+        if((winningTrades + losingTrades).find { it.containsQuote(entryQuote) } == null){
+          val exitReport = stock.testExitStrategy(entryQuote, exitStrategy)
+          val profit = exitReport.exitPrice - entryQuote.closePrice
+          val trade = Trade(stock, entryQuote, exitReport.quotes, exitReport.exitReason, profit)
+
+          if (profit > 0) {
+            winningTrades.add(trade)
+          } else {
+            losingTrades.add(trade)
+          }
         }
       }
     }
