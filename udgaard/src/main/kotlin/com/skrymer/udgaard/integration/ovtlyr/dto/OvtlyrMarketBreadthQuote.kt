@@ -9,28 +9,34 @@ import java.time.LocalDate
  *
  * Ovtlyr payload:
  * {
- * "StockSymbol": "FULLSTOCK",
- * "Quotedate": "2025-06-05T00:00:00",
- * "QuotedateStr": "Jun 05, 2025",
- * "Total_ClosePrice": 980203.1443,
- * "Bull_Total": 958,
- * "Bear_Total": 1424,
- * "Uptrend_DifferenceWithPrevious": -29,
- * "Downtrend_DifferenceWithPrevious": 33,
- * "Uptrend_DifferenceWithPrevious_str": "-29",
- * "Downtrend_DifferenceWithPrevious_str": "+33",
- * "Bull_per": 40.2183039462637,
- * "Bull_EMA_5": 38.8829413699683,
- * "Bull_EMA_10": 41.453098749149,
- * "Bull_EMA_20": 46.8689974278856,
- * "Bull_EMA_50": 47.1806479235534,
- * "Lower": 25,
- * "Midpoint": 50,
- * "Upper": 75,
- * "Uptrend": 1163,
- * "Neutral": 571,
- * "Downtrend": 648,
- * "Total": 2382
+ *   "StockSymbol": "XLU",
+ *   "Quotedate": "2025-09-09T00:00:00",
+ *   "QuotedateStr": "Sep 09, 2025",
+ *   "Total_ClosePrice": 4960.6794,
+ *   "Bull_Total": 9,
+ *   "Bear_Total": 75,
+ *   "Uptrend_DifferenceWithPrevious": 4,
+ *   "Downtrend_DifferenceWithPrevious": -1,
+ *   "Uptrend_DifferenceWithPrevious_str": "+4",
+ *   "Downtrend_DifferenceWithPrevious_str": "-1",
+ *   "Bull_per": 10.7142857142857,
+ *   "Bull_EMA_5": 12.0495890092481,
+ *   "Bull_EMA_10": 16.1554939301461,
+ *   "Bull_EMA_20": 22.3545515878047,
+ *   "Bull_EMA_50": 28.5068082474362,
+ *   "Lower": 25,
+ *   "Midpoint": 50,
+ *   "Upper": 75,
+ *   "Uptrend": 25,
+ *   "Neutral": 14,
+ *   "Downtrend": 45,
+ *   "Total": 84,
+ *   "d4_Hi": 34,
+ *   "d4_Lo": -36,
+ *   "uptrend_display": null,
+ *   "downtrend_display": null,
+ *   "sector_Score": -1,
+ *   "passing_Overall": 0
  * }
  */
 class OvtlyrMarketBreadthQuote {
@@ -70,7 +76,11 @@ class OvtlyrMarketBreadthQuote {
     @JsonProperty("Bull_EMA_50")
     val ema_50: Double = 0.0
 
-    fun toModel(marketBreadth: OvtlyrMarketBreadth): MarketBreadthQuote {
+    @JsonProperty("sector_Score")
+    val donkeyChannelScore: Int = 0
+
+    fun toModel(marketBreadth: OvtlyrMarketBreadth, stockInMarket: OvtlyrStockInformation?): MarketBreadthQuote {
+        val stockQuote = stockInMarket?.getPreviousQuote(stockInMarket.getQuoteForDate(quoteDate!!))
         return MarketBreadthQuote(
             symbol,
             quoteDate,
@@ -87,7 +97,10 @@ class OvtlyrMarketBreadthQuote {
             donchianUpperBand = calculateDonchianUpperBand(marketBreadth, this),
             previousDonchianUpperBand = calculateDonchianUpperBand(marketBreadth, marketBreadth.getPreviousQuote(this)),
             donchianLowerBand = calculateDonchianLowerBand(marketBreadth, this),
-            previousDonchianLowerBand = calculateDonchianLowerBand(marketBreadth, marketBreadth.getPreviousQuote(this))
+            previousDonchianLowerBand = calculateDonchianLowerBand(marketBreadth, marketBreadth.getPreviousQuote(this)),
+            heatmap = stockQuote?.sectorHeatmap ?: 0.0,
+            previousHeatmap = stockInMarket?.getPreviousQuote(stockQuote)?.sectorHeatmap ?: 0.0,
+            donkeyChannelScore = donkeyChannelScore
         )
     }
 
@@ -95,7 +108,7 @@ class OvtlyrMarketBreadthQuote {
         (listOf(quote) + marketBreadth.getPreviousQuotes(quote, lookback -1))
             .maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
-    fun calculateDonchianLowerBand(marketBreadth: OvtlyrMarketBreadth, quote: OvtlyrMarketBreadthQuote, lookback: Int = 4) =
+    fun calculateDonchianLowerBand(marketBreadth: OvtlyrMarketBreadth, quote: OvtlyrMarketBreadthQuote, lookback: Int = 2) =
         (listOf(quote) + marketBreadth.getPreviousQuotes(quote, lookback -1))
             .minOfOrNull { it.numberOfStocksInDowntrend.toDouble() } ?: 0.0
 }

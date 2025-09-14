@@ -14,9 +14,6 @@ class MainExitStrategy : ExitStrategy {
       LessGreedyExitStrategy(),
       SellSignalExitStrategy(),
       HeatmapExitStrategy(),
-      MarketAndSectorBreadthReversesExitStrategy(),
-//      OneAtrIntradayExit()
-//      BelowPriorDaysLowExitStrategy()
     )
   }
 

@@ -2,11 +2,12 @@ package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.skrymer.udgaard.model.MarketBreadth
+import com.skrymer.udgaard.model.OrderBlock
 import com.skrymer.udgaard.model.Stock
 import java.time.LocalDate
 
 /**
- * Represents stock information comming from the Ovtlyr service.
+ * Represents stock information coming from the Ovtlyr service.
  */
 class OvtlyrStockInformation {
     val resultDetail: String? = null
@@ -16,6 +17,9 @@ class OvtlyrStockInformation {
         private set
     @JsonProperty("lst_h")
     private val quotes: List<OvtlyrStockQuote> = emptyList()
+
+    @JsonProperty("lst_orderBlock")
+    val orderBlocks: List<OvtlyrOrderBlock> = emptyList()
 
     fun toModel(
         marketBreadth: MarketBreadth?,
@@ -29,7 +33,8 @@ class OvtlyrStockInformation {
                 val sectorBreadthQuote = sectorMarketBreadth?.getQuoteForDate(quote.getDate())
                 val marketBreadthQuote = marketBreadth?.getQuoteForDate(quote.getDate())
                 quote.toModel(this, marketBreadth, sectorMarketBreadth, spy)
-            }
+            },
+            this.orderBlocks.map { it.toModel() }
         )
     }
 
@@ -101,32 +106,30 @@ class OvtlyrStockInformation {
      * @param date
      * @return the closest buy signal to the given date
      */
-    fun getLastBuySignal(date: LocalDate): LocalDate? {
-        return quotes
-            // Only care about quotes with a buy signal
-            .filter { it.hasBuySignal() }
-            // Sort by quote date desc
-            .sortedByDescending { it.getDate()}
-            // Only look at quotes that are before or equal to the given date
-            .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
-            ?.getDate()
-    }
+    fun getLastBuySignal(date: LocalDate) = quotes
+        // Only care about quotes with a buy signal
+        .filter { it.hasBuySignal() }
+        // Sort by quote date desc
+        .sortedByDescending { it.getDate()}
+        // Only look at quotes that are before or equal to the given date
+        .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
+        ?.getDate()
+
 
     /**
      *
      * @param date
      * @return the closest sell signal to the given date
      */
-    fun getLastSellSignal(date: LocalDate): LocalDate? {
-        return quotes
-            // Only care about quotes with a sell signal
-            .filter { it.hasSellSignal() }
-            // Sort by quote date desc
-            .sortedByDescending { it.getDate()}
-            // Only look at quotes that are before or equal to the given date
-            .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
-            ?.getDate()
-    }
+    fun getLastSellSignal(date: LocalDate) = quotes
+        // Only care about quotes with a sell signal
+        .filter { it.hasSellSignal() }
+        // Sort by quote date desc
+        .sortedByDescending { it.getDate()}
+        // Only look for quotes that are before or equal to the given date
+        .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
+        ?.getDate()
+
 
     fun getCurrentSignalFrom(from: LocalDate): String {
         val lastSellSignal = getLastSellSignal(from)
@@ -139,10 +142,13 @@ class OvtlyrStockInformation {
         return if (lastBuySignal?.isAfter(lastSellSignal) == true) "Buy" else "Sell"
     }
 
-    fun getQuoteForDate(date: LocalDate) = getQuotes().first { it?.getDate() == date }
+    fun getQuoteForDate(date: LocalDate) =
+        getQuotes().firstOrNull() { it?.getDate() == date }
 
-    fun getPreviousQuote(quote: OvtlyrStockQuote) =
-        getQuotes().sortedByDescending { it?.getDate() }.firstOrNull { quote.getDate().isAfter(it!!.getDate()) }
+    fun getPreviousQuote(quote: OvtlyrStockQuote?) =
+        getQuotes()
+            .sortedByDescending { it?.getDate() }
+            .firstOrNull { quote?.getDate()?.isAfter(it!!.getDate()) == true }
 
     /**
      * Get previous quotes

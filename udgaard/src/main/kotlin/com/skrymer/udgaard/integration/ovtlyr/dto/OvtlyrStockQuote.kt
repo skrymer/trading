@@ -100,7 +100,7 @@ class OvtlyrStockQuote {
      *  The high
      */
     @JsonProperty("high")
-    private val high: Double = 0.0
+    val high: Double = 0.0
 
     /**
      * The heatmap of the stock.
@@ -108,7 +108,7 @@ class OvtlyrStockQuote {
      * A value bewtween 0 and 100, 0 being max fear and 100 max greed.
      */
     @JsonProperty("oscillator")
-    private val heatmap: Double? = null
+    val heatmap: Double? = null
 
     /**
      * The heatmap of the sector the stock belongs to.
@@ -116,7 +116,7 @@ class OvtlyrStockQuote {
      * A value between 0 and 100, 0 being max fear and 100 max greed.
      */
     @JsonProperty("net_weighted_FG_display")
-    private val sectorHeatmap: Double? = null
+    val sectorHeatmap: Double? = null
 
     /**
      * The ovtlyr buy/sell signal or null if neither.
@@ -128,7 +128,7 @@ class OvtlyrStockQuote {
      * The 10 ema value on close
      */
     @JsonProperty("closePrice_EMA10")
-    private val closePriceEMA10: Double? = null
+    val closePriceEMA10: Double? = null
 
     /**
      * The 20 ema value on close
@@ -183,16 +183,28 @@ class OvtlyrStockQuote {
         sectorMarketBreadth: MarketBreadth?,
         spy: OvtlyrStockInformation
     ): StockQuote {
-        val sectorBreadthQuote = sectorMarketBreadth?.getQuoteForDate(this.getDate())
-        val marketBreadthQuote = marketBreadth?.getQuoteForDate(this.getDate())
         val previousQuote = stock.getPreviousQuote(this)
         val previousPreviousQuote = if(previousQuote != null) stock.getPreviousQuote(previousQuote) else null
+
+        // Always look at the market breadth quote previous to today's date
+        val marketBreadthQuote = marketBreadth?.getPreviousQuote(marketBreadth.getQuoteForDate(this.getDate()))
+        val marketIsInUptrend = marketBreadthQuote?.isInUptrend() ?: false
+        val marketDonkeyChannelScore = marketBreadthQuote?.donkeyChannelScore ?: 0
+
+        // Always look at the sector breadth quote previous to today's date
+        val sectorBreadthQuote = sectorMarketBreadth?.getPreviousQuote(sectorMarketBreadth.getQuoteForDate(this.getDate()))
         val sectorIsInUptrend = sectorBreadthQuote?.isInUptrend() ?: false
+        val sectorDonkeyChannelScore = sectorBreadthQuote?.donkeyChannelScore ?: 0
+
         val lastBuySignal = stock.getLastBuySignal(date!!)
         val lastSellSignal = stock.getLastSellSignal(date)
+
         val spySignal = spy.getCurrentSignalFrom(date)
         val spyIsInUptrend = spy.getQuoteForDate(date)?.isInUptrend ?: false
-        val marketIsInUptrend = marketBreadthQuote?.isInUptrend() ?: false
+        // Always look at the spy quote previous to today's date
+        val spyQuote = spy.getPreviousQuote(spy.getQuoteForDate(getDate()))
+        val spyHeatmap = spyQuote?.heatmap ?: 0.0
+        val spyPreviousHeatmap = spy.getPreviousQuote(spyQuote)?.heatmap ?: 0.0
 
         return StockQuote(
             symbol = this.symbol ?: "",
@@ -204,6 +216,7 @@ class OvtlyrStockQuote {
             sectorHeatmap = previousQuote?.sectorHeatmap ?: 0.0,
             previousSectorHeatmap = previousPreviousQuote?.sectorHeatmap ?: 0.0,
             sectorIsInUptrend = sectorIsInUptrend,
+            sectorDonkeyChannelScore = sectorDonkeyChannelScore,
             signal = this.signal,
             closePriceEMA10 = this.closePriceEMA10 ?: 0.0,
             closePriceEMA20 = this.closePriceEMA20 ?: 0.0,
@@ -214,7 +227,10 @@ class OvtlyrStockQuote {
             lastSellSignal = lastSellSignal,
             spySignal = spySignal,
             spyIsInUptrend = spyIsInUptrend,
+            spyHeatmap = spyHeatmap,
+            spyPreviousHeatmap = spyPreviousHeatmap,
             marketIsInUptrend = marketIsInUptrend,
+            marketDonkeyChannelScore = marketDonkeyChannelScore,
             previousQuoteDate = previousQuote?.getDate(),
             atr = calculateATR(stock),
             sectorStocksInDowntrend = sectorDowntrend,
@@ -223,7 +239,10 @@ class OvtlyrStockQuote {
             high = high,
             low = low,
             donchianUpperBand = calculateDonchianUpperBand(stock),
-            donchianUpperBandMarket = calculateDonchianUpperBandMarket(marketBreadth)
+            donchianUpperBandMarket = calculateDonchianUpperBandMarket(marketBreadth),
+            donchianUpperBandSector = calculateDonchianUpperBandMarket(sectorMarketBreadth),
+            donchianLowerBandMarket = calculateDonchianLowerBandMarket(marketBreadth),
+            donchianLowerBandSector = calculateDonchianLowerBandMarket(sectorMarketBreadth)
         )
     }
 
@@ -277,16 +296,26 @@ class OvtlyrStockQuote {
         return highLowDiff.coerceAtLeast(highPreviousCloseDiff.coerceAtLeast(lowPreviousCloseDiff))
     }
 
+    /**
+     * Calculate the doncian upper band for the given stock.
+     */
     fun calculateDonchianUpperBand(stock: OvtlyrStockInformation, periods: Int = 5) =
       stock.getPreviousQuotes(this, periods)
           .maxOfOrNull { it.closePrice } ?: 0.0
 
     /**
-     * Calculate the donchian upper band for the full number of stocks that are in an uptrend.
+     * Calculate the donchian upper band for the number of stocks in an uptrend.
      */
-    fun calculateDonchianUpperBandMarket(market: MarketBreadth?, periods: Int = 5) =
+    fun calculateDonchianUpperBandMarket(market: MarketBreadth?, periods: Int = 4) =
         market?.getPreviousQuotes(this.date, periods)
             ?.maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+
+    /**
+     * Calculate the donchian lower band for the number of stocks in an uptrend.
+     */
+    fun calculateDonchianLowerBandMarket(market: MarketBreadth?, periods: Int = 4) =
+        market?.getPreviousQuotes(this.date, periods)
+            ?.minOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
     override fun equals(other: Any?): Boolean {
         return if(other !is OvtlyrStockQuote){

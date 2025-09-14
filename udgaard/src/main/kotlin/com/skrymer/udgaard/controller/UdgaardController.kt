@@ -3,11 +3,14 @@ package com.skrymer.udgaard.controller
 import com.skrymer.udgaard.model.BacktestReport
 import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketSymbol
-import com.skrymer.udgaard.model.strategy.MainExitStrategy
-import com.skrymer.udgaard.model.strategy.Ovtlyr9EntryStrategy
+import com.skrymer.udgaard.model.Stock
+import com.skrymer.udgaard.model.strategy.PlanAlphaEntryStrategy
+import com.skrymer.udgaard.model.strategy.PlanAlphaExitStrategy
 import com.skrymer.udgaard.model.valueOf
 import com.skrymer.udgaard.service.MarketBreadthService
 import com.skrymer.udgaard.service.StockService
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
@@ -24,6 +27,10 @@ class UdgaardController(
   val marketBreadthService: MarketBreadthService
 ) {
 
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(UdgaardController::class.java)
+  }
+
   @GetMapping("/report")
   @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
   fun generateBacktestReport(
@@ -39,8 +46,8 @@ class UdgaardController(
       return ResponseEntity(HttpStatus.BAD_REQUEST)
     }
 
-    val entryStrategy = Ovtlyr9EntryStrategy()
-    val exitStrategy = MainExitStrategy()
+    val entryStrategy = PlanAlphaEntryStrategy()
+    val exitStrategy = PlanAlphaExitStrategy()
     val backtestReport = stockService.backtest(
       entryStrategy,
       exitStrategy,
@@ -49,6 +56,27 @@ class UdgaardController(
       LocalDate.now()
     )
     return ResponseEntity(backtestReport, HttpStatus.OK)
+  }
+
+  @GetMapping("/report/all")
+  @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
+  fun generateBacktestReportForAllStocks(): ResponseEntity<BacktestReport> {
+    logger.info("Generating report for all stocks started")
+    val stocks = stockService.getAllStocks()
+    logger.info("Stocks fetched")
+    val entryStrategy = PlanAlphaEntryStrategy()
+    val exitStrategy = PlanAlphaExitStrategy()
+    val backtestReport = stockService.backtest(
+      entryStrategy,
+      exitStrategy,
+      stocks,
+      LocalDate.of(2020, 1, 1),
+      LocalDate.now()
+    )
+    logger.info("Report generated")
+
+    return ResponseEntity(backtestReport, HttpStatus.OK
+    )
   }
 
   @GetMapping("/market-breadth")
@@ -63,6 +91,16 @@ class UdgaardController(
       toDate = LocalDate.now(),
       refresh = refresh
     )
+    return ResponseEntity(marketBreadth, HttpStatus.OK)
+  }
+
+  @GetMapping("/stock")
+  @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
+  fun getStock(
+    @RequestParam(name = "symbol") symbol: String,
+    @RequestParam(name = "refresh") refresh: Boolean = false
+  ): ResponseEntity<Stock> {
+    val marketBreadth = stockService.getStock(symbol, refresh)
     return ResponseEntity(marketBreadth, HttpStatus.OK)
   }
 }

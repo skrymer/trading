@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import java.time.LocalDate
 import kotlin.math.abs
 
 class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trade>) {
@@ -84,9 +85,9 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
     /**
      * Profitable stocks with their profit percentage (based on stock price).
      */
-    val stockProfits: List<Pair<Stock, Double>>
+    val stockProfits: List<Pair<String, Double>>
         get() = (winningTrades + losingTrades)
-            .groupBy { it.stock }
+            .groupBy { it.stockSymbol }
             .map { map -> Pair(map.key, map.value.sumOf { it.profitPercentage }) }
             .sortedByDescending { it.second }
 
@@ -101,4 +102,19 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val exitReasonCount: Map<String, Int>
         get() = trades.groupingBy { it.exitReason }.eachCount()
+
+    /**
+     * Trades grouped by date
+     */
+    val tradesGroupedByDate: List<ReportEntry>
+        get() = trades
+            .groupBy { it.entryQuote.date!! }
+            .entries
+            .map { ReportEntry(date = it.key, profitPercentage =  it.value.sumOf { trade -> trade.profitPercentage }, trades = it.value) }
+
+    data class ReportEntry(
+        val date: LocalDate,
+        val profitPercentage: Double,
+        val trades: List<Trade>,
+    )
 }

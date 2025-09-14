@@ -1,10 +1,13 @@
 package com.skrymer.udgaard.model
 
+import com.skrymer.udgaard.isBetween
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import java.time.LocalDate
+import java.time.Period
+import java.time.temporal.ChronoUnit
 import java.util.*
 
 /**
@@ -16,13 +19,15 @@ class Stock {
   var symbol: String? = null
   var sectorSymbol: String? = null
   var quotes: List<StockQuote> = emptyList()
+  var orderBlocks: List<OrderBlock> = emptyList()
 
   constructor()
 
-  constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>) {
+  constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>, orderBlocks: List<OrderBlock>) {
     this.symbol = symbol
     this.sectorSymbol = sectorSymbol
     this.quotes = quotes
+    this.orderBlocks = orderBlocks
   }
 
   /**
@@ -36,7 +41,7 @@ class Stock {
     quotes
       .filter { after == null || it.date?.isAfter(after) == true }
       .filter { before == null || it.date?.isBefore(before) == true }
-      .filter { entryStrategy.test(it, getPreviousQuote(it)) }
+      .filter { entryStrategy.test(this, it) }
 
   /**
    *
@@ -94,6 +99,16 @@ class Stock {
    */
   fun getQuoteByDate(date: LocalDate) =
     quotes.find { it.date?.equals(date) == true }
+
+  /**
+   * Check if given [quote] is within an order block that are older than [daysOld]
+   */
+  fun withinOrderBlock(quote: StockQuote, daysOld: Int) =
+    orderBlocks
+      .filter { ChronoUnit.DAYS.between(it.startDate, it.endDate ?: LocalDate.now()) >= daysOld }
+      .find {
+        quote.date?.isBetween(it.startDate, it.endDate ?: LocalDate.now(), true) == true
+      } != null
 
   override fun toString() = "Symbol: $symbol"
 }

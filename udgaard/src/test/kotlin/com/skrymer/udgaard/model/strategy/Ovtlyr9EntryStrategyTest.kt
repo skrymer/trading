@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -16,7 +17,7 @@ internal class Ovtlyr9EntryStrategyTest {
     val stockQuote = ovtlyr9MatchingQuote()
     
     // then quote matches the strategy
-    assertTrue(ovtlyr9EntryStrategy.test(stockQuote))
+    assertTrue(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   //    @Test
@@ -27,7 +28,7 @@ internal class Ovtlyr9EntryStrategyTest {
     val stockQuote = ovtlyr9MatchingQuote()
     
     // then quote matches the strategy
-    assertTrue(ovtlyr9EntryStrategy.test(stockQuote))
+    assertTrue(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -40,7 +41,7 @@ internal class Ovtlyr9EntryStrategyTest {
     stockQuote.trend = "Downtrend"
 
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -53,7 +54,7 @@ internal class Ovtlyr9EntryStrategyTest {
     stockQuote.spyInUptrend = false
 
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -65,7 +66,7 @@ internal class Ovtlyr9EntryStrategyTest {
     // and SPY has no Buy signal
     stockQuote.spySignal = "Sell"
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -77,7 +78,7 @@ internal class Ovtlyr9EntryStrategyTest {
     // and sector is in a downtrend
     stockQuote.sectorIsInUptrend = false
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -90,7 +91,7 @@ internal class Ovtlyr9EntryStrategyTest {
     stockQuote.sectorHeatmap = 2.9
     stockQuote.previousSectorHeatmap = 3.0
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
   
   // What if there is a buy signal on a Friday and the quote is from the following Monday?
@@ -105,7 +106,7 @@ internal class Ovtlyr9EntryStrategyTest {
     stockQuote.lastBuySignal = LocalDate.of(2025, 6, 14)
     stockQuote.lastSellSignal = LocalDate.of(2025, 6, 13)
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -120,7 +121,7 @@ internal class Ovtlyr9EntryStrategyTest {
     // and Last sell signal was same day as quote date
     stockQuote.lastSellSignal = LocalDate.of(2025, 6, 16)
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -133,7 +134,7 @@ internal class Ovtlyr9EntryStrategyTest {
     stockQuote.heatmap = 2.9
     stockQuote.previousHeatmap = 3.0
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   @Test
@@ -146,7 +147,7 @@ internal class Ovtlyr9EntryStrategyTest {
     stockQuote.closePrice = 100.0
     stockQuote.closePriceEMA10 = 101.0
     // then quote does not match entry strategy
-    assertFalse(ovtlyr9EntryStrategy.test(stockQuote))
+    assertFalse(ovtlyr9EntryStrategy.test(Stock(), stockQuote))
   }
 
   /**

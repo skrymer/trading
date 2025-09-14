@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.valueOf
-import java.time.LocalDate
 
 class OvtlyrMarketBreadth {
     val resultDetail: String? = ""
@@ -12,9 +11,9 @@ class OvtlyrMarketBreadth {
     @JsonProperty("lst_h")
     val quotes: List<OvtlyrMarketBreadthQuote> = emptyList()
 
-    fun toModel(): MarketBreadth {
+    fun toModel(stockInMarket: OvtlyrStockInformation?): MarketBreadth {
         val marketBreadthQuotes = quotes.stream()
-            .map { it: OvtlyrMarketBreadthQuote? -> it!!.toModel(this) }
+            .map { it: OvtlyrMarketBreadthQuote? -> it!!.toModel(this, stockInMarket) }
             .toList()
 
         return MarketBreadth(getMarketSymbol(), marketBreadthQuotes)
@@ -23,7 +22,7 @@ class OvtlyrMarketBreadth {
     override fun toString() =
         "Symbol: ${getMarketSymbol()}, Number of quotes: ${quotes.size}"
 
-    private fun getMarketSymbol(): MarketSymbol {
+    fun getMarketSymbol(): MarketSymbol {
         return MarketSymbol.valueOf(quotes[0].symbol)
     }
 
@@ -49,6 +48,5 @@ class OvtlyrMarketBreadth {
             sortedByDateAsc.subList(quoteIndex - lookback, quoteIndex)
         }
     }
-
 }
 

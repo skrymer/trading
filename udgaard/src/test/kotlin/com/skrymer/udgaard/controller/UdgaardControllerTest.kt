@@ -23,4 +23,11 @@ class UdgaardControllerTest {
       .contentType(MediaType.APPLICATION_JSON))
       .andExpect(status().isOk)
   }
+
+  @Test
+  fun `get backtest report for all stocks`() {
+    mockMvc.perform(get("/api/report/all")
+      .contentType(MediaType.APPLICATION_JSON))
+      .andExpect(status().isOk)
+  }
 }

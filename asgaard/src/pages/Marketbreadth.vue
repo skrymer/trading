@@ -3,15 +3,11 @@
     <v-card>
       <v-card-text>
         <v-container>
-          <v-row>
-            <v-col cols="2">
-              <v-select density="compact" v-model="selectedMarket" :items="markets" item-text="title" item-value="value"
-                label="Select Market Symbol" />
+          <!-- <v-row>
+            <v-col cols="12">
+              <stock-chart :stock="spy" />
             </v-col>
-            <v-col cols="2">
-              <v-checkbox v-model="refresh" label="Refresh"></v-checkbox>
-            </v-col>
-          </v-row>
+          </v-row> -->
           <v-row>
             <v-col cols="9">
               <market-breadth-chart title="Market Breadth - FULLSTOCK" :marketBreadth="marketBreadthFullstock" />
@@ -26,17 +22,18 @@
               </v-card>
             </v-col>
           </v-row>
-          <v-row>
+          <v-row v-for="(market, index) in markets" :key="index">
             <v-col cols="9">
-              <market-breadth-chart
-                :title="`Market Breadth - ${MarketSymbol[selectedMarket as keyof typeof MarketSymbol]}`"
-                :marketBreadth="marketBreadthSector" />
+              <market-breadth-chart :title="`Market Breadth - ${market.name}`" :marketBreadth="market" />
             </v-col>
             <v-col cols="3">
               <v-card title="Market information">
                 <v-card-text>
                   <ul class="text-body-1" style="list-style: none;">
-                    <li>{{ `In an uptrend: ${marketBreadthSector?.inUptrend ? 'Yes' : 'No'}` }}</li>
+                    <li :class="market?.inUptrend ? 'bg-green' : 'bg-red'">{{ `In an uptrend: ${market?.inUptrend ? 'Yes' : 'No'}` }}</li>
+                    <li :class="gettingMoreGreedy(market) ? 'bg-green' : 'bg-red'">{{ `Heatmap: ${market?.heatmap.toFixed(2)}` }}</li>
+                    <li>{{ `Previous heatmap: ${market?.previousHeatmap?.toFixed(2)}` }}</li>
+                    <li>{{ `Donkey score: ${market?.donkeyChannelScore}` }}</li>
                   </ul>
                 </v-card-text>
               </v-card>
@@ -50,37 +47,45 @@
 
 <script lang="ts" setup>
 import { MarketSymbol } from '@/enums';
-import { type MarketBreadth } from '@/types';
+import { type MarketBreadth, type Stock } from '@/types';
 import axios from 'axios';
 
+const spy = ref<Stock | undefined>(undefined);
 const marketBreadthFullstock = ref<MarketBreadth | undefined>(undefined);
-const marketBreadthSector = ref<MarketBreadth | undefined>(undefined);
-const selectedMarket = ref<MarketSymbol>();
-const refresh = ref(false);
-const markets = ref<{ title: string, value: string }[]>(Object.keys(MarketSymbol).map((it) => {
-  return {
-    title: MarketSymbol[it as keyof typeof MarketSymbol],
-    value: it
-  }
-}).sort((a, b) => a.title.localeCompare(b.title)))
+const markets = ref<MarketBreadth[]>([]);
 
 onBeforeMount(() => {
+  fetchStock('SPY').then(resp => spy.value = resp);
   fetchtMarketBreadth(MarketSymbol.FULLSTOCK).then(resp => marketBreadthFullstock.value = resp);
+  Object.keys(MarketSymbol).filter(it => it !== 'FULLSTOCK').forEach((market) => {
+    fetchtMarketBreadth(market).then(resp => {
+      if (resp) {
+        markets.value.push(resp);
+      }
+    });
+  });
 })
 
-watch(selectedMarket, (newValue) => {
-  if (newValue !== undefined) {
-    fetchtMarketBreadth(newValue).then(resp => marketBreadthSector.value = resp);
-  }
-})
+const gettingMoreGreedy = (market: MarketBreadth) => {
+  return market.heatmap > market.previousHeatmap;
+}
 
-const fetchtMarketBreadth = async (marketSymbol: MarketSymbol) => {
+const fetchtMarketBreadth = async (marketSymbol: string) => {
   try {
-    const marketBreadth = await axios.get(`http://localhost:8080/api/market-breadth?marketSymbol=${marketSymbol}&refresh=${refresh.value}`);
+    const marketBreadth = await axios.get(`http://localhost:8080/api/market-breadth?marketSymbol=${marketSymbol}&refresh=false`);
     return marketBreadth.data as MarketBreadth
   } catch (error) {
     console.error("Error fetching market breadth data:", error);
     return undefined
+  }
+}
+
+const fetchStock = async (symbol: string) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/stock?symbol=${symbol}&refresh=true`);
+    return response.data as Stock;
+  } catch (error) {
+    console.error("Error fetching stock data:", error);
   }
 }
 </script>

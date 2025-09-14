@@ -3,7 +3,14 @@ package com.skrymer.udgaard.model
 import java.time.LocalDate
 
 class MarketBreadthQuote {
+    /**
+     * The market symbol
+     */
     var symbol: String? = null
+
+    /**
+     * the quote day
+     */
     var quoteDate: LocalDate? = null
 
     /**
@@ -54,6 +61,16 @@ class MarketBreadthQuote {
         private set
 
     /**
+     * The heatmap value 0-100. 0 Being max fear and 100 being max greed.
+     */
+    var heatmap: Double = 0.0
+
+    /**
+     * The previous heatmap value.
+     */
+    var previousHeatmap: Double = 0.0
+
+    /**
      * Donchian upper band the max value over the past 5 days.
      */
     var donchianUpperBand: Double = 0.0
@@ -73,7 +90,7 @@ class MarketBreadthQuote {
      */
     var previousDonchianLowerBand: Double = 0.0
 
-    constructor()
+    var donkeyChannelScore: Int = 0
 
     constructor(
         symbol: String?,
@@ -91,7 +108,10 @@ class MarketBreadthQuote {
         donchianUpperBand: Double,
         previousDonchianUpperBand: Double,
         donchianLowerBand: Double,
-        previousDonchianLowerBand: Double
+        previousDonchianLowerBand: Double,
+        heatmap: Double,
+        previousHeatmap: Double,
+        donkeyChannelScore: Int
     ) {
         this.symbol = symbol
         this.quoteDate = quoteDate
@@ -109,6 +129,9 @@ class MarketBreadthQuote {
         this.previousDonchianUpperBand = previousDonchianUpperBand
         this.donchianLowerBand = donchianLowerBand
         this.previousDonchianLowerBand = previousDonchianLowerBand
+        this.heatmap = heatmap
+        this.previousHeatmap = previousHeatmap
+        this.donkeyChannelScore = donkeyChannelScore
     }
 
     /**

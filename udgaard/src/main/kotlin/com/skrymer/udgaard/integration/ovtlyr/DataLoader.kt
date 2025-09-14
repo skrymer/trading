@@ -3,8 +3,14 @@ package com.skrymer.udgaard.integration.ovtlyr
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
-import com.skrymer.udgaard.repository.MarketBreadthRepository
+import com.skrymer.udgaard.service.MarketBreadthService
 import com.skrymer.udgaard.service.StockService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
@@ -13,43 +19,40 @@ import org.springframework.stereotype.Component
 @Component
 class DataLoader(
   private val ovtlyrClient: OvtlyrClient,
-  private val marketBreadthRepository: MarketBreadthRepository,
+  private val marketBreadthService: MarketBreadthService,
   private val stockService: StockService
 ) {
 
   fun loadData() {
-    loadMarkBreadthForAllSectors()
-//    loadTopStocks()
+    runBlocking {  loadMarkBreadthForAllSectors() }
+    runBlocking { loadTopStocks(true) }
   }
 
   fun loadStockByMarket(marketSymbol: MarketSymbol, forceFetch: Boolean = false): List<Stock> {
     val stockSymbols = StockSymbol.entries.filter { it.market == marketSymbol }.map { it.name }
-    return stockService.getStocks(stockSymbols, forceFetch)
+    return runBlocking { stockService.getStocks(stockSymbols, forceFetch)}
   }
 
-  fun loadTopStocks(): List<Stock> {
-    return stockService.getStocks(StockSymbol.entries.map { it.name })
+  suspend fun loadTopStocks(forceFetch: Boolean = false): List<Stock> {
+    return stockService.getStocks(StockSymbol.entries.map { it.symbol }, forceFetch)
   }
 
-  private fun loadMarkBreadthForAllSectors() =
+  @OptIn(ExperimentalCoroutinesApi::class)
+  private suspend fun loadMarkBreadthForAllSectors() = supervisorScope {
+    val logger = LoggerFactory.getLogger("StockFetcher")
+    val limited = Dispatchers.IO.limitedParallelism(10)
+
     MarketSymbol.entries
       .filter { it != MarketSymbol.UNK }
-      .forEach { loadMarketBreadth(it) }
+      .forEach {
+        async(limited) {
+          runCatching { loadMarketBreadth(it) }
+            .onFailure { e ->logger.warn("Failed to fetch market={}: {}", it, e.message, e) }
+        }
+      }
+  }
 
   private fun loadMarketBreadth(symbol: MarketSymbol) {
-    val response = try{
-      ovtlyrClient.getMarketBreadth(symbol.name)
-    } catch (e: Exception){
-      throw CouldNotLoadMarketBreadth("Could not load market breadth for market ${symbol.description}", e)
-    }
-
-    if (response != null) {
-      marketBreadthRepository.save(response.toModel())
-      println(response)
-    } else {
-      throw CouldNotLoadMarketBreadth("Could not load market breadth for market ${symbol.description}")
-    }
+    marketBreadthService.getMarketBreadth(symbol, true)
   }
 }
-
-class CouldNotLoadMarketBreadth(message: String, cause: Throwable? = null): RuntimeException(message, cause)

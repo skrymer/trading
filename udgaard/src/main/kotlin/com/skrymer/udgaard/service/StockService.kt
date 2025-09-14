@@ -12,10 +12,17 @@ import com.skrymer.udgaard.model.strategy.ExitStrategy
 import com.skrymer.udgaard.model.valueOf
 import com.skrymer.udgaard.repository.MarketBreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
+import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.supervisorScope
+
 
 @Service
 class StockService(
@@ -32,11 +39,13 @@ class StockService(
   fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
     if(forceFetch){
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+      checkNotNull(spy)
       return fetchStock(symbol, spy)
     }
 
     return stockRepository.findById(symbol).orElseGet {
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+      checkNotNull(spy)
       fetchStock(symbol, spy)
     }
   }
@@ -47,18 +56,34 @@ class StockService(
    * @param symbols - the stocks to load
    * @param forceFetch - force fetching stocks from ovtlyr api
    */
-  fun getStocks(symbols: List<String>, forceFetch: Boolean = false): List<Stock> {
+  @OptIn(ExperimentalCoroutinesApi::class)
+  suspend fun getStocks(symbols: List<String>, forceFetch: Boolean = false): List<Stock> = supervisorScope {
+    val logger = LoggerFactory.getLogger("StockFetcher")
+    val limited = Dispatchers.IO.limitedParallelism(10)
+
     val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+    checkNotNull(spy)
 
-    return symbols.mapNotNull {
-      if(forceFetch){
-        return@mapNotNull fetchStock(it, spy)
+    symbols.map { symbol ->
+      async(limited) {
+        runCatching {
+          if (forceFetch) {
+            fetchStock(symbol, spy)
+          } else {
+            stockRepository.findById(symbol).orElseGet { fetchStock(symbol, spy) }
+          }
+        }.onFailure { e ->
+          logger.warn("Failed to fetch symbol={}: {}", symbol, e.message, e)
+        }.getOrNull()
       }
+    }.awaitAll().filterNotNull()
+  }
 
-      stockRepository.findById(it).orElseGet(java.util.function.Supplier {
-        fetchStock(it, spy)
-      })
-    }
+  /**
+   * @return all stocks currently stored in DB
+   */
+  fun getAllStocks(): List<Stock>{
+    return stockRepository.findAll()
   }
 
   /**
@@ -76,40 +101,36 @@ class StockService(
     after: LocalDate,
     before: LocalDate
   ): BacktestReport {
-    val winningTrades = ArrayList<Trade>()
-    val losingTrades = ArrayList<Trade>()
+    val trades = ArrayList<Trade>()
 
     stocks.forEach { stock ->
       val quotesMatchingEntryStrategy = stock.getQuotesMatchingEntryStrategy(entryStrategy, after, before)
 
       quotesMatchingEntryStrategy.forEach { entryQuote ->
-        if((winningTrades + losingTrades).find { it.containsQuote(entryQuote) } == null){
+        if(trades.find { it.containsQuote(entryQuote) } == null){
           val exitReport = stock.testExitStrategy(entryQuote, exitStrategy)
           val profit = exitReport.exitPrice - entryQuote.closePrice
-          val trade = Trade(stock, entryQuote, exitReport.quotes, exitReport.exitReason, profit)
-
-          if (profit > 0) {
-            winningTrades.add(trade)
-          } else {
-            losingTrades.add(trade)
-          }
+          val trade = Trade(stock.symbol!!, entryQuote, exitReport.quotes, exitReport.exitReason, profit)
+          trades.add(trade)
         }
       }
     }
+    val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
     return BacktestReport(winningTrades, losingTrades)
   }
 
-  private fun fetchStock(symbol: String, spy: OvtlyrStockInformation?): Stock? {
+  private fun fetchStock(symbol: String, spy: OvtlyrStockInformation): Stock? {
     val stockInformation = ovtlyrClient.getStockInformation(symbol)
 
     if(stockInformation == null) {
       return null
     }
 
-    val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
-    val sectorMarketBreadth: MarketBreadth? = marketBreadthRepository
-      .findByIdOrNull(MarketSymbol.valueOf(stockInformation.sectorSymbol))
-
-    return stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy!!))
+    return runCatching {
+      val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
+      val marketSymbol = MarketSymbol.valueOf(stockInformation.sectorSymbol)
+      val sectorMarketBreadth = marketBreadthRepository.findByIdOrNull(marketSymbol)
+      return stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy))
+    }.getOrNull()
   }
 }

@@ -27,10 +27,35 @@ class MarketBreadth {
     }
 
     val inUptrend: Boolean
-        get() = quotes.last().isInUptrend()
+        get() = quotes.sortedBy { it.quoteDate }.last().isInUptrend()
+
+    val heatmap: Double
+        get() = quotes.sortedBy { it.quoteDate }.last().heatmap
+
+    val previousHeatmap: Double
+        get() = quotes.sortedBy { it.quoteDate }.last().previousHeatmap
+
+    val donkeyChannelScore: Int
+        get() = quotes.last().donkeyChannelScore
+
+    val name: String
+        get() = symbol?.description ?: ""
+
+    fun getDonkeyScoreByDate(date: LocalDate) =
+        quotes.firstOrNull { it.quoteDate?.equals(date) == true }?.donkeyChannelScore ?: 0
 
     fun getQuoteForDate(date: LocalDate?) =
         quotes.firstOrNull{ date == it.quoteDate }
+
+    fun getPreviousQuote(quote: MarketBreadthQuote?): MarketBreadthQuote? {
+        return if(quote == null){
+            null
+        } else {
+            quotes
+                .sortedByDescending { it.quoteDate }
+                .firstOrNull { it.quoteDate?.isBefore(quote.quoteDate) == true }
+        }
+    }
 
     fun getPreviousQuotes(date: LocalDate?, lookBack: Int): List<MarketBreadthQuote> {
         val quote = getQuoteForDate(date)

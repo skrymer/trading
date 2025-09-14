@@ -4,14 +4,21 @@ export interface BacktestReport {
     numberOfWinningTrades: number
     winRate: number
     averageWinAmount: number
+    averageWinPercent: number
     lossRate: number
     averageLossAmount: number
+    averageLossPercent: number
     totalTrades: number
     edge: number
     mostProfitable: any
     stockProfits: any
+    tradesGroupedByDate: { date: string, profitPercentage: number, trades: Trade[] }[]
 }
 
+export interface Stock {
+    symbol: string
+    quotes: StockQuote[]
+}
 export interface StockQuote {
     lastBuySignal: string
     date: string
@@ -25,18 +32,24 @@ export interface StockQuote {
 }
 
 export interface Trade {
+    stockSymbol: string
     entryQuote: StockQuote
     exitQuote: StockQuote
     exitReason: string
     profitPercentage: number
     profit: number
-    quotes: StockQuote[]
+    quotes: StockQuote[],
+    tradingDays: number
 }
 
 export interface MarketBreadth {
     symbol: string
+    name: string
     quotes: MarketBreadthQuote[]
     inUptrend: boolean
+    heatmap: number
+    previousHeatmap: number
+    donkeyChannelScore: number
 }
 
 export interface MarketBreadthQuote {

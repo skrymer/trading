@@ -24,6 +24,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
+	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
 	implementation "de.siegmar:fastcsv:4.0.0"
 	implementation "org.apache.httpcomponents.client5:httpclient5-win:5.2.3"
 	implementation "com.github.polygon-io:client-jvm:v5.1.2"

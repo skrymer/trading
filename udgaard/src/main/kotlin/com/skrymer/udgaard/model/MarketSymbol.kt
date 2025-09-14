@@ -18,6 +18,5 @@ enum class MarketSymbol(val description: String) {
     companion object
 }
 
-fun MarketSymbol.Companion.valueOf(value: String?): MarketSymbol {
-    return if(value == null) MarketSymbol.UNK else MarketSymbol.valueOf(value)
-}
+fun MarketSymbol.Companion.valueOf(value: String?) =
+    if(value == null) MarketSymbol.UNK else MarketSymbol.valueOf(value)

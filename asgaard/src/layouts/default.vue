@@ -1,6 +1,6 @@
 <template>
   <v-app-bar>
-    <v-app-bar-title>MATOM (Make a ton of money) trading analysis platform</v-app-bar-title>
+    <v-app-bar-title>TODO - insert awesome name.</v-app-bar-title>
   </v-app-bar>
   
   <v-navigation-drawer v-model="drawer" :rail="rail" permanent >
@@ -8,7 +8,8 @@
     <v-list density="compact" nav>
       <v-list-item prepend-icon="mdi-test-tube" title="Backtesting" value="backtest" @click="router.push('/backtest')"></v-list-item>
       <v-list-item prepend-icon="mdi-shopping" title="Market breadth" value="marketbreadth" @click="router.push('/marketbreadth')"></v-list-item>
-      <v-list-item prepend-icon="mdi-account-group-outline" title="Users" value="users"></v-list-item>
+      <v-list-item prepend-icon="mdi-archive" title="Portfolio manager" value="portfoliomanager" @click="router.push('/portfoliomanager')"></v-list-item>
+      <v-list-item prepend-icon="mdi-abacus" title="Trades" value="trades" @click="router.push('/trades')"></v-list-item>
     </v-list>
   </v-navigation-drawer>
 
@@ -16,11 +17,11 @@
     <router-view />
   </v-main>
 
-  <AppFooter />
+  <app-footer />
 </template>
 
 <script lang="ts" setup>
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 const drawer = ref(true)
 const rail = ref(true)
 const router = useRouter();

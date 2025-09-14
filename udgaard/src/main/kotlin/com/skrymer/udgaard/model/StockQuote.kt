@@ -70,6 +70,11 @@ class StockQuote {
   var sectorIsInUptrend = false
 
   /**
+   * The donkey channel score of the sector +2 to -2
+   */
+  var sectorDonkeyChannelScore: Int = 0
+
+  /**
    * The ovtlyr Buy/Sell signal or null if neither.
    */
   var signal: String? = null
@@ -115,14 +120,29 @@ class StockQuote {
   var spySignal: String? = null
 
   /**
-   * SPY is in an uptrend
+   * SPY is in an uptrend. 10 > 20 price > 50
    */
   var spyInUptrend: Boolean = false
+
+  /**
+   * SPY heatmap value
+   */
+  var spyHeatmap: Double = 0.0
+
+  /**
+   * SPY previous heatmap value
+   */
+  var spyPreviousHeatmap: Double = 0.0
 
   /**
    * Market is in an uptrend
    */
   var marketIsInUptrend: Boolean = false
+
+  /**
+   * The donkey channel score of the market +2 to -2
+   */
+  var marketDonkeyChannelScore: Int = 0
 
   /**
    * Previous quote date.
@@ -164,6 +184,21 @@ class StockQuote {
    */
   var donchianUpperBandMarket: Double = 0.0
 
+  /**
+   * The donchian upper band value for the market with a look-back period of 5.
+   */
+  var donchianUpperBandSector: Double = 0.0
+
+  /**
+   * The donchian lower band value for the market.
+   */
+  var donchianLowerBandMarket: Double = 0.0
+
+  /**
+   * The donchian lower band value for the sector.
+   */
+  var donchianLowerBandSector: Double = 0.0
+
   constructor()
 
   constructor(
@@ -186,16 +221,23 @@ class StockQuote {
     lastSellSignal: LocalDate? = null,
     spySignal: String? = null,
     spyIsInUptrend: Boolean = false,
+    spyHeatmap: Double = 0.0,
+    spyPreviousHeatmap: Double = 0.0,
     marketIsInUptrend: Boolean = false,
+    marketDonkeyChannelScore: Int = 0,
     previousQuoteDate: LocalDate? = null,
     atr: Double = 0.0,
     sectorStocksInDowntrend: Int = 0,
     sectorStocksInUptrend: Int = 0,
     sectorBullPercentage: Double = 0.0,
+    sectorDonkeyChannelScore: Int = 0,
     high: Double = 0.0,
     low: Double = 0.0,
     donchianUpperBand: Double = 0.0,
-    donchianUpperBandMarket: Double = 0.0
+    donchianUpperBandMarket: Double = 0.0,
+    donchianUpperBandSector: Double = 0.0,
+    donchianLowerBandMarket: Double = 0.0,
+    donchianLowerBandSector: Double = 0.0
   ) {
     this.symbol = symbol
     this.date = date
@@ -206,6 +248,7 @@ class StockQuote {
     this.previousHeatmap = previousHeatmap
     this.previousSectorHeatmap = previousSectorHeatmap
     this.sectorIsInUptrend = sectorIsInUptrend
+    this.sectorDonkeyChannelScore = sectorDonkeyChannelScore
     this.signal = signal
     this.closePriceEMA10 = closePriceEMA10
     this.closePriceEMA20 = closePriceEMA20
@@ -216,7 +259,10 @@ class StockQuote {
     this.lastSellSignal = lastSellSignal
     this.spySignal = spySignal
     this.spyInUptrend = spyIsInUptrend
+    this.spyHeatmap = spyHeatmap
+    this.spyPreviousHeatmap = spyPreviousHeatmap
     this.marketIsInUptrend = marketIsInUptrend
+    this.marketDonkeyChannelScore = marketDonkeyChannelScore
     this.previousQuoteDate = previousQuoteDate
     this.atr = atr
     this.sectorStocksInUptrend = sectorStocksInUptrend
@@ -226,6 +272,9 @@ class StockQuote {
     this.low = low
     this.donchianUpperBand = donchianUpperBand
     this.donchianUpperBandMarket = donchianUpperBandMarket
+    this.donchianUpperBandSector = donchianUpperBandSector
+    this.donchianLowerBandMarket = donchianLowerBandMarket
+    this.donchianLowerBandSector = donchianLowerBandSector
   }
 
   fun isInUptrend() = "Uptrend" == trend
@@ -263,16 +312,16 @@ class StockQuote {
   fun isSpyInUptrend() = spyInUptrend
 
   /**
-   * @return true if overall stock market is in an uptrend
+   * @return true if percentage of bullish stocks are higher than the 10ema.
    */
   fun isMarketInUptrend() = marketIsInUptrend
 
   /**
-   * @return true if it has a buy signal and the signal is within the last 2 days of the quote and the signal is more recent than any sell signal
+   * @return true if it has a buy signal and the signal is the day of the quote or one day prior
    */
   fun hasCurrentBuySignal() =
     lastBuySignal != null &&
-      // The buy signal today or yesterday is within the last 2 days of the quote
+      // The buy signal is for quotes date or quotes date -1
       (lastBuySignal?.equals(date) == true || lastBuySignal?.equals(date!!.minusDays(1)) == true) &&
       // and buy signal is after sell signal
       (lastSellSignal == null || lastBuySignal?.isAfter(lastSellSignal) == true)
@@ -292,7 +341,7 @@ class StockQuote {
 
   override fun equals(other: Any?): Boolean {
     return if (other is StockQuote) {
-      this.date?.equals(other.date) == true
+      this.date?.equals(other.date) == true && this.symbol == other.symbol
     } else {
       false
     }

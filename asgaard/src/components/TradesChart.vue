@@ -1,5 +1,5 @@
 <template>
-    <apexchart height="350" type="bar" :options="chartOptions" :series="series" />
+    <apexchart height="250" type="bar" :options="chartOptions" :series="series" />
 </template>
 
 <script lang="ts" setup>
@@ -27,8 +27,9 @@ const chartOptions = ref<ApexOptions>({
         categories: [],
     },
 });
+
 const series = ref<ApexAxisChartSeries>([
-    { name: 'trades', data: [] },
+    { name: 'Profit%', data: [] },
 ]);
 
 const handleChartClicked = (e: any, c: any, config: { dataPointIndex: number }) => {
@@ -45,8 +46,8 @@ watch(
         const profit = newValue?.trades?.map((it: Trade) => {
             return { 
                 x: it.entryQuote.date, 
-                y: it.profit.toFixed(2), 
-                fillColor: it.profit > 0 ? '#39fc03' : "#fc2403" 
+                y: it.profitPercentage.toFixed(2), 
+                fillColor: it.profitPercentage > 0 ? '#39fc03' : "#fc2403" 
             }
         })
 

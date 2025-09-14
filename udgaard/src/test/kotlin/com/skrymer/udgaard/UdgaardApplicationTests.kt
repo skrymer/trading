@@ -6,15 +6,17 @@ import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.strategy.MainExitStrategy
 import com.skrymer.udgaard.model.strategy.Ovtlyr9EntryStrategy
+import com.skrymer.udgaard.model.valueOf
+import com.skrymer.udgaard.service.MarketBreadthService
 import com.skrymer.udgaard.service.StockService
 import de.siegmar.fastcsv.writer.CsvWriter
-import io.polygon.kotlin.sdk.rest.PolygonRestClient
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.LocalDate
+import kotlinx.coroutines.runBlocking
 
 @SpringBootTest
 internal class UdgaardApplicationTests {
@@ -23,6 +25,9 @@ internal class UdgaardApplicationTests {
 
     @Autowired
     lateinit var stockService: StockService
+
+    @Autowired
+    lateinit var marketBreadthService: MarketBreadthService
 
     @Autowired
     lateinit var ovtlyrClient: OvtlyrClient
@@ -37,19 +42,20 @@ internal class UdgaardApplicationTests {
     fun screener() {
         val screenerResults = ovtlyrClient.getScreenerStocks()
             ?.stocks
-            ?.filter { it.buySellDate?.isAfter(LocalDate.of(2025, 7, 8)) == true  }
+            ?.filter { it.buySellDate?.isAfter(LocalDate.of(2025, 7, 22)) == true  }
             ?.sortedByDescending { it.ovtlySignalReturn }
         val file: Path = Paths.get("output.csv")
-        val stocks = stockService.getStocks(screenerResults?.mapNotNull{ it.symbol} ?: emptyList(), true)
+        val stocks = runBlocking { stockService.getStocks(screenerResults?.mapNotNull{ it.symbol} ?: emptyList(), true) }
         val entryStrategy = Ovtlyr9EntryStrategy()
         val exitStrategy = MainExitStrategy()
         val backtestReport = stockService.backtest(
+
             entryStrategy,
             exitStrategy,
             stocks,
             LocalDate.of(2024, 1, 1),
             LocalDate.now()
-        )
+            )
 
         val csvHeaders = listOf(
             "Symbol",
@@ -63,6 +69,7 @@ internal class UdgaardApplicationTests {
             "Sector heatmap",
             "Sector previous heatmap",
             "Profits",
+            "Donkey score",
             "Order block",
             "Earnings in next 3 days",
             "EV",
@@ -75,8 +82,13 @@ internal class UdgaardApplicationTests {
             screenerResults
             ?.forEach {
                 val stock = stocks.find { stock -> it.symbol?.equals(stock.symbol) == true }
-                val quote = stock?.getQuoteByDate(LocalDate.now())
-                val profits = backtestReport.stockProfits.find { pair -> pair.first.symbol == stock?.symbol }
+                val marketBreadthFullStock = marketBreadthService.getMarketBreadth(MarketSymbol.FULLSTOCK)
+                val sectorMarketBreadth = marketBreadthService.getMarketBreadth(MarketSymbol.valueOf(stock?.sectorSymbol))
+                val quote = stock?.getQuoteByDate(it.buySellDate!!)
+                val profits = backtestReport.stockProfits.find { pair -> pair.first == stock?.symbol }
+                val fullStockDonkeyScore = marketBreadthFullStock?.getDonkeyScoreByDate(it.buySellDate!!) ?: 0
+                val sectorDonkeyScore = sectorMarketBreadth?.getDonkeyScoreByDate(it.buySellDate!!) ?: 0
+                val donkeyScore = fullStockDonkeyScore + sectorDonkeyScore
 
                 if((quote?.heatmap ?: 0.0) < (quote?.previousHeatmap ?: 0.0)){
                     println("Heatmap is stalling: ${stock?.symbol}")
@@ -96,7 +108,8 @@ internal class UdgaardApplicationTests {
                         quote?.previousHeatmap.toString(),
                         quote?.sectorHeatmap.toString(),
                         quote?.previousSectorHeatmap.toString(),
-                        profits?.second?.format(2)
+                        profits?.second?.format(2),
+                        donkeyScore.toString()
                     )
                 }
             }
@@ -108,12 +121,14 @@ internal class UdgaardApplicationTests {
     @Test
     fun generateBacktestReport() {
         println("===================== Getting stocks =====================")
-        val stocks = dataLoader.loadTopStocks()
+        val stocks = runBlocking { dataLoader.loadTopStocks(true) }
 //        val stock = stockService.getStocks(listOf("SMTC"), true).first()
         val entryStrategy = Ovtlyr9EntryStrategy()
         val exitStrategy = MainExitStrategy()
-        val backtestReport = stockService.backtest(entryStrategy, exitStrategy, stocks, LocalDate.of(2024, 1, 1),
-            LocalDate.now())
+        val backtestReport =
+            stockService.backtest( entryStrategy, exitStrategy,stocks, LocalDate.of(2023, 1, 1),
+                LocalDate.now())
+
 //        val quoteStrings = generateTestDataAsString(
 //            stock,
 //            LocalDate.of(2025, 6, 25),
@@ -138,12 +153,12 @@ internal class UdgaardApplicationTests {
 
         println("Stocks ordered by profitability")
         backtestReport.stockProfits.forEach {
-            println("Symbol: ${it.first.symbol} profit ${it.second.format(2)}")
+            println("Symbol: ${it.first} profit ${it.second.format(2)}")
         }
     }
 
     @Test
-    fun loadMarketBreadth() {
+    fun loadOvtlyrData() {
         dataLoader.loadData()
     }
 
