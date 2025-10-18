@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.logic.Logic
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
@@ -47,9 +48,8 @@ class PlanAlphaEntryStrategy: EntryStrategy {
     // Stock heatmap is rising
     quote.heatmap > (previousQuote?.heatmap ?: 0.0) &&
     // Above previous low
-    quote.closePrice > (previousQuote?.low ?: 0.0)
+    quote.closePrice > (previousQuote?.low ?: 0.0) &&
     // quote not inside order block older than 120 days
-//    !stock.withinOrderBlock(quote, 120)
+    !stock.withinOrderBlock(quote, 120)
   }
-
 }

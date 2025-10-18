@@ -20,14 +20,16 @@ class Stock {
   var sectorSymbol: String? = null
   var quotes: List<StockQuote> = emptyList()
   var orderBlocks: List<OrderBlock> = emptyList()
+  var ovtlyrPerformance: Double? = 0.0
 
   constructor()
 
-  constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>, orderBlocks: List<OrderBlock>) {
+  constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>, orderBlocks: List<OrderBlock>, ovtlyrPerformance: Double? = 0.0) {
     this.symbol = symbol
     this.sectorSymbol = sectorSymbol
     this.quotes = quotes
     this.orderBlocks = orderBlocks
+    this.ovtlyrPerformance = ovtlyrPerformance
   }
 
   /**
@@ -61,11 +63,12 @@ class Stock {
     val quotes = ArrayList<StockQuote>()
     var exitReason = ""
     var exitPrice = 0.0
+
     for (quote in quotesToTest) {
       val exitStrategyReport = exitStrategy.test(
+        stock = this,
         entryQuote = entryQuote,
-        quote = quote,
-        previousQuote = getPreviousQuote(quote)
+        quote = quote
       )
 
       quotes.add(quote)
@@ -103,12 +106,19 @@ class Stock {
   /**
    * Check if given [quote] is within an order block that are older than [daysOld]
    */
-  fun withinOrderBlock(quote: StockQuote, daysOld: Int) =
-    orderBlocks
-      .filter { ChronoUnit.DAYS.between(it.startDate, it.endDate ?: LocalDate.now()) >= daysOld }
-      .find {
-        quote.date?.isBetween(it.startDate, it.endDate ?: LocalDate.now(), true) == true
-      } != null
+  fun withinOrderBlock(quote: StockQuote, daysOld: Int): Boolean {
+    return orderBlocks
+      .filter {
+        ChronoUnit.DAYS.between(
+          it.startDate,
+          it.endDate ?: LocalDate.now()
+        ) >= daysOld
+      }
+      .filter { it.orderBlockType == OrderBlockType.BEARISH }
+      .filter { it.startDate.isBefore(quote.date) }
+      .filter { it.endDate?.isAfter(quote.date) == true }
+      .any { quote.closePrice > it.low && quote.closePrice < it.high }
+  }
 
   override fun toString() = "Symbol: $symbol"
 }

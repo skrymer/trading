@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
@@ -8,13 +9,17 @@ import java.time.temporal.ChronoUnit
  * @param entryQuote - the stock quote on the day of entry.
  * @param quotes - the stock quotes included in the trade, excluding entry and exit.
  * @param exitReason - the reason for exiting the trade.
+ * @param startDate - the start date of the trade.
+ * @param sector - the sector of the stock.
  */
 class Trade(
     var stockSymbol: String,
     var entryQuote: StockQuote,
     var quotes: List<StockQuote>,
     var exitReason: String,
-    var profit: Double = 0.0
+    var profit: Double = 0.0,
+    var startDate: LocalDate?,
+    var sector: String
 ) {
 
     /**
@@ -29,9 +34,17 @@ class Trade(
      */
     val tradingDays: Long
         get() {
-            val exitDate = quotes . sortedByDescending { it.date }.first().date
+            val exitDate = quotes
+                .sortedByDescending { it.date }
+                .first()
+                .date
+
             return ChronoUnit.DAYS.between( entryQuote.date, exitDate)
         }
 
     fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)
+
+    override fun toString(): String {
+        return "Start date $startDate"
+    }
 }

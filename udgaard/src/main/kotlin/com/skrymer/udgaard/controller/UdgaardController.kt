@@ -4,8 +4,11 @@ import com.skrymer.udgaard.model.BacktestReport
 import com.skrymer.udgaard.model.MarketBreadth
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
+import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.model.strategy.PlanAlphaEntryStrategy
-import com.skrymer.udgaard.model.strategy.PlanAlphaExitStrategy
+import com.skrymer.udgaard.model.strategy.PlanEtfEntryStrategy
+import com.skrymer.udgaard.model.strategy.PlanEtfExitStrategy
+import com.skrymer.udgaard.model.strategy.PlanMoneyExitStrategy
 import com.skrymer.udgaard.model.valueOf
 import com.skrymer.udgaard.service.MarketBreadthService
 import com.skrymer.udgaard.service.StockService
@@ -15,6 +18,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -46,8 +50,8 @@ class UdgaardController(
       return ResponseEntity(HttpStatus.BAD_REQUEST)
     }
 
-    val entryStrategy = PlanAlphaEntryStrategy()
-    val exitStrategy = PlanAlphaExitStrategy()
+    val entryStrategy = PlanEtfEntryStrategy()
+    val exitStrategy = PlanEtfExitStrategy()
     val backtestReport = stockService.backtest(
       entryStrategy,
       exitStrategy,
@@ -65,7 +69,7 @@ class UdgaardController(
     val stocks = stockService.getAllStocks()
     logger.info("Stocks fetched")
     val entryStrategy = PlanAlphaEntryStrategy()
-    val exitStrategy = PlanAlphaExitStrategy()
+    val exitStrategy = PlanMoneyExitStrategy()
     val backtestReport = stockService.backtest(
       entryStrategy,
       exitStrategy,
@@ -94,13 +98,20 @@ class UdgaardController(
     return ResponseEntity(marketBreadth, HttpStatus.OK)
   }
 
-  @GetMapping("/stock")
+  @GetMapping("/stocks/{symbol}")
   @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
   fun getStock(
-    @RequestParam(name = "symbol") symbol: String,
+    @PathVariable symbol: String,
     @RequestParam(name = "refresh") refresh: Boolean = false
   ): ResponseEntity<Stock> {
-    val marketBreadth = stockService.getStock(symbol, refresh)
-    return ResponseEntity(marketBreadth, HttpStatus.OK)
+    val stock = stockService.getStock(symbol, refresh)
+    return ResponseEntity(stock, HttpStatus.OK)
+  }
+
+  @GetMapping("/stock/symbols")
+  @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
+  fun getStockSymbols(): ResponseEntity<List<String>>{
+    val symbols = StockSymbol.entries.map { it.symbol }
+    return ResponseEntity(symbols, HttpStatus.OK)
   }
 }

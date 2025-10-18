@@ -1,7 +1,7 @@
 <template>
     <v-card>
         <v-card-text>
-            <apexchart height="350" :options="stockChartOptions" :series="stockSeries" />
+            <apexchart :height="props.height || 350" :options="stockChartOptions" :series="stockSeries" />
         </v-card-text>
     </v-card>
 </template>
@@ -9,7 +9,7 @@
 import type { Stock } from '@/types';
 import type { ApexOptions } from 'apexcharts';
 
-const props = defineProps<{ stock: Stock | undefined }>()
+const props = defineProps<{ stock: Stock | undefined, title: string, height?: number, showTenEma: boolean }>()
 
 const stockSeries = ref<ApexAxisChartSeries>([
     {
@@ -17,12 +17,12 @@ const stockSeries = ref<ApexAxisChartSeries>([
         type: "candlestick",
         data: []
     },
-    {
+    ...(props.showTenEma ? [{
         name: "10 ema",
         type: "line",
         color: "#ff0000",
         data: []
-    }
+    }] : [])
 ])
 
 const stockChartOptions = ref<ApexOptions>({
@@ -36,14 +36,14 @@ const stockChartOptions = ref<ApexOptions>({
         curve: 'smooth'
     },
     title: {
-        text: 'Trade chart',
+        text: props.title || 'Trade chart',
         align: 'left'
     },
     tooltip: {
         enabled: true,
     },
     xaxis: {
-        // type: 'category'
+        tickAmount: 11,
     },
     yaxis: {
         tooltip: {
@@ -67,7 +67,7 @@ watch(
                         }
                     }) || []
             },
-            {
+            ...(props.showTenEma && stockSeries.value[1] ? [{
                 ...stockSeries.value[1],
                 data: newValue?.quotes
                     .map(it => {
@@ -76,7 +76,7 @@ watch(
                             y: it?.closePriceEMA10.toFixed(2)
                         }
                     }) || []
-            }
+            }] : [])
         ]
     }
 )

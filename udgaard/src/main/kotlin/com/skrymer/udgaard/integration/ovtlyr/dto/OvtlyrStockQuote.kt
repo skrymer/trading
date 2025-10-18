@@ -94,7 +94,7 @@ class OvtlyrStockQuote {
      *  The low
      */
     @JsonProperty("low")
-    private val low: Double = 0.0
+    val low: Double = 0.0
 
     /**
      *  The high

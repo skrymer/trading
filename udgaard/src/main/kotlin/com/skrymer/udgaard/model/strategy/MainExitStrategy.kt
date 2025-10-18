@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
 class MainExitStrategy : ExitStrategy {
@@ -18,24 +19,24 @@ class MainExitStrategy : ExitStrategy {
   }
 
   override fun match(
+    stock: Stock,
     entryQuote: StockQuote?,
-    quote: StockQuote,
-    previousQuote: StockQuote?
+    quote: StockQuote
   ) = exitStrategies
-    .map { it.match(entryQuote, quote, previousQuote) }
+    .map { it.match(stock, entryQuote, quote) }
     .any { it }
 
 
-  override fun reason(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) =
+  override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) =
     exitStrategies
-      .map { it.test(entryQuote, quote, previousQuote) }
+      .map { it.test(stock, entryQuote, quote) }
       .filter { it.match }
       .mapNotNull { it.exitReason }
       .reduce { s1, s2 -> "$s1, $s2" }
 
-  override fun exitPrice(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) =
+  override fun exitPrice(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) =
     exitStrategies
-      .map { it.test(entryQuote, quote, previousQuote) }
+      .map { it.test(stock, entryQuote, quote) }
       .filter { it.match }
       .maxOf { it.exitPrice }
 

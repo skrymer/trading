@@ -67,6 +67,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   PANW(MarketSymbol.XLK, "PANW"),
   PAYC(MarketSymbol.XLK, "PAYC"),
   PAYX(MarketSymbol.XLK, "PAYX"),
+  PLTR(MarketSymbol.XLK, "PLTR"),
   PTCT(MarketSymbol.XLK, "PTCT"),   // (if not present, remove)
   QCOM(MarketSymbol.XLK, "QCOM"),
   SNPS(MarketSymbol.XLK, "SNPS"),
@@ -165,6 +166,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   GILD(MarketSymbol.XLV, "GILD"),
   HCA(MarketSymbol.XLV, "HCA"),
   HOLX(MarketSymbol.XLV, "HOLX"),
+  HOOD(MarketSymbol.XLV, "HOOD"),
   HUM(MarketSymbol.XLV, "HUM"),
   IDXX(MarketSymbol.XLV, "IDXX"),
   ILMN(MarketSymbol.XLV, "ILMN"),
@@ -178,7 +180,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   MRK(MarketSymbol.XLV, "MRK"),
   MTD(MarketSymbol.XLV, "MTD"),
   PFE(MarketSymbol.XLV, "PFE"),
-  PKI(MarketSymbol.XLV, "PKI"), // (PerkinElmer -> Revvity RVTY)
+  PKI(MarketSymbol.XLV, "PKI"),
   REGN(MarketSymbol.XLV, "REGN"),
   RMD(MarketSymbol.XLV, "RMD"),
   STE(MarketSymbol.XLV, "STE"),
@@ -472,6 +474,13 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   VNO(MarketSymbol.XLRE, "VNO"),
   VTR(MarketSymbol.XLRE, "VTR"),
   WELL(MarketSymbol.XLRE, "WELL"),
-  WY(MarketSymbol.XLRE, "WY");
+  WY(MarketSymbol.XLRE, "WY"),
+
+//-------------
+// ETFS
+//-------------
+  QQQ(MarketSymbol.XLK, "QQQ");
+
+
 }
 

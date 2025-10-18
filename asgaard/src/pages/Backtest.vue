@@ -1,6 +1,6 @@
 <template>
   <div>
-    <v-row v-if="error" class="mt-2">
+    <v-row v-if="error" class="mt-2 mx-2">
       <v-alert v-model="error" border="start" close-label="Close error" color="#C51162"
         title="Error!" variant="tonal" closable>
         Error fetching trades, please try again.
@@ -8,15 +8,7 @@
     </v-row>
     <v-row>
       <v-col>
-        <div class="d-flex justify-space-evenly mt-2">
-          <data-card title="Number of wins" :content="numberOfWinningTrades" heading="4" />
-          <data-card title="Number of losses" :content="numberOfLosingTrades" heading="4" />
-          <data-card title="Win rate" :content="winRate + '%'" heading="4" />
-          <data-card title="Average win" :content="averageWinPercent + '%'" heading="4" />
-          <data-card title="Loss rate" :content="lossRate + '%'" heading="4" />
-          <data-card title="Average loss" :content="averageLossPercent + '%'" heading="4" />
-          <data-card title="Edge" :content="edge + '%'" heading="4" />
-        </div>
+        <backtest-cards :trades="backTestreport?.trades" />
       </v-col>
     </v-row>
 
@@ -82,33 +74,6 @@ const error = ref<boolean>(false)
 const handleSubmit = () => {
   fetchTradesForStock(symbol.value)
 }
-
-const numberOfWinningTrades = computed(() => backTestreport.value?.trades?.filter(trade => trade.profitPercentage > 0).length || 0)
-const numberOfLosingTrades = computed(() => backTestreport.value?.trades?.filter(trade => trade.profitPercentage < 0).length || 0)
-const winRate = computed(() => {
-  const total = numberOfWinningTrades.value + numberOfLosingTrades.value
-  return total > 0 ? numberOfWinningTrades.value / total : 0
-})
-const lossRate = computed(() => {
-  const total = numberOfWinningTrades.value + numberOfLosingTrades.value
-  return total > 0 ? numberOfLosingTrades.value / total : 0
-})
-const averageWinPercent = computed(() => {
-  const wins = backTestreport.value?.trades?.filter(trade => trade.profitPercentage > 0) || []
-  const total = wins.length
-  const sum = wins.reduce((acc, trade) => acc + trade.profitPercentage, 0)
-  return total > 0 ? sum / total : 0
-})
-
-const averageLossPercent = computed(() => {
-  const losses = backTestreport.value?.trades?.filter(trade => trade.profitPercentage < 0) || []
-  const total = losses.length
-  const sum = losses.reduce((acc, trade) => acc + trade.profitPercentage, 0)
-  return total > 0 ? sum / total : 0
-})
-
-// (AvgWinPercentage × WinRate) − ((1−WinRate) × AvgLossPercentage)
-const edge = (averageWinPercent.value * winRate.value) - ((1.0 - winRate.value) * averageLossPercent.value)
 
 // TODO move into a Service function
 const fetchTradesForStock = async (symbol: String) => {  

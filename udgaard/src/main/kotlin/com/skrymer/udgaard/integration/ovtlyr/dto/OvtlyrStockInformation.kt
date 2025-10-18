@@ -2,7 +2,6 @@ package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.skrymer.udgaard.model.MarketBreadth
-import com.skrymer.udgaard.model.OrderBlock
 import com.skrymer.udgaard.model.Stock
 import java.time.LocalDate
 
@@ -24,17 +23,15 @@ class OvtlyrStockInformation {
     fun toModel(
         marketBreadth: MarketBreadth?,
         sectorMarketBreadth: MarketBreadth?,
+        stockPerformance: StockPerformance?,
         spy: OvtlyrStockInformation
     ): Stock {
         return Stock(
-            this.stockName,
-            this.sectorSymbol,
-            this.quotes.map { quote ->
-                val sectorBreadthQuote = sectorMarketBreadth?.getQuoteForDate(quote.getDate())
-                val marketBreadthQuote = marketBreadth?.getQuoteForDate(quote.getDate())
-                quote.toModel(this, marketBreadth, sectorMarketBreadth, spy)
-            },
-            this.orderBlocks.map { it.toModel() }
+            symbol = this.stockName,
+            sectorSymbol = this.sectorSymbol,
+            quotes = this.quotes.map { quote -> quote.toModel(this, marketBreadth, sectorMarketBreadth, spy) },
+            orderBlocks = this.orderBlocks.map { it.toModel(this) },
+            ovtlyrPerformance = stockPerformance?.ovtlyrPerformance()
         )
     }
 

@@ -321,8 +321,13 @@ class StockQuote {
    */
   fun hasCurrentBuySignal() =
     lastBuySignal != null &&
-      // The buy signal is for quotes date or quotes date -1
+      // The buy signal is for this quotes date or this quotes date -1
       (lastBuySignal?.equals(date) == true || lastBuySignal?.equals(date!!.minusDays(1)) == true) &&
+      // and buy signal is after sell signal
+      (lastSellSignal == null || lastBuySignal?.isAfter(lastSellSignal) == true)
+
+  fun hasBuySignal() =
+    lastBuySignal != null &&
       // and buy signal is after sell signal
       (lastSellSignal == null || lastBuySignal?.isAfter(lastSellSignal) == true)
 

@@ -3,6 +3,7 @@ package com.skrymer.udgaard.integration.ovtlyr
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrMarketBreadth
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.integration.ovtlyr.dto.ScreenerResult
+import com.skrymer.udgaard.integration.ovtlyr.dto.StockPerformance
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -10,6 +11,8 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpResponse
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.io.BufferedInputStream
+import java.io.InputStreamReader
 
 @Component
 class OvtlyrClient(
@@ -90,6 +93,37 @@ class OvtlyrClient(
         .body(requestBody)
         .retrieve()
         .toEntity(OvtlyrMarketBreadth::class.java)
+        .getBody()
+    }.onFailure { e ->
+      logger.error("Exception occurred fetching market breadth: $symbol message: ${e.message} skipping", e)
+    }.getOrNull()
+  }
+
+  /**
+   * get ovtlyr stock performance
+   */
+  fun getStockPerformance(symbol: String): StockPerformance? {
+    return runCatching {
+      val restClient: RestClient = RestClient.builder()
+        .baseUrl(marketBreadthBaseUrl)
+        .build()
+
+      val requestBody =
+        "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
+
+      logger.info("Getting market breadth for $symbol")
+      logger.info("baseUrl: $marketBreadthBaseUrl")
+      logger.info("User id $cookieUserId")
+      logger.info("Token: $cookieToken")
+      logger.info("requestBody: $requestBody")
+
+      return restClient.post()
+        .cookie("UserId", cookieUserId)
+        .cookie("Token", cookieToken)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(requestBody)
+        .retrieve()
+        .toEntity(StockPerformance::class.java)
         .getBody()
     }.onFailure { e ->
       logger.error("Exception occurred fetching market breadth: $symbol message: ${e.message} skipping", e)

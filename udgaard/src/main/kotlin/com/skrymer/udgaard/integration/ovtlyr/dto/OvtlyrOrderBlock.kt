@@ -40,8 +40,12 @@ data class OvtlyrOrderBlock(
   @JsonProperty("oB_Type")
   val obType: ObType
 ){
-  fun toModel(): OrderBlock {
+  fun toModel(information: OvtlyrStockInformation): OrderBlock {
+    val quote = information.getQuoteForDate(startDate)
+
     return OrderBlock(
+      low = quote?.low ?: 0.0,
+      high = quote?.high ?: 0.0,
       startDate = startDate,
       endDate = if(endDate.isNullOrBlank()  || endDate == "NA") null else LocalDate.parse(endDate),
       orderBlockType = if(obType == ObType.BEARISH) OrderBlockType.BEARISH else OrderBlockType.BULLISH

@@ -10,9 +10,12 @@ declare module 'vue' {
   export interface GlobalComponents {
     AppFooter: typeof import('./components/AppFooter.vue')['default']
     Backtest: typeof import('./pages/Backtest.vue')['default']
+    BacktestCards: typeof import('./components/BacktestCards.vue')['default']
     CloseTradeDialog: typeof import('./components/CloseTradeDialog.vue')['default']
     DataCard: typeof import('./components/DataCard.vue')['default']
     FabButton: typeof import('./components/FabButton.vue')['default']
+    FabButtonMenu: typeof import('./components/FabButtonMenu.vue')['default']
+    GenerateBacktestReportDialog: typeof import('./components/GenerateBacktestReportDialog.vue')['default']
     HelloWorld: typeof import('./pages/Backtest.vue')['default']
     Loader: typeof import('./components/Loader.vue')['default']
     MarketBreadthChart: typeof import('./components/MarketBreadthChart.vue')['default']

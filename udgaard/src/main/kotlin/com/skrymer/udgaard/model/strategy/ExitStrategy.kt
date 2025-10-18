@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
 /**
@@ -8,16 +9,19 @@ import com.skrymer.udgaard.model.StockQuote
 interface ExitStrategy {
 
     /**
+     * @param stock - the Stock
+     * @param entryQuote - the quote that matched the entry strategy.
+     * @param quote - the current quote
      * @return true when exit criteria has been met.
      */
-    fun match(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?  = null): Boolean
+    fun match(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean
 
     /**
      * @return a ExitStrategyReport.
      */
-    fun test(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?): ExitStrategyReport {
-        return if(match(entryQuote, quote, previousQuote)) {
-            ExitStrategyReport(true, reason(entryQuote, quote, previousQuote), exitPrice(entryQuote, quote, previousQuote))
+    fun test(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): ExitStrategyReport {
+        return if(match(stock, entryQuote, quote)) {
+            ExitStrategyReport(true, reason(stock,entryQuote, quote), exitPrice(stock, entryQuote, quote))
         } else {
             ExitStrategyReport(false)
         }
@@ -26,7 +30,7 @@ interface ExitStrategy {
     /**
      * @return the exit reason.
      */
-    fun reason(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?): String?
+    fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): String?
 
     /**
      * A description of this exit strategy.
@@ -36,5 +40,5 @@ interface ExitStrategy {
     /**
      * The price when the exit was hit.
      */
-    fun exitPrice(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) = quote.closePrice
+    fun exitPrice(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) = quote.closePrice
 }

@@ -19,4 +19,7 @@ enum class MarketSymbol(val description: String) {
 }
 
 fun MarketSymbol.Companion.valueOf(value: String?) =
-    if(value == null) MarketSymbol.UNK else MarketSymbol.valueOf(value)
+    runCatching {
+        if(value == null) MarketSymbol.UNK
+        else MarketSymbol.valueOf(value)
+    }.getOrDefault(MarketSymbol.UNK)

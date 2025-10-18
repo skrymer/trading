@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
 import com.skrymer.udgaard.format
+import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
 class HeatmapExitStrategy: ExitStrategy {
@@ -11,9 +12,9 @@ class HeatmapExitStrategy: ExitStrategy {
      * If entry heatmap value was greater than 75, return true when value is 5pt higher than entry value.
      */
     override fun match(
-        entryQuote: StockQuote?,
-        quote: StockQuote,
-        previousQuote: StockQuote?
+      stock: Stock,
+      entryQuote: StockQuote?,
+      quote: StockQuote
     ): Boolean {
 
       if(entryQuote == null){
@@ -30,7 +31,7 @@ class HeatmapExitStrategy: ExitStrategy {
       }
     }
 
-    override fun reason(entryQuote: StockQuote?, quote: StockQuote, previousQuote: StockQuote?) = "Stock heatmap has reached max value."
+    override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) = "Stock heatmap has reached max value."
 
     override fun description() = "Heatmap exit strategy"
 }

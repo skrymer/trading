@@ -76,7 +76,9 @@ class StockService(
           logger.warn("Failed to fetch symbol={}: {}", symbol, e.message, e)
         }.getOrNull()
       }
-    }.awaitAll().filterNotNull()
+    }
+    .awaitAll()
+    .filterNotNull()
   }
 
   /**
@@ -109,9 +111,12 @@ class StockService(
       quotesMatchingEntryStrategy.forEach { entryQuote ->
         if(trades.find { it.containsQuote(entryQuote) } == null){
           val exitReport = stock.testExitStrategy(entryQuote, exitStrategy)
-          val profit = exitReport.exitPrice - entryQuote.closePrice
-          val trade = Trade(stock.symbol!!, entryQuote, exitReport.quotes, exitReport.exitReason, profit)
-          trades.add(trade)
+
+          if(exitReport.exitReason.isNotBlank()) {
+            val profit = exitReport.exitPrice - entryQuote.closePrice
+            val trade = Trade(stock.symbol!!, entryQuote, exitReport.quotes, exitReport.exitReason, profit, entryQuote?.date, stock.sectorSymbol ?: "")
+            trades.add(trade)
+          }
         }
       }
     }
@@ -121,6 +126,7 @@ class StockService(
 
   private fun fetchStock(symbol: String, spy: OvtlyrStockInformation): Stock? {
     val stockInformation = ovtlyrClient.getStockInformation(symbol)
+    val stockPerformance = ovtlyrClient.getStockPerformance(symbol)
 
     if(stockInformation == null) {
       return null
@@ -130,7 +136,7 @@ class StockService(
       val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
       val marketSymbol = MarketSymbol.valueOf(stockInformation.sectorSymbol)
       val sectorMarketBreadth = marketBreadthRepository.findByIdOrNull(marketSymbol)
-      return stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy))
+      return stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth, stockPerformance,spy))
     }.getOrNull()
   }
 }

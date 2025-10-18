@@ -20,10 +20,13 @@ export interface Stock {
     quotes: StockQuote[]
 }
 export interface StockQuote {
+    atr: number
     lastBuySignal: string
+    lastSellSignal: string
     date: string
     closePrice: number
     closePriceEMA10: number
+    closePriceEMA20: number
     openPrice: number
     high: number
     low: number
@@ -33,13 +36,15 @@ export interface StockQuote {
 
 export interface Trade {
     stockSymbol: string
+    sector: string
     entryQuote: StockQuote
     exitQuote: StockQuote
     exitReason: string
     profitPercentage: number
     profit: number
     quotes: StockQuote[],
-    tradingDays: number
+    tradingDays: number,
+    startDate: string
 }
 
 export interface MarketBreadth {
