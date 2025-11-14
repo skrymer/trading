@@ -16,44 +16,27 @@ const links = [[{
 },
 {
   label: 'Backtesting',
-  icon: 'i-lucide-house',
+  icon: 'i-lucide-bar-chart-3',
   to: '/backtesting',
   onSelect: () => {
     open.value = false
   }
-}, 
+},
 {
-  label: 'Settings',
-  to: '/settings',
-  icon: 'i-lucide-settings',
-  defaultOpen: true,
-  type: 'trigger',
-  children: [{
-    label: 'General',
-    to: '/settings',
-    exact: true,
-    onSelect: () => {
-      open.value = false
-    }
-  }, {
-    label: 'Members',
-    to: '/settings/members',
-    onSelect: () => {
-      open.value = false
-    }
-  }, {
-    label: 'Notifications',
-    to: '/settings/notifications',
-    onSelect: () => {
-      open.value = false
-    }
-  }, {
-    label: 'Security',
-    to: '/settings/security',
-    onSelect: () => {
-      open.value = false
-    }
-  }]
+  label: 'Portfolio',
+  icon: 'i-lucide-briefcase',
+  to: '/portfolio',
+  onSelect: () => {
+    open.value = false
+  }
+},
+{
+  label: 'Market Breadth',
+  icon: 'i-lucide-activity',
+  to: '/market-breadth',
+  onSelect: () => {
+    open.value = false
+  }
 }]] satisfies NavigationMenuItem[][]
 
 const groups = computed(() => [{
@@ -121,14 +104,6 @@ onMounted(async () => {
           orientation="vertical"
           tooltip
           popover
-        />
-
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="links[1]"
-          orientation="vertical"
-          tooltip
-          class="mt-auto"
         />
       </template>
 

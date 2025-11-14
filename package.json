@@ -1,0 +1,65 @@
+{
+  "name": "trading-desktop",
+  "version": "1.0.0",
+  "description": "Trading Backtesting Desktop Application",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:backend": "cd udgaard && ./gradlew bootJar",
+    "build:frontend": "cd asgaard_nuxt && npm run build",
+    "build:all": "npm run build:backend && npm run build:frontend",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build:all && electron-builder",
+    "dist:win": "npm run build:all && electron-builder --win",
+    "dist:mac": "npm run build:all && electron-builder --mac",
+    "dist:linux": "npm run build:all && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.skrymer.trading",
+    "productName": "Trading Backtester",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "udgaard/build/libs/*.jar",
+      "asgaard_nuxt/.output/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "udgaard/build/libs/",
+        "to": "backend",
+        "filter": ["*.jar"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "electron/icon.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "electron/icon.png"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "electron/icon.png",
+      "category": "Office"
+    }
+  },
+  "keywords": [
+    "trading",
+    "backtesting",
+    "stock",
+    "finance"
+  ],
+  "author": "skrymer",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "tree-kill": "^1.2.2"
+  }
+}

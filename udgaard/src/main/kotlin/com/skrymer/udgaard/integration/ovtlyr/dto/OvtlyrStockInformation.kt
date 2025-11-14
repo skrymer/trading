@@ -23,7 +23,6 @@ class OvtlyrStockInformation {
     fun toModel(
         marketBreadth: MarketBreadth?,
         sectorMarketBreadth: MarketBreadth?,
-        stockPerformance: StockPerformance?,
         spy: OvtlyrStockInformation
     ): Stock {
         return Stock(
@@ -31,7 +30,6 @@ class OvtlyrStockInformation {
             sectorSymbol = this.sectorSymbol,
             quotes = this.quotes.map { quote -> quote.toModel(this, marketBreadth, sectorMarketBreadth, spy) },
             orderBlocks = this.orderBlocks.map { it.toModel(this) },
-            ovtlyrPerformance = stockPerformance?.ovtlyrPerformance()
         )
     }
 
@@ -40,7 +38,7 @@ class OvtlyrStockInformation {
     }
 
     override fun toString(): String {
-        return stockName!!
+        return stockName ?: "Unknown stockinformation"
     }
 
     /**
@@ -93,9 +91,9 @@ class OvtlyrStockInformation {
      * }
      */
     @JsonProperty("stkDetail")
-    private fun unpackNested(stkDetail: MutableMap<String?, Any?>) {
-        this.stockName = stkDetail["stockSymbol"] as String?
-        this.sectorSymbol = stkDetail["sectorSymbol"] as String?
+    private fun unpackNested(stkDetail: MutableMap<String?, Any?>?) {
+        this.stockName = stkDetail?.get("stockSymbol") as String?
+        this.sectorSymbol = stkDetail?.get("sectorSymbol") as String?
     }
 
     /**

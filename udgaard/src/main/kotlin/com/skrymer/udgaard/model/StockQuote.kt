@@ -135,6 +135,34 @@ class StockQuote {
   var spyPreviousHeatmap: Double = 0.0
 
   /**
+   * SPY 200-day EMA value (for market regime filter)
+   */
+  var spyEMA200: Double = 0.0
+
+  /**
+   * SPY 200-day SMA value (for market regime filter)
+   */
+  var spySMA200: Double = 0.0
+
+  /**
+   * SPY 50-day EMA value (for golden cross check in market regime filter)
+   */
+  var spyEMA50: Double = 0.0
+
+  /**
+   * Number of consecutive days SPY has been above 200-day SMA
+   * Used to detect sustained trends vs temporary spikes
+   */
+  var spyDaysAbove200SMA: Int = 0
+
+  /**
+   * Percentage of stocks in the market that are advancing (above their 10 EMA)
+   * Value between 0.0 and 100.0
+   * Used to measure market breadth and broad participation
+   */
+  var marketAdvancingPercent: Double = 0.0
+
+  /**
    * Market is in an uptrend
    */
   var marketIsInUptrend: Boolean = false
@@ -223,6 +251,11 @@ class StockQuote {
     spyIsInUptrend: Boolean = false,
     spyHeatmap: Double = 0.0,
     spyPreviousHeatmap: Double = 0.0,
+    spyEMA200: Double = 0.0,
+    spySMA200: Double = 0.0,
+    spyEMA50: Double = 0.0,
+    spyDaysAbove200SMA: Int = 0,
+    marketAdvancingPercent: Double = 0.0,
     marketIsInUptrend: Boolean = false,
     marketDonkeyChannelScore: Int = 0,
     previousQuoteDate: LocalDate? = null,
@@ -261,6 +294,11 @@ class StockQuote {
     this.spyInUptrend = spyIsInUptrend
     this.spyHeatmap = spyHeatmap
     this.spyPreviousHeatmap = spyPreviousHeatmap
+    this.spyEMA200 = spyEMA200
+    this.spySMA200 = spySMA200
+    this.spyEMA50 = spyEMA50
+    this.spyDaysAbove200SMA = spyDaysAbove200SMA
+    this.marketAdvancingPercent = marketAdvancingPercent
     this.marketIsInUptrend = marketIsInUptrend
     this.marketDonkeyChannelScore = marketDonkeyChannelScore
     this.previousQuoteDate = previousQuoteDate

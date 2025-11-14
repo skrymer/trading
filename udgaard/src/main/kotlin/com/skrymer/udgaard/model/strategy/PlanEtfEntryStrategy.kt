@@ -3,15 +3,28 @@ package com.skrymer.udgaard.model.strategy
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
+/**
+ * Plan ETF entry strategy using composition.
+ * Enters when:
+ * - Stock is in uptrend
+ * - Has buy signal
+ * - Heatmap < 70
+ * - Price is within value zone (< 20 EMA + 2 ATR)
+ * - Price is at least 2% below an order block older than 30 days
+ */
+@RegisteredStrategy(name = "PlanEtf", type = StrategyType.ENTRY)
 class PlanEtfEntryStrategy: EntryStrategy {
+  private val compositeStrategy = entryStrategy {
+    uptrend()
+    buySignal(currentOnly = false)
+    heatmap(70)
+    inValueZone(2.0)
+    belowOrderBlock(percentBelow = 2.0, ageInDays = 30)
+  }
+
   override fun description() = "Plan ETF entry strategy"
 
-  override fun test(
-    stock: Stock,
-    quote: StockQuote
-  ) =
-    quote.isInUptrend()
-      .and(quote.hasBuySignal())
-      .and(quote.heatmap < 70)
-      .and(quote.closePrice < ((quote.atr * 2) + quote.closePriceEMA20))
+  override fun test(stock: Stock, quote: StockQuote): Boolean {
+    return compositeStrategy.test(stock, quote)
+  }
 }

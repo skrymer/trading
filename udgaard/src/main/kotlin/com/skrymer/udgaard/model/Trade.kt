@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit
 /**
  * Represents a trade with an entry, the quotes while the trade was on and an exit.
  * @param stockSymbol - the stock symbol the trade was for.
+ * @param underlyingSymbol - optional underlying symbol used for strategy evaluation (null = same as stockSymbol).
  * @param entryQuote - the stock quote on the day of entry.
  * @param quotes - the stock quotes included in the trade, excluding entry and exit.
  * @param exitReason - the reason for exiting the trade.
@@ -14,6 +15,7 @@ import java.time.temporal.ChronoUnit
  */
 class Trade(
     var stockSymbol: String,
+    var underlyingSymbol: String? = null,
     var entryQuote: StockQuote,
     var quotes: List<StockQuote>,
     var exitReason: String,

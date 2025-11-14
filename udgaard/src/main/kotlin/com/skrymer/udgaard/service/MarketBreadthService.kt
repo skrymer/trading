@@ -41,7 +41,7 @@ class MarketBreadthService(
     val ovtlyrMarketBreadth = ovtlyrClient.getMarketBreadth(marketSymbol.name)
 
     return if (ovtlyrMarketBreadth == null) {
-      return null
+      null
     }
     else {
       val stockInMarket = getStockInMarket(ovtlyrMarketBreadth.getMarketSymbol())

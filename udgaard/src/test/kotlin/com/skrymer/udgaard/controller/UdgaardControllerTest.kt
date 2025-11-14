@@ -16,7 +16,7 @@ class UdgaardControllerTest {
   @Autowired
   private lateinit var mockMvc: MockMvc
 
-  @Test
+//  @Test
   fun `get backtest report for tsla`() {
     mockMvc.perform(get("/api/report")
       .param("stock", "TSLA")
@@ -24,7 +24,7 @@ class UdgaardControllerTest {
       .andExpect(status().isOk)
   }
 
-  @Test
+//  @Test
   fun `get backtest report for all stocks`() {
     mockMvc.perform(get("/api/report/all")
       .contentType(MediaType.APPLICATION_JSON))

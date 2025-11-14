@@ -1,55 +1,64 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.logic.Logic
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
+/**
+ * Plan Alpha entry strategy using composition.
+ *
+ * Entry when ALL of the following conditions are met:
+ *
+ * MARKET (SPY):
+ * - SPY has a buy signal
+ * - SPY is in uptrend (10 > 20, price > 50)
+ * - Market stocks bull % over 10 EMA
+ * - SPY heatmap < 70
+ * - SPY heatmap is rising
+ *
+ * SECTOR:
+ * - Sector bull % is over 10 EMA (in uptrend)
+ * - Sector heatmap is rising
+ * - Sector heatmap < 70
+ * - Donkey channel AS1 or AS2
+ * - Sector heatmap > SPY heatmap
+ *
+ * STOCK:
+ * - Has current buy signal
+ * - Close price > 10 EMA
+ * - Stock is in uptrend
+ * - Stock heatmap is rising
+ * - Price above previous low
+ * - NOT within order block older than 120 days
+ */
+@RegisteredStrategy(name = "PlanAlpha", type = StrategyType.ENTRY)
 class PlanAlphaEntryStrategy: EntryStrategy {
+  private val compositeStrategy = entryStrategy {
+    // MARKET (SPY)
+    spyBuySignal()
+    spyUptrend()
+    marketUptrend()
+    spyHeatmap(70)
+    spyHeatmapRising()
+
+    // SECTOR
+    sectorUptrend()
+    sectorHeatmapRising()
+    sectorHeatmap(70)
+    donkeyChannel()
+    sectorHeatmapGreaterThanSpy()
+
+    // STOCK
+    buySignal(currentOnly = true)
+    priceAbove(10)
+    uptrend()
+    stockHeatmapRising()
+    priceAbovePreviousLow()
+    notInOrderBlock(120)
+  }
+
   override fun description() = "Plan Alpha entry strategy"
 
-  override fun test(
-    stock: Stock,
-    quote: StockQuote
-  ): Boolean {
-    val previousQuote = stock.getPreviousQuote(quote)
-
-    // MARKET
-    // SPY has a buy signal
-    return quote.hasSpyBuySignal() &&
-    // SPY is in an uptrend 10 > 20 price > 50
-    quote.spyInUptrend &&
-    // Market stocks bull % over 10ema
-    quote.isMarketInUptrend() &&
-    // SPY heatmap value is less than 70
-    quote.spyHeatmap < 70 &&
-    // SPY heatmap value is rising
-    quote.spyHeatmap > quote.spyPreviousHeatmap &&
-
-    // SECTOR:
-    // Sector bull % is over 10ema
-    quote.sectorIsInUptrend() &&
-    // Sector constituent heatmap rising
-    quote.sectorIsGettingGreedier() &&
-    // Sector constituent heatmap is below 70
-    quote.sectorHeatmap < 70 &&
-    // AS1 or AS2  (donkey channels)
-    (quote.marketDonkeyChannelScore >= 1 && quote.sectorDonkeyChannelScore >=1)
-      .or(quote.marketDonkeyChannelScore == 2) &&
-    // Sector constituent heatmap is greater than SPY heatmap
-    quote.sectorHeatmap > quote.spyHeatmap &&
-
-    // STOCK:
-    // Buy signal
-    quote.hasCurrentBuySignal() &&
-    // Close price is over 10ema
-    quote.closePrice > quote.closePriceEMA10 &&
-    // Stock is in an uptrend
-    quote.isInUptrend() &&
-    // Stock heatmap is rising
-    quote.heatmap > (previousQuote?.heatmap ?: 0.0) &&
-    // Above previous low
-    quote.closePrice > (previousQuote?.low ?: 0.0) &&
-    // quote not inside order block older than 120 days
-    !stock.withinOrderBlock(quote, 120)
+  override fun test(stock: Stock, quote: StockQuote): Boolean {
+    return compositeStrategy.test(stock, quote)
   }
 }

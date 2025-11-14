@@ -12,8 +12,6 @@ Prerequisites:
 4. Add the following properties (check network on ovtlyr website for values):
     * ovtlyr.cookies.token=XXX
     * ovtlyr.cookies.userid=XXX
-    * ovtlyr.stockinformation.token=XXX
-    * ovtlyr.stockinformation.userid=XXX 
 6. Build backend `./gradlew build`
 7. Run backend `java -jar build/libs/udgaard-0.0.1-SNAPSHOT.jar`
 
@@ -22,7 +20,6 @@ Prerequisites:
 2. Run ui `npm run dev`
 
 ## Libs
-
 https://fastcsv.org/guides/quickstart/
 https://apexcharts.com/
 

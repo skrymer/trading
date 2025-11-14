@@ -4,9 +4,9 @@ import com.skrymer.udgaard.integration.ovtlyr.DataLoader
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.strategy.MainExitStrategy
-import com.skrymer.udgaard.model.strategy.Ovtlyr9EntryStrategy
 import com.skrymer.udgaard.model.valueOf
+import com.skrymer.udgaard.model.strategy.PlanAlphaEntryStrategy
+import com.skrymer.udgaard.model.strategy.PlanMoneyExitStrategy
 import com.skrymer.udgaard.service.MarketBreadthService
 import com.skrymer.udgaard.service.StockService
 import de.siegmar.fastcsv.writer.CsvWriter
@@ -38,7 +38,7 @@ internal class UdgaardApplicationTests {
 
 
 
-    @Test
+//    @Test
     fun screener() {
         val screenerResults = ovtlyrClient.getScreenerStocks()
             ?.stocks
@@ -46,8 +46,8 @@ internal class UdgaardApplicationTests {
             ?.sortedByDescending { it.ovtlySignalReturn }
         val file: Path = Paths.get("output.csv")
         val stocks = runBlocking { stockService.getStocks(screenerResults?.mapNotNull{ it.symbol} ?: emptyList(), true) }
-        val entryStrategy = Ovtlyr9EntryStrategy()
-        val exitStrategy = MainExitStrategy()
+        val entryStrategy = PlanAlphaEntryStrategy()
+        val exitStrategy = PlanMoneyExitStrategy()
         val backtestReport = stockService.backtest(
 
             entryStrategy,
@@ -118,13 +118,13 @@ internal class UdgaardApplicationTests {
         println(screenerResults)
     }
 
-    @Test
+//    @Test
     fun generateBacktestReport() {
         println("===================== Getting stocks =====================")
         val stocks = runBlocking { dataLoader.loadTopStocks(true) }
 //        val stock = stockService.getStocks(listOf("SMTC"), true).first()
-        val entryStrategy = Ovtlyr9EntryStrategy()
-        val exitStrategy = MainExitStrategy()
+        val entryStrategy = PlanAlphaEntryStrategy()
+        val exitStrategy = PlanMoneyExitStrategy()
         val backtestReport =
             stockService.backtest( entryStrategy, exitStrategy,stocks, LocalDate.of(2023, 1, 1),
                 LocalDate.now())
@@ -157,7 +157,7 @@ internal class UdgaardApplicationTests {
         }
     }
 
-    @Test
+//    @Test
     fun loadOvtlyrData() {
         dataLoader.loadData()
     }

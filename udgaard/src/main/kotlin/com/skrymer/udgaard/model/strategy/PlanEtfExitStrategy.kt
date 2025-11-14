@@ -3,21 +3,39 @@ package com.skrymer.udgaard.model.strategy
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 
+/**
+ * Plan ETF exit strategy using composition.
+ * Exits when any of the following conditions are met:
+ * - 10 EMA crosses under 20 EMA
+ * - Within order block more than 30 days old
+ * - Price extends 3.5 ATR above 20 EMA (profit target)
+ * - Trailing stop loss at 2.7 ATR below highest high since entry
+ *
+ * Note: Sell signal exit was removed as it degraded performance (-0.04% avg)
+ */
+@RegisteredStrategy(name = "PlanEtf", type = StrategyType.EXIT)
 class PlanEtfExitStrategy: ExitStrategy {
+  private val compositeStrategy = exitStrategy {
+    emaCross(10, 20)
+    orderBlock(30)
+    profitTarget(3.5, 20)
+    trailingStopLoss(2.7)
+  }
+
   override fun match(
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote
-  ) = quote.hasSellSignal()
-      .or(quote.closePriceEMA10 < quote.closePriceEMA20)
+  ): Boolean {
+    return compositeStrategy.match(stock, entryQuote, quote)
+  }
 
   override fun reason(
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote
   ): String? {
-    return if(quote.hasSellSignal()) "Sell signal"
-    else "10 ema has crossed under the 20 ema"
+    return compositeStrategy.reason(stock, entryQuote, quote)
   }
 
   override fun description() = "Plan ETF exit strategy"

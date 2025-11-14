@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component
  */
 @Component
 class DataLoader(
-  private val ovtlyrClient: OvtlyrClient,
   private val marketBreadthService: MarketBreadthService,
   private val stockService: StockService
 ) {

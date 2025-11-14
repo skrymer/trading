@@ -1,0 +1,74 @@
+package com.skrymer.udgaard.model.strategy
+
+import com.skrymer.udgaard.model.Stock
+import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
+
+/**
+ * A composite exit strategy that combines multiple exit conditions using logical operators.
+ */
+class CompositeExitStrategy(
+    private val exitConditions: List<ExitCondition>,
+    private val operator: LogicalOperator = LogicalOperator.OR,
+    private val strategyDescription: String? = null
+) : ExitStrategy {
+
+    override fun match(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
+        if (exitConditions.isEmpty()) return false
+
+        return when (operator) {
+            LogicalOperator.AND -> exitConditions.all { it.shouldExit(stock, entryQuote, quote) }
+            LogicalOperator.OR -> exitConditions.any { it.shouldExit(stock, entryQuote, quote) }
+            LogicalOperator.NOT -> !exitConditions.first().shouldExit(stock, entryQuote, quote)
+        }
+    }
+
+    override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): String? {
+        // Return the reason from the first matching exit condition
+        return exitConditions
+            .firstOrNull { it.shouldExit(stock, entryQuote, quote) }
+            ?.exitReason()
+    }
+
+    override fun description(): String {
+        if (strategyDescription != null) {
+            return strategyDescription
+        }
+
+        val op = when (operator) {
+            LogicalOperator.AND -> " AND "
+            LogicalOperator.OR -> " OR "
+            LogicalOperator.NOT -> "NOT "
+        }
+
+        return exitConditions.joinToString(op) { it.description() }
+    }
+
+    override fun exitPrice(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Double {
+        return if (quote.closePrice < 1.0) {
+            stock.getPreviousQuote(quote)?.closePrice ?: 0.0
+        } else {
+            quote.closePrice
+        }
+    }
+}
+
+/**
+ * Represents an exit condition that can be evaluated.
+ */
+interface ExitCondition {
+    /**
+     * Determines if the exit condition is met.
+     */
+    fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean
+
+    /**
+     * Returns the reason for exiting.
+     */
+    fun exitReason(): String
+
+    /**
+     * Returns a description of the exit condition.
+     */
+    fun description(): String
+}

@@ -22,3 +22,17 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Electron Desktop App
+node_modules/
+dist-electron/
+package-lock.json
+
+# Nuxt Frontend
+asgaard_nuxt/.nuxt/
+asgaard_nuxt/.output/
+asgaard_nuxt/node_modules/
+
+# IDE
+.idea/
+.vscode/

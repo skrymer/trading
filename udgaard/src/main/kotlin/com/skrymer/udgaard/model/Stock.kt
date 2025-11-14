@@ -35,14 +35,14 @@ class Stock {
   /**
    *
    * @param entryStrategy
-   * @param after - quotes after the date
-   * @param before - quotes before the date
+   * @param after - quotes after or on the date (inclusive)
+   * @param before - quotes before or on the date (inclusive)
    * @return quotes that matches the given entry strategy.
    */
   fun getQuotesMatchingEntryStrategy(entryStrategy: EntryStrategy, after: LocalDate?, before: LocalDate?) =
     quotes
-      .filter { after == null || it.date?.isAfter(after) == true }
-      .filter { before == null || it.date?.isBefore(before) == true }
+      .filter { after == null || it.date?.isAfter(after.minusDays(1)) == true }
+      .filter { before == null || it.date?.isBefore(before.plusDays(1)) == true }
       .filter { entryStrategy.test(this, it) }
 
   /**

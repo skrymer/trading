@@ -1,6 +1,6 @@
 plugins {
-	id 'org.jetbrains.kotlin.jvm' version '1.9.25'
-	id 'org.jetbrains.kotlin.plugin.spring' version '1.9.25'
+	id 'org.jetbrains.kotlin.jvm' version '2.1.21'
+	id 'org.jetbrains.kotlin.plugin.spring' version '2.1.21'
 	id 'org.springframework.boot' version '3.5.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -17,20 +17,43 @@ java {
 repositories {
 	mavenCentral()
 	maven { url "https://jitpack.io" }
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/snapshot' }
+}
+
+ext {
+	set('springAiVersion', '1.0.3')
 }
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
 	implementation "de.siegmar:fastcsv:4.0.0"
 	implementation "org.apache.httpcomponents.client5:httpclient5-win:5.2.3"
 	implementation "com.github.polygon-io:client-jvm:v5.1.2"
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+
+	// Spring AI MCP dependencies
+	implementation 'org.springframework.ai:spring-ai-starter-mcp-server-webmvc'
+
+	// Caffeine cache for better performance
+	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+	testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+	}
 }
 
 kotlin {

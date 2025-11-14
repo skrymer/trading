@@ -206,6 +206,19 @@ class OvtlyrStockQuote {
         val spyHeatmap = spyQuote?.heatmap ?: 0.0
         val spyPreviousHeatmap = spy.getPreviousQuote(spyQuote)?.heatmap ?: 0.0
 
+        // Market regime filter indicators
+        val spyEMA200 = calculateEMA200(spy)
+        val spySMA200 = calculateSMA200(spy)
+        val spyEMA50 = calculateEMA50(spy)
+        val spyDaysAbove200SMA = calculateDaysAbove200SMA(spy)
+        val marketAdvancingPercent = calculateMarketAdvancingPercent(marketBreadth)
+
+        // Calculate EMAs if missing from Ovtlyr (e.g., for current date quotes)
+        val ema5 = this.closePriceEMA5 ?: calculateStockEMA(stock, 5)
+        val ema10 = this.closePriceEMA10 ?: calculateStockEMA(stock, 10)
+        val ema20 = this.closePriceEMA20 ?: calculateStockEMA(stock, 20)
+        val ema50 = this.closePriceEMA50 ?: calculateStockEMA(stock, 50)
+
         return StockQuote(
             symbol = this.symbol ?: "",
             date = this.date,
@@ -218,10 +231,10 @@ class OvtlyrStockQuote {
             sectorIsInUptrend = sectorIsInUptrend,
             sectorDonkeyChannelScore = sectorDonkeyChannelScore,
             signal = this.signal,
-            closePriceEMA10 = this.closePriceEMA10 ?: 0.0,
-            closePriceEMA20 = this.closePriceEMA20 ?: 0.0,
-            closePriceEMA5 = this.closePriceEMA5 ?: 0.0,
-            closePriceEMA50 = this.closePriceEMA50 ?: 0.0,
+            closePriceEMA10 = ema10,
+            closePriceEMA20 = ema20,
+            closePriceEMA5 = ema5,
+            closePriceEMA50 = ema50,
             trend = this.trend,
             lastBuySignal = lastBuySignal,
             lastSellSignal = lastSellSignal,
@@ -229,6 +242,11 @@ class OvtlyrStockQuote {
             spyIsInUptrend = spyIsInUptrend,
             spyHeatmap = spyHeatmap,
             spyPreviousHeatmap = spyPreviousHeatmap,
+            spyEMA200 = spyEMA200,
+            spySMA200 = spySMA200,
+            spyEMA50 = spyEMA50,
+            spyDaysAbove200SMA = spyDaysAbove200SMA,
+            marketAdvancingPercent = marketAdvancingPercent,
             marketIsInUptrend = marketIsInUptrend,
             marketDonkeyChannelScore = marketDonkeyChannelScore,
             previousQuoteDate = previousQuote?.getDate(),
@@ -286,13 +304,16 @@ class OvtlyrStockQuote {
     /**
      *  Calculate the TR (True Range)
      *
-     *  TR = max[(High - Low), (High - Previous Close), (Low - Previous Close)]
+     *  TR = max[(High - Low), abs(High - Previous Close), abs(Low - Previous Close)]
      */
     fun calculateTR(stock: OvtlyrStockInformation): Double {
         val previousQuote = stock.getPreviousQuote(this)
+        val previousClose = previousQuote?.closePrice ?: high // If no previous quote, use high as fallback
+
         val highLowDiff = high - low
-        val highPreviousCloseDiff = high - (previousQuote?.closePrice ?: 0.0)
-        val lowPreviousCloseDiff = low - (previousQuote?.closePrice ?: 0.0)
+        val highPreviousCloseDiff = kotlin.math.abs(high - previousClose)
+        val lowPreviousCloseDiff = kotlin.math.abs(low - previousClose)
+
         return highLowDiff.coerceAtLeast(highPreviousCloseDiff.coerceAtLeast(lowPreviousCloseDiff))
     }
 
@@ -316,6 +337,134 @@ class OvtlyrStockQuote {
     fun calculateDonchianLowerBandMarket(market: MarketBreadth?, periods: Int = 4) =
         market?.getPreviousQuotes(this.date, periods)
             ?.minOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+
+    /**
+     * Calculate EMA for the stock's close price
+     * @param stock - the stock information
+     * @param period - the EMA period (e.g., 5, 10, 20, 50)
+     * @return the calculated EMA value
+     */
+    private fun calculateStockEMA(stock: OvtlyrStockInformation, period: Int): Double {
+        val prices = stock.getQuotes()
+            .sortedBy { it?.getDate() }
+            .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+            .mapNotNull { it?.closePrice }
+
+        if (prices.size < period) return 0.0
+
+        val multiplier = 2.0 / (period + 1)
+        var ema = prices.take(period).average() // Start with SMA
+
+        for (i in period until prices.size) {
+            ema = (prices[i] - ema) * multiplier + ema
+        }
+
+        return ema
+    }
+
+    /**
+     * Calculate 200-day EMA from SPY price history
+     */
+    fun calculateEMA200(spy: OvtlyrStockInformation): Double {
+        val prices = spy.getQuotes()
+            .sortedBy { it?.getDate() }
+            .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+            .mapNotNull { it?.closePrice }
+
+        if (prices.size < 200) return 0.0
+
+        val multiplier = 2.0 / (200 + 1)
+        var ema = prices.take(200).average() // Start with SMA
+
+        for (i in 200 until prices.size) {
+            ema = (prices[i] - ema) * multiplier + ema
+        }
+
+        return ema
+    }
+
+    /**
+     * Calculate 200-day SMA from SPY price history
+     */
+    fun calculateSMA200(spy: OvtlyrStockInformation): Double {
+        val prices = spy.getQuotes()
+            .sortedBy { it?.getDate() }
+            .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+            .mapNotNull { it?.closePrice }
+
+        if (prices.size < 200) return 0.0
+        return prices.takeLast(200).average()
+    }
+
+    /**
+     * Calculate 50-day EMA from SPY price history
+     */
+    fun calculateEMA50(spy: OvtlyrStockInformation): Double {
+        val prices = spy.getQuotes()
+            .sortedBy { it?.getDate() }
+            .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+            .mapNotNull { it?.closePrice }
+
+        if (prices.size < 50) return 0.0
+
+        val multiplier = 2.0 / (50 + 1)
+        var ema = prices.take(50).average() // Start with SMA
+
+        for (i in 50 until prices.size) {
+            ema = (prices[i] - ema) * multiplier + ema
+        }
+
+        return ema
+    }
+
+    /**
+     * Count consecutive days SPY has been above 200-day SMA
+     */
+    fun calculateDaysAbove200SMA(spy: OvtlyrStockInformation): Int {
+        val quotes = spy.getQuotes()
+            .sortedByDescending { it?.getDate() }
+            .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+
+        if (quotes.size < 200) return 0
+
+        var count = 0
+        for (i in quotes.indices) {
+            val quote = quotes[i] ?: continue
+
+            // Calculate SMA200 for this point in time
+            val pricesUpToThisPoint = quotes.subList(i, quotes.size)
+                .mapNotNull { it?.closePrice }
+                .reversed()
+
+            if (pricesUpToThisPoint.size < 200) break
+
+            val sma200 = pricesUpToThisPoint.takeLast(200).average()
+
+            if (quote.closePrice > sma200) {
+                count++
+            } else {
+                break
+            }
+        }
+
+        return count
+    }
+
+    /**
+     * Calculate market breadth - percentage of stocks advancing (above their uptrend status)
+     * Uses the existing market breadth data
+     */
+    fun calculateMarketAdvancingPercent(marketBreadth: MarketBreadth?): Double {
+        if (marketBreadth == null) return 0.0
+
+        val breadthQuote = marketBreadth.getQuoteForDate(date) ?: return 0.0
+
+        val total = breadthQuote.numberOfStocksInUptrend + breadthQuote.numberOfStocksInDowntrend
+
+        if (total == 0) return 0.0
+
+        return (breadthQuote.numberOfStocksInUptrend.toDouble() / total) * 100.0
+    }
 
     override fun equals(other: Any?): Boolean {
         return if(other !is OvtlyrStockQuote){

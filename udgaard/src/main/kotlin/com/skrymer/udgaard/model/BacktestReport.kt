@@ -3,7 +3,11 @@ package com.skrymer.udgaard.model
 import java.time.LocalDate
 import kotlin.math.abs
 
-class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trade>) {
+class BacktestReport(
+    val winningTrades: List<Trade>,
+    val losingTrades: List<Trade>,
+    val missedTrades: List<Trade> = emptyList()
+) {
     /**
      * Calculated as (number of winning trades / total trades)
      * @return the win rate
@@ -17,6 +21,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageWinAmount: Double
         get() {
+            if (winningTrades.isEmpty()) return 0.0
             val totalWinningAmount = winningTrades.sumOf { it.profit }
             return totalWinningAmount / winningTrades.size
         }
@@ -26,6 +31,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageWinPercent: Double
         get() {
+            if (winningTrades.isEmpty()) return 0.0
             val totalWinPercentage = winningTrades.sumOf { it.profitPercentage }
             return totalWinPercentage / winningTrades.size
         }
@@ -43,6 +49,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageLossAmount: Double
         get() {
+            if (losingTrades.isEmpty()) return 0.0
             val totalLossAmount = losingTrades.sumOf { it.profit }
             return abs(totalLossAmount / losingTrades.size)
         }
@@ -52,6 +59,7 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
      */
     val averageLossPercent: Double
         get() {
+            if (losingTrades.isEmpty()) return 0.0
             val totalLossPercentage = losingTrades.sumOf { it.profitPercentage }
             return abs(totalLossPercentage / losingTrades.size)
         }
@@ -111,6 +119,24 @@ class BacktestReport(val winningTrades: List<Trade>, val losingTrades: List<Trad
             .groupBy { it.entryQuote.date!! }
             .entries
             .map { ReportEntry(date = it.key, profitPercentage =  it.value.sumOf { trade -> trade.profitPercentage }, trades = it.value) }
+
+    /**
+     * Number of missed opportunities due to position limits
+     */
+    val missedOpportunitiesCount: Int
+        get() = missedTrades.size
+
+    /**
+     * Total potential profit from missed trades
+     */
+    val missedProfitPercentage: Double
+        get() = if (missedTrades.isEmpty()) 0.0 else missedTrades.sumOf { it.profitPercentage }
+
+    /**
+     * Average profit percentage of missed trades
+     */
+    val missedAverageProfitPercentage: Double
+        get() = if (missedTrades.isEmpty()) 0.0 else missedProfitPercentage / missedTrades.size
 
     data class ReportEntry(
         val date: LocalDate,
