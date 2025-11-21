@@ -215,12 +215,9 @@ class BacktestService(
         // Step 1: Build date range - collect all unique trading dates from all stocks
         val allTradingDates = buildTradingDateRange(stocks, after, before)
 
-        val cooldownInfo = if (cooldownDays > 0) ", cooldown: $cooldownDays trading days" else ""
-        if (maxPositions != null) {
-            logger.info("Backtest with position limit: ${allTradingDates.size} trading days, max $maxPositions positions per day, using ${ranker.description()}$cooldownInfo")
-        } else {
-            logger.info("Backtest: ${allTradingDates.size} trading days, unlimited positions per day$cooldownInfo")
-        }
+        val positionInfo = maxPositions?.let { "max $it positions" } ?: "unlimited positions"
+        val cooldownInfo = if (cooldownDays > 0) ", ${cooldownDays}d cooldown" else ""
+        logger.info("Backtest: ${allTradingDates.size} trading days, $positionInfo$cooldownInfo")
 
         // Step 2: Process each date chronologically
         allTradingDates.forEach { currentDate ->
@@ -251,8 +248,6 @@ class BacktestService(
             }
 
             if (entriesForThisDate.isNotEmpty()) {
-                logger.debug("$currentDate: ${entriesForThisDate.size} potential entries")
-
                 // Step 2b: Rank entries by score (using strategy stock for ranking)
                 val rankedEntries = entriesForThisDate
                     .map { entry ->
@@ -265,17 +260,9 @@ class BacktestService(
                 val selectedEntries = rankedEntries.take(effectiveMaxPositions)
                 val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(effectiveMaxPositions) else emptyList()
 
-                if (maxPositions != null) {
-                    logger.debug("$currentDate: Selected ${selectedEntries.size} stocks (scores: ${selectedEntries.map { it.score.format(2) }})")
-                    if (notSelectedEntries.isNotEmpty()) {
-                        logger.debug("$currentDate: Missed ${notSelectedEntries.size} opportunities due to position limit")
-                    }
-                }
-
                 // Step 2d: Create trades for selected stocks
                 selectedEntries.forEach { rankedEntry ->
                     val entry = rankedEntry.entry
-                    val score = rankedEntry.score
 
                     // Check if we're not already in this trade (using trading quote)
                     if (trades.find { it.containsQuote(entry.tradingEntryQuote) } == null) {
@@ -288,15 +275,6 @@ class BacktestService(
                             if (cooldownDays > 0) {
                                 lastExitDate = trade.quotes.lastOrNull()?.date
                             }
-
-                            if (maxPositions != null) {
-                                val symbolInfo = if (entry.stockPair.underlyingSymbol != null) {
-                                    "${entry.stockPair.tradingStock.symbol} (${entry.stockPair.underlyingSymbol} signals)"
-                                } else {
-                                    entry.stockPair.tradingStock.symbol!!
-                                }
-                                logger.debug("  ✓ $symbolInfo (score: ${score.format(2)}, profit: ${trade.profitPercentage.format(2)}%)")
-                            }
                         }
                     }
                 }
@@ -304,7 +282,6 @@ class BacktestService(
                 // Step 2e: Track missed trades (not selected due to position limit)
                 notSelectedEntries.forEach { rankedEntry ->
                     val entry = rankedEntry.entry
-                    val score = rankedEntry.score
 
                     // Check if we're not already tracking this trade
                     if (missedTrades.find { it.containsQuote(entry.tradingEntryQuote) } == null &&
@@ -313,22 +290,13 @@ class BacktestService(
 
                         if (trade != null) {
                             missedTrades.add(trade)
-
-                            if (maxPositions != null) {
-                                val symbolInfo = if (entry.stockPair.underlyingSymbol != null) {
-                                    "${entry.stockPair.tradingStock.symbol} (${entry.stockPair.underlyingSymbol} signals)"
-                                } else {
-                                    entry.stockPair.tradingStock.symbol!!
-                                }
-                                logger.debug("  ✗ $symbolInfo (score: ${score.format(2)}, missed profit: ${trade.profitPercentage.format(2)}%)")
-                            }
                         }
                     }
                 }
             }
         }
 
-        logger.info("Backtest complete: ${trades.size} trades executed, ${missedTrades.size} opportunities missed due to position limits")
+        logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed")
 
         val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
         return BacktestReport(winningTrades, losingTrades, missedTrades)
