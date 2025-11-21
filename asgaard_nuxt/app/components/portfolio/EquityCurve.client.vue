@@ -18,7 +18,7 @@ async function fetchEquityCurve() {
 
   status.value = 'pending'
   try {
-    const data = await $fetch<EquityCurveData>(`/udgaard/api/portfolio/${props.portfolioId}/equity-curve`)
+    const data = await $fetch<EquityCurveData>(`/api/portfolio/${props.portfolioId}/equity-curve`)
     console.log('Equity curve data:', data)
     equityCurveData.value = data
     status.value = 'success'
@@ -63,66 +63,66 @@ const chartOptions = computed<ApexOptions>(() => {
       type: 'line',
       height: 400,
       toolbar: {
-        show: true,
+        show: true
       },
       background: 'transparent',
-      foreColor: isDark ? '#d1d5db' : '#6b7280',
+      foreColor: isDark ? '#d1d5db' : '#6b7280'
     },
     stroke: {
       curve: 'smooth',
-      width: 3,
+      width: 3
     },
     dataLabels: {
-      enabled: false,
+      enabled: false
     },
     legend: {
-      show: false,
+      show: false
     },
     xaxis: {
       categories: chartCategories.value,
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
+          colors: isDark ? '#9ca3af' : '#6b7280'
         },
         rotate: -45,
-        rotateAlways: true,
-      },
+        rotateAlways: true
+      }
     },
     yaxis: {
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
+          colors: isDark ? '#9ca3af' : '#6b7280'
         },
         formatter: (val: number) => {
           return val.toFixed(2) + '%'
-        },
+        }
       },
       title: {
         text: 'Return %',
         style: {
-          color: isDark ? '#9ca3af' : '#6b7280',
-        },
-      },
+          color: isDark ? '#9ca3af' : '#6b7280'
+        }
+      }
     },
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: isDark ? '#374151' : '#e5e7eb'
     },
     tooltip: {
       theme: isDark ? 'dark' : 'light',
       y: {
         formatter: (val: number) => {
           return val.toFixed(2) + '%'
-        },
-      },
+        }
+      }
     },
     colors: ['#10b981'],
     annotations: {
       yaxis: [{
         y: 0,
         borderColor: isDark ? '#6b7280' : '#9ca3af',
-        strokeDashArray: 4,
-      }],
-    },
+        strokeDashArray: 4
+      }]
+    }
   }
 })
 </script>
@@ -131,11 +131,13 @@ const chartOptions = computed<ApexOptions>(() => {
   <UCard>
     <template #header>
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold">Equity Curve</h3>
+        <h3 class="text-lg font-semibold">
+          Equity Curve
+        </h3>
         <UButton
           icon="i-lucide-refresh-cw"
           size="sm"
-          color="gray"
+          color="neutral"
           variant="ghost"
           :loading="status === 'pending'"
           @click="fetchEquityCurve"
@@ -151,13 +153,17 @@ const chartOptions = computed<ApexOptions>(() => {
     <!-- Error State -->
     <div v-else-if="status === 'error'" class="flex flex-col items-center justify-center h-96">
       <UIcon name="i-lucide-alert-circle" class="w-12 h-12 text-red-500 mb-2" />
-      <p class="text-muted">Failed to load equity curve</p>
+      <p class="text-muted">
+        Failed to load equity curve
+      </p>
     </div>
 
     <!-- Empty State -->
     <div v-else-if="!equityCurveData?.dataPoints || equityCurveData.dataPoints.length === 0" class="flex flex-col items-center justify-center h-96">
       <UIcon name="i-lucide-trending-up" class="w-12 h-12 text-muted mb-2" />
-      <p class="text-muted">No data available</p>
+      <p class="text-muted">
+        No data available
+      </p>
     </div>
 
     <!-- Chart -->

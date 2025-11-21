@@ -60,7 +60,7 @@ const series = computed(() => [
 
 const chartOptions = computed<ApexOptions>(() => {
   const isDark = colorMode.value === 'dark'
-  const exitQuote = props.trade.quotes[props.trade.quotes.length - 1]
+  const exitQuote = props.trade.quotes[props.trade.quotes.length - 1]!
 
   return {
     chart: {
@@ -110,7 +110,7 @@ const chartOptions = computed<ApexOptions>(() => {
         style: {
           colors: isDark ? '#9ca3af' : '#6b7280'
         },
-        formatter: (value) => `$${value.toFixed(2)}`
+        formatter: value => `$${value.toFixed(2)}`
       }
     },
     plotOptions: {

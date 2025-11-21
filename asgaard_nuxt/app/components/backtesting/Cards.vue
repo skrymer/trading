@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { averageLossPercent, averageWinPercent, edge, numberOfLosingTrades, numberOfWinningTrades, winRate } from '@/utils/backtesting';
-import type { Trade } from '@/types';
+import { averageLossPercent, averageWinPercent, edge, numberOfLosingTrades, numberOfWinningTrades, winRate } from '@/utils/backtesting'
+import type { Trade } from '@/types'
 
 const props = defineProps<{
   trades: Trade[] | undefined
@@ -17,7 +17,6 @@ const underlyingAssetPercentage = computed(() => {
   if (!props.trades || props.trades.length === 0) return 0
   return (underlyingAssetTrades.value / props.trades.length) * 100
 })
-
 </script>
 
 <template>
@@ -45,8 +44,8 @@ const underlyingAssetPercentage = computed(() => {
   <!-- Loaded content -->
   <div v-else class="space-y-4">
     <UPageGrid class="lg:grid-cols-6 gap-4 sm:gap-6 lg:gap-px w-full">
-      <BacktestingDataCard title="Number of wins" :content="numberOfWinningTrades(trades)"/>
-      <BacktestingDataCard title="Number of losses" :content="numberOfLosingTrades(trades)"/>
+      <BacktestingDataCard title="Number of wins" :content="numberOfWinningTrades(trades)" />
+      <BacktestingDataCard title="Number of losses" :content="numberOfLosingTrades(trades)" />
       <BacktestingDataCard title="Win rate" :content="(winRate(trades) * 100).toFixed(2) + '%'" />
       <BacktestingDataCard title="Average win" :content="averageWinPercent(trades).toFixed(2) + '%'" />
       <BacktestingDataCard title="Average loss" :content="averageLossPercent(trades).toFixed(2) + '%'" />
@@ -56,7 +55,7 @@ const underlyingAssetPercentage = computed(() => {
     <!-- Underlying Asset Info -->
     <UAlert
       v-if="underlyingAssetTrades > 0"
-      color="blue"
+      color="info"
       variant="subtle"
       icon="i-lucide-info"
     >

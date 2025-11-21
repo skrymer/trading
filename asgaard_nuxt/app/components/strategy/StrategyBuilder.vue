@@ -21,7 +21,7 @@ const selectedConditionType = ref<string>('')
 const conditionsByCategory = computed(() => {
   const groups = new Map<string, ConditionMetadata[]>()
 
-  props.availableConditions.forEach(condition => {
+  props.availableConditions.forEach((condition) => {
     if (!groups.has(condition.category)) {
       groups.set(condition.category, [])
     }
@@ -63,7 +63,7 @@ function addCondition() {
 
   // Create default condition config
   const defaultParams: Record<string, any> = {}
-  conditionMeta.parameters.forEach(param => {
+  conditionMeta.parameters.forEach((param) => {
     defaultParams[param.name] = param.defaultValue
   })
 
@@ -159,9 +159,9 @@ function getConditionMetadata(config: ConditionConfig): ConditionMetadata | unde
         </UInputMenu>
         <UButton
           icon="i-lucide-plus"
-          @click="addCondition"
           :disabled="!selectedConditionType"
           size="sm"
+          @click="addCondition"
         >
           Add
         </UButton>

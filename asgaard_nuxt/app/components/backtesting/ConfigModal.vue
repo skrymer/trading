@@ -26,10 +26,11 @@ const state = reactive<{
   positionLimitEnabled: boolean
   maxPositions: number
   ranker: string
+  cooldownDays: number
   refresh: boolean
   useUnderlyingAssets: boolean
-  detectedMappings: Array<{ symbol: string; underlying: string; canRemove: boolean }>
-  customOverrides: Array<{ symbol: string; underlying: string }>
+  detectedMappings: Array<{ symbol: string, underlying: string, canRemove: boolean }>
+  customOverrides: Array<{ symbol: string, underlying: string }>
 }>({
   stockSelection: 'all',
   specificStocks: [],
@@ -40,6 +41,7 @@ const state = reactive<{
   positionLimitEnabled: true,
   maxPositions: 10,
   ranker: 'Adaptive',
+  cooldownDays: 0,
   refresh: false,
   useUnderlyingAssets: true,
   detectedMappings: [],
@@ -53,15 +55,15 @@ const { data: stockSymbols } = useFetch<string[]>('/udgaard/api/stocks')
 const { data: availableStrategies } = useFetch<{
   entryStrategies: string[]
   exitStrategies: string[]
-}>('/udgaard/api/strategies')
+}>('/udgaard/api/backtest/strategies')
 
 // Fetch available rankers from backend
-const { data: availableRankers } = useFetch<string[]>('/udgaard/api/rankers')
+const { data: availableRankers } = useFetch<string[]>('/udgaard/api/backtest/rankers')
 
 // Fetch available conditions for custom strategies
-const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/api/conditions')
+const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/api/backtest/conditions')
 
-const stockOptions = ref<{ label: string; value: string }[]>([])
+const stockOptions = ref<{ label: string, value: string }[]>([])
 
 watch(stockSymbols, (newSymbols) => {
   if (newSymbols && newSymbols.length > 0) {
@@ -84,56 +86,57 @@ const rankerOptions = computed(() => {
 // Asset mapper - matches backend AssetMapper.kt
 const ASSET_MAPPER: Record<string, string> = {
   // Nasdaq QQQ
-  'TQQQ': 'QQQ',
-  'SQQQ': 'QQQ',
-  'QLD': 'QQQ',
-  'QID': 'QQQ',
+  TQQQ: 'QQQ',
+  SQQQ: 'QQQ',
+  QLD: 'QQQ',
+  QID: 'QQQ',
   // S&P 500 SPY
-  'UPRO': 'SPY',
-  'SPXU': 'SPY',
-  'SSO': 'SPY',
-  'SDS': 'SPY',
+  UPRO: 'SPY',
+  SPXL: 'SPY',
+  SPXU: 'SPY',
+  SSO: 'SPY',
+  SDS: 'SPY',
   // Semiconductors
-  'SOXL': 'SOXX',
-  'SOXS': 'SOXX',
+  SOXL: 'SOXX',
+  SOXS: 'SOXX',
   // Russell 2000
-  'TNA': 'IWM',
-  'TZA': 'IWM',
-  'UWM': 'IWM',
-  'TWM': 'IWM',
+  TNA: 'IWM',
+  TZA: 'IWM',
+  UWM: 'IWM',
+  TWM: 'IWM',
   // Dow Jones
-  'UDOW': 'DIA',
-  'SDOW': 'DIA',
+  UDOW: 'DIA',
+  SDOW: 'DIA',
   // Financials
-  'FAS': 'XLF',
-  'FAZ': 'XLF',
+  FAS: 'XLF',
+  FAZ: 'XLF',
   // Energy
-  'ERX': 'XLE',
-  'ERY': 'XLE',
+  ERX: 'XLE',
+  ERY: 'XLE',
   // Technology
-  'TECL': 'XLK',
-  'TECS': 'XLK',
+  TECL: 'XLK',
+  TECS: 'XLK',
   // Biotech
-  'LABU': 'XBI',
-  'LABD': 'XBI',
+  LABU: 'XBI',
+  LABD: 'XBI',
   // Gold
-  'NUGT': 'GDX',
-  'DUST': 'GDX',
+  NUGT: 'GDX',
+  DUST: 'GDX',
   // Oil
-  'GUSH': 'XOP',
-  'DRIP': 'XOP',
+  GUSH: 'XOP',
+  DRIP: 'XOP',
   // Emerging Markets
-  'EDC': 'EEM',
-  'EDZ': 'EEM'
+  EDC: 'EEM',
+  EDZ: 'EEM'
 }
 
 // Auto-populate detected mappings based on selected stocks
 watch(() => state.specificStocks, (newStocks) => {
   if (!state.useUnderlyingAssets) return
 
-  const detected: Array<{ symbol: string; underlying: string; canRemove: boolean }> = []
+  const detected: Array<{ symbol: string, underlying: string, canRemove: boolean }> = []
 
-  newStocks.forEach(symbol => {
+  newStocks.forEach((symbol) => {
     const underlying = ASSET_MAPPER[symbol.toUpperCase()]
     if (underlying && !state.detectedMappings.find(m => m.symbol === symbol)) {
       detected.push({ symbol, underlying, canRemove: true })
@@ -169,14 +172,14 @@ function onSubmit() {
 
   if (state.useUnderlyingAssets) {
     // Add detected mappings
-    state.detectedMappings.forEach(m => {
+    state.detectedMappings.forEach((m) => {
       if (m.symbol && m.underlying) {
         customUnderlyingMap[m.symbol.toUpperCase()] = m.underlying.toUpperCase()
       }
     })
 
     // Add custom overrides (takes priority)
-    state.customOverrides.forEach(o => {
+    state.customOverrides.forEach((o) => {
       if (o.symbol && o.underlying) {
         customUnderlyingMap[o.symbol.toUpperCase()] = o.underlying.toUpperCase()
       }
@@ -191,6 +194,7 @@ function onSubmit() {
     endDate: state.endDate || undefined,
     maxPositions: state.positionLimitEnabled ? state.maxPositions : undefined,
     ranker: state.positionLimitEnabled ? state.ranker : undefined,
+    cooldownDays: state.cooldownDays > 0 ? state.cooldownDays : undefined,
     refresh: state.refresh,
     useUnderlyingAssets: state.useUnderlyingAssets,
     customUnderlyingMap: Object.keys(customUnderlyingMap).length > 0 ? customUnderlyingMap : undefined
@@ -209,8 +213,8 @@ function cancel() {
   <UModal
     :open="open"
     title="Backtest Configuration"
-    @update:open="emit('update:open', $event)"
     :ui="{ content: 'sm:max-w-4xl max-h-[90vh] overflow-y-auto' }"
+    @update:open="emit('update:open', $event)"
   >
     <template #body>
       <UForm ref="form" :state="state" @submit="onSubmit">
@@ -250,7 +254,9 @@ function cancel() {
           <UCard>
             <template #header>
               <div class="flex items-center justify-between">
-                <h3 class="text-base font-semibold">Position Limiting</h3>
+                <h3 class="text-base font-semibold">
+                  Position Limiting
+                </h3>
                 <USwitch v-model="state.positionLimitEnabled" />
               </div>
             </template>
@@ -276,6 +282,34 @@ function cancel() {
             </div>
             <div v-else class="text-sm text-muted">
               Unlimited positions mode: All stocks matching the entry strategy will be entered
+            </div>
+          </UCard>
+
+          <!-- Cooldown Period Section -->
+          <UCard>
+            <template #header>
+              <h3 class="text-base font-semibold">
+                Cooldown Period
+              </h3>
+            </template>
+            <UFormField
+              label="Cooldown Days"
+              name="cooldownDays"
+              help="Trading days to wait after exiting any position before entering any new position (0 = disabled)"
+            >
+              <UInput
+                v-model.number="state.cooldownDays"
+                type="number"
+                min="0"
+                max="365"
+                placeholder="0"
+              />
+            </UFormField>
+            <div v-if="state.cooldownDays > 0" class="mt-2 text-sm text-muted">
+              After exiting any position, all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }} (global cooldown, excludes weekends/holidays)
+            </div>
+            <div v-else class="text-sm text-muted">
+              No cooldown: New positions can be entered immediately after exits if entry conditions are met
             </div>
           </UCard>
 
@@ -331,8 +365,12 @@ function cancel() {
             <template #header>
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-base font-semibold">Underlying Asset Signals</h3>
-                  <p class="text-xs text-muted mt-1">Use underlying assets for strategy evaluation</p>
+                  <h3 class="text-base font-semibold">
+                    Underlying Asset Signals
+                  </h3>
+                  <p class="text-xs text-muted mt-1">
+                    Use underlying assets for strategy evaluation
+                  </p>
                 </div>
                 <USwitch v-model="state.useUnderlyingAssets" />
               </div>
@@ -346,7 +384,9 @@ function cancel() {
               <!-- Auto-detected Mappings -->
               <div v-if="state.detectedMappings.length > 0" class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <h4 class="text-sm font-medium">Auto-Detected Mappings</h4>
+                  <h4 class="text-sm font-medium">
+                    Auto-Detected Mappings
+                  </h4>
                   <span class="text-xs text-muted">{{ state.detectedMappings.length }} detected</span>
                 </div>
                 <div class="space-y-2">
@@ -373,7 +413,9 @@ function cancel() {
               <!-- Custom Overrides -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <h4 class="text-sm font-medium">Custom Overrides</h4>
+                  <h4 class="text-sm font-medium">
+                    Custom Overrides
+                  </h4>
                   <UButton
                     icon="i-lucide-plus"
                     label="Add Override"
@@ -410,7 +452,9 @@ function cancel() {
                     />
                   </div>
                 </div>
-                <p v-else class="text-xs text-muted italic">No custom overrides. Click "Add Override" to create one.</p>
+                <p v-else class="text-xs text-muted italic">
+                  No custom overrides. Click "Add Override" to create one.
+                </p>
               </div>
             </div>
 
@@ -435,7 +479,9 @@ function cancel() {
             <template #description>
               <div class="space-y-1">
                 <p>Backtesting all stocks may take 5-10 minutes or longer depending on the date range.</p>
-                <p class="text-sm">Consider selecting specific stocks for faster results.</p>
+                <p class="text-sm">
+                  Consider selecting specific stocks for faster results.
+                </p>
               </div>
             </template>
           </UAlert>
@@ -469,8 +515,8 @@ function cancel() {
         />
         <UButton
           label="Run Backtest"
-          @click="form?.submit()"
           :disabled="state.stockSelection === 'specific' && state.specificStocks.length === 0"
+          @click="form?.submit()"
         />
       </div>
     </template>

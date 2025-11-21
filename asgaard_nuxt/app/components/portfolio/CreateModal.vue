@@ -5,7 +5,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'create': [data: { name: string; initialBalance: number; currency: string }]
+  'create': [data: { name: string, initialBalance: number, currency: string }]
 }>()
 
 const name = ref('')
@@ -39,8 +39,8 @@ function handleClose() {
 <template>
   <UModal
     :open="open"
-    @update:open="emit('update:open', $event)"
     title="Create Portfolio"
+    @update:open="emit('update:open', $event)"
   >
     <template #body>
       <div class="space-y-4">

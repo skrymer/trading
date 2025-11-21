@@ -3,7 +3,7 @@ import type { ApexOptions } from 'apexcharts'
 
 export interface BarChartSeries {
   name: string
-  data: number[] | { x: string | number; y: number }[]
+  data: number[] | { x: string | number, y: number }[]
   color?: string
 }
 
@@ -29,7 +29,7 @@ const props = withDefaults(defineProps<BarChartProps>(), {
   stacked: false,
   showLegend: true,
   showDataLabels: false,
-  distributed: false,
+  distributed: false
 })
 
 const emit = defineEmits<{
@@ -78,35 +78,35 @@ const chartOptions = computed<ApexOptions>(() => {
     categories: props.categories,
     labels: {
       style: {
-        colors: isDark ? '#9ca3af' : '#6b7280',
-      },
-    },
+        colors: isDark ? '#9ca3af' : '#6b7280'
+      }
+    }
   }
 
   if (props.xAxisLabel) {
     xaxisConfig.title = {
       text: props.xAxisLabel,
       style: {
-        color: isDark ? '#d1d5db' : '#6b7280',
-      },
+        color: isDark ? '#d1d5db' : '#6b7280'
+      }
     }
   }
 
   const yaxisConfig: any = {
     labels: {
       style: {
-        colors: isDark ? '#9ca3af' : '#6b7280',
+        colors: isDark ? '#9ca3af' : '#6b7280'
       },
-      formatter: (val: number) => val.toFixed(2),
-    },
+      formatter: (val: number) => val.toFixed(2)
+    }
   }
 
   if (props.yAxisLabel) {
     yaxisConfig.title = {
       text: props.yAxisLabel,
       style: {
-        color: isDark ? '#d1d5db' : '#6b7280',
-      },
+        color: isDark ? '#d1d5db' : '#6b7280'
+      }
     }
   }
 
@@ -115,7 +115,7 @@ const chartOptions = computed<ApexOptions>(() => {
       type: 'bar',
       height: props.height,
       toolbar: {
-        show: true,
+        show: true
       },
       background: 'transparent',
       foreColor: isDark ? '#d1d5db' : '#6b7280',
@@ -129,16 +129,16 @@ const chartOptions = computed<ApexOptions>(() => {
           if (config.dataPointIndex !== undefined && config.dataPointIndex >= 0) {
             emit('barClick', config.dataPointIndex, config.seriesIndex || 0)
           }
-        },
-      },
+        }
+      }
     },
     title: props.title
       ? {
           text: props.title,
           align: 'left',
           style: {
-            color: isDark ? '#f3f4f6' : '#111827',
-          },
+            color: isDark ? '#f3f4f6' : '#111827'
+          }
         }
       : undefined,
     plotOptions: {
@@ -147,53 +147,53 @@ const chartOptions = computed<ApexOptions>(() => {
         borderRadius: 4,
         distributed: props.distributed,
         dataLabels: {
-          position: 'top',
+          position: 'top'
         },
         columnWidth: '60%',
-        barHeight: '100%',
-      },
+        barHeight: '100%'
+      }
     },
     states: {
       hover: {
         filter: {
-          type: 'none',
-        },
+          type: 'none'
+        }
       },
       active: {
         filter: {
-          type: 'none',
-        },
-      },
+          type: 'none'
+        }
+      }
     },
     dataLabels: {
       enabled: props.showDataLabels,
       style: {
-        colors: [isDark ? '#f3f4f6' : '#111827'],
+        colors: [isDark ? '#f3f4f6' : '#111827']
       },
-      formatter: (val: number) => val.toFixed(2),
+      formatter: (val: number) => val.toFixed(2)
     },
     legend: {
       show: props.showLegend,
       labels: {
-        colors: isDark ? '#d1d5db' : '#6b7280',
-      },
+        colors: isDark ? '#d1d5db' : '#6b7280'
+      }
     },
     xaxis: xaxisConfig,
     yaxis: yaxisConfig,
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: isDark ? '#374151' : '#e5e7eb'
     },
     tooltip: {
       theme: isDark ? 'dark' : 'light',
       y: {
         formatter: (val: number) => val.toFixed(2),
         title: {
-          formatter: (seriesName: string) => seriesName + ' (click to view details)',
-        },
+          formatter: (seriesName: string) => seriesName + ' (click to view details)'
+        }
       },
-      custom: undefined,
+      custom: undefined
     },
-    colors: props.barColors || (props.series.map(s => s.color).filter(Boolean) as string[]),
+    colors: props.barColors || (props.series.map(s => s.color).filter(Boolean) as string[])
   }
 })
 </script>
@@ -203,8 +203,8 @@ const chartOptions = computed<ApexOptions>(() => {
     <ClientOnly>
       <div
         ref="chartRef"
-        @click="handleChartClick"
         class="cursor-pointer bar-chart-wrapper relative"
+        @click="handleChartClick"
       >
         <apexchart
           type="bar"

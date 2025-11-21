@@ -11,13 +11,13 @@ export interface StockChartProps {
   title?: string
   height?: number | string
   showVolume?: boolean
-  volumeData?: { x: Date; y: number }[]
+  volumeData?: { x: Date, y: number }[]
 }
 
 const props = withDefaults(defineProps<StockChartProps>(), {
   title: 'Stock Chart',
   height: 400,
-  showVolume: false,
+  showVolume: false
 })
 
 const colorMode = useColorMode()
@@ -27,15 +27,15 @@ const series = computed(() => {
     {
       name: 'candlestick',
       type: 'candlestick',
-      data: props.data,
-    },
+      data: props.data
+    }
   ]
 
   if (props.showVolume && props.volumeData) {
     chartSeries.push({
       name: 'volume',
       type: 'bar',
-      data: props.volumeData,
+      data: props.volumeData
     } as any)
   }
 
@@ -57,69 +57,69 @@ const chartOptions = computed<ApexOptions>(() => {
           zoomin: true,
           zoomout: true,
           pan: true,
-          reset: true,
-        },
+          reset: true
+        }
       },
       background: 'transparent',
-      foreColor: isDark ? '#d1d5db' : '#6b7280',
+      foreColor: isDark ? '#d1d5db' : '#6b7280'
     },
     title: {
       text: props.title,
       align: 'left',
       style: {
-        color: isDark ? '#f3f4f6' : '#111827',
-      },
+        color: isDark ? '#f3f4f6' : '#111827'
+      }
     },
     xaxis: {
       type: 'datetime',
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
-        },
-      },
+          colors: isDark ? '#9ca3af' : '#6b7280'
+        }
+      }
     },
     yaxis: [
       {
         tooltip: {
-          enabled: true,
+          enabled: true
         },
         labels: {
           style: {
-            colors: isDark ? '#9ca3af' : '#6b7280',
-          },
-        },
+            colors: isDark ? '#9ca3af' : '#6b7280'
+          }
+        }
       },
       ...(props.showVolume
         ? [
             {
               opposite: true,
               labels: {
-                show: false,
-              },
-            },
+                show: false
+              }
+            }
           ]
-        : []),
+        : [])
     ],
     plotOptions: {
       candlestick: {
         colors: {
           upward: '#10b981', // green
-          downward: '#ef4444', // red
+          downward: '#ef4444' // red
         },
         wick: {
-          useFillColor: true,
-        },
+          useFillColor: true
+        }
       },
       bar: {
-        columnWidth: '80%',
-      },
+        columnWidth: '80%'
+      }
     },
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: isDark ? '#374151' : '#e5e7eb'
     },
     tooltip: {
-      theme: isDark ? 'dark' : 'light',
-    },
+      theme: isDark ? 'dark' : 'light'
+    }
   }
 })
 </script>

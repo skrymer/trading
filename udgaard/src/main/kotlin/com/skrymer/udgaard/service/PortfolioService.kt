@@ -234,7 +234,7 @@ class PortfolioService(
         // Calculate annualized return
         val annualizedReturn = calculateAnnualizedReturn(portfolio)
 
-        // Find largest win and loss
+        // Find the largest win and loss
         val largestWin = wins.maxOfOrNull { it.profitPercentage ?: 0.0 }
         val largestLoss = losses.minOfOrNull { it.profitPercentage ?: 0.0 }
 

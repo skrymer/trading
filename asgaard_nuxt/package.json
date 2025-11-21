@@ -8,6 +8,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
+    "lint-fix": "eslint . --fix",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "@vueuse/nuxt": "^13.9.0",
     "apexcharts": "^5.3.5",
     "date-fns": "^4.1.0",
+    "lightweight-charts": "^5.0.9",
     "nuxt": "^4.1.2",
     "vue3-apexcharts": "^1.10.0",
     "zod": "^4.1.11"

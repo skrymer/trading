@@ -123,7 +123,7 @@ The desktop app uses a three-process architecture:
 - Unovis 1.6.1 for advanced charts
 - date-fns 4.1.0 for date handling
 - Zod 4.1.11 for validation
-- pnpm 10.18.0 package manager
+- npm package manager
 
 **Key Components:**
 
@@ -340,12 +340,12 @@ trading/
 1. **Install dependencies:**
    ```bash
    cd asgaard_nuxt
-   pnpm install
+   npm install
    ```
 
 2. **Run dev server:**
    ```bash
-   pnpm dev
+   npm run dev
    ```
    Runs on http://localhost:3000
 
@@ -409,8 +409,8 @@ cd udgaard
 **Frontend:**
 ```bash
 cd asgaard_nuxt
-pnpm typecheck  # TypeScript validation
-pnpm lint       # ESLint
+npm run typecheck  # TypeScript validation
+npm run lint       # ESLint
 ```
 
 ---
@@ -610,8 +610,8 @@ Access via `useRuntimeConfig()`:
 - **Missing secure.properties**: Create file with Ovtlyr credentials
 
 ### Frontend Issues
-- **Type errors**: Run `pnpm typecheck` to identify issues
-- **ESLint errors**: Run `pnpm lint` and fix issues
+- **Type errors**: Run `npm run typecheck` to identify issues
+- **ESLint errors**: Run `npm run lint` and fix issues
 - **Component not found**: Ensure it's in `components/` directory for auto-import
 - **API connection**: Check that backend is running on port 8080
 

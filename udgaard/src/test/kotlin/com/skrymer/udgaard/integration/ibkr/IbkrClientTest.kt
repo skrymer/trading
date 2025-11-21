@@ -2,18 +2,21 @@ package com.skrymer.udgaard.integration.ibkr
 
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
 internal class IbkrClientTest {
+  private val logger = LoggerFactory.getLogger(IbkrClientTest::class.java)
+
   @Autowired
   lateinit var ibkrClient: IBKRClient
 
 //  @Test
   fun `search contract`() {
     val result = ibkrClient.searchContract("pltr")
-    println(result)
+    logger.info("Search contract result: {}", result)
   }
 
 //  @Test
@@ -23,6 +26,6 @@ internal class IbkrClientTest {
     val optSection = nasdaqPltr?.sections?.first{ it.secType == "OPT"}
     val firstExpiryMonth = optSection?.months?.split(";")?.first()
     val result = ibkrClient.optionsChain(nasdaqPltr?.conid ?: "", SectionType.OPT, firstExpiryMonth ?: "", "")
-    println(result)
+    logger.info("Options chain result: {}", result)
   }
 }

@@ -203,6 +203,12 @@ class StockQuote {
   var atr: Double = 0.0
 
   /**
+   * Trading volume for this quote.
+   * Number of shares traded during the period.
+   */
+  var volume: Long = 0L
+
+  /**
    * The donchian upper band value with a look-back period of 5.
    */
   var donchianUpperBand: Double = 0.0
@@ -260,6 +266,7 @@ class StockQuote {
     marketDonkeyChannelScore: Int = 0,
     previousQuoteDate: LocalDate? = null,
     atr: Double = 0.0,
+    volume: Long = 0L,
     sectorStocksInDowntrend: Int = 0,
     sectorStocksInUptrend: Int = 0,
     sectorBullPercentage: Double = 0.0,
@@ -303,6 +310,7 @@ class StockQuote {
     this.marketDonkeyChannelScore = marketDonkeyChannelScore
     this.previousQuoteDate = previousQuoteDate
     this.atr = atr
+    this.volume = volume
     this.sectorStocksInUptrend = sectorStocksInUptrend
     this.sectorStocksInDowntrend = sectorStocksInDowntrend
     this.sectorBullPercentage = sectorBullPercentage

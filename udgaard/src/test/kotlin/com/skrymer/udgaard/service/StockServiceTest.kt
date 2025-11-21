@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -12,22 +13,28 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.util.*
 
 class StockServiceTest() {
+  private val logger = LoggerFactory.getLogger(StockServiceTest::class.java)
 
   private lateinit var stockService: StockService
   private lateinit var stockRepository: StockRepository
   private lateinit var ovtlyrClient: OvtlyrClient
   private lateinit var marketBreadthRepository: MarketBreadthRepository
+  private lateinit var orderBlockCalculator: OrderBlockCalculator
+  private lateinit var alphaVantageClient: AlphaVantageClient
 
   @BeforeEach
   fun setup() {
     stockRepository = mock<StockRepository>()
     ovtlyrClient = mock<OvtlyrClient>()
     marketBreadthRepository = mock<MarketBreadthRepository>()
-    stockService = StockService(stockRepository, ovtlyrClient, marketBreadthRepository)
+    orderBlockCalculator = mock<OrderBlockCalculator>()
+    alphaVantageClient = mock<AlphaVantageClient>()
+    stockService = StockService(stockRepository, ovtlyrClient, marketBreadthRepository, orderBlockCalculator, alphaVantageClient)
   }
 
   @Test
@@ -50,7 +57,7 @@ class StockServiceTest() {
         LocalDate.of(2024, 1, 1),
         LocalDate.now()
       )
-    println(backtestReport)
+    logger.info("Backtest report: {}", backtestReport)
   }
 
   @Test
@@ -391,5 +398,355 @@ class StockServiceTest() {
     val trade = report.trades.first()
     Assertions.assertEquals("AAPL", trade.stockSymbol)
     Assertions.assertNull(trade.underlyingSymbol, "AAPL should not have underlying")
+  }
+
+  // ===== COOLDOWN PERIOD TESTS =====
+
+  @Test
+  fun `should allow immediate re-entry when cooldown is disabled (0 days)`() {
+    // Test that with cooldown = 0, stocks can be re-entered immediately after exit
+
+    // Entry condition: closePrice >= 100
+    // Exit condition: openPrice < 100
+    // Timeline:
+    // Day 1: Entry (closePrice = 100)
+    // Day 2: Exit (openPrice = 99)
+    // Day 3: Entry again (closePrice = 100) - should be allowed with cooldown = 0
+    // Day 4: Exit again (openPrice = 99)
+
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote4 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4))
+
+    val stock = Stock("TEST", "XLK", listOf(quote1, quote2, quote3, quote4), emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stock),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 0  // Cooldown disabled
+    )
+
+    // Should have 2 trades (both entries allowed)
+    Assertions.assertEquals(2, report.totalTrades, "Should allow immediate re-entry with cooldown disabled")
+
+    // Verify both trades are from the same stock
+    Assertions.assertEquals("TEST", report.trades[0].stockSymbol)
+    Assertions.assertEquals("TEST", report.trades[1].stockSymbol)
+  }
+
+  @Test
+  fun `should block re-entry when within cooldown period`() {
+    // Test that cooldown blocks re-entry within the specified period
+
+    // Timeline with 5 TRADING day cooldown:
+    // Jan 1: Entry (trading day 0)
+    // Jan 2: Exit (trading day 1 - cooldown starts)
+    // Jan 3: Would re-enter but BLOCKED (trading day 2 - only 1 trading day since exit)
+    // Jan 4: Would re-enter but BLOCKED (trading day 3 - only 2 trading days since exit)
+    // Jan 5: BLOCKED (trading day 4 - only 3 trading days)
+    // Jan 6: BLOCKED (trading day 5 - only 4 trading days)
+    // Jan 7: Entry ALLOWED (trading day 6 - exactly 5 trading days since Jan 2)
+    // Jan 8: Exit
+
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
+    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
+    val quote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val quote7 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
+    val quote8 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 8))
+
+    val stock = Stock("TEST", "XLK", listOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8), emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stock),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 5  // 5 TRADING day cooldown
+    )
+
+    // Should have 2 trades:
+    // Trade 1: Entry Jan 1, Exit Jan 2
+    // Trade 2: Entry Jan 7 (5 trading days after Jan 2), Exit Jan 8
+    Assertions.assertEquals(2, report.totalTrades, "Should block re-entry during cooldown period")
+
+    val trade1 = report.trades[0]
+    val trade2 = report.trades[1]
+
+    Assertions.assertEquals(LocalDate.of(2025, 1, 1), trade1.entryQuote.date)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 7), trade2.entryQuote.date, "Second entry should be on day 7, which is 5 trading days after Jan 2 exit")
+  }
+
+  @Test
+  fun `should allow re-entry after cooldown period expires`() {
+    // Test that cooldown allows re-entry exactly when the period expires
+
+    // Timeline with 3-day cooldown:
+    // Day 1: Entry
+    // Day 2: Exit
+    // Day 3: BLOCKED (1 day since exit)
+    // Day 4: BLOCKED (2 days since exit)
+    // Day 5: ALLOWED (3 days since exit, cooldown expired)
+
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
+    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
+    val quote6 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6))
+
+    val stock = Stock("TEST", "XLK", listOf(quote1, quote2, quote3, quote4, quote5, quote6), emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stock),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 3
+    )
+
+    Assertions.assertEquals(2, report.totalTrades)
+
+    val trade2 = report.trades[1]
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 5),
+      trade2.entryQuote.date,
+      "Should allow re-entry exactly 3 days after exit"
+    )
+  }
+
+  @Test
+  fun `should enforce global cooldown blocking all stocks after any exit`() {
+    // Test that cooldown is GLOBAL - after ANY exit, ALL entries are blocked
+
+    // Timeline with 3 TRADING day cooldown:
+    // Trading day 0 (Jan 1): Stock A entry (no previous exits, allowed)
+    // Trading day 1 (Jan 2): Stock A exit (global cooldown starts)
+    // Trading day 2 (Jan 3): Stock B would enter but BLOCKED (only 1 trading day since exit)
+    // Trading day 3 (Jan 4): Stock B would enter but BLOCKED (only 2 trading days)
+    // Trading day 4 (Jan 5): Stock B entry ALLOWED (3 trading days since Jan 2 exit)
+    // Trading day 5 (Jan 6): Stock B exit (new global cooldown starts)
+    // Trading day 6 (Jan 7): Stock A would re-enter but BLOCKED (only 1 trading day since Jan 6)
+    // Trading day 7 (Jan 8): BLOCKED (only 2 trading days)
+    // Trading day 8 (Jan 9): Stock A re-entry ALLOWED (3 trading days since Jan 6 exit)
+
+    val stockAQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
+    val stockAQuote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
+    val stockAQuote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9))
+    val stockAQuote6 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 10))
+
+    val stockBQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
+    val stockBQuote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
+    val stockBQuote4 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6))
+
+    val stockA = Stock("STOCK_A", "XLK", listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6), emptyList())
+    val stockB = Stock("STOCK_B", "XLK", listOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4), emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stockA, stockB),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 3
+    )
+
+    // Total should be 3 trades:
+    // Stock A: Jan 1-2 (first entry, no cooldown)
+    // Stock B: Jan 5-6 (3 trading days after Stock A exit)
+    // Stock A: Jan 9-10 (3 trading days after Stock B exit)
+    Assertions.assertEquals(3, report.totalTrades, "Should have 3 trades total with global cooldown")
+
+    val stockATrades = report.trades.filter { it.stockSymbol == "STOCK_A" }
+    Assertions.assertEquals(2, stockATrades.size, "Stock A should have 2 trades")
+    Assertions.assertEquals(LocalDate.of(2025, 1, 1), stockATrades[0].entryQuote.date)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 9), stockATrades[1].entryQuote.date)
+
+    val stockBTrades = report.trades.filter { it.stockSymbol == "STOCK_B" }
+    Assertions.assertEquals(1, stockBTrades.size, "Stock B should have 1 trade")
+    Assertions.assertEquals(LocalDate.of(2025, 1, 5), stockBTrades[0].entryQuote.date)
+  }
+
+  @Test
+  fun `should handle multiple exits and track most recent for cooldown`() {
+    // Test that cooldown tracks the most recent exit, not the first exit
+
+    // Timeline with 5 TRADING day cooldown (using consecutive dates):
+    // Trading day 0 (Jan 1): Entry 1
+    // Trading day 1 (Jan 2): Exit 1 (cooldown starts)
+    // Trading days 2-5: BLOCKED (Jan 3-6, only 1-4 trading days since exit)
+    // Trading day 6 (Jan 7): Entry 2 ALLOWED (5 trading days since Jan 2)
+    // Trading day 7 (Jan 8): Exit 2 (new cooldown starts)
+    // Trading days 8-11: BLOCKED (Jan 9-12, only 1-4 trading days since exit)
+    // Trading day 12 (Jan 13): Entry 3 ALLOWED (5 trading days since Jan 8)
+
+    // Create quotes for all consecutive days
+    val quotes = (1..15).map { day ->
+      val date = LocalDate.of(2025, 1, day)
+      when {
+        day == 2 || day == 8 || day == 14 -> StockQuote(closePrice = 101.0, openPrice = 99.0, date = date) // Exit days
+        else -> StockQuote(closePrice = 100.0, openPrice = 100.0, date = date) // Entry days
+      }
+    }
+
+    val stock = Stock("TEST", "XLK", quotes, emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stock),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 5
+    )
+
+    // Should have 3 trades
+    Assertions.assertEquals(3, report.totalTrades, "Should track most recent exit for cooldown")
+
+    Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 7), report.trades[1].entryQuote.date, "Second entry 5 trading days after first exit")
+    Assertions.assertEquals(LocalDate.of(2025, 1, 13), report.trades[2].entryQuote.date, "Third entry 5 trading days after second exit")
+  }
+
+  @Test
+  fun `should work with cooldown and position limiting together`() {
+    // Test that global cooldown works correctly with position limiting
+
+    // Two stocks with 5 TRADING day cooldown and max 1 position:
+    // Note: Lower heatmap = better score (HeatmapRanker uses 100 - heatmap)
+    // Trading day 0 (Jan 1): Both trigger, Stock A wins (heatmap 20 beats 60), Stock B blocked by position limit
+    // Trading day 1 (Jan 2): Stock A exits (global cooldown starts)
+    // Trading days 2-5 (Jan 3-6): Both BLOCKED by cooldown (only 1-4 trading days since exit)
+    // Trading day 6 (Jan 7): Both can enter (5 trading days passed), Stock A wins again (better heatmap)
+    // Trading day 7 (Jan 8): Stock A exits
+
+    val stockAQuotes = listOf(
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1)),
+      StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2)),
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3)),
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 4)),
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 5)),
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6)),
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)),
+      StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8))
+    )
+
+    val stockBQuotes = listOf(
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 1)),
+      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 7))
+    )
+
+    val stockA = Stock("STOCK_A", "XLK", stockAQuotes, emptyList())
+    val stockB = Stock("STOCK_B", "XLK", stockBQuotes, emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stockA, stockB),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 1,  // Only 1 position at a time
+      cooldownDays = 5
+    )
+
+    // Should have 2 trades (both Stock A due to better heatmap):
+    // Trade 1: Stock A (Jan 1-2) - wins position limit on trading day 0
+    // Trade 2: Stock A (Jan 7-8) - wins position limit on trading day 6 (5 trading days after exit)
+    Assertions.assertEquals(2, report.totalTrades)
+    Assertions.assertEquals("STOCK_A", report.trades[0].stockSymbol)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date)
+    Assertions.assertEquals("STOCK_A", report.trades[1].stockSymbol)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 7), report.trades[1].entryQuote.date)
+  }
+
+  @Test
+  fun `should not apply cooldown to first entry of a stock`() {
+    // Test that cooldown only applies after an exit has occurred
+
+    // Timeline:
+    // Day 1: First entry for stock (no previous exits, should always be allowed)
+    // Day 2: Exit
+    // Day 3: Re-entry blocked by cooldown
+
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+
+    val stock = Stock("TEST", "XLK", listOf(quote1, quote2, quote3), emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stock),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 10  // Long cooldown
+    )
+
+    // Should have 1 trade (first entry allowed, second blocked by cooldown)
+    Assertions.assertEquals(1, report.totalTrades, "First entry should always be allowed regardless of cooldown")
+    Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date)
+  }
+
+  @Test
+  fun `should count trading days not calendar days for cooldown`() {
+    // Test that cooldown counts TRADING days, not calendar days
+    // This test uses dates with gaps to simulate weekends/holidays
+
+    // Timeline (5 trading day cooldown):
+    // Mon Jan 6: Entry
+    // Tue Jan 7: Exit (cooldown starts - need 5 TRADING days)
+    // Wed Jan 8: Trading day 1 since exit - BLOCKED
+    // Thu Jan 9: Trading day 2 since exit - BLOCKED
+    // Fri Jan 10: Trading day 3 since exit - BLOCKED
+    // [Sat Jan 11, Sun Jan 12: Weekend - NOT trading days]
+    // Mon Jan 13: Trading day 4 since exit - BLOCKED
+    // Tue Jan 14: Trading day 5 since exit - ALLOWED (exactly 5 trading days)
+    // Note: Jan 14 is 7 CALENDAR days but only 5 TRADING days since Jan 7 exit
+
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))  // Mon
+    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))   // Tue - Exit
+    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))  // Wed - Day 1, blocked
+    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9))  // Thu - Day 2, blocked
+    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 10)) // Fri - Day 3, blocked
+    // Weekend: No quotes for Jan 11, 12
+    val quote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 13)) // Mon - Day 4, blocked
+    val quote7 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 14)) // Tue - Day 5, ALLOWED
+    val quote8 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 15))  // Wed - Exit
+
+    val stock = Stock("TEST", "XLK", listOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8), emptyList())
+
+    val report = stockService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf(stock),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      cooldownDays = 5  // 5 TRADING days
+    )
+
+    // Should have 2 trades
+    Assertions.assertEquals(2, report.totalTrades, "Should count trading days, not calendar days")
+
+    val trade1 = report.trades[0]
+    val trade2 = report.trades[1]
+
+    Assertions.assertEquals(LocalDate.of(2025, 1, 6), trade1.entryQuote.date, "First entry")
+    Assertions.assertEquals(LocalDate.of(2025, 1, 7), trade1.quotes.last().date, "First exit")
+
+    // Second entry should be on Jan 14 (5 trading days after Jan 7 exit)
+    // Even though it's 7 calendar days, the weekend doesn't count
+    Assertions.assertEquals(LocalDate.of(2025, 1, 14), trade2.entryQuote.date, "Second entry should be exactly 5 trading days after exit")
   }
 }

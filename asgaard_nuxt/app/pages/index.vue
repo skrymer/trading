@@ -14,7 +14,9 @@
     <template #body>
       <div class="max-w-4xl mx-auto py-12 px-6">
         <div class="text-center mb-12">
-          <h1 class="text-4xl font-bold mb-4">Trading Strategy Backtesting</h1>
+          <h1 class="text-4xl font-bold mb-4">
+            Trading Strategy Backtesting
+          </h1>
           <p class="text-xl text-muted">
             Advanced backtesting platform for systematic trading strategies
           </p>
@@ -23,7 +25,9 @@
         <div class="space-y-8">
           <UCard>
             <template #header>
-              <h2 class="text-2xl font-semibold">About This Platform</h2>
+              <h2 class="text-2xl font-semibold">
+                About This Platform
+              </h2>
             </template>
             <div class="prose prose-sm max-w-none space-y-4">
               <p>
@@ -31,7 +35,9 @@
                 Analyze historical performance, optimize entry and exit strategies, and evaluate risk-adjusted returns with leverage.
               </p>
 
-              <h3 class="text-lg font-semibold mt-6 mb-3">Key Features</h3>
+              <h3 class="text-lg font-semibold mt-6 mb-3">
+                Key Features
+              </h3>
               <ul class="space-y-2">
                 <li><strong>Strategy Testing:</strong> Backtest multiple entry and exit strategies including PlanEtf, PlanAlpha, and custom strategies</li>
                 <li><strong>Leverage Analysis:</strong> Simulate performance with 1x to 5x leverage to understand risk and return profiles</li>
@@ -41,10 +47,14 @@
                 <li><strong>Market Context:</strong> Incorporates market breadth, heatmaps, EMAs, ATR, and order blocks</li>
               </ul>
 
-              <h3 class="text-lg font-semibold mt-6 mb-3">Strategy Components</h3>
+              <h3 class="text-lg font-semibold mt-6 mb-3">
+                Strategy Components
+              </h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div class="p-4 bg-elevated rounded-lg">
-                  <h4 class="font-semibold mb-2">Entry Strategies</h4>
+                  <h4 class="font-semibold mb-2">
+                    Entry Strategies
+                  </h4>
                   <ul class="text-sm space-y-1 text-muted">
                     <li>• PlanEtf - Multi-factor entry with order blocks</li>
                     <li>• PlanAlpha - Alpha-focused systematic entry</li>
@@ -53,7 +63,9 @@
                   </ul>
                 </div>
                 <div class="p-4 bg-elevated rounded-lg">
-                  <h4 class="font-semibold mb-2">Exit Strategies</h4>
+                  <h4 class="font-semibold mb-2">
+                    Exit Strategies
+                  </h4>
                   <ul class="text-sm space-y-1 text-muted">
                     <li>• PlanEtf - Composite exit with profit targets</li>
                     <li>• PlanMoney - Money management exits</li>
@@ -63,7 +75,9 @@
                 </div>
               </div>
 
-              <h3 class="text-lg font-semibold mt-6 mb-3">Recent Performance</h3>
+              <h3 class="text-lg font-semibold mt-6 mb-3">
+                Recent Performance
+              </h3>
               <p class="text-sm text-muted">
                 <strong>PlanEtf Strategy (2020-2025):</strong> Starting with $100,000, the PlanEtf strategy achieved
                 $248,248 (+148%) with QQQ (1x) or $1,241,994 (+1,142%) with TQQQ (3x leverage).

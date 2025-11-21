@@ -17,7 +17,7 @@ const parameters = reactive<Record<string, any>>({})
 
 // Set default values for all parameters
 onMounted(() => {
-  props.condition.parameters.forEach(param => {
+  props.condition.parameters.forEach((param) => {
     if (props.config.parameters?.[param.name] !== undefined) {
       parameters[param.name] = props.config.parameters[param.name]
     } else {
@@ -39,21 +39,22 @@ function updateParameter(name: string, value: any) {
   emitUpdate()
 }
 
-// Get category color
-function getCategoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    'Stock': 'blue',
-    'SPY': 'green',
-    'Market': 'purple',
-    'Sector': 'orange',
-    'OrderBlock': 'pink',
-    'RiskManagement': 'yellow',
-    'Signal': 'red',
-    'Trend': 'indigo',
-    'ProfitTaking': 'teal',
-    'StopLoss': 'rose'
+// Get category color - using NuxtUI 4 valid colors
+type BadgeColor = 'error' | 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'neutral'
+function getCategoryColor(category: string): BadgeColor {
+  const colors: Record<string, BadgeColor> = {
+    Stock: 'info',
+    SPY: 'success',
+    Market: 'secondary',
+    Sector: 'warning',
+    OrderBlock: 'primary',
+    RiskManagement: 'warning',
+    Signal: 'error',
+    Trend: 'info',
+    ProfitTaking: 'success',
+    StopLoss: 'error'
   }
-  return colors[category] || 'gray'
+  return colors[category] || 'neutral'
 }
 </script>
 
@@ -62,12 +63,16 @@ function getCategoryColor(category: string): string {
     <div class="flex items-start justify-between">
       <div class="flex-1">
         <div class="flex items-center gap-2 mb-1">
-          <h4 class="font-medium text-sm">{{ condition.displayName }}</h4>
+          <h4 class="font-medium text-sm">
+            {{ condition.displayName }}
+          </h4>
           <UBadge :color="getCategoryColor(condition.category)" size="xs">
             {{ condition.category }}
           </UBadge>
         </div>
-        <p class="text-xs text-muted">{{ condition.description }}</p>
+        <p class="text-xs text-muted">
+          {{ condition.description }}
+        </p>
       </div>
       <UButton
         v-if="removable"
@@ -88,21 +93,21 @@ function getCategoryColor(category: string): string {
         <UInput
           v-if="param.type === 'number' && !param.options"
           :model-value="parameters[param.name]"
-          @update:model-value="updateParameter(param.name, $event)"
           type="number"
           :min="param.min"
           :max="param.max"
           size="xs"
+          @update:model-value="updateParameter(param.name, $event)"
         />
 
         <!-- Select for number with options -->
         <USelect
           v-else-if="param.type === 'number' && param.options"
           :model-value="String(parameters[param.name])"
-          @update:model-value="updateParameter(param.name, Number($event))"
           :items="param.options.map(o => ({ label: o, value: o }))"
           value-key="value"
           size="xs"
+          @update:model-value="updateParameter(param.name, Number($event))"
         />
 
         <!-- Boolean checkbox -->
@@ -116,8 +121,8 @@ function getCategoryColor(category: string): string {
         <UInput
           v-else
           :model-value="parameters[param.name]"
-          @update:model-value="updateParameter(param.name, $event)"
           size="xs"
+          @update:model-value="updateParameter(param.name, $event)"
         />
       </div>
     </div>

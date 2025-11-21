@@ -6,4 +6,5 @@ import java.util.*
 
 interface StockRepository : MongoRepository<Stock, String> {
     fun findBySymbol(symbol: String): Stock?
+    fun findBySymbolIn(symbols: List<String>): List<Stock>
 }

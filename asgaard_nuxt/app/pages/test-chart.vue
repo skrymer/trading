@@ -27,7 +27,9 @@ const categories = [
 
     <template #body>
       <div class="p-4">
-        <h2 class="text-xl font-bold mb-4">Simple Line Chart Test</h2>
+        <h2 class="text-xl font-bold mb-4">
+          Simple Line Chart Test
+        </h2>
 
         <ChartsLineChart
           :series="series"
@@ -38,7 +40,9 @@ const categories = [
         />
 
         <div class="mt-4">
-          <h3 class="font-semibold mb-2">Test Data:</h3>
+          <h3 class="font-semibold mb-2">
+            Test Data:
+          </h3>
           <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded">{{ JSON.stringify({ series, categories }, null, 2) }}</pre>
         </div>
       </div>

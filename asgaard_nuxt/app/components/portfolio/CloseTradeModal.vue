@@ -51,8 +51,8 @@ watch(() => props.open, (isOpen) => {
 <template>
   <UModal
     :open="open"
-    @update:open="emit('update:open', $event)"
     :title="`Close Trade - ${trade.symbol}`"
+    @update:open="emit('update:open', $event)"
   >
     <template #body>
       <div class="space-y-4">
@@ -127,7 +127,7 @@ watch(() => props.open, (isOpen) => {
         <UButton
           label="Close Trade"
           icon="i-lucide-check"
-          color="red"
+          color="error"
           :loading="loading"
           :disabled="loading"
           @click="handleCloseTrade"

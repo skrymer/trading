@@ -4,12 +4,12 @@ import type { MarketBreadth, Stock } from '~/types'
 import { MarketSymbol, MarketSymbolDescriptions } from '~/types/enums'
 
 // Fetch FULLSTOCK data for overall market metrics
-const { data: fullstockData, pending, error } = await useFetch<MarketBreadth>('/udgaard/api/market-breadth', {
+const { data: fullstockData, pending, error, refresh: refreshFullstock } = await useFetch<MarketBreadth>('/udgaard/api/market-breadth', {
   params: { marketSymbol: MarketSymbol.FULLSTOCK }
 })
 
 // Fetch SPY stock data for heatmap comparison
-const { data: spyData } = await useFetch<Stock>('/udgaard/api/stocks/SPY')
+const { data: spyData, refresh: refreshSpy } = await useFetch<Stock>('/udgaard/api/stocks/SPY')
 
 // Calculate current FULLSTOCK metrics
 const fullstockMetrics = computed(() => {
@@ -25,17 +25,17 @@ const fullstockMetrics = computed(() => {
     : null
 
   // Calculate bullish percentage from the number of stocks in uptrend
-  const totalStocks = (latestQuote.numberOfStocksInUptrend ?? 0) +
-                     (latestQuote.numberOfStocksInNeutral ?? 0) +
-                     (latestQuote.numberOfStocksInDowntrend ?? 0)
+  const totalStocks = (latestQuote.numberOfStocksInUptrend ?? 0)
+    + (latestQuote.numberOfStocksInNeutral ?? 0)
+    + (latestQuote.numberOfStocksInDowntrend ?? 0)
   const bullishPercent = totalStocks > 0
     ? ((latestQuote.numberOfStocksInUptrend ?? 0) / totalStocks) * 100
     : 0
 
   const previousTotalStocks = previousQuote
-    ? (previousQuote.numberOfStocksInUptrend ?? 0) +
-      (previousQuote.numberOfStocksInNeutral ?? 0) +
-      (previousQuote.numberOfStocksInDowntrend ?? 0)
+    ? (previousQuote.numberOfStocksInUptrend ?? 0)
+    + (previousQuote.numberOfStocksInNeutral ?? 0)
+    + (previousQuote.numberOfStocksInDowntrend ?? 0)
     : totalStocks
   const previousBullishPercent = previousQuote && previousTotalStocks > 0
     ? ((previousQuote.numberOfStocksInUptrend ?? 0) / previousTotalStocks) * 100
@@ -75,7 +75,9 @@ const sectorSymbols = Object.values(MarketSymbol).filter(
 const sectorsData = ref<MarketBreadth[]>([])
 const sectorsLoading = ref(true)
 
-onMounted(async () => {
+// Function to fetch all sectors
+const fetchAllSectors = async () => {
+  sectorsLoading.value = true
   try {
     const sectorPromises = sectorSymbols.map(symbol =>
       $fetch<MarketBreadth>('/udgaard/api/market-breadth', {
@@ -88,6 +90,50 @@ onMounted(async () => {
   } finally {
     sectorsLoading.value = false
   }
+}
+
+// Function to refresh all sectors from the backend
+const refreshAllSectors = async () => {
+  sectorsLoading.value = true
+  const toast = useToast()
+
+  try {
+    toast.add({
+      title: 'Refreshing sectors',
+      description: 'Fetching latest data from provider...',
+      color: 'primary'
+    })
+
+    // Call backend to refresh all sectors (including FULLSTOCK)
+    await $fetch('/udgaard/api/market-breadth/refresh-all', {
+      method: 'POST'
+    })
+
+    // Reload FULLSTOCK data
+    await refreshFullstock()
+
+    // Reload all sector data
+    await fetchAllSectors()
+
+    toast.add({
+      title: 'Sectors refreshed',
+      description: 'All sector data has been updated successfully',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Failed to refresh sectors:', error)
+    toast.add({
+      title: 'Refresh failed',
+      description: 'Failed to refresh sector data. Please try again.',
+      color: 'error'
+    })
+  } finally {
+    sectorsLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await fetchAllSectors()
 })
 
 // Calculate which sectors have higher/lower fear and greed than overall market (using SPY)
@@ -101,7 +147,7 @@ const sectorComparison = computed(() => {
   const overallHeatmap = spyLatestQuote?.heatmap ?? 0
 
   return sectorsData.value
-    .map(sector => {
+    .map((sector) => {
       // Use the latest quote for heatmap, second-to-last for bullish % if latest doesn't have it
       const latestQuote = sector.quotes && sector.quotes.length > 0
         ? sector.quotes[sector.quotes.length - 1]
@@ -110,13 +156,13 @@ const sectorComparison = computed(() => {
       if (!latestQuote) return null
 
       // Calculate bullish percentage from the number of stocks in uptrend
-      const totalStocks = (latestQuote.numberOfStocksInUptrend ?? 0) +
-                         (latestQuote.numberOfStocksInNeutral ?? 0) +
-                         (latestQuote.numberOfStocksInDowntrend ?? 0)
+      const totalStocks = (latestQuote.numberOfStocksInUptrend ?? 0)
+        + (latestQuote.numberOfStocksInNeutral ?? 0)
+        + (latestQuote.numberOfStocksInDowntrend ?? 0)
       const bullishPercent = totalStocks > 0
         ? ((latestQuote.numberOfStocksInUptrend ?? 0) / totalStocks) * 100
         : 0
-      const sectorHeatmap = latestQuote.heatmap ?? 0
+      const sectorHeatmap = sector.heatmap ?? 0
       const heatmapDiff = sectorHeatmap - overallHeatmap
 
       return {
@@ -128,7 +174,8 @@ const sectorComparison = computed(() => {
         heatmapDiff,
         sentiment: heatmapDiff > 5 ? 'greedy' : heatmapDiff < -5 ? 'fearful' : 'neutral',
         stocksInUptrend: latestQuote.numberOfStocksInUptrend ?? 0,
-        totalStocks: (latestQuote.numberOfStocksInUptrend ?? 0) + (latestQuote.numberOfStocksInDowntrend ?? 0)
+        totalStocks: (latestQuote.numberOfStocksInUptrend ?? 0) + (latestQuote.numberOfStocksInDowntrend ?? 0),
+        lastUpdated: latestQuote.quoteDate ? new Date(latestQuote.quoteDate) : null
       }
     })
     .filter(s => s !== null)
@@ -161,7 +208,9 @@ const sectorComparison = computed(() => {
       <UCard v-else-if="error">
         <div class="text-center py-8">
           <UIcon name="i-lucide-alert-circle" class="w-12 h-12 text-error mx-auto mb-2" />
-          <p class="text-error">Failed to load market breadth data</p>
+          <p class="text-error">
+            Failed to load market breadth data
+          </p>
         </div>
       </UCard>
 
@@ -173,9 +222,13 @@ const sectorComparison = computed(() => {
           <UCard>
             <div class="flex items-start justify-between">
               <div>
-                <p class="text-sm text-muted">Overall Bullish %</p>
+                <p class="text-sm text-muted">
+                  Overall Bullish %
+                </p>
                 <div class="flex items-baseline gap-2 mt-1">
-                  <p class="text-2xl font-bold">{{ fullstockMetrics.bullishPercent.toFixed(1) }}%</p>
+                  <p class="text-2xl font-bold">
+                    {{ fullstockMetrics.bullishPercent.toFixed(1) }}%
+                  </p>
                   <span
                     class="text-sm font-medium"
                     :class="fullstockMetrics.change >= 0 ? 'text-green-600' : 'text-red-600'"
@@ -196,7 +249,9 @@ const sectorComparison = computed(() => {
           <UCard>
             <div class="flex items-start justify-between">
               <div>
-                <p class="text-sm text-muted">Market Trend</p>
+                <p class="text-sm text-muted">
+                  Market Trend
+                </p>
                 <div class="flex items-center gap-2 mt-1">
                   <UBadge
                     :color="fullstockMetrics.inUptrend ? 'success' : 'error'"
@@ -219,9 +274,13 @@ const sectorComparison = computed(() => {
           <UCard>
             <div class="flex items-start justify-between">
               <div>
-                <p class="text-sm text-muted">Overall Heatmap</p>
+                <p class="text-sm text-muted">
+                  Overall Heatmap
+                </p>
                 <div class="flex items-baseline gap-2 mt-1">
-                  <p class="text-2xl font-bold">{{ fullstockMetrics.heatmap.toFixed(1) }}</p>
+                  <p class="text-2xl font-bold">
+                    {{ fullstockMetrics.heatmap.toFixed(1) }}
+                  </p>
                   <span class="text-sm text-muted">
                     {{ fullstockMetrics.heatmap > 70 ? 'Greed' : fullstockMetrics.heatmap < 30 ? 'Fear' : 'Neutral' }}
                   </span>
@@ -241,9 +300,13 @@ const sectorComparison = computed(() => {
           <!-- Stock Count -->
           <UCard>
             <div>
-              <p class="text-sm text-muted">Total Stocks</p>
+              <p class="text-sm text-muted">
+                Total Stocks
+              </p>
               <div class="mt-1">
-                <p class="text-2xl font-bold">{{ fullstockMetrics.totalStocks }}</p>
+                <p class="text-2xl font-bold">
+                  {{ fullstockMetrics.totalStocks }}
+                </p>
                 <div class="flex items-center gap-2 mt-1 text-sm">
                   <span class="text-green-600">↑ {{ fullstockMetrics.stocksInUptrend }}</span>
                   <span class="text-muted">•</span>
@@ -257,8 +320,26 @@ const sectorComparison = computed(() => {
         <!-- Sector Breakdown (Full Width) -->
         <UCard>
           <template #header>
-            <h3 class="text-lg font-semibold">Sector Breakdown</h3>
-            <p class="text-xs text-muted mt-1">vs. Overall Market Heatmap ({{ fullstockMetrics.heatmap.toFixed(1) }})</p>
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-semibold">
+                  Sector Breakdown
+                </h3>
+                <p class="text-xs text-muted mt-1">
+                  vs. Overall Market Heatmap ({{ fullstockMetrics.heatmap.toFixed(1) }})
+                </p>
+              </div>
+              <UButton
+                icon="i-lucide-refresh-cw"
+                size="sm"
+                color="primary"
+                variant="soft"
+                :loading="sectorsLoading"
+                @click="refreshAllSectors"
+              >
+                Refresh All
+              </UButton>
+            </div>
           </template>
 
           <div v-if="sectorsLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -299,7 +380,9 @@ const sectorComparison = computed(() => {
                 </UBadge>
               </div>
 
-              <div class="text-sm text-muted">{{ sector.name }}</div>
+              <div class="text-sm text-muted">
+                {{ sector.name }}
+              </div>
 
               <div class="flex items-center gap-2 text-sm">
                 <span class="font-medium">{{ sector.bullishPercent.toFixed(1) }}%</span>
@@ -330,10 +413,15 @@ const sectorComparison = computed(() => {
                 </div>
               </div>
 
-              <div class="flex items-center gap-2 text-xs text-muted pt-2 border-t border-gray-200 dark:border-gray-700">
-                <span class="text-green-600">↑ {{ sector.stocksInUptrend }}</span>
-                <span>•</span>
-                <span>{{ sector.totalStocks }} stocks</span>
+              <div class="flex items-center justify-between gap-2 text-xs text-muted pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex items-center gap-2">
+                  <span class="text-green-600">↑ {{ sector.stocksInUptrend }}</span>
+                  <span>•</span>
+                  <span>{{ sector.totalStocks }} stocks</span>
+                </div>
+                <div v-if="sector.lastUpdated" class="text-xs text-muted" :title="format(sector.lastUpdated, 'PPpp')">
+                  {{ format(sector.lastUpdated, 'MMM d') }}
+                </div>
               </div>
             </UCard>
           </div>

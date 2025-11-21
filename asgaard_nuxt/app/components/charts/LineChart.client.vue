@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<LineChartProps>(), {
   height: 350,
   showLegend: true,
   showDataLabels: false,
-  smooth: true,
+  smooth: true
 })
 
 const colorMode = useColorMode()
@@ -37,36 +37,36 @@ const chartOptions = computed<ApexOptions>(() => {
       type: 'line',
       height: props.height,
       toolbar: {
-        show: true,
+        show: true
       },
       background: 'transparent',
-      foreColor: isDark ? '#d1d5db' : '#6b7280',
+      foreColor: isDark ? '#d1d5db' : '#6b7280'
     },
     stroke: {
       curve: props.smooth ? 'smooth' : 'straight',
-      width: 2,
+      width: 2
     },
     dataLabels: {
-      enabled: props.showDataLabels,
+      enabled: props.showDataLabels
     },
     legend: {
       show: props.showLegend,
       labels: {
-        colors: isDark ? '#d1d5db' : '#6b7280',
-      },
+        colors: isDark ? '#d1d5db' : '#6b7280'
+      }
     },
     xaxis: {
       categories: props.categories || [],
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
-        },
-      },
+          colors: isDark ? '#9ca3af' : '#6b7280'
+        }
+      }
     },
     yaxis: {
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
+          colors: isDark ? '#9ca3af' : '#6b7280'
         },
         formatter: (val: number) => {
           if (val >= 1000000) {
@@ -75,11 +75,11 @@ const chartOptions = computed<ApexOptions>(() => {
             return (val / 1000).toFixed(1) + 'K'
           }
           return val.toFixed(0)
-        },
-      },
+        }
+      }
     },
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: isDark ? '#374151' : '#e5e7eb'
     },
     tooltip: {
       theme: isDark ? 'dark' : 'light',
@@ -91,10 +91,10 @@ const chartOptions = computed<ApexOptions>(() => {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
           }).format(val)
-        },
-      },
+        }
+      }
     },
-    colors: props.lineColors || ['#10b981'],
+    colors: props.lineColors || ['#10b981']
   }
 })
 </script>

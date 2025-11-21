@@ -16,7 +16,8 @@ data class BacktestRequest(
     val ranker: String = "Heatmap",
     val refresh: Boolean = false,
     val useUnderlyingAssets: Boolean = true,  // Enable automatic underlying asset detection
-    val customUnderlyingMap: Map<String, String>? = null  // Custom symbol → underlying mappings
+    val customUnderlyingMap: Map<String, String>? = null,  // Custom symbol → underlying mappings
+    val cooldownDays: Int = 0  // Global cooldown period in trading days after any exit (0 = disabled)
 )
 
 /**
@@ -42,7 +43,7 @@ data class PredefinedStrategyConfig(
  */
 data class CustomStrategyConfig(
     val conditions: List<ConditionConfig>,
-    val operator: String = "AND",  // AND, OR for entry; OR for exit (default)
+    val operator: String = "",  // Empty string = use default (AND for entry, OR for exit)
     val description: String? = null
 ) : StrategyConfig()
 

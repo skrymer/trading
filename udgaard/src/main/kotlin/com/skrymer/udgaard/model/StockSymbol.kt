@@ -18,10 +18,14 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   ANET(MarketSymbol.XLK, "ANET"),
   ANSS(MarketSymbol.XLK, "ANSS"),
   APH(MarketSymbol.XLK, "APH"),
+  APP(MarketSymbol.XLK, "APP"),
+  ARM(MarketSymbol.XLK, "ARM"),
+  ASML(MarketSymbol.XLK, "ASML"),
   AVGO(MarketSymbol.XLK, "AVGO"),
   BR(MarketSymbol.XLK, "BR"),
   BSY(MarketSymbol.XLK, "BSY"),
   CDAY(MarketSymbol.XLK, "CDAY"),
+  CDW(MarketSymbol.XLK, "CDW"),
   CDNS(MarketSymbol.XLK, "CDNS"),
   CEVA(MarketSymbol.XLK, "CEVA"), // (if not present in your feed, remove)
   CEG(MarketSymbol.XLK, "CEG"),   // (check membership if needed)
@@ -36,6 +40,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   EPAM(MarketSymbol.XLK, "EPAM"),
   FTNT(MarketSymbol.XLK, "FTNT"),
   GEN(MarketSymbol.XLK, "GEN"),
+  GFS(MarketSymbol.XLK, "GFS"),
   GLW(MarketSymbol.XLK, "GLW"),
   GOOG(MarketSymbol.XLK, "GOOG"),   // Alphabet share class (sector: Comm Svcs on GICS; map if you prefer XLC there)
   GOOGL(MarketSymbol.XLK, "GOOGL"), // see comment above
@@ -70,16 +75,19 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   PLTR(MarketSymbol.XLK, "PLTR"),
   PTCT(MarketSymbol.XLK, "PTCT"),   // (if not present, remove)
   QCOM(MarketSymbol.XLK, "QCOM"),
+  SHOP(MarketSymbol.XLK, "SHOP"),
   SNPS(MarketSymbol.XLK, "SNPS"),
   SPLK(MarketSymbol.XLK, "SPLK"),   // (if delisted/merged, remove)
   STX(MarketSymbol.XLK, "STX"),
   SWKS(MarketSymbol.XLK, "SWKS"),
+  TEAM(MarketSymbol.XLK, "TEAM"),
   TEL(MarketSymbol.XLK, "TEL"),
   TER(MarketSymbol.XLK, "TER"),
   TYL(MarketSymbol.XLK, "TYL"),
   TXN(MarketSymbol.XLK, "TXN"),
   V(MarketSymbol.XLK, "V"),         // (Financials in GICS; move to XLF if strict)
   VRSN(MarketSymbol.XLK, "VRSN"),
+  WDAY(MarketSymbol.XLK, "WDAY"),
   WDC(MarketSymbol.XLK, "WDC"),
   ZBRA(MarketSymbol.XLK, "ZBRA"),
   ZS(MarketSymbol.XLK, "ZS"),
@@ -121,11 +129,13 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   MMC(MarketSymbol.XLF, "MMC"),
   MKTX(MarketSymbol.XLF, "MKTX"),
   MS(MarketSymbol.XLF, "MS"),
+  MSTR(MarketSymbol.XLF, "MSTR"),
   MTB(MarketSymbol.XLF, "MTB"),
   NDAQ(MarketSymbol.XLF, "NDAQ"),
   PGR(MarketSymbol.XLF, "PGR"),
   PNC(MarketSymbol.XLF, "PNC"),
   PRU(MarketSymbol.XLF, "PRU"),
+  PYPL(MarketSymbol.XLF, "PYPL"),
   RF(MarketSymbol.XLF, "RF"),
   SCHW(MarketSymbol.XLF, "SCHW"),
   SIVB(MarketSymbol.XLF, "SIVB"), // (historic — remove if not applicable)
@@ -148,6 +158,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   ABMD(MarketSymbol.XLV, "ABMD"),    // (if removed, delete)
   ALGN(MarketSymbol.XLV, "ALGN"),
   AMGN(MarketSymbol.XLV, "AMGN"),
+  AZN(MarketSymbol.XLV, "AZN"),
   BAX(MarketSymbol.XLV, "BAX"),
   BDX(MarketSymbol.XLV, "BDX"),
   BIIB(MarketSymbol.XLV, "BIIB"),
@@ -184,6 +195,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   REGN(MarketSymbol.XLV, "REGN"),
   RMD(MarketSymbol.XLV, "RMD"),
   STE(MarketSymbol.XLV, "STE"),
+  SOLS(MarketSymbol.XLV, "SOLS"),
   SYK(MarketSymbol.XLV, "SYK"),
   TMO(MarketSymbol.XLV, "TMO"),
   UHS(MarketSymbol.XLV, "UHS"),
@@ -198,12 +210,14 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   AAL(MarketSymbol.XLI, "AAL"),
   AAPTV(MarketSymbol.XLI, "AOS"), // typo guard
   AOS(MarketSymbol.XLI, "AOS"),
+  AXON(MarketSymbol.XLI, "AXON"),
   BA(MarketSymbol.XLI, "BA"),
   CARR(MarketSymbol.XLI, "CARR"),
   CAT(MarketSymbol.XLI, "CAT"),
   CHRW(MarketSymbol.XLI, "CHRW"),
   CTAS(MarketSymbol.XLI, "CTAS"),
   CMI(MarketSymbol.XLI, "CMI"),
+  CPRT(MarketSymbol.XLI, "CPRT"),
   CSX(MarketSymbol.XLI, "CSX"),
   DOV(MarketSymbol.XLI, "DOV"),
   DE(MarketSymbol.XLI, "DE"),
@@ -211,6 +225,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   EMR_XLI(MarketSymbol.XLI, "EMR"),
   EXPD(MarketSymbol.XLI, "EXPD"),
   FDX(MarketSymbol.XLI, "FDX"),
+  FAST(MarketSymbol.XLI, "FAST"),
   GE(MarketSymbol.XLI, "GE"),
   GEV(MarketSymbol.XLI, "GEV"), // guard if used
   GLW_XLI(MarketSymbol.XLI, "GLW"),
@@ -230,6 +245,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   NOC(MarketSymbol.XLI, "NOC"),
   ODFL(MarketSymbol.XLI, "ODFL"),
   OTIS(MarketSymbol.XLI, "OTIS"),
+  PCAR(MarketSymbol.XLI, "PCAR"),
   PH(MarketSymbol.XLI, "PH"),
   PNR(MarketSymbol.XLI, "PNR"),
   PWR(MarketSymbol.XLI, "PWR"),
@@ -242,9 +258,11 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   TT(MarketSymbol.XLI, "TT"),
   TDG(MarketSymbol.XLI, "TDG"),
   TXT(MarketSymbol.XLI, "TXT"),
+  TRI(MarketSymbol.XLI, "TRI"),
   UNP(MarketSymbol.XLI, "UNP"),
   UPS(MarketSymbol.XLI, "UPS"),
   URI(MarketSymbol.XLI, "URI"),
+  VRSK(MarketSymbol.XLI, "VRSK"),
   WM(MarketSymbol.XLI, "WM"),
   XYL(MarketSymbol.XLI, "XYL"),
   ZBRA_XLI(MarketSymbol.XLI, "ZBRA"),
@@ -267,6 +285,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   FMC(MarketSymbol.XLB, "FMC"),
   IFF(MarketSymbol.XLB, "IFF"),
   IP(MarketSymbol.XLB, "IP"),
+  LIN(MarketSymbol.XLB, "LIN"),
   LYB(MarketSymbol.XLB, "LYB"),
   MLM(MarketSymbol.XLB, "MLM"),
   MOS(MarketSymbol.XLB, "MOS"),
@@ -336,6 +355,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   // =========================
   // Consumer Discretionary
   // =========================
+  ABNB(MarketSymbol.XLY, "ABNB"),
   AAP(MarketSymbol.XLY, "AAP"),
   AMZN(MarketSymbol.XLY, "AMZN"),
   APTV(MarketSymbol.XLY, "APTV"),
@@ -346,6 +366,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   CZR(MarketSymbol.XLY, "CZR"),
   DHI(MarketSymbol.XLY, "DHI"),
   DKS(MarketSymbol.XLY, "DKS"),
+  DASH(MarketSymbol.XLY, "DASH"),
   DISH(MarketSymbol.XLY, "DISH"),
   DLTR(MarketSymbol.XLY, "DLTR"),
   EBAY(MarketSymbol.XLY, "EBAY"),
@@ -363,11 +384,13 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   LULU(MarketSymbol.XLY, "LULU"),
   MAR(MarketSymbol.XLY, "MAR"),
   MCD(MarketSymbol.XLY, "MCD"),
+  MELI(MarketSymbol.XLY, "MELI"),
   MGM(MarketSymbol.XLY, "MGM"),
   MOH(MarketSymbol.XLY, "MOH"), // verify, keep if present in index
   NCLH(MarketSymbol.XLY, "NCLH"),
   NKE(MarketSymbol.XLY, "NKE"),
   ORLY(MarketSymbol.XLY, "ORLY"),
+  PDD(MarketSymbol.XLY, "PDD"),
   PHM(MarketSymbol.XLY, "PHM"),
   POOL(MarketSymbol.XLY, "POOL"),
   RCL(MarketSymbol.XLY, "RCL"),
@@ -392,6 +415,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   ADM(MarketSymbol.XLP, "ADM"),
   BF_B(MarketSymbol.XLP, "BF.B"),
   CAG(MarketSymbol.XLP, "CAG"),
+  CCEP(MarketSymbol.XLP, "CCEP"),
   CHD(MarketSymbol.XLP, "CHD"),
   CL(MarketSymbol.XLP, "CL"),
   CLX(MarketSymbol.XLP, "CLX"),
@@ -409,6 +433,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   KR(MarketSymbol.XLP, "KR"),
   MKC(MarketSymbol.XLP, "MKC"),
   MO(MarketSymbol.XLP, "MO"),
+  MNST(MarketSymbol.XLP, "MNST"),
   MDLZ(MarketSymbol.XLP, "MDLZ"),
   PEP(MarketSymbol.XLP, "PEP"),
   PG(MarketSymbol.XLP, "PG"),
@@ -439,6 +464,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   PINS(MarketSymbol.XLC, "PINS"),
   T(MarketSymbol.XLC, "T"),
   TMUS(MarketSymbol.XLC, "TMUS"),
+  TTD(MarketSymbol.XLC, "TTD"),
   TTWO(MarketSymbol.XLC, "TTWO"),
   VZ(MarketSymbol.XLC, "VZ"),
   WBD(MarketSymbol.XLC, "WBD"),
@@ -452,6 +478,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   BXP(MarketSymbol.XLRE, "BXP"),
   CCI(MarketSymbol.XLRE, "CCI"),
   CPT(MarketSymbol.XLRE, "CPT"),
+  CSGP(MarketSymbol.XLRE, "CSGP"),
   DLR(MarketSymbol.XLRE, "DLR"),
   EQIX(MarketSymbol.XLRE, "EQIX"),
   EQR(MarketSymbol.XLRE, "EQR"),
@@ -482,7 +509,7 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   QQQ(MarketSymbol.XLK, "QQQ"),
   TQQQ(MarketSymbol.XLK, "TQQQ"),
   SPY(MarketSymbol.XLK, "SPY"),
-  SPLX(MarketSymbol.XLK, "SPLX"),
+  SPXL(MarketSymbol.XLK, "SPXL"),
 
   // =========================
   // S&P 400 - Energy
@@ -1537,8 +1564,13 @@ enum class StockSymbol(val market: MarketSymbol, val symbol: String) {
   MSEX(MarketSymbol.XLU, "MSEX"),
   NWN(MarketSymbol.XLU, "NWN"),
   OTTR(MarketSymbol.XLU, "OTTR"),
-  UTL(MarketSymbol.XLU, "UTL");
+  UTL(MarketSymbol.XLU, "UTL"),
 
+  // ==================
+  // User defined stocks
+  // =====================
+
+  RKLB(MarketSymbol.XLK, "RKLB")
 
 }
 

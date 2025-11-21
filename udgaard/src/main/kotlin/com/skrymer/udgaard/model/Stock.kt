@@ -105,9 +105,13 @@ class Stock {
 
   /**
    * Check if given [quote] is within an order block that are older than [daysOld]
+   * @param quote The quote to check
+   * @param daysOld Minimum age of order block in days
+   * @param source Filter by order block source (null = all sources)
    */
-  fun withinOrderBlock(quote: StockQuote, daysOld: Int): Boolean {
+  fun withinOrderBlock(quote: StockQuote, daysOld: Int, source: OrderBlockSource? = null): Boolean {
     return orderBlocks
+      .filter { source == null || it.source == source }
       .filter {
         ChronoUnit.DAYS.between(
           it.startDate,
@@ -119,6 +123,42 @@ class Stock {
       .filter { it.endDate?.isAfter(quote.date) == true }
       .any { quote.closePrice > it.low && quote.closePrice < it.high }
   }
+
+  /**
+   * Get calculated order blocks only
+   */
+  fun getCalculatedOrderBlocks(): List<OrderBlock> =
+    orderBlocks.filter { it.source == OrderBlockSource.CALCULATED }
+
+  /**
+   * Get Ovtlyr order blocks only
+   */
+  fun getOvtlyrOrderBlocks(): List<OrderBlock> =
+    orderBlocks.filter { it.source == OrderBlockSource.OVTLYR }
+
+  /**
+   * Get active order blocks (not mitigated)
+   */
+  fun getActiveOrderBlocks(): List<OrderBlock> =
+    orderBlocks.filter { it.endDate == null }
+
+  /**
+   * Get bullish order blocks for the given date
+   */
+  fun getBullishOrderBlocks(date: LocalDate? = null): List<OrderBlock> =
+    orderBlocks.filter {
+      it.orderBlockType == OrderBlockType.BULLISH &&
+        (date == null || (it.startDate.isBefore(date) && (it.endDate == null || it.endDate.isAfter(date))))
+    }
+
+  /**
+   * Get bearish order blocks for the given date
+   */
+  fun getBearishOrderBlocks(date: LocalDate? = null): List<OrderBlock> =
+    orderBlocks.filter {
+      it.orderBlockType == OrderBlockType.BEARISH &&
+        (date == null || (it.startDate.isBefore(date) && (it.endDate == null || it.endDate.isAfter(date))))
+    }
 
   override fun toString() = "Symbol: $symbol"
 }

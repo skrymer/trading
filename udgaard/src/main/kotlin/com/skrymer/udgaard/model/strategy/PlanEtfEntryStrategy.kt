@@ -10,7 +10,7 @@ import com.skrymer.udgaard.model.StockQuote
  * - Has buy signal
  * - Heatmap < 70
  * - Price is within value zone (< 20 EMA + 2 ATR)
- * - Price is at least 2% below an order block older than 30 days
+ * - Price is at least 2% below an order block older than 15 days
  */
 @RegisteredStrategy(name = "PlanEtf", type = StrategyType.ENTRY)
 class PlanEtfEntryStrategy: EntryStrategy {
@@ -19,7 +19,7 @@ class PlanEtfEntryStrategy: EntryStrategy {
     buySignal(currentOnly = false)
     heatmap(70)
     inValueZone(2.0)
-    belowOrderBlock(percentBelow = 2.0, ageInDays = 30)
+    belowOrderBlock(percentBelow = 2.0, ageInDays = 15)
   }
 
   override fun description() = "Plan ETF entry strategy"

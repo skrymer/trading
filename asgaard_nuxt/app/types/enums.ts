@@ -29,18 +29,18 @@ export function getSectorName(sectorCode: string): string {
 
 export enum MarketSymbol {
   FULLSTOCK = 'FULLSTOCK',
-  XLE = 'XLE',       // Energy
-  XLV = 'XLV',       // Health
-  XLB = 'XLB',       // Materials
-  XLC = 'XLC',       // Communications
-  XLK = 'XLK',       // Technology
-  XLRE = 'XLRE',     // Realestate
-  XLI = 'XLI',       // Industrials
-  XLF = 'XLF',       // Financials
-  XLY = 'XLY',       // Discretionary
-  XLP = 'XLP',       // Staples
-  XLU = 'XLU',       // Utilities
-  UNK = 'UNK'        // Unknown
+  XLE = 'XLE', // Energy
+  XLV = 'XLV', // Health
+  XLB = 'XLB', // Materials
+  XLC = 'XLC', // Communications
+  XLK = 'XLK', // Technology
+  XLRE = 'XLRE', // Realestate
+  XLI = 'XLI', // Industrials
+  XLF = 'XLF', // Financials
+  XLY = 'XLY', // Discretionary
+  XLP = 'XLP', // Staples
+  XLU = 'XLU', // Utilities
+  UNK = 'UNK' // Unknown
 }
 
 export const MarketSymbolDescriptions: Record<MarketSymbol, string> = {
@@ -57,4 +57,39 @@ export const MarketSymbolDescriptions: Record<MarketSymbol, string> = {
   [MarketSymbol.XLP]: 'Staples',
   [MarketSymbol.XLU]: 'Utilities',
   [MarketSymbol.UNK]: 'Unknown'
+}
+
+export enum Etf {
+  QQQ = 'QQQ',
+  SPY = 'SPY',
+  IWM = 'IWM',
+  DIA = 'DIA'
+}
+
+export const EtfDescriptions: Record<Etf, string> = {
+  [Etf.QQQ]: 'Nasdaq-100',
+  [Etf.SPY]: 'S&P 500',
+  [Etf.IWM]: 'Russell 2000',
+  [Etf.DIA]: 'Dow Jones Industrial Average'
+}
+
+export enum MonteCarloTechnique {
+  TRADE_SHUFFLING = 'TRADE_SHUFFLING',
+  BOOTSTRAP_RESAMPLING = 'BOOTSTRAP_RESAMPLING',
+  PRICE_PATH_RANDOMIZATION = 'PRICE_PATH_RANDOMIZATION'
+}
+
+export const MonteCarloTechniqueDescriptions: Record<MonteCarloTechnique, { name: string, description: string }> = {
+  [MonteCarloTechnique.TRADE_SHUFFLING]: {
+    name: 'Trade Shuffling',
+    description: 'Randomly reorders trades to test if edge holds regardless of sequence'
+  },
+  [MonteCarloTechnique.BOOTSTRAP_RESAMPLING]: {
+    name: 'Bootstrap Resampling',
+    description: 'Randomly samples trades with replacement to test edge consistency'
+  },
+  [MonteCarloTechnique.PRICE_PATH_RANDOMIZATION]: {
+    name: 'Price Path Randomization',
+    description: 'Randomizes price paths while maintaining statistical properties (not yet implemented)'
+  }
 }

@@ -11,6 +11,7 @@ import com.skrymer.udgaard.service.MarketBreadthService
 import com.skrymer.udgaard.service.StockService
 import de.siegmar.fastcsv.writer.CsvWriter
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.nio.file.Path
@@ -20,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 
 @SpringBootTest
 internal class UdgaardApplicationTests {
+    private val logger = LoggerFactory.getLogger(UdgaardApplicationTests::class.java)
     @Autowired
     lateinit var dataLoader: DataLoader
 
@@ -91,10 +93,10 @@ internal class UdgaardApplicationTests {
                 val donkeyScore = fullStockDonkeyScore + sectorDonkeyScore
 
                 if((quote?.heatmap ?: 0.0) < (quote?.previousHeatmap ?: 0.0)){
-                    println("Heatmap is stalling: ${stock?.symbol}")
+                    logger.info("Heatmap is stalling: ${stock?.symbol}")
                 }
                 else if((quote?.sectorHeatmap ?: 0.0) < (quote?.previousSectorHeatmap ?: 0.0)){
-                    println("Sector heatmap is stalling: ${stock?.sectorSymbol}")
+                    logger.info("Sector heatmap is stalling: ${stock?.sectorSymbol}")
                 }
                 else {
                     csv.writeRecord(
@@ -115,12 +117,12 @@ internal class UdgaardApplicationTests {
             }
         }
 
-        println(screenerResults)
+        logger.info("Screener results: {}", screenerResults)
     }
 
 //    @Test
     fun generateBacktestReport() {
-        println("===================== Getting stocks =====================")
+        logger.info("===================== Getting stocks =====================")
         val stocks = runBlocking { dataLoader.loadTopStocks(true) }
 //        val stock = stockService.getStocks(listOf("SMTC"), true).first()
         val entryStrategy = PlanAlphaEntryStrategy()
@@ -135,25 +137,25 @@ internal class UdgaardApplicationTests {
 //            LocalDate.of(2025,7,2)
 //        )
 
-        println("===================== Back test executing:: =====================")
-        println("Using entry strategy: ${entryStrategy.description()}")
-        println("Using exit strategy: ${exitStrategy.description()}")
-        println("========================= Stats:: =====================")
-        println("Number of wins: ${backtestReport.numberOfWinningTrades}")
-        println("Number of losses: ${backtestReport.numberOfLosingTrades}")
-        println("Win rate ${(backtestReport.winRate * 100).format(2)}%")
-        println("Average win amount ${backtestReport.averageWinAmount.format(2)}$")
-        println("Loss rate ${(backtestReport.lossRate * 100).format(2)}%")
-        println("Average loss amount ${backtestReport.averageLossAmount.format(2)}$")
-        println("The percentage you can expect to win per trade ${(backtestReport.edge).format(2)}%")
-        println("========================= Stock information:: =========================")
-        println("Exit reason count")
+        logger.info("===================== Back test executing:: =====================")
+        logger.info("Using entry strategy: ${entryStrategy.description()}")
+        logger.info("Using exit strategy: ${exitStrategy.description()}")
+        logger.info("========================= Stats:: =====================")
+        logger.info("Number of wins: ${backtestReport.numberOfWinningTrades}")
+        logger.info("Number of losses: ${backtestReport.numberOfLosingTrades}")
+        logger.info("Win rate ${(backtestReport.winRate * 100).format(2)}%")
+        logger.info("Average win amount ${backtestReport.averageWinAmount.format(2)}$")
+        logger.info("Loss rate ${(backtestReport.lossRate * 100).format(2)}%")
+        logger.info("Average loss amount ${backtestReport.averageLossAmount.format(2)}$")
+        logger.info("The percentage you can expect to win per trade ${(backtestReport.edge).format(2)}%")
+        logger.info("========================= Stock information:: =========================")
+        logger.info("Exit reason count")
         val exitReasonCount = backtestReport.exitReasonCount
-        exitReasonCount.forEach { (reason, count) -> println("$reason count $count") }
+        exitReasonCount.forEach { (reason, count) -> logger.info("$reason count $count") }
 
-        println("Stocks ordered by profitability")
+        logger.info("Stocks ordered by profitability")
         backtestReport.stockProfits.forEach {
-            println("Symbol: ${it.first} profit ${it.second.format(2)}")
+            logger.info("Symbol: ${it.first} profit ${it.second.format(2)}")
         }
     }
 

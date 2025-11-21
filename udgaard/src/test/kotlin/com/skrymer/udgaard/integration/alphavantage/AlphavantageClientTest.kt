@@ -9,12 +9,13 @@ import org.springframework.boot.test.context.SpringBootTest
 internal class AlphavantageClientTest {
 
   @Autowired
-  lateinit var alphavantageClient: AlphavantageClient
+  lateinit var alphaVantageClient: AlphaVantageClient
 
   @Test
-  fun `test get simple stock`() {
-    val stock = alphavantageClient.getStock("SPY")
+  fun `test get daily time series for stock`() {
+    val quotes = alphaVantageClient.getDailyTimeSeriesCompact("SPY")
 
-    Assertions.assertNotNull(stock)
+    Assertions.assertNotNull(quotes)
+    Assertions.assertTrue(quotes!!.isNotEmpty(), "Should return quotes for SPY")
   }
 }

@@ -27,14 +27,14 @@ const equityCurve = computed(() => {
 
   // Filter out trades with invalid dates
   // Note: exitQuote is the last quote in the quotes array
-  const validTrades = props.trades.filter(trade => {
+  const validTrades = props.trades.filter((trade) => {
     const exitQuote = trade.quotes?.[trade.quotes.length - 1]
     const hasExitDate = exitQuote?.date
     const hasStartDate = trade.startDate
 
-    return hasExitDate && hasStartDate &&
-           !isNaN(new Date(exitQuote.date).getTime()) &&
-           !isNaN(new Date(trade.startDate).getTime())
+    return hasExitDate && hasStartDate
+      && !isNaN(new Date(exitQuote.date).getTime())
+      && !isNaN(new Date(trade.startDate).getTime())
   })
 
   if (validTrades.length === 0) {
@@ -44,31 +44,30 @@ const equityCurve = computed(() => {
 
   // Sort trades by exit date to show chronological equity progression
   const sortedTrades = [...validTrades].sort((a, b) => {
-    const aExitDate = a.quotes[a.quotes.length - 1].date
-    const bExitDate = b.quotes[b.quotes.length - 1].date
-    return new Date(aExitDate).getTime() - new Date(bExitDate).getTime()
+    const aExitDate = a.quotes![a.quotes!.length - 1]!.date
+    const bExitDate = b.quotes![b.quotes!.length - 1]!.date
+    return new Date(aExitDate!).getTime() - new Date(bExitDate!).getTime()
   })
 
   // Add starting point
-  const equityPoints = [{
-    date: sortedTrades[0].startDate,
+  const equityPoints: { date: string, equity: number, profit: number }[] = [{
+    date: sortedTrades[0]!.startDate!,
     equity: startingCapital,
     profit: 0
   }]
 
   // Calculate equity after each trade with leverage applied
-  sortedTrades.forEach(trade => {
+  sortedTrades.forEach((trade) => {
     // Apply leverage to the profit percentage
     const leveragedProfitPct = trade.profitPercentage * leverage.value
     const profitDollars = (equity * leveragedProfitPct) / 100
     equity += profitDollars
 
-    const exitQuote = trade.quotes[trade.quotes.length - 1]
+    const exitQuote = trade.quotes![trade.quotes!.length - 1]
     equityPoints.push({
-      date: exitQuote.date,
+      date: exitQuote!.date!,
       equity: equity,
-      profit: profitDollars,
-      profitPct: leveragedProfitPct
+      profit: profitDollars
     })
   })
 
@@ -78,11 +77,11 @@ const equityCurve = computed(() => {
 // Prepare data for equity curve chart
 const equitySeries = computed(() => {
   // Filter out any invalid data points
-  const validData = equityCurve.value.filter(point => {
-    return point.equity !== null &&
-           point.equity !== undefined &&
-           !isNaN(point.equity) &&
-           isFinite(point.equity)
+  const validData = equityCurve.value.filter((point) => {
+    return point.equity !== null
+      && point.equity !== undefined
+      && !isNaN(point.equity)
+      && isFinite(point.equity)
   })
 
   const leverageLabel = leverageOptions.find(opt => opt.value === leverage.value)?.label || `${leverage.value}x`
@@ -95,14 +94,14 @@ const equitySeries = computed(() => {
 
 const equityCategories = computed(() => {
   // Filter out any invalid data points (same filter as above)
-  const validData = equityCurve.value.filter(point => {
-    return point.equity !== null &&
-           point.equity !== undefined &&
-           !isNaN(point.equity) &&
-           isFinite(point.equity)
+  const validData = equityCurve.value.filter((point) => {
+    return point.equity !== null
+      && point.equity !== undefined
+      && !isNaN(point.equity)
+      && isFinite(point.equity)
   })
 
-  return validData.map(point => {
+  return validData.map((point) => {
     try {
       return format(new Date(point.date), 'MMM dd, yyyy')
     } catch (e) {
@@ -112,16 +111,29 @@ const equityCategories = computed(() => {
   })
 })
 
+// Check if chart data is valid for rendering
+const hasValidChartData = computed(() => {
+  const firstSeries = equitySeries.value[0]
+  return equitySeries.value.length > 0
+    && firstSeries
+    && firstSeries.data.length > 0
+    && equityCategories.value.length > 0
+    && firstSeries.data.length === equityCategories.value.length
+})
+
 // Debug: Log chart data
 watchEffect(() => {
   if (equitySeries.value.length > 0 && equityCategories.value.length > 0) {
-    console.log('Equity Curve Data:', {
-      seriesLength: equitySeries.value[0].data.length,
-      categoriesLength: equityCategories.value.length,
-      dataMatch: equitySeries.value[0].data.length === equityCategories.value.length,
-      sampleData: equitySeries.value[0].data.slice(0, 3),
-      sampleCategories: equityCategories.value.slice(0, 3)
-    })
+    const firstSeries = equitySeries.value[0]
+    if (firstSeries) {
+      console.log('Equity Curve Data:', {
+        seriesLength: firstSeries.data.length,
+        categoriesLength: equityCategories.value.length,
+        dataMatch: firstSeries.data.length === equityCategories.value.length,
+        sampleData: firstSeries.data.slice(0, 3),
+        sampleCategories: equityCategories.value.slice(0, 3)
+      })
+    }
   }
 })
 
@@ -129,7 +141,7 @@ watchEffect(() => {
 const performanceMetrics = computed(() => {
   if (!equityCurve.value || equityCurve.value.length === 0) return null
 
-  const finalEquity = equityCurve.value[equityCurve.value.length - 1].equity
+  const finalEquity = equityCurve.value[equityCurve.value.length - 1]!.equity
   const totalReturn = ((finalEquity - startingCapital) / startingCapital) * 100
   const totalProfit = finalEquity - startingCapital
 
@@ -137,7 +149,7 @@ const performanceMetrics = computed(() => {
   let maxEquity = startingCapital
   let maxDrawdown = 0
 
-  equityCurve.value.forEach(point => {
+  equityCurve.value.forEach((point) => {
     if (point.equity > maxEquity) {
       maxEquity = point.equity
     }
@@ -148,8 +160,8 @@ const performanceMetrics = computed(() => {
   })
 
   // Calculate CAGR (Compound Annual Growth Rate)
-  const startDate = new Date(equityCurve.value[0].date)
-  const endDate = new Date(equityCurve.value[equityCurve.value.length - 1].date)
+  const startDate = new Date(equityCurve.value[0]!.date)
+  const endDate = new Date(equityCurve.value[equityCurve.value.length - 1]!.date)
   const years = (endDate.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
   const cagr = years > 0 ? (Math.pow(finalEquity / startingCapital, 1 / years) - 1) * 100 : 0
 
@@ -187,7 +199,9 @@ const formatPercentage = (value: number) => {
       </div>
       <div v-else class="flex items-center justify-between">
         <div class="flex items-center gap-4">
-          <h3 class="text-lg font-semibold">Equity Curve</h3>
+          <h3 class="text-lg font-semibold">
+            Equity Curve
+          </h3>
           <div class="flex items-center gap-2">
             <span class="text-sm text-muted">Leverage:</span>
             <USelect
@@ -241,10 +255,7 @@ const formatPercentage = (value: number) => {
     </div>
 
     <ChartsLineChart
-      v-else-if="equitySeries.length > 0 &&
-                 equitySeries[0].data.length > 0 &&
-                 equityCategories.length > 0 &&
-                 equitySeries[0].data.length === equityCategories.length"
+      v-else-if="hasValidChartData"
       :series="equitySeries"
       :categories="equityCategories"
       :height="400"

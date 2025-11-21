@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
 import { h, resolveComponent } from 'vue'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Portfolio, PortfolioTrade, PortfolioStats, PortfolioTradeResponse } from '~/types'
-import type { TableColumn } from '@nuxt/ui'
 
 const portfolio = ref<Portfolio | null>(null)
 const portfolios = ref<Portfolio[]>([])
@@ -36,7 +35,7 @@ async function loadPortfolios() {
 
     // Auto-select the first portfolio if available
     if (allPortfolios.length > 0 && !portfolio.value) {
-      portfolio.value = allPortfolios[0]
+      portfolio.value = allPortfolios[0] ?? null
       await loadPortfolioData()
     }
   } catch (error) {
@@ -45,7 +44,7 @@ async function loadPortfolios() {
       title: 'Error',
       description: 'Failed to load portfolios',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   } finally {
     isLoadingPortfolios.value = false
@@ -59,7 +58,7 @@ async function selectPortfolio(selectedPortfolio: Portfolio) {
 }
 
 // Create portfolio
-async function createPortfolio(data: { name: string; initialBalance: number; currency: string }) {
+async function createPortfolio(data: { name: string, initialBalance: number, currency: string }) {
   try {
     const newPortfolio = await $fetch<Portfolio>('/udgaard/api/portfolio', {
       method: 'POST',
@@ -76,7 +75,7 @@ async function createPortfolio(data: { name: string; initialBalance: number; cur
       title: 'Portfolio Created',
       description: `${data.name} created successfully`,
       icon: 'i-lucide-check-circle',
-      color: 'green'
+      color: 'success'
     })
   } catch (error) {
     console.error('Error creating portfolio:', error)
@@ -84,7 +83,7 @@ async function createPortfolio(data: { name: string; initialBalance: number; cur
       title: 'Error',
       description: 'Failed to create portfolio',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   }
 }
@@ -112,7 +111,7 @@ async function loadPortfolioData() {
       title: 'Error',
       description: 'Failed to load portfolio data',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   }
 }
@@ -143,7 +142,7 @@ async function openTrade(data: {
       title: 'Trade Opened',
       description: `${data.symbol} position opened`,
       icon: 'i-lucide-check-circle',
-      color: 'green'
+      color: 'success'
     })
   } catch (error) {
     console.error('Error opening trade:', error)
@@ -151,7 +150,7 @@ async function openTrade(data: {
       title: 'Error',
       description: 'Failed to open trade',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   } finally {
     isOpeningTrade.value = false
@@ -177,7 +176,7 @@ async function closeTrade(tradeId: string, exitPrice: number, exitDate: string) 
       title: 'Trade Closed',
       description: 'Position closed successfully',
       icon: 'i-lucide-check-circle',
-      color: 'green'
+      color: 'success'
     })
   } catch (error) {
     console.error('Error closing trade:', error)
@@ -185,7 +184,7 @@ async function closeTrade(tradeId: string, exitPrice: number, exitDate: string) 
       title: 'Error',
       description: 'Failed to close trade',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   } finally {
     isClosingTrade.value = false
@@ -207,7 +206,7 @@ async function deletePortfolio() {
       title: 'Portfolio Deleted',
       description: `${portfolio.value.name} has been deleted`,
       icon: 'i-lucide-check-circle',
-      color: 'green'
+      color: 'success'
     })
 
     // Reset portfolio and reload
@@ -222,7 +221,7 @@ async function deletePortfolio() {
       title: 'Error',
       description: 'Failed to delete portfolio',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   }
 }
@@ -234,7 +233,7 @@ async function refreshOpenTradeStocks() {
       title: 'No Open Trades',
       description: 'There are no open trades to refresh',
       icon: 'i-lucide-info',
-      color: 'blue'
+      color: 'info'
     })
     return
   }
@@ -245,7 +244,7 @@ async function refreshOpenTradeStocks() {
     title: 'Refreshing Stocks',
     description: `Updating ${symbols.length} stock(s)...`,
     icon: 'i-lucide-refresh-cw',
-    color: 'blue'
+    color: 'info'
   })
 
   isRefreshingStocks.value = true
@@ -259,7 +258,7 @@ async function refreshOpenTradeStocks() {
       title: 'Success',
       description: `Refreshed ${symbols.length} stock(s)`,
       icon: 'i-lucide-check-circle',
-      color: 'green'
+      color: 'success'
     })
   } catch (error) {
     console.error('Error refreshing stocks:', error)
@@ -267,7 +266,7 @@ async function refreshOpenTradeStocks() {
       title: 'Error',
       description: 'Failed to refresh stocks',
       icon: 'i-lucide-alert-circle',
-      color: 'red'
+      color: 'error'
     })
   } finally {
     isRefreshingStocks.value = false
@@ -323,15 +322,30 @@ const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UIcon = resolveComponent('UIcon')
 
+// Type for open trades table data
+interface OpenTradeTableRow {
+  symbol: string
+  instrumentType: string
+  optionsInfo?: string
+  status: string
+  hasExitSignal: boolean
+  exitSignalReason?: string | null
+  entry: { price: string, date: string }
+  quantity: string | number
+  value: string
+  strategies: { entry: string, exit: string }
+  trade: PortfolioTrade
+}
+
 // Expanded rows state for open trades table
 const expandedRows = ref<Record<string, boolean>>({})
 
 // Table columns for open trades
-const openTradesColumns: TableColumn[] = [
+const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
   {
     id: 'expand',
     header: '',
-    cell: ({ row }) => h('button', {
+    cell: ({ row }: { row: any }) => h('button', {
       onClick: () => row.toggleExpanded(),
       class: [
         'inline-flex items-center justify-center',
@@ -354,24 +368,26 @@ const openTradesColumns: TableColumn[] = [
   {
     id: 'symbol',
     header: 'Symbol',
-    cell: ({ row }) => h('div', { class: 'flex items-center gap-2' }, [
+    cell: ({ row }: { row: any }) => h('div', { class: 'flex items-center gap-2' }, [
       h('div', {}, [
         h('p', { class: 'font-medium' }, row.original.symbol),
         row.original.optionsInfo ? h('p', { class: 'text-xs text-muted' }, row.original.optionsInfo) : null
       ]),
-      row.original.hasExitSignal ? h(UBadge, {
-        variant: 'subtle',
-        color: 'warning',
-        label: 'Exit Signal',
-        class: 'cursor-help',
-        title: row.original.exitSignalReason || 'Exit signal detected'
-      }) : null
+      row.original.hasExitSignal
+        ? h(UBadge, {
+            variant: 'subtle',
+            color: 'warning',
+            label: 'Exit Signal',
+            class: 'cursor-help',
+            title: row.original.exitSignalReason || 'Exit signal detected'
+          })
+        : null
     ])
   },
   {
     id: 'type',
     header: 'Type',
-    cell: ({ row }) => h(UBadge, {
+    cell: ({ row }: { row: any }) => h(UBadge, {
       variant: 'subtle',
       color: row.original.instrumentType === 'OPTION' ? 'info' : row.original.instrumentType === 'LEVERAGED_ETF' ? 'warning' : 'neutral',
       label: row.original.instrumentType === 'OPTION' ? 'Option' : row.original.instrumentType === 'LEVERAGED_ETF' ? 'ETF' : 'Stock'
@@ -380,7 +396,7 @@ const openTradesColumns: TableColumn[] = [
   {
     id: 'entry',
     header: 'Entry',
-    cell: ({ row }) => h('div', {}, [
+    cell: ({ row }: { row: any }) => h('div', {}, [
       h('p', { class: 'font-medium' }, row.original.entry.price),
       h('p', { class: 'text-xs text-muted' }, row.original.entry.date)
     ])
@@ -388,7 +404,7 @@ const openTradesColumns: TableColumn[] = [
   {
     id: 'quantity',
     header: 'Qty',
-    cell: ({ row }) => h(UBadge, {
+    cell: ({ row }: { row: any }) => h(UBadge, {
       variant: 'subtle',
       color: 'neutral'
     }, () => row.original.quantity)
@@ -397,7 +413,7 @@ const openTradesColumns: TableColumn[] = [
   {
     id: 'strategies',
     header: 'Strategies',
-    cell: ({ row }) => h('div', { class: 'text-xs' }, [
+    cell: ({ row }: { row: any }) => h('div', { class: 'text-xs' }, [
       h('p', { class: 'text-muted' }, row.original.strategies.entry),
       h('p', { class: 'text-muted' }, `→ ${row.original.strategies.exit}`)
     ])
@@ -405,11 +421,11 @@ const openTradesColumns: TableColumn[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) => h('div', { class: 'flex justify-end' }, [
+    cell: ({ row }: { row: any }) => h('div', { class: 'flex justify-end' }, [
       h(UButton, {
         icon: 'i-lucide-x-circle',
         size: 'sm',
-        color: 'red',
+        color: 'error',
         variant: 'ghost',
         square: true,
         onClick: () => openCloseTradeModal(row.original.trade)
@@ -420,7 +436,7 @@ const openTradesColumns: TableColumn[] = [
 
 // Table data for open trades
 const openTradesTableData = computed(() => {
-  return openTrades.value.map(tradeResponse => {
+  return openTrades.value.map((tradeResponse) => {
     const trade = tradeResponse.trade
     let optionsInfo = ''
     let positionValue = 0
@@ -486,7 +502,9 @@ const openTradesTableData = computed(() => {
       <!-- Loading State -->
       <div v-if="isLoadingPortfolios" class="flex flex-col items-center justify-center h-96">
         <UIcon name="i-lucide-loader-2" class="w-16 h-16 text-primary mb-4 animate-spin" />
-        <h3 class="text-lg font-semibold mb-2">Loading Portfolios</h3>
+        <h3 class="text-lg font-semibold mb-2">
+          Loading Portfolios
+        </h3>
         <p class="text-muted text-center">
           Please wait while we fetch your portfolios...
         </p>
@@ -495,7 +513,9 @@ const openTradesTableData = computed(() => {
       <!-- No Portfolio State -->
       <div v-else-if="!portfolio" class="flex flex-col items-center justify-center h-96">
         <UIcon name="i-lucide-briefcase" class="w-16 h-16 text-muted mb-4" />
-        <h3 class="text-lg font-semibold mb-2">No Portfolio</h3>
+        <h3 class="text-lg font-semibold mb-2">
+          No Portfolio
+        </h3>
         <p class="text-muted text-center mb-4">
           Create a portfolio to start tracking your trades
         </p>
@@ -513,11 +533,17 @@ const openTradesTableData = computed(() => {
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
-                <h2 class="text-2xl font-bold">{{ portfolio.name }}</h2>
-                <p class="text-muted text-sm">{{ portfolio.currency }}</p>
+                <h2 class="text-2xl font-bold">
+                  {{ portfolio.name }}
+                </h2>
+                <p class="text-muted text-sm">
+                  {{ portfolio.currency }}
+                </p>
               </div>
               <div class="text-right">
-                <p class="text-sm text-muted">Current Balance</p>
+                <p class="text-sm text-muted">
+                  Current Balance
+                </p>
                 <p class="text-2xl font-bold">
                   {{ formatCurrency(portfolio.currentBalance, portfolio.currency) }}
                 </p>
@@ -525,13 +551,17 @@ const openTradesTableData = computed(() => {
             </div>
             <div class="grid grid-cols-2 gap-4 pt-4 border-t">
               <div>
-                <p class="text-sm text-muted">Initial Balance</p>
+                <p class="text-sm text-muted">
+                  Initial Balance
+                </p>
                 <p class="font-semibold">
                   {{ formatCurrency(portfolio.initialBalance, portfolio.currency) }}
                 </p>
               </div>
               <div>
-                <p class="text-sm text-muted">Total Profit</p>
+                <p class="text-sm text-muted">
+                  Total Profit
+                </p>
                 <p class="font-semibold" :class="portfolio.currentBalance >= portfolio.initialBalance ? 'text-green-600' : 'text-red-600'">
                   {{ formatCurrency(portfolio.currentBalance - portfolio.initialBalance, portfolio.currency) }}
                   ({{ formatPercentage(((portfolio.currentBalance - portfolio.initialBalance) / portfolio.initialBalance) * 100) }})
@@ -545,21 +575,31 @@ const openTradesTableData = computed(() => {
         <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <UCard>
             <div>
-              <p class="text-sm text-muted">Total Trades</p>
-              <p class="text-2xl font-bold">{{ stats.totalTrades }}</p>
+              <p class="text-sm text-muted">
+                Total Trades
+              </p>
+              <p class="text-2xl font-bold">
+                {{ stats.totalTrades }}
+              </p>
             </div>
           </UCard>
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">Win Rate</p>
-              <p class="text-2xl font-bold">{{ stats.winRate.toFixed(1) }}%</p>
+              <p class="text-sm text-muted">
+                Win Rate
+              </p>
+              <p class="text-2xl font-bold">
+                {{ stats.winRate.toFixed(1) }}%
+              </p>
             </div>
           </UCard>
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">YTD Return</p>
+              <p class="text-sm text-muted">
+                YTD Return
+              </p>
               <p class="text-2xl font-bold" :class="stats.ytdReturn >= 0 ? 'text-green-600' : 'text-red-600'">
                 {{ formatPercentage(stats.ytdReturn) }}
               </p>
@@ -568,7 +608,9 @@ const openTradesTableData = computed(() => {
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">Proven Edge</p>
+              <p class="text-sm text-muted">
+                Proven Edge
+              </p>
               <p class="text-2xl font-bold" :class="stats.provenEdge >= 0 ? 'text-green-600' : 'text-red-600'">
                 {{ formatPercentage(stats.provenEdge) }}
               </p>
@@ -577,29 +619,45 @@ const openTradesTableData = computed(() => {
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">Avg Win</p>
-              <p class="text-2xl font-bold text-green-600">{{ formatPercentage(stats.avgWin) }}</p>
+              <p class="text-sm text-muted">
+                Avg Win
+              </p>
+              <p class="text-2xl font-bold text-green-600">
+                {{ formatPercentage(stats.avgWin) }}
+              </p>
             </div>
           </UCard>
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">Avg Loss</p>
-              <p class="text-2xl font-bold text-red-600">{{ formatPercentage(stats.avgLoss) }}</p>
+              <p class="text-sm text-muted">
+                Avg Loss
+              </p>
+              <p class="text-2xl font-bold text-red-600">
+                {{ formatPercentage(stats.avgLoss) }}
+              </p>
             </div>
           </UCard>
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">Open Trades</p>
-              <p class="text-2xl font-bold">{{ stats.openTrades }}</p>
+              <p class="text-sm text-muted">
+                Open Trades
+              </p>
+              <p class="text-2xl font-bold">
+                {{ stats.openTrades }}
+              </p>
             </div>
           </UCard>
 
           <UCard>
             <div>
-              <p class="text-sm text-muted">Closed Trades</p>
-              <p class="text-2xl font-bold">{{ stats.closedTrades }}</p>
+              <p class="text-sm text-muted">
+                Closed Trades
+              </p>
+              <p class="text-2xl font-bold">
+                {{ stats.closedTrades }}
+              </p>
             </div>
           </UCard>
         </div>
@@ -608,12 +666,14 @@ const openTradesTableData = computed(() => {
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">Open Trades</h3>
+              <h3 class="text-lg font-semibold">
+                Open Trades
+              </h3>
               <div class="flex gap-2">
                 <UButton
                   icon="i-lucide-refresh-cw"
                   size="sm"
-                  color="gray"
+                  color="neutral"
                   variant="ghost"
                   :loading="isRefreshingStocks"
                   @click="refreshOpenTradeStocks"
@@ -649,7 +709,9 @@ const openTradesTableData = computed(() => {
                     Signals from {{ row.original.trade.underlyingSymbol }}
                   </span>
                 </div>
-                <UBadge color="blue" size="xs">{{ row.original.status }}</UBadge>
+                <UBadge color="blue" size="xs">
+                  {{ row.original.status }}
+                </UBadge>
               </div>
             </template>
 
@@ -676,7 +738,9 @@ const openTradesTableData = computed(() => {
         <!-- Recent Closed Trades -->
         <UCard>
           <template #header>
-            <h3 class="text-lg font-semibold">Recent Closed Trades</h3>
+            <h3 class="text-lg font-semibold">
+              Recent Closed Trades
+            </h3>
           </template>
 
           <div v-if="closedTrades.length === 0" class="text-center py-8 text-muted">
@@ -691,8 +755,12 @@ const openTradesTableData = computed(() => {
             >
               <div class="flex-1">
                 <div class="flex items-center gap-2">
-                  <p class="font-semibold">{{ tradeResponse.trade.symbol }}</p>
-                  <UBadge color="gray" size="xs">{{ tradeResponse.trade.status }}</UBadge>
+                  <p class="font-semibold">
+                    {{ tradeResponse.trade.symbol }}
+                  </p>
+                  <UBadge color="neutral" size="xs">
+                    {{ tradeResponse.trade.status }}
+                  </UBadge>
                 </div>
                 <p class="text-sm text-muted">
                   {{ format(new Date(tradeResponse.trade.entryDate), 'MMM dd') }} →

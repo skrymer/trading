@@ -65,11 +65,11 @@ const worstTrade = computed(() => {
 })
 
 // Table configuration
-const columns: TableColumn[] = [
+const columns: TableColumn<any>[] = [
   {
     id: 'expand',
     header: '',
-    cell: ({ row }) => h('button', {
+    cell: ({ row }: { row: any }) => h('button', {
       onClick: () => row.toggleExpanded(),
       class: [
         'inline-flex items-center justify-center',
@@ -96,7 +96,7 @@ const columns: TableColumn[] = [
   { accessorKey: 'entryPrice', header: 'Entry' },
   { accessorKey: 'exitPrice', header: 'Exit' },
   { accessorKey: 'exitDate', header: 'Exit Date' },
-  { accessorKey: 'exitReason', header: 'Exit Reason' },
+  { accessorKey: 'exitReason', header: 'Exit Reason' }
 ]
 
 const tableData = computed(() => {
@@ -114,7 +114,7 @@ const tableData = computed(() => {
       tradingDays: trade.tradingDays || 'N/A',
       profitPercentage: Number(trade.profitPercentage.toFixed(2)),
       profit: Number(trade.profit.toFixed(2)),
-      exitReason: trade.exitReason || 'N/A',
+      exitReason: trade.exitReason || 'N/A'
     }
   })
 })
@@ -124,8 +124,8 @@ const tableData = computed(() => {
   <UModal
     :open="open"
     :title="`Trades for ${date}`"
-    @update:open="emit('update:open', $event)"
     :ui="{ content: 'sm:max-w-6xl' }"
+    @update:open="emit('update:open', $event)"
   >
     <template #body>
       <div v-if="trades.length > 0" class="space-y-6">
@@ -134,11 +134,15 @@ const tableData = computed(() => {
           <!-- Total Profit Card -->
           <UCard :ui="{ body: '!p-4' }">
             <div class="space-y-1">
-              <p class="text-xs text-muted uppercase">Total Profit</p>
-              <p :class="[
-                'text-2xl font-bold',
-                totalProfit >= 0 ? 'text-success' : 'text-error'
-              ]">
+              <p class="text-xs text-muted uppercase">
+                Total Profit
+              </p>
+              <p
+                :class="[
+                  'text-2xl font-bold',
+                  totalProfit >= 0 ? 'text-success' : 'text-error'
+                ]"
+              >
                 {{ totalProfit >= 0 ? '+' : '' }}{{ totalProfit.toFixed(2) }}%
               </p>
               <p class="text-xs text-muted">
@@ -150,7 +154,9 @@ const tableData = computed(() => {
           <!-- Win Rate Card -->
           <UCard :ui="{ body: '!p-4' }">
             <div class="space-y-1">
-              <p class="text-xs text-muted uppercase">Win Rate</p>
+              <p class="text-xs text-muted uppercase">
+                Win Rate
+              </p>
               <p class="text-2xl font-bold">
                 {{ winRate.toFixed(0) }}%
               </p>
@@ -163,7 +169,9 @@ const tableData = computed(() => {
           <!-- Best Trade Card -->
           <UCard :ui="{ body: '!p-4' }">
             <div class="space-y-1">
-              <p class="text-xs text-muted uppercase">Best Trade</p>
+              <p class="text-xs text-muted uppercase">
+                Best Trade
+              </p>
               <p class="text-2xl font-bold text-success">
                 {{ bestTrade ? '+' + bestTrade.profitPercentage.toFixed(2) + '%' : 'N/A' }}
               </p>
@@ -176,7 +184,9 @@ const tableData = computed(() => {
           <!-- Worst Trade Card -->
           <UCard :ui="{ body: '!p-4' }">
             <div class="space-y-1">
-              <p class="text-xs text-muted uppercase">Worst Trade</p>
+              <p class="text-xs text-muted uppercase">
+                Worst Trade
+              </p>
               <p class="text-2xl font-bold text-error">
                 {{ worstTrade ? worstTrade.profitPercentage.toFixed(2) + '%' : 'N/A' }}
               </p>
@@ -189,7 +199,9 @@ const tableData = computed(() => {
 
         <!-- Trades Table -->
         <div>
-          <h3 class="text-sm font-semibold mb-3">Trade Details ({{ tableData.length }} trades)</h3>
+          <h3 class="text-sm font-semibold mb-3">
+            Trade Details ({{ tableData.length }} trades)
+          </h3>
           <UTable
             v-model:expanded="expanded"
             :columns="columns"
@@ -207,7 +219,7 @@ const tableData = computed(() => {
                   v-if="row.original._trade.underlyingSymbol && row.original._trade.underlyingSymbol !== row.original.stockSymbol"
                   :text="`Strategy signals from ${row.original._trade.underlyingSymbol}`"
                 >
-                  <UBadge color="blue" size="xs" variant="subtle">
+                  <UBadge color="info" size="xs" variant="subtle">
                     {{ row.original._trade.underlyingSymbol }}
                   </UBadge>
                 </UTooltip>
@@ -215,19 +227,23 @@ const tableData = computed(() => {
             </template>
 
             <template #profitPercentage-data="{ row }">
-              <span :class="[
-                'font-semibold',
-                row.original.profitPercentage >= 0 ? 'text-success' : 'text-error'
-              ]">
+              <span
+                :class="[
+                  'font-semibold',
+                  row.original.profitPercentage >= 0 ? 'text-success' : 'text-error'
+                ]"
+              >
                 {{ row.original.profitPercentage >= 0 ? '+' : '' }}{{ Number(row.original.profitPercentage).toFixed(2) }}%
               </span>
             </template>
 
             <template #profit-data="{ row }">
-              <span :class="[
-                'font-semibold',
-                row.original.profit >= 0 ? 'text-success' : 'text-error'
-              ]">
+              <span
+                :class="[
+                  'font-semibold',
+                  row.original.profit >= 0 ? 'text-success' : 'text-error'
+                ]"
+              >
                 {{ row.original.profit >= 0 ? '+' : '' }}${{ Number(row.original.profit).toFixed(2) }}
               </span>
             </template>

@@ -38,7 +38,9 @@ function handleCancel() {
           <div class="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
             <UIcon name="i-lucide-alert-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
-          <h3 class="text-lg font-semibold">Delete Portfolio</h3>
+          <h3 class="text-lg font-semibold">
+            Delete Portfolio
+          </h3>
         </div>
       </template>
 
@@ -57,8 +59,12 @@ function handleCancel() {
             Portfolio to delete:
           </p>
           <div class="p-3 bg-muted/50 rounded-lg">
-            <p class="font-semibold">{{ portfolio.name }}</p>
-            <p class="text-sm text-muted">{{ portfolio.currency }}</p>
+            <p class="font-semibold">
+              {{ portfolio.name }}
+            </p>
+            <p class="text-sm text-muted">
+              {{ portfolio.currency }}
+            </p>
           </div>
         </div>
 
@@ -84,7 +90,7 @@ function handleCancel() {
           />
           <UButton
             label="Delete Portfolio"
-            color="red"
+            color="error"
             icon="i-lucide-trash-2"
             :disabled="!isValid"
             @click="handleDelete"

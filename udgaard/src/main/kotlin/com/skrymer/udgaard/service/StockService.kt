@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 
 
@@ -31,7 +32,9 @@ import kotlinx.coroutines.supervisorScope
 open class StockService(
   val stockRepository: StockRepository,
   val ovtlyrClient: OvtlyrClient,
-  val marketBreadthRepository: MarketBreadthRepository
+  val marketBreadthRepository: MarketBreadthRepository,
+  val orderBlockCalculator: OrderBlockCalculator,
+  val alphaVantageClient: com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient
 ) {
 
   /**
@@ -40,6 +43,7 @@ open class StockService(
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
   @Cacheable(value = ["stocks"], key = "#symbol", unless = "#forceFetch")
+  @org.springframework.cache.annotation.CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
   open fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
     if(forceFetch){
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
@@ -91,6 +95,47 @@ open class StockService(
   @Cacheable(value = ["stocks"], key = "'allStocks'")
   open fun getAllStocks(): List<Stock>{
     return stockRepository.findAll()
+  }
+
+  /**
+   * Get stocks by a list of symbols (efficient repository query)
+   * Returns only stocks that exist in the database
+   *
+   * @param symbols - list of stock symbols to fetch
+   * @param forceFetch - force fetching stocks from ovtlyr api (bypasses cache)
+   * @return list of stocks matching the provided symbols (only those that exist in DB)
+   */
+  @Cacheable(value = ["stocks"], key = "'bySymbols:' + #symbols.toString()", unless = "#forceFetch")
+  @OptIn(ExperimentalCoroutinesApi::class)
+  open fun getStocksBySymbols(symbols: List<String>, forceFetch: Boolean = false): List<Stock> = runBlocking {
+    // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
+    val sortedSymbols = symbols.sorted()
+
+    val logger = LoggerFactory.getLogger("StockFetcher")
+    val limited = Dispatchers.IO.limitedParallelism(10)
+
+    if (forceFetch) {
+      // Force fetch all symbols from API
+      val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+      checkNotNull(spy) { "Failed to fetch SPY reference data" }
+
+      return@runBlocking sortedSymbols.map { symbol ->
+        async(limited) {
+          runCatching {
+            fetchStock(symbol, spy)
+          }.onFailure { e ->
+            logger.warn("Failed to force fetch symbol={}: {}", symbol, e.message, e)
+          }.getOrNull()
+        }
+      }
+      .awaitAll()
+      .filterNotNull()
+    }
+
+    // Get existing stocks from repository
+    val existingStocks = stockRepository.findBySymbolIn(sortedSymbols)
+
+    return@runBlocking existingStocks
   }
 
   /**
@@ -170,6 +215,7 @@ open class StockService(
    * @param ranker - the stock ranker to use for selecting best stocks when position limit is reached (default: HeatmapRanker)
    * @param useUnderlyingAssets - enable automatic underlying asset detection for strategy evaluation (default: true)
    * @param customUnderlyingMap - custom symbol → underlying mappings (overrides AssetMapper)
+   * @param cooldownDays - global cooldown period in trading days after any exit before allowing new entries (default: 0)
    * @return a backtest report
    */
   fun backtest(
@@ -181,13 +227,17 @@ open class StockService(
     maxPositions: Int? = null,
     ranker: StockRanker = HeatmapRanker(),
     useUnderlyingAssets: Boolean = true,
-    customUnderlyingMap: Map<String, String>? = null
+    customUnderlyingMap: Map<String, String>? = null,
+    cooldownDays: Int = 0
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
 
     // Validate that all underlying assets exist in the database
     validateUnderlyingAssets(stocks, useUnderlyingAssets, customUnderlyingMap)
+
+    // Track most recent exit date for global cooldown enforcement
+    var lastExitDate: LocalDate? = null
 
     // Create stock pairs: trading stock + strategy stock (might be the same)
     data class StockPair(
@@ -226,10 +276,11 @@ open class StockService(
         }
     }.distinct().sorted()
 
+    val cooldownInfo = if (cooldownDays > 0) ", cooldown: $cooldownDays trading days" else ""
     if (maxPositions != null) {
-      logger.info("Backtest with position limit: ${allTradingDates.size} trading days, max $maxPositions positions per day, using ${ranker.description()}")
+      logger.info("Backtest with position limit: ${allTradingDates.size} trading days, max $maxPositions positions per day, using ${ranker.description()}$cooldownInfo")
     } else {
-      logger.info("Backtest: ${allTradingDates.size} trading days, unlimited positions per day")
+      logger.info("Backtest: ${allTradingDates.size} trading days, unlimited positions per day$cooldownInfo")
     }
 
     // Step 2: Process each date chronologically
@@ -249,8 +300,26 @@ open class StockService(
         val tradingQuote = stockPair.tradingStock.quotes.find { it.date == currentDate }
 
         if (strategyQuote != null && tradingQuote != null) {
-          // Test strategy against the underlying/strategy stock
-          if (entryStrategy.test(stockPair.strategyStock, strategyQuote)) {
+          // Check global cooldown first if enabled (counting trading days, not calendar days)
+          val isInCooldown = if (cooldownDays > 0 && lastExitDate != null) {
+            val exitDateIndex = allTradingDates.indexOf(lastExitDate)
+            val currentDateIndex = allTradingDates.indexOf(currentDate)
+
+            if (exitDateIndex >= 0 && currentDateIndex >= 0) {
+              val tradingDaysSinceExit = currentDateIndex - exitDateIndex
+              tradingDaysSinceExit < cooldownDays
+            } else {
+              false
+            }
+          } else {
+            false
+          }
+
+          if (isInCooldown) {
+            // Skip this entry due to global cooldown
+            null
+          } else if (entryStrategy.test(stockPair.strategyStock, strategyQuote)) {
+            // Test strategy against the underlying/strategy stock
             PotentialEntry(stockPair, strategyQuote, tradingQuote)
           } else {
             null
@@ -319,6 +388,11 @@ open class StockService(
                   entry.stockPair.tradingStock.sectorSymbol ?: ""
                 )
                 trades.add(trade)
+
+                  // Record exit date for global cooldown tracking
+                  if (cooldownDays > 0) {
+                    lastExitDate = exitDate
+                  }
 
                   if (maxPositions != null) {
                     val symbolInfo = if (entry.stockPair.underlyingSymbol != null) {
@@ -396,14 +470,68 @@ open class StockService(
   // Helper extension for formatting doubles
   private fun Double.format(decimals: Int) = "%.${decimals}f".format(this)
 
+  /**
+   * Fetches stock data from Ovtlyr API and saves it to the database.
+   *
+   * @param symbol - the stock symbol to fetch
+   * @param spy - SPY reference data for enriching stock information
+   * @return the fetched and saved stock, or null if fetch or save failed
+   */
   private fun fetchStock(symbol: String, spy: OvtlyrStockInformation): Stock? {
+    val logger = LoggerFactory.getLogger("StockService")
     val stockInformation = ovtlyrClient.getStockInformation(symbol) ?: return null
 
     return runCatching {
       val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
       val marketSymbol = MarketSymbol.valueOf(stockInformation.sectorSymbol)
       val sectorMarketBreadth = marketBreadthRepository.findByIdOrNull(marketSymbol)
-      return stockRepository.save(stockInformation.toModel(marketBreadth, sectorMarketBreadth,spy))
+      val stock = stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy)
+
+      // Enrich quotes with volume data from Alpha Vantage
+      logger.info("Starting volume enrichment for $symbol (${stock.quotes.size} quotes to enrich)")
+      val alphaQuotes = alphaVantageClient.getDailyTimeSeriesCompact(symbol)
+      if (alphaQuotes != null) {
+        logger.info("Enriching $symbol with volume data from Alpha Vantage (${alphaQuotes.size} Alpha quotes available)")
+        logger.debug("Ovtlyr date range: ${stock.quotes.firstOrNull()?.date} to ${stock.quotes.lastOrNull()?.date}")
+        logger.debug("Alpha Vantage date range: ${alphaQuotes.firstOrNull()?.date} to ${alphaQuotes.lastOrNull()?.date}")
+
+        var matchedCount = 0
+        var unmatchedCount = 0
+        stock.quotes.forEach { quote ->
+          val matchingAlphaQuote = alphaQuotes.find { it.date == quote.date }
+          if (matchingAlphaQuote != null) {
+            quote.volume = matchingAlphaQuote.volume
+            matchedCount++
+          } else {
+            unmatchedCount++
+          }
+        }
+        logger.info("Volume enrichment complete for $symbol: $matchedCount quotes matched, $unmatchedCount unmatched")
+
+        // Log sample of enriched quotes
+        val quotesWithVolume = stock.quotes.filter { it.volume > 0 }
+        logger.info("Quotes with volume > 0: ${quotesWithVolume.size} out of ${stock.quotes.size}")
+      } else {
+        logger.warn("Could not fetch volume data from Alpha Vantage for $symbol, using default values")
+      }
+
+      // Calculate order blocks using ROC algorithm and add them to the stock
+      val calculatedOrderBlocks = orderBlockCalculator.calculateOrderBlocks(
+        quotes = stock.quotes,
+        sensitivity = 28.0
+      )
+
+      // Combine Ovtlyr order blocks with calculated ones
+      val allOrderBlocks = stock.orderBlocks + calculatedOrderBlocks
+      val enrichedStock = Stock(
+        symbol = stock.symbol,
+        sectorSymbol = stock.sectorSymbol,
+        quotes = stock.quotes,
+        orderBlocks = allOrderBlocks,
+        ovtlyrPerformance = stock.ovtlyrPerformance
+      )
+
+      return stockRepository.save(enrichedStock)
     }.getOrNull()
   }
 }

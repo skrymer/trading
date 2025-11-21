@@ -86,8 +86,12 @@ const tableData = computed(() => {
   <UCard>
     <template #header>
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold">Sector Performance Analysis</h3>
-        <p class="text-sm text-muted">Ranked by Edge</p>
+        <h3 class="text-lg font-semibold">
+          Sector Performance Analysis
+        </h3>
+        <p class="text-sm text-muted">
+          Ranked by Edge
+        </p>
       </div>
     </template>
 
@@ -96,7 +100,9 @@ const tableData = computed(() => {
     </div>
 
     <div v-else-if="!trades || trades.length === 0" class="text-center py-8">
-      <p class="text-muted">No sector data available</p>
+      <p class="text-muted">
+        No sector data available
+      </p>
     </div>
 
     <UTable
@@ -115,37 +121,45 @@ const tableData = computed(() => {
       </template>
 
       <template #winRate-data="{ row }">
-        <span :class="[
-          'font-semibold',
-          row.original.raw.winRate >= 50 ? 'text-success' : 'text-muted'
-        ]">
+        <span
+          :class="[
+            'font-semibold',
+            row.original.raw.winRate >= 50 ? 'text-success' : 'text-muted'
+          ]"
+        >
           {{ row.original.winRate }}
         </span>
       </template>
 
       <template #totalProfit-data="{ row }">
-        <span :class="[
-          'font-semibold',
-          row.original.raw.totalProfit >= 0 ? 'text-success' : 'text-error'
-        ]">
+        <span
+          :class="[
+            'font-semibold',
+            row.original.raw.totalProfit >= 0 ? 'text-success' : 'text-error'
+          ]"
+        >
           {{ row.original.raw.totalProfit >= 0 ? '+' : '' }}{{ row.original.totalProfit }}%
         </span>
       </template>
 
       <template #averageProfit-data="{ row }">
-        <span :class="[
-          'font-semibold',
-          row.original.raw.averageProfit >= 0 ? 'text-success' : 'text-error'
-        ]">
+        <span
+          :class="[
+            'font-semibold',
+            row.original.raw.averageProfit >= 0 ? 'text-success' : 'text-error'
+          ]"
+        >
           {{ row.original.raw.averageProfit >= 0 ? '+' : '' }}{{ row.original.averageProfit }}%
         </span>
       </template>
 
       <template #edge-data="{ row }">
-        <span :class="[
-          'font-bold',
-          row.original.raw.edge >= 0 ? 'text-success' : 'text-error'
-        ]">
+        <span
+          :class="[
+            'font-bold',
+            row.original.raw.edge >= 0 ? 'text-success' : 'text-error'
+          ]"
+        >
           {{ row.original.raw.edge >= 0 ? '+' : '' }}{{ row.original.edge }}
         </span>
       </template>

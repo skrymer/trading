@@ -33,12 +33,12 @@ onMounted(() => {
 
 // Helper function to check if a quote has valid price data
 function isValidQuote(quote: any): boolean {
-  return quote &&
-    quote.date &&
-    typeof quote.closePrice === 'number' && quote.closePrice > 0 &&
-    typeof quote.openPrice === 'number' && quote.openPrice > 0 &&
-    typeof quote.high === 'number' && quote.high > 0 &&
-    typeof quote.low === 'number' && quote.low > 0
+  return quote
+    && quote.date
+    && typeof quote.closePrice === 'number' && quote.closePrice > 0
+    && typeof quote.openPrice === 'number' && quote.openPrice > 0
+    && typeof quote.high === 'number' && quote.high > 0
+    && typeof quote.low === 'number' && quote.low > 0
 }
 
 // Filter quotes since entry date
@@ -162,70 +162,70 @@ const chartOptions = computed<ApexOptions>(() => {
           zoomin: true,
           zoomout: true,
           pan: true,
-          reset: true,
-        },
+          reset: true
+        }
       },
       background: 'transparent',
-      foreColor: isDark ? '#d1d5db' : '#6b7280',
+      foreColor: isDark ? '#d1d5db' : '#6b7280'
     },
     plotOptions: {
       candlestick: {
         colors: {
           upward: '#10b981',
-          downward: '#ef4444',
-        },
-      },
+          downward: '#ef4444'
+        }
+      }
     },
     stroke: {
       width: [1, 2, 2, 2],
-      curve: 'smooth',
+      curve: 'smooth'
     },
     dataLabels: {
-      enabled: false,
+      enabled: false
     },
     xaxis: {
       type: 'category',
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
+          colors: isDark ? '#9ca3af' : '#6b7280'
         },
         formatter: (value: string) => {
           const date = new Date(value)
           return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        },
+        }
       },
-      tickPlacement: 'on',
+      tickPlacement: 'on'
     },
     yaxis: {
       tooltip: {
-        enabled: true,
+        enabled: true
       },
       labels: {
         style: {
-          colors: isDark ? '#9ca3af' : '#6b7280',
+          colors: isDark ? '#9ca3af' : '#6b7280'
         },
         formatter: (val: number) => {
           if (val == null || val === undefined) return ''
           return '$' + val.toFixed(2)
-        },
-      },
+        }
+      }
     },
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: isDark ? '#374151' : '#e5e7eb'
     },
     legend: {
       show: true,
       position: 'top',
       horizontalAlign: 'left',
       labels: {
-        colors: isDark ? '#d1d5db' : '#6b7280',
-      },
+        colors: isDark ? '#d1d5db' : '#6b7280'
+      }
     },
     tooltip: {
       theme: isDark ? 'dark' : 'light',
       x: {
-        format: 'MMM dd, yyyy',
-      },
+        format: 'MMM dd, yyyy'
+      }
     },
     colors: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'],
     annotations: {
@@ -237,11 +237,11 @@ const chartOptions = computed<ApexOptions>(() => {
           text: `Entry: $${props.trade.entryPrice.toFixed(2)}`,
           style: {
             color: '#fff',
-            background: '#10b981',
-          },
-        },
-      }],
-    },
+            background: '#10b981'
+          }
+        }
+      }]
+    }
   }
 })
 </script>
@@ -256,7 +256,9 @@ const chartOptions = computed<ApexOptions>(() => {
     <!-- Error State -->
     <div v-else-if="status === 'error'" class="flex flex-col items-center justify-center h-64">
       <UIcon name="i-lucide-alert-circle" class="w-8 h-8 text-red-500 mb-2" />
-      <p class="text-sm text-muted">Failed to load chart data</p>
+      <p class="text-sm text-muted">
+        Failed to load chart data
+      </p>
     </div>
 
     <!-- Chart -->
@@ -284,15 +286,25 @@ const chartOptions = computed<ApexOptions>(() => {
       <!-- Stats -->
       <div class="grid grid-cols-3 gap-4 mb-4">
         <div class="text-center p-3 rounded-lg bg-background">
-          <p class="text-xs text-muted mb-1">Entry Price</p>
-          <p class="font-semibold">${{ trade.entryPrice.toFixed(2) }}</p>
+          <p class="text-xs text-muted mb-1">
+            Entry Price
+          </p>
+          <p class="font-semibold">
+            ${{ trade.entryPrice.toFixed(2) }}
+          </p>
         </div>
         <div class="text-center p-3 rounded-lg bg-background">
-          <p class="text-xs text-muted mb-1">Current Price</p>
-          <p class="font-semibold">${{ currentProfitLoss?.currentPrice.toFixed(2) }}</p>
+          <p class="text-xs text-muted mb-1">
+            Current Price
+          </p>
+          <p class="font-semibold">
+            ${{ currentProfitLoss?.currentPrice.toFixed(2) }}
+          </p>
         </div>
         <div class="text-center p-3 rounded-lg" :class="currentProfitLoss && currentProfitLoss.profit >= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
-          <p class="text-xs text-muted mb-1">P&L</p>
+          <p class="text-xs text-muted mb-1">
+            P&L
+          </p>
           <p class="font-semibold" :class="currentProfitLoss && currentProfitLoss.profit >= 0 ? 'text-green-600' : 'text-red-600'">
             {{ currentProfitLoss ? (currentProfitLoss.profit >= 0 ? '+' : '') + currentProfitLoss.profit.toFixed(2) : '0.00' }}
             ({{ currentProfitLoss ? (currentProfitLoss.profitPercentage >= 0 ? '+' : '') + currentProfitLoss.profitPercentage.toFixed(2) : '0.00' }}%)
@@ -314,7 +326,9 @@ const chartOptions = computed<ApexOptions>(() => {
     <!-- No Data -->
     <div v-else class="flex flex-col items-center justify-center h-64">
       <UIcon name="i-lucide-trending-up" class="w-8 h-8 text-muted mb-2" />
-      <p class="text-sm text-muted">No chart data available</p>
+      <p class="text-sm text-muted">
+        No chart data available
+      </p>
     </div>
   </div>
 </template>

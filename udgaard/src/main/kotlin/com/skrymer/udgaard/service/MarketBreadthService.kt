@@ -49,6 +49,22 @@ class MarketBreadthService(
     }
   }
 
+  fun refreshAllSectors(): Map<String, String> {
+    // Refresh FULLSTOCK first
+    fetchMarketBreadth(MarketSymbol.FULLSTOCK)
+
+    // Refresh all sectors (excluding UNK)
+    val sectors = MarketSymbol.entries.filter { it != MarketSymbol.FULLSTOCK && it != MarketSymbol.UNK }
+    sectors.forEach { sector ->
+      fetchMarketBreadth(sector)
+    }
+
+    return mapOf(
+      "status" to "success",
+      "message" to "Refreshed FULLSTOCK and ${sectors.size} sectors"
+    )
+  }
+
   private fun getStockInMarket(marketSymbol: MarketSymbol): OvtlyrStockInformation? {
     return when(marketSymbol) {
       MarketSymbol.XLB -> ovtlyrClient.getStockInformation(StockSymbol.ALB.name)

@@ -21,6 +21,7 @@ object AssetMapper {
 
         // S&P 500 SPY
         "UPRO" to "SPY",  // 3x Bull
+        "SPXL" to "SPY",  // 3x Bull
         "SPXU" to "SPY",  // 3x Bear
         "SSO" to "SPY",   // 2x Bull
         "SDS" to "SPY",   // 2x Bear
@@ -100,7 +101,7 @@ object AssetMapper {
     fun getLeverageFactor(symbol: String): Double? {
         return when (symbol.uppercase()) {
             // 3x Bull
-            "TQQQ", "UPRO", "SOXL", "TNA", "UDOW", "FAS", "ERX", "TECL", "LABU", "NUGT", "GUSH", "EDC" -> 3.0
+            "TQQQ", "UPRO", "SPXL", "SOXL", "TNA", "UDOW", "FAS", "ERX", "TECL", "LABU", "NUGT", "GUSH", "EDC" -> 3.0
             // 3x Bear
             "SQQQ", "SPXU", "SOXS", "TZA", "SDOW", "FAZ", "ERY", "TECS", "LABD", "DUST", "DRIP", "EDZ" -> -3.0
             // 2x Bull

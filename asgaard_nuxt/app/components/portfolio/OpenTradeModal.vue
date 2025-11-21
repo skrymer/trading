@@ -64,13 +64,13 @@ const schema = computed(() => {
 
   if (state.instrumentType === 'OPTION') {
     return baseSchema.extend({
-      optionType: z.enum(['CALL', 'PUT'], { required_error: 'Option type is required' }),
+      optionType: z.enum(['CALL', 'PUT'] as const, { message: 'Option type is required' }),
       strikePrice: z.number().positive('Strike price must be greater than 0'),
       expirationDate: z.string().min(1, 'Expiration date is required'),
       contracts: z.number().int().positive('Contracts must be at least 1'),
       multiplier: z.number().int().positive('Multiplier must be at least 1'),
-      entryIntrinsicValue: z.number().nonnegative().optional().or(z.nan()).transform(val => isNaN(val) ? undefined : val),
-      entryExtrinsicValue: z.number().nonnegative().optional().or(z.nan()).transform(val => isNaN(val) ? undefined : val)
+      entryIntrinsicValue: z.number().nonnegative().optional(),
+      entryExtrinsicValue: z.number().nonnegative().optional()
     })
   } else {
     return baseSchema.extend({
@@ -113,21 +113,22 @@ const totalCost = computed(() => {
 })
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
+  const data = event.data as any
   emit('open-trade', {
-    symbol: event.data.symbol.toUpperCase(),
-    entryPrice: event.data.entryPrice,
-    entryDate: event.data.entryDate,
-    quantity: state.instrumentType === 'OPTION' ? state.contracts : event.data.quantity!,
-    entryStrategy: event.data.entryStrategy,
-    exitStrategy: event.data.exitStrategy,
+    symbol: data.symbol.toUpperCase(),
+    entryPrice: data.entryPrice,
+    entryDate: data.entryDate,
+    quantity: state.instrumentType === 'OPTION' ? state.contracts : data.quantity,
+    entryStrategy: data.entryStrategy,
+    exitStrategy: data.exitStrategy,
     currency: props.currency,
-    underlyingSymbol: event.data.underlyingSymbol ? event.data.underlyingSymbol.toUpperCase() : undefined,
-    instrumentType: event.data.instrumentType,
-    optionType: state.instrumentType === 'OPTION' ? event.data.optionType : undefined,
-    strikePrice: state.instrumentType === 'OPTION' ? event.data.strikePrice : undefined,
-    expirationDate: state.instrumentType === 'OPTION' ? event.data.expirationDate : undefined,
-    contracts: state.instrumentType === 'OPTION' ? event.data.contracts : undefined,
-    multiplier: state.instrumentType === 'OPTION' ? event.data.multiplier : undefined,
+    underlyingSymbol: data.underlyingSymbol ? data.underlyingSymbol.toUpperCase() : undefined,
+    instrumentType: data.instrumentType,
+    optionType: state.instrumentType === 'OPTION' ? data.optionType : undefined,
+    strikePrice: state.instrumentType === 'OPTION' ? data.strikePrice : undefined,
+    expirationDate: state.instrumentType === 'OPTION' ? data.expirationDate : undefined,
+    contracts: state.instrumentType === 'OPTION' ? data.contracts : undefined,
+    multiplier: state.instrumentType === 'OPTION' ? data.multiplier : undefined,
     entryIntrinsicValue: state.instrumentType === 'OPTION' ? state.entryIntrinsicValue : undefined,
     entryExtrinsicValue: state.instrumentType === 'OPTION' ? state.entryExtrinsicValue : undefined
   })
@@ -161,11 +162,16 @@ watch(() => props.open, (isOpen) => {
 <template>
   <UModal
     :open="open"
-    @update:open="emit('update:open', $event)"
     title="Open Trade"
+    @update:open="emit('update:open', $event)"
   >
     <template #body>
-      <UForm :schema="schema" :state="state" @submit="onSubmit" class="space-y-4">
+      <UForm
+        :schema="schema"
+        :state="state"
+        class="space-y-4"
+        @submit="onSubmit"
+      >
         <!-- Instrument Type Selection -->
         <UFormField label="Instrument Type" name="instrumentType" required>
           <URadioGroup
@@ -288,7 +294,12 @@ watch(() => props.open, (isOpen) => {
             />
           </UFormField>
 
-          <UFormField v-if="state.instrumentType !== 'OPTION'" label="Quantity" name="quantity" required>
+          <UFormField
+            v-if="state.instrumentType !== 'OPTION'"
+            label="Quantity"
+            name="quantity"
+            required
+          >
             <UInput
               v-model.number="state.quantity"
               type="number"

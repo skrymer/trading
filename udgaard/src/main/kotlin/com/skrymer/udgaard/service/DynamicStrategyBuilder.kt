@@ -6,12 +6,14 @@ import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
 import com.skrymer.udgaard.model.strategy.condition.entry.*
 import com.skrymer.udgaard.model.strategy.condition.exit.*
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
 class DynamicStrategyBuilder(
     private val strategyRegistry: StrategyRegistry
 ) {
+    private val logger = LoggerFactory.getLogger(DynamicStrategyBuilder::class.java)
 
     /**
      * Build an entry strategy from configuration
@@ -39,19 +41,28 @@ class DynamicStrategyBuilder(
             "AND" -> LogicalOperator.AND
             "OR" -> LogicalOperator.OR
             "NOT" -> LogicalOperator.NOT
+            "" -> LogicalOperator.AND  // Default for entry strategies
             else -> LogicalOperator.AND
         }
         return CompositeEntryStrategy(conditions, operator, config.description)
     }
 
     private fun buildCustomExitStrategy(config: CustomStrategyConfig): CompositeExitStrategy {
+        logger.info("Building custom exit strategy with ${config.conditions.size} conditions, operator: '${config.operator}'")
         val conditions = config.conditions.map { buildExitCondition(it) }
+        // For exit strategies, default to OR (exit when ANY condition is met)
         val operator = when (config.operator.uppercase()) {
-            "AND" -> LogicalOperator.AND
+            "AND" -> {
+                // Warn if AND is explicitly used for exits (usually not desired)
+                logger.warn("Using AND operator for exit strategy - ALL conditions must be true simultaneously. This is rarely desired for exits.")
+                LogicalOperator.AND
+            }
             "OR" -> LogicalOperator.OR
             "NOT" -> LogicalOperator.NOT
+            "" -> LogicalOperator.OR  // Default for exit strategies
             else -> LogicalOperator.OR  // Default for exits
         }
+        logger.info("Built custom exit strategy with operator: $operator, conditions: ${conditions.map { it.description() }}")
         return CompositeExitStrategy(conditions, operator, config.description)
     }
 
@@ -93,30 +104,44 @@ class DynamicStrategyBuilder(
                 percentBelow = (config.parameters["percentBelow"] as? Number)?.toDouble() ?: 2.0,
                 ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30
             )
+            "emabullishcross" -> EmaBullishCrossCondition(
+                fastEma = (config.parameters["fastEma"] as? Number)?.toInt() ?: 10,
+                slowEma = (config.parameters["slowEma"] as? Number)?.toInt() ?: 20
+            )
             else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
         }
     }
 
     private fun buildExitCondition(config: ConditionConfig): ExitCondition {
-        return when (config.type.lowercase()) {
+        logger.info("Building exit condition: type=${config.type}, params=${config.parameters}")
+        val condition = when (config.type.lowercase()) {
             "sellsignal" -> SellSignalExit()
-            "emacross" -> EmaCrossExit(
-                fastEma = (config.parameters["fastEma"] as? Number)?.toInt() ?: 10,
-                slowEma = (config.parameters["slowEma"] as? Number)?.toInt() ?: 20
-            )
-            "profittarget" -> ProfitTargetExit(
-                atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 3.0,
-                emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 20
-            )
-            "orderblock" -> OrderBlockExit(
-                orderBlockAgeInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 120
-            )
+            "emacross" -> {
+                val fastEma = (config.parameters["fastEma"] as? Number)?.toInt() ?: 10
+                val slowEma = (config.parameters["slowEma"] as? Number)?.toInt() ?: 20
+                logger.info("  -> EmaCrossExit(fastEma=$fastEma, slowEma=$slowEma)")
+                EmaCrossExit(fastEma, slowEma)
+            }
+            "profittarget" -> {
+                val atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 3.0
+                val emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 20
+                logger.info("  -> ProfitTargetExit(atrMultiplier=$atrMultiplier, emaPeriod=$emaPeriod)")
+                ProfitTargetExit(atrMultiplier, emaPeriod)
+            }
+            "orderblock" -> {
+                val ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 120
+                val source = config.parameters["source"] as? String ?: "CALCULATED"
+                logger.info("  -> OrderBlockExit(ageInDays=$ageInDays, source=$source)")
+                OrderBlockExit(ageInDays, source)
+            }
             "stoploss" -> StopLossExit(
                 atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.0
             )
-            "trailingstoploss" -> ATRTrailingStopLoss(
-                atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.7
-            )
+            "trailingstoploss" -> {
+                val atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.7
+                logger.info("  -> ATRTrailingStopLoss(atrMultiplier=$atrMultiplier)")
+                ATRTrailingStopLoss(atrMultiplier)
+            }
             "pricebelowema" -> PriceBelowEmaExit(
                 emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10
             )
@@ -126,6 +151,7 @@ class DynamicStrategyBuilder(
             "marketandsectordowntrend" -> MarketAndSectorDowntrendExit()
             else -> throw IllegalArgumentException("Unknown exit condition type: ${config.type}")
         }
+        return condition
     }
 
     /**
@@ -356,6 +382,30 @@ class DynamicStrategyBuilder(
                     )
                 ),
                 category = "OrderBlock"
+            ),
+
+            // EMA Cross condition
+            ConditionMetadata(
+                type = "emaBullishCross",
+                displayName = "EMA Bullish Cross",
+                description = "Fast EMA crosses above slow EMA (bullish crossover)",
+                parameters = listOf(
+                    ParameterMetadata(
+                        name = "fastEma",
+                        displayName = "Fast EMA",
+                        type = "number",
+                        defaultValue = 10,
+                        options = listOf("5", "10", "20")
+                    ),
+                    ParameterMetadata(
+                        name = "slowEma",
+                        displayName = "Slow EMA",
+                        type = "number",
+                        defaultValue = 20,
+                        options = listOf("10", "20", "50")
+                    )
+                ),
+                category = "Trend"
             )
         )
     }
@@ -426,6 +476,13 @@ class DynamicStrategyBuilder(
                         defaultValue = 120,
                         min = 1,
                         max = 365
+                    ),
+                    ParameterMetadata(
+                        name = "source",
+                        displayName = "Source",
+                        type = "select",
+                        defaultValue = "CALCULATED",
+                        options = listOf("CALCULATED", "OVTLYR", "ALL")
                     )
                 ),
                 category = "ProfitTaking"

@@ -1,6 +1,6 @@
-import type { Trade } from "@/types"
+import type { Trade } from '@/types'
 
-export const numberOfWinningTrades = (trades: Trade[] | undefined) =>  trades?.filter(trade => trade.profitPercentage > 0).length || 0
+export const numberOfWinningTrades = (trades: Trade[] | undefined) => trades?.filter(trade => trade.profitPercentage > 0).length || 0
 export const numberOfLosingTrades = (trades: Trade[] | undefined) => trades?.filter(trade => trade.profitPercentage < 0).length || 0
 export const winRate = (trades: Trade[] | undefined) => {
   const total = numberOfWinningTrades(trades) + numberOfLosingTrades(trades)
@@ -22,6 +22,5 @@ export const averageLossPercent = (trades: Trade[] | undefined) => {
 
 /**
  *  (AvgWinPercentage × WinRate) − ((1−WinRate) × AvgLossPercentage)
- */ 
+ */
 export const edge = (trades: Trade[] | undefined) => (averageWinPercent(trades) * winRate(trades)) - ((1.0 - winRate(trades)) * averageLossPercent(trades))
-
