@@ -32,6 +32,16 @@ class BacktestService(
 ) {
 
     /**
+     * Holds indexed quotes for fast O(1) date lookups.
+     */
+    private data class StockQuoteIndex(
+        val stock: Stock,
+        val quotesByDate: Map<LocalDate, com.skrymer.udgaard.model.StockQuote>
+    ) {
+        fun getQuote(date: LocalDate) = quotesByDate[date]
+    }
+
+    /**
      * Creates stock pairs for backtesting.
      * Each pair contains the trading stock (what we buy/sell) and the strategy stock
      * (what signals we use for entry/exit decisions).
@@ -58,6 +68,21 @@ class BacktestService(
             }
 
             StockPair(tradingStock, strategyStock, underlying)
+        }
+    }
+
+    /**
+     * Builds quote indexes for all stocks to enable O(1) date lookups.
+     *
+     * @param stocks - stocks to index
+     * @return map of stock to quote index
+     */
+    private fun buildQuoteIndexes(stocks: List<Stock>): Map<Stock, StockQuoteIndex> {
+        return stocks.associate { stock ->
+            val quotesByDate = stock.quotes
+                .filter { it.date != null }
+                .associateBy { it.date!! }
+            stock to StockQuoteIndex(stock, quotesByDate)
         }
     }
 
@@ -122,11 +147,13 @@ class BacktestService(
      *
      * @param entry - the potential entry to create a trade from
      * @param exitStrategy - the exit strategy to use
+     * @param quoteIndexes - indexed quotes for fast lookup
      * @return a Trade if entry conditions are met and a valid exit is found, null otherwise
      */
     private fun createTradeFromEntry(
         entry: PotentialEntry,
-        exitStrategy: ExitStrategy
+        exitStrategy: ExitStrategy,
+        quoteIndexes: Map<Stock, StockQuoteIndex>
     ): Trade? {
         // Test exit strategy on STRATEGY stock
         val exitReport = entry.stockPair.strategyStock.testExitStrategy(entry.strategyEntryQuote, exitStrategy)
@@ -138,7 +165,7 @@ class BacktestService(
             if (strategyExitQuote?.date != null) {
                 // Get corresponding exit date quote from TRADING stock for P/L
                 val exitDate = strategyExitQuote.date!!
-                val tradingExitQuote = entry.stockPair.tradingStock.getQuoteByDate(exitDate)
+                val tradingExitQuote = quoteIndexes[entry.stockPair.tradingStock]?.getQuote(exitDate)
 
                 if (tradingExitQuote != null) {
                     val profit = tradingExitQuote.closePrice - entry.tradingEntryQuote.closePrice
@@ -209,6 +236,10 @@ class BacktestService(
         // Create stock pairs: trading stock + strategy stock (might be the same)
         val stockPairs = createStockPairs(stocks, useUnderlyingAssets, customUnderlyingMap)
 
+        // Build quote indexes for O(1) date lookups
+        val allStocks = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
+        val quoteIndexes = buildQuoteIndexes(allStocks)
+
         val trades = ArrayList<Trade>()
         val missedTrades = ArrayList<Trade>()
 
@@ -224,10 +255,10 @@ class BacktestService(
             // Step 2a: For each stock pair, check if entry strategy matches on this date
             val entriesForThisDate = stockPairs.mapNotNull { stockPair ->
                 // Get quote for this specific date from STRATEGY stock (for entry evaluation)
-                val strategyQuote = stockPair.strategyStock.quotes.find { it.date == currentDate }
+                val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
 
                 // Also get quote from TRADING stock (for actual price/P&L)
-                val tradingQuote = stockPair.tradingStock.quotes.find { it.date == currentDate }
+                val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
 
                 if (strategyQuote != null && tradingQuote != null) {
                     // Check global cooldown first if enabled (counting trading days, not calendar days)
@@ -266,7 +297,7 @@ class BacktestService(
 
                     // Check if we're not already in this trade (using trading quote)
                     if (trades.find { it.containsQuote(entry.tradingEntryQuote) } == null) {
-                        val trade = createTradeFromEntry(entry, exitStrategy)
+                        val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
 
                         if (trade != null) {
                             trades.add(trade)
@@ -286,7 +317,7 @@ class BacktestService(
                     // Check if we're not already tracking this trade
                     if (missedTrades.find { it.containsQuote(entry.tradingEntryQuote) } == null &&
                         trades.find { it.containsQuote(entry.tradingEntryQuote) } == null) {
-                        val trade = createTradeFromEntry(entry, exitStrategy)
+                        val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
 
                         if (trade != null) {
                             missedTrades.add(trade)
