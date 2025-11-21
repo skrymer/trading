@@ -25,7 +25,12 @@ class TradeShufflingTechniqueTest {
     @Test
     fun `should preserve total return across all scenarios`() {
         val backtest = createSimpleBacktest()
-        val originalReturn = backtest.trades.sumOf { it.profitPercentage }
+        // Calculate original return with compounding, not additive
+        var multiplier = 1.0
+        backtest.trades.forEach { trade ->
+            multiplier *= (1.0 + trade.profitPercentage / 100.0)
+        }
+        val originalReturn = (multiplier - 1.0) * 100.0
         val iterations = 50
 
         val scenarios = technique.generateScenarios(backtest, iterations)
@@ -35,7 +40,7 @@ class TradeShufflingTechniqueTest {
                 originalReturn,
                 scenario.totalReturnPercentage,
                 0.01,
-                "Each scenario should have same total return"
+                "Each scenario should have same total return (compounded)"
             )
         }
     }
@@ -106,14 +111,16 @@ class TradeShufflingTechniqueTest {
             "Equity curve should have one point per trade"
         )
 
-        var expectedCumulative = 0.0
+        // Monte Carlo uses compounding returns, not additive
+        var multiplier = 1.0
         scenario.trades.zip(scenario.equityCurve).forEach { (trade, point) ->
-            expectedCumulative += trade.profitPercentage
+            multiplier *= (1.0 + trade.profitPercentage / 100.0)
+            val expectedCumulative = (multiplier - 1.0) * 100.0
             assertEquals(
                 expectedCumulative,
                 point.cumulativeReturnPercentage,
                 0.01,
-                "Equity curve should be cumulative"
+                "Equity curve should be cumulative with compounding"
             )
         }
     }

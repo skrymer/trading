@@ -3,6 +3,7 @@ package com.skrymer.udgaard.controller
 import com.skrymer.udgaard.controller.dto.*
 import com.skrymer.udgaard.model.BacktestReport
 import com.skrymer.udgaard.model.strategy.*
+import com.skrymer.udgaard.service.BacktestService
 import com.skrymer.udgaard.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.service.StockService
 import com.skrymer.udgaard.service.StrategyRegistry
@@ -33,6 +34,7 @@ import java.time.LocalDate
 @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
 class BacktestController(
     private val stockService: StockService,
+    private val backtestService: BacktestService,
     private val strategyRegistry: StrategyRegistry,
     private val dynamicStrategyBuilder: DynamicStrategyBuilder
 ) {
@@ -107,7 +109,7 @@ class BacktestController(
         }
 
         logger.info("Starting backtest execution...")
-        val backtestReport = stockService.backtest(
+        val backtestReport = backtestService.backtest(
             entryStrategyInstance,
             exitStrategyInstance,
             stocks,
@@ -183,7 +185,7 @@ class BacktestController(
 
         try {
             logger.info("Starting backtest execution...")
-            val backtestReport = stockService.backtest(
+            val backtestReport = backtestService.backtest(
                 entryStrategy,
                 exitStrategy,
                 stocks,

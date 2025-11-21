@@ -104,14 +104,16 @@ class BootstrapResamplingTechniqueTest {
             "Equity curve should have one point per trade"
         )
 
-        var expectedCumulative = 0.0
+        // Monte Carlo uses compounding returns, not additive
+        var multiplier = 1.0
         scenario.trades.zip(scenario.equityCurve).forEach { (trade, point) ->
-            expectedCumulative += trade.profitPercentage
+            multiplier *= (1.0 + trade.profitPercentage / 100.0)
+            val expectedCumulative = (multiplier - 1.0) * 100.0
             assertEquals(
                 expectedCumulative,
                 point.cumulativeReturnPercentage,
                 0.01,
-                "Equity curve should be cumulative"
+                "Equity curve should be cumulative with compounding"
             )
         }
     }
