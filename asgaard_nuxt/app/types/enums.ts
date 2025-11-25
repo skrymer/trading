@@ -27,50 +27,79 @@ export function getSectorName(sectorCode: string): string {
   return Sector[sectorCode as keyof typeof Sector] || sectorCode
 }
 
+/**
+ * Market symbol - represents the entire stock market (all stocks combined)
+ */
 export enum MarketSymbol {
-  FULLSTOCK = 'FULLSTOCK',
-  XLE = 'XLE', // Energy
-  XLV = 'XLV', // Health
-  XLB = 'XLB', // Materials
-  XLC = 'XLC', // Communications
-  XLK = 'XLK', // Technology
-  XLRE = 'XLRE', // Realestate
-  XLI = 'XLI', // Industrials
-  XLF = 'XLF', // Financials
-  XLY = 'XLY', // Discretionary
-  XLP = 'XLP', // Staples
-  XLU = 'XLU', // Utilities
-  UNK = 'UNK' // Unknown
+  FULLSTOCK = 'FULLSTOCK'
 }
 
 export const MarketSymbolDescriptions: Record<MarketSymbol, string> = {
-  [MarketSymbol.FULLSTOCK]: 'Full Stock Market',
-  [MarketSymbol.XLE]: 'Energy',
-  [MarketSymbol.XLV]: 'Health',
-  [MarketSymbol.XLB]: 'Materials',
-  [MarketSymbol.XLC]: 'Communications',
-  [MarketSymbol.XLK]: 'Technology',
-  [MarketSymbol.XLRE]: 'Real Estate',
-  [MarketSymbol.XLI]: 'Industrials',
-  [MarketSymbol.XLF]: 'Financials',
-  [MarketSymbol.XLY]: 'Discretionary',
-  [MarketSymbol.XLP]: 'Staples',
-  [MarketSymbol.XLU]: 'Utilities',
-  [MarketSymbol.UNK]: 'Unknown'
+  [MarketSymbol.FULLSTOCK]: 'All Stocks'
 }
 
-export enum Etf {
-  QQQ = 'QQQ',
+/**
+ * Sector symbols - represent individual market sectors
+ */
+export enum SectorSymbol {
+  XLE = 'XLE',   // Energy
+  XLV = 'XLV',   // Health
+  XLB = 'XLB',   // Materials
+  XLC = 'XLC',   // Communications
+  XLK = 'XLK',   // Technology
+  XLRE = 'XLRE', // Real Estate
+  XLI = 'XLI',   // Industrials
+  XLF = 'XLF',   // Financials
+  XLY = 'XLY',   // Discretionary
+  XLP = 'XLP',   // Staples
+  XLU = 'XLU'    // Utilities
+}
+
+export const SectorSymbolDescriptions: Record<SectorSymbol, string> = {
+  [SectorSymbol.XLE]: 'Energy',
+  [SectorSymbol.XLV]: 'Health',
+  [SectorSymbol.XLB]: 'Materials',
+  [SectorSymbol.XLC]: 'Communications',
+  [SectorSymbol.XLK]: 'Technology',
+  [SectorSymbol.XLRE]: 'Real Estate',
+  [SectorSymbol.XLI]: 'Industrials',
+  [SectorSymbol.XLF]: 'Financials',
+  [SectorSymbol.XLY]: 'Discretionary',
+  [SectorSymbol.XLP]: 'Staples',
+  [SectorSymbol.XLU]: 'Utilities'
+}
+
+/**
+ * Type representing either market or sector breadth symbol
+ */
+export type BreadthSymbol =
+  | { type: 'market', symbol: MarketSymbol }
+  | { type: 'sector', symbol: SectorSymbol }
+
+/**
+ * ETF symbols with support for leveraged and inverse ETFs
+ */
+export enum EtfSymbol {
   SPY = 'SPY',
+  QQQ = 'QQQ',
   IWM = 'IWM',
-  DIA = 'DIA'
+  DIA = 'DIA',
+  // Leveraged ETFs
+  TQQQ = 'TQQQ',
+  SQQQ = 'SQQQ',
+  UPRO = 'UPRO',
+  SPXU = 'SPXU'
 }
 
-export const EtfDescriptions: Record<Etf, string> = {
-  [Etf.QQQ]: 'Nasdaq-100',
-  [Etf.SPY]: 'S&P 500',
-  [Etf.IWM]: 'Russell 2000',
-  [Etf.DIA]: 'Dow Jones Industrial Average'
+export const EtfSymbolDescriptions: Record<EtfSymbol, string> = {
+  [EtfSymbol.SPY]: 'SPDR S&P 500 ETF Trust',
+  [EtfSymbol.QQQ]: 'Invesco QQQ Trust',
+  [EtfSymbol.IWM]: 'iShares Russell 2000 ETF',
+  [EtfSymbol.DIA]: 'SPDR Dow Jones Industrial Average ETF',
+  [EtfSymbol.TQQQ]: 'ProShares UltraPro QQQ (3x Leveraged)',
+  [EtfSymbol.SQQQ]: 'ProShares UltraPro Short QQQ (-3x Inverse)',
+  [EtfSymbol.UPRO]: 'ProShares UltraPro S&P500 (3x Leveraged)',
+  [EtfSymbol.SPXU]: 'ProShares UltraPro Short S&P500 (-3x Inverse)'
 }
 
 export enum MonteCarloTechnique {

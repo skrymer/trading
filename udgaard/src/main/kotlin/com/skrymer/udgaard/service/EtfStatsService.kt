@@ -3,7 +3,7 @@ package com.skrymer.udgaard.service
 import com.skrymer.udgaard.controller.dto.EtfCurrentStats
 import com.skrymer.udgaard.controller.dto.EtfHistoricalDataPoint
 import com.skrymer.udgaard.controller.dto.EtfStatsResponse
-import com.skrymer.udgaard.model.Etf
+import com.skrymer.udgaard.model.EtfSymbol
 import com.skrymer.udgaard.model.EtfMembership
 import com.skrymer.udgaard.model.Stock
 import kotlinx.coroutines.runBlocking
@@ -15,12 +15,12 @@ class EtfStatsService(
     val stockService: StockService
 ) {
 
-    fun getEtfStats(etf: Etf, fromDate: LocalDate, toDate: LocalDate, forceFetch: Boolean = false): EtfStatsResponse {
+    fun getEtfStats(etf: EtfSymbol, fromDate: LocalDate, toDate: LocalDate, forceFetch: Boolean = false): EtfStatsResponse {
         // Get stock symbols for this ETF
         val stockSymbolsInEtf = EtfMembership.getStocksForEtf(etf)
 
         if (stockSymbolsInEtf.isEmpty()) {
-            throw IllegalArgumentException("No stocks configured for ETF: ${etf.symbol}")
+            throw IllegalArgumentException("No stocks configured for ETF: ${etf.name}")
         }
 
         val expectedStockCount = stockSymbolsInEtf.size
@@ -89,7 +89,7 @@ class EtfStatsService(
         }
 
         return EtfStatsResponse(
-            symbol = etf.symbol,
+            symbol = etf.name,
             name = etf.description,
             currentStats = currentStats,
             historicalData = completeHistoricalData,

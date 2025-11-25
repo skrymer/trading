@@ -1,13 +1,14 @@
 package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.MarketBreadthQuote
+import com.skrymer.udgaard.model.BreadthQuote
 import java.time.LocalDate
 
 /**
- * Represents a market-breadth quote.
+ * Represents a breadth quote from Ovtlyr API.
+ * Can represent either market breadth or sector breadth.
  *
- * Ovtlyr payload:
+ * Ovtlyr payload example:
  * {
  *   "StockSymbol": "XLU",
  *   "Quotedate": "2025-09-09T00:00:00",
@@ -39,7 +40,7 @@ import java.time.LocalDate
  *   "passing_Overall": 0
  * }
  */
-class OvtlyrMarketBreadthQuote {
+class OvtlyrBreadthQuote {
     @JsonProperty("StockSymbol")
     val symbol: String? = null
 
@@ -79,9 +80,9 @@ class OvtlyrMarketBreadthQuote {
     @JsonProperty("sector_Score")
     val donkeyChannelScore: Int = 0
 
-    fun toModel(marketBreadth: OvtlyrMarketBreadth, stockInMarket: OvtlyrStockInformation?): MarketBreadthQuote {
-        val stockQuote = stockInMarket?.getPreviousQuote(stockInMarket.getQuoteForDate(quoteDate!!))
-        return MarketBreadthQuote(
+    fun toModel(breadth: OvtlyrBreadth, stockInSector: OvtlyrStockInformation?): BreadthQuote {
+        val stockQuote = stockInSector?.getPreviousQuote(stockInSector.getQuoteForDate(quoteDate!!))
+        return BreadthQuote(
             symbol,
             quoteDate,
             numberOfStocksWithABuySignal,
@@ -94,21 +95,21 @@ class OvtlyrMarketBreadthQuote {
             ema_20,
             ema_50,
             bull_per,
-            donchianUpperBand = calculateDonchianUpperBand(marketBreadth, this),
-            previousDonchianUpperBand = calculateDonchianUpperBand(marketBreadth, marketBreadth.getPreviousQuote(this)),
-            donchianLowerBand = calculateDonchianLowerBand(marketBreadth, this),
-            previousDonchianLowerBand = calculateDonchianLowerBand(marketBreadth, marketBreadth.getPreviousQuote(this)),
+            donchianUpperBand = calculateDonchianUpperBand(breadth, this),
+            previousDonchianUpperBand = calculateDonchianUpperBand(breadth, breadth.getPreviousQuote(this)),
+            donchianLowerBand = calculateDonchianLowerBand(breadth, this),
+            previousDonchianLowerBand = calculateDonchianLowerBand(breadth, breadth.getPreviousQuote(this)),
             heatmap = stockQuote?.sectorHeatmap ?: 0.0,
-            previousHeatmap = stockInMarket?.getPreviousQuote(stockQuote)?.sectorHeatmap ?: 0.0,
+            previousHeatmap = stockInSector?.getPreviousQuote(stockQuote)?.sectorHeatmap ?: 0.0,
             donkeyChannelScore = donkeyChannelScore
         )
     }
 
-    fun calculateDonchianUpperBand(marketBreadth: OvtlyrMarketBreadth, quote: OvtlyrMarketBreadthQuote, lookback: Int = 4) =
-        (listOf(quote) + marketBreadth.getPreviousQuotes(quote, lookback -1))
+    fun calculateDonchianUpperBand(breadth: OvtlyrBreadth, quote: OvtlyrBreadthQuote, lookback: Int = 4) =
+        (listOf(quote) + breadth.getPreviousQuotes(quote, lookback - 1))
             .maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
-    fun calculateDonchianLowerBand(marketBreadth: OvtlyrMarketBreadth, quote: OvtlyrMarketBreadthQuote, lookback: Int = 2) =
-        (listOf(quote) + marketBreadth.getPreviousQuotes(quote, lookback -1))
+    fun calculateDonchianLowerBand(breadth: OvtlyrBreadth, quote: OvtlyrBreadthQuote, lookback: Int = 2) =
+        (listOf(quote) + breadth.getPreviousQuotes(quote, lookback - 1))
             .minOfOrNull { it.numberOfStocksInDowntrend.toDouble() } ?: 0.0
 }

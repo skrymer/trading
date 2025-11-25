@@ -1,44 +1,46 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.factory.StockFactory
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.model.MarketBreadth
-import com.skrymer.udgaard.model.MarketSymbol
+import com.skrymer.udgaard.model.BreadthSymbol
+import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.valueOf
-import com.skrymer.udgaard.repository.MarketBreadthRepository
+import com.skrymer.udgaard.repository.BreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
+import kotlinx.coroutines.*
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import java.time.LocalDate
-import java.util.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.supervisorScope
+import kotlin.math.log
 
 
 @Service
 open class StockService(
   val stockRepository: StockRepository,
   val ovtlyrClient: OvtlyrClient,
-  val marketBreadthRepository: MarketBreadthRepository,
+  val breadthRepository: BreadthRepository,
   val orderBlockCalculator: OrderBlockCalculator,
-  val alphaVantageClient: com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient
+  val alphaVantageClient: com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient,
+  val stockFactory: StockFactory
 ) {
+
+    companion object {
+        private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
+    }
 
   /**
    * Loads the stock from DB if exists, else load it from Ovtlyr and save it.
    * @param symbol - the [symbol] of the stock to get
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
-  @Cacheable(value = ["stocks"], key = "#symbol", unless = "#forceFetch")
-  @org.springframework.cache.annotation.CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
+  @Cacheable(value = ["stocks"], key = "#symbol", condition = "!#forceFetch")
+  @CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
   open fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
+    logger.info("Getting stock $symbol with forceFetch=$forceFetch")
     if(forceFetch){
       val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
       checkNotNull(spy)
@@ -134,6 +136,7 @@ open class StockService(
 
   /**
    * Fetches stock data from Ovtlyr API and saves it to the database.
+   * Uses StockFactory to create the stock entity with all enrichments.
    *
    * @param symbol - the stock symbol to fetch
    * @param spy - SPY reference data for enriching stock information
@@ -141,59 +144,63 @@ open class StockService(
    */
   private fun fetchStock(symbol: String, spy: OvtlyrStockInformation): Stock? {
     val logger = LoggerFactory.getLogger("StockService")
+
+    // Step 1: Fetch stock information from Ovtlyr
     val stockInformation = ovtlyrClient.getStockInformation(symbol) ?: return null
 
     return runCatching {
-      val marketBreadth = marketBreadthRepository.findByIdOrNull(MarketSymbol.FULLSTOCK)
-      val marketSymbol = MarketSymbol.valueOf(stockInformation.sectorSymbol)
-      val sectorMarketBreadth = marketBreadthRepository.findByIdOrNull(marketSymbol)
-      val stock = stockInformation.toModel(marketBreadth, sectorMarketBreadth, spy)
+      // Step 2: Fetch breadth data for context
+      val marketBreadth = breadthRepository.findByIdOrNull(BreadthSymbol.Market().toIdentifier())
+      val sectorSymbol = SectorSymbol.fromString(stockInformation.sectorSymbol)
+      val sectorBreadth = sectorSymbol?.let {
+        breadthRepository.findByIdOrNull(BreadthSymbol.Sector(it).toIdentifier())
+      }
 
-      // Enrich quotes with volume data from Alpha Vantage
-      logger.info("Starting volume enrichment for $symbol (${stock.quotes.size} quotes to enrich)")
-      val alphaQuotes = alphaVantageClient.getDailyTimeSeriesCompact(symbol)
-      if (alphaQuotes != null) {
-        logger.info("Enriching $symbol with volume data from Alpha Vantage (${alphaQuotes.size} Alpha quotes available)")
-        logger.debug("Ovtlyr date range: ${stock.quotes.firstOrNull()?.date} to ${stock.quotes.lastOrNull()?.date}")
-        logger.debug("Alpha Vantage date range: ${alphaQuotes.firstOrNull()?.date} to ${alphaQuotes.lastOrNull()?.date}")
-
-        var matchedCount = 0
-        var unmatchedCount = 0
-        stock.quotes.forEach { quote ->
-          val matchingAlphaQuote = alphaQuotes.find { it.date == quote.date }
-          if (matchingAlphaQuote != null) {
-            quote.volume = matchingAlphaQuote.volume
-            matchedCount++
-          } else {
-            unmatchedCount++
-          }
-        }
-        logger.info("Volume enrichment complete for $symbol: $matchedCount quotes matched, $unmatchedCount unmatched")
-
-        // Log sample of enriched quotes
-        val quotesWithVolume = stock.quotes.filter { it.volume > 0 }
-        logger.info("Quotes with volume > 0: ${quotesWithVolume.size} out of ${stock.quotes.size}")
-      } else {
+      // Step 3: Enrich with AlphaVantage volume data
+      logger.info("Starting volume enrichment for $symbol")
+      val alphaQuotes = alphaVantageClient.getDailyTimeSeries(symbol)
+      if (alphaQuotes == null) {
         logger.warn("Could not fetch volume data from Alpha Vantage for $symbol, using default values")
       }
 
-      // Calculate order blocks using ROC algorithm and add them to the stock
+      // Step 3b: Enrich with AlphaVantage ATR data
+      logger.info("Starting ATR enrichment for $symbol")
+      val alphaATR = alphaVantageClient.getATR(symbol)
+      if (alphaATR == null) {
+        logger.warn("Could not fetch ATR data from Alpha Vantage for $symbol, using calculated ATR")
+      } else {
+        logger.info("Fetched ${alphaATR.size} ATR values from Alpha Vantage for $symbol")
+      }
+
+      // Step 4: Create quotes for order block calculation
+      val quotes = stockFactory.createQuotes(
+        stockInformation = stockInformation,
+        marketBreadth = marketBreadth,
+        sectorBreadth = sectorBreadth,
+        spy = spy,
+        alphaQuotes = alphaQuotes,
+        alphaATR = alphaATR
+      )
+
+      // Step 5: Calculate order blocks based on quotes
       val calculatedOrderBlocks = orderBlockCalculator.calculateOrderBlocks(
-        quotes = stock.quotes,
+        quotes = quotes,
         sensitivity = 28.0
       )
 
-      // Combine Ovtlyr order blocks with calculated ones
-      val allOrderBlocks = stock.orderBlocks + calculatedOrderBlocks
-      val enrichedStock = Stock(
-        symbol = stock.symbol,
-        sectorSymbol = stock.sectorSymbol,
-        quotes = stock.quotes,
-        orderBlocks = allOrderBlocks,
-        ovtlyrPerformance = stock.ovtlyrPerformance
+      // Step 6: Use factory to create complete stock with all enrichments
+      val enrichedStock = stockFactory.createStock(
+        stockInformation = stockInformation,
+        marketBreadth = marketBreadth,
+        sectorBreadth = sectorBreadth,
+        spy = spy,
+        alphaQuotes = alphaQuotes,
+        calculatedOrderBlocks = calculatedOrderBlocks,
+        alphaATR = alphaATR
       )
 
-      return stockRepository.save(enrichedStock)
+      // Step 7: Save and return
+      stockRepository.save(enrichedStock)
     }.getOrNull()
   }
 }

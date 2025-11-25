@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.MarketBreadth
-import com.skrymer.udgaard.model.MarketBreadthQuote
+import com.skrymer.udgaard.model.Breadth
+import com.skrymer.udgaard.model.BreadthQuote
 import com.skrymer.udgaard.model.StockQuote
 import java.time.LocalDate
 
@@ -179,8 +179,8 @@ class OvtlyrStockQuote {
 
     fun toModel(
         stock: OvtlyrStockInformation,
-        marketBreadth: MarketBreadth?,
-        sectorMarketBreadth: MarketBreadth?,
+        marketBreadth: Breadth?,
+        sectorBreadth: Breadth?,
         spy: OvtlyrStockInformation
     ): StockQuote {
         val previousQuote = stock.getPreviousQuote(this)
@@ -192,7 +192,7 @@ class OvtlyrStockQuote {
         val marketDonkeyChannelScore = marketBreadthQuote?.donkeyChannelScore ?: 0
 
         // Always look at the sector breadth quote previous to today's date
-        val sectorBreadthQuote = sectorMarketBreadth?.getPreviousQuote(sectorMarketBreadth.getQuoteForDate(this.getDate()))
+        val sectorBreadthQuote = sectorBreadth?.getPreviousQuote(sectorBreadth.getQuoteForDate(this.getDate()))
         val sectorIsInUptrend = sectorBreadthQuote?.isInUptrend() ?: false
         val sectorDonkeyChannelScore = sectorBreadthQuote?.donkeyChannelScore ?: 0
 
@@ -258,14 +258,38 @@ class OvtlyrStockQuote {
             low = low,
             donchianUpperBand = calculateDonchianUpperBand(stock),
             donchianUpperBandMarket = calculateDonchianUpperBandMarket(marketBreadth),
-            donchianUpperBandSector = calculateDonchianUpperBandMarket(sectorMarketBreadth),
+            donchianUpperBandSector = calculateDonchianUpperBandMarket(sectorBreadth),
             donchianLowerBandMarket = calculateDonchianLowerBandMarket(marketBreadth),
-            donchianLowerBandSector = calculateDonchianLowerBandMarket(sectorMarketBreadth)
+            donchianLowerBandSector = calculateDonchianLowerBandMarket(sectorBreadth)
         )
     }
 
     fun getDate(): LocalDate {
         return date!!
+    }
+
+    fun getSymbol(): String? {
+        return symbol
+    }
+
+    fun getClosePrice(): Double {
+        return closePrice
+    }
+
+    fun getOpenPrice(): Double? {
+        return openPrice
+    }
+
+    fun getClosePriceEMA5(): Double? {
+        return closePriceEMA5
+    }
+
+    fun getClosePriceEMA20(): Double? {
+        return closePriceEMA20
+    }
+
+    fun getClosePriceEMA50(): Double? {
+        return closePriceEMA50
     }
 
     fun hasBuySignal(): Boolean {
@@ -327,14 +351,14 @@ class OvtlyrStockQuote {
     /**
      * Calculate the donchian upper band for the number of stocks in an uptrend.
      */
-    fun calculateDonchianUpperBandMarket(market: MarketBreadth?, periods: Int = 4) =
+    fun calculateDonchianUpperBandMarket(market: Breadth?, periods: Int = 4) =
         market?.getPreviousQuotes(this.date, periods)
             ?.maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
     /**
      * Calculate the donchian lower band for the number of stocks in an uptrend.
      */
-    fun calculateDonchianLowerBandMarket(market: MarketBreadth?, periods: Int = 4) =
+    fun calculateDonchianLowerBandMarket(market: Breadth?, periods: Int = 4) =
         market?.getPreviousQuotes(this.date, periods)
             ?.minOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
@@ -454,7 +478,7 @@ class OvtlyrStockQuote {
      * Calculate market breadth - percentage of stocks advancing (above their uptrend status)
      * Uses the existing market breadth data
      */
-    fun calculateMarketAdvancingPercent(marketBreadth: MarketBreadth?): Double {
+    fun calculateMarketAdvancingPercent(marketBreadth: Breadth?): Double {
         if (marketBreadth == null) return 0.0
 
         val breadthQuote = marketBreadth.getQuoteForDate(date) ?: return 0.0

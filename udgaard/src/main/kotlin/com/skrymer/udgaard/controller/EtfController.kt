@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.EtfStatsResponse
-import com.skrymer.udgaard.model.Etf
+import com.skrymer.udgaard.model.EtfSymbol
 import com.skrymer.udgaard.service.EtfStatsService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -51,7 +51,7 @@ class EtfController(
     ): ResponseEntity<EtfStatsResponse> {
         logger.info("Getting ETF stats for: $symbol (refresh=$refresh, fromDate=$fromDate, toDate=$toDate)")
 
-        val etf = Etf.valueOf(symbol)
+        val etf = EtfSymbol.fromString(symbol)
             ?: run {
                 logger.error("Invalid ETF symbol: $symbol")
                 return ResponseEntity.badRequest().build()

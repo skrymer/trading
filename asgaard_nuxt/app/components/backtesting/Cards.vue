@@ -1,21 +1,20 @@
 <script setup lang="ts">
-import { averageLossPercent, averageWinPercent, edge, numberOfLosingTrades, numberOfWinningTrades, winRate } from '@/utils/backtesting'
-import type { Trade } from '@/types'
+import type { BacktestReport } from '@/types'
 
 const props = defineProps<{
-  trades: Trade[] | undefined
+  report: BacktestReport | null
   loading?: boolean
 }>()
 
 // Count trades using underlying assets
 const underlyingAssetTrades = computed(() => {
-  if (!props.trades) return 0
-  return props.trades.filter(t => t.underlyingSymbol && t.underlyingSymbol !== t.stockSymbol).length
+  if (!props.report?.trades) return 0
+  return props.report.trades.filter(t => t.underlyingSymbol && t.underlyingSymbol !== t.stockSymbol).length
 })
 
 const underlyingAssetPercentage = computed(() => {
-  if (!props.trades || props.trades.length === 0) return 0
-  return (underlyingAssetTrades.value / props.trades.length) * 100
+  if (!props.report?.trades || props.report.trades.length === 0) return 0
+  return (underlyingAssetTrades.value / props.report.trades.length) * 100
 })
 </script>
 
@@ -44,12 +43,12 @@ const underlyingAssetPercentage = computed(() => {
   <!-- Loaded content -->
   <div v-else class="space-y-4">
     <UPageGrid class="lg:grid-cols-6 gap-4 sm:gap-6 lg:gap-px w-full">
-      <BacktestingDataCard title="Number of wins" :content="numberOfWinningTrades(trades)" />
-      <BacktestingDataCard title="Number of losses" :content="numberOfLosingTrades(trades)" />
-      <BacktestingDataCard title="Win rate" :content="(winRate(trades) * 100).toFixed(2) + '%'" />
-      <BacktestingDataCard title="Average win" :content="averageWinPercent(trades).toFixed(2) + '%'" />
-      <BacktestingDataCard title="Average loss" :content="averageLossPercent(trades).toFixed(2) + '%'" />
-      <BacktestingDataCard title="Edge" :content="edge(trades).toFixed(2) + '%'" />
+      <BacktestingDataCard title="Number of wins" :content="report?.numberOfWinningTrades || 0" />
+      <BacktestingDataCard title="Number of losses" :content="report?.numberOfLosingTrades || 0" />
+      <BacktestingDataCard title="Win rate" :content="((report?.winRate || 0) * 100).toFixed(2) + '%'" />
+      <BacktestingDataCard title="Average win" :content="(report?.averageWinPercent || 0).toFixed(2) + '%'" />
+      <BacktestingDataCard title="Average loss" :content="(report?.averageLossPercent || 0).toFixed(2) + '%'" />
+      <BacktestingDataCard title="Edge" :content="(report?.edge || 0).toFixed(2) + '%'" />
     </UPageGrid>
 
     <!-- Underlying Asset Info -->
@@ -61,7 +60,7 @@ const underlyingAssetPercentage = computed(() => {
     >
       <template #description>
         <p class="text-sm">
-          <span class="font-semibold">{{ underlyingAssetTrades }}</span> of <span class="font-semibold">{{ trades?.length }}</span> trades
+          <span class="font-semibold">{{ underlyingAssetTrades }}</span> of <span class="font-semibold">{{ report?.trades?.length }}</span> trades
           (<span class="font-semibold">{{ underlyingAssetPercentage.toFixed(1) }}%</span>) used underlying asset signals for strategy evaluation.
         </p>
       </template>

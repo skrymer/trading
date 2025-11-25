@@ -76,18 +76,18 @@ object EtfMembership {
         "SOLS", "MHK"
     )
 
-    fun isInEtf(stockSymbol: String, etf: Etf): Boolean {
+    fun isInEtf(stockSymbol: String, etf: EtfSymbol): Boolean {
         return when (etf) {
-            Etf.QQQ -> QQQ_STOCKS.contains(stockSymbol.uppercase())
-            Etf.SPY -> SPY_STOCKS.contains(stockSymbol.uppercase())
+            EtfSymbol.QQQ -> QQQ_STOCKS.contains(stockSymbol.uppercase())
+            EtfSymbol.SPY -> SPY_STOCKS.contains(stockSymbol.uppercase())
             else -> false
         }
     }
 
-    fun getStocksForEtf(etf: Etf): List<String> {
+    fun getStocksForEtf(etf: EtfSymbol): List<String> {
         return when (etf) {
-            Etf.QQQ -> QQQ_STOCKS
-            Etf.SPY -> SPY_STOCKS
+            EtfSymbol.QQQ -> QQQ_STOCKS
+            EtfSymbol.SPY -> SPY_STOCKS
             else -> emptyList()
         }
     }

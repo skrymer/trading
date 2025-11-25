@@ -1,9 +1,12 @@
 package com.skrymer.udgaard.integration.ovtlyr
 
-import com.skrymer.udgaard.model.MarketSymbol
+import com.skrymer.udgaard.model.EtfEntity
+import com.skrymer.udgaard.model.EtfSymbol
+import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
-import com.skrymer.udgaard.service.MarketBreadthService
+import com.skrymer.udgaard.service.BreadthService
+import com.skrymer.udgaard.service.EtfService
 import com.skrymer.udgaard.service.StockService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,40 +21,51 @@ import org.springframework.stereotype.Component
  */
 @Component
 class DataLoader(
-  private val marketBreadthService: MarketBreadthService,
-  private val stockService: StockService
+  private val breadthService: BreadthService,
+  private val stockService: StockService,
+  private val etfService: EtfService
 ) {
 
   fun loadData() {
-    runBlocking {  loadMarkBreadthForAllSectors() }
-    runBlocking { loadTopStocks(true) }
+    runBlocking { loadBreadthForAll() }
+    runBlocking { loadStocks(true) }
+    runBlocking { loadEtfs() }
   }
 
-  fun loadStockByMarket(marketSymbol: MarketSymbol, forceFetch: Boolean = false): List<Stock> {
-    val stockSymbols = StockSymbol.entries.filter { it.market == marketSymbol }.map { it.name }
-    return runBlocking { stockService.getStocks(stockSymbols, forceFetch)}
+  fun loadStocks(forceFetch: Boolean = false): List<Stock> {
+    return stockService.getStocksBySymbols(StockSymbol.entries.map { it.symbol }, forceFetch)
   }
 
-  suspend fun loadTopStocks(forceFetch: Boolean = false): List<Stock> {
-    return stockService.getStocks(StockSymbol.entries.map { it.symbol }, forceFetch)
+  fun loadEtfs(): List<EtfEntity> {
+    val logger = LoggerFactory.getLogger("EtfLoader")
+    logger.info("Loading ${EtfSymbol.entries.size} ETFs from Ovtlyr")
+
+    return EtfSymbol.entries.mapNotNull { etfSymbol ->
+      runCatching {
+        etfService.refreshEtf(etfSymbol.name)
+      }.onFailure { e ->
+        logger.warn("Failed to fetch ETF ${etfSymbol.name}: ${e.message}", e)
+      }.getOrNull()
+    }
   }
 
   @OptIn(ExperimentalCoroutinesApi::class)
-  private suspend fun loadMarkBreadthForAllSectors() = supervisorScope {
-    val logger = LoggerFactory.getLogger("StockFetcher")
+  private suspend fun loadBreadthForAll() = supervisorScope {
+    val logger = LoggerFactory.getLogger("BreadthLoader")
     val limited = Dispatchers.IO.limitedParallelism(10)
 
-    MarketSymbol.entries
-      .filter { it != MarketSymbol.UNK }
-      .forEach {
-        async(limited) {
-          runCatching { loadMarketBreadth(it) }
-            .onFailure { e ->logger.warn("Failed to fetch market={}: {}", it, e.message, e) }
-        }
-      }
-  }
+    // Load market breadth (FULLSTOCK)
+    async(limited) {
+      runCatching { breadthService.getMarketBreadth(refresh = true) }
+        .onFailure { e -> logger.warn("Failed to fetch market breadth: {}", e.message, e) }
+    }
 
-  private fun loadMarketBreadth(symbol: MarketSymbol) {
-    marketBreadthService.getMarketBreadth(symbol, true)
+    // Load all sector breadth
+    SectorSymbol.entries.forEach { sector ->
+      async(limited) {
+        runCatching { breadthService.getSectorBreadth(sector, refresh = true) }
+          .onFailure { e -> logger.warn("Failed to fetch sector={}: {}", sector, e.message, e) }
+      }
+    }
   }
 }

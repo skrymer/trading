@@ -18,24 +18,26 @@ Use MCP tools to discover what's available:
 
 ```bash
 # Get available strategies (entry and exit)
-curl -s http://localhost:8080/api/strategies | python3 -m json.tool
+curl -s http://localhost:8080/udgaard/api/backtest/strategies | python3 -m json.tool
 
 # Get available rankers (for position-limited backtests)
-curl -s http://localhost:8080/api/rankers | python3 -m json.tool
+curl -s http://localhost:8080/udgaard/api/backtest/rankers | python3 -m json.tool
 
 # Get available stock symbols
-curl -s http://localhost:8080/api/stocks | python3 -m json.tool
+curl -s http://localhost:8080/udgaard/api/stocks | python3 -m json.tool
 
 # Get available conditions (for custom strategies)
-curl -s http://localhost:8080/api/conditions | python3 -m json.tool
+curl -s http://localhost:8080/udgaard/api/backtest/conditions | python3 -m json.tool
 ```
 
 ## Running Backtests
 
 ### Basic Backtest (POST Method - Recommended)
 
+**Using Predefined Strategies:**
+
 ```bash
-curl -s -X POST http://localhost:8080/api/backtest \
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
   -H "Content-Type: application/json" \
   -d '{
     "stockSymbols": ["QQQ"],
@@ -47,6 +49,34 @@ curl -s -X POST http://localhost:8080/api/backtest \
     "refresh": false
   }' > /tmp/backtest_results.json
 ```
+
+**Using Custom Strategies:**
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": ["QQQ"],
+    "entryStrategy": {
+      "type": "custom",
+      "conditions": [
+        {"type": "uptrend"},
+        {"type": "buySignal", "parameters": {"currentOnly": false}},
+        {"type": "heatmap", "parameters": {"threshold": 70}},
+        {"type": "valueZone", "parameters": {"atrMultiplier": 2.0}}
+      ]
+    },
+    "exitStrategy": {"type": "predefined", "name": "OvtlyrPlanEtf"},
+    "startDate": "2020-01-01",
+    "endDate": "2025-11-13",
+    "cooldownDays": 10,
+    "refresh": false
+  }' > /tmp/backtest_results.json
+```
+
+**IMPORTANT:** Custom strategy conditions require parameters to be nested in a `"parameters"` object:
+- **Correct**: `{"type": "heatmap", "parameters": {"threshold": 70}}`
+- **Incorrect**: `{"type": "heatmap", "threshold": 70}` (parameters will be ignored!)
 
 ### Advanced Features
 
@@ -155,9 +185,11 @@ When comparing strategies, follow this pattern:
 
 ### 1. Run Both Backtests
 
+**Example: Comparing Predefined Strategies**
+
 ```bash
 # Strategy A
-curl -s -X POST http://localhost:8080/api/backtest \
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
   -H "Content-Type: application/json" \
   -d '{
     "stockSymbols": ["TQQQ"],
@@ -171,7 +203,7 @@ curl -s -X POST http://localhost:8080/api/backtest \
   }' > /tmp/strategy_a.json
 
 # Strategy B
-curl -s -X POST http://localhost:8080/api/backtest \
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
   -H "Content-Type: application/json" \
   -d '{
     "stockSymbols": ["TQQQ"],
@@ -183,6 +215,51 @@ curl -s -X POST http://localhost:8080/api/backtest \
     "useUnderlyingAssets": true,
     "customUnderlyingMap": {"TQQQ": "QQQ"}
   }' > /tmp/strategy_b.json
+```
+
+**Example: Comparing Custom vs Predefined**
+
+```bash
+# Custom strategy with different parameters
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": ["TQQQ"],
+    "entryStrategy": {
+      "type": "custom",
+      "conditions": [
+        {"type": "uptrend"},
+        {"type": "buySignal", "parameters": {"currentOnly": false}},
+        {"type": "heatmap", "parameters": {"threshold": 65}},
+        {"type": "valueZone", "parameters": {"atrMultiplier": 2.5}}
+      ]
+    },
+    "exitStrategy": {
+      "type": "custom",
+      "conditions": [
+        {"type": "sellSignal"},
+        {"type": "profitTarget", "parameters": {"atrMultiplier": 3.5, "emaPeriod": 20}},
+        {"type": "trailingStopLoss", "parameters": {"atrMultiplier": 2.5}}
+      ]
+    },
+    "startDate": "2020-01-01",
+    "endDate": "2025-11-13",
+    "useUnderlyingAssets": true,
+    "customUnderlyingMap": {"TQQQ": "QQQ"}
+  }' > /tmp/custom_strategy.json
+
+# Predefined strategy
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": ["TQQQ"],
+    "entryStrategy": {"type": "predefined", "name": "OvtlyrPlanEtf"},
+    "exitStrategy": {"type": "predefined", "name": "OvtlyrPlanEtf"},
+    "startDate": "2020-01-01",
+    "endDate": "2025-11-13",
+    "useUnderlyingAssets": true,
+    "customUnderlyingMap": {"TQQQ": "QQQ"}
+  }' > /tmp/predefined_strategy.json
 ```
 
 ### 2. Calculate Comprehensive Metrics

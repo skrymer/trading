@@ -1,8 +1,9 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.factory.StockFactory
 import com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
-import com.skrymer.udgaard.repository.MarketBreadthRepository
+import com.skrymer.udgaard.repository.BreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -20,18 +21,20 @@ class StockServiceTest {
   private lateinit var stockService: StockService
   private lateinit var stockRepository: StockRepository
   private lateinit var ovtlyrClient: OvtlyrClient
-  private lateinit var marketBreadthRepository: MarketBreadthRepository
+  private lateinit var breadthRepository: BreadthRepository
   private lateinit var orderBlockCalculator: OrderBlockCalculator
   private lateinit var alphaVantageClient: AlphaVantageClient
+  private lateinit var stockFactory: StockFactory
 
   @BeforeEach
   fun setup() {
     stockRepository = mock<StockRepository>()
     ovtlyrClient = mock<OvtlyrClient>()
-    marketBreadthRepository = mock<MarketBreadthRepository>()
+    breadthRepository = mock<BreadthRepository>()
     orderBlockCalculator = mock<OrderBlockCalculator>()
     alphaVantageClient = mock<AlphaVantageClient>()
-    stockService = StockService(stockRepository, ovtlyrClient, marketBreadthRepository, orderBlockCalculator, alphaVantageClient)
+    stockFactory = mock<StockFactory>()
+    stockService = StockService(stockRepository, ovtlyrClient, breadthRepository, orderBlockCalculator, alphaVantageClient, stockFactory)
   }
 
   @Test

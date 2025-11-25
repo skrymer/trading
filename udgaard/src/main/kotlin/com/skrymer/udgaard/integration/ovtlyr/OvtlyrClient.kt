@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.integration.ovtlyr
 
-import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrMarketBreadth
+import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrBreadth
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.integration.ovtlyr.dto.ScreenerResult
 import com.skrymer.udgaard.integration.ovtlyr.dto.StockPerformance
@@ -67,11 +67,11 @@ class OvtlyrClient(
   }
 
   /**
-   *
-   * @param symbol - symbol of the market
-   * @return
+   * Get breadth data for a symbol (can be market or sector).
+   * @param symbol - symbol identifier (e.g., "FULLSTOCK" for market, "XLE" for energy sector)
+   * @return Breadth data from Ovtlyr
    */
-  fun getMarketBreadth(symbol: String): OvtlyrMarketBreadth? {
+  fun getBreadth(symbol: String): OvtlyrBreadth? {
     return runCatching {
       val restClient: RestClient = RestClient.builder()
         .baseUrl(marketBreadthBaseUrl)
@@ -80,7 +80,7 @@ class OvtlyrClient(
       val requestBody =
         "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
 
-      logger.info("Getting market breadth for $symbol")
+      logger.info("Getting breadth data for $symbol")
       logger.info("baseUrl: $marketBreadthBaseUrl")
       logger.info("User id $cookieUserId")
       logger.info("Token: $cookieToken")
@@ -92,10 +92,10 @@ class OvtlyrClient(
         .contentType(MediaType.APPLICATION_JSON)
         .body(requestBody)
         .retrieve()
-        .toEntity(OvtlyrMarketBreadth::class.java)
+        .toEntity(OvtlyrBreadth::class.java)
         .getBody()
     }.onFailure { e ->
-      logger.error("Exception occurred fetching market breadth: $symbol message: ${e.message} skipping", e)
+      logger.error("Exception occurred fetching breadth data: $symbol message: ${e.message} skipping", e)
     }.getOrNull()
   }
 

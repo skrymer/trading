@@ -7,10 +7,7 @@ import com.skrymer.udgaard.model.StockQuote
  * Plan ETF entry strategy using composition.
  * Enters when:
  * - Stock is in uptrend
- * - Has buy signal
- * - Heatmap < 70
- * - Price is within value zone (< 20 EMA + 2 ATR)
- * - Price is at least 2% below an order block older than 30 days
+ * - Price is within value zone (< 20 EMA + 1.4 ATR)
  */
 @RegisteredStrategy(name = "VegardPlanEtf", type = StrategyType.ENTRY)
 class VegardPlanEtfEntryStrategy: EntryStrategy {

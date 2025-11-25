@@ -21,33 +21,18 @@ class CompositeExitStrategy(
             return false
         }
 
-        val result = when (operator) {
+        return when (operator) {
             LogicalOperator.AND -> exitConditions.all { it.shouldExit(stock, entryQuote, quote) }
             LogicalOperator.OR -> exitConditions.any { it.shouldExit(stock, entryQuote, quote) }
             LogicalOperator.NOT -> !exitConditions.first().shouldExit(stock, entryQuote, quote)
         }
-
-        if (result) {
-            val matchingConditions = exitConditions.filter { it.shouldExit(stock, entryQuote, quote) }.map { it.description() }
-            logger.info("Exit match on ${quote.date}: matching conditions = $matchingConditions")
-        }
-
-        return result
     }
 
     override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): String? {
         // Return the reason from the first matching exit condition
-        val reason = exitConditions
+        return exitConditions
             .firstOrNull { it.shouldExit(stock, entryQuote, quote) }
             ?.exitReason()
-
-        if (reason == null) {
-            logger.warn("reason() called but no matching condition found on ${quote.date}")
-        } else {
-            logger.info("Exit reason on ${quote.date}: $reason")
-        }
-
-        return reason
     }
 
     override fun description(): String {

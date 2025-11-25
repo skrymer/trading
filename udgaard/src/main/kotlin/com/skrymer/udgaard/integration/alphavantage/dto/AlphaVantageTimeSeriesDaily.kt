@@ -31,14 +31,32 @@ import java.time.LocalDate
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageTimeSeriesDaily(
-    @JsonProperty("Meta Data")
-    val metaData: MetaData,
+    @JsonProperty(value = "Meta Data")
+    val metaData: MetaData? = null,
 
     @JsonProperty("Time Series (Daily)")
-    val timeSeriesDaily: Map<String, DailyData>
+    val timeSeriesDaily: Map<String, DailyData>? = null,
+
+    @JsonProperty("Error Message")
+    val errorMessage: String? = null,
+
+    @JsonProperty("Note")
+    val note: String? = null
 ) {
+    fun hasError(): Boolean = errorMessage != null || note != null
+
+    fun getErrorDescription(): String {
+        return when {
+            errorMessage != null -> errorMessage
+            note != null -> note
+            else -> "Unknown error"
+        }
+    }
+
+    fun isValid(): Boolean = metaData != null && timeSeriesDaily != null
+
     fun toStockQuotes(): List<StockQuote> {
-        return timeSeriesDaily.map { (date, data) ->
+        return timeSeriesDaily?.map { (date, data) ->
             StockQuote(
                 date = LocalDate.parse(date),
                 openPrice = data.open.toDoubleOrNull() ?: 0.0,
@@ -56,7 +74,7 @@ data class AlphaVantageTimeSeriesDaily(
                 lastBuySignal = null,
                 lastSellSignal = null
             )
-        }.sortedBy { it.date }
+        }?.sortedBy { it.date } ?: emptyList()
     }
 }
 

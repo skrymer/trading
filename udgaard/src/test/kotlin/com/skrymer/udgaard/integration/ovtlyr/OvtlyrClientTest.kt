@@ -1,6 +1,5 @@
 package com.skrymer.udgaard.integration.ovtlyr
 
-import com.skrymer.udgaard.model.MarketSymbol
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,8 +19,8 @@ internal class OvtlyrClientTest {
 
   @Test
   fun `GET market breadth`() {
-    val fullstockBreadth = ovtlyrClient.getMarketBreadth(MarketSymbol.FULLSTOCK.name)
-    Assertions.assertEquals(fullstockBreadth?.resultDetail,  "Success")
+    val fullstockBreadth = ovtlyrClient.getBreadth("FULLSTOCK")
+    Assertions.assertEquals(fullstockBreadth?.resultDetail, "Success")
   }
 
   @Test

@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.montecarlo
 
+import com.fasterxml.jackson.annotation.JsonFormat
 import com.skrymer.udgaard.model.Trade
 import java.time.LocalDate
 
@@ -53,6 +54,7 @@ data class MonteCarloScenario(
     val losingTrades: Int
 ) {
     data class EquityPoint(
+        @JsonFormat(pattern = "yyyy-MM-dd")
         val date: LocalDate,
         val cumulativeReturnPercentage: Double,
         val tradeNumber: Int

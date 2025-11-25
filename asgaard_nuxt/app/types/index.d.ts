@@ -59,6 +59,20 @@ export interface Range {
   end: Date
 }
 
+export interface SectorStats {
+  sector: string
+  totalTrades: number
+  winningTrades: number
+  losingTrades: number
+  winRate: number
+  edge: number
+  averageWinPercent: number
+  averageLossPercent: number
+  totalProfitPercentage: number
+  maxDrawdown: number
+  trades: Trade[]
+}
+
 export interface BacktestReport {
   winningTrades: Trade[]
   losingTrades: Trade[]
@@ -76,6 +90,7 @@ export interface BacktestReport {
   mostProfitable: any
   stockProfits: any
   tradesGroupedByDate: { date: string, profitPercentage: number, trades: Trade[] }[]
+  sectorStats: SectorStats[]
 }
 
 export interface Stock {
@@ -133,17 +148,22 @@ export interface Trade {
   startDate: string
 }
 
-export interface MarketBreadth {
-  symbol: string
+/**
+ * Breadth data for either market (all stocks) or sector (specific sector).
+ * The symbol field will be either "FULLSTOCK" for market or a sector code like "XLK".
+ */
+export interface Breadth {
+  id: string
+  symbol: BreadthSymbol
   name: string
-  quotes: MarketBreadthQuote[]
+  quotes: BreadthQuote[]
   inUptrend: boolean
   heatmap: number
   previousHeatmap: number
   donkeyChannelScore: number
 }
 
-export interface MarketBreadthQuote {
+export interface BreadthQuote {
   symbol: string
   quoteDate: string
   numberOfStocksWithABuySignal: number
@@ -152,13 +172,22 @@ export interface MarketBreadthQuote {
   numberOfStocksInNeutral: number
   numberOfStocksInDowntrend: number
   bullStocksPercentage: number
+  ema_5: number
   ema_10: number
+  ema_20: number
+  ema_50: number
+  heatmap: number
+  previousHeatmap: number
   donchianUpperBand: number
   previousDonchianUpperBand: number
   donchianLowerBand: number
   previousDonchianLowerBand: number
-  ema_10: number
+  donkeyChannelScore: number
 }
+
+// Backward compatibility aliases (deprecated - use Breadth and BreadthQuote)
+export type MarketBreadth = Breadth
+export type MarketBreadthQuote = BreadthQuote
 
 // Dynamic Strategy Types
 export type StrategyType = 'predefined' | 'custom'
@@ -421,4 +450,57 @@ export interface EtfHistoricalDataPoint {
   stocksInUptrend: number
   stocksInDowntrend: number
   totalStocks: number
+}
+
+// ETF Entity Types (new architecture)
+export interface EtfEntity {
+  symbol: string
+  name: string
+  description: string
+  quotes: EtfQuote[]
+  holdings: EtfHolding[]
+  metadata: EtfMetadata | null
+}
+
+export interface EtfQuote {
+  date: string
+  openPrice: number
+  closePrice: number
+  high: number
+  low: number
+  volume: number
+  closePriceEMA5: number
+  closePriceEMA10: number
+  closePriceEMA20: number
+  closePriceEMA50: number
+  atr: number
+  bullishPercentage: number
+  stocksInUptrend: number
+  stocksInDowntrend: number
+  stocksInNeutral: number
+  totalHoldings: number
+  lastBuySignal: string | null
+  lastSellSignal: string | null
+}
+
+export interface EtfHolding {
+  stockSymbol: string
+  weight: number
+  shares: number | null
+  marketValue: number | null
+  asOfDate: string
+  inUptrend: boolean
+  trend: string | null
+}
+
+export interface EtfMetadata {
+  expenseRatio: number | null
+  aum: number | null
+  inceptionDate: string | null
+  issuer: string | null
+  exchange: string | null
+  currency: string
+  type: string | null
+  benchmark: string | null
+  lastRebalanceDate: string | null
 }

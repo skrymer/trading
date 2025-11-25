@@ -141,6 +141,10 @@ class ExitStrategyBuilder {
         conditions.add(PriceBelowEmaExit(emaPeriod))
     }
 
+    fun priceBelowEmaForDays(emaPeriod: Int = 10, consecutiveDays: Int = 3) = apply {
+        conditions.add(PriceBelowEmaForDaysExit(emaPeriod, consecutiveDays))
+    }
+
     fun belowPreviousDayLow() = apply {
         conditions.add(BelowPreviousDayLowExit())
     }

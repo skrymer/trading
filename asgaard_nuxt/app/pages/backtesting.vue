@@ -5,6 +5,7 @@ import type { Range, Trade, BacktestRequest, MonteCarloResult, BacktestReport } 
 import { MonteCarloTechnique, MonteCarloTechniqueDescriptions } from '~/types/enums'
 
 const allTrades = ref<Trade[]>([])
+const backtestReport = ref<BacktestReport | null>(null)
 const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const isConfigModalOpen = ref(false)
 
@@ -23,6 +24,7 @@ const toast = useToast()
 async function runBacktest(config: BacktestRequest) {
   status.value = 'pending'
   allTrades.value = []
+  backtestReport.value = null
   monteCarloResult.value = null
   monteCarloStatus.value = 'idle'
   showMonteCarloResults.value = false
@@ -40,12 +42,13 @@ async function runBacktest(config: BacktestRequest) {
 
   try {
     // Use POST endpoint for dynamic strategy support
-    // Increased timeout for large backtests (10 minutes)
-    const report = await $fetch<{ trades: Trade[] }>('/udgaard/api/backtest', {
+    // Increased timeout for large backtests (30 minutes)
+    const report = await $fetch<BacktestReport>('/udgaard/api/backtest', {
       method: 'POST',
       body: config,
-      timeout: 600000 // 10 minutes in milliseconds
+      timeout: 1800000 // 30 minutes in milliseconds
     })
+    backtestReport.value = report
     allTrades.value = report.trades
     status.value = 'success'
   } catch (error) {
@@ -94,7 +97,7 @@ async function runMonteCarloSimulation() {
         iterations: 10000,
         includeAllEquityCurves: false
       },
-      timeout: 300000 // 5 minutes
+      timeout: 1800000 // 30 minutes in milliseconds
     })
 
     monteCarloResult.value = result
@@ -133,31 +136,16 @@ function handleBarClick(dataPointIndex: number) {
   }
 }
 
-// Group trades by startDate
+// Use grouped trades from backend report
 const tradesGroupedByDate = computed(() => {
-  if (!allTrades.value) return []
+  if (!backtestReport.value?.tradesGroupedByDate) return []
 
-  const grouped = new Map<string, Trade[]>()
-
-  allTrades.value.forEach((trade) => {
-    const dateKey = format(new Date(trade.startDate), 'yyyy-MM-dd')
-    if (!grouped.has(dateKey)) {
-      grouped.set(dateKey, [])
-    }
-    grouped.get(dateKey)!.push(trade)
-  })
-
-  return Array.from(grouped.entries())
-    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-    .map(([date, trades]) => {
-      const totalProfit = trades.reduce((sum, trade) => sum + trade.profitPercentage, 0)
-      return {
-        date,
-        count: trades.length,
-        totalProfit,
-        trades
-      }
-    })
+  return backtestReport.value.tradesGroupedByDate.map(entry => ({
+    date: entry.date,
+    count: entry.trades.length,
+    totalProfit: entry.profitPercentage,
+    trades: entry.trades
+  }))
 })
 
 // Prepare data for bar chart
@@ -248,7 +236,7 @@ const chartColors = computed(() => {
       <!-- Loading & Results -->
       <div v-else class="grid gap-4 lg:grid-cols-1">
         <!-- Cards with loading state -->
-        <BacktestingCards :trades="allTrades" :loading="false" />
+        <BacktestingCards :report="backtestReport" :loading="false" />
 
         <!-- Chart loading skeleton - not shown since we're in v-else after 'pending' check -->
         <UCard v-if="false">
@@ -282,8 +270,8 @@ const chartColors = computed(() => {
 
         <!-- Sector Analysis -->
         <BacktestingSectorAnalysis
-          v-if="allTrades && allTrades.length > 0"
-          :trades="allTrades"
+          v-if="backtestReport"
+          :report="backtestReport"
           :loading="false"
         />
 

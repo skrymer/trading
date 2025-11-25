@@ -251,7 +251,16 @@ class BacktestService(
         logger.info("Backtest: ${allTradingDates.size} trading days, $positionInfo$cooldownInfo")
 
         // Step 2: Process each date chronologically
-        allTradingDates.forEach { currentDate ->
+        val totalDays = allTradingDates.size
+        var lastLoggedPercent = 0
+
+        allTradingDates.forEachIndexed { index, currentDate ->
+            // Log progress at 5% intervals
+            val currentPercent = ((index + 1) * 100) / totalDays
+            if (currentPercent >= lastLoggedPercent + 5 && currentPercent < 100) {
+                logger.info("Backtest progress: $currentPercent% (${index + 1}/$totalDays days, ${trades.size} trades)")
+                lastLoggedPercent = currentPercent
+            }
             // Step 2a: For each stock pair, check if entry strategy matches on this date
             val entriesForThisDate = stockPairs.mapNotNull { stockPair ->
                 // Get quote for this specific date from STRATEGY stock (for entry evaluation)
@@ -375,7 +384,7 @@ class BacktestService(
         val missingSymbols = mutableListOf<String>()
 
         stocks.forEach { stock ->
-            val strategySymbol = getStrategySymbol(stock.symbol!!, useUnderlying, customMap)
+            val strategySymbol = getStrategySymbol(stock.symbol!!, true, customMap)
 
             if (strategySymbol != stock.symbol) {
                 // Check if this underlying asset exists

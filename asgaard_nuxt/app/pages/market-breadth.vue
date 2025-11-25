@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
-import type { MarketBreadth, Stock } from '~/types'
-import { MarketSymbol, MarketSymbolDescriptions } from '~/types/enums'
+import type { Breadth, Stock } from '~/types'
+import { SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
 
 // Fetch FULLSTOCK data for overall market metrics
-const { data: fullstockData, pending, error, refresh: refreshFullstock } = await useFetch<MarketBreadth>('/udgaard/api/market-breadth', {
-  params: { marketSymbol: MarketSymbol.FULLSTOCK }
-})
+const { data: fullstockData, pending, error, refresh: refreshFullstock } = await useFetch<Breadth>('/udgaard/api/breadth/market')
 
 // Fetch SPY stock data for heatmap comparison
 const { data: spyData, refresh: refreshSpy } = await useFetch<Stock>('/udgaard/api/stocks/SPY')
@@ -66,13 +64,11 @@ const fullstockMetrics = computed(() => {
   }
 })
 
-// Fetch all sector symbols (excluding FULLSTOCK and UNK)
-const sectorSymbols = Object.values(MarketSymbol).filter(
-  symbol => symbol !== MarketSymbol.FULLSTOCK && symbol !== MarketSymbol.UNK
-)
+// Get all sector symbols
+const sectorSymbols = Object.values(SectorSymbol)
 
 // Fetch all sectors for comparison
-const sectorsData = ref<MarketBreadth[]>([])
+const sectorsData = ref<Breadth[]>([])
 const sectorsLoading = ref(true)
 
 // Function to fetch all sectors
@@ -80,9 +76,7 @@ const fetchAllSectors = async () => {
   sectorsLoading.value = true
   try {
     const sectorPromises = sectorSymbols.map(symbol =>
-      $fetch<MarketBreadth>('/udgaard/api/market-breadth', {
-        params: { marketSymbol: symbol }
-      })
+      $fetch<Breadth>(`/udgaard/api/breadth/sector/${symbol}`)
     )
     sectorsData.value = await Promise.all(sectorPromises)
   } catch (error) {
@@ -104,8 +98,8 @@ const refreshAllSectors = async () => {
       color: 'primary'
     })
 
-    // Call backend to refresh all sectors (including FULLSTOCK)
-    await $fetch('/udgaard/api/market-breadth/refresh-all', {
+    // Call backend to refresh all breadth data (market + sectors)
+    await $fetch('/udgaard/api/breadth/refresh-all', {
       method: 'POST'
     })
 

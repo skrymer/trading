@@ -18,7 +18,7 @@ async function fetchEquityCurve() {
 
   status.value = 'pending'
   try {
-    const data = await $fetch<EquityCurveData>(`/api/portfolio/${props.portfolioId}/equity-curve`)
+    const data = await $fetch<EquityCurveData>(`/udgaard/api/portfolio/${props.portfolioId}/equity-curve`)
     console.log('Equity curve data:', data)
     equityCurveData.value = data
     status.value = 'success'

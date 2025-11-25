@@ -81,11 +81,9 @@ class BacktestController(
                 return ResponseEntity.badRequest().build()
             }
 
-        // Get stocks
+        // Get stocks (using cached method for better performance)
         val stocks = if (!stockSymbols.isNullOrEmpty()) {
-            runBlocking {
-                stockService.getStocks(stockSymbols.map { it.uppercase() }, refresh)
-            }
+            stockService.getStocksBySymbols(stockSymbols.map { it.uppercase() }, refresh)
         } else {
             stockService.getAllStocks()
         }
@@ -156,11 +154,9 @@ class BacktestController(
                 return ResponseEntity.badRequest().build()
             }
 
-        // Get stocks
+        // Get stocks (using cached method for better performance)
         val stocks = if (!request.stockSymbols.isNullOrEmpty()) {
-            runBlocking {
-                stockService.getStocks(request.stockSymbols.map { it.uppercase() }, request.refresh)
-            }
+            stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() }, request.refresh)
         } else {
             stockService.getAllStocks()
         }

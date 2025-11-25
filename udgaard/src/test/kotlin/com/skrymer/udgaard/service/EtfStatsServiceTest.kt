@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.Etf
+import com.skrymer.udgaard.model.EtfSymbol
 import com.skrymer.udgaard.model.EtfMembership
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -42,7 +42,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then
         assertEquals(100.0, result.currentStats.bullishPercent)
@@ -70,7 +70,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then
         assertEquals(0.0, result.currentStats.bullishPercent)
@@ -97,7 +97,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then
         assertEquals(0.0, result.currentStats.bullishPercent)
@@ -146,7 +146,7 @@ class EtfStatsServiceTest {
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then
         assertEquals(66.66666666666667, result.currentStats.bullishPercent, 0.0001)
@@ -193,7 +193,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date1, date3)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date1, date3)
 
         // Then
         assertEquals(3, result.historicalData.size)
@@ -234,7 +234,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date1, date2)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date1, date2)
 
         // Then
         assertEquals(100.0, result.currentStats.bullishPercent) // Latest day: uptrend
@@ -249,7 +249,7 @@ class EtfStatsServiceTest {
 
         // When
         val result = etfStatsService.getEtfStats(
-            Etf.QQQ,
+            EtfSymbol.QQQ,
             LocalDate.of(2025, 1, 1),
             LocalDate.of(2025, 1, 15)
         )
@@ -288,7 +288,7 @@ class EtfStatsServiceTest {
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then - Only AAPL should be counted (repository filtered by ETF membership)
         assertEquals(1, result.currentStats.totalStocks)
@@ -342,7 +342,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When - Query only for dates in range
-        val result = etfStatsService.getEtfStats(Etf.QQQ, inRange1, inRange2)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, inRange1, inRange2)
 
         // Then - Should only have 2 historical data points
         assertEquals(2, result.historicalData.size)
@@ -395,7 +395,7 @@ class EtfStatsServiceTest {
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date1, date2)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date1, date2)
 
         // Then - should only return date1 since date2 doesn't have data for all stocks
         assertEquals(1, result.historicalData.size)
@@ -422,7 +422,7 @@ class EtfStatsServiceTest {
         // When/Then
         val exception = assertThrows(IllegalArgumentException::class.java) {
             etfStatsService.getEtfStats(
-                Etf.IWM,
+                EtfSymbol.IWM,
                 LocalDate.of(2025, 1, 1),
                 LocalDate.of(2025, 1, 15)
             )
@@ -447,11 +447,11 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then - Check metadata
         assertEquals("QQQ", result.symbol)
-        assertEquals("Nasdaq-100", result.name)
+        assertEquals("Invesco QQQ Trust", result.name)
     }
 
     @Test
@@ -470,7 +470,7 @@ class EtfStatsServiceTest {
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then - Change should be 0 (comparing to itself)
         assertEquals(0.0, result.currentStats.change)
@@ -534,7 +534,7 @@ class EtfStatsServiceTest {
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
-        val result = etfStatsService.getEtfStats(Etf.QQQ, date, date)
+        val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
 
         // Then
         assertEquals(5, result.currentStats.totalStocks)

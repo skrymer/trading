@@ -3,6 +3,23 @@ package com.skrymer.udgaard.model
 import java.time.LocalDate
 import kotlin.math.abs
 
+/**
+ * Statistics for a specific sector
+ */
+data class SectorStats(
+    val sector: String,
+    val totalTrades: Int,
+    val winningTrades: Int,
+    val losingTrades: Int,
+    val winRate: Double,
+    val edge: Double,
+    val averageWinPercent: Double,
+    val averageLossPercent: Double,
+    val totalProfitPercentage: Double,
+    val maxDrawdown: Double,
+    val trades: List<Trade>
+)
+
 class BacktestReport(
     val winningTrades: List<Trade>,
     val losingTrades: List<Trade>,
@@ -137,6 +154,84 @@ class BacktestReport(
      */
     val missedAverageProfitPercentage: Double
         get() = if (missedTrades.isEmpty()) 0.0 else missedProfitPercentage / missedTrades.size
+
+    /**
+     * Statistics grouped by sector
+     */
+    val sectorStats: List<SectorStats>
+        get() {
+            val allTrades = trades
+            if (allTrades.isEmpty()) return emptyList()
+
+            return allTrades
+                .groupBy { it.sector }
+                .map { (sector, sectorTrades) ->
+                    val sectorWinningTrades = sectorTrades.filter { it.profit > 0 }
+                    val sectorLosingTrades = sectorTrades.filter { it.profit <= 0 }
+
+                    val sectorWinRate = if (sectorTrades.isNotEmpty()) {
+                        sectorWinningTrades.size.toDouble() / sectorTrades.size
+                    } else 0.0
+
+                    val sectorAvgWinPercent = if (sectorWinningTrades.isNotEmpty()) {
+                        sectorWinningTrades.sumOf { it.profitPercentage } / sectorWinningTrades.size
+                    } else 0.0
+
+                    val sectorAvgLossPercent = if (sectorLosingTrades.isNotEmpty()) {
+                        abs(sectorLosingTrades.sumOf { it.profitPercentage } / sectorLosingTrades.size)
+                    } else 0.0
+
+                    val sectorEdge = (sectorAvgWinPercent * sectorWinRate) - ((1.0 - sectorWinRate) * sectorAvgLossPercent)
+
+                    val totalProfitPercentage = sectorTrades.sumOf { it.profitPercentage }
+
+                    // Calculate max drawdown for this sector
+                    val maxDrawdown = calculateMaxDrawdown(sectorTrades)
+
+                    SectorStats(
+                        sector = sector,
+                        totalTrades = sectorTrades.size,
+                        winningTrades = sectorWinningTrades.size,
+                        losingTrades = sectorLosingTrades.size,
+                        winRate = sectorWinRate,
+                        edge = sectorEdge,
+                        averageWinPercent = sectorAvgWinPercent,
+                        averageLossPercent = sectorAvgLossPercent,
+                        totalProfitPercentage = totalProfitPercentage,
+                        maxDrawdown = maxDrawdown,
+                        trades = sectorTrades
+                    )
+                }
+                .sortedByDescending { it.edge }
+        }
+
+    /**
+     * Calculate maximum drawdown for a list of trades
+     * Drawdown is the peak-to-trough decline in cumulative returns
+     */
+    private fun calculateMaxDrawdown(trades: List<Trade>): Double {
+        if (trades.isEmpty()) return 0.0
+
+        val sortedTrades = trades.sortedBy { it.entryQuote.date }
+        var peak = 0.0
+        var maxDrawdown = 0.0
+        var cumulativeReturn = 0.0
+
+        sortedTrades.forEach { trade ->
+            cumulativeReturn += trade.profitPercentage
+
+            if (cumulativeReturn > peak) {
+                peak = cumulativeReturn
+            }
+
+            val drawdown = peak - cumulativeReturn
+            if (drawdown > maxDrawdown) {
+                maxDrawdown = drawdown
+            }
+        }
+
+        return maxDrawdown
+    }
 
     data class ReportEntry(
         val date: LocalDate,

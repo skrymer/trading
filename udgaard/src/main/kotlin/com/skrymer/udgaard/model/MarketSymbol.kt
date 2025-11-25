@@ -1,25 +1,22 @@
 package com.skrymer.udgaard.model
 
+/**
+ * Represents the entire market (all stocks combined).
+ * This is distinct from individual sectors.
+ */
 enum class MarketSymbol(val description: String) {
-    FULLSTOCK("FULLSTOCK"),
-    XLE("Energy"),
-    XLV("Health"),
-    XLB("Materials"),
-    XLC("Communications"),
-    XLK("Technology"),
-    XLRE("Realestate"),
-    XLI("Industrials"),
-    XLF("Financials"),
-    XLY("Discretionary"),
-    XLP("Staples"),
-    XLU("Utilities"),
-    UNK("Unknown");
+    /**
+     * Represents the full stock market - all stocks across all sectors combined.
+     */
+    FULLSTOCK("All Stocks");
 
-    companion object
+    companion object {
+        /**
+         * Parse a market symbol from string, returns null if invalid.
+         */
+        fun fromString(value: String?): MarketSymbol? {
+            if (value == null) return null
+            return entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
+        }
+    }
 }
-
-fun MarketSymbol.Companion.valueOf(value: String?) =
-    runCatching {
-        if(value == null) MarketSymbol.UNK
-        else MarketSymbol.valueOf(value)
-    }.getOrDefault(MarketSymbol.UNK)
