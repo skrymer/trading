@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.time.LocalDate
 
@@ -19,6 +20,7 @@ class BreadthQuote {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "breadth_id")
     var breadth: Breadth? = null

@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.time.LocalDate
 
@@ -19,6 +20,7 @@ data class EtfQuote(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "etf_symbol", referencedColumnName = "symbol")
     val etf: EtfEntity? = null,
