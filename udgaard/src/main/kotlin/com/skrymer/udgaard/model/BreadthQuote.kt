@@ -26,7 +26,7 @@ class BreadthQuote {
     /**
      * The symbol identifier (market or sector) - denormalized for easier querying
      */
-    @Column(insertable = false, updatable = false)
+    @Column(name = "symbol")
     var symbol: String? = null
 
     /**

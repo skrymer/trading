@@ -46,6 +46,8 @@ class Breadth {
     constructor(symbol: BreadthSymbol, quotes: MutableList<BreadthQuote>) {
         this.symbol = symbol
         this.quotes = quotes
+        // Set parent reference on each quote for bidirectional relationship
+        quotes.forEach { it.breadth = this }
     }
 
     val inUptrend: Boolean
