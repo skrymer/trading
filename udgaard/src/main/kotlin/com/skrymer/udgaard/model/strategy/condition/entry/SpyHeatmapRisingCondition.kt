@@ -14,4 +14,9 @@ class SpyHeatmapRisingCondition : TradingCondition {
     }
 
     override fun description(): String = "SPY heatmap rising"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "spyHeatmapRising",
+        description = description()
+    )
 }

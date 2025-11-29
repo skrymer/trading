@@ -1,8 +1,10 @@
 package com.skrymer.udgaard.controller
 
+import com.skrymer.udgaard.controller.dto.StockWithSignals
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.StockService
+import com.skrymer.udgaard.service.StrategySignalService
 import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -21,13 +23,15 @@ import org.springframework.web.bind.annotation.RestController
  *
  * Handles:
  * - Retrieving stock data (single or all symbols)
+ * - Retrieving stock data with strategy signals
  * - Refreshing stock data from external sources
  */
 @RestController
 @RequestMapping("/api/stocks")
 @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
 class StockController(
-    private val stockService: StockService
+    private val stockService: StockService,
+    private val strategySignalService: StrategySignalService
 ) {
 
     companion object {
@@ -67,6 +71,45 @@ class StockController(
         val stock = stockService.getStock(symbol, refresh)
         logger.info("Stock data retrieved successfully for: $symbol")
         return ResponseEntity.ok(stock)
+    }
+
+    /**
+     * Get stock data with entry/exit signals for specific strategies.
+     *
+     * Example: GET /api/stocks/TQQQ/signals?entryStrategy=VegardPlanEtf&exitStrategy=VegardPlanEtf&cooldownDays=10
+     *
+     * @param symbol Stock symbol (e.g., TQQQ, SPY)
+     * @param entryStrategy Entry strategy name (e.g., VegardPlanEtf, OvtlyrPlanEtf)
+     * @param exitStrategy Exit strategy name (e.g., VegardPlanEtf, OvtlyrPlanEtf)
+     * @param cooldownDays Number of trading days to wait after exit before allowing new entry (default: 0)
+     * @param refresh Force refresh stock data from external source
+     * @return Stock data with entry/exit signals annotated on each quote
+     */
+    @GetMapping("/{symbol}/signals")
+    fun getStockWithSignals(
+        @PathVariable symbol: String,
+        @RequestParam entryStrategy: String,
+        @RequestParam exitStrategy: String,
+        @RequestParam(defaultValue = "0") cooldownDays: Int,
+        @RequestParam(defaultValue = "false") refresh: Boolean
+    ): ResponseEntity<StockWithSignals> {
+        logger.info("Getting stock $symbol with signals for entry=$entryStrategy, exit=$exitStrategy, cooldown=$cooldownDays (refresh=$refresh)")
+
+        // Get stock data
+        val stock = stockService.getStock(symbol, refresh) ?: run {
+            logger.error("Stock not found: $symbol")
+            return ResponseEntity.notFound().build()
+        }
+
+        // Evaluate strategies and generate signals
+        val stockWithSignals = strategySignalService.evaluateStrategies(stock, entryStrategy, exitStrategy, cooldownDays)
+            ?: run {
+                logger.error("Failed to evaluate strategies entry=$entryStrategy, exit=$exitStrategy on stock $symbol")
+                return ResponseEntity.badRequest().build()
+            }
+
+        logger.info("Stock data with signals retrieved successfully for: $symbol")
+        return ResponseEntity.ok(stockWithSignals)
     }
 
     /**

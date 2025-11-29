@@ -22,4 +22,9 @@ class BuySignalCondition(private val currentOnly: Boolean = false) : TradingCond
     } else {
         "Has buy signal"
     }
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "buySignal",
+        description = description()
+    )
 }

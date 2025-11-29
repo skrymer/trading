@@ -56,6 +56,12 @@ class CompositeExitStrategy(
             quote.closePrice
         }
     }
+
+    /**
+     * Returns all exit conditions in this composite strategy.
+     * Used for automatic metadata extraction.
+     */
+    fun getConditions(): List<ExitCondition> = exitConditions
 }
 
 /**
@@ -76,4 +82,15 @@ interface ExitCondition {
      * Returns a description of the exit condition.
      */
     fun description(): String
+
+    /**
+     * Get metadata for this condition.
+     * Used by UI to display strategy information.
+     */
+    fun getMetadata(): com.skrymer.udgaard.model.strategy.condition.ConditionMetadata {
+        return com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+            type = this::class.simpleName ?: "unknown",
+            description = description()
+        )
+    }
 }

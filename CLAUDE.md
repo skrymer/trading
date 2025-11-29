@@ -1,4 +1,8 @@
-# Trading Platform Context
+# Trading Platform - Claude Context
+
+This file provides comprehensive context for the Trading Platform project. For technology-specific guides, see:
+- `asgaard_nuxt/claude.md` - Frontend (Nuxt/Vue) development guide
+- `udgaard/claude.md` - Backend (Kotlin/Spring Boot) development guide
 
 ## Project Overview
 
@@ -225,8 +229,12 @@ Old individual strategy classes have been deleted in favor of DSL composition:
 
 ```
 trading/
-├── .claude/                          # Claude context files
-│   └── context.md                    # This file
+├── CLAUDE.md                         # This file - project-wide context
+│
+├── .claude/                          # Claude configuration
+│   ├── commands/                     # Custom slash commands
+│   ├── skills/                       # Skills (e.g., run-backtest)
+│   └── settings.local.json           # Local settings
 │
 ├── claude_thoughts/                  # Documentation created by Claude
 │   ├── CACHE_PERFORMANCE_VERIFICATION.md
@@ -764,5 +772,15 @@ Access via `useRuntimeConfig()`:
 
 ---
 
-_Last Updated: 2025-11-12_
-_This context file helps Claude remember project structure, recent work, and key decisions across conversations._
+## Documentation Structure
+
+This project uses a three-level documentation approach:
+
+1. **CLAUDE.md** (this file) - High-level project context, architecture, and recent work
+2. **asgaard_nuxt/claude.md** - Frontend-specific patterns, NuxtUI components, and Vue best practices
+3. **udgaard/claude.md** - Backend-specific patterns, Kotlin idioms, and Spring Boot conventions
+
+---
+
+_Last Updated: 2025-11-28_
+_This file helps Claude understand the project structure, architecture, recent work, and key decisions across conversations._

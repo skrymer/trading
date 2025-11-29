@@ -18,4 +18,9 @@ class SectorHeatmapThresholdCondition(
     }
 
     override fun description(): String = "Sector heatmap < $threshold"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "sectorHeatmapThreshold",
+        description = description()
+    )
 }

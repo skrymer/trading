@@ -14,4 +14,9 @@ class HeatmapCondition(private val threshold: Double) : TradingCondition {
     }
 
     override fun description(): String = "Heatmap < $threshold"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "heatmap",
+        description = description()
+    )
 }

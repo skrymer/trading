@@ -41,7 +41,7 @@ class PortfolioController(
      * Get portfolio by ID
      */
     @GetMapping("/{portfolioId}")
-    fun getPortfolio(@PathVariable portfolioId: String): ResponseEntity<Portfolio> {
+    fun getPortfolio(@PathVariable portfolioId: Long): ResponseEntity<Portfolio> {
         val portfolio = portfolioService.getPortfolio(portfolioId)
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(portfolio)
@@ -52,7 +52,7 @@ class PortfolioController(
      */
     @PutMapping("/{portfolioId}")
     fun updatePortfolio(
-        @PathVariable portfolioId: String,
+        @PathVariable portfolioId: Long,
         @RequestBody request: UpdatePortfolioRequest
     ): ResponseEntity<Portfolio> {
         val portfolio = portfolioService.updatePortfolio(portfolioId, request.currentBalance)
@@ -64,7 +64,7 @@ class PortfolioController(
      * Delete portfolio
      */
     @DeleteMapping("/{portfolioId}")
-    fun deletePortfolio(@PathVariable portfolioId: String): ResponseEntity<Void> {
+    fun deletePortfolio(@PathVariable portfolioId: Long): ResponseEntity<Void> {
         portfolioService.deletePortfolio(portfolioId)
         return ResponseEntity.noContent().build()
     }
@@ -73,7 +73,7 @@ class PortfolioController(
      * Get portfolio statistics
      */
     @GetMapping("/{portfolioId}/stats")
-    fun getPortfolioStats(@PathVariable portfolioId: String): ResponseEntity<PortfolioStats> {
+    fun getPortfolioStats(@PathVariable portfolioId: Long): ResponseEntity<PortfolioStats> {
         val stats = portfolioService.calculateStats(portfolioId)
         return ResponseEntity.ok(stats)
     }
@@ -83,7 +83,7 @@ class PortfolioController(
      */
     @PostMapping("/{portfolioId}/trades")
     fun openTrade(
-        @PathVariable portfolioId: String,
+        @PathVariable portfolioId: Long,
         @RequestBody request: OpenTradeRequest
     ): ResponseEntity<PortfolioTrade> {
         val trade = portfolioService.openTrade(
@@ -109,12 +109,46 @@ class PortfolioController(
     }
 
     /**
+     * Update an existing open trade
+     */
+    @PutMapping("/{portfolioId}/trades/{tradeId}")
+    fun updateTrade(
+        @PathVariable portfolioId: Long,
+        @PathVariable tradeId: Long,
+        @RequestBody request: UpdateTradeRequest
+    ): ResponseEntity<PortfolioTrade> {
+        try {
+            val trade = portfolioService.updateTrade(
+                tradeId = tradeId,
+                symbol = request.symbol,
+                entryPrice = request.entryPrice,
+                entryDate = request.entryDate,
+                quantity = request.quantity,
+                entryStrategy = request.entryStrategy,
+                exitStrategy = request.exitStrategy,
+                underlyingSymbol = request.underlyingSymbol,
+                instrumentType = request.instrumentType,
+                optionType = request.optionType,
+                strikePrice = request.strikePrice,
+                expirationDate = request.expirationDate,
+                contracts = request.contracts,
+                multiplier = request.multiplier,
+                entryIntrinsicValue = request.entryIntrinsicValue,
+                entryExtrinsicValue = request.entryExtrinsicValue
+            ) ?: return ResponseEntity.notFound().build()
+            return ResponseEntity.ok(trade)
+        } catch (e: IllegalArgumentException) {
+            return ResponseEntity.badRequest().build()
+        }
+    }
+
+    /**
      * Close an existing trade
      */
     @PutMapping("/{portfolioId}/trades/{tradeId}/close")
     fun closeTrade(
-        @PathVariable portfolioId: String,
-        @PathVariable tradeId: String,
+        @PathVariable portfolioId: Long,
+        @PathVariable tradeId: Long,
         @RequestBody request: CloseTradeRequest
     ): ResponseEntity<PortfolioTrade> {
         val trade = portfolioService.closeTrade(tradeId, request.exitPrice, request.exitDate)
@@ -123,27 +157,16 @@ class PortfolioController(
     }
 
     /**
-     * Get all trades for a portfolio with exit signal information
+     * Get all trades for a portfolio
      */
     @GetMapping("/{portfolioId}/trades")
     fun getTrades(
-        @PathVariable portfolioId: String,
+        @PathVariable portfolioId: Long,
         @RequestParam(required = false) status: String?
-    ): ResponseEntity<List<PortfolioTradeResponse>> {
+    ): ResponseEntity<List<PortfolioTrade>> {
         val tradeStatus = status?.let { TradeStatus.valueOf(it.uppercase()) }
         val trades = portfolioService.getTrades(portfolioId, tradeStatus)
-
-        // Add exit signal information for open trades
-        val tradesWithSignals = trades.map { trade ->
-            if (trade.status == TradeStatus.OPEN) {
-                val (hasSignal, reason) = portfolioService.hasExitSignal(trade.id!!)
-                PortfolioTradeResponse(trade, hasSignal, reason)
-            } else {
-                PortfolioTradeResponse(trade)
-            }
-        }
-
-        return ResponseEntity.ok(tradesWithSignals)
+        return ResponseEntity.ok(trades)
     }
 
     /**
@@ -151,8 +174,8 @@ class PortfolioController(
      */
     @GetMapping("/{portfolioId}/trades/{tradeId}")
     fun getTrade(
-        @PathVariable portfolioId: String,
-        @PathVariable tradeId: String
+        @PathVariable portfolioId: Long,
+        @PathVariable tradeId: Long
     ): ResponseEntity<PortfolioTrade> {
         val trade = portfolioService.getTrade(tradeId)
             ?: return ResponseEntity.notFound().build()
@@ -160,10 +183,30 @@ class PortfolioController(
     }
 
     /**
+     * Delete a trade (only open trades can be deleted)
+     */
+    @DeleteMapping("/{portfolioId}/trades/{tradeId}")
+    fun deleteTrade(
+        @PathVariable portfolioId: Long,
+        @PathVariable tradeId: Long
+    ): ResponseEntity<Void> {
+        try {
+            val deleted = portfolioService.deleteTrade(tradeId)
+            return if (deleted) {
+                ResponseEntity.noContent().build()
+            } else {
+                ResponseEntity.notFound().build()
+            }
+        } catch (e: IllegalArgumentException) {
+            return ResponseEntity.badRequest().build()
+        }
+    }
+
+    /**
      * Get equity curve data
      */
     @GetMapping("/{portfolioId}/equity-curve")
-    fun getEquityCurve(@PathVariable portfolioId: String): ResponseEntity<EquityCurveData> {
+    fun getEquityCurve(@PathVariable portfolioId: Long): ResponseEntity<EquityCurveData> {
         val data = portfolioService.getEquityCurve(portfolioId)
         return ResponseEntity.ok(data)
     }

@@ -2,15 +2,32 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
 
 /**
  * Condition that checks if the stock is in an uptrend.
+ *
+ * An uptrend is defined as:
+ * - 10 EMA is above 20 EMA (short-term above medium-term)
+ * - Close price is above 50 EMA (price above long-term trend)
  */
 class UptrendCondition : TradingCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        return quote.isInUptrend()
+        // Check if 10 EMA > 20 EMA
+        val ema10AboveEma20 = quote.closePriceEMA10 > quote.closePriceEMA20
+
+        // Check if close price > 50 EMA
+        val priceAboveEma50 = quote.closePrice > quote.closePriceEMA50
+
+        // Both conditions must be true for uptrend
+        return ema10AboveEma20 && priceAboveEma50
     }
 
-    override fun description(): String = "Stock is in uptrend"
+    override fun description(): String = "Stock is in uptrend (10 EMA > 20 EMA and price > 50 EMA)"
+
+    override fun getMetadata() = ConditionMetadata(
+        type = "uptrend",
+        description = description()
+    )
 }

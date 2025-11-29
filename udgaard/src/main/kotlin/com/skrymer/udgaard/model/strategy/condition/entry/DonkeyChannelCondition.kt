@@ -20,4 +20,9 @@ class DonkeyChannelCondition : TradingCondition {
     }
 
     override fun description(): String = "Donkey channel AS1 or AS2"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "donkeyChannel",
+        description = description()
+    )
 }

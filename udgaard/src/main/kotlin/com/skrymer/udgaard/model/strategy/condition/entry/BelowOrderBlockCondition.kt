@@ -59,4 +59,9 @@ class BelowOrderBlockCondition(
 
     override fun description(): String =
         "Price at least ${percentBelow}% below order block (age > ${ageInDays}d)"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "belowOrderBlock",
+        description = description()
+    )
 }

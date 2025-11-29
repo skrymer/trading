@@ -56,8 +56,8 @@ class BreadthService(
         return if (refresh) {
             fetchBreadth(symbol)
         } else {
-            breadthRepository.findById(symbol.toIdentifier())
-                .orElseGet { fetchBreadth(symbol) }
+            breadthRepository.findBySymbolValue(symbol.toIdentifier())
+                ?: fetchBreadth(symbol)
         }
     }
 
@@ -75,6 +75,7 @@ class BreadthService(
                 breadth.quotes
                     .filter { it.quoteDate?.isAfter(fromDate) == true }
                     .filter { it.quoteDate?.isBefore(toDate) == true }
+                    .toMutableList()
             )
         }
     }

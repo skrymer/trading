@@ -28,8 +28,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -56,8 +56,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -76,8 +76,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf()
         )
 
         val quote = StockQuote(
@@ -106,8 +106,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -163,8 +163,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(calculatedBlock, ovtlyrBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(calculatedBlock, ovtlyrBlock)
         )
 
         val quote = StockQuote(
@@ -203,8 +203,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(calculatedBlock, ovtlyrBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(calculatedBlock, ovtlyrBlock)
         )
 
         val quote = StockQuote(
@@ -235,8 +235,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(ovtlyrBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(ovtlyrBlock)
         )
 
         val quote = StockQuote(
@@ -265,8 +265,8 @@ class OrderBlockExitTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(calculatedBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(calculatedBlock)
         )
 
         val quote = StockQuote(

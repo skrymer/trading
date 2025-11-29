@@ -56,8 +56,8 @@ class PlanMoneyExitStrategyTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -100,8 +100,8 @@ class PlanMoneyExitStrategyTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(

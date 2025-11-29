@@ -37,4 +37,9 @@ class OvtlyrPlanEtfEntryStrategy: EntryStrategy {
   override fun test(stock: Stock, quote: StockQuote): Boolean {
     return compositeStrategy.test(stock, quote)
   }
+
+  /**
+   * Get the underlying composite strategy for metadata extraction.
+   */
+  fun getCompositeStrategy(): CompositeEntryStrategy = compositeStrategy
 }

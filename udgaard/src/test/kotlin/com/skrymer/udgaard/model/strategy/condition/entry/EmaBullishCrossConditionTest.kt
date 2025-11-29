@@ -29,8 +29,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(previousQuote, currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(previousQuote, currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertTrue(condition.evaluate(stock, currentQuote),
@@ -58,8 +58,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(previousQuote, currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(previousQuote, currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertFalse(condition.evaluate(stock, currentQuote),
@@ -79,8 +79,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertFalse(condition.evaluate(stock, currentQuote),
@@ -106,8 +106,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(previousQuote, currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(previousQuote, currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertTrue(condition.evaluate(stock, currentQuote),
@@ -135,8 +135,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(previousQuote, currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(previousQuote, currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertTrue(condition.evaluate(stock, currentQuote),
@@ -162,8 +162,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertFalse(condition.evaluate(stock, currentQuote),
@@ -184,8 +184,8 @@ class EmaBullishCrossConditionTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(currentQuote),
-            orderBlocks = emptyList()
+            quotes = mutableListOf(currentQuote),
+            orderBlocks = mutableListOf()
         )
 
         assertTrue(condition.evaluate(stock, currentQuote),

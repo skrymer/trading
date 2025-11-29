@@ -21,7 +21,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -46,7 +46,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -71,7 +71,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -96,7 +96,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -121,7 +121,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -145,7 +145,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -169,7 +169,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -201,7 +201,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock1, orderBlock2)
+        stock.orderBlocks = mutableListOf(orderBlock1, orderBlock2)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -218,7 +218,7 @@ class BelowOrderBlockConditionTest {
     @Test
     fun `should return true when stock has no order blocks`() {
         val stock = Stock()
-        stock.orderBlocks = emptyList()
+        stock.orderBlocks = mutableListOf()
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -252,7 +252,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock1, orderBlock2)
+        stock.orderBlocks = mutableListOf(orderBlock1, orderBlock2)
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
@@ -276,7 +276,7 @@ class BelowOrderBlockConditionTest {
         )
 
         val stock = Stock()
-        stock.orderBlocks = listOf(orderBlock)
+        stock.orderBlocks = mutableListOf(orderBlock)
 
         val condition = BelowOrderBlockCondition(percentBelow = 5.0, ageInDays = 30)
 

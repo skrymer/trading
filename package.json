@@ -33,13 +33,19 @@
         "filter": ["*.jar"]
       }
     ],
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    },
     "win": {
       "target": ["nsis"],
-      "icon": "electron/icon.png"
+      "icon": "electron/icon.png",
+      "publisherName": "Trading Backtester"
     },
     "mac": {
       "target": ["dmg"],
-      "icon": "electron/icon.png"
+      "icon": "electron/icon.png",
+      "category": "public.app-category.finance"
     },
     "linux": {
       "target": ["AppImage", "deb"],

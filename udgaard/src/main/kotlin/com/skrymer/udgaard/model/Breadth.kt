@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.mapping.Document
+import jakarta.persistence.*
 import java.time.LocalDate
 
 /**
@@ -13,18 +12,38 @@ import java.time.LocalDate
  * Strong breadth shows widespread participation in a rally,
  * while weak breadth suggests fewer stocks are driving the movement.
  */
-@Document("breadth")
+@Entity
+@Table(name = "breadth")
 class Breadth {
     @Id
-    var id: String? = null
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null
 
+    @Column(name = "symbol_type", length = 20)
+    var symbolType: String? = null // "MARKET" or "SECTOR"
+
+    @Column(name = "symbol_value", length = 50)
+    var symbolValue: String? = null // e.g., "FULLSTOCK" for market or sector name
+
+    @OneToMany(mappedBy = "breadth", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    var quotes: MutableList<BreadthQuote> = mutableListOf()
+
+    @Transient
     var symbol: BreadthSymbol? = null
-    var quotes: List<BreadthQuote> = emptyList()
+        get() = BreadthSymbol.fromString(symbolValue)
+        set(value) {
+            field = value
+            symbolValue = value?.toIdentifier()
+            symbolType = when (value) {
+                is BreadthSymbol.Market -> "MARKET"
+                is BreadthSymbol.Sector -> "SECTOR"
+                null -> null
+            }
+        }
 
     constructor()
 
-    constructor(symbol: BreadthSymbol, quotes: List<BreadthQuote>) {
-        this.id = symbol.toIdentifier()
+    constructor(symbol: BreadthSymbol, quotes: MutableList<BreadthQuote>) {
         this.symbol = symbol
         this.quotes = quotes
     }

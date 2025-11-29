@@ -12,14 +12,14 @@ class PriceBelowEmaForDaysExitTest {
     fun `should exit when price is below EMA for consecutive days`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 4)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 102.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 101.0),
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 99.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
         val currentQuote = quotes[3]  // 4th day
 
         assertTrue(condition.shouldExit(stock, null, currentQuote),
@@ -30,14 +30,14 @@ class PriceBelowEmaForDaysExitTest {
     fun `should not exit when streak is broken`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 4)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 102.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 101.0),
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 103.0, closePriceEMA10 = 100.0),  // Above EMA
             StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 99.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
         val currentQuote = quotes[3]
 
         assertFalse(condition.shouldExit(stock, null, currentQuote),
@@ -48,11 +48,11 @@ class PriceBelowEmaForDaysExitTest {
     fun `should work with single day requirement`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 1)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertTrue(condition.shouldExit(stock, null, quotes[0]),
             "Should exit on first day when requirement is 1 day")
@@ -62,13 +62,13 @@ class PriceBelowEmaForDaysExitTest {
     fun `should not exit when current price is above EMA`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 102.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 101.0),
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 105.0, closePriceEMA10 = 100.0)  // Above EMA
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertFalse(condition.shouldExit(stock, null, quotes[2]),
             "Should not exit when current price is above EMA")
@@ -78,12 +78,12 @@ class PriceBelowEmaForDaysExitTest {
     fun `should not exit when not enough historical data`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 5)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertFalse(condition.shouldExit(stock, null, quotes[1]),
             "Should not exit when insufficient historical data for 5 days")
@@ -93,12 +93,12 @@ class PriceBelowEmaForDaysExitTest {
     fun `should work with EMA 5`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 5, consecutiveDays = 2)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA5 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA5 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertTrue(condition.shouldExit(stock, null, quotes[1]),
             "Should work with EMA 5")
@@ -108,12 +108,12 @@ class PriceBelowEmaForDaysExitTest {
     fun `should work with EMA 20`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 20, consecutiveDays = 2)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA20 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA20 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertTrue(condition.shouldExit(stock, null, quotes[1]),
             "Should work with EMA 20")
@@ -123,12 +123,12 @@ class PriceBelowEmaForDaysExitTest {
     fun `should work with EMA 50`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 50, consecutiveDays = 2)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA50 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA50 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertTrue(condition.shouldExit(stock, null, quotes[1]),
             "Should work with EMA 50")
@@ -138,12 +138,12 @@ class PriceBelowEmaForDaysExitTest {
     fun `should not exit when price equals EMA`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 2)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 100.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertFalse(condition.shouldExit(stock, null, quotes[1]),
             "Should not exit when price equals EMA (not below)")
@@ -153,11 +153,11 @@ class PriceBelowEmaForDaysExitTest {
     fun `should handle zero or negative consecutive days`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 0)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertFalse(condition.shouldExit(stock, null, quotes[0]),
             "Should not exit when consecutive days is 0")
@@ -173,9 +173,9 @@ class PriceBelowEmaForDaysExitTest {
                 closePrice = 95.0,
                 closePriceEMA10 = 100.0
             )
-        }
+        }.toMutableList()
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertTrue(condition.shouldExit(stock, null, quotes[9]),
             "Should exit when price has been below EMA for 10 consecutive days")
@@ -185,7 +185,7 @@ class PriceBelowEmaForDaysExitTest {
     fun `should not exit when only recent days are below EMA`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 5)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 105.0, closePriceEMA10 = 100.0),  // Above
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
@@ -193,7 +193,7 @@ class PriceBelowEmaForDaysExitTest {
             StockQuote(date = LocalDate.of(2024, 1, 5), closePrice = 96.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertFalse(condition.shouldExit(stock, null, quotes[4]),
             "Should not exit when only 4 consecutive days below EMA (need 5)")
@@ -222,13 +222,13 @@ class PriceBelowEmaForDaysExitTest {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
         // Create quotes in random order
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.5, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertTrue(condition.shouldExit(stock, null, quotes[0]),
             "Should handle unsorted quotes by sorting internally")
@@ -238,12 +238,12 @@ class PriceBelowEmaForDaysExitTest {
     fun `should handle zero EMA value gracefully`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 2)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 0.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 0.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         // When EMA is 0, price (98 or 99) is above it, so should not exit
         assertFalse(condition.shouldExit(stock, null, quotes[1]),
@@ -254,13 +254,13 @@ class PriceBelowEmaForDaysExitTest {
     fun `should handle mixed valid and zero EMA values`() {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 0.0),  // Zero EMA breaks streak
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
 
         assertFalse(condition.shouldExit(stock, null, quotes[2]),
             "Should not exit when streak is broken by zero EMA day")
@@ -271,14 +271,14 @@ class PriceBelowEmaForDaysExitTest {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 4)
 
         // Entry on Jan 1, all days below EMA
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),  // Entry day
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 96.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
         val entryQuote = quotes[0]
 
         // On day 4, we have: day 1 (entry, excluded), day 2, day 3, day 4
@@ -292,14 +292,14 @@ class PriceBelowEmaForDaysExitTest {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
         // Entry on Jan 1, need 3 consecutive days AFTER entry
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),  // Entry day
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
             StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 96.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
         val entryQuote = quotes[0]
 
         // On day 4, we have: day 2, day 3, day 4 = 3 consecutive days after entry
@@ -312,7 +312,7 @@ class PriceBelowEmaForDaysExitTest {
         val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
         // Entry on Jan 1, but checking on Jan 10
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),  // Entry day
             StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 105.0, closePriceEMA10 = 100.0),  // Above EMA
             StockQuote(date = LocalDate.of(2024, 1, 8), closePrice = 98.0, closePriceEMA10 = 100.0),
@@ -320,7 +320,7 @@ class PriceBelowEmaForDaysExitTest {
             StockQuote(date = LocalDate.of(2024, 1, 10), closePrice = 96.0, closePriceEMA10 = 100.0)
         )
 
-        val stock = Stock("TEST", null, quotes, emptyList())
+        val stock = Stock("TEST", null, quotes, mutableListOf())
         val entryQuote = quotes[0]
 
         // On day 10, lookback only includes days 8, 9, 10 (entry is not in lookback)

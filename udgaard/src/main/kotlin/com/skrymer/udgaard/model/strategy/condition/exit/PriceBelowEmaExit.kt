@@ -29,4 +29,9 @@ class PriceBelowEmaExit(
 
     override fun description(): String =
         "Price below $emaPeriod EMA"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "priceBelowEma",
+        description = description()
+    )
 }

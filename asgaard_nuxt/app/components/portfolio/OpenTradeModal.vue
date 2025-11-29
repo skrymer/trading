@@ -7,6 +7,7 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 const props = defineProps<{
   open: boolean
   currency: string
+  currentBalance: number
   loading?: boolean
 }>()
 
@@ -38,8 +39,8 @@ const state = reactive({
   entryPrice: 0,
   entryDate: format(new Date(), 'yyyy-MM-dd'),
   quantity: 100,
-  entryStrategy: 'PlanAlpha',
-  exitStrategy: 'PlanAlpha',
+  entryStrategy: '',
+  exitStrategy: '',
   underlyingSymbol: '',
   optionType: 'CALL' as OptionType,
   strikePrice: 0,
@@ -81,28 +82,41 @@ const schema = computed(() => {
 
 type Schema = z.output<typeof schema.value>
 
-const entryStrategies = [
-  'PlanAlpha',
-  'PlanBeta',
-  'PlanEtf',
-  'SimpleBuySignal'
-]
+// Fetch strategies from backend
+const entryStrategies = ref<string[]>([])
+const exitStrategies = ref<string[]>([])
+const loadingStrategies = ref(true)
 
-const exitStrategies = [
-  'PlanAlpha',
-  'PlanEtf',
-  'PlanMoney',
-  'BelowPriorDaysLow',
-  'HalfAtr',
-  'Heatmap',
-  'LessGreedy',
-  'MarketAndSectorBreadthReverses',
-  'PriceUnder10Ema',
-  'PriceUnder50Ema',
-  'SellSignal',
-  'TenTwentyBearishCross',
-  'WithinOrderBlock'
-]
+async function loadStrategies() {
+  try {
+    const response = await $fetch<{ entryStrategies: string[], exitStrategies: string[] }>('/udgaard/api/backtest/strategies')
+    // Sort alphabetically
+    entryStrategies.value = response.entryStrategies.sort((a, b) => a.localeCompare(b))
+    exitStrategies.value = response.exitStrategies.sort((a, b) => a.localeCompare(b))
+  } catch (error) {
+    console.error('Failed to load strategies:', error)
+    // Fallback to empty arrays - user can still type manually
+    entryStrategies.value = []
+    exitStrategies.value = []
+  } finally {
+    loadingStrategies.value = false
+  }
+}
+
+// Load strategies when component is mounted
+onMounted(() => {
+  loadStrategies()
+})
+
+// Set default strategies when they're loaded
+watch([entryStrategies, exitStrategies], ([entry, exit]) => {
+  if (entry.length > 0 && !state.entryStrategy) {
+    state.entryStrategy = entry[0] || ''
+  }
+  if (exit.length > 0 && !state.exitStrategy) {
+    state.exitStrategy = exit[0] || ''
+  }
+})
 
 // Computed total cost
 const totalCost = computed(() => {
@@ -111,6 +125,19 @@ const totalCost = computed(() => {
   }
   return state.entryPrice * state.quantity
 })
+
+// Check if position exceeds available balance
+const exceedsBalance = computed(() => {
+  return totalCost.value > props.currentBalance
+})
+
+// Format currency helper
+function formatCurrency(value: number, currency: string = 'USD') {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency
+  }).format(value)
+}
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   const data = event.data as any
@@ -147,6 +174,8 @@ watch(() => props.open, (isOpen) => {
     state.entryPrice = 0
     state.entryDate = format(new Date(), 'yyyy-MM-dd')
     state.quantity = 100
+    state.entryStrategy = entryStrategies.value[0] || ''
+    state.exitStrategy = exitStrategies.value[0] || ''
     state.underlyingSymbol = ''
     state.optionType = 'CALL'
     state.strikePrice = 0
@@ -319,6 +348,9 @@ watch(() => props.open, (isOpen) => {
           <USelect
             v-model="state.entryStrategy"
             :items="entryStrategies"
+            :loading="loadingStrategies"
+            :disabled="loadingStrategies"
+            placeholder="Select entry strategy..."
           />
         </UFormField>
 
@@ -326,16 +358,47 @@ watch(() => props.open, (isOpen) => {
           <USelect
             v-model="state.exitStrategy"
             :items="exitStrategies"
+            :loading="loadingStrategies"
+            :disabled="loadingStrategies"
+            placeholder="Select exit strategy..."
           />
         </UFormField>
 
         <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <p class="text-sm text-muted">
-            Total Cost: {{ totalCost.toFixed(2) }} {{ currency }}
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-muted">
+              Total Cost:
+            </p>
+            <p class="text-sm font-semibold" :class="exceedsBalance ? 'text-red-600' : ''">
+              {{ formatCurrency(totalCost, currency) }}
+            </p>
+          </div>
+          <div class="flex items-center justify-between mt-1">
+            <p class="text-sm text-muted">
+              Available Balance:
+            </p>
+            <p class="text-sm font-semibold">
+              {{ formatCurrency(currentBalance, currency) }}
+            </p>
+          </div>
+          <p v-if="state.instrumentType === 'OPTION'" class="text-xs text-muted mt-2">
+            {{ state.contracts }} contract{{ state.contracts !== 1 ? 's' : '' }} × {{ state.multiplier }} shares × {{ formatCurrency(state.entryPrice, currency) }} premium
           </p>
-          <p v-if="state.instrumentType === 'OPTION'" class="text-xs text-muted mt-1">
-            {{ state.contracts }} contract{{ state.contracts !== 1 ? 's' : '' }} × {{ state.multiplier }} shares × ${{ state.entryPrice.toFixed(2) }} premium
-          </p>
+        </div>
+
+        <!-- Warning when exceeding balance -->
+        <div v-if="exceedsBalance" class="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+          <div class="flex items-start gap-2">
+            <UIcon name="i-lucide-alert-triangle" class="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p class="text-sm font-semibold text-red-900 dark:text-red-100">
+                Insufficient Balance
+              </p>
+              <p class="text-xs text-red-700 dark:text-red-300 mt-1">
+                This position costs {{ formatCurrency(totalCost, currency) }} but you only have {{ formatCurrency(currentBalance, currency) }} available. You need {{ formatCurrency(totalCost - currentBalance, currency) }} more to open this trade.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2">
@@ -351,7 +414,7 @@ watch(() => props.open, (isOpen) => {
             label="Open Trade"
             icon="i-lucide-trending-up"
             :loading="loading"
-            :disabled="loading"
+            :disabled="loading || exceedsBalance"
           />
         </div>
       </UForm>

@@ -17,4 +17,9 @@ class BelowPreviousDayLowExit : ExitCondition {
     override fun exitReason(): String = "Price closed below previous day's low"
 
     override fun description(): String = "Below previous day low"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "belowPreviousDayLow",
+        description = description()
+    )
 }

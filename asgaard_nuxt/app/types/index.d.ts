@@ -416,12 +416,6 @@ export interface EquityCurveData {
   dataPoints: EquityDataPoint[]
 }
 
-export interface PortfolioTradeResponse {
-  trade: PortfolioTrade
-  hasExitSignal: boolean
-  exitSignalReason?: string
-}
-
 // ETF Stats Types
 export interface EtfStatsResponse {
   symbol: string

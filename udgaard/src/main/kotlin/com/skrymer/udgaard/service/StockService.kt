@@ -150,10 +150,10 @@ open class StockService(
 
     return runCatching {
       // Step 2: Fetch breadth data for context
-      val marketBreadth = breadthRepository.findByIdOrNull(BreadthSymbol.Market().toIdentifier())
+      val marketBreadth = breadthRepository.findBySymbolValue(BreadthSymbol.Market().toIdentifier())
       val sectorSymbol = SectorSymbol.fromString(stockInformation.sectorSymbol)
       val sectorBreadth = sectorSymbol?.let {
-        breadthRepository.findByIdOrNull(BreadthSymbol.Sector(it).toIdentifier())
+        breadthRepository.findBySymbolValue(BreadthSymbol.Sector(it).toIdentifier())
       }
 
       // Step 3: Enrich with AlphaVantage volume data

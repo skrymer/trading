@@ -2,21 +2,25 @@
 import { format } from 'date-fns'
 import { h, resolveComponent } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
-import type { Portfolio, PortfolioTrade, PortfolioStats, PortfolioTradeResponse } from '~/types'
+import type { Portfolio, PortfolioTrade, PortfolioStats, Stock } from '~/types'
 
 const portfolio = ref<Portfolio | null>(null)
 const portfolios = ref<Portfolio[]>([])
 const stats = ref<PortfolioStats | null>(null)
-const openTrades = ref<PortfolioTradeResponse[]>([])
-const closedTrades = ref<PortfolioTradeResponse[]>([])
+const openTrades = ref<PortfolioTrade[]>([])
+const closedTrades = ref<PortfolioTrade[]>([])
 const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const isLoadingPortfolios = ref(true)
 const isCreatePortfolioModalOpen = ref(false)
 const isOpenTradeModalOpen = ref(false)
+const isEditTradeModalOpen = ref(false)
 const isCloseTradeModalOpen = ref(false)
+const isDeleteTradeModalOpen = ref(false)
 const isDeletePortfolioModalOpen = ref(false)
 const isOpeningTrade = ref(false)
+const isEditingTrade = ref(false)
 const isClosingTrade = ref(false)
+const isDeletingTrade = ref(false)
 const isRefreshingStocks = ref(false)
 const selectedTrade = ref<PortfolioTrade | null>(null)
 
@@ -96,8 +100,8 @@ async function loadPortfolioData() {
   try {
     const [statsData, openTradesData, closedTradesData] = await Promise.all([
       $fetch<PortfolioStats>(`/udgaard/api/portfolio/${portfolio.value.id}/stats`),
-      $fetch<PortfolioTradeResponse[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=OPEN`),
-      $fetch<PortfolioTradeResponse[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=CLOSED`)
+      $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=OPEN`),
+      $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=CLOSED`)
     ])
 
     stats.value = statsData
@@ -154,6 +158,106 @@ async function openTrade(data: {
     })
   } finally {
     isOpeningTrade.value = false
+  }
+}
+
+// Edit trade
+async function editTrade(data: {
+  tradeId: string
+  symbol: string
+  entryPrice: number
+  entryDate: string
+  quantity: number
+  entryStrategy: string
+  exitStrategy: string
+  underlyingSymbol?: string
+  instrumentType: string
+  optionType?: string
+  strikePrice?: number
+  expirationDate?: string
+  contracts?: number
+  multiplier?: number
+  entryIntrinsicValue?: number
+  entryExtrinsicValue?: number
+}) {
+  if (!portfolio.value?.id) return
+
+  isEditingTrade.value = true
+  try {
+    await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades/${data.tradeId}`, {
+      method: 'PUT',
+      body: {
+        symbol: data.symbol,
+        entryPrice: data.entryPrice,
+        entryDate: data.entryDate,
+        quantity: data.quantity,
+        entryStrategy: data.entryStrategy,
+        exitStrategy: data.exitStrategy,
+        underlyingSymbol: data.underlyingSymbol,
+        instrumentType: data.instrumentType,
+        optionType: data.optionType,
+        strikePrice: data.strikePrice,
+        expirationDate: data.expirationDate,
+        contracts: data.contracts,
+        multiplier: data.multiplier,
+        entryIntrinsicValue: data.entryIntrinsicValue,
+        entryExtrinsicValue: data.entryExtrinsicValue
+      }
+    })
+
+    isEditTradeModalOpen.value = false
+    selectedTrade.value = null
+    await loadPortfolioData()
+
+    toast.add({
+      title: 'Trade Updated',
+      description: `${data.symbol} position updated successfully`,
+      icon: 'i-lucide-check-circle',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Error updating trade:', error)
+    toast.add({
+      title: 'Error',
+      description: 'Failed to update trade',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  } finally {
+    isEditingTrade.value = false
+  }
+}
+
+// Delete trade
+async function deleteTrade(tradeId: string) {
+  if (!portfolio.value?.id) return
+
+  isDeletingTrade.value = true
+  try {
+    await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades/${tradeId}`, {
+      method: 'DELETE'
+    })
+
+    isDeleteTradeModalOpen.value = false
+    selectedTrade.value = null
+    await loadPortfolioData()
+
+    toast.add({
+      title: 'Trade Deleted',
+      description: 'Position deleted successfully',
+      icon: 'i-lucide-check-circle',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Error deleting trade:', error)
+    toast.add({
+      title: 'Error',
+      description: 'Failed to delete trade',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  } finally {
+    isDeletingTrade.value = false
   }
 }
 
@@ -238,7 +342,7 @@ async function refreshOpenTradeStocks() {
     return
   }
 
-  const symbols = [...new Set(openTrades.value.map(tradeResponse => tradeResponse.trade.symbol))]
+  const symbols = [...new Set(openTrades.value.map(trade => trade.symbol))]
 
   toast.add({
     title: 'Refreshing Stocks',
@@ -284,16 +388,26 @@ const items = computed(() => {
       onSelect: () => { isCreatePortfolioModalOpen.value = true }
     }])
   } else {
+    // Trade actions
     menuItems.push([{
       label: 'Open Trade',
       icon: 'i-lucide-trending-up',
       onSelect: () => { isOpenTradeModalOpen.value = true }
     }])
-    menuItems.push([{
-      label: 'Delete Portfolio',
-      icon: 'i-lucide-trash-2',
-      onSelect: () => { isDeletePortfolioModalOpen.value = true }
-    }])
+
+    // Portfolio management actions
+    menuItems.push([
+      {
+        label: 'Create Portfolio',
+        icon: 'i-lucide-plus',
+        onSelect: () => { isCreatePortfolioModalOpen.value = true }
+      },
+      {
+        label: 'Delete Portfolio',
+        icon: 'i-lucide-trash-2',
+        onSelect: () => { isDeletePortfolioModalOpen.value = true }
+      }
+    ])
   }
 
   return menuItems
@@ -312,6 +426,179 @@ function formatPercentage(value: number) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
+// Fetch current prices for open trade symbols
+const stockPrices = ref<Record<string, number>>({})
+const fetchingPrices = ref(false)
+
+async function fetchCurrentPrices() {
+  if (!openTrades.value.length) return
+
+  fetchingPrices.value = true
+  try {
+    const symbols = [...new Set(openTrades.value.map(trade => trade.underlyingSymbol || trade.symbol))]
+
+    const pricePromises = symbols.map(async (symbol) => {
+      try {
+        const stock = await $fetch<Stock>(`/udgaard/api/stocks/${symbol}`)
+        const latestQuote = stock.quotes && stock.quotes.length > 0
+          ? stock.quotes[stock.quotes.length - 1]
+          : null
+        return { symbol, price: latestQuote?.closePrice || 0 }
+      } catch (error) {
+        console.error(`Failed to fetch price for ${symbol}:`, error)
+        return { symbol, price: 0 }
+      }
+    })
+
+    const prices = await Promise.all(pricePromises)
+    stockPrices.value = prices.reduce((acc, { symbol, price }) => {
+      acc[symbol] = price
+      return acc
+    }, {} as Record<string, number>)
+  } catch (error) {
+    console.error('Failed to fetch current prices:', error)
+  } finally {
+    fetchingPrices.value = false
+  }
+}
+
+// Watch for open trades changes and fetch prices
+watch(() => openTrades.value, () => {
+  if (openTrades.value.length > 0) {
+    fetchCurrentPrices()
+  }
+}, { immediate: true })
+
+// Calculate what stats would be if open trades were closed today
+const projectedStats = computed(() => {
+  if (!stats.value || !openTrades.value.length || !portfolio.value) {
+    return null
+  }
+
+  // Simulate closing all open trades at current prices
+  const simulatedClosedTrades = openTrades.value.map(trade => {
+    const symbol = trade.underlyingSymbol || trade.symbol
+    const currentPrice = stockPrices.value[symbol] || 0
+
+    if (currentPrice === 0) {
+      return null // Skip if price not available
+    }
+
+    let profit = 0
+    let profitPercentage = 0
+
+    if (trade.instrumentType === 'OPTION') {
+      const entryValue = trade.entryPrice * (trade.contracts || trade.quantity) * (trade.multiplier || 100)
+      const exitValue = currentPrice * (trade.contracts || trade.quantity) * (trade.multiplier || 100)
+      profit = exitValue - entryValue
+      profitPercentage = (profit / entryValue) * 100
+    } else {
+      const entryValue = trade.entryPrice * trade.quantity
+      const exitValue = currentPrice * trade.quantity
+      profit = exitValue - entryValue
+      profitPercentage = (profit / entryValue) * 100
+    }
+
+    return {
+      profit,
+      profitPercentage
+    }
+  }).filter(t => t !== null)
+
+  // Combine actual closed trades with simulated ones
+  const allTrades = [
+    ...closedTrades.value.map(t => ({
+      profit: t.profit || 0,
+      profitPercentage: t.profitPercentage || 0
+    })),
+    ...simulatedClosedTrades
+  ]
+
+  if (allTrades.length === 0) {
+    return null
+  }
+
+  // Calculate stats
+  const wins = allTrades.filter(t => t.profit > 0)
+  const losses = allTrades.filter(t => t.profit < 0)
+
+  const numberOfWins = wins.length
+  const numberOfLosses = losses.length
+  const totalTrades = allTrades.length
+  const winRate = (numberOfWins / totalTrades) * 100
+
+  const avgWin = wins.length > 0
+    ? wins.reduce((sum, t) => sum + t.profitPercentage, 0) / wins.length
+    : 0
+
+  const avgLoss = losses.length > 0
+    ? losses.reduce((sum, t) => sum + t.profitPercentage, 0) / losses.length
+    : 0
+
+  const lossRate = 100 - winRate
+  const provenEdge = (winRate / 100 * avgWin) - (lossRate / 100 * Math.abs(avgLoss))
+
+  const totalProfit = allTrades.reduce((sum, t) => sum + t.profit, 0)
+  const totalProfitPercentage = (totalProfit / portfolio.value.initialBalance) * 100
+
+  const largestWin = wins.length > 0 ? Math.max(...wins.map(t => t.profitPercentage)) : 0
+  const largestLoss = losses.length > 0 ? Math.min(...losses.map(t => t.profitPercentage)) : 0
+
+  return {
+    totalTrades,
+    openTrades: openTrades.value.length,
+    closedTrades: closedTrades.value.length,
+    numberOfWins,
+    numberOfLosses,
+    winRate,
+    avgWin,
+    avgLoss,
+    provenEdge,
+    totalProfit,
+    totalProfitPercentage,
+    largestWin,
+    largestLoss,
+    ytdReturn: stats.value.ytdReturn, // Keep original for now
+    annualizedReturn: stats.value.annualizedReturn // Keep original for now
+  }
+})
+
+// Toggle for showing projected stats
+const showOpenTradesStats = ref(false)
+
+// Display stats based on toggle
+const displayStats = computed(() => {
+  if (showOpenTradesStats.value && projectedStats.value) {
+    return projectedStats.value
+  }
+  return stats.value
+})
+
+// Calculate projected balance if open trades were closed today
+const projectedBalance = computed(() => {
+  if (!portfolio.value || !projectedStats.value || !stats.value) {
+    return null
+  }
+
+  // Calculate unrealized P/L from open trades (difference between projected and actual total profit)
+  const unrealizedPL = projectedStats.value.totalProfit - stats.value.totalProfit
+
+  // Add unrealized P/L to current balance
+  return portfolio.value.currentBalance + unrealizedPL
+})
+
+// Open edit trade modal
+function openEditTradeModal(trade: PortfolioTrade) {
+  selectedTrade.value = trade
+  isEditTradeModalOpen.value = true
+}
+
+// Open delete trade modal
+function openDeleteTradeModal(trade: PortfolioTrade) {
+  selectedTrade.value = trade
+  isDeleteTradeModalOpen.value = true
+}
+
 // Open close trade modal
 function openCloseTradeModal(trade: PortfolioTrade) {
   selectedTrade.value = trade
@@ -328,8 +615,6 @@ interface OpenTradeTableRow {
   instrumentType: string
   optionsInfo?: string
   status: string
-  hasExitSignal: boolean
-  exitSignalReason?: string | null
   entry: { price: string, date: string }
   quantity: string | number
   value: string
@@ -372,16 +657,7 @@ const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
       h('div', {}, [
         h('p', { class: 'font-medium' }, row.original.symbol),
         row.original.optionsInfo ? h('p', { class: 'text-xs text-muted' }, row.original.optionsInfo) : null
-      ]),
-      row.original.hasExitSignal
-        ? h(UBadge, {
-            variant: 'subtle',
-            color: 'warning',
-            label: 'Exit Signal',
-            class: 'cursor-help',
-            title: row.original.exitSignalReason || 'Exit signal detected'
-          })
-        : null
+      ])
     ])
   },
   {
@@ -421,11 +697,27 @@ const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }: { row: any }) => h('div', { class: 'flex justify-end' }, [
+    cell: ({ row }: { row: any }) => h('div', { class: 'flex justify-end gap-1' }, [
+      h(UButton, {
+        icon: 'i-lucide-pencil',
+        size: 'sm',
+        color: 'neutral',
+        variant: 'ghost',
+        square: true,
+        onClick: () => openEditTradeModal(row.original.trade)
+      }),
+      h(UButton, {
+        icon: 'i-lucide-trash-2',
+        size: 'sm',
+        color: 'error',
+        variant: 'ghost',
+        square: true,
+        onClick: () => openDeleteTradeModal(row.original.trade)
+      }),
       h(UButton, {
         icon: 'i-lucide-x-circle',
         size: 'sm',
-        color: 'error',
+        color: 'success',
         variant: 'ghost',
         square: true,
         onClick: () => openCloseTradeModal(row.original.trade)
@@ -436,8 +728,7 @@ const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
 
 // Table data for open trades
 const openTradesTableData = computed(() => {
-  return openTrades.value.map((tradeResponse) => {
-    const trade = tradeResponse.trade
+  return openTrades.value.map((trade) => {
     let optionsInfo = ''
     let positionValue = 0
 
@@ -455,8 +746,6 @@ const openTradesTableData = computed(() => {
       instrumentType: trade.instrumentType,
       optionsInfo: optionsInfo || undefined,
       status: trade.status,
-      hasExitSignal: tradeResponse.hasExitSignal,
-      exitSignalReason: tradeResponse.exitSignalReason,
       entry: {
         price: formatCurrency(trade.entryPrice, trade.currency),
         date: format(new Date(trade.entryDate), 'MMM dd, yyyy')
@@ -528,6 +817,29 @@ const openTradesTableData = computed(() => {
 
       <!-- Portfolio Content -->
       <div v-else class="grid gap-4">
+        <!-- Projected Metrics Toggle -->
+        <div v-if="openTrades.length > 0 && projectedStats" class="flex items-center justify-end gap-2">
+          <label class="text-sm text-muted cursor-pointer" for="show-open-trades">
+            Show Projected Metrics
+          </label>
+          <input
+            id="show-open-trades"
+            v-model="showOpenTradesStats"
+            type="checkbox"
+            class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+          >
+        </div>
+
+        <!-- Info Note -->
+        <div v-if="showOpenTradesStats && projectedStats" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div class="flex items-start gap-2">
+            <UIcon name="i-lucide-info" class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <p class="text-sm text-blue-900 dark:text-blue-100">
+              <strong>Projected Metrics:</strong> All metrics below (including balance and profit) show what your portfolio performance would be if all <strong>{{ openTrades.length }} open position{{ openTrades.length !== 1 ? 's' : '' }}</strong> were closed at today's market prices. The projected balance includes unrealized P/L.
+            </p>
+          </div>
+        </div>
+
         <!-- Portfolio Header Card -->
         <UCard>
           <div class="space-y-4">
@@ -542,10 +854,10 @@ const openTradesTableData = computed(() => {
               </div>
               <div class="text-right">
                 <p class="text-sm text-muted">
-                  Current Balance
+                  {{ showOpenTradesStats && projectedBalance ? 'Projected Balance' : 'Current Balance' }}
                 </p>
                 <p class="text-2xl font-bold">
-                  {{ formatCurrency(portfolio.currentBalance, portfolio.currency) }}
+                  {{ formatCurrency(showOpenTradesStats && projectedBalance ? projectedBalance : portfolio.currentBalance, portfolio.currency) }}
                 </p>
               </div>
             </div>
@@ -560,11 +872,11 @@ const openTradesTableData = computed(() => {
               </div>
               <div>
                 <p class="text-sm text-muted">
-                  Total Profit
+                  {{ showOpenTradesStats && projectedBalance ? 'Projected Profit' : 'Total Profit' }}
                 </p>
-                <p class="font-semibold" :class="portfolio.currentBalance >= portfolio.initialBalance ? 'text-green-600' : 'text-red-600'">
-                  {{ formatCurrency(portfolio.currentBalance - portfolio.initialBalance, portfolio.currency) }}
-                  ({{ formatPercentage(((portfolio.currentBalance - portfolio.initialBalance) / portfolio.initialBalance) * 100) }})
+                <p class="font-semibold" :class="(showOpenTradesStats && projectedBalance ? projectedBalance : portfolio.currentBalance) >= portfolio.initialBalance ? 'text-green-600' : 'text-red-600'">
+                  {{ formatCurrency((showOpenTradesStats && projectedBalance ? projectedBalance : portfolio.currentBalance) - portfolio.initialBalance, portfolio.currency) }}
+                  ({{ formatPercentage((((showOpenTradesStats && projectedBalance ? projectedBalance : portfolio.currentBalance) - portfolio.initialBalance) / portfolio.initialBalance) * 100) }})
                 </p>
               </div>
             </div>
@@ -572,14 +884,19 @@ const openTradesTableData = computed(() => {
         </UCard>
 
         <!-- Statistics Cards -->
-        <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-if="stats">
+          <h3 class="text-sm font-semibold text-muted mb-3">
+            Portfolio Statistics
+          </h3>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <UCard>
             <div>
               <p class="text-sm text-muted">
                 Total Trades
               </p>
               <p class="text-2xl font-bold">
-                {{ stats.totalTrades }}
+                {{ displayStats?.totalTrades }}
               </p>
             </div>
           </UCard>
@@ -590,7 +907,7 @@ const openTradesTableData = computed(() => {
                 Win Rate
               </p>
               <p class="text-2xl font-bold">
-                {{ stats.winRate.toFixed(1) }}%
+                {{ displayStats?.winRate.toFixed(1) }}%
               </p>
             </div>
           </UCard>
@@ -600,8 +917,8 @@ const openTradesTableData = computed(() => {
               <p class="text-sm text-muted">
                 YTD Return
               </p>
-              <p class="text-2xl font-bold" :class="stats.ytdReturn >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatPercentage(stats.ytdReturn) }}
+              <p class="text-2xl font-bold" :class="(displayStats?.ytdReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatPercentage(displayStats?.ytdReturn ?? 0) }}
               </p>
             </div>
           </UCard>
@@ -611,8 +928,8 @@ const openTradesTableData = computed(() => {
               <p class="text-sm text-muted">
                 Proven Edge
               </p>
-              <p class="text-2xl font-bold" :class="stats.provenEdge >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatPercentage(stats.provenEdge) }}
+              <p class="text-2xl font-bold" :class="(displayStats?.provenEdge ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatPercentage(displayStats?.provenEdge ?? 0) }}
               </p>
             </div>
           </UCard>
@@ -623,7 +940,7 @@ const openTradesTableData = computed(() => {
                 Avg Win
               </p>
               <p class="text-2xl font-bold text-green-600">
-                {{ formatPercentage(stats.avgWin) }}
+                {{ formatPercentage(displayStats?.avgWin ?? 0) }}
               </p>
             </div>
           </UCard>
@@ -634,7 +951,7 @@ const openTradesTableData = computed(() => {
                 Avg Loss
               </p>
               <p class="text-2xl font-bold text-red-600">
-                {{ formatPercentage(stats.avgLoss) }}
+                {{ formatPercentage(displayStats?.avgLoss ?? 0) }}
               </p>
             </div>
           </UCard>
@@ -645,7 +962,7 @@ const openTradesTableData = computed(() => {
                 Open Trades
               </p>
               <p class="text-2xl font-bold">
-                {{ stats.openTrades }}
+                {{ displayStats?.openTrades }}
               </p>
             </div>
           </UCard>
@@ -656,10 +973,11 @@ const openTradesTableData = computed(() => {
                 Closed Trades
               </p>
               <p class="text-2xl font-bold">
-                {{ stats.closedTrades }}
+                {{ displayStats?.closedTrades }}
               </p>
             </div>
           </UCard>
+          </div>
         </div>
 
         <!-- Open Trades -->
@@ -749,34 +1067,34 @@ const openTradesTableData = computed(() => {
 
           <div v-else class="space-y-2">
             <div
-              v-for="tradeResponse in closedTrades.slice(0, 10)"
-              :key="tradeResponse.trade.id"
+              v-for="trade in closedTrades.slice(0, 10)"
+              :key="trade.id"
               class="flex items-center justify-between p-4 border rounded-lg"
             >
               <div class="flex-1">
                 <div class="flex items-center gap-2">
                   <p class="font-semibold">
-                    {{ tradeResponse.trade.symbol }}
+                    {{ trade.symbol }}
                   </p>
                   <UBadge color="neutral" size="xs">
-                    {{ tradeResponse.trade.status }}
+                    {{ trade.status }}
                   </UBadge>
                 </div>
                 <p class="text-sm text-muted">
-                  {{ format(new Date(tradeResponse.trade.entryDate), 'MMM dd') }} →
-                  {{ tradeResponse.trade.exitDate ? format(new Date(tradeResponse.trade.exitDate), 'MMM dd, yyyy') : 'N/A' }}
+                  {{ format(new Date(trade.entryDate), 'MMM dd') }} →
+                  {{ trade.exitDate ? format(new Date(trade.exitDate), 'MMM dd, yyyy') : 'N/A' }}
                 </p>
                 <p class="text-xs text-muted">
-                  {{ formatCurrency(tradeResponse.trade.entryPrice, tradeResponse.trade.currency) }} →
-                  {{ tradeResponse.trade.exitPrice ? formatCurrency(tradeResponse.trade.exitPrice, tradeResponse.trade.currency) : 'N/A' }}
+                  {{ formatCurrency(trade.entryPrice, trade.currency) }} →
+                  {{ trade.exitPrice ? formatCurrency(trade.exitPrice, trade.currency) : 'N/A' }}
                 </p>
               </div>
               <div class="text-right">
-                <p class="font-semibold" :class="(tradeResponse.trade.profitPercentage || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ tradeResponse.trade.profitPercentage ? formatPercentage(tradeResponse.trade.profitPercentage) : 'N/A' }}
+                <p class="font-semibold" :class="(trade.profitPercentage || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ trade.profitPercentage ? formatPercentage(trade.profitPercentage) : 'N/A' }}
                 </p>
                 <p class="text-sm text-muted">
-                  {{ tradeResponse.trade.profit ? formatCurrency(tradeResponse.trade.profit, tradeResponse.trade.currency) : 'N/A' }}
+                  {{ trade.profit ? formatCurrency(trade.profit, trade.currency) : 'N/A' }}
                 </p>
               </div>
             </div>
@@ -797,8 +1115,28 @@ const openTradesTableData = computed(() => {
     v-if="portfolio"
     v-model:open="isOpenTradeModalOpen"
     :currency="portfolio.currency"
+    :current-balance="portfolio.currentBalance"
     :loading="isOpeningTrade"
     @open-trade="openTrade"
+  />
+
+  <!-- Edit Trade Modal -->
+  <PortfolioEditTradeModal
+    v-if="selectedTrade && portfolio"
+    v-model:open="isEditTradeModalOpen"
+    :trade="selectedTrade"
+    :currency="portfolio.currency"
+    :loading="isEditingTrade"
+    @update-trade="editTrade"
+  />
+
+  <!-- Delete Trade Modal -->
+  <PortfolioDeleteTradeModal
+    v-if="selectedTrade"
+    v-model:open="isDeleteTradeModalOpen"
+    :trade="selectedTrade"
+    :loading="isDeletingTrade"
+    @delete-trade="deleteTrade"
   />
 
   <!-- Close Trade Modal -->

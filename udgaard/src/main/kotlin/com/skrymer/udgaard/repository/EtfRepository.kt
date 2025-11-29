@@ -1,13 +1,14 @@
 package com.skrymer.udgaard.repository
 
 import com.skrymer.udgaard.model.EtfEntity
-import org.springframework.data.mongodb.repository.MongoRepository
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 
 /**
  * Repository for ETF entities.
  * Provides CRUD operations and custom queries for ETF data.
  */
-interface EtfRepository : MongoRepository<EtfEntity, String> {
+interface EtfRepository : JpaRepository<EtfEntity, String> {
     /**
      * Find an ETF by its symbol.
      * @param symbol The ETF symbol (e.g., "SPY", "QQQ")
@@ -28,4 +29,10 @@ interface EtfRepository : MongoRepository<EtfEntity, String> {
      * @return true if exists, false otherwise
      */
     fun existsBySymbol(symbol: String): Boolean
+
+    @Query("SELECT e FROM EtfEntity e LEFT JOIN FETCH e.quotes WHERE e.symbol = :symbol")
+    fun findBySymbolWithQuotes(symbol: String): EtfEntity?
+
+    @Query("SELECT e FROM EtfEntity e LEFT JOIN FETCH e.quotes LEFT JOIN FETCH e.holdings WHERE e.symbol = :symbol")
+    fun findBySymbolWithQuotesAndHoldings(symbol: String): EtfEntity?
 }

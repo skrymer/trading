@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.repository
 
 import com.skrymer.udgaard.model.Portfolio
-import org.springframework.data.mongodb.repository.MongoRepository
+import org.springframework.data.jpa.repository.JpaRepository
 
-interface PortfolioRepository : MongoRepository<Portfolio, String> {
+interface PortfolioRepository : JpaRepository<Portfolio, Long> {
     fun findByUserId(userId: String): List<Portfolio>
 }

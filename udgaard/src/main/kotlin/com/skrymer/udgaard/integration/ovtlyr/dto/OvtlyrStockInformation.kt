@@ -28,8 +28,8 @@ class OvtlyrStockInformation {
         return Stock(
             symbol = this.stockName,
             sectorSymbol = this.sectorSymbol,
-            quotes = this.quotes.map { quote -> quote.toModel(this, marketBreadth, sectorBreadth, spy) },
-            orderBlocks = this.orderBlocks.map { it.toModel(this) },
+            quotes = this.quotes.map { quote -> quote.toModel(this, marketBreadth, sectorBreadth, spy) }.toMutableList(),
+            orderBlocks = this.orderBlocks.map { it.toModel(this) }.toMutableList(),
         )
     }
 

@@ -16,4 +16,9 @@ class StockHeatmapRisingCondition : TradingCondition {
     }
 
     override fun description(): String = "Stock heatmap rising"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "stockHeatmapRising",
+        description = description()
+    )
 }

@@ -1,21 +1,32 @@
 package com.skrymer.udgaard.model
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.mapping.Document
+import jakarta.persistence.*
 import java.time.LocalDate
 
 /**
  * Represents an ETF (Exchange-Traded Fund) entity with quotes, holdings, and metadata.
- * This is the main entity for ETF data persistence in MongoDB.
+ * This is the main entity for ETF data persistence.
  */
-@Document(collection = "etfs")
+@Entity
+@Table(name = "etfs")
 class EtfEntity {
     @Id
+    @Column(length = 20)
     var symbol: String? = null                    // "SPY", "QQQ", etc.
+
+    @Column(length = 200)
     var name: String? = null                       // "SPDR S&P 500 ETF Trust"
+
+    @Column(length = 500)
     var description: String? = null                // "Tracks S&P 500 Index"
-    var quotes: List<EtfQuote> = emptyList()      // Historical price data
-    var holdings: List<EtfHolding> = emptyList()  // Current holdings with weights
+
+    @OneToMany(mappedBy = "etf", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    var quotes: MutableList<EtfQuote> = mutableListOf()      // Historical price data
+
+    @OneToMany(mappedBy = "etf", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    var holdings: MutableList<EtfHolding> = mutableListOf()  // Current holdings with weights
+
+    @Embedded
     var metadata: EtfMetadata? = null              // Expense ratio, AUM, etc.
 
     /**

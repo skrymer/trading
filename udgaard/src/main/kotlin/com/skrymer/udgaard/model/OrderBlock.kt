@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import jakarta.persistence.*
 import java.time.LocalDate
 
 /**
@@ -16,16 +17,54 @@ import java.time.LocalDate
  * @param sensitivity Sensitivity level used for detection (HIGH or LOW)
  * @param rateOfChange The rate of change percentage that triggered this order block
  */
+@Entity
+@Table(
+  name = "order_blocks",
+  indexes = [
+    Index(name = "idx_order_block_stock", columnList = "stock_symbol"),
+    Index(name = "idx_order_block_type", columnList = "type"),
+    Index(name = "idx_order_block_start_date", columnList = "start_date")
+  ]
+)
 data class OrderBlock(
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  val id: Long? = null,
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "stock_symbol", referencedColumnName = "symbol")
+  val stock: Stock? = null,
+
+  @Column(name = "low_price")
   val low: Double = 0.0,
+
+  @Column(name = "high_price")
   val high: Double = 0.0,
+
+  @Column(name = "start_date", nullable = false)
   val startDate: LocalDate,
+
+  @Column(name = "end_date")
   val endDate: LocalDate? = null,
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "type", length = 20)
   val orderBlockType: OrderBlockType,
+
+  @Enumerated(EnumType.STRING)
+  @Column(length = 20)
   val source: OrderBlockSource = OrderBlockSource.OVTLYR,
+
   val volume: Long = 0L,
+
+  @Column(name = "volume_strength")
   val volumeStrength: Double = 0.0,
+
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
   val sensitivity: OrderBlockSensitivity? = null,
+
+  @Column(name = "rate_of_change")
   val rateOfChange: Double = 0.0
 )
 

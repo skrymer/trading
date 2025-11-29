@@ -158,6 +158,39 @@ The app may use significant memory (JVM + Chromium). To reduce:
 - Add JVM memory limits: `-Xmx512m` in the `spawn` args in `main.js`
 - Close unused tabs/windows in the app
 
+## Production Deployment
+
+### Automated GitHub Releases (Recommended)
+
+The project includes automated CI/CD via GitHub Actions:
+
+```bash
+# 1. Update version in package.json
+# 2. Commit and tag
+git tag v1.0.0
+git push origin v1.0.0
+
+# 3. GitHub Actions automatically:
+#    - Builds for Windows, macOS, Linux
+#    - Creates GitHub Release
+#    - Uploads installers
+```
+
+**See detailed guides:**
+- **Quick Start**: `../RELEASE_QUICKSTART.md`
+- **Full Documentation**: `../DEPLOYMENT.md`
+
+### Manual Build
+
+If you prefer manual deployment:
+
+```bash
+npm run build:all
+npm run dist
+```
+
+Installers will be in `dist-electron/`
+
 ## Production Checklist
 
 Before distributing:
@@ -166,7 +199,7 @@ Before distributing:
 - [ ] Test on target platforms
 - [ ] Configure code signing (for macOS/Windows)
 - [ ] Set up auto-updates (optional)
-- [ ] Create installer scripts if needed
+- [ ] Push version tag to trigger CI/CD
 
 ## Security Notes
 

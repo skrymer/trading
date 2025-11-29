@@ -26,4 +26,9 @@ class StopLossExit(
 
     override fun description(): String =
         "Stop loss (${atrMultiplier} ATR)"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "stopLoss",
+        description = description()
+    )
 }

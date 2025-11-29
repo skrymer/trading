@@ -1,39 +1,62 @@
 package com.skrymer.udgaard.model
 
+import jakarta.persistence.*
 import java.time.LocalDate
 
 /**
  * A stock quote.
  */
+@Entity
+@Table(
+  name = "stock_quotes",
+  indexes = [
+    Index(name = "idx_stock_quote_symbol_date", columnList = "stock_symbol, quote_date", unique = true),
+    Index(name = "idx_stock_quote_date", columnList = "quote_date")
+  ]
+)
 class StockQuote {
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  var id: Long? = null
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "stock_symbol", referencedColumnName = "symbol")
+  var stock: Stock? = null
+
   /**
-   * The stock symbol
+   * The stock symbol (denormalized for easier querying)
    */
+  @Column(name = "stock_symbol", insertable = false, updatable = false)
   var symbol: String = ""
 
   /**
    * The date when the stock quote was taken.
    */
+  @Column(name = "quote_date")
   var date: LocalDate? = null
 
   /**
    * The stock price at close.
    */
+  @Column(name = "close_price")
   var closePrice: Double = 0.0
 
   /**
    * The stock price at open.
    */
+  @Column(name = "open_price")
   var openPrice: Double = 0.0
 
   /**
    * The quote high price
    */
+  @Column(name = "high_price")
   var high: Double = 0.0
 
   /**
    * The quote low price
    */
+  @Column(name = "low_price")
   var low: Double = 0.0
 
   /**
@@ -48,6 +71,7 @@ class StockQuote {
    *
    * A value between 0 and 100, 0 being max fear and 100 max greed.
    */
+  @Column(name = "previous_heatmap")
   var previousHeatmap: Double = 0.0
 
   /**
@@ -55,6 +79,7 @@ class StockQuote {
    *
    * A value between 0 and 100, 0 being max fear and 100 max greed.
    */
+  @Column(name = "sector_heatmap")
   var sectorHeatmap: Double = 0.0
 
   /**
@@ -62,97 +87,116 @@ class StockQuote {
    *
    * A value between 0 and 100, 0 being max fear and 100 max greed.
    */
+  @Column(name = "previous_sector_heatmap")
   var previousSectorHeatmap: Double = 0.0
 
   /**
    * true if the sector the stock belongs to is in an uptrend.
    */
+  @Column(name = "sector_is_in_uptrend")
   var sectorIsInUptrend = false
 
   /**
    * The donkey channel score of the sector +2 to -2
    */
+  @Column(name = "sector_donkey_channel_score")
   var sectorDonkeyChannelScore: Int = 0
 
   /**
    * The ovtlyr Buy/Sell signal or null if neither.
    */
+  @Column(length = 10)
   var signal: String? = null
 
   /**
    * The 10 ema value on close
    */
+  @Column(name = "close_price_ema10")
   var closePriceEMA10: Double = 0.0
 
   /**
    * The 20 ema value on close
    */
+  @Column(name = "close_price_ema20")
   var closePriceEMA20: Double = 0.0
 
   /**
    * The 5 ema value on close
    */
+  @Column(name = "close_price_ema5")
   var closePriceEMA5: Double = 0.0
 
   /**
    * The 50 ema value on close
    */
+  @Column(name = "close_price_ema50")
   var closePriceEMA50: Double = 0.0
 
   /**
    * Is the stock in an Uptrend or Downtrend
    */
+  @Column(length = 10)
   var trend: String? = null
 
   /**
    * The date of the last buy signal
    */
+  @Column(name = "last_buy_signal")
   var lastBuySignal: LocalDate? = null
 
   /**
    * The date of the last sell signal
    */
+  @Column(name = "last_sell_signal")
   var lastSellSignal: LocalDate? = null
 
   /**
    * Current SPY Buy/Sell signal.
    */
+  @Column(name = "spy_signal", length = 10)
   var spySignal: String? = null
 
   /**
    * SPY is in an uptrend. 10 > 20 price > 50
    */
+  @Column(name = "spy_in_uptrend")
   var spyInUptrend: Boolean = false
 
   /**
    * SPY heatmap value
    */
+  @Column(name = "spy_heatmap")
   var spyHeatmap: Double = 0.0
 
   /**
    * SPY previous heatmap value
    */
+  @Column(name = "spy_previous_heatmap")
   var spyPreviousHeatmap: Double = 0.0
 
   /**
    * SPY 200-day EMA value (for market regime filter)
    */
+  @Column(name = "spy_ema200")
   var spyEMA200: Double = 0.0
 
   /**
    * SPY 200-day SMA value (for market regime filter)
    */
+  @Column(name = "spy_sma200")
   var spySMA200: Double = 0.0
 
   /**
    * SPY 50-day EMA value (for golden cross check in market regime filter)
    */
+  @Column(name = "spy_ema50")
   var spyEMA50: Double = 0.0
 
   /**
    * Number of consecutive days SPY has been above 200-day SMA
    * Used to detect sustained trends vs temporary spikes
    */
+  @Column(name = "spy_days_above_200_sma")
   var spyDaysAbove200SMA: Int = 0
 
   /**
@@ -160,41 +204,49 @@ class StockQuote {
    * Value between 0.0 and 100.0
    * Used to measure market breadth and broad participation
    */
+  @Column(name = "market_advancing_percent")
   var marketAdvancingPercent: Double = 0.0
 
   /**
    * Market is in an uptrend
    */
+  @Column(name = "market_is_in_uptrend")
   var marketIsInUptrend: Boolean = false
 
   /**
    * The donkey channel score of the market +2 to -2
    */
+  @Column(name = "market_donkey_channel_score")
   var marketDonkeyChannelScore: Int = 0
 
   /**
    * Previous quote date.
    */
+  @Column(name = "previous_quote_date")
   var previousQuoteDate: LocalDate? = null
 
   /**
    *
    */
+  @Column(name = "sector_breadth")
   var sectorBreadth: Double = 0.0
 
   /**
    * The number of stocks in the sector that are in a downtrend.
    */
+  @Column(name = "sector_stocks_in_downtrend")
   var sectorStocksInDowntrend: Int = 0
 
   /**
    * The number of stocks in the sector that are in an uptrend.
    */
+  @Column(name = "sector_stocks_in_uptrend")
   var sectorStocksInUptrend: Int = 0
 
   /**
    * Percentage of stocks in an uptrend for the sector.
    */
+  @Column(name = "sector_bull_percentage")
   var sectorBullPercentage: Double = 0.0
 
   /**
@@ -211,26 +263,31 @@ class StockQuote {
   /**
    * The donchian upper band value with a look-back period of 5.
    */
+  @Column(name = "donchian_upper_band")
   var donchianUpperBand: Double = 0.0
 
   /**
    * The donchian upper band value for the market with a look-back period of 5.
    */
+  @Column(name = "donchian_upper_band_market")
   var donchianUpperBandMarket: Double = 0.0
 
   /**
    * The donchian upper band value for the market with a look-back period of 5.
    */
+  @Column(name = "donchian_upper_band_sector")
   var donchianUpperBandSector: Double = 0.0
 
   /**
    * The donchian lower band value for the market.
    */
+  @Column(name = "donchian_lower_band_market")
   var donchianLowerBandMarket: Double = 0.0
 
   /**
    * The donchian lower band value for the sector.
    */
+  @Column(name = "donchian_lower_band_sector")
   var donchianLowerBandSector: Double = 0.0
 
   constructor()

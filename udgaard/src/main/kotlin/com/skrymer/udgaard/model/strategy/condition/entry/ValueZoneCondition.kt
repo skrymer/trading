@@ -2,6 +2,7 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
 
 /**
@@ -15,4 +16,9 @@ class ValueZoneCondition(private val atrMultiplier: Double = 2.0) : TradingCondi
     }
 
     override fun description(): String = "Price within value zone (20EMA < price < 20EMA + ${atrMultiplier}ATR)"
+
+    override fun getMetadata() = ConditionMetadata(
+        type = "valueZone",
+        description = description()
+    )
 }

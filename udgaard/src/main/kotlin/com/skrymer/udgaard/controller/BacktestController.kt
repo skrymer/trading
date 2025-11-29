@@ -41,92 +41,10 @@ class BacktestController(
 
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)
-        private const val DEFAULT_START_DATE = "2020-01-01"
-        private const val DEFAULT_ENTRY_STRATEGY = "PlanAlpha"
-        private const val DEFAULT_EXIT_STRATEGY = "PlanMoney"
-        private const val DEFAULT_RANKER = "Heatmap"
     }
 
     /**
-     * Run backtest with query parameters (simple interface).
-     *
-     * Example: GET /api/backtest?stockSymbols=AAPL,GOOGL&entryStrategy=PlanAlpha&exitStrategy=PlanMoney
-     */
-    @GetMapping
-    fun runBacktest(
-        @RequestParam(required = false) stockSymbols: List<String>?,
-        @RequestParam(required = false, defaultValue = DEFAULT_ENTRY_STRATEGY) entryStrategy: String,
-        @RequestParam(required = false, defaultValue = DEFAULT_EXIT_STRATEGY) exitStrategy: String,
-        @RequestParam(required = false) startDate: String?,
-        @RequestParam(required = false) endDate: String?,
-        @RequestParam(required = false) maxPositions: Int?,
-        @RequestParam(required = false, defaultValue = DEFAULT_RANKER) ranker: String,
-        @RequestParam(defaultValue = "false") refresh: Boolean,
-        @RequestParam(defaultValue = "0") cooldownDays: Int
-    ): ResponseEntity<BacktestReport> {
-        logger.info("Running backtest: entry=$entryStrategy, exit=$exitStrategy, symbols=${stockSymbols?.joinToString(",") ?: "all"}, " +
-            "startDate=$startDate, endDate=$endDate, maxPositions=$maxPositions, ranker=$ranker, cooldownDays=$cooldownDays")
-
-        // Get entry strategy
-        val entryStrategyInstance = strategyRegistry.createEntryStrategy(entryStrategy)
-            ?: run {
-                logger.error("Failed to create entry strategy: $entryStrategy")
-                return ResponseEntity.badRequest().build()
-            }
-
-        // Get exit strategy
-        val exitStrategyInstance = strategyRegistry.createExitStrategy(exitStrategy)
-            ?: run {
-                logger.error("Failed to create exit strategy: $exitStrategy")
-                return ResponseEntity.badRequest().build()
-            }
-
-        // Get stocks (using cached method for better performance)
-        val stocks = if (!stockSymbols.isNullOrEmpty()) {
-            stockService.getStocksBySymbols(stockSymbols.map { it.uppercase() }, refresh)
-        } else {
-            stockService.getAllStocks()
-        }
-
-        if (stocks.isEmpty()) {
-            logger.warn("No stocks found")
-            return ResponseEntity.badRequest().build()
-        }
-
-        logger.info("${stocks.size} stocks fetched")
-
-        // Parse dates or use defaults
-        val start = startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse(DEFAULT_START_DATE)
-        val end = endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
-        logger.info("Date range: $start to $end")
-
-        // Run backtest
-        val rankerInstance = getRankerInstance(ranker) ?: run {
-            logger.error("Failed to get ranker instance: $ranker")
-            return ResponseEntity.badRequest().build()
-        }
-
-        logger.info("Starting backtest execution...")
-        val backtestReport = backtestService.backtest(
-            entryStrategyInstance,
-            exitStrategyInstance,
-            stocks,
-            start,
-            end,
-            maxPositions,
-            rankerInstance,
-            cooldownDays = cooldownDays
-        )
-
-        logger.info("Backtest complete: ${backtestReport.trades.size} trades, " +
-            "Win rate: ${String.format("%.2f", backtestReport.winRate * 100)}%, " +
-            "Wins: ${backtestReport.numberOfWinningTrades}, Losses: ${backtestReport.numberOfLosingTrades}, " +
-            "Edge: ${String.format("%.2f", backtestReport.edge)}%")
-        return ResponseEntity.ok(backtestReport)
-    }
-
-    /**
-     * Run backtest with request body (advanced interface).
+     * Run backtest with request body.
      * Supports both predefined and custom strategies.
      *
      * Example: POST /api/backtest with JSON body
@@ -169,7 +87,7 @@ class BacktestController(
         logger.info("${stocks.size} stocks fetched")
 
         // Parse dates or use defaults
-        val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse(DEFAULT_START_DATE)
+        val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2020-01-01")
         val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
         logger.info("Date range: $start to $end")
 
@@ -232,7 +150,7 @@ class BacktestController(
     @GetMapping("/rankers")
     fun getAvailableRankers(): ResponseEntity<List<String>> {
         logger.info("Retrieving available rankers")
-        val rankers = listOf(
+        val rankers = mutableListOf(
             "Heatmap",
             "RelativeStrength",
             "Volatility",

@@ -3,6 +3,7 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.ExitCondition
+import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
 
 /**
  * Exit condition that triggers when a faster EMA crosses under a slower EMA.
@@ -22,6 +23,11 @@ class EmaCrossExit(
     override fun exitReason(): String = "${fastEma} ema has crossed under the ${slowEma} ema"
 
     override fun description(): String = "${fastEma}EMA crosses under ${slowEma}EMA"
+
+    override fun getMetadata() = ConditionMetadata(
+        type = "emaCross",
+        description = description()
+    )
 
     private fun getEmaValue(quote: StockQuote, period: Int): Double {
         return when (period) {

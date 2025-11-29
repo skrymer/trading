@@ -115,10 +115,14 @@ class BacktestService(
     /**
      * Checks if the current date is within the global cooldown period.
      *
+     * After an exit, no new entries are allowed for cooldownDays trading days.
+     * For example, if cooldownDays = 5 and exit on Day 0, entries are blocked on Days 1-5
+     * and allowed starting on Day 6.
+     *
      * @param currentDate - the date to check
      * @param lastExitDate - the most recent exit date, or null if no exits yet
      * @param allTradingDates - sorted list of all trading dates
-     * @param cooldownDays - number of trading days for cooldown
+     * @param cooldownDays - number of trading days to wait after exit before allowing new entry
      * @return true if in cooldown period, false otherwise
      */
     private fun isInCooldown(
@@ -136,7 +140,7 @@ class BacktestService(
 
         return if (exitDateIndex >= 0 && currentDateIndex >= 0) {
             val tradingDaysSinceExit = currentDateIndex - exitDateIndex
-            tradingDaysSinceExit < cooldownDays
+            tradingDaysSinceExit <= cooldownDays
         } else {
             false
         }

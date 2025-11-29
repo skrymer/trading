@@ -16,4 +16,9 @@ class MarketAndSectorDowntrendExit : ExitCondition {
     override fun exitReason(): String = "Market and sector breadth turned bearish"
 
     override fun description(): String = "Market & sector downtrend"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "marketAndSectorDowntrend",
+        description = description()
+    )
 }

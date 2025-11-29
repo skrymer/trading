@@ -47,8 +47,13 @@ const fullstockMetrics = computed(() => {
     : null
   const spyHeatmap = spyLatestQuote?.heatmap ?? 0
 
+  // Extract the actual symbol string from the BreadthSymbol object
+  const symbolString = typeof fullstockData.value.symbol === 'object' && fullstockData.value.symbol !== null && 'symbol' in fullstockData.value.symbol
+    ? fullstockData.value.symbol.symbol
+    : fullstockData.value.symbol ?? ''
+
   return {
-    symbol: fullstockData.value.symbol ?? '',
+    symbol: symbolString,
     name: fullstockData.value.name ?? '',
     bullishPercent,
     change,
@@ -159,14 +164,19 @@ const sectorComparison = computed(() => {
       const sectorHeatmap = sector.heatmap ?? 0
       const heatmapDiff = sectorHeatmap - overallHeatmap
 
+      // Extract the actual symbol string from the BreadthSymbol object
+      const symbolString = typeof sector.symbol === 'object' && sector.symbol !== null && 'symbol' in sector.symbol
+        ? sector.symbol.symbol
+        : sector.symbol ?? ''
+
       return {
-        symbol: sector.symbol ?? '',
+        symbol: symbolString,
         name: sector.name ?? '',
         bullishPercent,
         heatmap: sectorHeatmap,
         inUptrend: sector.inUptrend ?? false,
         heatmapDiff,
-        sentiment: heatmapDiff > 5 ? 'greedy' : heatmapDiff < -5 ? 'fearful' : 'neutral',
+        sentiment: heatmapDiff > 0 ? 'greedy' : heatmapDiff < 0 ? 'fearful' : 'neutral',
         stocksInUptrend: latestQuote.numberOfStocksInUptrend ?? 0,
         totalStocks: (latestQuote.numberOfStocksInUptrend ?? 0) + (latestQuote.numberOfStocksInDowntrend ?? 0),
         lastUpdated: latestQuote.quoteDate ? new Date(latestQuote.quoteDate) : null
@@ -351,7 +361,7 @@ const sectorComparison = computed(() => {
             >
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <span class="font-semibold text-base">{{ sector.symbol }}</span>
+                  <span class="font-semibold text-base">{{ sector.name }} - {{ sector.symbol }}</span>
                   <UIcon
                     v-if="sector.sentiment === 'greedy'"
                     name="i-lucide-flame"
@@ -372,10 +382,6 @@ const sectorComparison = computed(() => {
                 >
                   {{ sector.inUptrend ? '▲' : '▼' }}
                 </UBadge>
-              </div>
-
-              <div class="text-sm text-muted">
-                {{ sector.name }}
               </div>
 
               <div class="flex items-center gap-2 text-sm">

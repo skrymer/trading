@@ -21,6 +21,24 @@
         >
           Reset Zoom
         </UButton>
+        <UButton
+          :icon="showOrderBlocks ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+          size="sm"
+          :color="showOrderBlocks ? 'primary' : 'neutral'"
+          variant="soft"
+          @click="showOrderBlocks = !showOrderBlocks"
+        >
+          Order Blocks
+        </UButton>
+        <UButton
+          :icon="showEMA ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+          size="sm"
+          :color="showEMA ? 'primary' : 'neutral'"
+          variant="soft"
+          @click="showEMA = !showEMA"
+        >
+          EMA Lines
+        </UButton>
       </div>
 
       <!-- Date Range Presets -->
@@ -74,13 +92,13 @@
 </template>
 
 <script setup lang="ts">
-import { createChart, CandlestickSeries, HistogramSeries, ColorType } from 'lightweight-charts'
 import type { StockQuote, OrderBlock } from '~/types'
 
 const props = defineProps<{
   quotes: StockQuote[]
   orderBlocks: OrderBlock[]
   symbol: string
+  signals?: any
 }>()
 
 const chartContainer = ref<HTMLElement | null>(null)
@@ -88,7 +106,51 @@ let chart: any = null
 let candlestickSeries: any = null
 let volumeSeries: any = null
 let currentOrderBlockPrimitive: any = null
+let seriesMarkersPlugin: any = null
+let ema10Series: any = null
+let ema20Series: any = null
+let ema50Series: any = null
 const dateRange = ref<string>('3M')
+const showOrderBlocks = ref<boolean>(true)
+const showEMA = ref<boolean>(true)
+
+// Helper function to calculate EMA
+function calculateEMA(data: any[], period: number) {
+  const k = 2 / (period + 1)
+  const emaData: any[] = []
+
+  // Start with SMA for the first value
+  let ema = 0
+  for (let i = 0; i < period && i < data.length; i++) {
+    ema += data[i].close
+  }
+  ema = ema / Math.min(period, data.length)
+
+  // Calculate EMA for each subsequent value
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      // Not enough data yet, skip
+      continue
+    }
+
+    if (i === period - 1) {
+      // First EMA value is the SMA
+      emaData.push({
+        time: data[i].time,
+        value: ema
+      })
+    } else {
+      // EMA formula: EMA = (Close - Previous EMA) * k + Previous EMA
+      ema = (data[i].close - ema) * k + ema
+      emaData.push({
+        time: data[i].time,
+        value: ema
+      })
+    }
+  }
+
+  return emaData
+}
 
 // Chart control functions
 function fitContent() {
@@ -292,8 +354,12 @@ class OrderBlockPrimitive {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!chartContainer.value) return
+
+  // Dynamically import lightweight-charts for client-side only
+  const LightweightCharts = await import('lightweight-charts')
+  const { createChart, ColorType, createSeriesMarkers } = LightweightCharts
 
   // Create chart with correct v5 API
   chart = createChart(chartContainer.value, {
@@ -364,6 +430,9 @@ onMounted(() => {
   })
 
   // Add candlestick series using correct v5 API
+  const CandlestickSeries = LightweightCharts.CandlestickSeries || 'Candlestick'
+  const HistogramSeries = LightweightCharts.HistogramSeries || 'Histogram'
+
   candlestickSeries = chart.addSeries(CandlestickSeries, {
     upColor: '#10b981',
     downColor: '#ef4444',
@@ -371,6 +440,39 @@ onMounted(() => {
     wickUpColor: '#10b981',
     wickDownColor: '#ef4444',
     priceScaleId: 'right'
+  })
+
+  // Create series markers plugin for displaying entry/exit signals
+  seriesMarkersPlugin = createSeriesMarkers(candlestickSeries, [])
+
+  // Add EMA line series
+  const LineSeries = LightweightCharts.LineSeries || 'Line'
+
+  ema10Series = chart.addSeries(LineSeries, {
+    color: '#2962FF',
+    lineWidth: 2,
+    title: 'EMA 10',
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false
+  })
+
+  ema20Series = chart.addSeries(LineSeries, {
+    color: '#FF6D00',
+    lineWidth: 2,
+    title: 'EMA 20',
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false
+  })
+
+  ema50Series = chart.addSeries(LineSeries, {
+    color: '#00E676',
+    lineWidth: 2,
+    title: 'EMA 50',
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false
   })
 
   // Add volume series as histogram on left scale
@@ -403,10 +505,73 @@ onMounted(() => {
   })
 })
 
+// Function to update markers based on signals
+function updateMarkers() {
+  if (!seriesMarkersPlugin || !props.signals) {
+    // Clear markers if no signals
+    if (seriesMarkersPlugin) {
+      seriesMarkersPlugin.setMarkers([])
+    }
+    return
+  }
+
+  const markers: any[] = []
+
+  // Process signals data
+  if (props.signals.quotesWithSignals) {
+    props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
+      const quote = quoteWithSignal.quote
+      if (!quote.date) return
+
+      const time = (new Date(quote.date).getTime() / 1000) as any
+
+      // Add entry signal marker (green triangle up)
+      if (quoteWithSignal.entrySignal) {
+        markers.push({
+          time,
+          position: 'belowBar',
+          color: '#10b981',
+          shape: 'arrowUp',
+          text: 'Entry'
+        })
+      }
+
+      // Add exit signal marker (red triangle down)
+      if (quoteWithSignal.exitSignal) {
+        markers.push({
+          time,
+          position: 'aboveBar',
+          color: '#ef4444',
+          shape: 'arrowDown',
+          text: quoteWithSignal.exitReason || 'Exit'
+        })
+      }
+    })
+  }
+
+  // Use the plugin's setMarkers method
+  seriesMarkersPlugin.setMarkers(markers)
+}
+
 // Watch for data changes
 watch(() => [props.quotes, props.orderBlocks], () => {
   updateChartData()
 }, { deep: true })
+
+// Watch for signals changes
+watch(() => props.signals, () => {
+  updateMarkers()
+}, { deep: true })
+
+// Watch for order blocks toggle
+watch(showOrderBlocks, () => {
+  updateChartData()
+})
+
+// Watch for EMA toggle
+watch(showEMA, () => {
+  updateChartData()
+})
 
 function updateChartData() {
   if (!chart || !candlestickSeries) return
@@ -425,6 +590,23 @@ function updateChartData() {
 
   // Set candlestick data
   candlestickSeries.setData(candlestickData)
+
+  // Calculate and set EMA data
+  if (ema10Series && ema20Series && ema50Series) {
+    const ema10Data = calculateEMA(candlestickData, 10)
+    const ema20Data = calculateEMA(candlestickData, 20)
+    const ema50Data = calculateEMA(candlestickData, 50)
+
+    if (showEMA.value) {
+      ema10Series.setData(ema10Data)
+      ema20Series.setData(ema20Data)
+      ema50Series.setData(ema50Data)
+    } else {
+      ema10Series.setData([])
+      ema20Series.setData([])
+      ema50Series.setData([])
+    }
+  }
 
   // Prepare volume data
   if (volumeSeries) {
@@ -446,16 +628,12 @@ function updateChartData() {
     currentOrderBlockPrimitive = null
   }
 
-  // Add order blocks primitive
-  console.log('Rendering order blocks:', props.orderBlocks.length, 'blocks')
-  console.log('Order blocks by source:', {
-    OVTLYR: props.orderBlocks.filter(b => b.source === 'OVTLYR').length,
-    CALCULATED: props.orderBlocks.filter(b => b.source === 'CALCULATED').length
-  })
-
-  const lastQuoteDate = props.quotes[props.quotes.length - 1]?.date || null
-  currentOrderBlockPrimitive = new OrderBlockPrimitive(props.orderBlocks, lastQuoteDate)
-  candlestickSeries.attachPrimitive(currentOrderBlockPrimitive)
+  // Add order blocks primitive only if enabled
+  if (showOrderBlocks.value && props.orderBlocks.length > 0) {
+    const lastQuoteDate = props.quotes[props.quotes.length - 1]?.date || null
+    currentOrderBlockPrimitive = new OrderBlockPrimitive(props.orderBlocks, lastQuoteDate)
+    candlestickSeries.attachPrimitive(currentOrderBlockPrimitive)
+  }
 
   // Set default date range to 3 months
   setDateRange(dateRange.value)

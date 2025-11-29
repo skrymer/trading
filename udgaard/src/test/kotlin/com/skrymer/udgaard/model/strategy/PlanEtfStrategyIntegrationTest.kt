@@ -31,8 +31,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -41,7 +41,9 @@ class PlanEtfStrategyIntegrationTest {
             lastBuySignal = LocalDate.of(2024, 1, 10),
             heatmap = 65.0,
             closePrice = 102.0,
+            closePriceEMA10 = 101.0,
             closePriceEMA20 = 100.0,
+            closePriceEMA50 = 98.0,  // Uptrend: EMA10 > EMA20, closePrice > EMA50
             atr = 2.0  // Value zone: 100 to 100 + (2 * 2) = 104
         )
 
@@ -62,8 +64,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -72,7 +74,9 @@ class PlanEtfStrategyIntegrationTest {
             lastBuySignal = LocalDate.of(2024, 1, 10),
             heatmap = 65.0,
             closePrice = 102.0,
-            closePriceEMA20 = 100.0,
+            closePriceEMA10 = 99.0,
+            closePriceEMA20 = 100.0,  // EMA10 < EMA20 = downtrend
+            closePriceEMA50 = 98.0,
             atr = 2.0
         )
 
@@ -93,8 +97,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -102,7 +106,9 @@ class PlanEtfStrategyIntegrationTest {
             trend = "Uptrend",
             heatmap = 65.0,
             closePrice = 102.0,
+            closePriceEMA10 = 101.0,
             closePriceEMA20 = 100.0,
+            closePriceEMA50 = 98.0,  // Uptrend but missing buy signal
             atr = 2.0
         )
 
@@ -123,8 +129,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -133,7 +139,9 @@ class PlanEtfStrategyIntegrationTest {
             lastBuySignal = LocalDate.of(2024, 1, 10),
             heatmap = 75.0,  // Fails here (>= 70)
             closePrice = 102.0,
+            closePriceEMA10 = 101.0,
             closePriceEMA20 = 100.0,
+            closePriceEMA50 = 98.0,  // Uptrend but heatmap too high
             atr = 2.0
         )
 
@@ -154,8 +162,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -164,7 +172,9 @@ class PlanEtfStrategyIntegrationTest {
             lastBuySignal = LocalDate.of(2024, 1, 10),
             heatmap = 65.0,
             closePrice = 106.0,  // Fails here (>= 104)
+            closePriceEMA10 = 101.0,
             closePriceEMA20 = 100.0,
+            closePriceEMA50 = 98.0,  // Uptrend but price outside value zone
             atr = 2.0  // Value zone: 100 to 100 + (2 * 2) = 104
         )
 
@@ -188,8 +198,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -198,7 +208,9 @@ class PlanEtfStrategyIntegrationTest {
             lastBuySignal = LocalDate.of(2024, 1, 10),
             heatmap = 65.0,
             closePrice = 104.0,  // Too close to order block (not 2% below)
+            closePriceEMA10 = 101.0,
             closePriceEMA20 = 100.0,
+            closePriceEMA50 = 98.0,  // Uptrend but not 2% below order block
             atr = 2.0
         )
 
@@ -225,8 +237,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         val quote = StockQuote(
@@ -295,7 +307,7 @@ class PlanEtfStrategyIntegrationTest {
         val testStock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = listOf(
+            quotes = mutableListOf(
                 StockQuote(
                     date = LocalDate.of(2024, 1, 14),
                     closePrice = 102.0
@@ -306,7 +318,7 @@ class PlanEtfStrategyIntegrationTest {
                     signal = "Sell"
                 )
             ),
-            orderBlocks = emptyList()
+            orderBlocks = mutableListOf()
         )
 
         val entryQuote = testStock.quotes[0]
@@ -330,8 +342,8 @@ class PlanEtfStrategyIntegrationTest {
         val stock = Stock(
             symbol = "TEST",
             sectorSymbol = "XLK",
-            quotes = emptyList(),
-            orderBlocks = listOf(orderBlock)
+            quotes = mutableListOf(),
+            orderBlocks = mutableListOf(orderBlock)
         )
 
         // Setup entry scenario
@@ -341,7 +353,9 @@ class PlanEtfStrategyIntegrationTest {
             lastBuySignal = LocalDate.of(2024, 1, 10),
             heatmap = 65.0,
             closePrice = 102.0,
+            closePriceEMA10 = 101.0,
             closePriceEMA20 = 100.0,
+            closePriceEMA50 = 98.0,  // Uptrend for entry
             atr = 2.0
         )
 

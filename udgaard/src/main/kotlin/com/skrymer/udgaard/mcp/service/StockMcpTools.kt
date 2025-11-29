@@ -83,7 +83,7 @@ class StockMcpTools(
       Use these ranker names in the backtest API request."""
   )
   fun getAvailableRankers(): String {
-    val rankers = listOf(
+    val rankers = mutableListOf(
       "Heatmap",
       "RelativeStrength",
       "Volatility",
@@ -154,7 +154,7 @@ class StockMcpTools(
         .writeValueAsString(
           mapOf(
             "error" to "Invalid strategy type. Use 'entry' or 'exit'",
-            "validTypes" to listOf("entry", "exit")
+            "validTypes" to mutableListOf("entry", "exit")
           )
         )
     }
@@ -196,7 +196,7 @@ class StockMcpTools(
           "riskLevel" to "Medium",
           "typicalUseCase" to "Trending markets with strong momentum",
           "bestMarketConditions" to "Bull markets, strong uptrends",
-          "keyConditions" to listOf(
+          "keyConditions" to mutableListOf(
             "Buy signal present",
             "Price above EMAs",
             "Market in uptrend",
@@ -209,7 +209,7 @@ class StockMcpTools(
           "category" to "Risk Management",
           "riskLevel" to "Medium",
           "typicalUseCase" to "Momentum-based exits",
-          "exitTriggers" to listOf(
+          "exitTriggers" to mutableListOf(
             "Stop loss hit",
             "Trend reversal",
             "Sentiment deterioration"
@@ -220,7 +220,7 @@ class StockMcpTools(
         "category" to "Money Management",
         "riskLevel" to "Conservative",
         "typicalUseCase" to "Risk-controlled exits with profit protection",
-        "exitTriggers" to listOf(
+        "exitTriggers" to mutableListOf(
           "ATR-based stop loss",
           "Profit target hit",
           "Market regime change"
@@ -291,7 +291,7 @@ class StockMcpTools(
           "excellent" to "> 65%"
         ),
         "context" to "Random trading gives ~50% win rate. A strategy with 40% win rate can be profitable if wins are much larger than losses.",
-        "warnings" to listOf(
+        "warnings" to mutableListOf(
           "High win rate doesn't guarantee profitability",
           "Consider win rate together with edge and average win/loss"
         )
@@ -314,7 +314,7 @@ class StockMcpTools(
           "exceptional" to "> 5%"
         ),
         "context" to "Edge tells you your average expected return per trade. A 2% edge means you expect to make 2% per trade on average.",
-        "warnings" to listOf(
+        "warnings" to mutableListOf(
           "Edge can be inflated by a few outlier wins",
           "Consider consistency and drawdowns too"
         )
@@ -352,7 +352,7 @@ class StockMcpTools(
           "excellent" to "> 300 trades"
         ),
         "context" to "Need enough trades for statistical significance. Too few trades make results unreliable.",
-        "warnings" to listOf(
+        "warnings" to mutableListOf(
           "Strategies with < 30 trades are statistically questionable",
           "Could be random luck rather than edge"
         )
@@ -374,7 +374,7 @@ class StockMcpTools(
         "interpretation" to "Worst losing streak experienced",
         "benchmark" to "< 20% is good, > 50% is concerning",
         "context" to "Critical for risk management. Can you psychologically handle this drawdown?",
-        "warnings" to listOf(
+        "warnings" to mutableListOf(
           "Past drawdown doesn't predict future max drawdown",
           "Real drawdowns often exceed backtest drawdowns"
         )
@@ -392,8 +392,8 @@ class StockMcpTools(
     val result = mapOf(
       "metrics" to metricsToReturn,
       "overallGuidance" to mapOf(
-        "essentialMetrics" to listOf("edge", "winRate", "totalTrades"),
-        "analysisOrder" to listOf(
+        "essentialMetrics" to mutableListOf("edge", "winRate", "totalTrades"),
+        "analysisOrder" to mutableListOf(
           "1. Check total trades (need statistical significance)",
           "2. Check edge (must be positive)",
           "3. Check win rate and avg win/loss ratio",

@@ -19,4 +19,9 @@ class PriceAboveEmaCondition(private val emaPeriod: Int) : TradingCondition {
     }
 
     override fun description(): String = "Price > ${emaPeriod}EMA"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "priceAboveEma",
+        description = description()
+    )
 }

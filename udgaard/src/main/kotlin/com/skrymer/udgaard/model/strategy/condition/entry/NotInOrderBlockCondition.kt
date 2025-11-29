@@ -18,4 +18,9 @@ class NotInOrderBlockCondition(
     }
 
     override fun description(): String = "Not in order block (age > ${ageInDays}d)"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "notInOrderBlock",
+        description = description()
+    )
 }

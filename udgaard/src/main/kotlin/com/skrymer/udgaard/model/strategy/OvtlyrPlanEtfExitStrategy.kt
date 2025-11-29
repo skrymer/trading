@@ -51,4 +51,9 @@ class OvtlyrPlanEtfExitStrategy: ExitStrategy {
     return if(quote.closePrice < 1.0) stock.getPreviousQuote(quote)?.closePrice ?: 0.0
     else quote.closePrice
   }
+
+  /**
+   * Get the underlying composite strategy for metadata extraction.
+   */
+  fun getCompositeStrategy(): CompositeExitStrategy = compositeStrategy
 }

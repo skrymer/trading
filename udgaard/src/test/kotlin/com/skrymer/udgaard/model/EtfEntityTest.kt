@@ -22,7 +22,7 @@ class EtfEntityTest {
         val etf = EtfEntity().apply {
             symbol = "SPY"
             name = "SPDR S&P 500 ETF Trust"
-            quotes = emptyList()
+            quotes = mutableListOf()
         }
 
         assertNull(etf.getLatestQuote())
@@ -120,7 +120,7 @@ class EtfEntityTest {
     fun `isInUptrend should return false when no quotes exist`() {
         val etf = EtfEntity().apply {
             symbol = "SPY"
-            quotes = emptyList()
+            quotes = mutableListOf()
         }
 
         assertFalse(etf.isInUptrend())
@@ -180,7 +180,7 @@ class EtfEntityTest {
             symbol = "SPY"
             name = "SPDR S&P 500 ETF Trust"
             description = "Tracks S&P 500 Index"
-            quotes = listOf(
+            quotes = mutableListOf(
                 EtfQuote(
                     date = LocalDate.of(2024, 11, 20),
                     openPrice = 580.0,
@@ -253,7 +253,7 @@ class EtfEntityTest {
         return EtfEntity().apply {
             symbol = "SPY"
             name = "SPDR S&P 500 ETF Trust"
-            holdings = listOf(
+            holdings = mutableListOf(
                 EtfHolding(
                     stockSymbol = "AAPL",
                     weight = 7.12,

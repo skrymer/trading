@@ -32,4 +32,9 @@ class HeatmapThresholdExit : ExitCondition {
     override fun exitReason(): String = "Heatmap reached target threshold"
 
     override fun description(): String = "Heatmap threshold exit"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "heatmapThreshold",
+        description = description()
+    )
 }

@@ -14,4 +14,9 @@ class SpyUptrendCondition : TradingCondition {
     }
 
     override fun description(): String = "SPY in uptrend"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "spyUptrend",
+        description = description()
+    )
 }

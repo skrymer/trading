@@ -16,4 +16,9 @@ class PriceAbovePreviousLowCondition : TradingCondition {
     }
 
     override fun description(): String = "Price above previous low"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "priceAbovePreviousLow",
+        description = description()
+    )
 }

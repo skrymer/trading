@@ -14,4 +14,9 @@ class MarketUptrendCondition : TradingCondition {
     }
 
     override fun description(): String = "Market in uptrend"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "marketUptrend",
+        description = description()
+    )
 }

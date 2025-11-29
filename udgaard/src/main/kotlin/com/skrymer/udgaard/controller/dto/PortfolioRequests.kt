@@ -38,3 +38,21 @@ data class CloseTradeRequest(
     val exitPrice: Double,
     val exitDate: LocalDate
 )
+
+data class UpdateTradeRequest(
+    val symbol: String? = null,
+    val entryPrice: Double? = null,
+    val entryDate: LocalDate? = null,
+    val quantity: Int? = null,
+    val entryStrategy: String? = null,
+    val exitStrategy: String? = null,
+    val underlyingSymbol: String? = null,
+    val instrumentType: InstrumentType? = null,
+    val optionType: OptionType? = null,
+    val strikePrice: Double? = null,
+    val expirationDate: LocalDate? = null,
+    val contracts: Int? = null,
+    val multiplier: Int? = null,
+    val entryIntrinsicValue: Double? = null,
+    val entryExtrinsicValue: Double? = null
+)

@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
 import type { EtfStatsResponse } from '~/types'
-import { Etf, EtfDescriptions } from '~/types/enums'
+import { EtfSymbol, EtfSymbolDescriptions } from '~/types/enums'
 
 // Selected ETF (no default - wait for user selection)
-const selectedEtf = ref<Etf | undefined>(undefined)
+const selectedEtf = ref<EtfSymbol | undefined>(undefined)
 const cacheBuster = ref(0)
 const shouldRefresh = ref(false)
 
 // ETF options
-const etfOptions = Object.values(Etf).map(etf => ({
+const etfOptions = Object.values(EtfSymbol).map(etf => ({
   value: etf,
-  label: `${etf} - ${EtfDescriptions[etf]}`
+  label: `${etf} - ${EtfSymbolDescriptions[etf]}`
 }))
 
 // Fetch selected ETF data only when an ETF is selected

@@ -3,6 +3,7 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.ExitCondition
+import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
 
 /**
  * Exit condition that triggers when price extends beyond a profit target.
@@ -21,6 +22,11 @@ class ProfitTargetExit(
     override fun exitReason(): String = "Price is ${atrMultiplier} ATR above ${emaPeriod} EMA"
 
     override fun description(): String = "Price > ${emaPeriod}EMA + ${atrMultiplier}ATR"
+
+    override fun getMetadata() = ConditionMetadata(
+        type = "profitTarget",
+        description = description()
+    )
 
     private fun getEmaValue(quote: StockQuote, period: Int): Double {
         return when (period) {

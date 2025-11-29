@@ -3,6 +3,7 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.ExitCondition
+import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
 
 /**
  * Trailing stop loss that tracks the highest price reached since entry
@@ -54,4 +55,9 @@ class ATRTrailingStopLoss(
 
     override fun description(): String =
         "ATR trailing stop (${atrMultiplier} ATR)"
+
+    override fun getMetadata() = ConditionMetadata(
+        type = "trailingStop",
+        description = description()
+    )
 }

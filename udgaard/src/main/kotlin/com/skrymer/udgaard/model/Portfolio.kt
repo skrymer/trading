@@ -1,21 +1,41 @@
 package com.skrymer.udgaard.model
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.mapping.Document
+import jakarta.persistence.*
 import java.time.LocalDateTime
 
 /**
  * Represents a user's trading portfolio
  */
-@Document(collection = "portfolios")
+@Entity
+@Table(
+    name = "portfolios",
+    indexes = [
+        Index(name = "idx_portfolio_user_id", columnList = "user_id")
+    ]
+)
 data class Portfolio(
     @Id
-    val id: String? = null,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
+
+    @Column(name = "user_id", length = 100)
     val userId: String? = null, // For future multi-user support
+
+    @Column(length = 200)
     val name: String,
+
+    @Column(name = "initial_balance")
     val initialBalance: Double,
+
+    @Column(name = "current_balance")
     var currentBalance: Double,
+
+    @Column(length = 10)
     val currency: String, // e.g., "USD", "EUR", "GBP"
+
+    @Column(name = "created_date")
     val createdDate: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "last_updated")
     var lastUpdated: LocalDateTime = LocalDateTime.now()
 )

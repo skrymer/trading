@@ -14,4 +14,9 @@ class SectorHeatmapGreaterThanSpyCondition : TradingCondition {
     }
 
     override fun description(): String = "Sector heatmap > SPY heatmap"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "sectorHeatmapGreaterThanSpy",
+        description = description()
+    )
 }

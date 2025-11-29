@@ -32,7 +32,7 @@ curl -s http://localhost:8080/udgaard/api/backtest/conditions | python3 -m json.
 
 ## Running Backtests
 
-### Basic Backtest (POST Method - Recommended)
+### Basic Backtest
 
 **Using Predefined Strategies:**
 
@@ -949,18 +949,17 @@ Break down performance by calendar year to understand strategy behavior in diffe
 
 1. **Optimize for BOTH edge AND drawdown** - never optimize for returns alone
 2. **Use Return/Drawdown ratio as primary metric** (target > 5.0)
-3. **Always use POST endpoint** for backtests (cleaner, more flexible)
-4. **Save results to files** before analysis
-5. **Calculate comprehensive metrics** (edge, drawdown, CAGR, win rate)
-6. **Compare risk-adjusted performance** (Return/Drawdown ratio is king)
-7. **Analyze year-by-year** to ensure consistency
-8. **Check exit reasons** to understand strategy behavior
-9. **Consider cooldown periods** especially for leveraged ETFs
-10. **Use underlying assets** for cleaner signals on leveraged instruments
-11. **Present clear recommendations** based on risk-adjusted metrics
-12. **Generate written reports** for future reference
-13. **Reject strategies with drawdown > 25%** regardless of returns
-14. **Reject strategies with edge < 2%** regardless of win rate
+3. **Save results to files** before analysis
+4. **Calculate comprehensive metrics** (edge, drawdown, CAGR, win rate)
+5. **Compare risk-adjusted performance** (Return/Drawdown ratio is king)
+6. **Analyze year-by-year** to ensure consistency
+7. **Check exit reasons** to understand strategy behavior
+8. **Consider cooldown periods** especially for leveraged ETFs
+9. **Use underlying assets** for cleaner signals on leveraged instruments
+10. **Present clear recommendations** based on risk-adjusted metrics
+11. **Generate written reports** for future reference
+12. **Reject strategies with drawdown > 25%** regardless of returns
+13. **Reject strategies with edge < 2%** regardless of win rate
 
 ## MCP Integration
 

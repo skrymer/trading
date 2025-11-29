@@ -18,4 +18,9 @@ class SpyHeatmapThresholdCondition(
     }
 
     override fun description(): String = "SPY heatmap < $threshold"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "spyHeatmapThreshold",
+        description = description()
+    )
 }

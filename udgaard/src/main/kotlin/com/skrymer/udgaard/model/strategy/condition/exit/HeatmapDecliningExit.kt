@@ -16,4 +16,9 @@ class HeatmapDecliningExit : ExitCondition {
     override fun exitReason(): String = "Heatmap is declining (buyers getting fearful)"
 
     override fun description(): String = "Heatmap declining"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "heatmapDeclining",
+        description = description()
+    )
 }

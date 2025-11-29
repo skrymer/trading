@@ -2,27 +2,82 @@
   <div class="container mx-auto p-6">
     <UCard>
       <template #header>
-        <div class="flex items-center justify-between gap-4">
-          <h1 class="text-2xl font-bold">
-            Stock Data Viewer
-          </h1>
-          <div class="flex items-center gap-3 flex-1 max-w-md">
-            <UInputMenu
-              v-model="selectedSymbol"
-              :items="stockSymbols"
-              :placeholder="loadingSymbols ? 'Loading symbols...' : 'Type to search stocks...'"
-              :disabled="loadingSymbols"
-              :loading="loadingSymbols"
-              icon="i-lucide-search"
-              class="flex-1"
-            />
+        <div class="flex flex-col gap-4">
+          <!-- Top Row: Title and Symbol Search -->
+          <div class="flex items-center justify-between gap-4">
+            <h1 class="text-2xl font-bold">
+              Stock Data Viewer
+            </h1>
+            <div class="flex items-center gap-3 flex-1 max-w-md">
+              <UInputMenu
+                v-model="selectedSymbol"
+                :items="stockSymbols"
+                :placeholder="loadingSymbols ? 'Loading symbols...' : 'Type to search stocks...'"
+                :disabled="loadingSymbols"
+                :loading="loadingSymbols"
+                icon="i-lucide-search"
+                class="flex-1"
+              />
+              <UButton
+                v-if="selectedStock"
+                icon="i-heroicons-arrow-path"
+                :loading="loading"
+                @click="refreshStock"
+              >
+                Refresh
+              </UButton>
+            </div>
+          </div>
+
+          <!-- Strategy Selection Row -->
+          <div v-if="selectedStock" class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="flex items-center gap-2 flex-1">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Entry Strategy:
+              </label>
+              <USelectMenu
+                v-model="selectedEntryStrategy"
+                :items="entryStrategies"
+                :loading="loadingStrategies"
+                placeholder="Select entry strategy"
+                class="flex-1 max-w-xs"
+              />
+            </div>
+
+            <div class="flex items-center gap-2 flex-1">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Exit Strategy:
+              </label>
+              <USelectMenu
+                v-model="selectedExitStrategy"
+                :items="exitStrategies"
+                :loading="loadingStrategies"
+                placeholder="Select exit strategy"
+                class="flex-1 max-w-xs"
+              />
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Cooldown Days:
+              </label>
+              <UInput
+                v-model.number="cooldownDays"
+                type="number"
+                min="0"
+                max="100"
+                class="w-24"
+                placeholder="0"
+              />
+            </div>
+
             <UButton
-              v-if="selectedStock"
-              icon="i-heroicons-arrow-path"
-              :loading="loading"
-              @click="refreshStock"
+              icon="i-heroicons-chart-bar"
+              :loading="loadingSignals"
+              :disabled="!selectedEntryStrategy || !selectedExitStrategy"
+              @click="fetchSignals"
             >
-              Refresh
+              Show Signals
             </UButton>
           </div>
         </div>
@@ -40,6 +95,7 @@
           :quotes="selectedStock.quotes"
           :order-blocks="selectedStock.orderBlocks || []"
           :symbol="selectedStock.symbol"
+          :signals="signalsData"
         />
       </div>
 
@@ -64,7 +120,15 @@ const selectedSymbol = ref<string>('')
 const selectedStock = ref<Stock | null>(null)
 const loading = ref(false)
 const loadingSymbols = ref(true)
+const loadingStrategies = ref(false)
+const loadingSignals = ref(false)
 const stockSymbols = ref<string[]>([])
+const entryStrategies = ref<string[]>([])
+const exitStrategies = ref<string[]>([])
+const selectedEntryStrategy = ref<string>('')
+const selectedExitStrategy = ref<string>('')
+const cooldownDays = ref<number>(0)
+const signalsData = ref<any>(null)
 
 // Methods
 const fetchStockSymbols = async () => {
@@ -82,6 +146,63 @@ const fetchStockSymbols = async () => {
     })
   } finally {
     loadingSymbols.value = false
+  }
+}
+
+const fetchStrategies = async () => {
+  loadingStrategies.value = true
+  try {
+    const data = await $fetch<any>('/udgaard/api/backtest/strategies')
+    console.log('Fetched strategies:', data)
+    entryStrategies.value = data.entryStrategies || []
+    exitStrategies.value = data.exitStrategies || []
+
+    // Set default strategies
+    if (entryStrategies.value.includes('VegardPlanEtf')) {
+      selectedEntryStrategy.value = 'VegardPlanEtf'
+    }
+    if (exitStrategies.value.includes('VegardPlanEtf')) {
+      selectedExitStrategy.value = 'VegardPlanEtf'
+    }
+  } catch (error) {
+    console.error('Failed to fetch strategies:', error)
+    useToast().add({
+      title: 'Error',
+      description: 'Failed to load strategies',
+      color: 'error'
+    })
+  } finally {
+    loadingStrategies.value = false
+  }
+}
+
+const fetchSignals = async () => {
+  if (!selectedSymbol.value || !selectedEntryStrategy.value || !selectedExitStrategy.value) {
+    return
+  }
+
+  loadingSignals.value = true
+  try {
+    const url = `/udgaard/api/stocks/${selectedSymbol.value}/signals?entryStrategy=${selectedEntryStrategy.value}&exitStrategy=${selectedExitStrategy.value}&cooldownDays=${cooldownDays.value}`
+    const data = await $fetch(url)
+    console.log('Fetched signals:', data)
+    signalsData.value = data
+
+    useToast().add({
+      title: 'Success',
+      description: 'Signals loaded successfully',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Failed to fetch signals:', error)
+    useToast().add({
+      title: 'Error',
+      description: 'Failed to load signals',
+      color: 'error'
+    })
+    signalsData.value = null
+  } finally {
+    loadingSignals.value = false
   }
 }
 
@@ -129,5 +250,11 @@ watch(selectedSymbol, (newSymbol) => {
 // Lifecycle
 onMounted(() => {
   fetchStockSymbols()
+  fetchStrategies()
+})
+
+// Watch for symbol changes and clear signals
+watch(selectedSymbol, () => {
+  signalsData.value = null
 })
 </script>

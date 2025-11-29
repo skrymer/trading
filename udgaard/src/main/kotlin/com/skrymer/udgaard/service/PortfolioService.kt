@@ -45,14 +45,14 @@ class PortfolioService(
     /**
      * Get portfolio by ID
      */
-    fun getPortfolio(portfolioId: String): Portfolio? {
+    fun getPortfolio(portfolioId: Long): Portfolio? {
         return portfolioRepository.findById(portfolioId).orElse(null)
     }
 
     /**
      * Update portfolio balance
      */
-    fun updatePortfolio(portfolioId: String, currentBalance: Double): Portfolio? {
+    fun updatePortfolio(portfolioId: Long, currentBalance: Double): Portfolio? {
         val portfolio = getPortfolio(portfolioId) ?: return null
         val updated = portfolio.copy(
             currentBalance = currentBalance,
@@ -64,7 +64,7 @@ class PortfolioService(
     /**
      * Delete portfolio and all associated trades
      */
-    fun deletePortfolio(portfolioId: String) {
+    fun deletePortfolio(portfolioId: Long) {
         // Delete all trades associated with the portfolio
         portfolioTradeRepository.deleteByPortfolioId(portfolioId)
 
@@ -76,7 +76,7 @@ class PortfolioService(
      * Open a new trade
      */
     fun openTrade(
-        portfolioId: String,
+        portfolioId: Long,
         symbol: String,
         entryPrice: Double,
         entryDate: LocalDate,
@@ -110,6 +110,17 @@ class PortfolioService(
             requireNotNull(contracts) { "Number of contracts is required for option trades" }
         }
 
+        // Calculate the cost of opening this trade
+        val tradeCost = if (instrumentType == InstrumentType.OPTION) {
+            entryPrice * (contracts ?: 1) * multiplier
+        } else {
+            entryPrice * quantity
+        }
+
+        // Deduct trade cost from portfolio balance
+        val updatedBalance = portfolio.currentBalance - tradeCost
+        updatePortfolio(portfolioId, updatedBalance)
+
         val trade = PortfolioTrade(
             portfolioId = portfolioId,
             symbol = symbol,
@@ -134,10 +145,91 @@ class PortfolioService(
     }
 
     /**
+     * Update an existing open trade
+     */
+    fun updateTrade(
+        tradeId: Long,
+        symbol: String? = null,
+        entryPrice: Double? = null,
+        entryDate: LocalDate? = null,
+        quantity: Int? = null,
+        entryStrategy: String? = null,
+        exitStrategy: String? = null,
+        underlyingSymbol: String? = null,
+        instrumentType: InstrumentType? = null,
+        optionType: OptionType? = null,
+        strikePrice: Double? = null,
+        expirationDate: LocalDate? = null,
+        contracts: Int? = null,
+        multiplier: Int? = null,
+        entryIntrinsicValue: Double? = null,
+        entryExtrinsicValue: Double? = null
+    ): PortfolioTrade? {
+        val trade = portfolioTradeRepository.findById(tradeId).orElse(null) ?: return null
+
+        // Only allow updating open trades
+        if (trade.status != TradeStatus.OPEN) {
+            throw IllegalArgumentException("Can only update open trades")
+        }
+
+        // Validate entry date if provided
+        if (entryDate != null) {
+            val portfolio = getPortfolio(trade.portfolioId)
+            if (portfolio != null && entryDate.isBefore(portfolio.createdDate.toLocalDate())) {
+                throw IllegalArgumentException("Entry date cannot be before portfolio creation date (${portfolio.createdDate.toLocalDate()})")
+            }
+        }
+
+        // Calculate old entry cost
+        val oldEntryCost = if (trade.instrumentType == InstrumentType.OPTION) {
+            trade.entryPrice * (trade.contracts ?: trade.quantity) * trade.multiplier
+        } else {
+            trade.entryPrice * trade.quantity
+        }
+
+        // Update trade with provided values (keep existing if null)
+        val updatedTrade = trade.copy(
+            symbol = symbol ?: trade.symbol,
+            entryPrice = entryPrice ?: trade.entryPrice,
+            entryDate = entryDate ?: trade.entryDate,
+            quantity = quantity ?: trade.quantity,
+            entryStrategy = entryStrategy ?: trade.entryStrategy,
+            exitStrategy = exitStrategy ?: trade.exitStrategy,
+            underlyingSymbol = underlyingSymbol ?: trade.underlyingSymbol,
+            instrumentType = instrumentType ?: trade.instrumentType,
+            optionType = optionType ?: trade.optionType,
+            strikePrice = strikePrice ?: trade.strikePrice,
+            expirationDate = expirationDate ?: trade.expirationDate,
+            contracts = contracts ?: trade.contracts,
+            multiplier = multiplier ?: trade.multiplier,
+            entryIntrinsicValue = entryIntrinsicValue ?: trade.entryIntrinsicValue,
+            entryExtrinsicValue = entryExtrinsicValue ?: trade.entryExtrinsicValue
+        )
+
+        // Calculate new entry cost
+        val newEntryCost = if (updatedTrade.instrumentType == InstrumentType.OPTION) {
+            updatedTrade.entryPrice * (updatedTrade.contracts ?: updatedTrade.quantity) * updatedTrade.multiplier
+        } else {
+            updatedTrade.entryPrice * updatedTrade.quantity
+        }
+
+        // Adjust portfolio balance based on the difference
+        val costDifference = newEntryCost - oldEntryCost
+        if (costDifference != 0.0) {
+            val portfolio = getPortfolio(trade.portfolioId)
+            portfolio?.let {
+                updatePortfolio(it.id!!, it.currentBalance - costDifference)
+            }
+        }
+
+        return portfolioTradeRepository.save(updatedTrade)
+    }
+
+    /**
      * Close an existing trade and update portfolio balance
      */
     fun closeTrade(
-        tradeId: String,
+        tradeId: Long,
         exitPrice: Double,
         exitDate: LocalDate,
         exitIntrinsicValue: Double? = null,
@@ -158,11 +250,17 @@ class PortfolioService(
             status = TradeStatus.CLOSED
         )
 
-        // Update portfolio balance
-        val profit = closedTrade.profit ?: 0.0
+        // Calculate the exit value (amount received from closing the position)
+        val exitValue = if (trade.instrumentType == InstrumentType.OPTION) {
+            exitPrice * (trade.contracts ?: trade.quantity) * trade.multiplier
+        } else {
+            exitPrice * trade.quantity
+        }
+
+        // Update portfolio balance by adding back the exit value
         val portfolio = getPortfolio(trade.portfolioId)
         portfolio?.let {
-            updatePortfolio(it.id!!, it.currentBalance + profit)
+            updatePortfolio(it.id!!, it.currentBalance + exitValue)
         }
 
         return portfolioTradeRepository.save(closedTrade)
@@ -171,7 +269,7 @@ class PortfolioService(
     /**
      * Get all trades for a portfolio
      */
-    fun getTrades(portfolioId: String, status: TradeStatus? = null): List<PortfolioTrade> {
+    fun getTrades(portfolioId: Long, status: TradeStatus? = null): List<PortfolioTrade> {
         return if (status != null) {
             portfolioTradeRepository.findByPortfolioIdAndStatus(portfolioId, status)
         } else {
@@ -182,14 +280,42 @@ class PortfolioService(
     /**
      * Get a specific trade
      */
-    fun getTrade(tradeId: String): PortfolioTrade? {
+    fun getTrade(tradeId: Long): PortfolioTrade? {
         return portfolioTradeRepository.findById(tradeId).orElse(null)
+    }
+
+    /**
+     * Delete a trade (only open trades can be deleted)
+     */
+    fun deleteTrade(tradeId: Long): Boolean {
+        val trade = portfolioTradeRepository.findById(tradeId).orElse(null) ?: return false
+
+        // Only allow deleting open trades
+        if (trade.status != TradeStatus.OPEN) {
+            throw IllegalArgumentException("Can only delete open trades")
+        }
+
+        // Calculate the entry cost that was deducted when opening the trade
+        val entryCost = if (trade.instrumentType == InstrumentType.OPTION) {
+            trade.entryPrice * (trade.contracts ?: trade.quantity) * trade.multiplier
+        } else {
+            trade.entryPrice * trade.quantity
+        }
+
+        // Refund the entry cost back to the portfolio balance
+        val portfolio = getPortfolio(trade.portfolioId)
+        portfolio?.let {
+            updatePortfolio(it.id!!, it.currentBalance + entryCost)
+        }
+
+        portfolioTradeRepository.deleteById(tradeId)
+        return true
     }
 
     /**
      * Calculate portfolio statistics
      */
-    fun calculateStats(portfolioId: String): PortfolioStats {
+    fun calculateStats(portfolioId: Long): PortfolioStats {
         val portfolio = getPortfolio(portfolioId) ?: return createEmptyStats()
         val allTrades = getTrades(portfolioId)
         val closedTrades = allTrades.filter { it.status == TradeStatus.CLOSED }
@@ -289,7 +415,7 @@ class PortfolioService(
      * Generate equity curve data
      * Groups trades by exit date to show end-of-day balance
      */
-    fun getEquityCurve(portfolioId: String): EquityCurveData {
+    fun getEquityCurve(portfolioId: Long): EquityCurveData {
         val portfolio = getPortfolio(portfolioId) ?: return EquityCurveData(emptyList())
         val trades = getTrades(portfolioId, TradeStatus.CLOSED)
             .sortedBy { it.exitDate }
@@ -326,34 +452,6 @@ class PortfolioService(
         return EquityCurveData(dataPoints)
     }
 
-    /**
-     * Check if a trade currently has an exit signal
-     */
-    fun hasExitSignal(tradeId: String): Pair<Boolean, String?> {
-        val trade = getTrade(tradeId) ?: return Pair(false, null)
-        if (trade.status != TradeStatus.OPEN) return Pair(false, null)
-
-        // Determine which symbol to use for strategy evaluation
-        val symbolForStrategy = trade.underlyingSymbol ?: trade.symbol
-        val stock = stockService.getStock(symbolForStrategy) ?: return Pair(false, null)
-
-        // Get the exit strategy
-        val exitStrategy = strategyRegistry.createExitStrategy(trade.exitStrategy)
-            ?: return Pair(false, null)
-
-        // Get entry quote
-        val entryQuote = stock.quotes.firstOrNull { it.date == trade.entryDate }
-
-        // Get latest quote
-        val latestQuote = stock.quotes.mapNotNull { quote -> quote.date?.let { quote } }
-            .maxByOrNull { it.date!! } ?: return Pair(false, null)
-
-        // Check if exit signal is present
-        val hasSignal = exitStrategy.match(stock, entryQuote, latestQuote)
-        val reason = if (hasSignal) exitStrategy.reason(stock, entryQuote, latestQuote) else null
-
-        return Pair(hasSignal, reason)
-    }
 
     private fun createEmptyStats() = PortfolioStats(
         totalTrades = 0,

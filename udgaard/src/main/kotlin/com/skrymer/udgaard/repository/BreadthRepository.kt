@@ -1,10 +1,15 @@
 package com.skrymer.udgaard.repository
 
 import com.skrymer.udgaard.model.Breadth
-import org.springframework.data.mongodb.repository.MongoRepository
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 
 /**
- * MongoDB repository for breadth data (market and sector breadth).
- * Uses string IDs generated from BreadthSymbol identifiers.
+ * JPA repository for breadth data (market and sector breadth).
  */
-interface BreadthRepository : MongoRepository<Breadth, String>
+interface BreadthRepository : JpaRepository<Breadth, Long> {
+    fun findBySymbolValue(symbolValue: String): Breadth?
+
+    @Query("SELECT b FROM Breadth b LEFT JOIN FETCH b.quotes WHERE b.symbolValue = :symbolValue")
+    fun findBySymbolValueWithQuotes(symbolValue: String): Breadth?
+}

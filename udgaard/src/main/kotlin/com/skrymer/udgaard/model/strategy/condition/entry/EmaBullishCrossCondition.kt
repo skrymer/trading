@@ -51,6 +51,11 @@ class EmaBullishCrossCondition(
 
     override fun description(): String = "${fastEma}EMA crosses above ${slowEma}EMA"
 
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "emaBullishCross",
+        description = description()
+    )
+
     private fun getEmaValue(quote: StockQuote, period: Int): Double {
         return when (period) {
             5 -> quote.closePriceEMA5

@@ -85,8 +85,8 @@ class DefaultStockFactory(
         return Stock(
             symbol = stockInformation.stockName,
             sectorSymbol = stockInformation.sectorSymbol,
-            quotes = enrichedQuotes,
-            orderBlocks = allOrderBlocks,
+            quotes = enrichedQuotes.toMutableList(),
+            orderBlocks = allOrderBlocks.toMutableList(),
             ovtlyrPerformance = 0.0
         )
     }

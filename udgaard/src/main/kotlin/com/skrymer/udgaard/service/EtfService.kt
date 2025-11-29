@@ -114,7 +114,7 @@ class EtfService(
         }
 
         logger.info("Converted ${etfQuotes.size} StockQuote objects to EtfQuote format for $symbol")
-        etf.quotes = etfQuotes
+        etf.quotes = etfQuotes.toMutableList()
 
         // Fetch ETF profile from AlphaVantage for additional metadata and holdings
         val profile = alphaVantageClient.getEtfProfile(symbol)
@@ -138,7 +138,7 @@ class EtfService(
                         weight = holding.getWeightAsDouble(),
                         asOfDate = currentDate
                     )
-                }
+                }.toMutableList()
                 logger.info("Mapped ${etf.holdings.size} holdings from AlphaVantage profile for $symbol")
             }
         } else {

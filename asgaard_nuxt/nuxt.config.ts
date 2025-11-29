@@ -16,16 +16,13 @@ export default defineNuxtConfig({
     // Proxy all backend API calls to /udgaard/api/** (avoids conflicts with Nuxt internal /api/*)
     '/udgaard/api/**': {
       proxy: {
-        to: 'http://localhost:8080/udgaard/api/**',
-        // Increase timeout for long-running backtests and Monte Carlo simulations (30 minutes)
-        timeout: 1800000
+        to: 'http://localhost:8080/udgaard/api/**'
       }
     }
   },
 
   compatibilityDate: '2024-07-11',
 
-  // Increase timeout for long-running API calls
   nitro: {
     experimental: {
       websocket: false

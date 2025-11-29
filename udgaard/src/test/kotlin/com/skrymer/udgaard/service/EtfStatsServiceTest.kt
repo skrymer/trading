@@ -37,9 +37,9 @@ class EtfStatsServiceTest {
             closePriceEMA50 = 95.0,
             openPrice = 108.0
         )
-        val stock = Stock("AAPL", "Technology", listOf(quote), emptyList())
+        val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
 
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
@@ -65,9 +65,9 @@ class EtfStatsServiceTest {
             closePriceEMA50 = 105.0,
             openPrice = 92.0
         )
-        val stock = Stock("AAPL", "Technology", listOf(quote), emptyList())
+        val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
 
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
@@ -92,9 +92,9 @@ class EtfStatsServiceTest {
             closePriceEMA50 = 110.0,
             openPrice = 96.0
         )
-        val stock = Stock("AAPL", "Technology", listOf(quote), emptyList())
+        val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
 
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
@@ -138,9 +138,9 @@ class EtfStatsServiceTest {
         )
 
         val stocks = listOf(
-            Stock("AAPL", "Technology", listOf(uptrendQuote1), emptyList()),
-            Stock("MSFT", "Technology", listOf(uptrendQuote2), emptyList()),
-            Stock("META", "Technology", listOf(downtrendQuote), emptyList())
+            Stock("AAPL", "Technology", mutableListOf(uptrendQuote1).toMutableList(), mutableListOf()),
+            Stock("MSFT", "Technology", mutableListOf(uptrendQuote2).toMutableList(), mutableListOf()),
+            Stock("META", "Technology", mutableListOf(downtrendQuote).toMutableList(), mutableListOf())
         )
 
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
@@ -189,8 +189,8 @@ class EtfStatsServiceTest {
             openPrice = 109.0
         )
 
-        val stock = Stock("AAPL", "Technology", listOf(quote1, quote2, quote3), emptyList())
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        val stock = Stock("AAPL", "Technology", mutableListOf(quote1, quote2, quote3), mutableListOf())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date1, date3)
@@ -230,8 +230,8 @@ class EtfStatsServiceTest {
             openPrice = 108.0
         )
 
-        val stock = Stock("AAPL", "Technology", listOf(downtrendQuote, uptrendQuote), emptyList())
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        val stock = Stock("AAPL", "Technology", mutableListOf(downtrendQuote, uptrendQuote), mutableListOf())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date1, date2)
@@ -281,8 +281,8 @@ class EtfStatsServiceTest {
         )
 
         // Repository query returns only stocks that match the requested symbols (in QQQ)
-        val stocks = listOf(
-            Stock("AAPL", "Technology", listOf(appleQuote), emptyList()) // In QQQ
+        val stocks = mutableListOf(
+            Stock("AAPL", "Technology", mutableListOf(appleQuote).toMutableList(), mutableListOf()) // In QQQ
         )
 
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
@@ -303,7 +303,7 @@ class EtfStatsServiceTest {
         val inRange2 = LocalDate.of(2025, 1, 11)
         val afterRange = LocalDate.of(2025, 1, 20)
 
-        val quotes = listOf(
+        val quotes = mutableListOf(
             StockQuote(
                 date = beforeRange,
                 closePrice = 100.0,
@@ -338,7 +338,7 @@ class EtfStatsServiceTest {
             )
         )
 
-        val stock = Stock("AAPL", "Technology", quotes, emptyList())
+        val stock = Stock("AAPL", "Technology", quotes, mutableListOf())
         doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When - Query only for dates in range
@@ -356,7 +356,7 @@ class EtfStatsServiceTest {
         val date1 = LocalDate.of(2025, 1, 14)
         val date2 = LocalDate.of(2025, 1, 15)
 
-        val stock1Quotes = listOf(
+        val stock1Quotes = mutableListOf(
             StockQuote(
                 date = date1,
                 closePrice = 110.0,
@@ -375,7 +375,7 @@ class EtfStatsServiceTest {
             )
         )
 
-        val stock2Quotes = listOf(
+        val stock2Quotes = mutableListOf(
             StockQuote(
                 date = date1,
                 closePrice = 120.0,
@@ -387,9 +387,9 @@ class EtfStatsServiceTest {
             // Missing date2
         )
 
-        val stocks = listOf(
-            Stock("AAPL", "Technology", stock1Quotes, emptyList()),
-            Stock("MSFT", "Technology", stock2Quotes, emptyList())
+        val stocks = mutableListOf(
+            Stock("AAPL", "Technology", stock1Quotes.toMutableList(), mutableListOf()),
+            Stock("MSFT", "Technology", stock2Quotes.toMutableList(), mutableListOf())
         )
 
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
@@ -407,7 +407,7 @@ class EtfStatsServiceTest {
         // Should have a warning about missing stocks (QQQ has 102 stocks, we only provided 2)
         assertNotNull(result.warning, "Warning should not be null")
         assertTrue(result.warning!!.contains("Missing data for"), "Warning should contain 'Missing data for' but was: ${result.warning}")
-        assertTrue(result.warning!!.contains("Please refresh"), "Warning should contain 'Please refresh' but was: ${result.warning}")
+        assertTrue(result.warning.contains("Please refresh"), "Warning should contain 'Please refresh' but was: ${result.warning}")
 
         // Should show expected vs actual stock counts (QQQ has 102 stocks but we only mocked 2)
         assertEquals(2, result.actualStockCount)
@@ -443,8 +443,8 @@ class EtfStatsServiceTest {
             closePriceEMA50 = 85.0,
             openPrice = 99.0
         )
-        val stock = Stock("AAPL", "Technology", listOf(quote), emptyList())
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
@@ -466,8 +466,8 @@ class EtfStatsServiceTest {
             closePriceEMA50 = 95.0,
             openPrice = 108.0
         )
-        val stock = Stock("AAPL", "Technology", listOf(quote), emptyList())
-        doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
+        val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+        doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
         // When
         val result = etfStatsService.getEtfStats(EtfSymbol.QQQ, date, date)
@@ -523,12 +523,12 @@ class EtfStatsServiceTest {
             openPrice = 104.0
         )
 
-        val stocks = listOf(
-            Stock("AAPL", "Technology", listOf(uptrendQuote1), emptyList()),
-            Stock("MSFT", "Technology", listOf(uptrendQuote2), emptyList()),
-            Stock("META", "Technology", listOf(downtrendQuote), emptyList()),
-            Stock("GOOGL", "Technology", listOf(neutralQuote1), emptyList()),
-            Stock("AMZN", "Technology", listOf(neutralQuote2), emptyList())
+        val stocks = mutableListOf(
+            Stock("AAPL", "Technology", mutableListOf(uptrendQuote1).toMutableList(), mutableListOf()),
+            Stock("MSFT", "Technology", mutableListOf(uptrendQuote2).toMutableList(), mutableListOf()),
+            Stock("META", "Technology", mutableListOf(downtrendQuote).toMutableList(), mutableListOf()),
+            Stock("GOOGL", "Technology", mutableListOf(neutralQuote1).toMutableList(), mutableListOf()),
+            Stock("AMZN", "Technology", mutableListOf(neutralQuote2).toMutableList(), mutableListOf())
         )
 
         doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())

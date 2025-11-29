@@ -3,8 +3,7 @@ package com.skrymer.udgaard.model
 import com.skrymer.udgaard.isBetween
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
-import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.mapping.Document
+import jakarta.persistence.*
 import java.time.LocalDate
 import java.time.Period
 import java.time.temporal.ChronoUnit
@@ -13,18 +12,28 @@ import java.util.*
 /**
  * Represents a stock with a list of quotes.
  */
-@Document(collection = "stocks")
+@Entity
+@Table(name = "stocks")
 class Stock {
   @Id
+  @Column(length = 20)
   var symbol: String? = null
+
+  @Column(name = "sector_symbol", length = 50)
   var sectorSymbol: String? = null
-  var quotes: List<StockQuote> = emptyList()
-  var orderBlocks: List<OrderBlock> = emptyList()
+
+  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+  var quotes: MutableList<StockQuote> = mutableListOf()
+
+  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+  var orderBlocks: MutableList<OrderBlock> = mutableListOf()
+
+  @Column(name = "ovtlyr_performance")
   var ovtlyrPerformance: Double? = 0.0
 
   constructor()
 
-  constructor(symbol: String?, sectorSymbol: String?, quotes: List<StockQuote>, orderBlocks: List<OrderBlock>, ovtlyrPerformance: Double? = 0.0) {
+  constructor(symbol: String?, sectorSymbol: String?, quotes: MutableList<StockQuote>, orderBlocks: MutableList<OrderBlock>, ovtlyrPerformance: Double? = 0.0) {
     this.symbol = symbol
     this.sectorSymbol = sectorSymbol
     this.quotes = quotes

@@ -18,4 +18,15 @@ interface TradingCondition {
      * Returns a human-readable description of the condition.
      */
     fun description(): String
+
+    /**
+     * Get metadata for this condition.
+     * Used by UI to display strategy information.
+     */
+    fun getMetadata(): ConditionMetadata {
+        return ConditionMetadata(
+            type = this::class.simpleName ?: "unknown",
+            description = description()
+        )
+    }
 }

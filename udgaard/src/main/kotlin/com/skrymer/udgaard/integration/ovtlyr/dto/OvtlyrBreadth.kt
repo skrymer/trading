@@ -18,7 +18,7 @@ class OvtlyrBreadth {
         val breadthQuotes = quotes
             .mapNotNull { it.toModel(this, stockInSector) }
 
-        return Breadth(getBreadthSymbol(), breadthQuotes)
+        return Breadth(getBreadthSymbol(), breadthQuotes.toMutableList())
     }
 
     override fun toString() =

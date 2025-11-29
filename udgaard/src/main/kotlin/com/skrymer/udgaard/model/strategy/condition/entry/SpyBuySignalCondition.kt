@@ -13,4 +13,9 @@ class SpyBuySignalCondition : TradingCondition {
     }
 
     override fun description(): String = "SPY has buy signal"
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "spyBuySignal",
+        description = description()
+    )
 }

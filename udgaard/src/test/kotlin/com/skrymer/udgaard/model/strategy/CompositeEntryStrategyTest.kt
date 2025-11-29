@@ -29,7 +29,11 @@ class CompositeEntryStrategyTest {
             date = LocalDate.of(2024, 1, 15),
             trend = "Uptrend",
             lastBuySignal = LocalDate.of(2024, 1, 10),
-            heatmap = 65.0
+            heatmap = 65.0,
+            closePrice = 100.0,
+            closePriceEMA10 = 95.0,
+            closePriceEMA20 = 90.0,
+            closePriceEMA50 = 85.0  // closePrice > EMA50 and EMA10 > EMA20 = uptrend
         )
 
         assertTrue(strategy.test(stock, quote),
@@ -50,7 +54,11 @@ class CompositeEntryStrategyTest {
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15),
             trend = "Uptrend",
-            heatmap = 65.0
+            heatmap = 65.0,
+            closePrice = 100.0,
+            closePriceEMA10 = 95.0,
+            closePriceEMA20 = 90.0,
+            closePriceEMA50 = 85.0  // Missing lastBuySignal, so BuySignalCondition fails
         )
 
         assertFalse(strategy.test(stock, quote),
@@ -70,7 +78,11 @@ class CompositeEntryStrategyTest {
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15),
             trend = "Downtrend",
-            lastBuySignal = LocalDate.of(2024, 1, 10)
+            lastBuySignal = LocalDate.of(2024, 1, 10),
+            closePrice = 100.0,
+            closePriceEMA10 = 90.0,
+            closePriceEMA20 = 95.0,  // EMA10 < EMA20, so NOT in uptrend
+            closePriceEMA50 = 85.0   // But has buy signal, so OR passes
         )
 
         assertTrue(strategy.test(stock, quote),
@@ -89,7 +101,11 @@ class CompositeEntryStrategyTest {
 
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15),
-            trend = "Downtrend"
+            trend = "Downtrend",
+            closePrice = 100.0,
+            closePriceEMA10 = 90.0,
+            closePriceEMA20 = 95.0,  // EMA10 < EMA20, so NOT in uptrend
+            closePriceEMA50 = 85.0   // No buy signal either, so OR fails
         )
 
         assertFalse(strategy.test(stock, quote),
@@ -105,7 +121,11 @@ class CompositeEntryStrategyTest {
 
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15),
-            trend = "Uptrend"
+            trend = "Uptrend",
+            closePrice = 100.0,
+            closePriceEMA10 = 95.0,
+            closePriceEMA20 = 90.0,
+            closePriceEMA50 = 85.0  // In uptrend, but NOT negates it to false
         )
 
         assertFalse(strategy.test(stock, quote),
@@ -139,7 +159,11 @@ class CompositeEntryStrategyTest {
             date = LocalDate.of(2024, 1, 15),
             trend = "Uptrend",
             lastBuySignal = LocalDate.of(2024, 1, 10),
-            heatmap = 65.0
+            heatmap = 65.0,
+            closePrice = 100.0,
+            closePriceEMA10 = 95.0,
+            closePriceEMA20 = 90.0,
+            closePriceEMA50 = 85.0  // All conditions met: uptrend, buy signal, heatmap < 70
         )
 
         assertTrue(strategy.test(stock, quote),

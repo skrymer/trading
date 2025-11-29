@@ -42,4 +42,9 @@ class OrderBlockExit(
         }
         return "Within order block$sourceText (age > ${orderBlockAgeInDays}d)"
     }
+
+    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+        type = "orderBlock",
+        description = description()
+    )
 }
