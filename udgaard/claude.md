@@ -573,6 +573,29 @@ Both implementations ensure the exact same behavior.
 - Test cooldown logic with sequential dates
 - Mock external API calls in unit tests
 
+### Backend Development Checklist
+
+When developing new backend functionality, follow this checklist:
+
+1. **All functionality has tests** - Every new feature, service method, strategy, or endpoint must have corresponding unit tests
+2. **Verify all tests pass after implementation** - Run `./gradlew test` after implementing a new feature. If "unrelated" tests fail, investigate and fix them - they may be revealing issues with your changes
+3. **Tests should follow Given-When-Then structure** - Structure your tests clearly:
+   ```kotlin
+   @Test
+   fun `test name describing expected behavior`() {
+       // Given (Arrange) - Set up test data and preconditions
+       val stock = Stock(symbol = "AAPL")
+       val quote = StockQuote(closePrice = 100.0)
+
+       // When (Act) - Execute the functionality being tested
+       val result = strategy.test(stock, quote)
+
+       // Then (Assert) - Verify the expected outcome
+       assertTrue(result)
+   }
+   ```
+4. **Commit and push after tests pass** - Once all tests pass (including unrelated ones), commit your changes with a descriptive message and push to the repository
+
 ## Useful Links
 
 - [Kotlin Documentation](https://kotlinlang.org/docs/home.html)
