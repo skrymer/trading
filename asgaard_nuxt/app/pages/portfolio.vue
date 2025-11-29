@@ -1116,6 +1116,7 @@ const openTradesTableData = computed(() => {
     v-model:open="isOpenTradeModalOpen"
     :currency="portfolio.currency"
     :current-balance="portfolio.currentBalance"
+    :portfolio-created-date="portfolio.createdDate"
     :loading="isOpeningTrade"
     @open-trade="openTrade"
   />
