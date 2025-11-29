@@ -24,21 +24,21 @@ data class EtfQuote(
     val etf: EtfEntity? = null,
 
     @Column(name = "quote_date", nullable = false)
-    val date: LocalDate,
+    val date: LocalDate = LocalDate.now(),
 
     @Column(name = "open_price")
-    val openPrice: Double,
+    val openPrice: Double = 0.0,
 
     @Column(name = "close_price")
-    val closePrice: Double,
+    val closePrice: Double = 0.0,
 
     @Column(name = "high_price")
-    val high: Double,
+    val high: Double = 0.0,
 
     @Column(name = "low_price")
-    val low: Double,
+    val low: Double = 0.0,
 
-    val volume: Long,
+    val volume: Long = 0,
 
     // Technical indicators (same as StockQuote)
     @Column(name = "close_price_ema5")

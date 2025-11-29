@@ -24,10 +24,10 @@ data class PortfolioTrade(
     val id: Long? = null,
 
     @Column(name = "portfolio_id", nullable = false)
-    val portfolioId: Long,
+    val portfolioId: Long = 0,
 
     @Column(length = 20, nullable = false)
-    val symbol: String,
+    val symbol: String = "",
 
     // Instrument type
     @Enumerated(EnumType.STRING)
@@ -64,10 +64,10 @@ data class PortfolioTrade(
 
     // Common fields
     @Column(name = "entry_price", nullable = false)
-    val entryPrice: Double,
+    val entryPrice: Double = 0.0,
 
     @Column(name = "entry_date", nullable = false)
-    val entryDate: LocalDate,
+    val entryDate: LocalDate = LocalDate.now(),
 
     @Column(name = "exit_price")
     val exitPrice: Double? = null,
@@ -76,16 +76,16 @@ data class PortfolioTrade(
     val exitDate: LocalDate? = null,
 
     @Column(nullable = false)
-    val quantity: Int,
+    val quantity: Int = 0,
 
     @Column(name = "entry_strategy", length = 100)
-    val entryStrategy: String,
+    val entryStrategy: String = "",
 
     @Column(name = "exit_strategy", length = 100)
-    val exitStrategy: String,
+    val exitStrategy: String = "",
 
     @Column(length = 10)
-    val currency: String,
+    val currency: String = "USD",
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10)

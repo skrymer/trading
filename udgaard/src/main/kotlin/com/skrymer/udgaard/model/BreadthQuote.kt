@@ -134,6 +134,8 @@ class BreadthQuote {
     @Column(name = "donkey_channel_score")
     var donkeyChannelScore: Int = 0
 
+    constructor()
+
     constructor(
         symbol: String?,
         quoteDate: LocalDate?,

@@ -22,16 +22,16 @@ data class Portfolio(
     val userId: String? = null, // For future multi-user support
 
     @Column(length = 200)
-    val name: String,
+    val name: String = "",
 
     @Column(name = "initial_balance")
-    val initialBalance: Double,
+    val initialBalance: Double = 0.0,
 
     @Column(name = "current_balance")
-    var currentBalance: Double,
+    var currentBalance: Double = 0.0,
 
     @Column(length = 10)
-    val currency: String, // e.g., "USD", "EUR", "GBP"
+    val currency: String = "USD", // e.g., "USD", "EUR", "GBP"
 
     @Column(name = "created_date")
     val createdDate: LocalDateTime = LocalDateTime.now(),

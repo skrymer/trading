@@ -24,9 +24,9 @@ data class EtfHolding(
     val etf: EtfEntity? = null,
 
     @Column(name = "stock_symbol", length = 20)
-    val stockSymbol: String,                       // "AAPL", "MSFT", etc.
+    val stockSymbol: String = "",                  // "AAPL", "MSFT", etc.
 
-    val weight: Double,                            // Percentage weight (0.0-100.0)
+    val weight: Double = 0.0,                      // Percentage weight (0.0-100.0)
 
     val shares: Long? = null,                      // Optional: number of shares held
 
@@ -34,7 +34,7 @@ data class EtfHolding(
     val marketValue: Double? = null,               // Optional: dollar value of holding
 
     @Column(name = "as_of_date")
-    val asOfDate: LocalDate,                       // When this holding data was captured
+    val asOfDate: LocalDate = LocalDate.now(),     // When this holding data was captured
 
     // Computed/cached trend data for this holding
     @Column(name = "in_uptrend")

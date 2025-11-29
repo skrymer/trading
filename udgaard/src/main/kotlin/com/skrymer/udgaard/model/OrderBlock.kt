@@ -42,14 +42,14 @@ data class OrderBlock(
   val high: Double = 0.0,
 
   @Column(name = "start_date", nullable = false)
-  val startDate: LocalDate,
+  val startDate: LocalDate = LocalDate.now(),
 
   @Column(name = "end_date")
   val endDate: LocalDate? = null,
 
   @Enumerated(EnumType.STRING)
   @Column(name = "type", length = 20)
-  val orderBlockType: OrderBlockType,
+  val orderBlockType: OrderBlockType = OrderBlockType.BEARISH,
 
   @Enumerated(EnumType.STRING)
   @Column(length = 20)
