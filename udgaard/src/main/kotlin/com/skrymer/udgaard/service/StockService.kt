@@ -13,9 +13,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import kotlin.math.log
 
 
 @Service
@@ -28,9 +26,9 @@ open class StockService(
   val stockFactory: StockFactory
 ) {
 
-    companion object {
-        private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
-    }
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
+  }
 
   /**
    * Loads the stock from DB if exists, else load it from Ovtlyr and save it.
@@ -41,55 +39,21 @@ open class StockService(
   @CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
   open fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
     logger.info("Getting stock $symbol with forceFetch=$forceFetch")
-    if(forceFetch){
-      val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
-      checkNotNull(spy)
-      return fetchStock(symbol, spy)
-    }
 
-    return stockRepository.findById(symbol).orElseGet {
-      val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
-      checkNotNull(spy)
-      fetchStock(symbol, spy)
-    }
-  }
-
-  /**
-   * Loads the stocks by symbol from DB if exists, else load it from Ovtlyr and save it.
-   *
-   * @param symbols - the stocks to load
-   * @param forceFetch - force fetching stocks from ovtlyr api
-   */
-  @OptIn(ExperimentalCoroutinesApi::class)
-  suspend fun getStocks(symbols: List<String>, forceFetch: Boolean = false): List<Stock> = supervisorScope {
-    val logger = LoggerFactory.getLogger("StockFetcher")
-    val limited = Dispatchers.IO.limitedParallelism(10)
-
-    val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
-    checkNotNull(spy)
-
-    symbols.map { symbol ->
-      async(limited) {
-        runCatching {
-          if (forceFetch) {
-            fetchStock(symbol, spy)
-          } else {
-            stockRepository.findById(symbol).orElseGet { fetchStock(symbol, spy) }
-          }
-        }.onFailure { e ->
-          logger.warn("Failed to fetch symbol={}: {}", symbol, e.message, e)
-        }.getOrNull()
+    return if (forceFetch) {
+      fetchStock(symbol, getSpy())
+    } else {
+      stockRepository.findById(symbol).orElseGet {
+        fetchStock(symbol, getSpy())
       }
     }
-    .awaitAll()
-    .filterNotNull()
   }
 
   /**
    * @return all stocks currently stored in DB
    */
   @Cacheable(value = ["stocks"], key = "'allStocks'")
-  open fun getAllStocks(): List<Stock>{
+  open fun getAllStocks(): List<Stock> {
     return stockRepository.findAll()
   }
 
@@ -101,37 +65,35 @@ open class StockService(
    * @param forceFetch - force fetching stocks from ovtlyr api (bypasses cache)
    * @return list of stocks matching the provided symbols (only those that exist in DB)
    */
-  @Cacheable(value = ["stocks"], key = "'bySymbols:' + #symbols.toString()", unless = "#forceFetch")
+  @Cacheable(
+    value = ["stocks"],
+    key = "'bySymbols:' + #symbols.toString()",
+    unless = "#forceFetch or #result.isEmpty()"
+  )
   @OptIn(ExperimentalCoroutinesApi::class)
   open fun getStocksBySymbols(symbols: List<String>, forceFetch: Boolean = false): List<Stock> = runBlocking {
     // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
     val sortedSymbols = symbols.sorted()
-
     val logger = LoggerFactory.getLogger("StockFetcher")
     val limited = Dispatchers.IO.limitedParallelism(10)
 
     if (forceFetch) {
       // Force fetch all symbols from API
-      val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
-      checkNotNull(spy) { "Failed to fetch SPY reference data" }
-
       return@runBlocking sortedSymbols.map { symbol ->
         async(limited) {
           runCatching {
-            fetchStock(symbol, spy)
+            fetchStock(symbol, getSpy())
           }.onFailure { e ->
             logger.warn("Failed to force fetch symbol={}: {}", symbol, e.message, e)
           }.getOrNull()
         }
       }
-      .awaitAll()
-      .filterNotNull()
+        .awaitAll()
+        .filterNotNull()
     }
 
-    // Get existing stocks from repository
-    val existingStocks = stockRepository.findBySymbolIn(sortedSymbols)
-
-    return@runBlocking existingStocks
+    // Get existing stocks from repository with quotes (single query for all symbols)
+    return@runBlocking stockRepository.findAllBySymbolIn(sortedSymbols)
   }
 
   /**
@@ -149,11 +111,11 @@ open class StockService(
     val stockInformation = ovtlyrClient.getStockInformation(symbol) ?: return null
 
     return runCatching {
-      // Step 2: Fetch breadth data for context
-      val marketBreadth = breadthRepository.findBySymbolValue(BreadthSymbol.Market().toIdentifier())
+      // Step 2: Fetch breadth data for context (eagerly load quotes to avoid LazyInitializationException)
+      val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
       val sectorSymbol = SectorSymbol.fromString(stockInformation.sectorSymbol)
       val sectorBreadth = sectorSymbol?.let {
-        breadthRepository.findBySymbolValue(BreadthSymbol.Sector(it).toIdentifier())
+        breadthRepository.findBySymbol(BreadthSymbol.Sector(it).toIdentifier())
       }
 
       // Step 3: Enrich with AlphaVantage volume data
@@ -201,6 +163,15 @@ open class StockService(
 
       // Step 7: Save and return
       stockRepository.save(enrichedStock)
-    }.getOrNull()
+    }
+      .onFailure { action -> Companion.logger.error("Could not fetch stock", action) }
+      .getOrNull()
   }
+
+  private fun getSpy(): OvtlyrStockInformation {
+    val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
+    checkNotNull(spy) { "Failed to fetch SPY reference data" }
+    return spy
+  }
+
 }

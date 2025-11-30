@@ -8,8 +8,6 @@ import org.springframework.data.jpa.repository.Query
  * JPA repository for breadth data (market and sector breadth).
  */
 interface BreadthRepository : JpaRepository<Breadth, Long> {
-    fun findBySymbolValue(symbolValue: String): Breadth?
-
     @Query("SELECT b FROM Breadth b LEFT JOIN FETCH b.quotes WHERE b.symbolValue = :symbolValue")
-    fun findBySymbolValueWithQuotes(symbolValue: String): Breadth?
+    fun findBySymbol(symbolValue: String): Breadth?
 }

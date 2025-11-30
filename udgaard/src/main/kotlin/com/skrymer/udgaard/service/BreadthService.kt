@@ -4,7 +4,6 @@ import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.model.Breadth
 import com.skrymer.udgaard.model.BreadthSymbol
-import com.skrymer.udgaard.model.MarketSymbol
 import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.repository.BreadthRepository
@@ -56,7 +55,7 @@ class BreadthService(
         return if (refresh) {
             fetchBreadth(symbol)
         } else {
-            breadthRepository.findBySymbolValue(symbol.toIdentifier())
+            breadthRepository.findBySymbol(symbol.toIdentifier())
                 ?: fetchBreadth(symbol)
         }
     }

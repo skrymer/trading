@@ -13,7 +13,10 @@ import java.time.LocalDate
  * while weak breadth suggests fewer stocks are driving the movement.
  */
 @Entity
-@Table(name = "breadth")
+@Table(
+    name = "breadth",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["symbol_value"])]
+)
 class Breadth {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,7 +25,7 @@ class Breadth {
     @Column(name = "symbol_type", length = 20)
     var symbolType: String? = null // "MARKET" or "SECTOR"
 
-    @Column(name = "symbol_value", length = 50)
+    @Column(name = "symbol_value", length = 50, unique = true)
     var symbolValue: String? = null // e.g., "FULLSTOCK" for market or sector name
 
     @OneToMany(mappedBy = "breadth", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)

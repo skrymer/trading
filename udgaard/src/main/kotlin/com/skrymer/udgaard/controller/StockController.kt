@@ -5,7 +5,6 @@ import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.StockService
 import com.skrymer.udgaard.service.StrategySignalService
-import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
@@ -126,9 +125,7 @@ class StockController(
         @RequestBody symbols: List<String>
     ): ResponseEntity<Map<String, String>> {
         logger.info("Refreshing ${symbols.size} stocks: ${symbols.joinToString(", ")}")
-        runBlocking {
-            stockService.getStocks(symbols.map { it.uppercase() }, forceFetch = true)
-        }
+        stockService.getStocksBySymbols(symbols.map { it.uppercase() }, forceFetch = true)
         logger.info("Stocks refreshed successfully")
         return ResponseEntity.ok(
             mapOf("status" to "success", "message" to "${symbols.size} stocks refreshed successfully")

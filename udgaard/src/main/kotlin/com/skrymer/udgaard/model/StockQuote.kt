@@ -22,13 +22,14 @@ class StockQuote {
 
   @JsonIgnore
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "stock_symbol", referencedColumnName = "symbol")
+  @JoinColumn(name = "stock_symbol", referencedColumnName = "symbol", insertable = false, updatable = false)
   var stock: Stock? = null
 
   /**
    * The stock symbol (denormalized for easier querying)
+   * This field manages the stock_symbol column value
    */
-  @Column(name = "stock_symbol", insertable = false, updatable = false)
+  @Column(name = "stock_symbol")
   var symbol: String = ""
 
   /**
