@@ -38,11 +38,11 @@ jobs:
           cache: 'gradle'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install frontend dependencies
         working-directory: asgaard_nuxt
-        run: npm ci
+        run: npm install
 
       - name: Make gradlew executable (Linux/Mac)
         if: matrix.platform != 'win'

@@ -69,7 +69,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: asgaard_nuxt
-        run: npm ci
+        run: npm install
 
       - name: Run TypeScript type checking
         working-directory: asgaard_nuxt
@@ -106,11 +106,11 @@ jobs:
           cache: 'gradle'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install frontend dependencies
         working-directory: asgaard_nuxt
-        run: npm ci
+        run: npm install
 
       - name: Make gradlew executable
         working-directory: udgaard
