@@ -13,6 +13,9 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Dynamic strategy system with DSL-based strategy creation
 - Multiple entry/exit strategy combinations
 - Market and sector breadth analysis
+- **Portfolio management** with live trade tracking (stocks and options)
+- **ETF analysis** with holdings and performance metrics
+- **Monte Carlo simulations** for strategy validation
 - MCP (Model Context Protocol) server for Claude AI integration
 - Real-time backtesting with comprehensive performance metrics
 - Desktop application packaging via Electron
@@ -79,11 +82,12 @@ The desktop app uses a three-process architecture:
 ### Backend: Udgaard (Kotlin/Spring Boot)
 
 **Tech Stack:**
-- Kotlin 1.9.25
+- Kotlin 2.1.21
 - Spring Boot 3.5.0
-- MongoDB for data storage
+- H2 Database (file-based) with JPA/Hibernate for data storage
 - Gradle build system
 - Spring AI MCP Server for Claude integration
+- AlphaVantage API for stock data and ATR calculations
 
 **Key Components:**
 1. **Strategy System** (`src/main/kotlin/com/skrymer/udgaard/model/strategy/`)
@@ -96,24 +100,65 @@ The desktop app uses a three-process architecture:
 
 2. **Services** (`src/main/kotlin/com/skrymer/udgaard/service/`)
    - `StockService.kt`: Stock data management and backtesting logic
-   - `MarketBreadthService.kt`: Market breadth calculations (SPY, QQQ, IWM)
+   - `BreadthService.kt`: Market breadth calculations (SPY, QQQ, IWM)
+   - `EtfService.kt`: ETF data management and holdings analysis
+   - `PortfolioService.kt`: Portfolio and trade management with statistics
    - `StrategyRegistry.kt`: Dynamic strategy registration and discovery
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from configurations
 
 3. **MCP Server** (`src/main/kotlin/com/skrymer/udgaard/mcp/`)
    - `StockMcpTools.kt`: MCP tools for Claude AI integration
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
-   - Enables Claude to perform custom backtesting and analysis
+   - Enables Claude to perform custom backtesting and strategy analysis
 
-4. **Integration** (`src/main/kotlin/com/skrymer/udgaard/integration/ovtlyr/`)
-   - Integration with Ovtlyr stock data provider
-   - DTOs for stock quotes and information
+4. **Integration** (`src/main/kotlin/com/skrymer/udgaard/integration/`)
+   - **Ovtlyr** (`ovtlyr/`): Stock data provider for quotes, breadth, and performance
+   - **AlphaVantage** (`alphavantage/`): Stock data, ATR calculations, ETF profiles, time series
 
 **API Endpoints:**
+
+**Backtesting:**
 - `POST /api/backtest` - Run backtest with strategy parameters
 - `GET /api/strategies/available` - Get list of available strategies
+
+**Stocks:**
+- `GET /api/stocks` - Get all stocks
+- `GET /api/stocks/{symbol}` - Get specific stock with quotes
+- `POST /api/stocks/refresh` - Refresh stock data from data providers
 - `GET /api/stock-symbols` - Get all available stock symbols
-- `GET /api/market-breadth/{symbol}` - Get market breadth for SPY/QQQ/IWM
+
+**Portfolio Management:**
+- `GET /api/portfolio` - Get all portfolios
+- `POST /api/portfolio` - Create new portfolio
+- `GET /api/portfolio/{id}` - Get specific portfolio
+- `DELETE /api/portfolio/{id}` - Delete portfolio
+- `GET /api/portfolio/{id}/stats` - Get portfolio statistics
+- `GET /api/portfolio/{id}/trades` - Get portfolio trades (filter by status)
+- `POST /api/portfolio/{id}/trades` - Open new trade
+- `PUT /api/portfolio/{id}/trades/{tradeId}` - Update trade
+- `DELETE /api/portfolio/{id}/trades/{tradeId}` - Delete trade
+- `PUT /api/portfolio/{id}/trades/{tradeId}/close` - Close trade
+- `GET /api/portfolio/{id}/equity-curve` - Get equity curve data
+
+**Market Breadth:**
+- `GET /api/breadth` - Get all breadth symbols
+- `GET /api/breadth/{symbol}` - Get market breadth for specific symbol (SPY/QQQ/IWM)
+- `POST /api/breadth/refresh` - Refresh breadth data
+
+**ETF:**
+- `GET /api/etf` - Get all ETFs
+- `GET /api/etf/{symbol}` - Get specific ETF with quotes and holdings
+- `POST /api/etf/refresh` - Refresh ETF data
+
+**Monte Carlo Simulations:**
+- `POST /api/monte-carlo/run` - Run Monte Carlo simulation
+
+**Cache Management:**
+- `POST /api/cache/evict` - Evict specific cache
+- `POST /api/cache/evict-all` - Evict all caches
+
+**Data Management:**
+- `POST /api/data/import` - Import stock data from CSV/file
 
 ### Frontend: Asgaard (Nuxt.js)
 
@@ -139,12 +184,26 @@ The desktop app uses a three-process architecture:
    - `TradeChart.client.vue`: Interactive trade charts (client-side only)
    - `TradeDetailsModal.vue`: Detailed trade information
 
-2. **Strategy Components** (`app/components/strategy/`)
+2. **Portfolio Components** (`app/components/portfolio/`)
+   - `CreateModal.vue`: Create new portfolio
+   - `OpenTradeModal.vue`: Open new trade with validation
+   - `EditTradeModal.vue`: Edit existing trade
+   - `CloseTradeModal.vue`: Close open trade
+   - `DeleteTradeModal.vue`: Delete trade confirmation
+   - `DeleteModal.vue`: Delete portfolio confirmation
+   - `EquityCurve.vue`: Portfolio equity curve chart
+   - `OpenTradeChart.vue`: Individual trade performance chart
+
+3. **Strategy Components** (`app/components/strategy/`)
    - Strategy builder and configuration components
 
-3. **Pages** (`app/pages/`)
+4. **Pages** (`app/pages/`)
    - `index.vue`: Dashboard/home page
    - `backtesting.vue`: Main backtesting interface
+   - `portfolio.vue`: Portfolio management and live trade tracking
+   - `market-breadth.vue`: Market breadth analysis and charts
+   - `stock-data.vue`: Stock data viewer and management
+   - `etf-stats.vue`: ETF statistics and holdings analysis
    - `test-chart.vue`: Chart testing page
 
 **Type Definitions:**
@@ -161,6 +220,67 @@ The desktop app uses a three-process architecture:
 ---
 
 ## Recent Work & Changes
+
+### Database Migration: MongoDB → H2 (Nov 2024)
+- **Migrated from MongoDB to H2** file-based database with JPA/Hibernate
+- **Removed Docker dependency** - database now auto-created at `~/.trading-app/database/trading`
+- **Added JPA entities** with proper relationships and indexing
+- **H2 Console** available for database inspection and queries
+- **Performance improvements** with query optimization and indexing
+- **Note**: `compose.yaml` for MongoDB is now deprecated
+
+### Portfolio Management System (Nov 2024)
+- **Complete portfolio tracking** with live trade management
+- **Multi-portfolio support** with independent balances and statistics
+- **Options trading support**:
+  - Strike price, expiration date, option type (CALL/PUT)
+  - Contracts, multiplier, intrinsic/extrinsic value tracking
+  - Underlying symbol for signal-based trading
+- **Stock and ETF position tracking**:
+  - Entry/exit prices and dates
+  - Quantity and position value
+  - P/L and P/L percentage
+- **Real-time statistics**:
+  - Win/loss counts and rates
+  - Average win/loss percentages
+  - Proven edge calculation
+  - Total profit and YTD returns
+  - Projected metrics with open trades
+- **Equity curve visualization** with cumulative performance
+- **Trade management**:
+  - Open, edit, close, and delete trades
+  - Associate entry/exit strategies with each trade
+  - Exit reason tracking
+- **Frontend components**: Portfolio page with modals for all trade operations
+
+### ETF Analysis & Holdings (Nov 2024)
+- **ETF entity model** with quotes and holdings
+- **ETF holdings tracking** with weights and sectors
+- **AlphaVantage integration** for ETF profile data
+- **Frontend ETF stats page** with holdings visualization
+- **ETF service** for data management and refresh
+
+### AlphaVantage Integration (Nov 2024)
+- **AlphaVantage API client** for stock data
+- **ATR calculations** from AlphaVantage (replaces manual calculations)
+- **Time series data** (daily, intraday)
+- **ETF profile data** with holdings information
+- **Rate limit handling** for free tier (5/min, 500/day)
+- **Error handling** with proper DTOs
+
+### Market Breadth System Refactor (Nov 2024)
+- **Renamed service**: `MarketBreadthService` → `BreadthService`
+- **New entities**: `Breadth`, `BreadthQuote`, `BreadthSymbol`
+- **JPA repository layer** for breadth data
+- **BreadthController** with dedicated endpoints
+- **Frontend breadth page** with charts and analysis
+- **Refresh functionality** for updating breadth data
+
+### Monte Carlo Simulations (Nov 2024)
+- **Monte Carlo controller** for strategy validation
+- **Statistical analysis** of strategy performance
+- **Simulation parameters**: iterations, confidence intervals
+- **Risk assessment** and edge verification
 
 ### Dynamic Strategy System Implementation
 - **Removed hardcoded strategy lists** from controller
@@ -249,16 +369,31 @@ trading/
 ├── udgaard/                          # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── controller/               # REST controllers
-│   │   │   ├── UdgaardController.kt  # Main API controller
+│   │   │   ├── BacktestController.kt # Backtesting API
+│   │   │   ├── StockController.kt    # Stock data API
+│   │   │   ├── PortfolioController.kt # Portfolio management API
+│   │   │   ├── BreadthController.kt  # Market breadth API
+│   │   │   ├── EtfController.kt      # ETF data API
+│   │   │   ├── MonteCarloController.kt # Monte Carlo simulations
+│   │   │   ├── CacheController.kt    # Cache management
+│   │   │   ├── DataController.kt     # Data import/export
 │   │   │   └── dto/                  # Request/response DTOs
 │   │   ├── integration/              # External integrations
-│   │   │   └── ovtlyr/              # Ovtlyr stock data provider
+│   │   │   ├── ovtlyr/              # Ovtlyr stock data provider
+│   │   │   └── alphavantage/        # AlphaVantage API client
 │   │   ├── mcp/                      # MCP server tools
 │   │   │   └── StockMcpTools.kt     # Claude AI integration tools
 │   │   ├── model/                    # Domain models
 │   │   │   ├── BacktestReport.kt    # Backtest results
-│   │   │   ├── Stock.kt             # Stock entity
-│   │   │   ├── StockQuote.kt        # Price quote with indicators
+│   │   │   ├── Stock.kt             # Stock entity (JPA)
+│   │   │   ├── StockQuote.kt        # Price quote with indicators (JPA)
+│   │   │   ├── Portfolio.kt         # Portfolio entity (JPA)
+│   │   │   ├── PortfolioTrade.kt    # Trade entity (JPA)
+│   │   │   ├── Breadth.kt           # Market breadth entity (JPA)
+│   │   │   ├── BreadthQuote.kt      # Breadth quote entity (JPA)
+│   │   │   ├── EtfEntity.kt         # ETF entity (JPA)
+│   │   │   ├── EtfQuote.kt          # ETF quote entity (JPA)
+│   │   │   ├── EtfHolding.kt        # ETF holdings entity (JPA)
 │   │   │   └── strategy/            # Trading strategies
 │   │   │       ├── CompositeEntryStrategy.kt
 │   │   │       ├── CompositeExitStrategy.kt
@@ -274,22 +409,28 @@ trading/
 │   │   │       └── condition/             # Strategy conditions
 │   │   ├── service/                  # Business logic
 │   │   │   ├── DynamicStrategyBuilder.kt
-│   │   │   ├── MarketBreadthService.kt
+│   │   │   ├── BreadthService.kt    # Market breadth service
 │   │   │   ├── StockService.kt
-│   │   │   └── StrategyRegistry.kt       # Strategy management
+│   │   │   ├── PortfolioService.kt  # Portfolio management
+│   │   │   ├── EtfService.kt        # ETF data service
+│   │   │   └── StrategyRegistry.kt  # Strategy management
+│   │   ├── repository/               # JPA repositories
+│   │   ├── config/                   # Configuration
+│   │   │   └── CacheConfig.kt       # Caffeine cache config
 │   │   └── UdgaardApplication.kt    # Main application
 │   ├── src/main/resources/
-│   │   ├── application.properties    # Config (MongoDB, etc.)
+│   │   ├── application.properties    # Config (H2, API keys, etc.)
 │   │   └── secure.properties        # Ovtlyr credentials (not in git)
 │   ├── src/test/kotlin/             # Unit tests
 │   ├── build.gradle                 # Gradle build config
-│   ├── compose.yaml                 # Docker compose for MongoDB
+│   ├── compose.yaml                 # Docker compose (deprecated - used MongoDB)
 │   └── *.md                         # Documentation files
 │
 ├── asgaard_nuxt/                    # Frontend (Nuxt.js)
 │   ├── app/
 │   │   ├── components/              # Vue components
 │   │   │   ├── backtesting/         # Backtesting UI components
+│   │   │   ├── portfolio/           # Portfolio management components
 │   │   │   ├── charts/              # Chart components
 │   │   │   └── strategy/            # Strategy builder components
 │   │   ├── layouts/
@@ -297,6 +438,10 @@ trading/
 │   │   ├── pages/                   # File-based routing
 │   │   │   ├── index.vue            # Dashboard
 │   │   │   ├── backtesting.vue      # Backtesting page
+│   │   │   ├── portfolio.vue        # Portfolio manager
+│   │   │   ├── market-breadth.vue   # Market breadth analysis
+│   │   │   ├── stock-data.vue       # Stock data viewer
+│   │   │   ├── etf-stats.vue        # ETF statistics
 │   │   │   └── test-chart.vue       # Chart testing
 │   │   ├── plugins/                 # Nuxt plugins
 │   │   ├── types/                   # TypeScript definitions
@@ -322,26 +467,32 @@ trading/
 ### Running the Backend
 
 1. **Prerequisites:**
-   - Docker (for MongoDB)
    - Java 21+
-   - Create `udgaard/src/main/resources/secure.properties` with Ovtlyr credentials:
-     ```
+   - Create `udgaard/src/main/resources/secure.properties` with API credentials:
+     ```properties
      ovtlyr.cookies.token=XXX
      ovtlyr.cookies.userid=XXX
      ```
+   - **Note:** AlphaVantage API key is in `application.properties` (get free key at https://www.alphavantage.co/support/#api-key)
 
-2. **Start MongoDB:**
-   ```bash
-   cd udgaard
-   docker compose up -d
-   ```
+2. **Database:**
+   - **H2 Database** (file-based, no Docker required!)
+   - Automatically created at: `~/.trading-app/database/trading`
+   - Access H2 Console: http://localhost:8080/udgaard/h2-console
+   - JDBC URL: `jdbc:h2:file:~/.trading-app/database/trading`
+   - Username: `sa`, Password: (empty)
 
 3. **Build and Run:**
    ```bash
+   cd udgaard
    ./gradlew build
    java -jar build/libs/udgaard-0.0.1-SNAPSHOT.jar
    ```
    Or simply: `./gradlew bootRun`
+
+4. **Health Check:**
+   - Backend API: http://localhost:8080/udgaard/actuator/health
+   - MCP Server: http://localhost:8080/udgaard/mcp/messages
 
 ### Running the Frontend
 
@@ -421,6 +572,34 @@ npm run typecheck  # TypeScript validation
 npm run lint       # ESLint
 ```
 
+### CI/CD Pipeline
+
+The project uses GitHub Actions for automated testing and releases.
+
+**Continuous Integration (`.github/workflows/ci.yml`):**
+- **Triggers**: Push to main, pull requests
+- **Jobs**:
+  - Backend tests (Gradle test + JAR build)
+  - Frontend tests (typecheck + lint + build)
+  - Integration build (full app verification)
+  - Code quality checks (Kotlin compilation)
+- **Runtime**: ~5-8 minutes
+- **View results**: `https://github.com/YOUR_USERNAME/trading/actions`
+
+**Continuous Deployment (`.github/workflows/release.yml`):**
+- **Triggers**: Version tags (e.g., `v1.0.0`)
+- **Builds**: Windows, macOS, Linux installers
+- **Runtime**: ~10-15 minutes per platform
+- **Release**: Automatic GitHub Release with installers
+
+**Quick Release:**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+See `release/CI_WORKFLOW.md` and `release/DEPLOYMENT.md` for details.
+
 ---
 
 ## Key Concepts
@@ -483,6 +662,60 @@ Backtest results include:
 - Exit reason analysis
 - Daily profit summary
 
+### Portfolio Management
+
+The portfolio system tracks live trades with comprehensive statistics:
+
+**Portfolio Features:**
+- Multiple portfolios with independent balances and currencies
+- Initial balance and current balance tracking
+- Real-time P/L calculation
+- YTD and annualized returns
+- Win rate and proven edge metrics
+
+**Trade Types Supported:**
+- **Stocks**: Standard equity positions with entry/exit prices
+- **Leveraged ETFs**: ETF positions with leverage tracking
+- **Options**:
+  - Strike price and expiration date
+  - Option type (CALL/PUT)
+  - Contracts and multiplier (usually 100)
+  - Intrinsic and extrinsic value tracking
+  - Underlying symbol for signal-based trading
+
+**Trade Lifecycle:**
+1. **Open Trade**: Enter position with price, date, quantity, and strategies
+2. **Edit Trade**: Update position details (entry price, quantity, strategies)
+3. **Close Trade**: Exit position with exit price and date
+4. **Delete Trade**: Remove trade from portfolio (if entered incorrectly)
+
+**Statistics Calculated:**
+- Total trades, open trades, closed trades
+- Win/loss counts and percentages
+- Average win and average loss (as percentages)
+- Proven edge: (Win Rate × Avg Win) - (Loss Rate × |Avg Loss|)
+- Total profit in currency and percentage
+- Largest win and largest loss
+- **Projected metrics**: What-if analysis if all open trades closed at current prices
+
+**Equity Curve:**
+- Cumulative balance over time
+- Visual representation of portfolio growth
+- Shows impact of each closed trade
+
+**Options Example:**
+```
+Symbol: SPY250117C00585000  (Call option on SPY)
+Underlying: SPY
+Strike Price: $585
+Expiration: 2025-01-17
+Option Type: CALL
+Contracts: 2
+Multiplier: 100
+Entry Price: $5.50 (per contract)
+Position Value: $5.50 × 2 × 100 = $1,100
+```
+
 ---
 
 ## Important Files to Reference
@@ -492,6 +725,10 @@ Backtest results include:
 - `udgaard/MCP_SERVER_README.md` - MCP server setup and usage
 - `udgaard/README.MD` - Backend setup instructions
 - `asgaard_nuxt/claude.md` - Frontend development guide
+- `release/CI_WORKFLOW.md` - CI/CD pipeline and automated testing
+- `release/DEPLOYMENT.md` - Release and deployment guide
+- `release/RELEASE_QUICKSTART.md` - Quick release guide
+- `electron/README.md` - Electron desktop app documentation
 - `udgaard/MARKET_REGIME_FILTER_IMPLEMENTATION.md` - Market filter details
 - `udgaard/PLAN_BETA_STRATEGY_README.md` - Plan Beta strategy docs
 - Various performance reports in `udgaard/*.md`
@@ -570,11 +807,16 @@ Get stock data for SPY from 2023-01-01 to 2024-01-01
 
 ### Backend
 - **Spring Boot 3.5.0**: Web framework
-- **Kotlin 1.9.25**: Programming language
-- **MongoDB**: Database for stock quotes and market data
+- **Kotlin 2.1.21**: Programming language
+- **H2 Database 2.2.224**: File-based SQL database with JPA/Hibernate
+- **Spring Data JPA**: ORM and repository layer
 - **Spring AI MCP**: Model Context Protocol server
-- **FastCSV**: CSV parsing
-- **Jackson**: JSON serialization
+- **Caffeine 3.1.8**: High-performance caching library
+- **AlphaVantage API**: Stock data and technical indicators
+- **Ovtlyr API**: Market breadth and stock performance data
+- **FastCSV 4.0.0**: CSV parsing
+- **Jackson**: JSON serialization with Kotlin module
+- **Apache HttpClient 5**: HTTP requests
 
 ### Frontend
 - **Nuxt 4**: Vue.js framework with SSR
@@ -598,9 +840,15 @@ Get stock data for SPY from 2023-01-01 to 2024-01-01
 
 ### Backend Environment Variables
 Configured in `application.properties`:
-- `spring.data.mongodb.uri`: MongoDB connection string
+- `spring.datasource.url`: H2 database file location (`jdbc:h2:file:~/.trading-app/database/trading`)
+- `spring.jpa.hibernate.ddl-auto`: Hibernate schema management (set to `update`)
+- `spring.h2.console.enabled`: Enable H2 web console (set to `true` for development)
+- `alphavantage.api.key`: AlphaVantage API key for stock data
+- `alphavantage.api.baseUrl`: AlphaVantage API base URL
 - `ovtlyr.cookies.token`: Ovtlyr API token (in secure.properties)
 - `ovtlyr.cookies.userid`: Ovtlyr user ID (in secure.properties)
+- `spring.cache.type`: Cache provider (set to `caffeine`)
+- `spring.mvc.async.request-timeout`: Async request timeout (1800000ms for long backtests)
 
 ### Frontend Environment Variables
 Access via `useRuntimeConfig()`:
@@ -613,9 +861,17 @@ Access via `useRuntimeConfig()`:
 
 ### Backend Issues
 - **Strategy not appearing**: Check `@RegisteredStrategy` annotation and package location
-- **MongoDB connection**: Verify Docker container is running (`docker compose up -d`)
+- **Database issues**:
+  - H2 database created automatically at `~/.trading-app/database/trading`
+  - Check H2 console at http://localhost:8080/udgaard/h2-console
+  - Database file permissions: ensure `~/.trading-app/database/` is writable
+  - Locked database: H2 allows concurrent connections with `AUTO_SERVER=TRUE`
 - **Build failures**: Try `./gradlew clean build`
 - **Missing secure.properties**: Create file with Ovtlyr credentials
+- **AlphaVantage API errors**:
+  - Check API key is valid in `application.properties`
+  - Free tier has rate limits (5 requests/minute, 500/day)
+  - API may return error responses for invalid symbols or exhausted quota
 
 ### Frontend Issues
 - **Type errors**: Run `npm run typecheck` to identify issues
@@ -625,8 +881,9 @@ Access via `useRuntimeConfig()`:
 
 ### MCP Issues
 - **Claude can't connect**: Verify JAR path in MCP settings
-- **No data returned**: Check MongoDB has stock data
+- **No data returned**: Check H2 database has stock data (use H2 console)
 - **Tool not found**: Rebuild backend JAR after adding new tools
+- **MCP server not responding**: Check http://localhost:8080/udgaard/mcp/messages endpoint
 
 ### Electron Issues
 - **"Backend JAR not found"**: Build backend first with `cd udgaard && ./gradlew bootJar`
@@ -732,6 +989,101 @@ Access via `useRuntimeConfig()`:
 
 ## Recent Sessions
 
+### Session: 2024-11-30 - CI/CD Pipeline Implementation
+
+**CI/CD Workflow Added:**
+- **Created `.github/workflows/ci.yml`** for automated testing
+- **4 parallel jobs**:
+  1. `backend-test`: Gradle tests + JAR build
+  2. `frontend-test`: TypeScript typecheck + ESLint + build
+  3. `integration-test`: Full application build verification
+  4. `code-quality`: Kotlin compilation checks
+- **Triggers**: Runs on push to main and all pull requests
+- **Caching**: Gradle and npm dependencies cached for speed
+- **Artifacts**: Test results uploaded on failure (7-day retention)
+- **Total runtime**: ~5-8 minutes per run
+
+**Documentation Created:**
+- `release/CI_WORKFLOW.md` - Comprehensive CI workflow guide
+- Explains each job, common failures, troubleshooting
+- Includes branch protection setup instructions
+
+**CI/CD Status:**
+- ✅ Continuous Integration: Complete (automated testing)
+- ✅ Continuous Deployment: Complete (tag-based releases)
+- ⏳ Code Signing: Pending (need certificates)
+- ⏳ Auto-Updates: Pending (future enhancement)
+
+**Files Created:**
+- `.github/workflows/ci.yml` - CI workflow
+- `release/CI_WORKFLOW.md` - CI documentation
+
+---
+
+### Session: 2024-11-30 - Database Migration & Portfolio Management
+
+**Major Changes:**
+1. **Database Migration MongoDB → H2**:
+   - Migrated from MongoDB (NoSQL) to H2 (SQL) with JPA/Hibernate
+   - Removed Docker dependency - H2 uses file-based storage
+   - Database auto-created at `~/.trading-app/database/trading`
+   - Added JPA entities with proper relationships and indexes
+   - H2 Console available for database inspection
+   - Updated all repositories to use Spring Data JPA
+
+2. **Portfolio Management System**:
+   - Complete portfolio tracking with multi-portfolio support
+   - Live trade management (open, edit, close, delete)
+   - Options trading support with strike, expiration, contracts, multiplier
+   - Real-time statistics: win rate, proven edge, P/L, YTD returns
+   - Equity curve visualization
+   - Projected metrics (what-if all open trades closed at current prices)
+   - Frontend: Portfolio page with modals for all operations
+
+3. **ETF Analysis**:
+   - ETF entities with quotes and holdings
+   - AlphaVantage integration for ETF profile data
+   - ETF holdings tracking with weights and sectors
+   - Frontend ETF stats page
+
+4. **AlphaVantage Integration**:
+   - AlphaVantage API client for stock data and ATR
+   - Time series data (daily, intraday)
+   - ETF profile data
+   - Rate limit handling (5/min, 500/day)
+
+5. **Market Breadth Refactor**:
+   - Renamed `MarketBreadthService` to `BreadthService`
+   - New JPA entities: `Breadth`, `BreadthQuote`, `BreadthSymbol`
+   - BreadthController with dedicated endpoints
+   - Frontend market breadth page
+
+6. **New Controllers**:
+   - `PortfolioController` - Portfolio and trade management
+   - `BreadthController` - Market breadth API
+   - `EtfController` - ETF data API
+   - `MonteCarloController` - Simulations
+   - `CacheController` - Cache management
+   - `DataController` - Data import/export
+   - Split `UdgaardController` into `BacktestController` and `StockController`
+
+**Files Modified:**
+- Backend: 50+ files (entities, repositories, services, controllers)
+- Frontend: `portfolio.vue`, `market-breadth.vue`, `etf-stats.vue`, `stock-data.vue`
+- Config: `application.properties` (H2, AlphaVantage), `build.gradle` (H2 dependency)
+- Types: Updated type definitions for Portfolio, PortfolioTrade, ETF entities
+
+**Performance & Quality:**
+- JPA query optimization with proper indexing
+- Caffeine caching for stock and breadth data
+- Quote indexing for 10-100x backtest performance
+- EMA-based trading conditions optimization
+- Fixed circular reference JSON serialization
+- Fixed StockQuote symbol persistence
+- Added no-argument constructors for Hibernate
+
+---
+
 ### Session: 2025-11-12 - Performance Optimization & Caching
 
 **Problem**: Backtesting API timing out with many stocks (Headers Timeout Error in Nuxt)
@@ -782,5 +1134,5 @@ This project uses a three-level documentation approach:
 
 ---
 
-_Last Updated: 2025-11-28_
+_Last Updated: 2024-11-30_
 _This file helps Claude understand the project structure, architecture, recent work, and key decisions across conversations._
