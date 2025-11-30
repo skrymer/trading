@@ -27,6 +27,9 @@ replay_pid*
 node_modules/
 dist-electron/
 
+# Windows Zone.Identifier files (metadata from downloads)
+*:Zone.Identifier
+
 # Nuxt Frontend
 asgaard_nuxt/.nuxt/
 asgaard_nuxt/.output/
