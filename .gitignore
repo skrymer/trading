@@ -26,7 +26,6 @@ replay_pid*
 # Electron Desktop App
 node_modules/
 dist-electron/
-package-lock.json
 
 # Nuxt Frontend
 asgaard_nuxt/.nuxt/
