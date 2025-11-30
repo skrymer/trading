@@ -67,5 +67,8 @@
   },
   "dependencies": {
     "tree-kill": "^1.2.2"
+  },
+  "volta": {
+    "node": "24.2.0"
   }
 }
