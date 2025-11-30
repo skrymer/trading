@@ -34,19 +34,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Make gradlew executable
-        working-directory: udgaard
-        run: chmod +x gradlew
-        shell: bash
-
-      - name: Build backend JAR
-        working-directory: udgaard
-        run: ./gradlew bootJar --no-daemon
-        shell: bash
-
-      - name: Build frontend
-        working-directory: asgaard_nuxt
-        run: pnpm run build
+      - name: Build backend and frontend
+        run: pnpm run build:all:win
 
       - name: Build Electron app (Windows)
         run: pnpm run dist:win
