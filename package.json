@@ -68,6 +68,12 @@
   "dependencies": {
     "tree-kill": "^1.2.2"
   },
+  "pnpm": {
+    "overrides": {
+      "unimport": "4.1.1"
+    }
+  },
+  "packageManager": "pnpm@10.18.0",
   "volta": {
     "node": "24.2.0"
   }
