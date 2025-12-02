@@ -182,7 +182,7 @@ onMounted(async () => {
 
 async function loadCredentials() {
   try {
-    const data = await $fetch('/api/settings/credentials')
+    const data = await $fetch('/udgaard/api/settings/credentials')
     credentials.value = data as typeof credentials.value
   } catch (error) {
     console.error('Failed to load credentials:', error)
@@ -196,7 +196,7 @@ async function loadCredentials() {
 
 async function loadCredentialsStatus() {
   try {
-    const data = await $fetch('/api/settings/credentials/status')
+    const data = await $fetch('/udgaard/api/settings/credentials/status')
     credentialsStatus.value = data as typeof credentialsStatus.value
   } catch (error) {
     console.error('Failed to load credentials status:', error)
@@ -206,7 +206,7 @@ async function loadCredentialsStatus() {
 async function saveSettings() {
   saving.value = true
   try {
-    await $fetch('/api/settings/credentials', {
+    await $fetch('/udgaard/api/settings/credentials', {
       method: 'POST',
       body: credentials.value
     })
