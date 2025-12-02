@@ -6,7 +6,7 @@ import org.springframework.context.annotation.PropertySource
 
 
 @SpringBootApplication
-@PropertySource("classpath:secure.properties")
+@PropertySource("classpath:secure.properties", ignoreResourceNotFound = true)
 class UdgaardApplication
 
 fun main(args: Array<String>) {
