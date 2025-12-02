@@ -5,6 +5,7 @@ const kill = require('tree-kill')
 
 let backendProcess = null
 let mainWindow = null
+let loadingWindow = null
 let backendLogs = []
 const isDev = process.argv.includes('--dev')
 
@@ -127,6 +128,8 @@ function startBackend() {
       if (backendLogs.length > 100) {
         backendLogs.shift()
       }
+      // Update loading window if it exists
+      updateLoadingWindowLogs()
     })
 
     backendProcess.stderr.on('data', (data) => {
@@ -137,6 +140,8 @@ function startBackend() {
       if (backendLogs.length > 100) {
         backendLogs.shift()
       }
+      // Update loading window if it exists
+      updateLoadingWindowLogs()
     })
 
     backendProcess.on('error', (error) => {
@@ -189,63 +194,146 @@ function stopBackend() {
 }
 
 /**
+ * Update loading window with latest logs
+ */
+function updateLoadingWindowLogs() {
+  if (!loadingWindow || loadingWindow.isDestroyed()) {
+    return
+  }
+
+  // Get last 30 log lines
+  const recentLogs = backendLogs.slice(-30)
+  const logsHtml = recentLogs.map(log => {
+    const isError = log.startsWith('ERROR:')
+    const isInfo = log.includes('Started') || log.includes('Tomcat') || log.includes('application')
+    const cssClass = isError ? 'error' : (isInfo ? 'info' : '')
+    const displayLog = log.replace(/ERROR: /, '')
+    // Escape HTML
+    const escaped = displayLog
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+    return `<div class="log-line ${cssClass}">${escaped}</div>`
+  }).join('')
+
+  loadingWindow.webContents.executeJavaScript(`
+    const logsContainer = document.getElementById('logs');
+    if (logsContainer) {
+      logsContainer.innerHTML = ${JSON.stringify(logsHtml)};
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+  `).catch(() => {
+    // Window might be destroyed, ignore
+  })
+}
+
+/**
  * Create a loading window
  */
 function createLoadingWindow() {
-  const loadingWindow = new BrowserWindow({
-    width: 400,
-    height: 200,
+  const window = new BrowserWindow({
+    width: 700,
+    height: 500,
     frame: false,
-    transparent: true,
+    transparent: false,
     alwaysOnTop: true,
+    resizable: false,
     webPreferences: {
-      nodeIntegration: false
+      nodeIntegration: false,
+      contextIsolation: true
     }
   })
 
-  loadingWindow.loadURL(`data:text/html;charset=utf-8,
+  window.loadURL(`data:text/html;charset=utf-8,
     <html>
       <head>
         <style>
           body {
             margin: 0;
-            padding: 0;
-            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            background: #1a1a1a;
             color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
           }
-          h2 { margin: 10px; }
-          p { margin: 5px; color: #aaa; }
+          .header {
+            text-align: center;
+            margin-bottom: 20px;
+          }
+          h2 {
+            margin: 10px 0;
+            font-size: 20px;
+          }
+          .status {
+            color: #4CAF50;
+            font-size: 14px;
+            margin: 5px 0;
+          }
           .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #4CAF50;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 20px;
+            margin: 10px auto;
           }
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
+          .logs-container {
+            flex: 1;
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.4;
+          }
+          .log-line {
+            margin: 2px 0;
+            color: #aaa;
+          }
+          .log-line.error {
+            color: #f44336;
+          }
+          .log-line.info {
+            color: #4CAF50;
+          }
+          ::-webkit-scrollbar {
+            width: 8px;
+          }
+          ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+          }
         </style>
       </head>
       <body>
-        <div class="spinner"></div>
-        <h2>Trading Backtester</h2>
-        <p>Starting backend server...</p>
-        <p style="font-size: 12px;">This may take up to 2 minutes</p>
+        <div class="header">
+          <h2>Trading Backtester</h2>
+          <div class="spinner"></div>
+          <div class="status">Starting backend server...</div>
+          <div style="font-size: 12px; color: #666;">This may take up to 2 minutes</div>
+        </div>
+        <div class="logs-container" id="logs">
+          <div class="log-line info">Initializing...</div>
+        </div>
       </body>
     </html>
   `)
 
-  return loadingWindow
+  return window
 }
 
 /**
@@ -297,8 +385,6 @@ function showError(title, message) {
  * Application ready event
  */
 app.whenReady().then(async () => {
-  let loadingWindow = null
-
   try {
     console.log('Starting Trading Desktop App...')
     console.log('Mode:', isDev ? 'Development' : 'Production')
@@ -310,7 +396,7 @@ app.whenReady().then(async () => {
     await startBackend()
 
     // Close loading window
-    if (loadingWindow) {
+    if (loadingWindow && !loadingWindow.isDestroyed()) {
       loadingWindow.close()
       loadingWindow = null
     }
@@ -322,8 +408,9 @@ app.whenReady().then(async () => {
     console.error('Startup error:', error)
 
     // Close loading window if still open
-    if (loadingWindow) {
+    if (loadingWindow && !loadingWindow.isDestroyed()) {
       loadingWindow.close()
+      loadingWindow = null
     }
 
     showError('Startup Error', error.message)
