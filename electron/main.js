@@ -47,7 +47,7 @@ function findJavaExecutable() {
 async function checkBackendReady() {
   return new Promise((resolve) => {
     const http = require('http')
-    const req = http.get(`http://localhost:${BACKEND_PORT}/actuator/health`, (res) => {
+    const req = http.get(`http://localhost:${BACKEND_PORT}/udgaard/actuator/health`, (res) => {
       resolve(res.statusCode === 200)
     })
     req.on('error', () => resolve(false))
