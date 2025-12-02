@@ -28,7 +28,7 @@ import java.time.LocalDate
  */
 @Component
 open class AlphaVantageClient(
-    @Value("\${alphavantage.api.key}") private val apiKey: String,
+    @Value("\${alphavantage.api.key:}") private val apiKey: String,
     @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String
 ) {
     companion object {
