@@ -395,8 +395,9 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:3000')
     mainWindow.webContents.openDevTools()
   } else {
-    // In production, load from built Nuxt app
-    const frontendPath = path.join(__dirname, '../asgaard_nuxt/.output/public/index.html')
+    // In production, load from bundled frontend files in resources
+    const frontendPath = path.join(process.resourcesPath, 'frontend', 'index.html')
+    console.log('Loading frontend from:', frontendPath)
     mainWindow.loadFile(frontendPath)
   }
 

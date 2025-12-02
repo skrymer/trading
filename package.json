@@ -1,6 +1,6 @@
 {
   "name": "trading-desktop",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Trading Backtesting Desktop Application",
   "main": "electron/main.js",
   "scripts": {
@@ -24,9 +24,7 @@
       "output": "dist-electron"
     },
     "files": [
-      "electron/**/*",
-      "udgaard/build/libs/*.jar",
-      "asgaard_nuxt/.output/**/*"
+      "electron/**/*"
     ],
     "extraResources": [
       {
@@ -37,6 +35,11 @@
       {
         "from": "jre/",
         "to": "jre",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "asgaard_nuxt/.output/public/",
+        "to": "frontend",
         "filter": ["**/*"]
       }
     ],
