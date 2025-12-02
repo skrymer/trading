@@ -5,12 +5,13 @@ const kill = require('tree-kill')
 
 let backendProcess = null
 let mainWindow = null
+let backendLogs = []
 const isDev = process.argv.includes('--dev')
 
 // Configuration
 const BACKEND_PORT = 8080
-const BACKEND_STARTUP_TIMEOUT = 30000 // 30 seconds
-const BACKEND_CHECK_INTERVAL = 500 // Check every 500ms
+const BACKEND_STARTUP_TIMEOUT = 120000 // 120 seconds (2 minutes) - Spring Boot can be slow to start
+const BACKEND_CHECK_INTERVAL = 1000 // Check every 1 second
 
 /**
  * Find the Spring Boot JAR file
@@ -61,16 +62,25 @@ async function checkBackendReady() {
  */
 async function waitForBackend() {
   const startTime = Date.now()
+  let attempts = 0
 
   while (Date.now() - startTime < BACKEND_STARTUP_TIMEOUT) {
+    attempts++
+    const elapsed = Math.floor((Date.now() - startTime) / 1000)
+
+    if (attempts % 5 === 0) {
+      console.log(`Waiting for backend... (${elapsed}s elapsed, attempt ${attempts})`)
+    }
+
     const isReady = await checkBackendReady()
     if (isReady) {
-      console.log('Backend is ready!')
+      console.log(`Backend is ready! (took ${elapsed} seconds)`)
       return true
     }
     await new Promise(resolve => setTimeout(resolve, BACKEND_CHECK_INTERVAL))
   }
 
+  console.error('Backend startup timeout reached')
   return false
 }
 
@@ -97,6 +107,9 @@ function startBackend() {
       return
     }
 
+    // Reset backend logs
+    backendLogs = []
+
     // Start the Spring Boot application
     backendProcess = spawn(javaPath, [
       '-jar',
@@ -107,11 +120,23 @@ function startBackend() {
     })
 
     backendProcess.stdout.on('data', (data) => {
-      console.log(`[Backend] ${data.toString().trim()}`)
+      const logLine = data.toString().trim()
+      console.log(`[Backend] ${logLine}`)
+      backendLogs.push(logLine)
+      // Keep only last 100 lines
+      if (backendLogs.length > 100) {
+        backendLogs.shift()
+      }
     })
 
     backendProcess.stderr.on('data', (data) => {
-      console.error(`[Backend Error] ${data.toString().trim()}`)
+      const logLine = data.toString().trim()
+      console.error(`[Backend Error] ${logLine}`)
+      backendLogs.push(`ERROR: ${logLine}`)
+      // Keep only last 100 lines
+      if (backendLogs.length > 100) {
+        backendLogs.shift()
+      }
     })
 
     backendProcess.on('error', (error) => {
@@ -121,17 +146,22 @@ function startBackend() {
 
     backendProcess.on('exit', (code, signal) => {
       console.log(`Backend exited with code ${code} and signal ${signal}`)
+      if (code !== 0 && code !== null) {
+        console.error('Backend logs:', backendLogs.join('\n'))
+      }
       backendProcess = null
     })
 
     // Wait for backend to be ready
     console.log('Waiting for backend to start...')
+    console.log('This may take up to 2 minutes for first startup...')
     waitForBackend()
       .then(ready => {
         if (ready) {
           resolve()
         } else {
-          reject(new Error('Backend failed to start within timeout period'))
+          const errorMsg = `Backend failed to start within timeout period.\n\nRecent logs:\n${backendLogs.slice(-20).join('\n')}`
+          reject(new Error(errorMsg))
         }
       })
       .catch(reject)
@@ -156,6 +186,66 @@ function stopBackend() {
       resolve()
     }
   })
+}
+
+/**
+ * Create a loading window
+ */
+function createLoadingWindow() {
+  const loadingWindow = new BrowserWindow({
+    width: 400,
+    height: 200,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      nodeIntegration: false
+    }
+  })
+
+  loadingWindow.loadURL(`data:text/html;charset=utf-8,
+    <html>
+      <head>
+        <style>
+          body {
+            margin: 0;
+            padding: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+          }
+          h2 { margin: 10px; }
+          p { margin: 5px; color: #aaa; }
+          .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="spinner"></div>
+        <h2>Trading Backtester</h2>
+        <p>Starting backend server...</p>
+        <p style="font-size: 12px;">This may take up to 2 minutes</p>
+      </body>
+    </html>
+  `)
+
+  return loadingWindow
 }
 
 /**
@@ -207,18 +297,35 @@ function showError(title, message) {
  * Application ready event
  */
 app.whenReady().then(async () => {
+  let loadingWindow = null
+
   try {
     console.log('Starting Trading Desktop App...')
     console.log('Mode:', isDev ? 'Development' : 'Production')
 
+    // Show loading window
+    loadingWindow = createLoadingWindow()
+
     // Start backend first
     await startBackend()
 
-    // Then create window
+    // Close loading window
+    if (loadingWindow) {
+      loadingWindow.close()
+      loadingWindow = null
+    }
+
+    // Then create main window
     createWindow()
 
   } catch (error) {
     console.error('Startup error:', error)
+
+    // Close loading window if still open
+    if (loadingWindow) {
+      loadingWindow.close()
+    }
+
     showError('Startup Error', error.message)
     app.quit()
   }
