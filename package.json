@@ -1,6 +1,6 @@
 {
   "name": "trading-desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Trading Backtesting Desktop Application",
   "main": "electron/main.js",
   "scripts": {

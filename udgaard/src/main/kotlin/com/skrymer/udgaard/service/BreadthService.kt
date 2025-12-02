@@ -107,6 +107,13 @@ class BreadthService(
         return if (ovtlyrBreadth == null) {
             null
         } else {
+            // Delete existing breadth if it exists (cascade delete will remove quotes)
+            val identifier = symbol.toIdentifier()
+            breadthRepository.findBySymbol(identifier)?.let { existingBreadth ->
+                breadthRepository.delete(existingBreadth)
+                breadthRepository.flush() // Ensure delete is committed before insert
+            }
+
             val stockInSector = getStockInSector(symbol)
             breadthRepository.save(ovtlyrBreadth.toModel(stockInSector))
         }

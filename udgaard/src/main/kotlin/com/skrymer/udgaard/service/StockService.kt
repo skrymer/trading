@@ -111,21 +111,28 @@ open class StockService(
     val stockInformation = ovtlyrClient.getStockInformation(symbol) ?: return null
 
     return runCatching {
-      // Step 2: Fetch breadth data for context (eagerly load quotes to avoid LazyInitializationException)
+      // Step 2: Delete existing stock if it exists (cascade delete will remove quotes)
+      stockRepository.findById(symbol).ifPresent { existingStock ->
+        logger.info("Deleting existing stock $symbol before refreshing")
+        stockRepository.delete(existingStock)
+        stockRepository.flush() // Ensure delete is committed before insert
+      }
+
+      // Step 3: Fetch breadth data for context (eagerly load quotes to avoid LazyInitializationException)
       val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
       val sectorSymbol = SectorSymbol.fromString(stockInformation.sectorSymbol)
       val sectorBreadth = sectorSymbol?.let {
         breadthRepository.findBySymbol(BreadthSymbol.Sector(it).toIdentifier())
       }
 
-      // Step 3: Enrich with AlphaVantage volume data
+      // Step 4: Enrich with AlphaVantage volume data
       logger.info("Starting volume enrichment for $symbol")
       val alphaQuotes = alphaVantageClient.getDailyTimeSeries(symbol)
       if (alphaQuotes == null) {
         logger.warn("Could not fetch volume data from Alpha Vantage for $symbol, using default values")
       }
 
-      // Step 3b: Enrich with AlphaVantage ATR data
+      // Step 5: Enrich with AlphaVantage ATR data
       logger.info("Starting ATR enrichment for $symbol")
       val alphaATR = alphaVantageClient.getATR(symbol)
       if (alphaATR == null) {
@@ -134,7 +141,7 @@ open class StockService(
         logger.info("Fetched ${alphaATR.size} ATR values from Alpha Vantage for $symbol")
       }
 
-      // Step 4: Create quotes for order block calculation
+      // Step 6: Create quotes for order block calculation
       val quotes = stockFactory.createQuotes(
         stockInformation = stockInformation,
         marketBreadth = marketBreadth,
@@ -144,13 +151,13 @@ open class StockService(
         alphaATR = alphaATR
       )
 
-      // Step 5: Calculate order blocks based on quotes
+      // Step 7: Calculate order blocks based on quotes
       val calculatedOrderBlocks = orderBlockCalculator.calculateOrderBlocks(
         quotes = quotes,
         sensitivity = 28.0
       )
 
-      // Step 6: Use factory to create complete stock with all enrichments
+      // Step 8: Use factory to create complete stock with all enrichments
       val enrichedStock = stockFactory.createStock(
         stockInformation = stockInformation,
         marketBreadth = marketBreadth,
@@ -161,7 +168,7 @@ open class StockService(
         alphaATR = alphaATR
       )
 
-      // Step 7: Save and return
+      // Step 9: Save and return
       stockRepository.save(enrichedStock)
     }
       .onFailure { action -> Companion.logger.error("Could not fetch stock", action) }

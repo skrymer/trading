@@ -6,6 +6,7 @@ import com.skrymer.udgaard.service.BreadthService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -44,6 +45,7 @@ class BreadthController(
      * @return Market breadth data including historical quotes
      */
     @GetMapping("/market")
+    @Transactional(readOnly = true)
     fun getMarketBreadth(
         @RequestParam(defaultValue = "false") refresh: Boolean
     ): ResponseEntity<Breadth> {
@@ -67,6 +69,7 @@ class BreadthController(
      * @return Sector breadth data including historical quotes
      */
     @GetMapping("/sector/{symbol}")
+    @Transactional(readOnly = true)
     fun getSectorBreadth(
         @PathVariable symbol: String,
         @RequestParam(defaultValue = "false") refresh: Boolean

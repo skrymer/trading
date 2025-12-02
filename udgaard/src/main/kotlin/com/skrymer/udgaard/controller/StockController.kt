@@ -8,6 +8,7 @@ import com.skrymer.udgaard.service.StrategySignalService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -62,6 +63,7 @@ class StockController(
      * @return Stock data including quotes and order blocks
      */
     @GetMapping("/{symbol}")
+    @Transactional(readOnly = true)
     fun getStock(
         @PathVariable symbol: String,
         @RequestParam(defaultValue = "false") refresh: Boolean
@@ -85,6 +87,7 @@ class StockController(
      * @return Stock data with entry/exit signals annotated on each quote
      */
     @GetMapping("/{symbol}/signals")
+    @Transactional(readOnly = true)
     fun getStockWithSignals(
         @PathVariable symbol: String,
         @RequestParam entryStrategy: String,

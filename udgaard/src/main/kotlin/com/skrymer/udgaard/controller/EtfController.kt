@@ -6,6 +6,7 @@ import com.skrymer.udgaard.service.EtfStatsService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -43,6 +44,7 @@ class EtfController(
      * @return ETF statistics including membership data and historical performance
      */
     @GetMapping("/{symbol}/stats")
+    @Transactional(readOnly = true)
     fun getEtfStats(
         @PathVariable symbol: String,
         @RequestParam(required = false) fromDate: String?,

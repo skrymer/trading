@@ -5,6 +5,7 @@ import com.skrymer.udgaard.model.*
 import com.skrymer.udgaard.service.PortfolioService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -18,6 +19,7 @@ class PortfolioController(
      * Get all portfolios
      */
     @GetMapping
+    @Transactional(readOnly = true)
     fun getAllPortfolios(@RequestParam(required = false) userId: String?): ResponseEntity<List<Portfolio>> {
         val portfolios = portfolioService.getAllPortfolios(userId)
         return ResponseEntity.ok(portfolios)
@@ -41,6 +43,7 @@ class PortfolioController(
      * Get portfolio by ID
      */
     @GetMapping("/{portfolioId}")
+    @Transactional(readOnly = true)
     fun getPortfolio(@PathVariable portfolioId: Long): ResponseEntity<Portfolio> {
         val portfolio = portfolioService.getPortfolio(portfolioId)
             ?: return ResponseEntity.notFound().build()
@@ -73,6 +76,7 @@ class PortfolioController(
      * Get portfolio statistics
      */
     @GetMapping("/{portfolioId}/stats")
+    @Transactional(readOnly = true)
     fun getPortfolioStats(@PathVariable portfolioId: Long): ResponseEntity<PortfolioStats> {
         val stats = portfolioService.calculateStats(portfolioId)
         return ResponseEntity.ok(stats)
@@ -160,6 +164,7 @@ class PortfolioController(
      * Get all trades for a portfolio
      */
     @GetMapping("/{portfolioId}/trades")
+    @Transactional(readOnly = true)
     fun getTrades(
         @PathVariable portfolioId: Long,
         @RequestParam(required = false) status: String?
@@ -173,6 +178,7 @@ class PortfolioController(
      * Get a specific trade
      */
     @GetMapping("/{portfolioId}/trades/{tradeId}")
+    @Transactional(readOnly = true)
     fun getTrade(
         @PathVariable portfolioId: Long,
         @PathVariable tradeId: Long
@@ -206,6 +212,7 @@ class PortfolioController(
      * Get equity curve data
      */
     @GetMapping("/{portfolioId}/equity-curve")
+    @Transactional(readOnly = true)
     fun getEquityCurve(@PathVariable portfolioId: Long): ResponseEntity<EquityCurveData> {
         val data = portfolioService.getEquityCurve(portfolioId)
         return ResponseEntity.ok(data)

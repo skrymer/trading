@@ -114,7 +114,10 @@ class EtfService(
         }
 
         logger.info("Converted ${etfQuotes.size} StockQuote objects to EtfQuote format for $symbol")
-        etf.quotes = etfQuotes.toMutableList()
+
+        // Clear existing quotes and add new ones (triggers orphan removal)
+        etf.quotes.clear()
+        etf.quotes.addAll(etfQuotes)
 
         // Fetch ETF profile from AlphaVantage for additional metadata and holdings
         val profile = alphaVantageClient.getEtfProfile(symbol)
@@ -132,13 +135,17 @@ class EtfService(
             // Map holdings from profile
             if (!profile.holdings.isNullOrEmpty()) {
                 val currentDate = LocalDate.now()
-                etf.holdings = profile.holdings.map { holding ->
+                val newHoldings = profile.holdings.map { holding ->
                     EtfHolding(
                         stockSymbol = holding.symbol,
                         weight = holding.getWeightAsDouble(),
                         asOfDate = currentDate
                     )
-                }.toMutableList()
+                }
+
+                // Clear existing holdings and add new ones (triggers orphan removal)
+                etf.holdings.clear()
+                etf.holdings.addAll(newHoldings)
                 logger.info("Mapped ${etf.holdings.size} holdings from AlphaVantage profile for $symbol")
             }
         } else {

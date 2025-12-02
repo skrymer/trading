@@ -25,18 +25,31 @@ class ExternalConfigLoader : ApplicationListener<ApplicationEnvironmentPreparedE
                 val properties = Properties()
                 FileInputStream(configFile).use { properties.load(it) }
 
-                // Add to Spring environment
-                val propertySource = PropertiesPropertySource("externalConfig", properties)
-                event.environment.propertySources.addLast(propertySource)
+                // Filter out empty properties to allow secure.properties to take precedence
+                val nonEmptyProperties = Properties()
+                properties.forEach { key, value ->
+                    val valueStr = value.toString().trim()
+                    if (valueStr.isNotEmpty()) {
+                        nonEmptyProperties[key] = value
+                    }
+                }
 
-                logger.info("Loaded external configuration from: ${configFile.absolutePath}")
-                logger.info("Configuration properties loaded: ${properties.keys.size}")
+                // Only add if there are non-empty properties
+                if (nonEmptyProperties.isNotEmpty()) {
+                    val propertySource = PropertiesPropertySource("externalConfig", nonEmptyProperties)
+                    event.environment.propertySources.addLast(propertySource)
+                    logger.info("Loaded external configuration from: ${configFile.absolutePath}")
+                    logger.info("Configuration properties loaded: ${nonEmptyProperties.keys.size} non-empty properties")
+                } else {
+                    logger.info("External configuration file exists but contains no non-empty properties: ${configFile.absolutePath}")
+                    logger.info("Using secure.properties for local development or configure credentials via Settings page")
+                }
             } catch (e: Exception) {
                 logger.error("Failed to load external configuration from: ${configFile.absolutePath}", e)
             }
         } else {
-            logger.warn("External configuration file not found: ${configFile.absolutePath}")
-            logger.warn("API credentials should be configured via Settings page in the UI")
+            logger.info("External configuration file not found: ${configFile.absolutePath}")
+            logger.info("Using secure.properties for local development or configure credentials via Settings page when app starts")
         }
     }
 }

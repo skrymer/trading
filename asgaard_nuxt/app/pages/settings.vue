@@ -130,14 +130,14 @@
 
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Config file exists</span>
+                <span class="text-sm text-gray-600 dark:text-gray-400">Config file exists</span>
                 <UBadge :color="credentialsStatus.configFileExists ? 'green' : 'gray'">
                   {{ credentialsStatus.configFileExists ? 'Yes' : 'No' }}
                 </UBadge>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Location</span>
-                <code class="text-xs bg-gray-100 px-2 py-1 rounded">~/.trading-app/config.properties</code>
+                <span class="text-sm text-gray-600 dark:text-gray-400">Location</span>
+                <code class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">~/.trading-app/config.properties</code>
               </div>
               <UAlert
                 icon="i-lucide-info"
