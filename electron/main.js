@@ -240,15 +240,35 @@ function createLoadingWindow() {
     transparent: false,
     alwaysOnTop: true,
     resizable: false,
+    show: false, // Don't show until content is loaded
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
     }
   })
 
-  window.loadURL(`data:text/html;charset=utf-8,
+  // Show window once content is loaded
+  window.once('ready-to-show', () => {
+    console.log('Loading window ready to show')
+    window.show()
+  })
+
+  // Debug: Log any console messages from the loading window
+  window.webContents.on('console-message', (event, level, message) => {
+    console.log(`[Loading Window Console] ${message}`)
+  })
+
+  // Debug: Log any errors
+  window.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error(`[Loading Window] Failed to load: ${errorCode} - ${errorDescription}`)
+  })
+
+  const htmlContent = `
+    <!DOCTYPE html>
     <html>
       <head>
+        <meta charset="utf-8">
+        <title>Starting...</title>
         <style>
           body {
             margin: 0;
@@ -329,9 +349,20 @@ function createLoadingWindow() {
         <div class="logs-container" id="logs">
           <div class="log-line info">Initializing...</div>
         </div>
+        <script>
+          console.log('Loading window HTML loaded successfully');
+        </script>
       </body>
     </html>
-  `)
+  `
+
+  window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
+    .then(() => {
+      console.log('Loading window URL loaded successfully')
+    })
+    .catch((error) => {
+      console.error('Failed to load loading window URL:', error)
+    })
 
   return window
 }
