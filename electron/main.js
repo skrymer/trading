@@ -26,6 +26,20 @@ function findBackendJar() {
 }
 
 /**
+ * Find the Java executable
+ */
+function findJavaExecutable() {
+  if (isDev) {
+    // In dev mode, use system Java
+    return 'java'
+  } else {
+    // In production, use bundled JRE
+    const javaExecutable = process.platform === 'win32' ? 'java.exe' : 'java'
+    return path.join(process.resourcesPath, 'jre/bin', javaExecutable)
+  }
+}
+
+/**
  * Check if backend is ready by attempting to connect
  */
 async function checkBackendReady() {
@@ -66,7 +80,9 @@ async function waitForBackend() {
 function startBackend() {
   return new Promise((resolve, reject) => {
     const jarPath = findBackendJar()
+    const javaPath = findJavaExecutable()
     console.log('Starting backend:', jarPath)
+    console.log('Using Java:', javaPath)
 
     // Check if JAR exists
     const fs = require('fs')
@@ -75,8 +91,14 @@ function startBackend() {
       return
     }
 
+    // Check if Java exists (in production mode)
+    if (!isDev && !fs.existsSync(javaPath)) {
+      reject(new Error(`Java runtime not found: ${javaPath}\n\nPlease ensure JRE is bundled in the application.`))
+      return
+    }
+
     // Start the Spring Boot application
-    backendProcess = spawn('java', [
+    backendProcess = spawn(javaPath, [
       '-jar',
       jarPath,
       `--server.port=${BACKEND_PORT}`

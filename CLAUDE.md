@@ -1,8 +1,16 @@
 # Trading Platform - Claude Context
 
-This file provides comprehensive context for the Trading Platform project. For technology-specific guides, see:
-- `asgaard_nuxt/claude.md` - Frontend (Nuxt/Vue) development guide
-- `udgaard/claude.md` - Backend (Kotlin/Spring Boot) development guide
+This file provides comprehensive context for the Trading Platform project.
+
+## Technology-Specific Context Files
+
+**IMPORTANT:** When working on specific parts of the codebase, read the relevant technology-specific guide:
+
+- **Frontend work** (Vue/Nuxt/UI components): Read `asgaard_nuxt/claude.md`
+  - Includes NuxtUI component patterns, Vue composition API examples, form validation, styling conventions
+
+- **Backend work** (Kotlin/Spring Boot/Strategies): Read `udgaard/claude.md`
+  - Includes strategy development patterns, backtesting engine details, service patterns, testing guidelines
 
 ## Project Overview
 
@@ -219,132 +227,6 @@ The desktop app uses a three-process architecture:
 
 ---
 
-## Recent Work & Changes
-
-### Database Migration: MongoDB → H2 (Nov 2024)
-- **Migrated from MongoDB to H2** file-based database with JPA/Hibernate
-- **Removed Docker dependency** - database now auto-created at `~/.trading-app/database/trading`
-- **Added JPA entities** with proper relationships and indexing
-- **H2 Console** available for database inspection and queries
-- **Performance improvements** with query optimization and indexing
-- **Note**: `compose.yaml` for MongoDB is now deprecated
-
-### Portfolio Management System (Nov 2024)
-- **Complete portfolio tracking** with live trade management
-- **Multi-portfolio support** with independent balances and statistics
-- **Options trading support**:
-  - Strike price, expiration date, option type (CALL/PUT)
-  - Contracts, multiplier, intrinsic/extrinsic value tracking
-  - Underlying symbol for signal-based trading
-- **Stock and ETF position tracking**:
-  - Entry/exit prices and dates
-  - Quantity and position value
-  - P/L and P/L percentage
-- **Real-time statistics**:
-  - Win/loss counts and rates
-  - Average win/loss percentages
-  - Proven edge calculation
-  - Total profit and YTD returns
-  - Projected metrics with open trades
-- **Equity curve visualization** with cumulative performance
-- **Trade management**:
-  - Open, edit, close, and delete trades
-  - Associate entry/exit strategies with each trade
-  - Exit reason tracking
-- **Frontend components**: Portfolio page with modals for all trade operations
-
-### ETF Analysis & Holdings (Nov 2024)
-- **ETF entity model** with quotes and holdings
-- **ETF holdings tracking** with weights and sectors
-- **AlphaVantage integration** for ETF profile data
-- **Frontend ETF stats page** with holdings visualization
-- **ETF service** for data management and refresh
-
-### AlphaVantage Integration (Nov 2024)
-- **AlphaVantage API client** for stock data
-- **ATR calculations** from AlphaVantage (replaces manual calculations)
-- **Time series data** (daily, intraday)
-- **ETF profile data** with holdings information
-- **Rate limit handling** for free tier (5/min, 500/day)
-- **Error handling** with proper DTOs
-
-### Market Breadth System Refactor (Nov 2024)
-- **Renamed service**: `MarketBreadthService` → `BreadthService`
-- **New entities**: `Breadth`, `BreadthQuote`, `BreadthSymbol`
-- **JPA repository layer** for breadth data
-- **BreadthController** with dedicated endpoints
-- **Frontend breadth page** with charts and analysis
-- **Refresh functionality** for updating breadth data
-
-### Monte Carlo Simulations (Nov 2024)
-- **Monte Carlo controller** for strategy validation
-- **Statistical analysis** of strategy performance
-- **Simulation parameters**: iterations, confidence intervals
-- **Risk assessment** and edge verification
-
-### Dynamic Strategy System Implementation
-- **Removed hardcoded strategy lists** from controller
-- **Added `@RegisteredStrategy` annotation** for automatic strategy discovery
-- **Created `StrategyRegistry`** service for centralized strategy management
-- **Integrated frontend** to fetch strategies dynamically from API
-- See `DYNAMIC_STRATEGY_SYSTEM.md` for full documentation
-
-### Removed Strategies (Consolidated into DSL/Composite)
-Old individual strategy classes have been deleted in favor of DSL composition:
-- `Ovtlyr9EntryStrategy` (now uses composite entry strategy)
-- `DonkeyEntryStrategy`
-- `MainExitStrategy` (now uses composite exit strategy)
-- Individual exit strategies: HalfAtr, Heatmap, LessGreedy, MarketAndSectorReverse, PriceUnder10Ema, PriceUnder50Ema, SellSignal, TenEmaCross, WithinOrderBlock
-
-### Current Active Strategies
-
-**Entry Strategies:**
-- `PlanAlphaEntryStrategy`: Plan Alpha entry rules
-- `PlanEtfEntryStrategy`: ETF-focused entry strategy
-- `PlanBetaEntryStrategy`: Beta variant entry strategy
-- `SimpleBuySignalEntryStrategy`: Basic buy signal entry
-- `CompositeEntryStrategy`: Combines multiple conditions using DSL
-
-**Exit Strategies:**
-- `PlanMoneyExitStrategy`: Money management exit rules
-- `PlanAlphaExitStrategy`: Plan Alpha exit rules
-- `PlanEtfExitStrategy`: ETF-focused exit strategy
-- `CompositeExitStrategy`: Combines multiple exit conditions using DSL
-
-**Market Filters:**
-- `MarketRegimeFilter`: Filters trades based on market conditions
-
-### MCP Server Integration
-- **Added Spring AI MCP Server** for Claude integration
-- **Tools exposed**: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
-- **Enables Claude** to perform custom backtesting and strategy analysis
-- See `MCP_SERVER_README.md` for full documentation
-
-### Frontend Enhancements
-- **Added ApexCharts** for interactive charting
-- **Added Unovis** for advanced visualizations
-- **Created backtesting components** for comprehensive results display
-- **Added trade chart visualization** with entry/exit markers
-- **Integrated dynamic strategy selection** from backend
-
-### Data Model Updates
-- **Added Donchian upper band** to StockQuote model
-- **Added high/low values** for better chart rendering
-- **Enhanced market breadth** with Donchian channels
-- **Removed unused API endpoints** (customers, mails, members, notifications, trades)
-
-### Desktop App Implementation
-- **Added Electron wrapper** for desktop distribution
-- **Implemented process management** for backend subprocess
-- **Backend health check** with 30s timeout on startup
-- **Security configuration** with context isolation and preload script
-- **Build configuration** for Windows (NSIS), macOS (DMG), and Linux (AppImage, .deb)
-- **Dev mode support** with hot reload from Nuxt dev server
-- **Graceful shutdown** with process cleanup using tree-kill
-- See `electron/README.md` for full documentation
-
----
-
 ## Project Structure
 
 ```
@@ -357,8 +239,10 @@ trading/
 │   └── settings.local.json           # Local settings
 │
 ├── claude_thoughts/                  # Documentation created by Claude
-│   ├── CACHE_PERFORMANCE_VERIFICATION.md
-│   └── PERFORMANCE_IMPROVEMENTS.md
+│   ├── Migration docs (H2, database, refactoring)
+│   ├── Implementation docs (features, strategies, integrations)
+│   ├── Performance reports and analysis
+│   └── Bug fix and verification reports
 │
 ├── electron/                         # Desktop app wrapper
 │   ├── main.js                       # Electron main process
@@ -721,17 +605,18 @@ Position Value: $5.50 × 2 × 100 = $1,100
 ## Important Files to Reference
 
 ### Documentation
-- `udgaard/DYNAMIC_STRATEGY_SYSTEM.md` - How the strategy system works
-- `udgaard/MCP_SERVER_README.md` - MCP server setup and usage
+- `claude_thoughts/DYNAMIC_STRATEGY_SYSTEM.md` - How the strategy system works
+- `claude_thoughts/MCP_SERVER_README.md` - MCP server setup and usage
+- `claude_thoughts/MARKET_REGIME_FILTER_IMPLEMENTATION.md` - Market filter details
+- `claude_thoughts/PLAN_BETA_STRATEGY_README.md` - Plan Beta strategy docs
 - `udgaard/README.MD` - Backend setup instructions
-- `asgaard_nuxt/claude.md` - Frontend development guide
+- `udgaard/claude.md` - Backend development guide (Kotlin/Spring Boot patterns)
+- `asgaard_nuxt/claude.md` - Frontend development guide (Nuxt/Vue patterns)
 - `release/CI_WORKFLOW.md` - CI/CD pipeline and automated testing
 - `release/DEPLOYMENT.md` - Release and deployment guide
 - `release/RELEASE_QUICKSTART.md` - Quick release guide
 - `electron/README.md` - Electron desktop app documentation
-- `udgaard/MARKET_REGIME_FILTER_IMPLEMENTATION.md` - Market filter details
-- `udgaard/PLAN_BETA_STRATEGY_README.md` - Plan Beta strategy docs
-- Various performance reports in `udgaard/*.md`
+- Various implementation and performance reports in `claude_thoughts/`
 
 ### Configuration
 - `udgaard/src/main/resources/application.properties` - Backend config
@@ -745,32 +630,6 @@ Position Value: $5.50 × 2 × 100 = $1,100
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/service/StockService.kt` - Backtesting logic
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/mcp/StockMcpTools.kt` - MCP tools
 - `asgaard_nuxt/app/pages/backtesting.vue` - Main backtesting UI
-
----
-
-## Recent Git Changes
-
-**Staged for commit:**
-- New `.idea/` IntelliJ IDEA project files
-- Frontend updates to backtesting pages and components
-- Type definitions and configuration updates
-- Removed old API endpoints (customers, mails, members, notifications, trades)
-- Backend updates to strategy system and services
-- Application properties updates
-
-**New untracked files:**
-- `.claude/` directory with this context file
-- New backtesting components (ConfigModal, EquityCurve, SectorAnalysis, TradeChart, TradeDetailsModal)
-- Chart components and strategy components
-- Various documentation files (MD reports)
-- MCP server implementation
-- New strategy files (Composite, MarketRegimeFilter, PlanBeta, etc.)
-- Dynamic strategy system files
-
-**Deleted files:**
-- Old strategy implementations (consolidated into DSL/Composite system)
-- Unused API endpoints
-- Legacy logic evaluator files
 
 ---
 
@@ -800,39 +659,6 @@ Claude can use `getStockData` or `getMultipleStocksData`:
 ```
 Get stock data for SPY from 2023-01-01 to 2024-01-01
 ```
-
----
-
-## Technologies & Libraries
-
-### Backend
-- **Spring Boot 3.5.0**: Web framework
-- **Kotlin 2.1.21**: Programming language
-- **H2 Database 2.2.224**: File-based SQL database with JPA/Hibernate
-- **Spring Data JPA**: ORM and repository layer
-- **Spring AI MCP**: Model Context Protocol server
-- **Caffeine 3.1.8**: High-performance caching library
-- **AlphaVantage API**: Stock data and technical indicators
-- **Ovtlyr API**: Market breadth and stock performance data
-- **FastCSV 4.0.0**: CSV parsing
-- **Jackson**: JSON serialization with Kotlin module
-- **Apache HttpClient 5**: HTTP requests
-
-### Frontend
-- **Nuxt 4**: Vue.js framework with SSR
-- **NuxtUI 4**: Component library built on Tailwind
-- **TypeScript**: Type-safe JavaScript
-- **ApexCharts**: Interactive charts
-- **Unovis**: Advanced data visualization
-- **date-fns**: Date manipulation
-- **Zod**: Runtime validation
-- **VueUse**: Vue composition utilities
-
-### Desktop
-- **Electron 28**: Desktop app framework
-- **electron-builder**: Build and package for distribution
-- **tree-kill**: Cross-platform process management
-- **Node.js**: Main process runtime
 
 ---
 

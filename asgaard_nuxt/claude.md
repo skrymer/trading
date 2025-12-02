@@ -4,18 +4,7 @@
 
 This is a Nuxt 4 application using NuxtUI components, designed as a dashboard/admin interface. The project uses TypeScript, ESLint for code quality, and follows Vue 3 composition API patterns.
 
-## Tech Stack
-
-- **Framework**: Nuxt 4.1.2
-- **UI Library**: NuxtUI 4.0.1
-- **Language**: TypeScript 5.9.3
-- **Package Manager**: pnpm 10.18.0
-- **Styling**: Tailwind CSS (via NuxtUI)
-- **Icons**: @iconify-json/lucide, @iconify-json/simple-icons
-- **Date Utilities**: date-fns 4.1.0
-- **Validation**: Zod 4.1.11
-- **State/Utils**: VueUse 13.9.0
-- **Charts**: Unovis 1.6.1
+For complete tech stack details, see the main CLAUDE.md file in the project root.
 
 ## Project Structure
 

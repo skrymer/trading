@@ -37,6 +37,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Download and setup JRE
+        run: |
+          # Download OpenJDK 21 JRE for Windows
+          $jreUrl = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse?project=jdk"
+          $jreZip = "jre.zip"
+
+          Write-Host "Downloading JRE..."
+          Invoke-WebRequest -Uri $jreUrl -OutFile $jreZip
+
+          Write-Host "Extracting JRE..."
+          Expand-Archive -Path $jreZip -DestinationPath jre-temp
+
+          # Find the JRE folder (it has a version-specific name)
+          $jreFolder = Get-ChildItem -Path jre-temp -Directory | Select-Object -First 1
+
+          # Move contents to jre/ directory
+          New-Item -ItemType Directory -Force -Path jre
+          Move-Item -Path "$($jreFolder.FullName)\*" -Destination jre -Force
+
+          # Cleanup
+          Remove-Item -Recurse -Force jre-temp
+          Remove-Item $jreZip
+
+          Write-Host "JRE setup complete"
+          Write-Host "Java executable: $(Test-Path jre\bin\java.exe)"
+        shell: pwsh
+
       - name: Build backend and frontend
         run: pnpm run build:all:win
 

@@ -33,6 +33,11 @@
         "from": "udgaard/build/libs/",
         "to": "backend",
         "filter": ["*.jar"]
+      },
+      {
+        "from": "jre/",
+        "to": "jre",
+        "filter": ["**/*"]
       }
     ],
     "publish": {

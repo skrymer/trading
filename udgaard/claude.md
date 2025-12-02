@@ -2,29 +2,21 @@
 
 ## Project Overview
 
-Kotlin/Spring Boot backend for stock backtesting platform with MongoDB storage, dynamic strategy system, and MCP server integration for Claude AI.
+Kotlin/Spring Boot backend for stock backtesting platform with H2 database storage, dynamic strategy system, and MCP server integration for Claude AI.
 
-**Key Capabilities:**
-- Historical stock data analysis with technical indicators
-- Dynamic strategy discovery using annotations
-- DSL-based strategy composition
-- Chronological backtesting with position limits
-- Market and sector breadth analysis
-- MCP server for Claude integration
-- Cooldown period support to prevent overtrading
+For complete project capabilities and overview, see the main CLAUDE.md file in the project root.
 
 ## Tech Stack
 
-- **Language**: Kotlin 1.9.25
+For complete tech stack details, see the main CLAUDE.md file in the project root.
+
+**Key Technologies:**
+- **Language**: Kotlin 2.1.21
 - **Framework**: Spring Boot 3.5.0
-- **Database**: MongoDB (via Spring Data MongoDB)
+- **Database**: H2 (file-based SQL database with JPA/Hibernate)
 - **Build Tool**: Gradle 8.14.2
-- **Testing**: JUnit 5, MockK
 - **Caching**: Caffeine (via Spring Cache)
 - **MCP**: Spring AI MCP Server
-- **HTTP Client**: RestTemplate
-- **CSV Parsing**: FastCSV
-- **JSON**: Jackson
 
 ## Project Structure
 
@@ -59,7 +51,7 @@ udgaard/
 │   │       ├── StrategyDsl.kt         # DSL builder
 │   │       ├── StockRanker.kt
 │   │       └── condition/             # Strategy conditions
-│   ├── repository/              # MongoDB repositories
+│   ├── repository/              # JPA repositories
 │   │   ├── StockRepository.kt
 │   │   ├── EtfRepository.kt
 │   │   └── BreadthRepository.kt
@@ -80,15 +72,12 @@ udgaard/
 │   └── secure.properties        # Credentials (not in git)
 ├── src/test/kotlin/             # Unit tests
 ├── build.gradle                 # Dependencies & build config
-└── compose.yaml                 # Docker compose for MongoDB
+└── compose.yaml                 # Docker compose (deprecated - was for MongoDB)
 ```
 
 ## Development Commands
 
 ```bash
-# Start MongoDB
-docker compose up -d
-
 # Build the project
 ./gradlew build
 
@@ -486,16 +475,16 @@ fun `test exit strategy with stop loss`() {
 }
 ```
 
-### MongoDB Queries
+### JPA Repository Queries
 
 ```kotlin
-interface StockRepository : MongoRepository<Stock, String> {
+interface StockRepository : JpaRepository<Stock, Long> {
     fun findBySymbol(symbol: String): Stock?
 
     fun findBySymbolIn(symbols: List<String>): List<Stock>
 
-    @Query("{ 'quotes.date': { \$gte: ?0, \$lte: ?1 } }")
-    fun findByDateRange(startDate: LocalDate, endDate: LocalDate): List<Stock>
+    @Query("SELECT s FROM Stock s JOIN s.quotes q WHERE q.date >= :startDate AND q.date <= :endDate")
+    fun findByDateRange(@Param("startDate") startDate: LocalDate, @Param("endDate") endDate: LocalDate): List<Stock>
 }
 ```
 
@@ -652,9 +641,11 @@ strategySignalService.evaluateStrategies(
 spring.application.name=udgaard
 server.servlet.context-path=/udgaard
 
-# MongoDB
-spring.data.mongodb.database=udgaard
-spring.data.mongodb.uri=mongodb://user:pass@localhost:27017
+# H2 Database (file-based, no Docker required)
+spring.datasource.url=jdbc:h2:file:~/.trading-app/database/trading
+spring.datasource.driver-class-name=org.h2.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.h2.console.enabled=true
 
 # Ovtlyr API (in secure.properties)
 ovtlyr.cookies.token=XXX

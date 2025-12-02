@@ -1,3 +1,8 @@
+---
+name: run-backtest
+description: This skill shows how to run backtests using the apis and how to verify backtest results using monte carlo simulations
+---
+
 # Run Trading Backtest
 
 This skill helps Claude run comprehensive backtests for trading strategies using the Udgaard API and provides detailed comparative analysis.
