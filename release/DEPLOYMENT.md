@@ -26,36 +26,45 @@ The deployment is fully automated using GitHub Actions:
 
 ## Release Process
 
-### Step 1: Update Version
+### Step 1: Update Version in package.json
 
-Update the version in `package.json`:
+⚠️ **CRITICAL**: The version in `package.json` **MUST match** the git tag!
+
+Edit `package.json` and update the version:
 
 ```json
 {
-  "version": "1.0.0"  // Change to your new version
+  "version": "1.0.1"  // Change to your new version (without the 'v' prefix)
 }
 ```
 
-### Step 2: Commit Changes
+**Examples:**
+- Git tag `v1.0.0` → package.json: `"version": "1.0.0"`
+- Git tag `v1.0.1` → package.json: `"version": "1.0.1"`
+- Git tag `v2.0.0-beta.1` → package.json: `"version": "2.0.0-beta.1"`
+
+### Step 2: Commit the Version Change
 
 ```bash
 cd /home/sonni/development/git/trading
 
-# Commit your changes
-git add .
-git commit -m "Release v1.0.0"
+# Commit the version change
+git add package.json
+git commit -m "Bump version to 1.0.1"
 git push origin main
 ```
 
 ### Step 3: Create and Push Version Tag
 
 ```bash
-# Create a version tag
-git tag v1.0.0
+# Create a version tag (must match package.json version)
+git tag v1.0.1
 
 # Push the tag to GitHub
-git push origin v1.0.0
+git push origin v1.0.1
 ```
+
+⚠️ **If the versions don't match**, electron-builder will use the package.json version and may overwrite an existing release!
 
 **That's it!** The CI/CD pipeline will automatically:
 1. ✅ Build the backend JAR
