@@ -17,12 +17,15 @@ const isEditTradeModalOpen = ref(false)
 const isCloseTradeModalOpen = ref(false)
 const isDeleteTradeModalOpen = ref(false)
 const isDeletePortfolioModalOpen = ref(false)
+const isRollTradeModalOpen = ref(false)
+const isRollChainModalOpen = ref(false)
 const isOpeningTrade = ref(false)
 const isEditingTrade = ref(false)
 const isClosingTrade = ref(false)
 const isDeletingTrade = ref(false)
 const isRefreshingStocks = ref(false)
 const selectedTrade = ref<PortfolioTrade | null>(null)
+const groupRolledTrades = ref(false)
 
 const toast = useToast()
 
@@ -99,7 +102,7 @@ async function loadPortfolioData() {
   status.value = 'pending'
   try {
     const [statsData, openTradesData, closedTradesData] = await Promise.all([
-      $fetch<PortfolioStats>(`/udgaard/api/portfolio/${portfolio.value.id}/stats`),
+      $fetch<PortfolioStats>(`/udgaard/api/portfolio/${portfolio.value.id}/stats?groupRolledTrades=${groupRolledTrades.value}`),
       $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=OPEN`),
       $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=CLOSED`)
     ])
@@ -119,6 +122,11 @@ async function loadPortfolioData() {
     })
   }
 }
+
+// Watch for groupRolledTrades changes and reload stats
+watch(groupRolledTrades, () => {
+  loadPortfolioData()
+})
 
 // Open trade
 async function openTrade(data: {
@@ -605,6 +613,32 @@ function openCloseTradeModal(trade: PortfolioTrade) {
   isCloseTradeModalOpen.value = true
 }
 
+// Open roll trade modal
+function openRollTradeModal(trade: PortfolioTrade) {
+  selectedTrade.value = trade
+  isRollTradeModalOpen.value = true
+}
+
+// Open roll chain modal
+function openRollChainModal(trade: PortfolioTrade) {
+  selectedTrade.value = trade
+  isRollChainModalOpen.value = true
+}
+
+// Handle trade rolled
+async function handleTradeRolled() {
+  isRollTradeModalOpen.value = false
+  selectedTrade.value = null
+  await loadPortfolioData()
+
+  toast.add({
+    title: 'Position Rolled',
+    description: 'Position rolled successfully',
+    icon: 'i-lucide-check-circle',
+    color: 'success'
+  })
+}
+
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UIcon = resolveComponent('UIcon')
@@ -653,12 +687,25 @@ const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
   {
     id: 'symbol',
     header: 'Symbol',
-    cell: ({ row }: { row: any }) => h('div', { class: 'flex items-center gap-2' }, [
-      h('div', {}, [
-        h('p', { class: 'font-medium' }, row.original.symbol),
-        row.original.optionsInfo ? h('p', { class: 'text-xs text-muted' }, row.original.optionsInfo) : null
-      ])
-    ])
+    cell: ({ row }: { row: any }) => {
+      const elements = [
+        h('div', {}, [
+          h('p', { class: 'font-medium' }, row.original.symbol),
+          row.original.optionsInfo ? h('p', { class: 'text-xs text-muted' }, row.original.optionsInfo) : null
+        ])
+      ]
+
+      // Add roll badge if this trade is part of a roll chain
+      if (row.original.trade.rollNumber && row.original.trade.rollNumber > 0) {
+        elements.push(h(UBadge, {
+          color: 'info',
+          size: 'xs',
+          label: `Roll #${row.original.trade.rollNumber}`
+        }))
+      }
+
+      return h('div', { class: 'flex items-center gap-2' }, elements)
+    }
   },
   {
     id: 'type',
@@ -697,32 +744,66 @@ const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }: { row: any }) => h('div', { class: 'flex justify-end gap-1' }, [
-      h(UButton, {
+    cell: ({ row }: { row: any }) => {
+      const buttons = []
+      const trade = row.original.trade
+
+      // Roll chain button (for any trade that's part of a roll chain)
+      if (trade.parentTradeId || trade.rolledToTradeId) {
+        buttons.push(h(UButton, {
+          icon: 'i-lucide-link',
+          size: 'sm',
+          color: 'info',
+          variant: 'ghost',
+          square: true,
+          onClick: () => openRollChainModal(trade)
+        }))
+      }
+
+      // Roll button (only for open option trades)
+      if (trade.instrumentType === 'OPTION') {
+        buttons.push(h(UButton, {
+          icon: 'i-lucide-repeat',
+          size: 'sm',
+          color: 'warning',
+          variant: 'ghost',
+          square: true,
+          onClick: () => openRollTradeModal(trade)
+        }))
+      }
+
+      // Edit button
+      buttons.push(h(UButton, {
         icon: 'i-lucide-pencil',
         size: 'sm',
         color: 'neutral',
         variant: 'ghost',
         square: true,
-        onClick: () => openEditTradeModal(row.original.trade)
-      }),
-      h(UButton, {
+        onClick: () => openEditTradeModal(trade)
+      }))
+
+      // Delete button
+      buttons.push(h(UButton, {
         icon: 'i-lucide-trash-2',
         size: 'sm',
         color: 'error',
         variant: 'ghost',
         square: true,
-        onClick: () => openDeleteTradeModal(row.original.trade)
-      }),
-      h(UButton, {
+        onClick: () => openDeleteTradeModal(trade)
+      }))
+
+      // Close button
+      buttons.push(h(UButton, {
         icon: 'i-lucide-x-circle',
         size: 'sm',
         color: 'success',
         variant: 'ghost',
         square: true,
-        onClick: () => openCloseTradeModal(row.original.trade)
-      })
-    ])
+        onClick: () => openCloseTradeModal(trade)
+      }))
+
+      return h('div', { class: 'flex justify-end gap-1' }, buttons)
+    }
   }
 ]
 
@@ -817,17 +898,30 @@ const openTradesTableData = computed(() => {
 
       <!-- Portfolio Content -->
       <div v-else class="grid gap-4">
-        <!-- Projected Metrics Toggle -->
-        <div v-if="openTrades.length > 0 && projectedStats" class="flex items-center justify-end gap-2">
-          <label class="text-sm text-muted cursor-pointer" for="show-open-trades">
-            Show Projected Metrics
-          </label>
-          <input
-            id="show-open-trades"
-            v-model="showOpenTradesStats"
-            type="checkbox"
-            class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-          >
+        <!-- Projected Metrics and Group Rolled Trades Toggles -->
+        <div class="flex items-center justify-end gap-6">
+          <div v-if="openTrades.length > 0 && projectedStats" class="flex items-center gap-2">
+            <label class="text-sm text-muted cursor-pointer" for="show-open-trades">
+              Show Projected Metrics
+            </label>
+            <input
+              id="show-open-trades"
+              v-model="showOpenTradesStats"
+              type="checkbox"
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+            >
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-muted cursor-pointer" for="group-rolled-trades">
+              Group Rolled Trades
+            </label>
+            <input
+              id="group-rolled-trades"
+              v-model="groupRolledTrades"
+              type="checkbox"
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+            >
+          </div>
         </div>
 
         <!-- Info Note -->
@@ -1155,5 +1249,22 @@ const openTradesTableData = computed(() => {
     v-model:open="isDeletePortfolioModalOpen"
     :portfolio="portfolio"
     @delete="deletePortfolio"
+  />
+
+  <!-- Roll Trade Modal -->
+  <PortfolioRollTradeModal
+    v-if="selectedTrade && portfolio"
+    v-model:open="isRollTradeModalOpen"
+    :trade="selectedTrade"
+    :portfolio-id="Number(portfolio.id)"
+    @rolled="handleTradeRolled"
+  />
+
+  <!-- Roll Chain Modal -->
+  <PortfolioRollChainModal
+    v-if="selectedTrade && portfolio"
+    v-model:open="isRollChainModalOpen"
+    :trade="selectedTrade"
+    :portfolio-id="Number(portfolio.id)"
   />
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PortfolioTrade, RollTradeRequest } from '~/types'
+import type { PortfolioTrade, RollTradeRequest, RollTradeResponse } from '~/types'
 
 const props = defineProps<{
   trade: PortfolioTrade
@@ -15,12 +15,12 @@ const isOpen = defineModel<boolean>('open', { required: true })
 const toast = useToast()
 
 // Form state
-const rollDate = ref(new Date().toISOString().split('T')[0])
-const exitPrice = ref(props.trade.exitPrice || 0)
-const newStrikePrice = ref(props.trade.strikePrice || 0)
-const newExpirationDate = ref(props.trade.expirationDate || '')
-const newEntryPrice = ref(0)
-const contracts = ref(props.trade.contracts || 1)
+const rollDate = ref<string>(new Date().toISOString().split('T')[0] || '')
+const exitPrice = ref<number>(props.trade.exitPrice || 0)
+const newStrikePrice = ref<number>(props.trade.strikePrice || 0)
+const newExpirationDate = ref<string>(props.trade.expirationDate || '')
+const newEntryPrice = ref<number>(0)
+const contracts = ref<number>(props.trade.contracts || 1)
 
 // Computed values
 const exitValue = computed(() => {
@@ -40,7 +40,7 @@ const isRollDebit = computed(() => rollCost.value > 0)
 const loading = ref(false)
 
 async function rollTrade() {
-  if (!newEntryPrice.value || !newStrikePrice.value || !newExpirationDate.value) {
+  if (!newEntryPrice.value || !newStrikePrice.value || !newExpirationDate.value || !props.trade.optionType || !rollDate.value) {
     toast.add({
       title: 'Error',
       description: 'Please fill in all required fields',
@@ -52,17 +52,17 @@ async function rollTrade() {
   loading.value = true
   try {
     const request: RollTradeRequest = {
-      newSymbol: props.trade.symbol,
+      newSymbol: props.trade.symbol || '',
       newStrikePrice: newStrikePrice.value,
       newExpirationDate: newExpirationDate.value,
-      newOptionType: props.trade.optionType!,
+      newOptionType: props.trade.optionType,
       newEntryPrice: newEntryPrice.value,
       rollDate: rollDate.value,
       contracts: contracts.value,
       exitPrice: exitPrice.value
     }
 
-    const response = await $fetch(`/udgaard/api/portfolio/${props.portfolioId}/trades/${props.trade.id}/roll`, {
+    const response = await $fetch<RollTradeResponse>(`/udgaard/api/portfolio/${props.portfolioId}/trades/${props.trade.id}/roll`, {
       method: 'POST',
       body: request
     })
