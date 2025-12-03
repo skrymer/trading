@@ -15,7 +15,9 @@ import java.time.temporal.ChronoUnit
         Index(name = "idx_trade_portfolio", columnList = "portfolio_id"),
         Index(name = "idx_trade_symbol", columnList = "symbol"),
         Index(name = "idx_trade_entry_date", columnList = "entry_date"),
-        Index(name = "idx_trade_status", columnList = "status")
+        Index(name = "idx_trade_status", columnList = "status"),
+        Index(name = "idx_trade_parent", columnList = "parent_trade_id"),
+        Index(name = "idx_trade_rolled_to", columnList = "rolled_to_trade_id")
     ]
 )
 data class PortfolioTrade(
@@ -97,7 +99,37 @@ data class PortfolioTrade(
      * If null, will fall back to AssetMapper or use the trade symbol itself.
      */
     @Column(name = "underlying_symbol", length = 20)
-    val underlyingSymbol: String? = null
+    val underlyingSymbol: String? = null,
+
+    // Rolling support - links trades in a roll chain
+    @Column(name = "parent_trade_id")
+    val parentTradeId: Long? = null,
+
+    @Column(name = "rolled_to_trade_id")
+    var rolledToTradeId: Long? = null,
+
+    @Column(name = "roll_number", nullable = false)
+    val rollNumber: Int = 0,
+
+    // Cumulative tracking across the entire roll chain
+    @Column(name = "original_entry_date")
+    val originalEntryDate: LocalDate? = null,
+
+    @Column(name = "original_cost_basis")
+    val originalCostBasis: Double? = null,
+
+    @Column(name = "cumulative_realized_profit")
+    val cumulativeRealizedProfit: Double? = null,
+
+    @Column(name = "total_roll_cost")
+    val totalRollCost: Double? = null,
+
+    // Roll transaction details
+    @Column(name = "roll_date")
+    val rollDate: LocalDate? = null,
+
+    @Column(name = "roll_cost")
+    val rollCost: Double? = null
 ) {
     /**
      * Get the symbol to use for strategy evaluation.
@@ -199,6 +231,54 @@ data class PortfolioTrade(
             entryExtrinsicValue != null &&
             exitExtrinsicValue != null) {
             exitExtrinsicValue - entryExtrinsicValue
+        } else null
+    }
+
+    /**
+     * Check if this is a rolled position (created from a previous position)
+     */
+    fun isRolledPosition(): Boolean = parentTradeId != null
+
+    /**
+     * Check if this position was rolled out to another position
+     */
+    fun wasRolledOut(): Boolean = rolledToTradeId != null
+
+    /**
+     * Check if this is the original position (not rolled from another)
+     */
+    fun isOriginalPosition(): Boolean = rollNumber == 0
+
+    /**
+     * Get total cost basis including all rolls in the chain
+     */
+    fun getTotalCostBasis(): Double {
+        val originalCost = originalCostBasis ?: positionSize
+        val rollCosts = totalRollCost ?: 0.0
+        return originalCost + rollCosts
+    }
+
+    /**
+     * Get cumulative profit across entire roll chain (for closed positions only)
+     * Includes profit from this leg plus all previous rolled legs
+     */
+    fun getCumulativeProfit(): Double? {
+        return if (status == TradeStatus.CLOSED && exitPrice != null) {
+            val thisLegProfit = profit ?: 0.0
+            val previousProfit = cumulativeRealizedProfit ?: 0.0
+            thisLegProfit + previousProfit
+        } else null
+    }
+
+    /**
+     * Get cumulative return percentage across entire roll chain
+     * Based on total cost basis from original position through all rolls
+     */
+    fun getCumulativeReturnPercentage(): Double? {
+        val cumProfit = getCumulativeProfit() ?: return null
+        val totalCost = getTotalCostBasis()
+        return if (totalCost > 0.0) {
+            (cumProfit / totalCost) * 100.0
         } else null
     }
 }

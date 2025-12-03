@@ -2,6 +2,7 @@ package com.skrymer.udgaard.controller.dto
 
 import com.skrymer.udgaard.model.InstrumentType
 import com.skrymer.udgaard.model.OptionType
+import com.skrymer.udgaard.model.PortfolioTrade
 import java.time.LocalDate
 
 data class CreatePortfolioRequest(
@@ -55,4 +56,25 @@ data class UpdateTradeRequest(
     val multiplier: Int? = null,
     val entryIntrinsicValue: Double? = null,
     val entryExtrinsicValue: Double? = null
+)
+
+data class RollTradeRequest(
+    val newSymbol: String,
+    val newStrikePrice: Double,
+    val newExpirationDate: LocalDate,
+    val newOptionType: OptionType,
+    val newEntryPrice: Double,
+    val rollDate: LocalDate,
+    val contracts: Int,
+    val exitPrice: Double
+)
+
+data class RollTradeResponse(
+    val closedTrade: PortfolioTrade,
+    val newTrade: PortfolioTrade,
+    val rollCost: Double
+)
+
+data class RollChainResponse(
+    val trades: List<PortfolioTrade>
 )

@@ -74,11 +74,15 @@ class PortfolioController(
 
     /**
      * Get portfolio statistics
+     * @param groupRolledTrades - If true, treat roll chains as single trades (use cumulative P&L)
      */
     @GetMapping("/{portfolioId}/stats")
     @Transactional(readOnly = true)
-    fun getPortfolioStats(@PathVariable portfolioId: Long): ResponseEntity<PortfolioStats> {
-        val stats = portfolioService.calculateStats(portfolioId)
+    fun getPortfolioStats(
+        @PathVariable portfolioId: Long,
+        @RequestParam(required = false, defaultValue = "false") groupRolledTrades: Boolean
+    ): ResponseEntity<PortfolioStats> {
+        val stats = portfolioService.calculateStats(portfolioId, groupRolledTrades)
         return ResponseEntity.ok(stats)
     }
 
@@ -216,5 +220,54 @@ class PortfolioController(
     fun getEquityCurve(@PathVariable portfolioId: Long): ResponseEntity<EquityCurveData> {
         val data = portfolioService.getEquityCurve(portfolioId)
         return ResponseEntity.ok(data)
+    }
+
+    /**
+     * Roll an options position to a new strike/expiration
+     */
+    @PostMapping("/{portfolioId}/trades/{tradeId}/roll")
+    fun rollTrade(
+        @PathVariable portfolioId: Long,
+        @PathVariable tradeId: Long,
+        @RequestBody request: RollTradeRequest
+    ): ResponseEntity<RollTradeResponse> {
+        try {
+            val (closedTrade, newTrade) = portfolioService.rollTrade(
+                tradeId = tradeId,
+                newSymbol = request.newSymbol,
+                newStrikePrice = request.newStrikePrice,
+                newExpirationDate = request.newExpirationDate,
+                newOptionType = request.newOptionType,
+                newEntryPrice = request.newEntryPrice,
+                rollDate = request.rollDate,
+                contracts = request.contracts,
+                exitPrice = request.exitPrice
+            )
+
+            return ResponseEntity.ok(
+                RollTradeResponse(
+                    closedTrade = closedTrade,
+                    newTrade = newTrade,
+                    rollCost = newTrade.rollCost ?: 0.0
+                )
+            )
+        } catch (e: IllegalArgumentException) {
+            return ResponseEntity.badRequest().build()
+        } catch (e: IllegalStateException) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+        }
+    }
+
+    /**
+     * Get the complete roll chain for a trade
+     */
+    @GetMapping("/{portfolioId}/trades/{tradeId}/roll-chain")
+    @Transactional(readOnly = true)
+    fun getRollChain(
+        @PathVariable portfolioId: Long,
+        @PathVariable tradeId: Long
+    ): ResponseEntity<RollChainResponse> {
+        val chain = portfolioService.getRollChain(tradeId)
+        return ResponseEntity.ok(RollChainResponse(trades = chain))
     }
 }

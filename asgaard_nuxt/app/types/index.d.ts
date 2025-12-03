@@ -382,10 +382,46 @@ export interface PortfolioTrade {
   profitPercentage?: number
   underlyingSymbol?: string
 
+  // Rolling support - links trades in a roll chain
+  parentTradeId?: string
+  rolledToTradeId?: string
+  rollNumber?: number
+
+  // Cumulative tracking across the entire roll chain
+  originalEntryDate?: string
+  originalCostBasis?: number
+  cumulativeRealizedProfit?: number
+  totalRollCost?: number
+
+  // Roll transaction details
+  rollDate?: string
+  rollCost?: number
+
   // Computed fields
   positionSize?: number
   daysToExpiration?: number
   timeDecay?: number
+}
+
+export interface RollTradeRequest {
+  newSymbol: string
+  newStrikePrice: number
+  newExpirationDate: string
+  newOptionType: OptionType
+  newEntryPrice: number
+  rollDate: string
+  contracts: number
+  exitPrice: number
+}
+
+export interface RollTradeResponse {
+  closedTrade: PortfolioTrade
+  newTrade: PortfolioTrade
+  rollCost: number
+}
+
+export interface RollChainResponse {
+  trades: PortfolioTrade[]
 }
 
 export interface PortfolioStats {

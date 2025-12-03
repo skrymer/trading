@@ -300,12 +300,149 @@ class PortfolioService(
     }
 
     /**
-     * Calculate portfolio statistics
+     * Roll an options position to a new strike/expiration
+     *
+     * @param tradeId - The ID of the open trade to roll
+     * @param newSymbol - Symbol for new position (could be different strike/expiration)
+     * @param newStrikePrice - New strike price
+     * @param newExpirationDate - New expiration date
+     * @param newOptionType - New option type (usually same as original)
+     * @param newEntryPrice - Entry price for new position
+     * @param rollDate - Date of the roll
+     * @param contracts - Number of contracts for new position
+     * @param exitPrice - Current value of old position
+     * @return Pair of (closed original trade, new rolled trade)
      */
-    fun calculateStats(portfolioId: Long): PortfolioStats {
+    fun rollTrade(
+        tradeId: Long,
+        newSymbol: String,
+        newStrikePrice: Double,
+        newExpirationDate: LocalDate,
+        newOptionType: OptionType,
+        newEntryPrice: Double,
+        rollDate: LocalDate,
+        contracts: Int,
+        exitPrice: Double
+    ): Pair<PortfolioTrade, PortfolioTrade> {
+        // 1. Get the original trade
+        val originalTrade = getTrade(tradeId)
+            ?: throw IllegalArgumentException("Trade not found")
+
+        if (originalTrade.status != TradeStatus.OPEN) {
+            throw IllegalArgumentException("Can only roll open trades")
+        }
+
+        if (originalTrade.instrumentType != InstrumentType.OPTION) {
+            throw IllegalArgumentException("Can only roll option trades")
+        }
+
+        // 2. Close the original position
+        val closedTrade = closeTrade(tradeId, exitPrice, rollDate)
+            ?: throw IllegalStateException("Failed to close trade")
+
+        // 3. Calculate roll cost/credit
+        val exitValue = exitPrice * (originalTrade.contracts ?: 1) * originalTrade.multiplier
+        val newEntryCost = newEntryPrice * contracts * originalTrade.multiplier
+        val rollCost = newEntryCost - exitValue  // Positive = paid debit, negative = received credit
+
+        // 4. Calculate cumulative values for new position
+        val originalEntryDate = originalTrade.originalEntryDate ?: originalTrade.entryDate
+        val originalCostBasis = originalTrade.originalCostBasis ?: originalTrade.positionSize
+        val cumulativeProfit = (closedTrade.profit ?: 0.0) + (originalTrade.cumulativeRealizedProfit ?: 0.0)
+        val totalRollCost = rollCost + (originalTrade.totalRollCost ?: 0.0)
+        val rollNumber = originalTrade.rollNumber + 1
+
+        // 5. Create new rolled position
+        val newTrade = PortfolioTrade(
+            portfolioId = originalTrade.portfolioId,
+            symbol = newSymbol,
+            instrumentType = InstrumentType.OPTION,
+            optionType = newOptionType,
+            strikePrice = newStrikePrice,
+            expirationDate = newExpirationDate,
+            contracts = contracts,
+            multiplier = originalTrade.multiplier,
+            entryPrice = newEntryPrice,
+            entryDate = rollDate,
+            quantity = contracts,
+            entryStrategy = originalTrade.entryStrategy,
+            exitStrategy = originalTrade.exitStrategy,
+            currency = originalTrade.currency,
+            status = TradeStatus.OPEN,
+            underlyingSymbol = originalTrade.underlyingSymbol,
+
+            // Rolling fields
+            parentTradeId = tradeId,
+            rollNumber = rollNumber,
+            rollDate = rollDate,
+            rollCost = rollCost,
+            originalEntryDate = originalEntryDate,
+            originalCostBasis = originalCostBasis,
+            cumulativeRealizedProfit = cumulativeProfit,
+            totalRollCost = totalRollCost
+        )
+
+        val savedNewTrade = portfolioTradeRepository.save(newTrade)
+
+        // 6. Update the closed trade to link to new trade
+        val updatedClosedTrade = closedTrade.copy(rolledToTradeId = savedNewTrade.id)
+        portfolioTradeRepository.save(updatedClosedTrade)
+
+        // 7. Adjust portfolio balance for roll cost (if any)
+        // Note: closeTrade() already added exitValue back, now deduct newEntryCost
+        val portfolio = getPortfolio(originalTrade.portfolioId)
+        portfolio?.let {
+            updatePortfolio(it.id!!, it.currentBalance - newEntryCost)
+        }
+
+        return Pair(updatedClosedTrade, savedNewTrade)
+    }
+
+    /**
+     * Get the complete roll chain for a trade
+     * Returns all trades in the chain from original to current
+     */
+    fun getRollChain(tradeId: Long): List<PortfolioTrade> {
+        val trade = getTrade(tradeId) ?: return emptyList()
+
+        // Find the original trade in the chain by walking backwards
+        var originalTrade = trade
+        while (originalTrade.parentTradeId != null) {
+            originalTrade = getTrade(originalTrade.parentTradeId!!) ?: break
+        }
+
+        // Build the chain from original to current by walking forwards
+        val chain = mutableListOf(originalTrade)
+        var currentTrade = originalTrade
+        while (currentTrade.rolledToTradeId != null) {
+            val nextTrade = getTrade(currentTrade.rolledToTradeId!!)
+            if (nextTrade != null) {
+                chain.add(nextTrade)
+                currentTrade = nextTrade
+            } else break
+        }
+
+        return chain
+    }
+
+    /**
+     * Calculate portfolio statistics
+     *
+     * @param portfolioId - The portfolio to calculate stats for
+     * @param groupRolledTrades - If true, treat roll chains as single trades (use cumulative P&L)
+     *                            If false, count each leg as a separate trade
+     */
+    fun calculateStats(portfolioId: Long, groupRolledTrades: Boolean = false): PortfolioStats {
         val portfolio = getPortfolio(portfolioId) ?: return createEmptyStats()
         val allTrades = getTrades(portfolioId)
-        val closedTrades = allTrades.filter { it.status == TradeStatus.CLOSED }
+
+        // When grouping, only count final trades in roll chains (not intermediate rolled-out positions)
+        val closedTrades = if (groupRolledTrades) {
+            allTrades.filter { it.status == TradeStatus.CLOSED && it.rolledToTradeId == null }
+        } else {
+            allTrades.filter { it.status == TradeStatus.CLOSED }
+        }
+
         val openTrades = allTrades.filter { it.status == TradeStatus.OPEN }
 
         if (closedTrades.isEmpty()) {
@@ -315,9 +452,18 @@ class PortfolioService(
             )
         }
 
-        // Calculate wins and losses
-        val wins = closedTrades.filter { (it.profit ?: 0.0) > 0 }
-        val losses = closedTrades.filter { (it.profit ?: 0.0) < 0 }
+        // Calculate wins and losses - use cumulative profit for rolled trades if grouping
+        val wins = if (groupRolledTrades) {
+            closedTrades.filter { (it.getCumulativeProfit() ?: 0.0) > 0 }
+        } else {
+            closedTrades.filter { (it.profit ?: 0.0) > 0 }
+        }
+
+        val losses = if (groupRolledTrades) {
+            closedTrades.filter { (it.getCumulativeProfit() ?: 0.0) < 0 }
+        } else {
+            closedTrades.filter { (it.profit ?: 0.0) < 0 }
+        }
 
         val numberOfWins = wins.size
         val numberOfLosses = losses.size
@@ -325,31 +471,53 @@ class PortfolioService(
             (numberOfWins.toDouble() / closedTrades.size) * 100.0
         } else 0.0
 
+        // Use cumulative return percentages when grouping rolled trades
         val avgWin = if (wins.isNotEmpty()) {
-            wins.mapNotNull { it.profitPercentage }.average()
+            if (groupRolledTrades) {
+                wins.mapNotNull { it.getCumulativeReturnPercentage() }.average()
+            } else {
+                wins.mapNotNull { it.profitPercentage }.average()
+            }
         } else 0.0
 
         val avgLoss = if (losses.isNotEmpty()) {
-            losses.mapNotNull { it.profitPercentage }.average()
+            if (groupRolledTrades) {
+                losses.mapNotNull { it.getCumulativeReturnPercentage() }.average()
+            } else {
+                losses.mapNotNull { it.profitPercentage }.average()
+            }
         } else 0.0
 
         // Calculate proven edge
         val lossRate = 100.0 - winRate
         val provenEdge = (winRate / 100.0 * avgWin) - (lossRate / 100.0 * kotlin.math.abs(avgLoss))
 
-        // Calculate total profit
-        val totalProfit = closedTrades.mapNotNull { it.profit }.sum()
+        // Calculate total profit - use cumulative when grouping
+        val totalProfit = if (groupRolledTrades) {
+            closedTrades.mapNotNull { it.getCumulativeProfit() }.sum()
+        } else {
+            closedTrades.mapNotNull { it.profit }.sum()
+        }
         val totalProfitPercentage = (totalProfit / portfolio.initialBalance) * 100.0
 
         // Calculate YTD return
-        val ytdReturn = calculateYTDReturn(portfolio, closedTrades)
+        val ytdReturn = calculateYTDReturn(portfolio, closedTrades, groupRolledTrades)
 
         // Calculate annualized return
         val annualizedReturn = calculateAnnualizedReturn(portfolio)
 
-        // Find the largest win and loss
-        val largestWin = wins.maxOfOrNull { it.profitPercentage ?: 0.0 }
-        val largestLoss = losses.minOfOrNull { it.profitPercentage ?: 0.0 }
+        // Find the largest win and loss - use cumulative when grouping
+        val largestWin = if (groupRolledTrades) {
+            wins.maxOfOrNull { it.getCumulativeReturnPercentage() ?: 0.0 }
+        } else {
+            wins.maxOfOrNull { it.profitPercentage ?: 0.0 }
+        }
+
+        val largestLoss = if (groupRolledTrades) {
+            losses.minOfOrNull { it.getCumulativeReturnPercentage() ?: 0.0 }
+        } else {
+            losses.minOfOrNull { it.profitPercentage ?: 0.0 }
+        }
 
         return PortfolioStats(
             totalTrades = allTrades.size,
@@ -373,13 +541,21 @@ class PortfolioService(
     /**
      * Calculate YTD return
      */
-    private fun calculateYTDReturn(portfolio: Portfolio, closedTrades: List<PortfolioTrade>): Double {
+    private fun calculateYTDReturn(
+        portfolio: Portfolio,
+        closedTrades: List<PortfolioTrade>,
+        groupRolledTrades: Boolean = false
+    ): Double {
         val startOfYear = LocalDate.now().withDayOfYear(1)
         val ytdTrades = closedTrades.filter {
             it.exitDate?.isAfter(startOfYear.minusDays(1)) == true
         }
 
-        val ytdProfit = ytdTrades.mapNotNull { it.profit }.sum()
+        val ytdProfit = if (groupRolledTrades) {
+            ytdTrades.mapNotNull { it.getCumulativeProfit() }.sum()
+        } else {
+            ytdTrades.mapNotNull { it.profit }.sum()
+        }
         return (ytdProfit / portfolio.initialBalance) * 100.0
     }
 
