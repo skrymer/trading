@@ -97,11 +97,6 @@ class PortfolioService(
         val portfolio = getPortfolio(portfolioId)
             ?: throw IllegalArgumentException("Portfolio not found")
 
-        // Validate entry date is not before portfolio creation
-        if (entryDate.isBefore(portfolio.createdDate.toLocalDate())) {
-            throw IllegalArgumentException("Entry date cannot be before portfolio creation date (${portfolio.createdDate.toLocalDate()})")
-        }
-
         // Validate options-specific fields
         if (instrumentType == InstrumentType.OPTION) {
             requireNotNull(optionType) { "Option type is required for option trades" }
@@ -170,14 +165,6 @@ class PortfolioService(
         // Only allow updating open trades
         if (trade.status != TradeStatus.OPEN) {
             throw IllegalArgumentException("Can only update open trades")
-        }
-
-        // Validate entry date if provided
-        if (entryDate != null) {
-            val portfolio = getPortfolio(trade.portfolioId)
-            if (portfolio != null && entryDate.isBefore(portfolio.createdDate.toLocalDate())) {
-                throw IllegalArgumentException("Entry date cannot be before portfolio creation date (${portfolio.createdDate.toLocalDate()})")
-            }
         }
 
         // Calculate old entry cost

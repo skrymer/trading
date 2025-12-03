@@ -97,8 +97,13 @@ open class StockService(
   }
 
   /**
-   * Fetches stock data from Ovtlyr API and saves it to the database.
+   * Fetches stock data from AlphaVantage (primary) enriched with Ovtlyr indicators.
    * Uses StockFactory to create the stock entity with all enrichments.
+   *
+   * NEW ARCHITECTURE:
+   * - AlphaVantage provides: OHLCV (adjusted) + volume + ATR
+   * - We calculate: EMAs, Donchian channels, trend
+   * - Ovtlyr provides: Buy/sell signals, heatmaps, sector sentiment
    *
    * @param symbol - the stock symbol to fetch
    * @param spy - SPY reference data for enriching stock information
@@ -107,71 +112,92 @@ open class StockService(
   private fun fetchStock(symbol: String, spy: OvtlyrStockInformation): Stock? {
     val logger = LoggerFactory.getLogger("StockService")
 
-    // Step 1: Fetch stock information from Ovtlyr
-    val stockInformation = ovtlyrClient.getStockInformation(symbol) ?: return null
-
     return runCatching {
-      // Step 2: Delete existing stock if it exists (cascade delete will remove quotes)
+      // Step 1: Delete existing stock if it exists (cascade delete will remove quotes)
       stockRepository.findById(symbol).ifPresent { existingStock ->
         logger.info("Deleting existing stock $symbol before refreshing")
         stockRepository.delete(existingStock)
         stockRepository.flush() // Ensure delete is committed before insert
       }
 
-      // Step 3: Fetch breadth data for context (eagerly load quotes to avoid LazyInitializationException)
+      // Step 2: Fetch adjusted daily data from AlphaVantage (PRIMARY data source - REQUIRED)
+      logger.info("Fetching adjusted daily data from AlphaVantage for $symbol")
+      val alphaQuotes = alphaVantageClient.getDailyAdjustedTimeSeries(symbol)
+      if (alphaQuotes == null) {
+        logger.error("FAILED: Could not fetch data from AlphaVantage for $symbol")
+        return null
+      }
+      logger.info("Fetched ${alphaQuotes.size} quotes from AlphaVantage for $symbol")
+
+      // Step 3: Fetch ATR data from AlphaVantage (REQUIRED for strategies)
+      logger.info("Fetching ATR data from AlphaVantage for $symbol")
+      val alphaATR = alphaVantageClient.getATR(symbol)
+      if (alphaATR == null) {
+        logger.error("FAILED: Could not fetch ATR data from AlphaVantage for $symbol")
+        return null
+      }
+      logger.info("Fetched ${alphaATR.size} ATR values from AlphaVantage for $symbol")
+
+      // Step 3.5: Fetch earnings history from AlphaVantage (for exit-before-earnings strategies)
+      logger.info("Fetching earnings history from AlphaVantage for $symbol")
+      val earnings = alphaVantageClient.getEarnings(symbol) ?: emptyList()
+      logger.info("Fetched ${earnings.size} quarterly earnings for $symbol")
+
+      // Step 4: Get sector symbol from Ovtlyr (needed for sector breadth lookup)
+      logger.info("Fetching sector symbol from Ovtlyr for $symbol")
+      val ovtlyrStock = ovtlyrClient.getStockInformation(symbol)
+      if (ovtlyrStock == null) {
+        logger.error("FAILED: Could not fetch stock information from Ovtlyr for $symbol")
+        return null
+      }
+      val sectorSymbolString = ovtlyrStock.sectorSymbol
+
+      // Step 5: Fetch breadth data for context
       val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-      val sectorSymbol = SectorSymbol.fromString(stockInformation.sectorSymbol)
+      val sectorSymbol = SectorSymbol.fromString(sectorSymbolString)
       val sectorBreadth = sectorSymbol?.let {
         breadthRepository.findBySymbol(BreadthSymbol.Sector(it).toIdentifier())
       }
 
-      // Step 4: Enrich with AlphaVantage volume data
-      logger.info("Starting volume enrichment for $symbol")
-      val alphaQuotes = alphaVantageClient.getDailyTimeSeries(symbol)
-      if (alphaQuotes == null) {
-        logger.warn("Could not fetch volume data from Alpha Vantage for $symbol, using default values")
-      }
-
-      // Step 5: Enrich with AlphaVantage ATR data
-      logger.info("Starting ATR enrichment for $symbol")
-      val alphaATR = alphaVantageClient.getATR(symbol)
-      if (alphaATR == null) {
-        logger.warn("Could not fetch ATR data from Alpha Vantage for $symbol, using calculated ATR")
-      } else {
-        logger.info("Fetched ${alphaATR.size} ATR values from Alpha Vantage for $symbol")
-      }
-
-      // Step 6: Create quotes for order block calculation
-      val quotes = stockFactory.createQuotes(
-        stockInformation = stockInformation,
+      // Step 6: Create enriched quotes using StockFactory
+      // This will: calculate EMAs, add ATR, calculate Donchian, determine trend, enrich with Ovtlyr
+      logger.info("Creating enriched quotes for $symbol")
+      val enrichedQuotes = stockFactory.createQuotes(
+        symbol = symbol,
+        alphaQuotes = alphaQuotes,
+        alphaATR = alphaATR,
         marketBreadth = marketBreadth,
         sectorBreadth = sectorBreadth,
-        spy = spy,
-        alphaQuotes = alphaQuotes,
-        alphaATR = alphaATR
+        spy = spy
       )
 
-      // Step 7: Calculate order blocks based on quotes
-      val calculatedOrderBlocks = orderBlockCalculator.calculateOrderBlocks(
-        quotes = quotes,
-        sensitivity = 28.0
+      if (enrichedQuotes == null) {
+        logger.error("FAILED: Could not create enriched quotes for $symbol (Ovtlyr enrichment failed)")
+        return null
+      }
+
+      // Step 7: Calculate order blocks based on enriched quotes
+      logger.info("Calculating order blocks for $symbol")
+      val orderBlocks = orderBlockCalculator.calculateOrderBlocks(
+        quotes = enrichedQuotes,
+        sensitivity = 15.0  // 15% ROC threshold for momentum detection
       )
 
-      // Step 8: Use factory to create complete stock with all enrichments
-      val enrichedStock = stockFactory.createStock(
-        stockInformation = stockInformation,
-        marketBreadth = marketBreadth,
-        sectorBreadth = sectorBreadth,
-        spy = spy,
-        alphaQuotes = alphaQuotes,
-        calculatedOrderBlocks = calculatedOrderBlocks,
-        alphaATR = alphaATR
+      // Step 8: Create Stock entity
+      logger.info("Creating Stock entity for $symbol")
+      val stock = stockFactory.createStock(
+        symbol = symbol,
+        sectorSymbol = sectorSymbolString,
+        enrichedQuotes = enrichedQuotes,
+        orderBlocks = orderBlocks,
+        earnings = earnings
       )
 
       // Step 9: Save and return
-      stockRepository.save(enrichedStock)
+      logger.info("Saving stock $symbol to database")
+      stockRepository.save(stock)
     }
-      .onFailure { action -> Companion.logger.error("Could not fetch stock", action) }
+      .onFailure { action -> Companion.logger.error("Could not fetch stock $symbol", action) }
       .getOrNull()
   }
 

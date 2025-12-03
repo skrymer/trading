@@ -774,11 +774,11 @@ const openTradesTableData = computed(() => {
           <USelect
             v-if="portfolios.length > 0"
             :model-value="portfolio?.id"
-            :items="portfolios.map(p => ({ label: p.name, value: p.id }))"
+            :items="portfolios.map((p: Portfolio) => ({ label: p.name, value: p.id }))"
             value-key="value"
             class="w-64"
             placeholder="Select Portfolio"
-            @update:model-value="(id) => selectPortfolio(portfolios.find(p => p.id === id)!)"
+            @update:model-value="(id: number) => selectPortfolio(portfolios.find((p: Portfolio) => Number(p.id) === id)!)"
           />
           <UDropdownMenu :items="items">
             <UButton icon="i-lucide-plus" size="md" class="rounded-full" />

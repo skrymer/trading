@@ -95,7 +95,8 @@ The desktop app uses a three-process architecture:
 - H2 Database (file-based) with JPA/Hibernate for data storage
 - Gradle build system
 - Spring AI MCP Server for Claude integration
-- AlphaVantage API for stock data and ATR calculations
+- **AlphaVantage API as PRIMARY data source** (adjusted OHLCV, volume, ATR)
+- Ovtlyr API for enrichment (signals, heatmaps, sector sentiment)
 
 **Key Components:**
 1. **Strategy System** (`src/main/kotlin/com/skrymer/udgaard/model/strategy/`)
@@ -108,6 +109,8 @@ The desktop app uses a three-process architecture:
 
 2. **Services** (`src/main/kotlin/com/skrymer/udgaard/service/`)
    - `StockService.kt`: Stock data management and backtesting logic
+   - `TechnicalIndicatorService.kt`: Calculate EMAs, Donchian channels, trend determination
+   - `OvtlyrEnrichmentService.kt`: Enrich AlphaVantage data with Ovtlyr signals and heatmaps
    - `BreadthService.kt`: Market breadth calculations (SPY, QQQ, IWM)
    - `EtfService.kt`: ETF data management and holdings analysis
    - `PortfolioService.kt`: Portfolio and trade management with statistics
@@ -120,8 +123,8 @@ The desktop app uses a three-process architecture:
    - Enables Claude to perform custom backtesting and strategy analysis
 
 4. **Integration** (`src/main/kotlin/com/skrymer/udgaard/integration/`)
-   - **Ovtlyr** (`ovtlyr/`): Stock data provider for quotes, breadth, and performance
-   - **AlphaVantage** (`alphavantage/`): Stock data, ATR calculations, ETF profiles, time series
+   - **AlphaVantage** (`alphavantage/`): **PRIMARY data source** - Adjusted daily OHLCV, ATR, ETF profiles
+   - **Ovtlyr** (`ovtlyr/`): **Enrichment source** - Buy/sell signals, heatmaps, sector sentiment, breadth data
 
 **API Endpoints:**
 
@@ -293,8 +296,10 @@ trading/
 │   │   │       └── condition/             # Strategy conditions
 │   │   ├── service/                  # Business logic
 │   │   │   ├── DynamicStrategyBuilder.kt
+│   │   │   ├── StockService.kt      # Stock data orchestration
+│   │   │   ├── TechnicalIndicatorService.kt # EMA, Donchian, trend calculations
+│   │   │   ├── OvtlyrEnrichmentService.kt   # Ovtlyr signal enrichment
 │   │   │   ├── BreadthService.kt    # Market breadth service
-│   │   │   ├── StockService.kt
 │   │   │   ├── PortfolioService.kt  # Portfolio management
 │   │   │   ├── EtfService.kt        # ETF data service
 │   │   │   └── StrategyRegistry.kt  # Strategy management
@@ -529,10 +534,11 @@ No need to update controllers or frontend - the strategy is automatically discov
 ### Stock Quote Data Structure
 
 Each stock quote includes:
-- **Price data**: open, close, high, low
-- **Technical indicators**: EMA (5/10/20/50), ATR, Donchian bands
-- **Sentiment**: Stock/sector/market heatmaps (0-100 scale)
-- **Signals**: Buy/sell signals, trend direction
+- **Price data**: open, close, high, low, volume (from AlphaVantage adjusted daily)
+- **Technical indicators**: EMA (5/10/20/50/200 - calculated), ATR (from AlphaVantage), Donchian bands
+- **Trend determination**: Uptrend when (EMA5 > EMA10 > EMA20) AND (Price > EMA50)
+- **Sentiment**: Stock/sector/market heatmaps (0-100 scale from Ovtlyr)
+- **Signals**: Buy/sell signals from Ovtlyr
 - **Market context**: SPY data, market breadth, uptrend status
 - **Sector context**: Sector breadth, uptrend counts
 
@@ -605,6 +611,7 @@ Position Value: $5.50 × 2 × 100 = $1,100
 ## Important Files to Reference
 
 ### Documentation
+- `claude_thoughts/ALPHAVANTAGE_REFACTORING_SUMMARY.md` - AlphaVantage-primary architecture refactoring
 - `claude_thoughts/DYNAMIC_STRATEGY_SYSTEM.md` - How the strategy system works
 - `claude_thoughts/MCP_SERVER_README.md` - MCP server setup and usage
 - `claude_thoughts/MARKET_REGIME_FILTER_IMPLEMENTATION.md` - Market filter details
@@ -950,6 +957,75 @@ Access via `useRuntimeConfig()`:
 
 ---
 
+### Session: 2025-12-03 - AlphaVantage Primary Architecture Refactoring
+
+**Major Architectural Change:**
+Refactored stock data pipeline from Ovtlyr-primary to AlphaVantage-primary architecture. This change provides adjusted prices (accounting for splits/dividends), volume data, and full control over technical indicator calculations.
+
+**New Architecture Flow:**
+```
+AlphaVantage (PRIMARY)
+├─ Adjusted OHLCV data (TIME_SERIES_DAILY_ADJUSTED)
+├─ Volume data
+└─ ATR (Average True Range)
+    ↓
+Calculate Technical Indicators
+├─ EMAs (5, 10, 20, 50, 200)
+├─ Donchian channels
+└─ Trend determination (EMA alignment)
+    ↓
+Ovtlyr Enrichment
+├─ Buy/sell signals
+├─ Fear & Greed heatmaps
+├─ Sector sentiment
+└─ Market/sector breadth
+    ↓
+Stock Entity (saved to H2)
+```
+
+**Files Created:**
+1. `AlphaVantageTimeSeriesDailyAdjusted.kt` - DTO for adjusted daily endpoint
+2. `TechnicalIndicatorService.kt` - EMA, Donchian, and trend calculations
+3. `OvtlyrEnrichmentService.kt` - Enriches AlphaVantage quotes with Ovtlyr data
+4. `claude_thoughts/ALPHAVANTAGE_REFACTORING_SUMMARY.md` - Comprehensive refactoring documentation
+
+**Files Modified:**
+1. `AlphaVantageClient.kt` - Added getDailyAdjustedTimeSeries(), removed unadjusted method
+2. `StockFactory.kt` - Changed interface to use AlphaVantage as primary input
+3. `DefaultStockFactory.kt` - Complete rewrite: Calculate → ATR → Ovtlyr pipeline
+4. `StockService.kt` - Updated fetchStock() to use new AlphaVantage-first flow
+
+**Key Design Decisions:**
+- **Adjusted prices**: Uses AlphaVantage adjusted close for accurate backtesting
+- **Calculated EMAs**: We calculate EMAs ourselves (no SMA, EMA only per user request)
+- **AlphaVantage ATR**: ATR comes from AlphaVantage API (not calculated)
+- **Fail-fast**: Returns null if AlphaVantage or Ovtlyr data unavailable (no default values)
+- **Order blocks**: Only calculated from volume data (not from Ovtlyr)
+- **Trend logic**: Uptrend = (EMA5 > EMA10 > EMA20) AND (Price > EMA50)
+
+**Benefits:**
+- ✅ Adjusted prices for stock splits and dividends
+- ✅ Volume data for all stocks
+- ✅ Transparent technical indicator calculations
+- ✅ Independence from Ovtlyr's stock universe
+- ✅ Hybrid approach: best of both data sources
+
+**API Usage:**
+- 2 API calls per stock: TIME_SERIES_DAILY_ADJUSTED + ATR
+- AlphaVantage Premium: 75 requests/minute
+- ~9 minutes to refresh 335 stocks
+
+**Testing:**
+- ✅ Build successful
+- ⏳ Manual testing pending (user updating API key to premium tier)
+
+**Next Steps:**
+- Implement rate limiting (deferred per user request)
+- Test with real stock symbols after API key upgrade
+- Monitor API usage and performance
+
+---
+
 ## Documentation Structure
 
 This project uses a three-level documentation approach:
@@ -960,5 +1036,5 @@ This project uses a three-level documentation approach:
 
 ---
 
-_Last Updated: 2024-11-30_
+_Last Updated: 2025-12-03_
 _This file helps Claude understand the project structure, architecture, recent work, and key decisions across conversations._

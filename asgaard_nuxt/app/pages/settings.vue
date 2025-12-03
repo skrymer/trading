@@ -189,7 +189,7 @@ async function loadCredentials() {
     toast.add({
       title: 'Error',
       description: 'Failed to load credentials',
-      color: 'red'
+      color: 'error'
     })
   }
 }
@@ -214,7 +214,7 @@ async function saveSettings() {
     toast.add({
       title: 'Success',
       description: 'Credentials saved successfully',
-      color: 'green'
+      color: 'success'
     })
 
     // Reload status
@@ -224,7 +224,7 @@ async function saveSettings() {
     toast.add({
       title: 'Error',
       description: 'Failed to save credentials',
-      color: 'red'
+      color: 'error'
     })
   } finally {
     saving.value = false

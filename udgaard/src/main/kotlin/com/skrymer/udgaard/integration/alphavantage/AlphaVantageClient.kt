@@ -1,8 +1,11 @@
 package com.skrymer.udgaard.integration.alphavantage
 
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageATR
+import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEarnings
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDaily
+import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
+import com.skrymer.udgaard.model.Earning
 import com.skrymer.udgaard.model.StockQuote
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -33,9 +36,10 @@ open class AlphaVantageClient(
 ) {
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(AlphaVantageClient::class.java)
-        private const val FUNCTION_DAILY = "TIME_SERIES_DAILY"
+        private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
         private const val FUNCTION_ETF_PROFILE = "ETF_PROFILE"
         private const val FUNCTION_ATR = "ATR"
+        private const val FUNCTION_EARNINGS = "EARNINGS"
         private const val OUTPUT_SIZE_FULL = "full"
         private const val OUTPUT_SIZE_COMPACT = "compact" // Last 100 data points
     }
@@ -45,29 +49,37 @@ open class AlphaVantageClient(
         .build()
 
     /**
-     * Get daily time series data for a stock symbol
+     * Get adjusted daily time series data for a stock symbol
+     *
+     * This is the PREFERRED method for stock data as it includes:
+     * - Prices adjusted for stock splits and dividend events
+     * - Accurate historical data for backtesting
+     * - Volume information
+     *
+     * Uses adjusted close price which accounts for corporate actions,
+     * ensuring accurate portfolio value calculations over time.
      *
      * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
      * @param outputSize "compact" for last 100 data points, "full" for 20+ years of historical data
-     * @return List of stock quotes with volume data, or null if request fails
+     * @return List of stock quotes with adjusted prices and volume data, or null if request fails
      */
-    fun getDailyTimeSeries(symbol: String, outputSize: String = OUTPUT_SIZE_FULL): List<StockQuote>? {
+    fun getDailyAdjustedTimeSeries(symbol: String, outputSize: String = OUTPUT_SIZE_FULL): List<StockQuote>? {
         return runCatching {
-            val url = "$baseUrl?function=$FUNCTION_DAILY&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
-            logger.info("Fetching daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
+            val url = "$baseUrl?function=$FUNCTION_DAILY_ADJUSTED&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
+            logger.info("Fetching adjusted daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
             logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
             val response = restClient.get()
                 .uri { uriBuilder ->
                     uriBuilder
-                        .queryParam("function", FUNCTION_DAILY)
+                        .queryParam("function", FUNCTION_DAILY_ADJUSTED)
                         .queryParam("symbol", symbol)
                         .queryParam("outputsize", outputSize)
                         .queryParam("apikey", apiKey)
                         .build()
                 }
                 .retrieve()
-                .toEntity(AlphaVantageTimeSeriesDaily::class.java)
+                .toEntity(AlphaVantageTimeSeriesDailyAdjusted::class.java)
                 .body
 
             if (response == null) {
@@ -89,16 +101,16 @@ open class AlphaVantageClient(
 
             logger.debug("Response metadata: ${response.metaData}")
             val quotes = response.toStockQuotes()
-            logger.info("Successfully fetched ${quotes.size} quotes for $symbol (${quotes.firstOrNull()?.date} to ${quotes.lastOrNull()?.date})")
+            logger.info("Successfully fetched ${quotes.size} adjusted quotes for $symbol (${quotes.firstOrNull()?.date} to ${quotes.lastOrNull()?.date})")
 
             if (quotes.isNotEmpty()) {
                 val sampleQuote = quotes.first()
-                logger.debug("Sample quote: date=${sampleQuote.date}, volume=${sampleQuote.volume}")
+                logger.debug("Sample quote: date=${sampleQuote.date}, close=${sampleQuote.closePrice}, volume=${sampleQuote.volume}")
             }
 
             quotes
         }.onFailure { e ->
-            logger.error("Failed to fetch data from Alpha Vantage for $symbol: ${e.message}", e)
+            logger.error("Failed to fetch adjusted data from Alpha Vantage for $symbol: ${e.message}", e)
         }.getOrNull()
     }
 
@@ -215,6 +227,70 @@ open class AlphaVantageClient(
         }.onFailure { e ->
             logger.error("Failed to fetch ATR from Alpha Vantage for $symbol: ${e.message}", e)
             logger.error("Stack trace:", e)
+        }.getOrNull()
+    }
+
+    /**
+     * Get earnings history for a stock symbol
+     *
+     * Returns annual and quarterly earnings data including:
+     * - Reported earnings per share (EPS)
+     * - Estimated EPS
+     * - Earnings surprises
+     * - Report dates and times
+     *
+     * Used by strategies that need to exit positions before earnings announcements
+     * to avoid earnings-related volatility.
+     *
+     * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
+     * @return List of quarterly earnings, or null if request fails
+     */
+    fun getEarnings(symbol: String): List<Earning>? {
+        return runCatching {
+            val url = "$baseUrl?function=$FUNCTION_EARNINGS&symbol=$symbol&apikey=$apiKey"
+            logger.info("Fetching earnings history for $symbol from Alpha Vantage")
+            logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+
+            val response = restClient.get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .queryParam("function", FUNCTION_EARNINGS)
+                        .queryParam("symbol", symbol)
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .toEntity(AlphaVantageEarnings::class.java)
+                .body
+
+            if (response == null) {
+                logger.warn("No response received from Alpha Vantage earnings for $symbol")
+                return null
+            }
+
+            // Check if response contains an error
+            if (response.hasError()) {
+                logger.error("Alpha Vantage API error for earnings $symbol: ${response.getErrorDescription()}")
+                return null
+            }
+
+            // Check if response is valid (has required data)
+            if (!response.isValid()) {
+                logger.error("Alpha Vantage API returned invalid earnings response for $symbol (missing symbol or quarterly earnings)")
+                return null
+            }
+
+            val earnings = response.toEarnings()
+            logger.info("Successfully fetched ${earnings.size} quarterly earnings for $symbol (${earnings.firstOrNull()?.fiscalDateEnding} to ${earnings.lastOrNull()?.fiscalDateEnding})")
+
+            if (earnings.isNotEmpty()) {
+                val sampleEarning = earnings.last() // Most recent
+                logger.debug("Most recent earning: fiscalDate=${sampleEarning.fiscalDateEnding}, reportedDate=${sampleEarning.reportedDate}, reportedEPS=${sampleEarning.reportedEPS}")
+            }
+
+            earnings
+        }.onFailure { e ->
+            logger.error("Failed to fetch earnings from Alpha Vantage for $symbol: ${e.message}", e)
         }.getOrNull()
     }
 }
