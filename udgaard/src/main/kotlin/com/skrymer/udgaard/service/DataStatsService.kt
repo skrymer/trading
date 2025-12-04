@@ -5,6 +5,7 @@ import com.skrymer.udgaard.repository.BreadthRepository
 import com.skrymer.udgaard.repository.EtfRepository
 import com.skrymer.udgaard.repository.StockRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
@@ -16,6 +17,7 @@ class DataStatsService(
     private val etfRepository: EtfRepository
 ) {
 
+    @Transactional(readOnly = true)
     fun calculateStats(): DatabaseStats {
         return DatabaseStats(
             stockStats = calculateStockStats(),
