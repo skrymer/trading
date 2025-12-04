@@ -180,25 +180,27 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <UDashboardPanel>
-    <UDashboardNavbar title="Data Management">
-      <template #right>
-        <UButton
-          label="Refresh Stats"
-          icon="i-lucide-refresh-cw"
-          variant="ghost"
-          :loading="loading"
-          @click="loadData"
-        />
-      </template>
-    </UDashboardNavbar>
+  <UDashboardPanel id="data-manager">
+    <template #header>
+      <UDashboardNavbar title="Data Management">
+        <template #right>
+          <UButton
+            label="Refresh Stats"
+            icon="i-lucide-refresh-cw"
+            variant="ghost"
+            :loading="loading"
+            @click="loadData"
+          />
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-    <UDashboardPanelContent>
+    <template>
       <div v-if="loading && !rateLimitStats && !dbStats" class="flex items-center justify-center h-96">
         <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin" />
       </div>
 
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-6 p-6">
         <!-- Section 1: Rate Limit Status -->
         <DataManagementRateLimitCard v-if="rateLimitStats" :rate-limit="rateLimitStats" />
 
@@ -214,6 +216,6 @@ onUnmounted(() => {
           @resume="handleResume"
         />
       </div>
-    </UDashboardPanelContent>
+    </template>
   </UDashboardPanel>
 </template>
