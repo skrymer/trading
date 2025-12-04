@@ -161,6 +161,10 @@ class ExitStrategyBuilder {
         conditions.add(MarketAndSectorDowntrendExit())
     }
 
+    fun exitBeforeEarnings(days: Int = 1) = apply {
+        conditions.add(BeforeEarningsExit(days))
+    }
+
     fun withOperator(op: LogicalOperator) = apply {
         operator = op
     }

@@ -20,6 +20,7 @@ class PlanMoneyExitStrategy: ExitStrategy {
     stopLoss(2.0)
       // Gap and crap
       // Earnings
+
   }
 
   override fun match(
