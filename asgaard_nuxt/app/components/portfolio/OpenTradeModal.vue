@@ -86,8 +86,8 @@ const schema = computed(() => {
       expirationDate: z.string().min(1, 'Expiration date is required'),
       contracts: z.number().int().positive('Contracts must be at least 1'),
       multiplier: z.number().int().positive('Multiplier must be at least 1'),
-      entryIntrinsicValue: z.number().nonnegative().optional(),
-      entryExtrinsicValue: z.number().nonnegative().optional()
+      entryIntrinsicValue: z.number().nonnegative().nullish(),
+      entryExtrinsicValue: z.number().nonnegative().nullish()
     })
   } else {
     return baseSchema.extend({
