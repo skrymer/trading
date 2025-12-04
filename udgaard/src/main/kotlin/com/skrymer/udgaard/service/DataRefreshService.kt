@@ -9,6 +9,8 @@ import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.min
 
 @Service
 class DataRefreshService(
@@ -57,7 +59,7 @@ class DataRefreshService(
     }
 
     /**
-     * Start processing the refresh queue
+     * Start processing the refresh queue with parallel processing
      */
     @Synchronized
     private fun startProcessing() {
@@ -72,53 +74,72 @@ class DataRefreshService(
         processingJob = CoroutineScope(Dispatchers.IO).launch {
             logger.info("Started processing refresh queue with ${refreshQueue.size} items")
 
+            // Calculate concurrency level based on subscription tier (cap at 10 for safety)
+            val concurrency = min(config.requestsPerMinute / 2, 10)
+            logger.info("Processing with concurrency level: $concurrency")
+
             while (refreshQueue.isNotEmpty() && !shouldPause) {
-                // Wait if rate limit is exceeded
-                while (!rateLimiter.canMakeRequest() && !shouldPause) {
-                    val delayMs = (60000.0 / config.requestsPerMinute).toLong()
-                    logger.info("Rate limit reached, waiting ${delayMs}ms")
-                    delay(delayMs)
+                // Collect batch of tasks
+                val batch = mutableListOf<RefreshTask>()
+                repeat(concurrency) {
+                    refreshQueue.poll()?.let { batch.add(it) }
                 }
 
-                if (shouldPause) {
-                    logger.info("Processing paused")
-                    break
-                }
+                if (batch.isEmpty()) break
 
-                val task = refreshQueue.poll() ?: break
-
-                try {
-                    logger.info("Processing task: ${task.type} - ${task.identifier}")
-                    when (task.type) {
-                        RefreshType.STOCK -> {
-                            stockService.getStock(task.identifier, forceFetch = true)
+                // Process batch in parallel
+                batch.map { task ->
+                    async {
+                        // Wait for rate limit slot
+                        while (!rateLimiter.canMakeRequest() && !shouldPause) {
+                            delay(100)
                         }
-                        RefreshType.BREADTH -> {
-                            val breadthSymbol = BreadthSymbol.fromString(task.identifier)
-                            if (breadthSymbol != null) {
-                                breadthService.getBreadth(breadthSymbol, refresh = true)
-                            } else {
-                                logger.warn("Invalid breadth symbol: ${task.identifier}")
+
+                        if (shouldPause) {
+                            logger.info("Processing paused")
+                            return@async
+                        }
+
+                        try {
+                            logger.info("Processing task: ${task.type} - ${task.identifier}")
+                            rateLimiter.recordRequest()
+
+                            when (task.type) {
+                                RefreshType.STOCK -> {
+                                    stockService.getStock(task.identifier, forceFetch = true)
+                                }
+                                RefreshType.BREADTH -> {
+                                    val breadthSymbol = BreadthSymbol.fromString(task.identifier)
+                                    if (breadthSymbol != null) {
+                                        breadthService.getBreadth(breadthSymbol, refresh = true)
+                                    } else {
+                                        logger.warn("Invalid breadth symbol: ${task.identifier}")
+                                    }
+                                }
+                                RefreshType.ETF -> {
+                                    // ETF refresh not yet implemented
+                                    logger.warn("ETF refresh not yet implemented for ${task.identifier}")
+                                }
+                            }
+
+                            synchronized(currentProgress) {
+                                currentProgress = currentProgress.copy(
+                                    completed = currentProgress.completed + 1,
+                                    lastSuccess = task.identifier
+                                )
+                            }
+                            logger.info("Successfully processed ${task.identifier}. Progress: ${currentProgress.completed}/${currentProgress.total}")
+                        } catch (e: Exception) {
+                            logger.error("Failed to refresh ${task.identifier}: ${e.message}", e)
+                            synchronized(currentProgress) {
+                                currentProgress = currentProgress.copy(
+                                    failed = currentProgress.failed + 1,
+                                    lastError = "${task.identifier}: ${e.message}"
+                                )
                             }
                         }
-                        RefreshType.ETF -> {
-                            // ETF refresh not yet implemented
-                            logger.warn("ETF refresh not yet implemented for ${task.identifier}")
-                        }
                     }
-                    rateLimiter.recordRequest()
-                    currentProgress = currentProgress.copy(
-                        completed = currentProgress.completed + 1,
-                        lastSuccess = task.identifier
-                    )
-                    logger.info("Successfully processed ${task.identifier}. Progress: ${currentProgress.completed}/${currentProgress.total}")
-                } catch (e: Exception) {
-                    logger.error("Failed to refresh ${task.identifier}: ${e.message}", e)
-                    currentProgress = currentProgress.copy(
-                        failed = currentProgress.failed + 1,
-                        lastError = "${task.identifier}: ${e.message}"
-                    )
-                }
+                }.awaitAll()
             }
 
             isProcessing = false
