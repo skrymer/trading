@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.*
+import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.repository.StockRepository
 import com.skrymer.udgaard.service.DataRefreshService
 import com.skrymer.udgaard.service.DataStatsService
@@ -70,12 +71,12 @@ class DataManagementController(
     }
 
     /**
-     * Queue all stocks for refresh
+     * Queue all stocks for refresh (from StockSymbol enum - S&P 500 constituents)
      */
     @PostMapping("/refresh/all-stocks")
     fun refreshAllStocks(): RefreshResponse {
         logger.info("Queueing all stocks for refresh")
-        val allSymbols = stockRepository.findAll().mapNotNull { it.symbol }
+        val allSymbols = StockSymbol.entries.map { it.symbol }
         dataRefreshService.queueStockRefresh(allSymbols)
         return RefreshResponse(
             queued = allSymbols.size,
