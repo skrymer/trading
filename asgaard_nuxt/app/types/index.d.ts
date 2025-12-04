@@ -534,3 +534,93 @@ export interface EtfMetadata {
   benchmark: string | null
   lastRebalanceDate: string | null
 }
+
+// Data Management Types
+export interface RateLimitStats {
+  requestsLastMinute: number
+  requestsLastDay: number
+  remainingMinute: number
+  remainingDaily: number
+  minuteLimit: number
+  dailyLimit: number
+  resetMinute: number
+  resetDaily: number
+}
+
+export interface RateLimitConfig {
+  requestsPerMinute: number
+  requestsPerDay: number
+  tier: 'FREE' | 'PREMIUM' | 'ULTIMATE'
+}
+
+export interface DatabaseStats {
+  stockStats: StockDataStats
+  breadthStats: BreadthDataStats
+  etfStats: EtfDataStats
+  totalDataPoints: number
+  estimatedSizeKB: number
+  generatedAt: string
+}
+
+export interface StockDataStats {
+  totalStocks: number
+  totalQuotes: number
+  totalEarnings: number
+  totalOrderBlocks: number
+  dateRange: DateRange | null
+  averageQuotesPerStock: number
+  stocksWithEarnings: number
+  stocksWithOrderBlocks: number
+  lastUpdatedStock: StockUpdateInfo | null
+  oldestDataStock: StockUpdateInfo | null
+  recentlyUpdated: StockUpdateInfo[]
+}
+
+export interface DateRange {
+  earliest: string
+  latest: string
+  days: number
+}
+
+export interface StockUpdateInfo {
+  symbol: string
+  lastQuoteDate: string
+  quoteCount: number
+  hasEarnings: boolean
+  orderBlockCount: number
+}
+
+export interface BreadthDataStats {
+  totalBreadthSymbols: number
+  totalBreadthQuotes: number
+  breadthSymbols: BreadthSymbolInfo[]
+  dateRange: DateRange | null
+}
+
+export interface BreadthSymbolInfo {
+  symbol: string
+  quoteCount: number
+  lastQuoteDate: string
+}
+
+export interface EtfDataStats {
+  totalEtfs: number
+  totalEtfQuotes: number
+  totalHoldings: number
+  dateRange: DateRange | null
+  etfsWithHoldings: number
+  averageHoldingsPerEtf: number
+}
+
+export interface RefreshProgress {
+  total: number
+  completed: number
+  failed: number
+  lastSuccess: string | null
+  lastError: string | null
+}
+
+export interface RefreshResponse {
+  queued: number
+  message: string
+}
