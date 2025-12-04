@@ -3,28 +3,111 @@
 ## Overview
 
 Create a comprehensive data management page that:
-1. **Respects AlphaVantage API rate limits** (5 req/min, 500 req/day for free tier)
+1. **Respects AlphaVantage API rate limits** (configurable based on subscription tier)
 2. **Shows database statistics** (data coverage, freshness, completeness)
 3. **Provides controlled data refresh** (bulk updates with progress tracking)
 4. **Monitors API usage** (track daily quota consumption)
+5. **Displays subscription tier** (FREE, PREMIUM, or ULTIMATE)
 
 ---
 
 ## 1. AlphaVantage Rate Limit Strategy
 
-### Current Limits (Free Tier)
-- **Per Minute:** 5 requests
-- **Per Day:** 500 requests (some endpoints: 25/day)
-- **Response:** Returns error message when exceeded
+### Subscription Tiers
+
+AlphaVantage offers different rate limits based on subscription:
+
+| Tier | Requests/Minute | Requests/Day | Cost |
+|------|----------------|--------------|------|
+| **Free** | 5 | 500 | $0 |
+| **Premium** | 75 | 75,000 | $49.99/mo |
+| **Ultimate** | 120 | 120,000 | $249.99/mo |
+
+### Configuration-Based Rate Limiting
+
+Rate limits should be **configurable** via `application.properties` to support different subscription tiers:
+
+**Free Tier (Default):**
+```properties
+# AlphaVantage API Configuration
+alphavantage.api.key=YOUR_API_KEY
+alphavantage.api.baseUrl=https://www.alphavantage.co/query
+alphavantage.ratelimit.requestsPerMinute=5
+alphavantage.ratelimit.requestsPerDay=500
+```
+
+**Premium Tier:**
+```properties
+alphavantage.api.key=YOUR_PREMIUM_API_KEY
+alphavantage.api.baseUrl=https://www.alphavantage.co/query
+alphavantage.ratelimit.requestsPerMinute=75
+alphavantage.ratelimit.requestsPerDay=75000
+```
+
+**Ultimate Tier:**
+```properties
+alphavantage.api.key=YOUR_ULTIMATE_API_KEY
+alphavantage.api.baseUrl=https://www.alphavantage.co/query
+alphavantage.ratelimit.requestsPerMinute=120
+alphavantage.ratelimit.requestsPerDay=120000
+```
+
+**Benefits of Configuration:**
+- No code changes when upgrading subscription
+- Easy testing with different rate limits
+- Environment-specific limits (dev vs prod)
+- Prevents accidental API quota exhaustion
+
+### Performance Comparison
+
+**Refresh time for 150 stocks:**
+
+| Tier | Requests/Min | Delay Between Requests | Total Time |
+|------|-------------|----------------------|-----------|
+| Free | 5 | 12 seconds | **30 minutes** |
+| Premium | 75 | 800ms | **2 minutes** |
+| Ultimate | 120 | 500ms | **1.25 minutes** |
+
+**Key Insight:** Upgrading from Free to Premium reduces refresh time from **30 minutes to 2 minutes** - a **15x speedup**!
 
 ### Rate Limiting Implementation
+
+#### Backend: Configuration Class
+```kotlin
+@Configuration
+@ConfigurationProperties(prefix = "alphavantage.ratelimit")
+data class AlphaVantageRateLimitConfig(
+    var requestsPerMinute: Int = 5,
+    var requestsPerDay: Int = 500
+)
+```
+
+#### Backend: Rate Limit DTOs
+```kotlin
+data class RateLimitStats(
+    val requestsLastMinute: Int,
+    val requestsLastDay: Int,
+    val remainingMinute: Int,
+    val remainingDaily: Int,
+    val minuteLimit: Int,
+    val dailyLimit: Int,
+    val resetMinute: Long,  // seconds until reset
+    val resetDaily: Long    // seconds until reset
+)
+
+data class RateLimitConfigDto(
+    val requestsPerMinute: Int,
+    val requestsPerDay: Int,
+    val tier: String  // "FREE", "PREMIUM", or "ULTIMATE"
+)
+```
 
 #### Backend: Rate Limiter Service
 ```kotlin
 @Service
-class RateLimiterService {
-    private val minuteLimit = 5
-    private val dailyLimit = 500
+class RateLimiterService(
+    private val config: AlphaVantageRateLimitConfig
+) {
     private val requestQueue = ConcurrentLinkedQueue<Instant>()
 
     fun canMakeRequest(): Boolean {
@@ -34,7 +117,7 @@ class RateLimiterService {
         val lastMinute = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.MINUTES)) }
         val lastDay = requestQueue.count { it.isAfter(now.minus(24, ChronoUnit.HOURS)) }
 
-        return lastMinute < minuteLimit && lastDay < dailyLimit
+        return lastMinute < config.requestsPerMinute && lastDay < config.requestsPerDay
     }
 
     fun recordRequest() {
@@ -51,8 +134,10 @@ class RateLimiterService {
         return RateLimitStats(
             requestsLastMinute = lastMinute,
             requestsLastDay = lastDay,
-            remainingMinute = minuteLimit - lastMinute,
-            remainingDaily = dailyLimit - lastDay,
+            remainingMinute = config.requestsPerMinute - lastMinute,
+            remainingDaily = config.requestsPerDay - lastDay,
+            minuteLimit = config.requestsPerMinute,
+            dailyLimit = config.requestsPerDay,
             resetMinute = calculateResetTime(1, ChronoUnit.MINUTES),
             resetDaily = calculateResetTime(24, ChronoUnit.HOURS)
         )
@@ -65,6 +150,7 @@ class RateLimiterService {
 @Service
 class DataRefreshService(
     private val rateLimiter: RateLimiterService,
+    private val config: AlphaVantageRateLimitConfig,
     private val stockService: StockService,
     private val breadthService: BreadthService,
     private val etfService: EtfService
@@ -91,7 +177,11 @@ class DataRefreshService(
         launch {
             while (refreshQueue.isNotEmpty()) {
                 if (!rateLimiter.canMakeRequest()) {
-                    delay(12000) // Wait 12 seconds (60s / 5 requests)
+                    // Dynamic delay based on configured rate limit
+                    // For 5 req/min: 60000ms / 5 = 12000ms
+                    // For 75 req/min: 60000ms / 75 = 800ms
+                    val delayMs = (60000.0 / config.requestsPerMinute).toLong()
+                    delay(delayMs)
                     continue
                 }
 
@@ -222,6 +312,21 @@ class DataManagementController(
         return rateLimiter.getUsageStats()
     }
 
+    @GetMapping("/rate-limit/config")
+    fun getRateLimitConfig(): RateLimitConfigDto {
+        val stats = rateLimiter.getUsageStats()
+        val tier = when {
+            stats.minuteLimit <= 5 -> "FREE"
+            stats.minuteLimit <= 75 -> "PREMIUM"
+            else -> "ULTIMATE"
+        }
+        return RateLimitConfigDto(
+            requestsPerMinute = stats.minuteLimit,
+            requestsPerDay = stats.dailyLimit,
+            tier = tier
+        )
+    }
+
     @PostMapping("/refresh/stocks")
     suspend fun refreshStocks(@RequestBody symbols: List<String>): RefreshResponse {
         dataRefreshService.queueStockRefresh(symbols)
@@ -347,6 +452,101 @@ class DataStatsService(
 
 ## 4. Frontend Implementation
 
+### TypeScript Type Definitions
+
+Add to `asgaard_nuxt/app/types/index.d.ts`:
+
+```typescript
+export interface RateLimitStats {
+  requestsLastMinute: number
+  requestsLastDay: number
+  remainingMinute: number
+  remainingDaily: number
+  minuteLimit: number
+  dailyLimit: number
+  resetMinute: number
+  resetDaily: number
+}
+
+export interface RateLimitConfig {
+  requestsPerMinute: number
+  requestsPerDay: number
+  tier: 'FREE' | 'PREMIUM' | 'ULTIMATE'
+}
+
+export interface DatabaseStats {
+  stockStats: StockDataStats
+  breadthStats: BreadthDataStats
+  etfStats: EtfDataStats
+  totalDataPoints: number
+  estimatedSizeKB: number
+  generatedAt: string
+}
+
+export interface StockDataStats {
+  totalStocks: number
+  totalQuotes: number
+  totalEarnings: number
+  totalOrderBlocks: number
+  dateRange: DateRange | null
+  averageQuotesPerStock: number
+  stocksWithEarnings: number
+  stocksWithOrderBlocks: number
+  lastUpdatedStock: StockUpdateInfo | null
+  oldestDataStock: StockUpdateInfo | null
+  recentlyUpdated: StockUpdateInfo[]
+}
+
+export interface DateRange {
+  earliest: string
+  latest: string
+  days: number
+}
+
+export interface StockUpdateInfo {
+  symbol: string
+  lastQuoteDate: string
+  quoteCount: number
+  hasEarnings: boolean
+  orderBlockCount: number
+}
+
+export interface BreadthDataStats {
+  totalBreadthSymbols: number
+  totalBreadthQuotes: number
+  breadthSymbols: BreadthSymbolInfo[]
+  dateRange: DateRange | null
+}
+
+export interface BreadthSymbolInfo {
+  symbol: string
+  quoteCount: number
+  lastQuoteDate: string
+}
+
+export interface EtfDataStats {
+  totalEtfs: number
+  totalEtfQuotes: number
+  totalHoldings: number
+  dateRange: DateRange | null
+  etfsWithHoldings: number
+  averageHoldingsPerEtf: number
+}
+
+export interface RefreshProgress {
+  total: number
+  completed: number
+  failed: number
+  lastSuccess: string | null
+  lastError: string | null
+}
+
+export interface RefreshResponse {
+  queued: number
+  message: string
+}
+```
+
 ### Page Structure: `/data-manager.vue`
 
 ```vue
@@ -388,18 +588,34 @@ const props = defineProps<{
 }>()
 
 const minuteUsagePercentage = computed(() =>
-  (props.rateLimit.requestsLastMinute / 5) * 100
+  (props.rateLimit.requestsLastMinute / props.rateLimit.minuteLimit) * 100
 )
 
 const dailyUsagePercentage = computed(() =>
-  (props.rateLimit.requestsLastDay / 500) * 100
+  (props.rateLimit.requestsLastDay / props.rateLimit.dailyLimit) * 100
 )
+
+// Determine subscription tier based on limits
+const subscriptionTier = computed(() => {
+  const minuteLimit = props.rateLimit.minuteLimit
+  if (minuteLimit <= 5) return 'FREE'
+  if (minuteLimit <= 75) return 'PREMIUM'
+  return 'ULTIMATE'
+})
 </script>
 
 <template>
   <UCard>
     <template #header>
-      <h3 class="text-lg font-semibold">AlphaVantage Rate Limits</h3>
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold">AlphaVantage Rate Limits</h3>
+        <UBadge
+          :color="subscriptionTier === 'FREE' ? 'neutral' : subscriptionTier === 'PREMIUM' ? 'primary' : 'success'"
+          size="lg"
+        >
+          {{ subscriptionTier }}
+        </UBadge>
+      </div>
     </template>
 
     <div class="grid grid-cols-2 gap-4">
@@ -408,7 +624,7 @@ const dailyUsagePercentage = computed(() =>
         <div class="flex justify-between mb-2">
           <span class="text-sm text-muted">Minute Limit</span>
           <span class="text-sm font-medium">
-            {{ rateLimit.requestsLastMinute }} / 5
+            {{ rateLimit.requestsLastMinute }} / {{ rateLimit.minuteLimit }}
           </span>
         </div>
         <UProgress :value="minuteUsagePercentage" :color="minuteUsagePercentage > 80 ? 'error' : 'primary'" />
@@ -422,7 +638,7 @@ const dailyUsagePercentage = computed(() =>
         <div class="flex justify-between mb-2">
           <span class="text-sm text-muted">Daily Limit</span>
           <span class="text-sm font-medium">
-            {{ rateLimit.requestsLastDay }} / 500
+            {{ rateLimit.requestsLastDay }} / {{ rateLimit.dailyLimit }}
           </span>
         </div>
         <UProgress :value="dailyUsagePercentage" :color="dailyUsagePercentage > 80 ? 'error' : 'primary'" />
@@ -714,7 +930,7 @@ private val refreshQueue = PriorityQueue<RefreshTask>(compareByDescending { it.p
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐  │
-│  │ AlphaVantage Rate Limits                           │  │
+│  │ AlphaVantage Rate Limits              [FREE] Badge  │  │
 │  │ ┌─────────────┐ ┌─────────────┐                   │  │
 │  │ │ Minute: 2/5 │ │ Daily:45/500│                   │  │
 │  │ │ ▓▓▓▓░░░░░░░ │ │ ▓▓░░░░░░░░░ │                   │  │
@@ -752,17 +968,21 @@ private val refreshQueue = PriorityQueue<RefreshTask>(compareByDescending { it.p
 ## Summary
 
 This plan provides:
-- ✅ **Rate-limited data refresh** that respects API limits
+- ✅ **Configuration-based rate limiting** supporting FREE, PREMIUM, and ULTIMATE tiers
+- ✅ **Rate-limited data refresh** that respects API limits dynamically
 - ✅ **Comprehensive database statistics** for monitoring data quality
 - ✅ **Queue-based processing** with pause/resume capability
 - ✅ **Real-time progress tracking** with visual feedback
 - ✅ **Stale data detection** to identify what needs updating
+- ✅ **Subscription tier display** showing current AlphaVantage plan
 - ✅ **Extensible architecture** for scheduled refreshes and prioritization
 
 **Estimated Implementation Time:** 4-6 days
 
 **Key Benefits:**
-1. No more manual API rate limit management
-2. Clear visibility into data freshness
-3. Safe bulk updates without exceeding limits
-4. Easy monitoring and troubleshooting
+1. **No code changes when upgrading subscription** - just update configuration
+2. **Dynamic delay calculation** - faster refreshes with Premium/Ultimate tiers
+3. **Clear visibility into data freshness** and subscription status
+4. **Safe bulk updates** without exceeding limits
+5. **Easy monitoring and troubleshooting**
+6. **Environment-specific configuration** (dev vs prod)
