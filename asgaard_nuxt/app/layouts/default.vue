@@ -55,6 +55,14 @@ const links = [[{
   }
 },
 {
+  label: 'Data Manager',
+  icon: 'i-lucide-hard-drive-download',
+  to: '/data-manager',
+  onSelect: () => {
+    open.value = false
+  }
+},
+{
   label: 'Settings',
   icon: 'i-lucide-settings',
   to: '/settings',
