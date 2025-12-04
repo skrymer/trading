@@ -3,6 +3,7 @@ package com.skrymer.udgaard.repository
 import com.skrymer.udgaard.model.EtfEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import java.time.LocalDate
 
 /**
  * Repository for ETF entities.
@@ -35,4 +36,20 @@ interface EtfRepository : JpaRepository<EtfEntity, String> {
 
     @Query("SELECT e FROM EtfEntity e LEFT JOIN FETCH e.quotes LEFT JOIN FETCH e.holdings WHERE e.symbol = :symbol")
     fun findBySymbolWithQuotesAndHoldings(symbol: String): EtfEntity?
+
+    // Statistics queries for performance
+    @Query("SELECT COUNT(q) FROM EtfEntity e JOIN e.quotes q")
+    fun countAllEtfQuotes(): Long
+
+    @Query("SELECT COUNT(h) FROM EtfEntity e JOIN e.holdings h")
+    fun countAllHoldings(): Long
+
+    @Query("SELECT MIN(q.date) FROM EtfEntity e JOIN e.quotes q WHERE q.date IS NOT NULL")
+    fun findEarliestEtfQuoteDate(): LocalDate?
+
+    @Query("SELECT MAX(q.date) FROM EtfEntity e JOIN e.quotes q WHERE q.date IS NOT NULL")
+    fun findLatestEtfQuoteDate(): LocalDate?
+
+    @Query("SELECT COUNT(DISTINCT e) FROM EtfEntity e JOIN e.holdings h")
+    fun countEtfsWithHoldings(): Long
 }

@@ -28,51 +28,51 @@ class DataStatsService(
     }
 
     private fun calculateStockStats(): StockDataStats {
-        val stocks = stockRepository.findAll()
+        // Use SQL queries instead of loading all data into memory
+        val totalStocks = stockRepository.count()
+        val totalQuotes = stockRepository.countAllQuotes()
+        val totalEarnings = stockRepository.countAllEarnings()
+        val totalOrderBlocks = stockRepository.countAllOrderBlocks()
 
-        val totalQuotes = stocks.sumOf { it.quotes.size.toLong() }
-        val totalEarnings = stocks.sumOf { it.earnings.size.toLong() }
-        val totalOrderBlocks = stocks.sumOf { it.orderBlocks.size.toLong() }
+        val earliestDate = stockRepository.findEarliestQuoteDate()
+        val latestDate = stockRepository.findLatestQuoteDate()
 
-        val allQuotes: List<LocalDate> = stocks.flatMap { stock ->
-            stock.quotes.mapNotNull { quote -> quote.date }
-        }
-
-        val dateRange = if (allQuotes.isNotEmpty()) {
-            val earliest = allQuotes.min()
-            val latest = allQuotes.max()
+        val dateRange = if (earliestDate != null && latestDate != null) {
             DateRange(
-                earliest = earliest,
-                latest = latest,
-                days = ChronoUnit.DAYS.between(earliest, latest)
+                earliest = earliestDate,
+                latest = latestDate,
+                days = ChronoUnit.DAYS.between(earliestDate, latestDate)
             )
         } else null
 
-        val recentlyUpdated = stocks
-            .filter { it.quotes.isNotEmpty() }
-            .sortedByDescending { stock -> stock.quotes.mapNotNull { q -> q.date }.maxOrNull() ?: LocalDate.MIN }
-            .take(10)
-            .mapNotNull { stock ->
-                val symbolString = stock.symbol ?: return@mapNotNull null
-                val lastDate = stock.quotes.mapNotNull { q -> q.date }.maxOrNull() ?: return@mapNotNull null
+        val stocksWithEarnings = stockRepository.countStocksWithEarnings()
+        val stocksWithOrderBlocks = stockRepository.countStocksWithOrderBlocks()
+
+        // Get recently updated stocks from SQL query
+        val recentlyUpdatedResults = stockRepository.findRecentlyUpdatedStocks()
+        val recentlyUpdated = recentlyUpdatedResults.take(10).mapNotNull { row ->
+            try {
                 StockUpdateInfo(
-                    symbol = symbolString,
-                    lastQuoteDate = lastDate,
-                    quoteCount = stock.quotes.size,
-                    hasEarnings = stock.earnings.isNotEmpty(),
-                    orderBlockCount = stock.orderBlocks.size
+                    symbol = row[0] as String,
+                    lastQuoteDate = row[1] as LocalDate,
+                    quoteCount = (row[2] as Long).toInt(),
+                    hasEarnings = row[3] as Boolean,
+                    orderBlockCount = (row[4] as Long).toInt()
                 )
+            } catch (e: Exception) {
+                null
             }
+        }
 
         return StockDataStats(
-            totalStocks = stocks.size,
+            totalStocks = totalStocks.toInt(),
             totalQuotes = totalQuotes,
             totalEarnings = totalEarnings,
             totalOrderBlocks = totalOrderBlocks,
             dateRange = dateRange,
-            averageQuotesPerStock = if (stocks.isNotEmpty()) totalQuotes.toDouble() / stocks.size else 0.0,
-            stocksWithEarnings = stocks.count { it.earnings.isNotEmpty() },
-            stocksWithOrderBlocks = stocks.count { it.orderBlocks.isNotEmpty() },
+            averageQuotesPerStock = if (totalStocks > 0) totalQuotes.toDouble() / totalStocks else 0.0,
+            stocksWithEarnings = stocksWithEarnings.toInt(),
+            stocksWithOrderBlocks = stocksWithOrderBlocks.toInt(),
             lastUpdatedStock = recentlyUpdated.firstOrNull(),
             oldestDataStock = recentlyUpdated.lastOrNull(),
             recentlyUpdated = recentlyUpdated
@@ -80,39 +80,37 @@ class DataStatsService(
     }
 
     private fun calculateBreadthStats(): BreadthDataStats {
-        val breadths = breadthRepository.findAll()
+        // Use SQL queries instead of loading all data into memory
+        val totalBreadthSymbols = breadthRepository.count()
+        val totalBreadthQuotes = breadthRepository.countAllBreadthQuotes()
 
-        val totalBreadthQuotes = breadths.sumOf { it.quotes.size.toLong() }
+        val earliestDate = breadthRepository.findEarliestBreadthQuoteDate()
+        val latestDate = breadthRepository.findLatestBreadthQuoteDate()
 
-        val allQuotes: List<LocalDate> = breadths.flatMap { breadth ->
-            breadth.quotes.mapNotNull { quote -> quote.quoteDate }
-        }
-
-        val dateRange = if (allQuotes.isNotEmpty()) {
-            val earliest = allQuotes.min()
-            val latest = allQuotes.max()
+        val dateRange = if (earliestDate != null && latestDate != null) {
             DateRange(
-                earliest = earliest,
-                latest = latest,
-                days = ChronoUnit.DAYS.between(earliest, latest)
+                earliest = earliestDate,
+                latest = latestDate,
+                days = ChronoUnit.DAYS.between(earliestDate, latestDate)
             )
         } else null
 
-        val breadthSymbols = breadths.mapNotNull { breadth ->
-            val symbolString = breadth.symbol?.toIdentifier() ?: return@mapNotNull null
-            BreadthSymbolInfo(
-                symbol = symbolString,
-                quoteCount = breadth.quotes.size,
-                lastQuoteDate = if (breadth.quotes.isNotEmpty()) {
-                    breadth.quotes.mapNotNull { q -> q.quoteDate }.maxOrNull() ?: LocalDate.now()
-                } else {
-                    LocalDate.now()
-                }
-            )
+        // Get breadth symbol stats from SQL query
+        val breadthStatsResults = breadthRepository.findBreadthSymbolStats()
+        val breadthSymbols = breadthStatsResults.mapNotNull { row ->
+            try {
+                BreadthSymbolInfo(
+                    symbol = row[0] as String,
+                    quoteCount = (row[1] as Long).toInt(),
+                    lastQuoteDate = row[2] as? LocalDate ?: LocalDate.now()
+                )
+            } catch (e: Exception) {
+                null
+            }
         }
 
         return BreadthDataStats(
-            totalBreadthSymbols = breadths.size,
+            totalBreadthSymbols = totalBreadthSymbols.toInt(),
             totalBreadthQuotes = totalBreadthQuotes,
             breadthSymbols = breadthSymbols,
             dateRange = dateRange
@@ -120,57 +118,56 @@ class DataStatsService(
     }
 
     private fun calculateEtfStats(): EtfDataStats {
-        val etfs = etfRepository.findAll()
+        // Use SQL queries instead of loading all data into memory
+        val totalEtfs = etfRepository.count()
+        val totalEtfQuotes = etfRepository.countAllEtfQuotes()
+        val totalHoldings = etfRepository.countAllHoldings()
 
-        val totalEtfQuotes = etfs.sumOf { it.quotes.size.toLong() }
-        val totalHoldings = etfs.sumOf { it.holdings.size.toLong() }
+        val earliestDate = etfRepository.findEarliestEtfQuoteDate()
+        val latestDate = etfRepository.findLatestEtfQuoteDate()
 
-        val allQuotes: List<LocalDate> = etfs.flatMap { etf ->
-            etf.quotes.mapNotNull { quote -> quote.date }
-        }
-
-        val dateRange = if (allQuotes.isNotEmpty()) {
-            val earliest = allQuotes.min()
-            val latest = allQuotes.max()
+        val dateRange = if (earliestDate != null && latestDate != null) {
             DateRange(
-                earliest = earliest,
-                latest = latest,
-                days = ChronoUnit.DAYS.between(earliest, latest)
+                earliest = earliestDate,
+                latest = latestDate,
+                days = ChronoUnit.DAYS.between(earliestDate, latestDate)
             )
         } else null
 
+        val etfsWithHoldings = etfRepository.countEtfsWithHoldings()
+
         return EtfDataStats(
-            totalEtfs = etfs.size,
+            totalEtfs = totalEtfs.toInt(),
             totalEtfQuotes = totalEtfQuotes,
             totalHoldings = totalHoldings,
             dateRange = dateRange,
-            etfsWithHoldings = etfs.count { it.holdings.isNotEmpty() },
-            averageHoldingsPerEtf = if (etfs.isNotEmpty()) totalHoldings.toDouble() / etfs.size else 0.0
+            etfsWithHoldings = etfsWithHoldings.toInt(),
+            averageHoldingsPerEtf = if (totalEtfs > 0) totalHoldings.toDouble() / totalEtfs else 0.0
         )
     }
 
     private fun calculateTotalDataPoints(): Long {
-        val stocks = stockRepository.findAll()
-        val breadths = breadthRepository.findAll()
-        val etfs = etfRepository.findAll()
-
-        return stocks.sumOf { it.quotes.size.toLong() } +
-                breadths.sumOf { it.quotes.size.toLong() } +
-                etfs.sumOf { it.quotes.size.toLong() }
+        // Use SQL queries instead of loading all data into memory
+        return stockRepository.countAllQuotes() +
+                breadthRepository.countAllBreadthQuotes() +
+                etfRepository.countAllEtfQuotes()
     }
 
     private fun estimateDatabaseSize(): Long {
         // Rough estimate: each quote ~500 bytes, each earning ~300 bytes
-        val stocks = stockRepository.findAll()
-        val breadths = breadthRepository.findAll()
-        val etfs = etfRepository.findAll()
+        // Use SQL queries instead of loading all data into memory
+        val stockQuotes = stockRepository.countAllQuotes()
+        val stockEarnings = stockRepository.countAllEarnings()
+        val stockOrderBlocks = stockRepository.countAllOrderBlocks()
 
-        val stockDataSize = stocks.sumOf { stock ->
-            (stock.quotes.size * 500L) + (stock.earnings.size * 300L) + (stock.orderBlocks.size * 200L)
-        }
+        val breadthQuotes = breadthRepository.countAllBreadthQuotes()
 
-        val breadthDataSize = breadths.sumOf { it.quotes.size * 400L }
-        val etfDataSize = etfs.sumOf { (it.quotes.size * 500L) + (it.holdings.size * 200L) }
+        val etfQuotes = etfRepository.countAllEtfQuotes()
+        val etfHoldings = etfRepository.countAllHoldings()
+
+        val stockDataSize = (stockQuotes * 500L) + (stockEarnings * 300L) + (stockOrderBlocks * 200L)
+        val breadthDataSize = breadthQuotes * 400L
+        val etfDataSize = (etfQuotes * 500L) + (etfHoldings * 200L)
 
         return (stockDataSize + breadthDataSize + etfDataSize) / 1024  // Convert to KB
     }
