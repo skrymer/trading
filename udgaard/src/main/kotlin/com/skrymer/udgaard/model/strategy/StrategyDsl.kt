@@ -33,6 +33,10 @@ class EntryStrategyBuilder {
         conditions.add(ValueZoneCondition(atrMultiplier))
     }
 
+    fun minimumPrice(dollars: Double = 10.0) = apply {
+        conditions.add(MinimumPriceCondition(dollars))
+    }
+
     // Market/SPY conditions
     fun spyBuySignal() = apply {
         conditions.add(SpyBuySignalCondition())

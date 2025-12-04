@@ -5,11 +5,6 @@ import com.skrymer.udgaard.model.StockQuote
 
 /**
  * Plan Money exit strategy using composition.
- * Exits when:
- * - 10 EMA crosses under 20 EMA
- * - Sell signal occurs
- * - Price is within an order block older than 120 days
- * - Stop loss triggered (2 ATR below entry)
  */
 @RegisteredStrategy(name = "PlanMoney", type = StrategyType.EXIT)
 class PlanMoneyExitStrategy: ExitStrategy {
@@ -19,8 +14,7 @@ class PlanMoneyExitStrategy: ExitStrategy {
     orderBlock(120)
     stopLoss(2.0)
       // Gap and crap
-      // Earnings
-
+    exitBeforeEarnings(1)
   }
 
   override fun match(

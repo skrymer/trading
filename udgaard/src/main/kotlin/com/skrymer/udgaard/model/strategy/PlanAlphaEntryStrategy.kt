@@ -48,12 +48,11 @@ class PlanAlphaEntryStrategy: EntryStrategy {
     sectorHeatmapGreaterThanSpy()
 
     // STOCK
-    buySignal(currentOnly = true)
-    priceAbove(10)
     uptrend()
+    buySignal(currentOnly = true)
     stockHeatmapRising()
-    priceAbovePreviousLow()
-    notInOrderBlock(120)
+    belowOrderBlock(2.0, 120)
+    priceAbove(10)
   }
 
   override fun description() = "Plan Alpha entry strategy"
