@@ -85,19 +85,9 @@ date=2021-01-04 (optional - specific date)
 ### 3. Analyzing Closed Option Trades
 **Current:** Just shows entry/exit prices entered by user
 **Enhanced:**
-- Fetches historical option prices for entry/exit dates
-- Compares user-entered prices with market prices
-- Shows Greeks at entry and exit
-- Calculates actual P/L based on market data
-- Analyzes profit attribution (intrinsic vs. extrinsic value change)
-
-### 4. Historical Trade Verification
-**Use Case:** User wants to verify their manually entered prices were accurate
-**Enhanced:**
-- "Verify Prices" button on closed trades
-- Fetches historical option data for entry/exit dates
-- Shows comparison: "You entered $5.50, market was $5.48"
-- Updates Greeks data if missing
+- Shows Greeks at entry and exit (if stored)
+- Displays profit attribution (intrinsic vs. extrinsic value change)
+- Historical analysis of trade performance
 
 ---
 
@@ -399,18 +389,6 @@ class OptionController(
         return ResponseEntity.ok(prices)
     }
 
-    /**
-     * Verify trade prices against historical market data
-     *
-     * Example: GET /api/options/verify-trade/123
-     */
-    @GetMapping("/verify-trade/{tradeId}")
-    fun verifyTradePrices(
-        @PathVariable tradeId: Long
-    ): ResponseEntity<TradeVerificationResult> {
-        val result = optionPriceService.verifyTradePrices(tradeId)
-        return ResponseEntity.ok(result)
-    }
 }
 
 data class OptionPricePoint(
@@ -421,37 +399,6 @@ data class OptionPricePoint(
     val theta: Double?,
     val vega: Double?,
     val impliedVolatility: Double?
-)
-
-data class TradeVerificationResult(
-    val tradeId: Long,
-    val entryComparison: PriceComparison,
-    val exitComparison: PriceComparison?,
-    val entryGreeks: Greeks,
-    val exitGreeks: Greeks?,
-    val profitAttribution: ProfitAttribution?
-)
-
-data class PriceComparison(
-    val userEntered: Double,
-    val marketPrice: Double,
-    val difference: Double,
-    val percentageDiff: Double,
-    val isAccurate: Boolean // within 5% tolerance
-)
-
-data class Greeks(
-    val delta: Double?,
-    val gamma: Double?,
-    val theta: Double?,
-    val vega: Double?,
-    val impliedVolatility: Double?
-)
-
-data class ProfitAttribution(
-    val totalProfit: Double,
-    val intrinsicValueChange: Double,
-    val extrinsicValueChange: Double
 )
 ```
 
@@ -615,192 +562,122 @@ onMounted(() => {
 
 ---
 
-## Phase 5: Frontend - Trade Verification
+## Phase 5: Frontend - Greeks Display for Closed Trades
 
-### 5.1 Add "Verify Prices" Button to Portfolio Page
+### 5.1 Display Greeks in Trade Details
 
-Update the portfolio page to show verification for closed option trades:
+Show stored Greeks data when viewing closed option trades:
 
-**File:** `asgaard_nuxt/app/pages/portfolio.vue`
+**File:** `asgaard_nuxt/app/components/portfolio/TradeDetailsCard.vue`
 
 ```vue
 <template>
-  <!-- In closed trades table -->
-  <UTable :rows="closedTrades">
-    <template #actions="{ row }">
-      <UButton
-        v-if="row.instrumentType === 'OPTION'"
-        icon="i-lucide-check-circle"
-        label="Verify"
-        size="xs"
-        variant="outline"
-        @click="verifyTrade(row)"
-      />
+  <UCard v-if="trade.instrumentType === 'OPTION'">
+    <template #header>
+      <h5 class="text-sm font-semibold">Option Greeks</h5>
     </template>
-  </UTable>
 
-  <!-- Verification Modal -->
-  <UModal v-model:open="showVerification" title="Trade Verification">
-    <template #body>
-      <div v-if="verificationResult" class="space-y-4">
-        <!-- Entry Comparison -->
-        <UCard>
-          <template #header>
-            <h5 class="text-sm font-semibold">Entry Price Verification</h5>
-          </template>
-
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <span class="text-sm text-muted">Your Entry:</span>
-              <span class="font-medium">{{ formatCurrency(verificationResult.entryComparison.userEntered) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-muted">Market Price:</span>
-              <span class="font-medium">{{ formatCurrency(verificationResult.entryComparison.marketPrice) }}</span>
-            </div>
-            <div class="flex justify-between items-center pt-2 border-t">
-              <span class="text-sm text-muted">Difference:</span>
-              <div class="flex items-center gap-2">
-                <span :class="verificationResult.entryComparison.isAccurate ? 'text-green-600' : 'text-orange-600'">
-                  {{ formatCurrency(Math.abs(verificationResult.entryComparison.difference)) }}
-                  ({{ verificationResult.entryComparison.percentageDiff.toFixed(1) }}%)
-                </span>
-                <UIcon
-                  :name="verificationResult.entryComparison.isAccurate ? 'i-lucide-check' : 'i-lucide-alert-triangle'"
-                  :class="verificationResult.entryComparison.isAccurate ? 'text-green-600' : 'text-orange-600'"
-                />
-              </div>
-            </div>
+    <div class="grid grid-cols-2 gap-4">
+      <!-- Entry Greeks -->
+      <div v-if="hasEntryGreeks">
+        <p class="text-xs text-muted mb-2">Entry Greeks</p>
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between">
+            <span>Delta:</span>
+            <span class="font-medium">{{ trade.entryDelta?.toFixed(3) || 'N/A' }}</span>
           </div>
-        </UCard>
-
-        <!-- Exit Comparison (if closed) -->
-        <UCard v-if="verificationResult.exitComparison">
-          <template #header>
-            <h5 class="text-sm font-semibold">Exit Price Verification</h5>
-          </template>
-
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <span class="text-sm text-muted">Your Exit:</span>
-              <span class="font-medium">{{ formatCurrency(verificationResult.exitComparison.userEntered) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-muted">Market Price:</span>
-              <span class="font-medium">{{ formatCurrency(verificationResult.exitComparison.marketPrice) }}</span>
-            </div>
-            <div class="flex justify-between items-center pt-2 border-t">
-              <span class="text-sm text-muted">Difference:</span>
-              <div class="flex items-center gap-2">
-                <span :class="verificationResult.exitComparison.isAccurate ? 'text-green-600' : 'text-orange-600'">
-                  {{ formatCurrency(Math.abs(verificationResult.exitComparison.difference)) }}
-                  ({{ verificationResult.exitComparison.percentageDiff.toFixed(1) }}%)
-                </span>
-                <UIcon
-                  :name="verificationResult.exitComparison.isAccurate ? 'i-lucide-check' : 'i-lucide-alert-triangle'"
-                  :class="verificationResult.exitComparison.isAccurate ? 'text-green-600' : 'text-orange-600'"
-                />
-              </div>
-            </div>
+          <div class="flex justify-between">
+            <span>Gamma:</span>
+            <span class="font-medium">{{ trade.entryGamma?.toFixed(3) || 'N/A' }}</span>
           </div>
-        </UCard>
-
-        <!-- Greeks at Entry/Exit -->
-        <UCard>
-          <template #header>
-            <h5 class="text-sm font-semibold">Greeks Analysis</h5>
-          </template>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <p class="text-xs text-muted mb-2">Entry Greeks</p>
-              <div class="space-y-1 text-sm">
-                <div class="flex justify-between">
-                  <span>Delta:</span>
-                  <span class="font-medium">{{ verificationResult.entryGreeks.delta?.toFixed(3) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Theta:</span>
-                  <span class="font-medium">{{ verificationResult.entryGreeks.theta?.toFixed(3) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>IV:</span>
-                  <span class="font-medium">{{ (verificationResult.entryGreeks.impliedVolatility * 100).toFixed(1) }}%</span>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="verificationResult.exitGreeks">
-              <p class="text-xs text-muted mb-2">Exit Greeks</p>
-              <div class="space-y-1 text-sm">
-                <div class="flex justify-between">
-                  <span>Delta:</span>
-                  <span class="font-medium">{{ verificationResult.exitGreeks.delta?.toFixed(3) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Theta:</span>
-                  <span class="font-medium">{{ verificationResult.exitGreeks.theta?.toFixed(3) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>IV:</span>
-                  <span class="font-medium">{{ (verificationResult.exitGreeks.impliedVolatility * 100).toFixed(1) }}%</span>
-                </div>
-              </div>
-            </div>
+          <div class="flex justify-between">
+            <span>Theta:</span>
+            <span class="font-medium">{{ trade.entryTheta?.toFixed(3) || 'N/A' }}</span>
           </div>
-        </UCard>
-
-        <!-- Profit Attribution (if available) -->
-        <UCard v-if="verificationResult.profitAttribution">
-          <template #header>
-            <h5 class="text-sm font-semibold">Profit Attribution</h5>
-          </template>
-
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span>Total P/L:</span>
-              <span class="font-semibold" :class="verificationResult.profitAttribution.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatCurrency(verificationResult.profitAttribution.totalProfit) }}
-              </span>
-            </div>
-            <div class="flex justify-between">
-              <span>From Intrinsic Value:</span>
-              <span class="font-medium">{{ formatCurrency(verificationResult.profitAttribution.intrinsicValueChange) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>From Extrinsic Value:</span>
-              <span class="font-medium">{{ formatCurrency(verificationResult.profitAttribution.extrinsicValueChange) }}</span>
-            </div>
+          <div class="flex justify-between">
+            <span>Vega:</span>
+            <span class="font-medium">{{ trade.entryVega?.toFixed(3) || 'N/A' }}</span>
           </div>
-        </UCard>
+          <div class="flex justify-between">
+            <span>IV:</span>
+            <span class="font-medium">{{ trade.entryImpliedVolatility ? (trade.entryImpliedVolatility * 100).toFixed(1) + '%' : 'N/A' }}</span>
+          </div>
+        </div>
       </div>
-    </template>
-  </UModal>
+
+      <!-- Exit Greeks (for closed trades) -->
+      <div v-if="trade.status === 'CLOSED' && hasExitGreeks">
+        <p class="text-xs text-muted mb-2">Exit Greeks</p>
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between">
+            <span>Delta:</span>
+            <span class="font-medium">{{ trade.exitDelta?.toFixed(3) || 'N/A' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Gamma:</span>
+            <span class="font-medium">{{ trade.exitGamma?.toFixed(3) || 'N/A' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Theta:</span>
+            <span class="font-medium">{{ trade.exitTheta?.toFixed(3) || 'N/A' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Vega:</span>
+            <span class="font-medium">{{ trade.exitVega?.toFixed(3) || 'N/A' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>IV:</span>
+            <span class="font-medium">{{ trade.exitImpliedVolatility ? (trade.exitImpliedVolatility * 100).toFixed(1) + '%' : 'N/A' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Greeks Change Analysis (for closed trades) -->
+    <div v-if="trade.status === 'CLOSED' && hasEntryGreeks && hasExitGreeks" class="mt-4 pt-4 border-t">
+      <p class="text-xs text-muted mb-2">Greeks Changes</p>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="flex justify-between">
+          <span>Delta:</span>
+          <span :class="deltaChange >= 0 ? 'text-green-600' : 'text-red-600'">
+            {{ deltaChange >= 0 ? '+' : '' }}{{ deltaChange.toFixed(3) }}
+          </span>
+        </div>
+        <div class="flex justify-between">
+          <span>Theta Decay:</span>
+          <span class="font-medium">{{ thetaDecay.toFixed(3) }}</span>
+        </div>
+      </div>
+    </div>
+  </UCard>
 </template>
 
 <script setup lang="ts">
-const showVerification = ref(false)
-const verificationResult = ref<TradeVerificationResult | null>(null)
-const verifying = ref(false)
+import type { PortfolioTrade } from '~/types'
 
-async function verifyTrade(trade: PortfolioTrade) {
-  verifying.value = true
-  try {
-    const result = await $fetch<TradeVerificationResult>(
-      `/udgaard/api/options/verify-trade/${trade.id}`
-    )
-    verificationResult.value = result
-    showVerification.value = true
-  } catch (error) {
-    toast.add({
-      title: 'Error',
-      description: 'Failed to verify trade prices',
-      color: 'error'
-    })
-  } finally {
-    verifying.value = false
-  }
-}
+const props = defineProps<{
+  trade: PortfolioTrade
+}>()
+
+const hasEntryGreeks = computed(() =>
+  props.trade.entryDelta !== null ||
+  props.trade.entryTheta !== null ||
+  props.trade.entryImpliedVolatility !== null
+)
+
+const hasExitGreeks = computed(() =>
+  props.trade.exitDelta !== null ||
+  props.trade.exitTheta !== null ||
+  props.trade.exitImpliedVolatility !== null
+)
+
+const deltaChange = computed(() =>
+  (props.trade.exitDelta || 0) - (props.trade.entryDelta || 0)
+)
+
+const thetaDecay = computed(() =>
+  (props.trade.exitTheta || 0) - (props.trade.entryTheta || 0)
+)
 </script>
 ```
 
@@ -827,11 +704,11 @@ class OptionPriceServiceTest {
 
 ### 6.2 Integration Tests
 
-- Test full flow: Open option trade manually → View chart → Verify prices
+- Test full flow: Open option trade manually → View chart → View Greeks
 - Test option premium chart display with Greeks overlay
-- Test price verification against historical market data
 - Test API error handling (invalid symbol, missing data, weekends/holidays)
-- Test Greeks data storage and retrieval
+- Test Greeks data storage and retrieval from database
+- Test Greeks display for closed trades with entry/exit comparison
 
 ---
 
@@ -842,7 +719,7 @@ class OptionPriceServiceTest {
 - [ ] Create OptionContract DTOs
 - [ ] Implement AlphaVantageOptionsClient (with @Primary annotation)
 - [ ] Create OptionPriceService (inject OptionsDataClient interface)
-- [ ] Add OptionController with `/historical-prices` and `/verify-trade` endpoints
+- [ ] Add OptionController with `/historical-prices` endpoint
 - [ ] Add unit tests with mocked OptionsDataClient
 
 ### Phase 2: Database Schema (Day 3)
@@ -858,16 +735,15 @@ class OptionPriceServiceTest {
 - [ ] Handle loading states and errors
 - [ ] Integrate into OpenTradeChart.vue for option trades
 
-### Phase 4: Frontend - Trade Verification & Greeks Display (Day 6)
-- [ ] Add "Verify Prices" button to closed option trades
-- [ ] Fetch historical data for entry/exit dates
-- [ ] Show comparison: user-entered vs. market prices
-- [ ] Display Greeks data at entry and exit
-- [ ] Show profit attribution breakdown (intrinsic vs. extrinsic)
-- [ ] Update Greeks fields in database if missing
+### Phase 4: Frontend - Greeks Display (Day 6)
+- [ ] Create TradeDetailsCard component for displaying Greeks
+- [ ] Display entry Greeks for all option trades
+- [ ] Display exit Greeks for closed option trades
+- [ ] Show Greeks changes (delta change, theta decay)
+- [ ] Integrate into portfolio trade details view
 
 ### Phase 5: Testing & Polish (Day 7)
-- [ ] Integration testing (view chart, verify prices, Greeks display)
+- [ ] Integration testing (view chart, view Greeks display)
 - [ ] API error handling (rate limits, missing historical data)
 - [ ] Loading states and user feedback
 - [ ] Test with various option types (ITM, OTM, different expirations)
@@ -886,7 +762,7 @@ Frontend: GET /api/options/historical-prices?symbol=SPY&strike=600&expiration=20
     ↓
 Backend: OptionPriceService.getHistoricalOptionPrices()
     ↓
-Backend: Loop through dates, fetch historical data from AlphaVantage
+Backend: Loop through dates, fetch historical data from provider (AlphaVantage)
     ↓
 Backend: Build price series with Greeks for each date
     ↓
@@ -897,28 +773,18 @@ Frontend: Render chart with option premium on Y-axis, dates on X-axis
 Frontend: Optional Greeks overlay (toggle to show delta/theta/IV trends)
 ```
 
-### Verifying Trade Prices
+### Viewing Trade Greeks
 
 ```
-User clicks "Verify Prices" on closed option trade
+User views closed option trade details
     ↓
-Frontend: GET /api/options/verify-trade/{tradeId}
+Frontend: Display TradeDetailsCard component
     ↓
-Backend: Load trade from database
+Frontend: Show entry Greeks (delta, gamma, theta, vega, IV) from database
     ↓
-Backend: Fetch historical option data for entry date
+Frontend: Show exit Greeks (if available) from database
     ↓
-Backend: Fetch historical option data for exit date
-    ↓
-Backend: Compare user-entered vs. market prices
-    ↓
-Backend: Return verification result with Greeks data
-    ↓
-Frontend: Display comparison card:
-  - Entry: You entered $5.50, Market was $5.48 (✓ Accurate)
-  - Exit: You entered $0.10, Market was $0.12 (⚠️ $0.02 difference)
-  - Greeks at entry/exit
-  - Profit attribution (intrinsic vs. extrinsic)
+Frontend: Calculate and display Greeks changes (delta change, theta decay)
 ```
 
 ---
@@ -965,12 +831,12 @@ Frontend: Display comparison card:
 ## Success Metrics
 
 ✅ **Option Premium Charts:** Trade charts display actual option prices instead of stock prices
-✅ **Price Verification:** "Verify Prices" accurately compares user entries against market data
-✅ **Greeks Data Storage:** Entry and exit Greeks stored and displayed for trade analysis
-✅ **User Experience:** Clear display of historical option data, Greeks, and profit attribution
+✅ **Greeks Data Display:** Entry and exit Greeks displayed clearly for trade analysis
+✅ **Greeks Changes:** Delta changes and theta decay calculated and shown for closed trades
+✅ **User Experience:** Clear display of historical option data and Greeks overlay
 ✅ **Error Handling:** Graceful handling of API failures, rate limits, missing data
-✅ **P/L Analysis:** Profit attribution breakdown (intrinsic vs. extrinsic value changes)
 ✅ **Performance:** API responses under 3 seconds, no UI blocking during chart load
+✅ **Provider Flexibility:** Easy to switch between data providers via OptionsDataClient interface
 
 ---
 
