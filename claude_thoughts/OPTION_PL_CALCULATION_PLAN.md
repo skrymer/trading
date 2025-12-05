@@ -197,7 +197,7 @@ class OptionPriceService(
 ) {
     /**
      * Get historical option price for a specific date
-     * Used to fetch price at entry/exit dates
+     * Used for price verification and historical analysis
      */
     fun getHistoricalOptionPrice(
         underlyingSymbol: String,
@@ -753,8 +753,10 @@ class OptionPriceServiceTest {
 
 ### 6.2 Integration Tests
 
-- Test full flow: Open option trade → Click "Fetch Price" → Auto-fill entry price
-- Test API error handling (invalid symbol, missing data)
+- Test full flow: Open option trade manually → View chart → Verify prices
+- Test option premium chart display with Greeks overlay
+- Test price verification against historical market data
+- Test API error handling (invalid symbol, missing data, weekends/holidays)
 - Test Greeks data storage and retrieval
 
 ---
@@ -765,7 +767,7 @@ class OptionPriceServiceTest {
 - [ ] Create AlphaVantageOptionsClient with historical options fetching
 - [ ] Create OptionContract DTOs
 - [ ] Create OptionPriceService
-- [ ] Add OptionController with `/historical-price` endpoint
+- [ ] Add OptionController with `/historical-prices` and `/verify-trade` endpoints
 - [ ] Add unit tests
 
 ### Phase 2: Database Schema (Day 3)
@@ -887,12 +889,13 @@ Frontend: Display comparison card:
 
 ## Success Metrics
 
-✅ **Accurate Historical Prices:** "Fetch Price" button retrieves correct option prices for specific dates
-✅ **Greeks Data Storage:** Entry and exit Greeks stored for trade analysis
-✅ **User Experience:** Clear display of fetched option data, easy price auto-fill
+✅ **Option Premium Charts:** Trade charts display actual option prices instead of stock prices
+✅ **Price Verification:** "Verify Prices" accurately compares user entries against market data
+✅ **Greeks Data Storage:** Entry and exit Greeks stored and displayed for trade analysis
+✅ **User Experience:** Clear display of historical option data, Greeks, and profit attribution
 ✅ **Error Handling:** Graceful handling of API failures, rate limits, missing data
-✅ **P/L Accuracy:** Option P/L calculated correctly using historical premium prices
-✅ **Performance:** API responses under 3 seconds, no UI blocking
+✅ **P/L Analysis:** Profit attribution breakdown (intrinsic vs. extrinsic value changes)
+✅ **Performance:** API responses under 3 seconds, no UI blocking during chart load
 
 ---
 
