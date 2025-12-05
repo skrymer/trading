@@ -13,7 +13,7 @@ const emit = defineEmits<{
 interface BacktestConfig extends BacktestRequest {}
 
 // Form ref
-const form = useTemplateRef('form')
+const form = ref<{ submit: () => void } | null>(null)
 
 // Form state
 const state = reactive<{
