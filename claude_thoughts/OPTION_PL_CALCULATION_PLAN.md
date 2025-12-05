@@ -489,9 +489,10 @@ class OptionPriceServiceTest {
 
 - Test full flow: Open option trade manually → View chart
 - Test option premium chart display
-- Test API error handling (invalid symbol, missing data, weekends/holidays)
+- Test API error handling (invalid symbol, missing data, rate limits)
 - Test chart rendering with various date ranges
 - Test with different option types (ITM, OTM, different expirations)
+- Test empty result (no data available for contract)
 
 ---
 
@@ -516,10 +517,11 @@ class OptionPriceServiceTest {
 
 ### Phase 3: Testing & Polish (Day 5)
 - [ ] Integration testing (open trade, view chart)
-- [ ] API error handling (rate limits, missing historical data, weekends/holidays)
+- [ ] API error handling (rate limits, missing historical data)
 - [ ] Loading states and user feedback
 - [ ] Test with various option types (ITM, OTM, different expirations)
-- [ ] Test chart with different date ranges
+- [ ] Test chart with different date ranges (short/long)
+- [ ] Test empty results (no data available)
 - [ ] Documentation updates
 
 ---
@@ -551,11 +553,12 @@ Frontend: Display interactive chart with tooltips
 ## Edge Cases & Considerations
 
 ### 1. Historical Data Not Available
-- **Issue:** AlphaVantage may not have data for specific dates (weekends, holidays, old data)
+- **Issue:** AlphaVantage may not have data for specific dates (weekends, holidays, old data, or specific contracts)
+- **Note:** Weekends/holidays are handled naturally - API simply returns no data for these days (same as stocks)
 - **Solution:**
-  - Show error message: "No option data available for this date"
-  - User can manually enter price
-  - Suggest closest available trading day
+  - Return whatever data is available
+  - Frontend shows: "Limited data available" or "No data found for this option"
+  - Chart displays available data points only
 
 ### 2. API Rate Limiting
 - **Issue:** AlphaVantage free tier limits (5/min, 500/day)
@@ -568,15 +571,15 @@ Frontend: Display interactive chart with tooltips
 - **Issue:** AlphaVantage API down or network error
 - **Solution:**
   - Show error toast with retry button
-  - User can always manually enter price
   - Log error for debugging
+  - Return empty dataset to frontend
 
 ### 4. Invalid Option Parameters
 - **Issue:** User enters strike/expiration that doesn't exist
 - **Solution:**
-  - Backend returns 404 Not Found
-  - Frontend shows: "No option found matching these parameters"
-  - User verifies and corrects inputs
+  - Backend returns empty list
+  - Frontend shows: "No option data found for this contract"
+  - User verifies symbol, strike, expiration are correct
 
 ### 5. Symbol Format Matching
 - **Issue:** Option contract symbol format varies by broker
