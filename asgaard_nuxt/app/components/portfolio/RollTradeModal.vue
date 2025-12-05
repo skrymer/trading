@@ -149,33 +149,33 @@ function close() {
         <!-- Roll Details -->
         <div class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Roll Date" required>
+            <UFormField label="Roll Date" required>
               <UInput v-model="rollDate" type="date" />
-            </UFormGroup>
+            </UFormField>
 
-            <UFormGroup label="Current Price" help="Current value per contract" required>
+            <UFormField label="Current Price" hint="Current value per contract" required>
               <UInput v-model="exitPrice" type="number" step="0.01" />
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <UDivider label="New Position" />
 
           <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="New Strike Price" required>
+            <UFormField label="New Strike Price" required>
               <UInput v-model="newStrikePrice" type="number" step="0.01" />
-            </UFormGroup>
+            </UFormField>
 
-            <UFormGroup label="New Expiration" required>
+            <UFormField label="New Expiration" required>
               <UInput v-model="newExpirationDate" type="date" />
-            </UFormGroup>
+            </UFormField>
 
-            <UFormGroup label="New Entry Price" help="Price per contract for new position" required>
+            <UFormField label="New Entry Price" hint="Price per contract for new position" required>
               <UInput v-model="newEntryPrice" type="number" step="0.01" />
-            </UFormGroup>
+            </UFormField>
 
-            <UFormGroup label="Contracts" required>
+            <UFormField label="Contracts" required>
               <UInput v-model="contracts" type="number" />
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Roll Cost Summary -->
