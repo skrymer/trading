@@ -6,20 +6,22 @@
 
 ## Problem Statement
 
-Currently, option trades track the option premium at entry (`entryPrice`) and users manually enter exit prices. However:
+Currently, option trades are entered manually with premium prices, but:
 
 **Issues:**
-1. **No validation** - Users could enter incorrect option prices
-2. **No Greeks data** - Can't analyze why a trade won/lost (delta, theta decay, IV changes)
-3. **Manual price lookup** - Users must look up historical option prices themselves
-4. **No historical analysis** - Can't backfill P/L for past trades or verify accuracy
+1. **No historical option price data** - Can't calculate accurate P/L for closed option trades
+2. **Trade charts show stock prices** - Not helpful for option trades, should show option premium movement
+3. **No Greeks data** - Can't analyze why a trade won/lost (delta, theta decay, IV changes)
+4. **Manual P/L tracking** - User must trust their entered prices are correct
 
-**Simplified Approach:**
-Since this is in development and we only need historical data:
-- Focus on **fetching historical option prices** to validate/auto-fill entry/exit prices
-- No real-time data needed (users manually close trades anyway)
-- No auto-refresh or caching complexity
-- Migration is not a concern
+**Approach:**
+Since users enter trades manually (current date has no historical data yet):
+- Use historical data **only for closed/past trades**
+- Fetch historical option prices to calculate accurate P/L
+- Display trade charts with actual option prices (not stock prices)
+- Store Greeks data for analysis
+- No real-time data needed
+- No "Fetch Price" buttons for opening new trades
 
 ## Solution: AlphaVantage Historical Options API
 
@@ -63,29 +65,39 @@ date=2021-01-04 (optional - specific date)
 }
 ```
 
-## Use Cases (Simplified)
+## Use Cases
 
 ### 1. Opening an Option Trade
-**Current:** User manually enters option premium
-**Enhanced:**
-- User enters underlying symbol, strike, expiration, option type, entry date
-- Click "Fetch Price" button → API fetches historical option price for that date
-- Auto-fills entry price field
-- Shows Greeks data for reference
+**User Action:** Manually enters all details
+- Underlying symbol, strike, expiration, option type
+- Entry date and entry premium (from their broker)
+- Contracts, multiplier
+- Trade stored with user-entered prices
 
-### 2. Closing an Option Trade
-**Current:** User manually enters exit price
+### 2. Viewing Option Trade Chart
+**Current:** Shows stock price movement
 **Enhanced:**
-- Click "Fetch Price" button → API fetches historical option price for exit date
-- Auto-fills exit price field
-- Shows P/L comparison
+- Fetches historical option prices for dates between entry and exit
+- Displays chart with actual option premium movement
+- Shows how premium changed over the trade duration
+- Includes Greeks overlay (delta, theta decay, IV)
 
-### 3. Viewing Trade History
-**Current:** Just shows entry/exit prices
+### 3. Analyzing Closed Option Trades
+**Current:** Just shows entry/exit prices entered by user
 **Enhanced:**
+- Fetches historical option prices for entry/exit dates
+- Compares user-entered prices with market prices
 - Shows Greeks at entry and exit
-- Shows implied volatility changes
-- Helps understand why trade won/lost (time decay vs. stock movement)
+- Calculates actual P/L based on market data
+- Analyzes profit attribution (intrinsic vs. extrinsic value change)
+
+### 4. Historical Trade Verification
+**Use Case:** User wants to verify their manually entered prices were accurate
+**Enhanced:**
+- "Verify Prices" button on closed trades
+- Fetches historical option data for entry/exit dates
+- Shows comparison: "You entered $5.50, market was $5.48"
+- Updates Greeks data if missing
 
 ---
 
@@ -272,7 +284,7 @@ val exitImpliedVolatility: Double? = null
 
 ## Phase 3: Backend - API Endpoints
 
-### 3.1 Fetch Historical Option Price
+### 3.1 Fetch Historical Option Prices (Date Range)
 
 **File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/controller/OptionController.kt` (new)
 
@@ -283,262 +295,439 @@ class OptionController(
     private val optionPriceService: OptionPriceService
 ) {
     /**
-     * Fetch historical option price for a specific date
+     * Fetch historical option prices for a date range (for chart display)
      *
-     * Example: GET /api/options/historical-price?symbol=SPY&strike=600&expiration=2025-12-19&type=CALL&date=2025-12-04
+     * Example: GET /api/options/historical-prices?symbol=SPY&strike=600&expiration=2025-12-19&type=CALL&startDate=2025-11-01&endDate=2025-12-04
      */
-    @GetMapping("/historical-price")
-    fun getHistoricalPrice(
+    @GetMapping("/historical-prices")
+    fun getHistoricalPrices(
         @RequestParam symbol: String,
         @RequestParam strike: Double,
         @RequestParam expiration: String,
         @RequestParam type: String,
-        @RequestParam date: String
-    ): ResponseEntity<OptionContract> {
+        @RequestParam startDate: String,
+        @RequestParam endDate: String
+    ): ResponseEntity<List<OptionPricePoint>> {
         val optionType = OptionType.valueOf(type.uppercase())
         val expirationDate = LocalDate.parse(expiration)
-        val priceDate = LocalDate.parse(date)
+        val start = LocalDate.parse(startDate)
+        val end = LocalDate.parse(endDate)
 
-        val contract = optionPriceService.getHistoricalOptionPrice(
+        val prices = optionPriceService.getHistoricalOptionPrices(
             underlyingSymbol = symbol,
             strike = strike,
             expiration = expirationDate,
             optionType = optionType,
-            date = priceDate
+            startDate = start,
+            endDate = end
         )
 
-        return if (contract != null) {
-            ResponseEntity.ok(contract)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+        return ResponseEntity.ok(prices)
+    }
+
+    /**
+     * Verify trade prices against historical market data
+     *
+     * Example: GET /api/options/verify-trade/123
+     */
+    @GetMapping("/verify-trade/{tradeId}")
+    fun verifyTradePrices(
+        @PathVariable tradeId: Long
+    ): ResponseEntity<TradeVerificationResult> {
+        val result = optionPriceService.verifyTradePrices(tradeId)
+        return ResponseEntity.ok(result)
     }
 }
+
+data class OptionPricePoint(
+    val date: LocalDate,
+    val price: Double,
+    val delta: Double?,
+    val gamma: Double?,
+    val theta: Double?,
+    val vega: Double?,
+    val impliedVolatility: Double?
+)
+
+data class TradeVerificationResult(
+    val tradeId: Long,
+    val entryComparison: PriceComparison,
+    val exitComparison: PriceComparison?,
+    val entryGreeks: Greeks,
+    val exitGreeks: Greeks?,
+    val profitAttribution: ProfitAttribution?
+)
+
+data class PriceComparison(
+    val userEntered: Double,
+    val marketPrice: Double,
+    val difference: Double,
+    val percentageDiff: Double,
+    val isAccurate: Boolean // within 5% tolerance
+)
+
+data class Greeks(
+    val delta: Double?,
+    val gamma: Double?,
+    val theta: Double?,
+    val vega: Double?,
+    val impliedVolatility: Double?
+)
+
+data class ProfitAttribution(
+    val totalProfit: Double,
+    val intrinsicValueChange: Double,
+    val extrinsicValueChange: Double
+)
 ```
 
 ---
 
-## Phase 4: Frontend - "Fetch Price" Button
+## Phase 4: Frontend - Option Trade Chart
 
-### 4.1 Update OpenTradeModal
+### 4.1 Create OptionTradeChart Component
 
-Add "Fetch Price" button next to Entry Price field (for options):
-
-```vue
-<template>
-  <!-- Entry Price with Fetch button -->
-  <div v-if="state.instrumentType === 'OPTION'" class="space-y-2">
-    <div class="flex gap-2">
-      <UFormField label="Entry Premium" class="flex-1" required>
-        <UInput
-          v-model.number="state.entryPrice"
-          type="number"
-          step="0.01"
-        />
-      </UFormField>
-
-      <UButton
-        icon="i-lucide-download"
-        label="Fetch Price"
-        size="sm"
-        :loading="fetchingPrice"
-        :disabled="!canFetchPrice"
-        class="mt-auto"
-        @click="fetchHistoricalPrice"
-      />
-    </div>
-
-    <!-- Show fetched data -->
-    <div v-if="fetchedOptionData" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-      <p class="text-xs font-semibold mb-2">Fetched Option Data ({{ state.entryDate }})</p>
-      <div class="grid grid-cols-2 gap-2 text-xs">
-        <div>
-          <span class="text-muted">Mark Price:</span>
-          <span class="font-medium ml-1">{{ formatCurrency(fetchedOptionData.mark) }}</span>
-        </div>
-        <div>
-          <span class="text-muted">Bid/Ask:</span>
-          <span class="font-medium ml-1">
-            {{ formatCurrency(fetchedOptionData.bid) }} / {{ formatCurrency(fetchedOptionData.ask) }}
-          </span>
-        </div>
-        <div>
-          <span class="text-muted">Delta:</span>
-          <span class="font-medium ml-1">{{ fetchedOptionData.delta?.toFixed(3) }}</span>
-        </div>
-        <div>
-          <span class="text-muted">IV:</span>
-          <span class="font-medium ml-1">{{ (fetchedOptionData.impliedVolatility * 100).toFixed(1) }}%</span>
-        </div>
-      </div>
-
-      <UButton
-        label="Use This Price"
-        size="xs"
-        color="primary"
-        class="mt-2"
-        @click="applyFetchedPrice"
-      />
-    </div>
-  </div>
-</template>
-
-<script setup lang="ts">
-const fetchingPrice = ref(false)
-const fetchedOptionData = ref<OptionContract | null>(null)
-
-const canFetchPrice = computed(() => {
-  return state.instrumentType === 'OPTION' &&
-         state.symbol &&
-         state.strikePrice > 0 &&
-         state.expirationDate &&
-         state.entryDate
-})
-
-async function fetchHistoricalPrice() {
-  if (!canFetchPrice.value) return
-
-  fetchingPrice.value = true
-  try {
-    const response = await $fetch<OptionContract>(
-      `/udgaard/api/options/historical-price?` +
-      `symbol=${state.symbol}&` +
-      `strike=${state.strikePrice}&` +
-      `expiration=${state.expirationDate}&` +
-      `type=${state.optionType}&` +
-      `date=${state.entryDate}`
-    )
-
-    fetchedOptionData.value = response
-
-    toast.add({
-      title: 'Price Fetched',
-      description: `Option price: ${formatCurrency(response.mark)}`,
-      color: 'success'
-    })
-  } catch (error) {
-    toast.add({
-      title: 'Error',
-      description: 'Failed to fetch option price',
-      color: 'error'
-    })
-  } finally {
-    fetchingPrice.value = false
-  }
-}
-
-function applyFetchedPrice() {
-  if (fetchedOptionData.value) {
-    state.entryPrice = fetchedOptionData.value.mark
-  }
-}
-</script>
-```
-
-### 4.2 Update CloseTradeModal
-
-Add same "Fetch Price" functionality for exit price:
-
-```vue
-<template>
-  <div class="flex gap-2">
-    <UFormField label="Exit Price" class="flex-1" required>
-      <UInput
-        v-model.number="exitPrice"
-        type="number"
-        step="0.01"
-      />
-    </UFormField>
-
-    <UButton
-      v-if="trade.instrumentType === 'OPTION'"
-      icon="i-lucide-download"
-      label="Fetch"
-      size="sm"
-      :loading="fetchingPrice"
-      @click="fetchExitPrice"
-    />
-  </div>
-</template>
-```
-
----
-
-## Phase 5: UI Enhancements
-
-### 5.1 Option Details Card
-
-Create new component to display option-specific details:
-
-**File:** `asgaard_nuxt/app/components/portfolio/OptionDetailsCard.vue`
+**File:** `asgaard_nuxt/app/components/portfolio/OptionTradeChart.vue`
 
 ```vue
 <template>
   <UCard>
     <template #header>
-      <h4 class="text-sm font-semibold">Option Details</h4>
+      <div class="flex justify-between items-center">
+        <h4 class="text-sm font-semibold">Option Premium History</h4>
+        <UButton
+          icon="i-lucide-eye"
+          label="Show Greeks"
+          size="xs"
+          variant="outline"
+          @click="showGreeks = !showGreeks"
+        />
+      </div>
     </template>
 
-    <div class="space-y-3">
-      <!-- Contract Info -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <p class="text-xs text-muted">Contract</p>
-          <p class="font-medium">{{ trade.optionType }} {{ trade.strikePrice }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted">Expiration</p>
-          <p class="font-medium">{{ trade.expirationDate }}</p>
-        </div>
-      </div>
+    <div v-if="loading" class="flex justify-center py-8">
+      <UIcon name="i-lucide-loader-2" class="animate-spin w-6 h-6" />
+    </div>
 
-      <!-- Pricing -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <p class="text-xs text-muted">Entry Premium</p>
-          <p class="font-medium">{{ formatCurrency(trade.entryPrice) }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted">Current Premium</p>
-          <p class="font-medium">
-            {{ currentPrice ? formatCurrency(currentPrice) : 'Loading...' }}
+    <div v-else-if="error" class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+      <p class="text-sm text-red-600">{{ error }}</p>
+    </div>
+
+    <div v-else>
+      <!-- ApexCharts for option premium -->
+      <apexchart
+        type="line"
+        height="300"
+        :options="chartOptions"
+        :series="chartSeries"
+      />
+
+      <!-- Greeks overlay (optional) -->
+      <div v-if="showGreeks" class="mt-4 grid grid-cols-4 gap-4">
+        <div v-for="greek in greeksData" :key="greek.name" class="text-center">
+          <p class="text-xs text-muted">{{ greek.name }}</p>
+          <p class="text-sm font-semibold">{{ greek.current }}</p>
+          <p class="text-xs" :class="greek.change > 0 ? 'text-green-600' : 'text-red-600'">
+            {{ greek.change > 0 ? '+' : '' }}{{ greek.change.toFixed(3) }}
           </p>
-        </div>
-      </div>
-
-      <!-- P/L -->
-      <div class="pt-3 border-t">
-        <div class="flex justify-between">
-          <p class="text-sm font-medium">Unrealized P/L</p>
-          <p class="text-sm font-bold" :class="unrealizedPL >= 0 ? 'text-green-600' : 'text-red-600'">
-            {{ formatCurrency(unrealizedPL) }}
-            ({{ formatPercentage(unrealizedPLPercent) }})
-          </p>
-        </div>
-      </div>
-
-      <!-- Greeks (if available) -->
-      <div v-if="greeks" class="grid grid-cols-4 gap-2 pt-3 border-t">
-        <div>
-          <p class="text-xs text-muted">Delta</p>
-          <p class="text-sm font-medium">{{ greeks.delta?.toFixed(3) }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted">Gamma</p>
-          <p class="text-sm font-medium">{{ greeks.gamma?.toFixed(3) }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted">Theta</p>
-          <p class="text-sm font-medium">{{ greeks.theta?.toFixed(3) }}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted">Vega</p>
-          <p class="text-sm font-medium">{{ greeks.vega?.toFixed(3) }}</p>
         </div>
       </div>
     </div>
   </UCard>
 </template>
+
+<script setup lang="ts">
+import type { PortfolioTrade, OptionPricePoint } from '~/types'
+
+const props = defineProps<{
+  trade: PortfolioTrade
+}>()
+
+const loading = ref(true)
+const error = ref<string | null>(null)
+const showGreeks = ref(false)
+const priceData = ref<OptionPricePoint[]>([])
+
+const chartOptions = computed(() => ({
+  chart: {
+    type: 'line',
+    toolbar: { show: true }
+  },
+  xaxis: {
+    type: 'datetime',
+    title: { text: 'Date' }
+  },
+  yaxis: {
+    title: { text: 'Option Premium ($)' }
+  },
+  stroke: {
+    curve: 'smooth',
+    width: 2
+  },
+  markers: {
+    size: 4
+  }
+}))
+
+const chartSeries = computed(() => [{
+  name: 'Option Premium',
+  data: priceData.value.map(p => ({
+    x: new Date(p.date).getTime(),
+    y: p.price
+  }))
+}])
+
+const greeksData = computed(() => {
+  if (priceData.value.length === 0) return []
+
+  const first = priceData.value[0]
+  const last = priceData.value[priceData.value.length - 1]
+
+  return [
+    {
+      name: 'Delta',
+      current: last.delta?.toFixed(3) || 'N/A',
+      change: (last.delta || 0) - (first.delta || 0)
+    },
+    {
+      name: 'Gamma',
+      current: last.gamma?.toFixed(3) || 'N/A',
+      change: (last.gamma || 0) - (first.gamma || 0)
+    },
+    {
+      name: 'Theta',
+      current: last.theta?.toFixed(3) || 'N/A',
+      change: (last.theta || 0) - (first.theta || 0)
+    },
+    {
+      name: 'Vega',
+      current: last.vega?.toFixed(3) || 'N/A',
+      change: (last.vega || 0) - (first.vega || 0)
+    }
+  ]
+})
+
+async function loadOptionPrices() {
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await $fetch<OptionPricePoint[]>(
+      `/udgaard/api/options/historical-prices?` +
+      `symbol=${props.trade.symbol}&` +
+      `strike=${props.trade.strikePrice}&` +
+      `expiration=${props.trade.expirationDate}&` +
+      `type=${props.trade.optionType}&` +
+      `startDate=${props.trade.entryDate}&` +
+      `endDate=${props.trade.exitDate || new Date().toISOString().split('T')[0]}`
+    )
+
+    priceData.value = response
+  } catch (e) {
+    error.value = 'Failed to load option price history'
+    console.error('Failed to fetch option prices:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  if (props.trade.instrumentType === 'OPTION') {
+    loadOptionPrices()
+  }
+})
+</script>
+```
+
+---
+
+## Phase 5: Frontend - Trade Verification
+
+### 5.1 Add "Verify Prices" Button to Portfolio Page
+
+Update the portfolio page to show verification for closed option trades:
+
+**File:** `asgaard_nuxt/app/pages/portfolio.vue`
+
+```vue
+<template>
+  <!-- In closed trades table -->
+  <UTable :rows="closedTrades">
+    <template #actions="{ row }">
+      <UButton
+        v-if="row.instrumentType === 'OPTION'"
+        icon="i-lucide-check-circle"
+        label="Verify"
+        size="xs"
+        variant="outline"
+        @click="verifyTrade(row)"
+      />
+    </template>
+  </UTable>
+
+  <!-- Verification Modal -->
+  <UModal v-model:open="showVerification" title="Trade Verification">
+    <template #body>
+      <div v-if="verificationResult" class="space-y-4">
+        <!-- Entry Comparison -->
+        <UCard>
+          <template #header>
+            <h5 class="text-sm font-semibold">Entry Price Verification</h5>
+          </template>
+
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Your Entry:</span>
+              <span class="font-medium">{{ formatCurrency(verificationResult.entryComparison.userEntered) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Market Price:</span>
+              <span class="font-medium">{{ formatCurrency(verificationResult.entryComparison.marketPrice) }}</span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t">
+              <span class="text-sm text-muted">Difference:</span>
+              <div class="flex items-center gap-2">
+                <span :class="verificationResult.entryComparison.isAccurate ? 'text-green-600' : 'text-orange-600'">
+                  {{ formatCurrency(Math.abs(verificationResult.entryComparison.difference)) }}
+                  ({{ verificationResult.entryComparison.percentageDiff.toFixed(1) }}%)
+                </span>
+                <UIcon
+                  :name="verificationResult.entryComparison.isAccurate ? 'i-lucide-check' : 'i-lucide-alert-triangle'"
+                  :class="verificationResult.entryComparison.isAccurate ? 'text-green-600' : 'text-orange-600'"
+                />
+              </div>
+            </div>
+          </div>
+        </UCard>
+
+        <!-- Exit Comparison (if closed) -->
+        <UCard v-if="verificationResult.exitComparison">
+          <template #header>
+            <h5 class="text-sm font-semibold">Exit Price Verification</h5>
+          </template>
+
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Your Exit:</span>
+              <span class="font-medium">{{ formatCurrency(verificationResult.exitComparison.userEntered) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Market Price:</span>
+              <span class="font-medium">{{ formatCurrency(verificationResult.exitComparison.marketPrice) }}</span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t">
+              <span class="text-sm text-muted">Difference:</span>
+              <div class="flex items-center gap-2">
+                <span :class="verificationResult.exitComparison.isAccurate ? 'text-green-600' : 'text-orange-600'">
+                  {{ formatCurrency(Math.abs(verificationResult.exitComparison.difference)) }}
+                  ({{ verificationResult.exitComparison.percentageDiff.toFixed(1) }}%)
+                </span>
+                <UIcon
+                  :name="verificationResult.exitComparison.isAccurate ? 'i-lucide-check' : 'i-lucide-alert-triangle'"
+                  :class="verificationResult.exitComparison.isAccurate ? 'text-green-600' : 'text-orange-600'"
+                />
+              </div>
+            </div>
+          </div>
+        </UCard>
+
+        <!-- Greeks at Entry/Exit -->
+        <UCard>
+          <template #header>
+            <h5 class="text-sm font-semibold">Greeks Analysis</h5>
+          </template>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-muted mb-2">Entry Greeks</p>
+              <div class="space-y-1 text-sm">
+                <div class="flex justify-between">
+                  <span>Delta:</span>
+                  <span class="font-medium">{{ verificationResult.entryGreeks.delta?.toFixed(3) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Theta:</span>
+                  <span class="font-medium">{{ verificationResult.entryGreeks.theta?.toFixed(3) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>IV:</span>
+                  <span class="font-medium">{{ (verificationResult.entryGreeks.impliedVolatility * 100).toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="verificationResult.exitGreeks">
+              <p class="text-xs text-muted mb-2">Exit Greeks</p>
+              <div class="space-y-1 text-sm">
+                <div class="flex justify-between">
+                  <span>Delta:</span>
+                  <span class="font-medium">{{ verificationResult.exitGreeks.delta?.toFixed(3) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Theta:</span>
+                  <span class="font-medium">{{ verificationResult.exitGreeks.theta?.toFixed(3) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>IV:</span>
+                  <span class="font-medium">{{ (verificationResult.exitGreeks.impliedVolatility * 100).toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </UCard>
+
+        <!-- Profit Attribution (if available) -->
+        <UCard v-if="verificationResult.profitAttribution">
+          <template #header>
+            <h5 class="text-sm font-semibold">Profit Attribution</h5>
+          </template>
+
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span>Total P/L:</span>
+              <span class="font-semibold" :class="verificationResult.profitAttribution.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(verificationResult.profitAttribution.totalProfit) }}
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span>From Intrinsic Value:</span>
+              <span class="font-medium">{{ formatCurrency(verificationResult.profitAttribution.intrinsicValueChange) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>From Extrinsic Value:</span>
+              <span class="font-medium">{{ formatCurrency(verificationResult.profitAttribution.extrinsicValueChange) }}</span>
+            </div>
+          </div>
+        </UCard>
+      </div>
+    </template>
+  </UModal>
+</template>
+
+<script setup lang="ts">
+const showVerification = ref(false)
+const verificationResult = ref<TradeVerificationResult | null>(null)
+const verifying = ref(false)
+
+async function verifyTrade(trade: PortfolioTrade) {
+  verifying.value = true
+  try {
+    const result = await $fetch<TradeVerificationResult>(
+      `/udgaard/api/options/verify-trade/${trade.id}`
+    )
+    verificationResult.value = result
+    showVerification.value = true
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to verify trade prices',
+      color: 'error'
+    })
+  } finally {
+    verifying.value = false
+  }
+}
+</script>
 ```
 
 ---
@@ -584,71 +773,75 @@ class OptionPriceServiceTest {
 - [ ] Test database migration
 - [ ] Update DTOs to include Greeks
 
-### Phase 3: Frontend "Fetch Price" Button (Day 4-5)
-- [ ] Add "Fetch Price" button to OpenTradeModal
-- [ ] Add "Fetch Price" button to CloseTradeModal
-- [ ] Display fetched Greeks data in modals
-- [ ] Add toast notifications for success/error
-- [ ] Handle API errors gracefully
+### Phase 3: Frontend - Option Trade Chart (Day 4-5)
+- [ ] Create OptionTradeChart component
+- [ ] Fetch historical option prices for date range (entry to exit or current)
+- [ ] Display option premium movement chart (instead of stock price)
+- [ ] Add Greeks overlay (optional toggle)
+- [ ] Handle loading states and errors
+- [ ] Integrate into OpenTradeChart.vue for option trades
 
-### Phase 4: Display Greeks in Trade History (Day 6)
-- [ ] Create OptionDetailsCard component
-- [ ] Show entry Greeks in trade details
-- [ ] Show exit Greeks for closed trades
-- [ ] Add Greeks comparison for closed trades
+### Phase 4: Frontend - Trade Verification & Greeks Display (Day 6)
+- [ ] Add "Verify Prices" button to closed option trades
+- [ ] Fetch historical data for entry/exit dates
+- [ ] Show comparison: user-entered vs. market prices
+- [ ] Display Greeks data at entry and exit
+- [ ] Show profit attribution breakdown (intrinsic vs. extrinsic)
+- [ ] Update Greeks fields in database if missing
 
 ### Phase 5: Testing & Polish (Day 7)
-- [ ] Integration testing (open trade, fetch price, close trade)
-- [ ] API error handling (rate limits, invalid data)
+- [ ] Integration testing (view chart, verify prices, Greeks display)
+- [ ] API error handling (rate limits, missing historical data)
 - [ ] Loading states and user feedback
+- [ ] Test with various option types (ITM, OTM, different expirations)
 - [ ] Documentation updates
 
 ---
 
 ## Data Flow Diagram
 
-### Opening a Trade with "Fetch Price"
+### Viewing Option Trade Chart
 
 ```
-User Opens OpenTradeModal
+User clicks "View Chart" on option trade
     ↓
-User enters: symbol, strike, expiration, option type, entry date
+Frontend: GET /api/options/historical-prices?symbol=SPY&strike=600&expiration=2025-12-19&type=CALL&startDate=2025-11-01&endDate=2025-12-04
     ↓
-User clicks "Fetch Price" button
+Backend: OptionPriceService.getHistoricalOptionPrices()
     ↓
-Frontend: GET /api/options/historical-price?symbol=SPY&strike=600&expiration=2025-12-19&type=CALL&date=2025-12-04
+Backend: Loop through dates, fetch historical data from AlphaVantage
     ↓
-Backend: OptionPriceService.getHistoricalOptionPrice()
+Backend: Build price series with Greeks for each date
     ↓
-Backend: AlphaVantageOptionsClient.getHistoricalOptions(symbol, date)
+Backend: Return List<OptionPricePoint> (date, price, delta, gamma, theta, vega, IV)
     ↓
-Backend: Filter contracts by strike, expiration, type
+Frontend: Render chart with option premium on Y-axis, dates on X-axis
     ↓
-Backend: Return OptionContract (with price, Greeks, IV)
-    ↓
-Frontend: Display fetched data in card (mark price, delta, IV, etc.)
-    ↓
-User clicks "Use This Price"
-    ↓
-Frontend: Auto-fills entry price field
-    ↓
-User submits trade → Trade stored with Greeks data
+Frontend: Optional Greeks overlay (toggle to show delta/theta/IV trends)
 ```
 
-### Closing a Trade with "Fetch Price"
+### Verifying Trade Prices
 
 ```
-User Opens CloseTradeModal
+User clicks "Verify Prices" on closed option trade
     ↓
-User enters exit date
+Frontend: GET /api/options/verify-trade/{tradeId}
     ↓
-User clicks "Fetch Price" button
+Backend: Load trade from database
     ↓
-Backend: Fetch historical option price for exit date
+Backend: Fetch historical option data for entry date
     ↓
-Frontend: Auto-fills exit price field
+Backend: Fetch historical option data for exit date
     ↓
-User submits → Trade closed with exit Greeks stored
+Backend: Compare user-entered vs. market prices
+    ↓
+Backend: Return verification result with Greeks data
+    ↓
+Frontend: Display comparison card:
+  - Entry: You entered $5.50, Market was $5.48 (✓ Accurate)
+  - Exit: You entered $0.10, Market was $0.12 (⚠️ $0.02 difference)
+  - Greeks at entry/exit
+  - Profit attribution (intrinsic vs. extrinsic)
 ```
 
 ---
