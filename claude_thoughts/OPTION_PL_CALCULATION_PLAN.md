@@ -9,17 +9,14 @@
 Currently, option trades are entered manually with premium prices, but:
 
 **Issues:**
-1. **No historical option price data** - Can't calculate accurate P/L for closed option trades
+1. **No historical option price data** - Can't visualize option premium movement over time
 2. **Trade charts show stock prices** - Not helpful for option trades, should show option premium movement
-3. **No Greeks data** - Can't analyze why a trade won/lost (delta, theta decay, IV changes)
-4. **Manual P/L tracking** - User must trust their entered prices are correct
 
 **Approach:**
 Since users enter trades manually (current date has no historical data yet):
-- Use historical data **only for closed/past trades**
-- Fetch historical option prices to calculate accurate P/L
+- Use historical data **only for visualization**
 - Display trade charts with actual option prices (not stock prices)
-- Store Greeks data for analysis
+- No Greeks storage (too complex with scheduled jobs - can add later)
 - No real-time data needed
 - No "Fetch Price" buttons for opening new trades
 
@@ -80,14 +77,6 @@ date=2021-01-04 (optional - specific date)
 - Fetches historical option prices for dates between entry and exit
 - Displays chart with actual option premium movement
 - Shows how premium changed over the trade duration
-- Includes Greeks overlay (delta, theta decay, IV)
-
-### 3. Analyzing Closed Option Trades
-**Current:** Just shows entry/exit prices entered by user
-**Enhanced:**
-- Shows Greeks at entry and exit (if stored)
-- Displays profit attribution (intrinsic vs. extrinsic value change)
-- Historical analysis of trade performance
 
 ---
 
@@ -304,51 +293,9 @@ class OptionPriceService(
 
 ---
 
-## Phase 2: Backend - Store Greeks Data
+## Phase 2: Backend - API Endpoints
 
-### 2.1 Update PortfolioTrade Entity
-
-Add fields to store Greeks at entry and exit:
-
-```kotlin
-// Greeks at entry
-@Column(name = "entry_delta")
-val entryDelta: Double? = null,
-
-@Column(name = "entry_gamma")
-val entryGamma: Double? = null,
-
-@Column(name = "entry_theta")
-val entryTheta: Double? = null,
-
-@Column(name = "entry_vega")
-val entryVega: Double? = null,
-
-@Column(name = "entry_implied_volatility")
-val entryImpliedVolatility: Double? = null,
-
-// Greeks at exit
-@Column(name = "exit_delta")
-val exitDelta: Double? = null,
-
-@Column(name = "exit_gamma")
-val exitGamma: Double? = null,
-
-@Column(name = "exit_theta")
-val exitTheta: Double? = null,
-
-@Column(name = "exit_vega")
-val exitVega: Double? = null,
-
-@Column(name = "exit_implied_volatility")
-val exitImpliedVolatility: Double? = null
-```
-
----
-
-## Phase 3: Backend - API Endpoints
-
-### 3.1 Fetch Historical Option Prices (Date Range)
+### 2.1 Fetch Historical Option Prices (Date Range)
 
 **File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/controller/OptionController.kt` (new)
 
@@ -393,20 +340,17 @@ class OptionController(
 
 data class OptionPricePoint(
     val date: LocalDate,
-    val price: Double,
-    val delta: Double?,
-    val gamma: Double?,
-    val theta: Double?,
-    val vega: Double?,
-    val impliedVolatility: Double?
+    val price: Double
+    // Greeks data available in API response but not stored/returned for now
+    // Can add later: delta, gamma, theta, vega, impliedVolatility
 )
 ```
 
 ---
 
-## Phase 4: Frontend - Option Trade Chart
+## Phase 3: Frontend - Option Trade Chart
 
-### 4.1 Create OptionTradeChart Component
+### 3.1 Create OptionTradeChart Component
 
 **File:** `asgaard_nuxt/app/components/portfolio/OptionTradeChart.vue`
 
@@ -414,16 +358,7 @@ data class OptionPricePoint(
 <template>
   <UCard>
     <template #header>
-      <div class="flex justify-between items-center">
-        <h4 class="text-sm font-semibold">Option Premium History</h4>
-        <UButton
-          icon="i-lucide-eye"
-          label="Show Greeks"
-          size="xs"
-          variant="outline"
-          @click="showGreeks = !showGreeks"
-        />
-      </div>
+      <h4 class="text-sm font-semibold">Option Premium History</h4>
     </template>
 
     <div v-if="loading" class="flex justify-center py-8">
@@ -442,17 +377,6 @@ data class OptionPricePoint(
         :options="chartOptions"
         :series="chartSeries"
       />
-
-      <!-- Greeks overlay (optional) -->
-      <div v-if="showGreeks" class="mt-4 grid grid-cols-4 gap-4">
-        <div v-for="greek in greeksData" :key="greek.name" class="text-center">
-          <p class="text-xs text-muted">{{ greek.name }}</p>
-          <p class="text-sm font-semibold">{{ greek.current }}</p>
-          <p class="text-xs" :class="greek.change > 0 ? 'text-green-600' : 'text-red-600'">
-            {{ greek.change > 0 ? '+' : '' }}{{ greek.change.toFixed(3) }}
-          </p>
-        </div>
-      </div>
     </div>
   </UCard>
 </template>
@@ -466,7 +390,6 @@ const props = defineProps<{
 
 const loading = ref(true)
 const error = ref<string | null>(null)
-const showGreeks = ref(false)
 const priceData = ref<OptionPricePoint[]>([])
 
 const chartOptions = computed(() => ({
@@ -487,6 +410,14 @@ const chartOptions = computed(() => ({
   },
   markers: {
     size: 4
+  },
+  tooltip: {
+    x: {
+      format: 'dd MMM yyyy'
+    },
+    y: {
+      formatter: (value: number) => `$${value.toFixed(2)}`
+    }
   }
 }))
 
@@ -497,36 +428,6 @@ const chartSeries = computed(() => [{
     y: p.price
   }))
 }])
-
-const greeksData = computed(() => {
-  if (priceData.value.length === 0) return []
-
-  const first = priceData.value[0]
-  const last = priceData.value[priceData.value.length - 1]
-
-  return [
-    {
-      name: 'Delta',
-      current: last.delta?.toFixed(3) || 'N/A',
-      change: (last.delta || 0) - (first.delta || 0)
-    },
-    {
-      name: 'Gamma',
-      current: last.gamma?.toFixed(3) || 'N/A',
-      change: (last.gamma || 0) - (first.gamma || 0)
-    },
-    {
-      name: 'Theta',
-      current: last.theta?.toFixed(3) || 'N/A',
-      change: (last.theta || 0) - (first.theta || 0)
-    },
-    {
-      name: 'Vega',
-      current: last.vega?.toFixed(3) || 'N/A',
-      change: (last.vega || 0) - (first.vega || 0)
-    }
-  ]
-})
 
 async function loadOptionPrices() {
   loading.value = true
@@ -560,132 +461,14 @@ onMounted(() => {
 </script>
 ```
 
----
+**Note:** Greeks data is available in the AlphaVantage API response but not currently used. Can be added later as an overlay feature.
 
-## Phase 5: Frontend - Greeks Display for Closed Trades
-
-### 5.1 Display Greeks in Trade Details
-
-Show stored Greeks data when viewing closed option trades:
-
-**File:** `asgaard_nuxt/app/components/portfolio/TradeDetailsCard.vue`
-
-```vue
-<template>
-  <UCard v-if="trade.instrumentType === 'OPTION'">
-    <template #header>
-      <h5 class="text-sm font-semibold">Option Greeks</h5>
-    </template>
-
-    <div class="grid grid-cols-2 gap-4">
-      <!-- Entry Greeks -->
-      <div v-if="hasEntryGreeks">
-        <p class="text-xs text-muted mb-2">Entry Greeks</p>
-        <div class="space-y-1 text-sm">
-          <div class="flex justify-between">
-            <span>Delta:</span>
-            <span class="font-medium">{{ trade.entryDelta?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Gamma:</span>
-            <span class="font-medium">{{ trade.entryGamma?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Theta:</span>
-            <span class="font-medium">{{ trade.entryTheta?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Vega:</span>
-            <span class="font-medium">{{ trade.entryVega?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>IV:</span>
-            <span class="font-medium">{{ trade.entryImpliedVolatility ? (trade.entryImpliedVolatility * 100).toFixed(1) + '%' : 'N/A' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Exit Greeks (for closed trades) -->
-      <div v-if="trade.status === 'CLOSED' && hasExitGreeks">
-        <p class="text-xs text-muted mb-2">Exit Greeks</p>
-        <div class="space-y-1 text-sm">
-          <div class="flex justify-between">
-            <span>Delta:</span>
-            <span class="font-medium">{{ trade.exitDelta?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Gamma:</span>
-            <span class="font-medium">{{ trade.exitGamma?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Theta:</span>
-            <span class="font-medium">{{ trade.exitTheta?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Vega:</span>
-            <span class="font-medium">{{ trade.exitVega?.toFixed(3) || 'N/A' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>IV:</span>
-            <span class="font-medium">{{ trade.exitImpliedVolatility ? (trade.exitImpliedVolatility * 100).toFixed(1) + '%' : 'N/A' }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Greeks Change Analysis (for closed trades) -->
-    <div v-if="trade.status === 'CLOSED' && hasEntryGreeks && hasExitGreeks" class="mt-4 pt-4 border-t">
-      <p class="text-xs text-muted mb-2">Greeks Changes</p>
-      <div class="grid grid-cols-2 gap-2 text-xs">
-        <div class="flex justify-between">
-          <span>Delta:</span>
-          <span :class="deltaChange >= 0 ? 'text-green-600' : 'text-red-600'">
-            {{ deltaChange >= 0 ? '+' : '' }}{{ deltaChange.toFixed(3) }}
-          </span>
-        </div>
-        <div class="flex justify-between">
-          <span>Theta Decay:</span>
-          <span class="font-medium">{{ thetaDecay.toFixed(3) }}</span>
-        </div>
-      </div>
-    </div>
-  </UCard>
-</template>
-
-<script setup lang="ts">
-import type { PortfolioTrade } from '~/types'
-
-const props = defineProps<{
-  trade: PortfolioTrade
-}>()
-
-const hasEntryGreeks = computed(() =>
-  props.trade.entryDelta !== null ||
-  props.trade.entryTheta !== null ||
-  props.trade.entryImpliedVolatility !== null
-)
-
-const hasExitGreeks = computed(() =>
-  props.trade.exitDelta !== null ||
-  props.trade.exitTheta !== null ||
-  props.trade.exitImpliedVolatility !== null
-)
-
-const deltaChange = computed(() =>
-  (props.trade.exitDelta || 0) - (props.trade.entryDelta || 0)
-)
-
-const thetaDecay = computed(() =>
-  (props.trade.exitTheta || 0) - (props.trade.entryTheta || 0)
-)
-</script>
-```
 
 ---
 
-## Phase 6: Testing & Validation
+## Phase 4: Testing & Validation
 
-### 6.1 Unit Tests
+### 4.1 Unit Tests
 
 ```kotlin
 class OptionPriceServiceTest {
@@ -702,13 +485,13 @@ class OptionPriceServiceTest {
 }
 ```
 
-### 6.2 Integration Tests
+### 4.2 Integration Tests
 
-- Test full flow: Open option trade manually → View chart → View Greeks
-- Test option premium chart display with Greeks overlay
+- Test full flow: Open option trade manually → View chart
+- Test option premium chart display
 - Test API error handling (invalid symbol, missing data, weekends/holidays)
-- Test Greeks data storage and retrieval from database
-- Test Greeks display for closed trades with entry/exit comparison
+- Test chart rendering with various date ranges
+- Test with different option types (ITM, OTM, different expirations)
 
 ---
 
@@ -719,34 +502,24 @@ class OptionPriceServiceTest {
 - [ ] Create OptionContract DTOs
 - [ ] Implement AlphaVantageOptionsClient (with @Primary annotation)
 - [ ] Create OptionPriceService (inject OptionsDataClient interface)
+- [ ] Implement service method to fetch historical prices for date range
 - [ ] Add OptionController with `/historical-prices` endpoint
 - [ ] Add unit tests with mocked OptionsDataClient
 
-### Phase 2: Database Schema (Day 3)
-- [ ] Add Greeks fields to PortfolioTrade entity (entry/exit delta, gamma, theta, vega, IV)
-- [ ] Test database migration
-- [ ] Update DTOs to include Greeks
-
-### Phase 3: Frontend - Option Trade Chart (Day 4-5)
+### Phase 2: Frontend - Option Trade Chart (Day 3-4)
 - [ ] Create OptionTradeChart component
 - [ ] Fetch historical option prices for date range (entry to exit or current)
 - [ ] Display option premium movement chart (instead of stock price)
-- [ ] Add Greeks overlay (optional toggle)
 - [ ] Handle loading states and errors
-- [ ] Integrate into OpenTradeChart.vue for option trades
+- [ ] Integrate into OpenTradeChart.vue or portfolio page for option trades
+- [ ] Add chart tooltips and formatting
 
-### Phase 4: Frontend - Greeks Display (Day 6)
-- [ ] Create TradeDetailsCard component for displaying Greeks
-- [ ] Display entry Greeks for all option trades
-- [ ] Display exit Greeks for closed option trades
-- [ ] Show Greeks changes (delta change, theta decay)
-- [ ] Integrate into portfolio trade details view
-
-### Phase 5: Testing & Polish (Day 7)
-- [ ] Integration testing (view chart, view Greeks display)
-- [ ] API error handling (rate limits, missing historical data)
+### Phase 3: Testing & Polish (Day 5)
+- [ ] Integration testing (open trade, view chart)
+- [ ] API error handling (rate limits, missing historical data, weekends/holidays)
 - [ ] Loading states and user feedback
 - [ ] Test with various option types (ITM, OTM, different expirations)
+- [ ] Test chart with different date ranges
 - [ ] Documentation updates
 
 ---
@@ -764,27 +537,13 @@ Backend: OptionPriceService.getHistoricalOptionPrices()
     ↓
 Backend: Loop through dates, fetch historical data from provider (AlphaVantage)
     ↓
-Backend: Build price series with Greeks for each date
+Backend: Build price series (date, price) for each trading day
     ↓
-Backend: Return List<OptionPricePoint> (date, price, delta, gamma, theta, vega, IV)
+Backend: Return List<OptionPricePoint> (date, price)
     ↓
 Frontend: Render chart with option premium on Y-axis, dates on X-axis
     ↓
-Frontend: Optional Greeks overlay (toggle to show delta/theta/IV trends)
-```
-
-### Viewing Trade Greeks
-
-```
-User views closed option trade details
-    ↓
-Frontend: Display TradeDetailsCard component
-    ↓
-Frontend: Show entry Greeks (delta, gamma, theta, vega, IV) from database
-    ↓
-Frontend: Show exit Greeks (if available) from database
-    ↓
-Frontend: Calculate and display Greeks changes (delta change, theta decay)
+Frontend: Display interactive chart with tooltips
 ```
 
 ---
@@ -831,26 +590,26 @@ Frontend: Calculate and display Greeks changes (delta change, theta decay)
 ## Success Metrics
 
 ✅ **Option Premium Charts:** Trade charts display actual option prices instead of stock prices
-✅ **Greeks Data Display:** Entry and exit Greeks displayed clearly for trade analysis
-✅ **Greeks Changes:** Delta changes and theta decay calculated and shown for closed trades
-✅ **User Experience:** Clear display of historical option data and Greeks overlay
+✅ **User Experience:** Clear display of historical option premium movement
 ✅ **Error Handling:** Graceful handling of API failures, rate limits, missing data
 ✅ **Performance:** API responses under 3 seconds, no UI blocking during chart load
 ✅ **Provider Flexibility:** Easy to switch between data providers via OptionsDataClient interface
+✅ **Simplicity:** No complex scheduled jobs or Greeks storage - just simple price visualization
 
 ---
 
 ## Future Enhancements
 
-1. **Multiple Data Providers:** Add Polygon.io, Interactive Brokers, or other providers as alternatives
-2. **Provider Fallback Strategy:** If AlphaVantage fails, automatically try secondary provider
-3. **Cost Optimization:** Route requests to cheapest provider based on quota/pricing
-4. **Option Chain Viewer:** Display full option chain for underlying
-5. **Implied Volatility Charts:** Track IV changes over time
-6. **Greeks Tracking:** Monitor delta, theta decay over position lifetime
-7. **Profit/Loss Charts:** Visualize P/L vs. stock price
-8. **What-if Analysis:** "What if stock moves to X, what's my P/L?"
-9. **Alerts:** Notify when option reaches target profit/loss
+1. **Greeks Storage & Display:** Add scheduled job to fetch and store Greeks data (delta, gamma, theta, vega, IV)
+2. **Greeks Overlay on Charts:** Toggle to show Greeks trends over time alongside premium
+3. **Multiple Data Providers:** Add Polygon.io, Interactive Brokers, or other providers as alternatives
+4. **Provider Fallback Strategy:** If AlphaVantage fails, automatically try secondary provider
+5. **Cost Optimization:** Route requests to cheapest provider based on quota/pricing
+6. **Option Chain Viewer:** Display full option chain for underlying
+7. **Implied Volatility Charts:** Track IV changes over time
+8. **Profit/Loss Charts:** Visualize P/L vs. stock price
+9. **What-if Analysis:** "What if stock moves to X, what's my P/L?"
+10. **Alerts:** Notify when option reaches target profit/loss
 
 ---
 
