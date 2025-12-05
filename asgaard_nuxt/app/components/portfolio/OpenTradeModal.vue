@@ -8,7 +8,6 @@ const props = defineProps<{
   open: boolean
   currency: string
   currentBalance: number
-  portfolioCreatedDate?: string
   loading?: boolean
 }>()
 
@@ -60,22 +59,7 @@ const schema = computed(() => {
     instrumentType: z.enum(['STOCK', 'OPTION', 'LEVERAGED_ETF']),
     symbol: z.string().min(1, 'Symbol is required').max(10, 'Symbol too long'),
     entryPrice: z.number().positive('Entry price must be greater than 0'),
-    entryDate: z.string().min(1, 'Entry date is required').refine(
-      (date) => {
-        if (!props.portfolioCreatedDate) return true
-        const entryDate = new Date(date)
-        const createdDate = new Date(props.portfolioCreatedDate)
-        // Extract just the date parts (ignore time)
-        const entryDateOnly = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate())
-        const createdDateOnly = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate())
-        return entryDateOnly >= createdDateOnly
-      },
-      {
-        message: props.portfolioCreatedDate
-          ? `Entry date cannot be before portfolio creation date (${format(new Date(props.portfolioCreatedDate), 'yyyy-MM-dd')})`
-          : 'Invalid entry date'
-      }
-    ),
+    entryDate: z.string().min(1, 'Entry date is required'),
     entryStrategy: z.string().min(1, 'Entry strategy is required'),
     exitStrategy: z.string().min(1, 'Exit strategy is required'),
     underlyingSymbol: z.string().optional()
