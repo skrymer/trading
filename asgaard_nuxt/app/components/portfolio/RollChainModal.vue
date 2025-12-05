@@ -75,28 +75,23 @@ function getCumulativeReturnPct(trade: PortfolioTrade): number | undefined {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" :ui="{ width: 'sm:max-w-4xl' }">
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-lg font-semibold">
-              Roll Chain History
-            </h3>
-            <p class="text-sm text-muted mt-1">
-              {{ trade.symbol }} - {{ rollChain.length }} position(s) in chain
-            </p>
-          </div>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            @click="close"
-          />
-        </div>
-      </template>
+  <UModal
+    :open="isOpen"
+    :ui="{ width: 'sm:max-w-4xl' }"
+    @update:open="isOpen = $event"
+  >
+    <template #header>
+      <div>
+        <h3 class="text-lg font-semibold">
+          Roll Chain History
+        </h3>
+        <p class="text-sm text-muted mt-1">
+          {{ trade.symbol }} - {{ rollChain.length }} position(s) in chain
+        </p>
+      </div>
+    </template>
 
+    <template #body>
       <div v-if="loading" class="flex justify-center py-8">
         <div class="text-muted">
           Loading roll chain...
@@ -224,17 +219,17 @@ function getCumulativeReturnPct(trade: PortfolioTrade): number | undefined {
           </UCard>
         </div>
       </div>
+    </template>
 
-      <template #footer>
-        <div class="flex justify-end">
-          <UButton
-            label="Close"
-            color="neutral"
-            variant="outline"
-            @click="close"
-          />
-        </div>
-      </template>
-    </UCard>
+    <template #footer>
+      <div class="flex justify-end">
+        <UButton
+          label="Close"
+          color="neutral"
+          variant="outline"
+          @click="close"
+        />
+      </div>
+    </template>
   </UModal>
 </template>

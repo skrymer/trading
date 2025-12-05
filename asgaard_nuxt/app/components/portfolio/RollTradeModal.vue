@@ -94,23 +94,13 @@ function close() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" :ui="{ width: 'sm:max-w-2xl' }">
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">
-            Roll Option Position
-          </h3>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            @click="close"
-          />
-        </div>
-      </template>
-
+  <UModal
+    :open="isOpen"
+    title="Roll Option Position"
+    :ui="{ width: 'sm:max-w-2xl' }"
+    @update:open="isOpen = $event"
+  >
+    <template #body>
       <div class="space-y-6">
         <!-- Current Position Summary -->
         <UCard>
@@ -213,23 +203,23 @@ function close() {
           </UAlert>
         </div>
       </div>
+    </template>
 
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="close"
-          />
-          <UButton
-            label="Roll Position"
-            color="primary"
-            :loading="loading"
-            @click="rollTrade"
-          />
-        </div>
-      </template>
-    </UCard>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          label="Cancel"
+          color="neutral"
+          variant="outline"
+          @click="close"
+        />
+        <UButton
+          label="Roll Position"
+          color="primary"
+          :loading="loading"
+          @click="rollTrade"
+        />
+      </div>
+    </template>
   </UModal>
 </template>
