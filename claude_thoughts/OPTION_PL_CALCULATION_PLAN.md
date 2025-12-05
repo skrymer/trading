@@ -489,7 +489,7 @@ class OptionPriceServiceTest {
 
 - Test full flow: Open option trade manually → View chart
 - Test option premium chart display
-- Test API error handling (invalid symbol, missing data, rate limits)
+- Test API error handling (invalid symbol, missing data, network failures)
 - Test chart rendering with various date ranges
 - Test with different option types (ITM, OTM, different expirations)
 - Test empty result (no data available for contract)
@@ -517,7 +517,7 @@ class OptionPriceServiceTest {
 
 ### Phase 3: Testing & Polish (Day 5)
 - [ ] Integration testing (open trade, view chart)
-- [ ] API error handling (rate limits, missing historical data)
+- [ ] API error handling (network failures, missing historical data)
 - [ ] Loading states and user feedback
 - [ ] Test with various option types (ITM, OTM, different expirations)
 - [ ] Test chart with different date ranges (short/long)
@@ -560,33 +560,29 @@ Frontend: Display interactive chart with tooltips
   - Frontend shows: "Limited data available" or "No data found for this option"
   - Chart displays available data points only
 
-### 2. API Rate Limiting
-- **Issue:** AlphaVantage free tier limits (5/min, 500/day)
-- **Solution:**
-  - Show error message: "Rate limit reached, try again in 1 minute"
-  - No background jobs or auto-refresh (historical-only approach avoids this)
-  - User-initiated only
-
-### 3. API Failures
+### 2. API Failures
 - **Issue:** AlphaVantage API down or network error
 - **Solution:**
   - Show error toast with retry button
   - Log error for debugging
   - Return empty dataset to frontend
 
-### 4. Invalid Option Parameters
+### 3. Invalid Option Parameters
 - **Issue:** User enters strike/expiration that doesn't exist
 - **Solution:**
   - Backend returns empty list
   - Frontend shows: "No option data found for this contract"
   - User verifies symbol, strike, expiration are correct
 
-### 5. Symbol Format Matching
+### 4. Symbol Format Matching
 - **Issue:** Option contract symbol format varies by broker
 - **Solution:**
   - Use components (symbol + expiration + type + strike) to search
   - Filter API response by matching these components
   - Don't rely on exact contract ID matching
+
+**Note on Rate Limiting:**
+Using AlphaVantage 75 requests/minute plan, so rate limiting is not a concern for this user-initiated use case.
 
 ---
 
