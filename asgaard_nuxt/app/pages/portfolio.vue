@@ -1143,7 +1143,8 @@ const openTradesTableData = computed(() => {
 
             <template #expanded="{ row }">
               <div class="p-4 bg-muted/30">
-                <PortfolioOpenTradeChart :trade="row.original.trade" />
+                <PortfolioOptionTradeChart v-if="row.original.trade.instrumentType === 'OPTION'" :trade="row.original.trade" />
+                <PortfolioOpenTradeChart v-else :trade="row.original.trade" />
               </div>
             </template>
           </UTable>

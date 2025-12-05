@@ -1,0 +1,119 @@
+package com.skrymer.udgaard.integration.alphavantage
+
+import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageHistoricalOptions
+import com.skrymer.udgaard.integration.options.OptionContract
+import com.skrymer.udgaard.integration.options.OptionsDataClient
+import com.skrymer.udgaard.model.OptionType
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Primary
+import org.springframework.stereotype.Service
+import org.springframework.web.client.RestClient
+
+/**
+ * AlphaVantage implementation of OptionsDataClient.
+ * Fetches historical option prices and Greeks using the HISTORICAL_OPTIONS API.
+ *
+ * Documentation: https://www.alphavantage.co/documentation/#historical-options
+ *
+ * API Rate Limits (75 requests/minute plan):
+ * - Premium: 75 requests per minute
+ * - Sufficient for user-initiated chart viewing
+ */
+@Service
+@Primary
+class AlphaVantageOptionsClient(
+    @Value("\${alphavantage.api.key:}") private val apiKey: String,
+    @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String
+) : OptionsDataClient {
+
+    companion object {
+        private val logger: Logger = LoggerFactory.getLogger(AlphaVantageOptionsClient::class.java)
+        private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
+    }
+
+    private val restClient: RestClient = RestClient.builder()
+        .baseUrl(baseUrl)
+        .build()
+
+    /**
+     * Get all option contracts for a symbol on a specific date.
+     * Returns null if no data available (weekends, holidays, or API error).
+     */
+    override fun getHistoricalOptions(symbol: String, date: String): List<OptionContract>? {
+        return runCatching {
+            val url = "$baseUrl?function=$FUNCTION_HISTORICAL_OPTIONS&symbol=$symbol&date=$date&apikey=$apiKey"
+            logger.info("Fetching historical options for $symbol on $date from AlphaVantage")
+            logger.debug("AlphaVantage API URL: ${url.replace(apiKey, "***")}")
+
+            val response = restClient.get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .queryParam("function", FUNCTION_HISTORICAL_OPTIONS)
+                        .queryParam("symbol", symbol)
+                        .queryParam("date", date)
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .toEntity(AlphaVantageHistoricalOptions::class.java)
+                .body
+
+            if (response == null) {
+                logger.warn("No response received from AlphaVantage historical options for $symbol on $date")
+                return null
+            }
+
+            // Check if response contains an error
+            if (response.hasError()) {
+                logger.error("AlphaVantage API error for historical options $symbol on $date: ${response.getErrorDescription()}")
+                return null
+            }
+
+            // Check if response is valid (has required data)
+            if (!response.isValid()) {
+                logger.error("AlphaVantage API returned invalid historical options response for $symbol on $date (missing symbol or data)")
+                return null
+            }
+
+            val contracts = response.toOptionContracts()
+            logger.info("Successfully fetched ${contracts.size} option contracts for $symbol on $date")
+
+            if (contracts.isNotEmpty()) {
+                val sampleContract = contracts.first()
+                logger.debug("Sample contract: ${sampleContract.contractId}, strike=${sampleContract.strike}, type=${sampleContract.optionType}, price=${sampleContract.price}")
+            }
+
+            contracts
+        }.onFailure { e ->
+            logger.error("Failed to fetch historical options from AlphaVantage for $symbol on $date: ${e.message}", e)
+        }.getOrNull()
+    }
+
+    /**
+     * Find a specific option contract matching the given parameters.
+     * Returns null if no matching contract found.
+     */
+    override fun findOptionContract(
+        symbol: String,
+        strike: Double,
+        expiration: String,
+        optionType: OptionType,
+        date: String
+    ): OptionContract? {
+        val contracts = getHistoricalOptions(symbol, date) ?: return null
+
+        return contracts.firstOrNull { contract ->
+            contract.strike == strike &&
+                contract.expiration.toString() == expiration &&
+                contract.optionType == optionType
+        }.also { contract ->
+            if (contract != null) {
+                logger.debug("Found matching contract: ${contract.contractId} for $symbol $strike $optionType exp=$expiration on $date")
+            } else {
+                logger.debug("No matching contract found for $symbol $strike $optionType exp=$expiration on $date")
+            }
+        }
+    }
+}

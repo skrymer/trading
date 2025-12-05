@@ -624,3 +624,8 @@ export interface RefreshResponse {
   queued: number
   message: string
 }
+
+export interface OptionPricePoint {
+  date: string
+  price: number
+}
