@@ -215,6 +215,132 @@ open class StockService(
       .getOrNull()
   }
 
+  /**
+   * Recalculate order blocks for a stock without re-fetching data.
+   *
+   * This is much faster than refresh=true as it:
+   * 1. Loads existing quotes from database
+   * 2. Recalculates order blocks with current algorithm
+   * 3. Updates the stock with new order blocks
+   *
+   * Use this when you've updated the order block algorithm or want to test
+   * different sensitivity values without waiting for fresh data fetch.
+   *
+   * @param symbol Stock symbol to recalculate
+   * @return Updated stock with new order blocks, or null if not found
+   */
+  @CacheEvict(value = ["stocks"], key = "#symbol")
+  open fun recalculateOrderBlocks(symbol: String): Stock? {
+    logger.info("Recalculating order blocks for $symbol from existing data")
+
+    // Load stock with quotes from database
+    val stock = stockRepository.findById(symbol).orElse(null)
+    if (stock == null) {
+      logger.error("Stock not found: $symbol")
+      return null
+    }
+
+    if (stock.quotes.isEmpty()) {
+      logger.warn("No quotes found for $symbol, cannot calculate order blocks")
+      return stock
+    }
+
+    // Recalculate order blocks with both sensitivities
+    val orderBlocksHigh = orderBlockCalculator.calculateOrderBlocks(
+      quotes = stock.quotes.sortedBy { it.date },
+      sensitivity = 28.0,
+      sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH
+    )
+
+    val orderBlocksLow = orderBlockCalculator.calculateOrderBlocks(
+      quotes = stock.quotes.sortedBy { it.date },
+      sensitivity = 50.0,
+      sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
+    )
+
+    // Create new order blocks with stock reference (using copy since OrderBlock is immutable data class)
+    val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).map { it.copy(stock = stock) }.toMutableList()
+
+    // Update stock with new order blocks
+    stock.orderBlocks.clear()
+    stock.orderBlocks.addAll(newOrderBlocks)
+
+    logger.info("Recalculated ${newOrderBlocks.size} order blocks for $symbol (${orderBlocksHigh.size} HIGH + ${orderBlocksLow.size} LOW)")
+
+    // Save and return
+    return stockRepository.save(stock)
+  }
+
+  /**
+   * Recalculate order blocks for all stocks in the database.
+   *
+   * WARNING: This can take a while with many stocks.
+   * Processes stocks sequentially to avoid overwhelming the database.
+   *
+   * @return Map with summary: updatedCount, failedCount, totalBlocks
+   */
+  @CacheEvict(value = ["stocks"], allEntries = true)
+  open fun recalculateAllOrderBlocks(): Map<String, Any> {
+    logger.info("Recalculating order blocks for ALL stocks in database")
+
+    val allStocks = stockRepository.findAll()
+    var updatedCount = 0
+    var failedCount = 0
+    var totalBlocks = 0
+
+    allStocks.forEach { stock ->
+      try {
+        val symbol = stock.symbol ?: "UNKNOWN"
+        logger.info("Recalculating order blocks for $symbol (${updatedCount + 1}/${allStocks.size})")
+
+        if (stock.quotes.isEmpty()) {
+          logger.warn("Skipping $symbol: no quotes")
+          failedCount++
+          return@forEach
+        }
+
+        // Recalculate with both sensitivities
+        val orderBlocksHigh = orderBlockCalculator.calculateOrderBlocks(
+          quotes = stock.quotes.sortedBy { it.date },
+          sensitivity = 28.0,
+          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH
+        )
+
+        val orderBlocksLow = orderBlockCalculator.calculateOrderBlocks(
+          quotes = stock.quotes.sortedBy { it.date },
+          sensitivity = 50.0,
+          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
+        )
+
+        // Create new order blocks with stock reference
+        val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).map { it.copy(stock = stock) }.toMutableList()
+
+        // Update stock
+        stock.orderBlocks.clear()
+        stock.orderBlocks.addAll(newOrderBlocks)
+
+        stockRepository.save(stock)
+
+        updatedCount++
+        totalBlocks += newOrderBlocks.size
+        logger.info("Updated $symbol: ${newOrderBlocks.size} blocks")
+
+      } catch (e: Exception) {
+        logger.error("Failed to recalculate order blocks for ${stock.symbol}: ${e.message}", e)
+        failedCount++
+      }
+    }
+
+    logger.info("Recalculation complete: $updatedCount updated, $failedCount failed, $totalBlocks total blocks")
+
+    return mapOf(
+      "updatedCount" to updatedCount,
+      "failedCount" to failedCount,
+      "totalBlocks" to totalBlocks,
+      "totalStocks" to allStocks.size
+    )
+  }
+
   private fun getSpy(): OvtlyrStockInformation {
     val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
     checkNotNull(spy) { "Failed to fetch SPY reference data" }
