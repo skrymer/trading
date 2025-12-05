@@ -105,31 +105,25 @@ date=2021-01-04 (optional - specific date)
 
 ---
 
-## Phase 1: Backend - AlphaVantage Integration
+## Phase 1: Backend - Options Data Provider Integration
 
-### 1.1 Create HistoricalOptionsClient
+### 1.1 Create OptionsDataClient Interface
 
-**File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/integration/alphavantage/AlphaVantageOptionsClient.kt`
+**File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/integration/options/OptionsDataClient.kt`
 
 ```kotlin
-@Service
-class AlphaVantageOptionsClient(
-    @Value("\${alphavantage.api.key}") private val apiKey: String,
-    @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String
-) {
-    companion object {
-        private val logger = LoggerFactory.getLogger(AlphaVantageOptionsClient::class.java)
-    }
-
+/**
+ * Interface for option data providers
+ * Allows switching between different providers (AlphaVantage, Polygon, etc.)
+ */
+interface OptionsDataClient {
     /**
      * Fetch historical option data for a specific date
      * @param symbol Underlying stock symbol (e.g., "SPY")
      * @param date Date to fetch (e.g., "2025-12-04")
      * @return List of option contracts with pricing data
      */
-    fun getHistoricalOptions(symbol: String, date: String): List<OptionContract>? {
-        // Implementation
-    }
+    fun getHistoricalOptions(symbol: String, date: String): List<OptionContract>?
 
     /**
      * Find a specific option contract by strike, expiration, type
@@ -146,15 +140,95 @@ class AlphaVantageOptionsClient(
         expiration: String,
         optionType: OptionType,
         date: String
+    ): OptionContract?
+}
+```
+
+### 1.2 Create AlphaVantage Implementation
+
+**File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/integration/alphavantage/AlphaVantageOptionsClient.kt`
+
+```kotlin
+@Service
+@Primary  // Use this as default implementation
+class AlphaVantageOptionsClient(
+    @Value("\${alphavantage.api.key}") private val apiKey: String,
+    @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
+    private val restTemplate: RestTemplate
+) : OptionsDataClient {
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(AlphaVantageOptionsClient::class.java)
+    }
+
+    override fun getHistoricalOptions(symbol: String, date: String): List<OptionContract>? {
+        try {
+            val url = "$baseUrl?function=HISTORICAL_OPTIONS&symbol=$symbol&date=$date&apikey=$apiKey"
+            logger.info("Fetching historical options for $symbol on $date")
+
+            val response = restTemplate.getForObject(url, HistoricalOptionsResponse::class.java)
+            return response?.data
+        } catch (e: Exception) {
+            logger.error("Failed to fetch historical options for $symbol on $date", e)
+            return null
+        }
+    }
+
+    override fun findOptionContract(
+        symbol: String,
+        strike: Double,
+        expiration: String,
+        optionType: OptionType,
+        date: String
     ): OptionContract? {
-        // Filter from getHistoricalOptions()
+        val options = getHistoricalOptions(symbol, date) ?: return null
+
+        return options.firstOrNull { contract ->
+            contract.strike == strike &&
+            contract.expiration == expiration &&
+            contract.type.equals(optionType.name, ignoreCase = true)
+        }
     }
 }
 ```
 
-### 1.2 Create OptionContract DTOs
+**Why use an interface?**
+- **Flexibility:** Switch between providers (AlphaVantage, Polygon, Interactive Brokers, etc.)
+- **Testing:** Easy to mock for unit tests
+- **Cost optimization:** Use different providers for different data needs
+- **Fallback:** If one provider is down, switch to another
 
-**File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/integration/alphavantage/dto/OptionContract.kt`
+**Example: Adding a second provider**
+
+To add Polygon.io as an alternative provider:
+
+```kotlin
+@Service
+@Conditional(...)  // Enable based on configuration
+class PolygonOptionsClient(
+    @Value("\${polygon.api.key}") private val apiKey: String,
+    private val restTemplate: RestTemplate
+) : OptionsDataClient {
+
+    override fun getHistoricalOptions(symbol: String, date: String): List<OptionContract>? {
+        // Polygon API implementation
+    }
+
+    override fun findOptionContract(...): OptionContract? {
+        // Polygon-specific filtering
+    }
+}
+```
+
+Then in `application.properties`:
+```properties
+# Switch providers via configuration
+options.provider=alphavantage  # or "polygon"
+```
+
+### 1.3 Create OptionContract DTOs
+
+**File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/integration/options/dto/OptionContract.kt`
 
 ```kotlin
 data class OptionContract(
@@ -186,14 +260,14 @@ data class HistoricalOptionsResponse(
 )
 ```
 
-### 1.3 Add Option Price Service
+### 1.4 Add Option Price Service
 
 **File:** `udgaard/src/main/kotlin/com/skrymer/udgaard/service/OptionPriceService.kt`
 
 ```kotlin
 @Service
 class OptionPriceService(
-    private val alphaVantageOptionsClient: AlphaVantageOptionsClient
+    private val optionsDataClient: OptionsDataClient  // Inject interface, not concrete class
 ) {
     /**
      * Get historical option price for a specific date
@@ -206,7 +280,7 @@ class OptionPriceService(
         optionType: OptionType,
         date: LocalDate
     ): OptionContract? {
-        return alphaVantageOptionsClient.findOptionContract(
+        return optionsDataClient.findOptionContract(  // Use interface
             symbol = underlyingSymbol,
             strike = strike,
             expiration = expiration.toString(),
@@ -764,11 +838,12 @@ class OptionPriceServiceTest {
 ## Implementation Timeline
 
 ### Phase 1: Backend API Client (Day 1-2)
-- [ ] Create AlphaVantageOptionsClient with historical options fetching
+- [ ] Create OptionsDataClient interface for provider abstraction
 - [ ] Create OptionContract DTOs
-- [ ] Create OptionPriceService
+- [ ] Implement AlphaVantageOptionsClient (with @Primary annotation)
+- [ ] Create OptionPriceService (inject OptionsDataClient interface)
 - [ ] Add OptionController with `/historical-prices` and `/verify-trade` endpoints
-- [ ] Add unit tests
+- [ ] Add unit tests with mocked OptionsDataClient
 
 ### Phase 2: Database Schema (Day 3)
 - [ ] Add Greeks fields to PortfolioTrade entity (entry/exit delta, gamma, theta, vega, IV)
@@ -901,12 +976,15 @@ Frontend: Display comparison card:
 
 ## Future Enhancements
 
-1. **Option Chain Viewer:** Display full option chain for underlying
-2. **Implied Volatility Charts:** Track IV changes over time
-3. **Greeks Tracking:** Monitor delta, theta decay over position lifetime
-4. **Profit/Loss Charts:** Visualize P/L vs. stock price
-5. **What-if Analysis:** "What if stock moves to X, what's my P/L?"
-6. **Alerts:** Notify when option reaches target profit/loss
+1. **Multiple Data Providers:** Add Polygon.io, Interactive Brokers, or other providers as alternatives
+2. **Provider Fallback Strategy:** If AlphaVantage fails, automatically try secondary provider
+3. **Cost Optimization:** Route requests to cheapest provider based on quota/pricing
+4. **Option Chain Viewer:** Display full option chain for underlying
+5. **Implied Volatility Charts:** Track IV changes over time
+6. **Greeks Tracking:** Monitor delta, theta decay over position lifetime
+7. **Profit/Loss Charts:** Visualize P/L vs. stock price
+8. **What-if Analysis:** "What if stock moves to X, what's my P/L?"
+9. **Alerts:** Notify when option reaches target profit/loss
 
 ---
 
