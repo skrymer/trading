@@ -64,6 +64,10 @@ data class PortfolioTrade(
     @Column(name = "exit_extrinsic_value")
     val exitExtrinsicValue: Double? = null,
 
+    // Underlying stock price at entry (for options - for reference and signal tracking)
+    @Column(name = "underlying_entry_price")
+    val underlyingEntryPrice: Double? = null,
+
     // Common fields
     @Column(name = "entry_price", nullable = false)
     val entryPrice: Double = 0.0,

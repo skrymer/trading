@@ -31,6 +31,7 @@ const emit = defineEmits<{
     multiplier?: number
     entryIntrinsicValue?: number
     entryExtrinsicValue?: number
+    underlyingEntryPrice?: number
   }]
 }>()
 
@@ -49,7 +50,8 @@ const state = reactive({
   contracts: 1,
   multiplier: 100,
   entryIntrinsicValue: undefined as number | undefined,
-  entryExtrinsicValue: undefined as number | undefined
+  entryExtrinsicValue: undefined as number | undefined,
+  underlyingEntryPrice: undefined as number | undefined
 })
 
 // Validation schema
@@ -87,7 +89,8 @@ const schema = computed(() => {
       contracts: z.number().int().positive('Contracts must be at least 1'),
       multiplier: z.number().int().positive('Multiplier must be at least 1'),
       entryIntrinsicValue: z.number().nonnegative().nullish(),
-      entryExtrinsicValue: z.number().nonnegative().nullish()
+      entryExtrinsicValue: z.number().nonnegative().nullish(),
+      underlyingEntryPrice: z.number().positive().nullish()
     })
   } else {
     return baseSchema.extend({
@@ -173,7 +176,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     contracts: state.instrumentType === 'OPTION' ? data.contracts : undefined,
     multiplier: state.instrumentType === 'OPTION' ? data.multiplier : undefined,
     entryIntrinsicValue: state.instrumentType === 'OPTION' ? state.entryIntrinsicValue : undefined,
-    entryExtrinsicValue: state.instrumentType === 'OPTION' ? state.entryExtrinsicValue : undefined
+    entryExtrinsicValue: state.instrumentType === 'OPTION' ? state.entryExtrinsicValue : undefined,
+    underlyingEntryPrice: state.instrumentType === 'OPTION' ? state.underlyingEntryPrice : undefined
   })
 }
 
@@ -200,6 +204,7 @@ watch(() => props.open, (isOpen) => {
     state.multiplier = 100
     state.entryIntrinsicValue = undefined
     state.entryExtrinsicValue = undefined
+    state.underlyingEntryPrice = undefined
   }
 })
 </script>
@@ -288,6 +293,19 @@ watch(() => props.open, (isOpen) => {
             />
             <template #help>
               <span class="text-xs text-muted">Standard is 100 shares per contract</span>
+            </template>
+          </UFormField>
+
+          <UFormField label="Underlying Stock Price (Optional)" name="underlyingEntryPrice">
+            <UInput
+              v-model.number="state.underlyingEntryPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="450.00"
+            />
+            <template #help>
+              <span class="text-xs text-muted">Stock price at entry (for reference and signal tracking)</span>
             </template>
           </UFormField>
 

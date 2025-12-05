@@ -137,6 +137,16 @@ async function openTrade(data: {
   entryStrategy: string
   exitStrategy: string
   currency: string
+  underlyingSymbol?: string
+  instrumentType: string
+  optionType?: string
+  strikePrice?: number
+  expirationDate?: string
+  contracts?: number
+  multiplier?: number
+  entryIntrinsicValue?: number
+  entryExtrinsicValue?: number
+  underlyingEntryPrice?: number
 }) {
   if (!portfolio.value?.id) return
 
