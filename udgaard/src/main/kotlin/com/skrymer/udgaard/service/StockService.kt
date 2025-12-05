@@ -261,8 +261,11 @@ open class StockService(
     // Create new order blocks with stock reference (using copy since OrderBlock is immutable data class)
     val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).map { it.copy(stock = stock) }.toMutableList()
 
-    // Update stock with new order blocks
+    // Explicitly clear existing order blocks (orphanRemoval = true will delete from DB)
     stock.orderBlocks.clear()
+    stockRepository.flush() // Force orphan removal to execute before adding new blocks
+
+    // Add new order blocks
     stock.orderBlocks.addAll(newOrderBlocks)
 
     logger.info("Recalculated ${newOrderBlocks.size} order blocks for $symbol (${orderBlocksHigh.size} HIGH + ${orderBlocksLow.size} LOW)")
@@ -315,8 +318,11 @@ open class StockService(
         // Create new order blocks with stock reference
         val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).map { it.copy(stock = stock) }.toMutableList()
 
-        // Update stock
+        // Explicitly clear existing order blocks (orphanRemoval = true will delete from DB)
         stock.orderBlocks.clear()
+        stockRepository.flush() // Force orphan removal to execute before adding new blocks
+
+        // Add new order blocks
         stock.orderBlocks.addAll(newOrderBlocks)
 
         stockRepository.save(stock)
