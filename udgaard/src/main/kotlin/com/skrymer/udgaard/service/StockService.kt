@@ -176,12 +176,26 @@ open class StockService(
         return null
       }
 
-      // Step 7: Calculate order blocks based on enriched quotes
+      // Step 7: Calculate order blocks with multiple sensitivities (like Sonar Lab)
       logger.info("Calculating order blocks for $symbol")
-      val orderBlocks = orderBlockCalculator.calculateOrderBlocks(
+
+      // Calculate with HIGH sensitivity (28% - more blocks detected)
+      val orderBlocksHigh = orderBlockCalculator.calculateOrderBlocks(
         quotes = enrichedQuotes,
-        sensitivity = 15.0  // 15% ROC threshold for momentum detection
+        sensitivity = 28.0,
+        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH
       )
+
+      // Calculate with LOW sensitivity (50% - fewer, stronger blocks)
+      val orderBlocksLow = orderBlockCalculator.calculateOrderBlocks(
+        quotes = enrichedQuotes,
+        sensitivity = 50.0,
+        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
+      )
+
+      // Combine both sensitivity levels
+      val orderBlocks = orderBlocksHigh + orderBlocksLow
+      logger.info("Found ${orderBlocksHigh.size} order blocks (HIGH sensitivity) + ${orderBlocksLow.size} (LOW sensitivity) = ${orderBlocks.size} total")
 
       // Step 8: Create Stock entity
       logger.info("Creating Stock entity for $symbol")

@@ -5,6 +5,7 @@ import com.skrymer.udgaard.model.OrderBlockSensitivity
 import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.StockQuote
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -22,6 +23,8 @@ import java.time.LocalDate
  */
 @Service
 class OrderBlockCalculator {
+
+    private val logger = LoggerFactory.getLogger(OrderBlockCalculator::class.java)
 
     companion object {
         // Default sensitivity (28 in raw form, converted to 0.28 for threshold)
@@ -54,6 +57,7 @@ class OrderBlockCalculator {
      *
      * @param quotes List of stock quotes sorted by date (oldest to newest)
      * @param sensitivity Sensitivity parameter (default 28, converted to 0.28 for threshold)
+     * @param sensitivityLevel Sensitivity level enum (HIGH=28%, LOW=50%) for tracking
      * @param sameTypeSpacing Minimum bars between same-type blocks
      * @param crossTypeSpacing Minimum bars between cross-type blocks
      * @return List of calculated order blocks
@@ -61,6 +65,7 @@ class OrderBlockCalculator {
     fun calculateOrderBlocks(
         quotes: List<StockQuote>,
         sensitivity: Double = DEFAULT_SENSITIVITY,
+        sensitivityLevel: OrderBlockSensitivity = OrderBlockSensitivity.HIGH,
         sameTypeSpacing: Int = SAME_TYPE_SPACING,
         crossTypeSpacing: Int = CROSS_TYPE_SPACING
     ): List<OrderBlock> {
@@ -72,10 +77,11 @@ class OrderBlockCalculator {
         val orderBlocks = mutableListOf<OrderBlock>()
         val recentCrossings = mutableListOf<Crossing>()
 
-        // Since ROC returns percentage (e.g., 29.63 for 29.63%),
-        // and sensitivity is also in percentage form (e.g., 28 for 28%),
-        // we compare them directly without division
-        val threshold = sensitivity
+        // ROC returns percentage (e.g., 0.69 for 0.69% move)
+        // Sensitivity input is in "whole number" form (e.g., 28 for 28%)
+        // We divide by 100 to match ROC scale: 28 / 100 = 0.28
+        // Then we compare ROC (0.69) > threshold (0.28) to detect crossings
+        val threshold = sensitivity / 100.0
 
         // Track active order blocks for mitigation detection
         val activeBlocks = mutableListOf<OrderBlock>()
@@ -121,7 +127,8 @@ class OrderBlockCalculator {
                         sortedQuotes,
                         i,
                         blockType,
-                        roc
+                        roc,
+                        sensitivityLevel
                     )?.let { block ->
                         orderBlocks.add(block)
                         activeBlocks.add(block)
@@ -171,7 +178,8 @@ class OrderBlockCalculator {
         quotes: List<StockQuote>,
         triggerIndex: Int,
         type: OrderBlockType,
-        roc: Double
+        roc: Double,
+        sensitivityLevel: OrderBlockSensitivity
     ): OrderBlock? {
         // Look back from i-4 to i-15 to find the origin candle
         for (j in (triggerIndex - LOOKBACK_MIN) downTo (triggerIndex - LOOKBACK_MAX)) {
@@ -204,7 +212,7 @@ class OrderBlockCalculator {
                     source = OrderBlockSource.CALCULATED,
                     volume = quote.volume,
                     volumeStrength = volumeStrength,
-                    sensitivity = OrderBlockSensitivity.HIGH,  // Single sensitivity mode
+                    sensitivity = sensitivityLevel,  // Use passed sensitivity level
                     rateOfChange = roc  // Already in percentage form from calculateRateOfChange()
                 )
             }
