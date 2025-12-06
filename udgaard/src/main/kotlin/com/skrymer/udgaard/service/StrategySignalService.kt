@@ -128,4 +128,51 @@ class StrategySignalService(
             )
         }
     }
+
+    /**
+     * Evaluate entry strategy conditions for a specific quote/date.
+     * This returns condition details regardless of whether the entry signal passes or fails.
+     *
+     * @param stock The stock to evaluate
+     * @param quoteDate The date of the quote to evaluate
+     * @param entryStrategyName The name of the entry strategy to use
+     * @return Entry signal details with all condition evaluations, or null if strategy/quote not found
+     */
+    fun evaluateConditionsForDate(
+        stock: Stock,
+        quoteDate: String,
+        entryStrategyName: String
+    ): EntrySignalDetails? {
+        logger.info("Evaluating entry conditions for ${stock.symbol} on date=$quoteDate with strategy=$entryStrategyName")
+
+        val entryStrategy = strategyRegistry.createEntryStrategy(entryStrategyName)
+        if (entryStrategy == null) {
+            logger.error("Entry strategy $entryStrategyName not found")
+            return null
+        }
+
+        if (entryStrategy !is com.skrymer.udgaard.model.strategy.DetailedEntryStrategy) {
+            logger.warn("Entry strategy $entryStrategyName does not support detailed evaluation")
+            return null
+        }
+
+        // Find the quote for the specified date
+        val targetDate = try {
+            java.time.LocalDate.parse(quoteDate)
+        } catch (e: Exception) {
+            logger.error("Invalid date format: $quoteDate")
+            return null
+        }
+
+        val quote = stock.quotes.find { it.date == targetDate }
+        if (quote == null) {
+            logger.error("Quote not found for date $quoteDate in stock ${stock.symbol}")
+            return null
+        }
+
+        // Evaluate with details
+        val details = entryStrategy.testWithDetails(stock, quote).copy(strategyName = entryStrategyName)
+        logger.info("Evaluated conditions for ${stock.symbol} on $quoteDate: allConditionsMet=${details.allConditionsMet}")
+        return details
+    }
 }

@@ -105,6 +105,7 @@ const props = defineProps<{
   orderBlocks: OrderBlock[]
   symbol: string
   signals?: any
+  entryStrategy?: string
 }>()
 
 const chartContainer = ref<HTMLElement | null>(null)
@@ -578,8 +579,8 @@ function updateMarkers() {
   seriesMarkersPlugin.setMarkers(markers)
 }
 
-// Handle chart click to detect marker clicks
-function handleChartClick(event: any) {
+// Handle chart click to detect marker clicks or any date
+async function handleChartClick(event: any) {
   if (!chart || !candlestickSeries) return
 
   const clickedTime = chart.timeScale().coordinateToTime(event.point.x)
@@ -588,11 +589,49 @@ function handleChartClick(event: any) {
   // Round to nearest second to match marker time
   const roundedTime = Math.round(clickedTime)
 
-  // Check if there's a signal at this time
-  const signalData = signalDataMap.get(roundedTime)
-  if (signalData) {
-    selectedSignal.value = signalData
+  // Check if there's already signal data at this time
+  const existingSignalData = signalDataMap.get(roundedTime)
+  if (existingSignalData) {
+    selectedSignal.value = existingSignalData
     signalDetailsModalOpen.value = true
+    return
+  }
+
+  // If no signal data but we have an entry strategy, fetch condition details for this date
+  if (props.entryStrategy) {
+    // Find the quote for this timestamp
+    const clickedDate = new Date(roundedTime * 1000)
+    const dateString = clickedDate.toISOString().split('T')[0] || ''
+    if (!dateString) return
+
+    const quote = props.quotes.find(q => q.date?.startsWith(dateString))
+    if (!quote?.date) return
+
+    const quoteDate: string = quote.date
+
+    try {
+      // Call backend to evaluate conditions for this date
+      const entryDetails = await $fetch(`/udgaard/api/stocks/${props.symbol}/evaluate-date/${quoteDate}`, {
+        params: {
+          entryStrategy: props.entryStrategy
+        }
+      })
+
+      // Show modal with condition details
+      selectedSignal.value = {
+        date: quote.date,
+        price: quote.closePrice,
+        entryDetails
+      }
+      signalDetailsModalOpen.value = true
+    } catch (error) {
+      console.error('Failed to fetch condition details:', error)
+      useToast().add({
+        title: 'Error',
+        description: 'Failed to evaluate conditions for this date',
+        color: 'error'
+      })
+    }
   }
 }
 

@@ -96,6 +96,7 @@
           :order-blocks="selectedStock.orderBlocks || []"
           :symbol="selectedStock.symbol"
           :signals="signalsData"
+          :entry-strategy="selectedEntryStrategy"
         />
       </div>
 

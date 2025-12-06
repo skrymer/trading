@@ -182,4 +182,41 @@ class StockController(
         logger.info("Recalculation complete: ${result["updatedCount"]} stocks updated")
         return ResponseEntity.ok(result)
     }
+
+    /**
+     * Evaluate entry strategy conditions for a specific date.
+     * Returns condition details showing why a strategy did or did not trigger.
+     *
+     * Example: GET /api/stocks/TQQQ/evaluate-date/2024-01-15?entryStrategy=VegardPlanEtf
+     *
+     * @param symbol Stock symbol (e.g., TQQQ, SPY)
+     * @param date Date to evaluate (format: YYYY-MM-DD)
+     * @param entryStrategy Entry strategy name (e.g., VegardPlanEtf)
+     * @return Entry signal details with all condition evaluations
+     */
+    @GetMapping("/{symbol}/evaluate-date/{date}")
+    @Transactional(readOnly = true)
+    fun evaluateConditionsForDate(
+        @PathVariable symbol: String,
+        @PathVariable date: String,
+        @RequestParam entryStrategy: String
+    ): ResponseEntity<com.skrymer.udgaard.controller.dto.EntrySignalDetails> {
+        logger.info("Evaluating entry conditions for $symbol on date=$date with strategy=$entryStrategy")
+
+        // Get stock data
+        val stock = stockService.getStock(symbol, false) ?: run {
+            logger.error("Stock not found: $symbol")
+            return ResponseEntity.notFound().build()
+        }
+
+        // Evaluate conditions for the specific date
+        val details = strategySignalService.evaluateConditionsForDate(stock, date, entryStrategy)
+            ?: run {
+                logger.error("Failed to evaluate conditions for $symbol on $date with strategy=$entryStrategy")
+                return ResponseEntity.badRequest().build()
+            }
+
+        logger.info("Evaluated conditions for $symbol on $date: allConditionsMet=${details.allConditionsMet}")
+        return ResponseEntity.ok(details)
+    }
 }
