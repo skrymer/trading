@@ -554,6 +554,43 @@ Both implementations ensure the exact same behavior.
 4. **Write tests** to verify logic
 5. **Use in composite strategy** or create standalone strategy with `@RegisteredStrategy`
 
+### DetailedEntryStrategy Interface
+
+For strategies that need to provide detailed condition-level diagnostics (useful for UI display and debugging), implement the `DetailedEntryStrategy` interface instead of just `EntryStrategy`:
+
+```kotlin
+@RegisteredStrategy(name = "MyStrategy", type = StrategyType.ENTRY)
+class MyEntryStrategy: DetailedEntryStrategy {
+    private val compositeStrategy = entryStrategy {
+        uptrend()
+        buySignal()
+        heatmap(70)
+    }
+
+    override fun description() = "My entry strategy"
+
+    override fun test(stock: Stock, quote: StockQuote): Boolean {
+        return compositeStrategy.test(stock, quote)
+    }
+
+    // Provides detailed condition breakdown
+    override fun testWithDetails(stock: Stock, quote: StockQuote) =
+        compositeStrategy.testWithDetails(stock, quote)
+}
+```
+
+**Benefits:**
+- ✅ Condition-level diagnostics (pass/fail for each condition)
+- ✅ Actual values vs thresholds displayed in UI
+- ✅ Detailed messages explaining why conditions passed/failed
+- ✅ Automatic detection by `StrategySignalService` (no reflection needed)
+- ✅ Type-safe, compile-time checked interface
+
+**When to use:**
+- Strategies using the DSL (`entryStrategy { }`) should always implement `DetailedEntryStrategy`
+- Wrapper strategies that delegate to `CompositeEntryStrategy` internally
+- Any strategy that benefits from showing users why signals triggered
+
 ### Testing Best Practices
 
 - Test strategies with edge cases (null values, extreme prices, etc.)

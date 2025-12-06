@@ -13,7 +13,7 @@ import com.skrymer.udgaard.model.StockQuote
  * - Price is at least 2% below an order block older than 15 days
  */
 @RegisteredStrategy(name = "PlanEtf", type = StrategyType.ENTRY)
-class PlanEtfEntryStrategy: EntryStrategy {
+class PlanEtfEntryStrategy: DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
     uptrend()
     buySignal(currentOnly = false)
@@ -27,4 +27,6 @@ class PlanEtfEntryStrategy: EntryStrategy {
   override fun test(stock: Stock, quote: StockQuote): Boolean {
     return compositeStrategy.test(stock, quote)
   }
+
+  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
 }

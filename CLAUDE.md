@@ -643,10 +643,11 @@ Position Value: $5.50 × 2 × 100 = $1,100
 ## Common Tasks
 
 ### Adding a New Entry Strategy
-1. Create class implementing `EntryStrategy`
+1. Create class implementing `EntryStrategy` (or `DetailedEntryStrategy` for condition diagnostics)
 2. Add `@RegisteredStrategy(name = "StrategyName", type = StrategyType.ENTRY)`
 3. Implement `test()` and `description()` methods
-4. Strategy automatically appears in UI!
+4. If using `DetailedEntryStrategy`, also implement `testWithDetails()` for UI diagnostics
+5. Strategy automatically appears in UI!
 
 ### Adding a New Exit Strategy
 1. Create class implementing `ExitStrategy`

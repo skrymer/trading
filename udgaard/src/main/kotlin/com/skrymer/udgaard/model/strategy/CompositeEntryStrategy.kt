@@ -14,7 +14,7 @@ class CompositeEntryStrategy(
     private val conditions: List<TradingCondition>,
     private val operator: LogicalOperator = LogicalOperator.AND,
     private val strategyDescription: String? = null
-) : EntryStrategy {
+) : DetailedEntryStrategy {
 
     override fun test(stock: Stock, quote: StockQuote): Boolean {
         if (conditions.isEmpty()) return false
@@ -52,7 +52,7 @@ class CompositeEntryStrategy(
      *
      * @return Detailed entry signal information including all condition results
      */
-    fun testWithDetails(stock: Stock, quote: StockQuote): EntrySignalDetails {
+    override fun testWithDetails(stock: Stock, quote: StockQuote): EntrySignalDetails {
         val conditionResults = conditions.map { it.evaluateWithDetails(stock, quote) }
 
         val allConditionsMet = when (operator) {

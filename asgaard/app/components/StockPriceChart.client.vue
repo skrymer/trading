@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full bg-white dark:bg-gray-900 rounded-lg p-4">
+  <div class="w-full h-full flex flex-col bg-white dark:bg-gray-900 rounded-lg p-4">
     <!-- Chart Toolbar -->
     <div class="flex items-center justify-between mb-4 gap-4">
       <div class="flex items-center gap-2">
@@ -87,7 +87,7 @@
     </div>
 
     <!-- Chart Container -->
-    <div ref="chartContainer" class="w-full h-[600px]" />
+    <div ref="chartContainer" class="w-full flex-1 min-h-[400px]" />
 
     <!-- Signal Details Modal -->
     <ChartsSignalDetailsModal

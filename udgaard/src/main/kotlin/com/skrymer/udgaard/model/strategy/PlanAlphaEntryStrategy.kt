@@ -31,7 +31,7 @@ import com.skrymer.udgaard.model.StockQuote
  * - NOT within order block older than 120 days
  */
 @RegisteredStrategy(name = "PlanAlpha", type = StrategyType.ENTRY)
-class PlanAlphaEntryStrategy: EntryStrategy {
+class PlanAlphaEntryStrategy: DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
     // MARKET (SPY)
     spyBuySignal()
@@ -60,4 +60,6 @@ class PlanAlphaEntryStrategy: EntryStrategy {
   override fun test(stock: Stock, quote: StockQuote): Boolean {
     return compositeStrategy.test(stock, quote)
   }
+
+  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
 }

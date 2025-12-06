@@ -1,6 +1,6 @@
 <template>
-  <div class="container mx-auto p-6">
-    <UCard>
+  <div class="container mx-auto p-6 flex flex-col min-h-[calc(100vh-4rem)]">
+    <UCard class="flex flex-col flex-1">
       <template #header>
         <div class="flex flex-col gap-4">
           <!-- Top Row: Title and Symbol Search -->
@@ -89,7 +89,7 @@
       </div>
 
       <!-- Stock Data Display -->
-      <div v-else-if="selectedStock">
+      <div v-else-if="selectedStock" class="flex flex-col flex-1 min-h-0">
         <StockPriceChart
           v-if="selectedStock.quotes && selectedStock.quotes.length > 0"
           :quotes="selectedStock.quotes"

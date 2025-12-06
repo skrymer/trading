@@ -8,7 +8,7 @@ import com.skrymer.udgaard.model.StockQuote
  * Enters when there is a buy signal (lastBuySignal after lastSellSignal).
  */
 @RegisteredStrategy(name = "SimpleBuySignal", type = StrategyType.ENTRY)
-class SimpleBuySignalEntryStrategy : EntryStrategy {
+class SimpleBuySignalEntryStrategy : DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
     buySignal(currentOnly = false)
   }
@@ -18,4 +18,6 @@ class SimpleBuySignalEntryStrategy : EntryStrategy {
   override fun test(stock: Stock, quote: StockQuote): Boolean {
     return compositeStrategy.test(stock, quote)
   }
+
+  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
 }

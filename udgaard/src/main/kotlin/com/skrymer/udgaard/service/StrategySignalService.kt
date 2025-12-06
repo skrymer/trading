@@ -50,7 +50,7 @@ class StrategySignalService(
             return null
         }
 
-        val quotesWithSignals = evaluateQuotes(stock, entryStrategy, exitStrategy, cooldownDays)
+        val quotesWithSignals = evaluateQuotes(stock, entryStrategy, entryStrategyName, exitStrategy, cooldownDays)
 
         logger.info("Evaluated ${quotesWithSignals.size} quotes for ${stock.symbol} with entry=$entryStrategyName, exit=$exitStrategyName, cooldown=$cooldownDays")
         return StockWithSignals(
@@ -70,12 +70,14 @@ class StrategySignalService(
      *
      * @param stock The stock to evaluate
      * @param entryStrategy Entry strategy to use
+     * @param entryStrategyName Registered name of the entry strategy
      * @param exitStrategy Exit strategy to use
      * @param cooldownDays Number of trading days to wait after exit before allowing new entry
      */
     private fun evaluateQuotes(
         stock: Stock,
         entryStrategy: EntryStrategy,
+        entryStrategyName: String,
         exitStrategy: ExitStrategy,
         cooldownDays: Int
     ): List<QuoteWithSignal> {
@@ -99,8 +101,8 @@ class StrategySignalService(
                 entrySignal = entryStrategy.test(stock, quote)
 
                 // If entry signal triggered and strategy supports detailed evaluation, get condition details
-                if (entrySignal && entryStrategy is CompositeEntryStrategy) {
-                    entryDetails = entryStrategy.testWithDetails(stock, quote)
+                if (entrySignal && entryStrategy is com.skrymer.udgaard.model.strategy.DetailedEntryStrategy) {
+                    entryDetails = entryStrategy.testWithDetails(stock, quote).copy(strategyName = entryStrategyName)
                 }
 
                 if (entrySignal) {

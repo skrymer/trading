@@ -23,7 +23,7 @@ import com.skrymer.udgaard.model.StockQuote
  * - Edge: 4.84% (improved from 4.48%)
  */
 @RegisteredStrategy(name = "OvtlyrPlanEtf", type = StrategyType.ENTRY)
-class OvtlyrPlanEtfEntryStrategy: EntryStrategy {
+class OvtlyrPlanEtfEntryStrategy: DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
     uptrend()
     buySignal(currentOnly = false)
@@ -38,8 +38,5 @@ class OvtlyrPlanEtfEntryStrategy: EntryStrategy {
     return compositeStrategy.test(stock, quote)
   }
 
-  /**
-   * Get the underlying composite strategy for metadata extraction.
-   */
-  fun getCompositeStrategy(): CompositeEntryStrategy = compositeStrategy
+  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
 }

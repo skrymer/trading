@@ -10,7 +10,7 @@ import com.skrymer.udgaard.model.StockQuote
  * - Price is within value zone (< 20 EMA + 1.4 ATR)
  */
 @RegisteredStrategy(name = "VegardPlanEtf", type = StrategyType.ENTRY)
-class VegardPlanEtfEntryStrategy: EntryStrategy {
+class VegardPlanEtfEntryStrategy: DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
     uptrend()
     inValueZone(1.4)
@@ -22,8 +22,5 @@ class VegardPlanEtfEntryStrategy: EntryStrategy {
     return compositeStrategy.test(stock, quote)
   }
 
-  /**
-   * Get the underlying composite strategy for metadata extraction.
-   */
-  fun getCompositeStrategy(): CompositeEntryStrategy = compositeStrategy
+  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
 }
