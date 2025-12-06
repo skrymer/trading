@@ -786,7 +786,7 @@ const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
         }, `${isProfit ? '+' : ''}${formatCurrency(pl.amount, row.original.trade.currency)}`),
         h('p', {
           class: ['text-xs', isProfit ? 'text-green-600' : 'text-red-600']
-        }, `${isProfit ? '+' : ''}${formatPercentage(pl.percentage)}`)
+        }, formatPercentage(pl.percentage))
       ])
     }
   },
