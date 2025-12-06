@@ -11,8 +11,8 @@ class BuySignalConditionTest {
     private val stock = Stock()
 
     @Test
-    fun `should return true when has buy signal and currentOnly is false`() {
-        val condition = BuySignalCondition(currentOnly = false)
+    fun `should return true when has buy signal and daysOld is -1`() {
+        val condition = BuySignalCondition(daysOld = -1)
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15),
             lastBuySignal = LocalDate.of(2024, 1, 10)
@@ -23,8 +23,8 @@ class BuySignalConditionTest {
     }
 
     @Test
-    fun `should return false when no buy signal and currentOnly is false`() {
-        val condition = BuySignalCondition(currentOnly = false)
+    fun `should return false when no buy signal and daysOld is -1`() {
+        val condition = BuySignalCondition(daysOld = -1)
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15)
         )
@@ -34,8 +34,8 @@ class BuySignalConditionTest {
     }
 
     @Test
-    fun `should return true when has current buy signal and currentOnly is true`() {
-        val condition = BuySignalCondition(currentOnly = true)
+    fun `should return true when has current buy signal and daysOld is 1`() {
+        val condition = BuySignalCondition(daysOld = 1)
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15),
             lastBuySignal = LocalDate.of(2024, 1, 14)
@@ -46,8 +46,8 @@ class BuySignalConditionTest {
     }
 
     @Test
-    fun `should return false when no current buy signal and currentOnly is true`() {
-        val condition = BuySignalCondition(currentOnly = true)
+    fun `should return false when no current buy signal and daysOld is 1`() {
+        val condition = BuySignalCondition(daysOld = 1)
         val quote = StockQuote(
             date = LocalDate.of(2024, 1, 15)
         )
@@ -58,13 +58,13 @@ class BuySignalConditionTest {
 
     @Test
     fun `should provide correct description for regular buy signal`() {
-        val condition = BuySignalCondition(currentOnly = false)
+        val condition = BuySignalCondition(daysOld = -1)
         assertEquals("Has buy signal", condition.description())
     }
 
     @Test
     fun `should provide correct description for current buy signal`() {
-        val condition = BuySignalCondition(currentOnly = true)
-        assertEquals("Has current buy signal (< 1 day old)", condition.description())
+        val condition = BuySignalCondition(daysOld = 1)
+        assertEquals("Has buy signal (≤ 1 day old)", condition.description())
     }
 }

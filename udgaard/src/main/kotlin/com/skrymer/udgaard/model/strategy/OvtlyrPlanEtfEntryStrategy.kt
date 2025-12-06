@@ -26,7 +26,7 @@ import com.skrymer.udgaard.model.StockQuote
 class OvtlyrPlanEtfEntryStrategy: DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
     uptrend()
-    buySignal(currentOnly = false)
+    buySignal(daysOld = -1)  // Accept any buy signal age
     heatmap(70)
     inValueZone(1.5)  // Optimized: 1.5 ATR (was 2.0) - tighter entry timing
     belowOrderBlock(percentBelow = 2.0, ageInDays = 30)

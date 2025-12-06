@@ -6,22 +6,31 @@ import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
 
 /**
- * Condition that checks if there is a buy signal.
- * @param currentOnly If true, only accepts buy signals less than 1 day old
+ * Condition that checks if there is a buy signal within a specified age.
+ * @param daysOld Maximum age of the buy signal in days (0 = current day only, -1 = any age)
  */
-class BuySignalCondition(private val currentOnly: Boolean = false) : TradingCondition {
+class BuySignalCondition(private val daysOld: Int = -1) : TradingCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        return if (currentOnly) {
-            quote.hasCurrentBuySignal()
+        if (!quote.hasBuySignal()) return false
+
+        // If daysOld is -1, accept any buy signal regardless of age
+        if (daysOld < 0) return true
+
+        // Calculate signal age
+        val signalAge = if (quote.lastBuySignal != null && quote.date != null) {
+            java.time.temporal.ChronoUnit.DAYS.between(quote.lastBuySignal, quote.date).toInt()
         } else {
-            quote.hasBuySignal()
+            return false
         }
+
+        return signalAge <= daysOld
     }
 
-    override fun description(): String = if (currentOnly) {
-        "Has current buy signal (< 1 day old)"
-    } else {
-        "Has buy signal"
+    override fun description(): String = when {
+        daysOld < 0 -> "Has buy signal"
+        daysOld == 0 -> "Has current buy signal (today)"
+        daysOld == 1 -> "Has buy signal (≤ 1 day old)"
+        else -> "Has buy signal (≤ $daysOld days old)"
     }
 
     override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
@@ -30,11 +39,7 @@ class BuySignalCondition(private val currentOnly: Boolean = false) : TradingCond
     )
 
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val passed = if (currentOnly) {
-            quote.hasCurrentBuySignal()
-        } else {
-            quote.hasBuySignal()
-        }
+        val passed = evaluate(stock, quote)
 
         // Calculate signal age from lastBuySignal date and current quote date
         val signalAge = if (quote.lastBuySignal != null && quote.date != null) {
@@ -44,11 +49,17 @@ class BuySignalCondition(private val currentOnly: Boolean = false) : TradingCond
         }
 
         val message = when {
-            !quote.hasBuySignal() -> "No buy signal present"
-            currentOnly && signalAge > 0 -> "Buy signal is ${signalAge} days old (requires ≤ 1 day)"
-            currentOnly && signalAge <= 1 -> "Current buy signal present (${signalAge} days old) ✓"
-            signalAge >= 0 -> "Buy signal present (${signalAge} days old) ✓"
-            else -> "Buy signal status unknown"
+            !quote.hasBuySignal() -> "No buy signal present ✗"
+            daysOld < 0 && signalAge >= 0 -> "Buy signal present (${signalAge} days old) ✓"
+            daysOld >= 0 && signalAge > daysOld -> "Buy signal is ${signalAge} days old (requires ≤ ${daysOld} days) ✗"
+            daysOld >= 0 && signalAge >= 0 && signalAge <= daysOld -> "Buy signal is ${signalAge} days old (≤ ${daysOld} days) ✓"
+            else -> "Buy signal status unknown ✗"
+        }
+
+        val thresholdText = when {
+            daysOld < 0 -> "Present"
+            daysOld == 0 -> "Today"
+            else -> "≤ ${daysOld} days"
         }
 
         return ConditionEvaluationResult(
@@ -56,7 +67,7 @@ class BuySignalCondition(private val currentOnly: Boolean = false) : TradingCond
             description = description(),
             passed = passed,
             actualValue = if (quote.hasBuySignal() && signalAge >= 0) "${signalAge} days old" else "No signal",
-            threshold = if (currentOnly) "≤ 1 day" else "Present",
+            threshold = thresholdText,
             message = message
         )
     }

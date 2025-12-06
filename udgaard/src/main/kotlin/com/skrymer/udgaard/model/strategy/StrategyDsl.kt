@@ -17,8 +17,8 @@ class EntryStrategyBuilder {
         conditions.add(UptrendCondition())
     }
 
-    fun buySignal(currentOnly: Boolean = false) = apply {
-        conditions.add(BuySignalCondition(currentOnly))
+    fun buySignal(daysOld: Int = -1) = apply {
+        conditions.add(BuySignalCondition(daysOld))
     }
 
     fun heatmap(threshold: Int = 70) = apply {

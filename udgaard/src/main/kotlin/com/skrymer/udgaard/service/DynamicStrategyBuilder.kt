@@ -70,7 +70,7 @@ class DynamicStrategyBuilder(
         return when (config.type.lowercase()) {
             "uptrend" -> UptrendCondition()
             "buysignal" -> BuySignalCondition(
-                currentOnly = config.parameters["currentOnly"] as? Boolean ?: false
+                daysOld = (config.parameters["daysOld"] as? Number)?.toInt() ?: -1
             )
             "heatmap" -> HeatmapCondition(
                 threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 70.0
@@ -177,13 +177,16 @@ class DynamicStrategyBuilder(
             ConditionMetadata(
                 type = "buySignal",
                 displayName = "Buy Signal",
-                description = "Stock has a buy signal",
+                description = "Stock has a buy signal within specified age",
                 parameters = listOf(
                     ParameterMetadata(
-                        name = "currentOnly",
-                        displayName = "Current Only",
-                        type = "boolean",
-                        defaultValue = false
+                        name = "daysOld",
+                        displayName = "Max Age (Days)",
+                        type = "number",
+                        defaultValue = -1,
+                        min = -1,
+                        max = 100,
+                        options = listOf("-1", "0", "1", "2", "3", "5", "7", "10", "14", "21", "30")
                     )
                 ),
                 category = "Stock"

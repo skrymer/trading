@@ -19,7 +19,7 @@ class CompositeEntryStrategyTest {
         val strategy = CompositeEntryStrategy(
             conditions = listOf(
                 UptrendCondition(),
-                BuySignalCondition(currentOnly = false),
+                BuySignalCondition(daysOld = -1),
                 HeatmapCondition(70.0)
             ),
             operator = LogicalOperator.AND
@@ -45,7 +45,7 @@ class CompositeEntryStrategyTest {
         val strategy = CompositeEntryStrategy(
             conditions = listOf(
                 UptrendCondition(),
-                BuySignalCondition(currentOnly = false),
+                BuySignalCondition(daysOld = -1),
                 HeatmapCondition(70.0)
             ),
             operator = LogicalOperator.AND
@@ -70,7 +70,7 @@ class CompositeEntryStrategyTest {
         val strategy = CompositeEntryStrategy(
             conditions = listOf(
                 UptrendCondition(),
-                BuySignalCondition(currentOnly = false)
+                BuySignalCondition(daysOld = -1)
             ),
             operator = LogicalOperator.OR
         )
@@ -94,7 +94,7 @@ class CompositeEntryStrategyTest {
         val strategy = CompositeEntryStrategy(
             conditions = listOf(
                 UptrendCondition(),
-                BuySignalCondition(currentOnly = false)
+                BuySignalCondition(daysOld = -1)
             ),
             operator = LogicalOperator.OR
         )
@@ -151,7 +151,7 @@ class CompositeEntryStrategyTest {
     fun `should work with DSL builder`() {
         val strategy = entryStrategy {
             uptrend()
-            buySignal(currentOnly = false)
+            buySignal(daysOld = -1)
             heatmap(70)
         }
 
@@ -186,7 +186,7 @@ class CompositeEntryStrategyTest {
         val strategy = CompositeEntryStrategy(
             conditions = listOf(
                 UptrendCondition(),
-                BuySignalCondition(currentOnly = false)
+                BuySignalCondition(daysOld = -1)
             ),
             operator = LogicalOperator.AND
         )
