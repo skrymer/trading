@@ -1,9 +1,11 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.controller.dto.EntrySignalDetails
 import com.skrymer.udgaard.controller.dto.QuoteWithSignal
 import com.skrymer.udgaard.controller.dto.StockWithSignals
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.model.strategy.CompositeEntryStrategy
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import org.slf4j.LoggerFactory
@@ -83,6 +85,7 @@ class StrategySignalService(
 
         return sortedQuotes.map { quote ->
             var entrySignal = false
+            var entryDetails: EntrySignalDetails? = null
             var exitSignal = false
             var exitReason: String? = null
 
@@ -94,6 +97,12 @@ class StrategySignalService(
             // Check for entry signal if not currently in a position and not in cooldown
             if (entryQuote == null && cooldownRemaining == 0) {
                 entrySignal = entryStrategy.test(stock, quote)
+
+                // If entry signal triggered and strategy supports detailed evaluation, get condition details
+                if (entrySignal && entryStrategy is CompositeEntryStrategy) {
+                    entryDetails = entryStrategy.testWithDetails(stock, quote)
+                }
+
                 if (entrySignal) {
                     entryQuote = quote
                 }
@@ -111,6 +120,7 @@ class StrategySignalService(
             QuoteWithSignal(
                 quote = quote,
                 entrySignal = entrySignal,
+                entryDetails = entryDetails,
                 exitSignal = exitSignal,
                 exitReason = exitReason
             )

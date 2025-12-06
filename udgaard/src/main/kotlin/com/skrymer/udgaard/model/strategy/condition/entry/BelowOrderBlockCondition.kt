@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -64,4 +65,54 @@ class BelowOrderBlockCondition(
         type = "belowOrderBlock",
         description = description()
     )
+
+    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+        val price = quote.closePrice
+
+        // Find relevant order blocks
+        val relevantOrderBlocks = stock.orderBlocks
+            .filter { it.orderBlockType == OrderBlockType.BEARISH }
+            .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
+            .filter { it.startDate.isBefore(quote.date) }
+            .filter { it.endDate == null || it.endDate.isAfter(quote.date) }
+            .filter { it.low > price }
+
+        val message: String
+        val actualValue: String
+        val threshold: String
+        val passed: Boolean
+
+        if (relevantOrderBlocks.isEmpty()) {
+            passed = true
+            message = "No relevant order blocks found (age > ${ageInDays}d) ✓"
+            actualValue = "No blocks"
+            threshold = ">= ${ageInDays}d old"
+        } else {
+            // Find the closest order block
+            val closestBlock = relevantOrderBlocks.minByOrNull { it.low }!!
+            val blockAge = ChronoUnit.DAYS.between(closestBlock.startDate, quote.date)
+            val requiredPrice = closestBlock.low * (1.0 - percentBelow / 100.0)
+            val actualPercentBelow = ((closestBlock.low - price) / closestBlock.low) * 100.0
+
+            passed = price <= requiredPrice
+
+            message = if (passed) {
+                "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${"%.2f".format(closestBlock.low)} (${blockAge}d old) ✓"
+            } else {
+                "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${"%.2f".format(closestBlock.low)} (requires >= ${percentBelow}%) ✗"
+            }
+
+            actualValue = "%.1f%%".format(actualPercentBelow)
+            threshold = ">= ${percentBelow}%"
+        }
+
+        return ConditionEvaluationResult(
+            conditionType = "BelowOrderBlockCondition",
+            description = description(),
+            passed = passed,
+            actualValue = actualValue,
+            threshold = threshold,
+            message = message
+        )
+    }
 }

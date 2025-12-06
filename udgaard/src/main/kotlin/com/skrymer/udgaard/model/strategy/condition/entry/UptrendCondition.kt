@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
@@ -30,4 +31,39 @@ class UptrendCondition : TradingCondition {
         type = "uptrend",
         description = description()
     )
+
+    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+        val ema10 = quote.closePriceEMA10
+        val ema20 = quote.closePriceEMA20
+        val ema50 = quote.closePriceEMA50
+        val price = quote.closePrice
+
+        val ema10AboveEma20 = ema10 > ema20
+        val priceAboveEma50 = price > ema50
+        val passed = ema10AboveEma20 && priceAboveEma50
+
+        val message = buildString {
+            append("EMA10 (${"%.2f".format(ema10)}) ")
+            append(if (ema10AboveEma20) ">" else "≤")
+            append(" EMA20 (${"%.2f".format(ema20)}) ")
+            if (ema10AboveEma20 && priceAboveEma50) {
+                append("✓ AND ")
+            } else {
+                append("✗ AND ")
+            }
+            append("Price (${"%.2f".format(price)}) ")
+            append(if (priceAboveEma50) ">" else "≤")
+            append(" EMA50 (${"%.2f".format(ema50)}) ")
+            append(if (priceAboveEma50) "✓" else "✗")
+        }
+
+        return ConditionEvaluationResult(
+            conditionType = "UptrendCondition",
+            description = description(),
+            passed = passed,
+            actualValue = null,
+            threshold = null,
+            message = message
+        )
+    }
 }

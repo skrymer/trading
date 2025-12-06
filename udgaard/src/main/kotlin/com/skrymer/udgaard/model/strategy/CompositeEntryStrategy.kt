@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.controller.dto.EntrySignalDetails
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
@@ -44,4 +45,27 @@ class CompositeEntryStrategy(
      * This is useful for backtest lifecycle management (e.g., resetting stateful conditions).
      */
     fun getConditions(): List<TradingCondition> = conditions
+
+    /**
+     * Evaluates the strategy and returns detailed condition results.
+     * Useful for understanding why an entry signal triggered or failed.
+     *
+     * @return Detailed entry signal information including all condition results
+     */
+    fun testWithDetails(stock: Stock, quote: StockQuote): EntrySignalDetails {
+        val conditionResults = conditions.map { it.evaluateWithDetails(stock, quote) }
+
+        val allConditionsMet = when (operator) {
+            LogicalOperator.AND -> conditionResults.all { it.passed }
+            LogicalOperator.OR -> conditionResults.any { it.passed }
+            LogicalOperator.NOT -> !conditionResults.first().passed
+        }
+
+        return EntrySignalDetails(
+            strategyName = this::class.simpleName ?: "CompositeEntryStrategy",
+            strategyDescription = description(),
+            conditions = conditionResults,
+            allConditionsMet = allConditionsMet
+        )
+    }
 }

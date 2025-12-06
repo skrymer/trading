@@ -88,6 +88,12 @@
 
     <!-- Chart Container -->
     <div ref="chartContainer" class="w-full h-[600px]" />
+
+    <!-- Signal Details Modal -->
+    <ChartsSignalDetailsModal
+      v-model:open="signalDetailsModalOpen"
+      :signal="selectedSignal"
+    />
   </div>
 </template>
 
@@ -113,6 +119,13 @@ let ema50Series: any = null
 const dateRange = ref<string>('3M')
 const showOrderBlocks = ref<boolean>(true)
 const showEMA = ref<boolean>(true)
+
+// Signal details modal state
+const signalDetailsModalOpen = ref(false)
+const selectedSignal = ref<any>(null)
+
+// Map to store signal data by timestamp for quick lookup
+const signalDataMap = new Map<number, any>()
 
 // Helper function to calculate EMA
 function calculateEMA(data: any[], period: number) {
@@ -486,6 +499,9 @@ onMounted(async () => {
   // Update chart data
   updateChartData()
 
+  // Add click event listener to chart for marker interaction
+  chart.subscribeClick(handleChartClick)
+
   // Handle resize
   const resizeObserver = new ResizeObserver(() => {
     if (chart && chartContainer.value) {
@@ -512,6 +528,8 @@ function updateMarkers() {
     if (seriesMarkersPlugin) {
       seriesMarkersPlugin.setMarkers([])
     }
+    // Clear signal data map
+    signalDataMap.clear()
     return
   }
 
@@ -527,6 +545,13 @@ function updateMarkers() {
 
       // Add entry signal marker (green triangle up)
       if (quoteWithSignal.entrySignal) {
+        // Store signal data for click handling
+        signalDataMap.set(time, {
+          date: quote.date,
+          price: quote.closePrice,
+          entryDetails: quoteWithSignal.entryDetails
+        })
+
         markers.push({
           time,
           position: 'belowBar',
@@ -551,6 +576,24 @@ function updateMarkers() {
 
   // Use the plugin's setMarkers method
   seriesMarkersPlugin.setMarkers(markers)
+}
+
+// Handle chart click to detect marker clicks
+function handleChartClick(event: any) {
+  if (!chart || !candlestickSeries) return
+
+  const clickedTime = chart.timeScale().coordinateToTime(event.point.x)
+  if (clickedTime === null) return
+
+  // Round to nearest second to match marker time
+  const roundedTime = Math.round(clickedTime)
+
+  // Check if there's a signal at this time
+  const signalData = signalDataMap.get(roundedTime)
+  if (signalData) {
+    selectedSignal.value = signalData
+    signalDetailsModalOpen.value = true
+  }
 }
 
 // Watch for data changes

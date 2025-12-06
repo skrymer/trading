@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
@@ -21,4 +22,39 @@ class ValueZoneCondition(private val atrMultiplier: Double = 2.0) : TradingCondi
         type = "valueZone",
         description = description()
     )
+
+    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+        val price = quote.closePrice
+        val ema20 = quote.closePriceEMA20
+        val atr = quote.atr
+        val upperBound = ema20 + (atrMultiplier * atr)
+
+        val aboveEma20 = price > ema20
+        val belowUpperBound = price < upperBound
+        val passed = aboveEma20 && belowUpperBound
+
+        val message = buildString {
+            append("Price ${"%.2f".format(price)} ")
+            if (aboveEma20) {
+                append("> EMA20 (${"%.2f".format(ema20)}) ✓")
+            } else {
+                append("≤ EMA20 (${"%.2f".format(ema20)}) ✗")
+            }
+            append(" AND ")
+            if (belowUpperBound) {
+                append("< Upper Bound (${"%.2f".format(upperBound)}) ✓")
+            } else {
+                append("≥ Upper Bound (${"%.2f".format(upperBound)}) ✗")
+            }
+        }
+
+        return ConditionEvaluationResult(
+            conditionType = "ValueZoneCondition",
+            description = description(),
+            passed = passed,
+            actualValue = "%.2f".format(price),
+            threshold = "%.2f - %.2f".format(ema20, upperBound),
+            message = message
+        )
+    }
 }

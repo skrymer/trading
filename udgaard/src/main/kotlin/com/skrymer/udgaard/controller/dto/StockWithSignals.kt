@@ -10,6 +10,7 @@ import java.time.LocalDate
 data class QuoteWithSignal(
     val quote: StockQuote,
     val entrySignal: Boolean = false,
+    val entryDetails: EntrySignalDetails? = null,
     val exitSignal: Boolean = false,
     val exitReason: String? = null
 )
