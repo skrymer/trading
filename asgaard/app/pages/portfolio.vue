@@ -453,7 +453,19 @@ async function fetchCurrentPrices() {
 
   fetchingPrices.value = true
   try {
-    const symbols = [...new Set(openTrades.value.map(trade => trade.underlyingSymbol || trade.symbol))]
+    // Collect all unique symbols we need prices for:
+    // - For stocks/ETFs: Always use the actual trade symbol for P&L calculation
+    // - Also fetch underlying symbols if they exist (for reference/display)
+    const symbolsSet = new Set<string>()
+    openTrades.value.forEach(trade => {
+      // Always add the actual trade symbol (for P&L calculation)
+      symbolsSet.add(trade.symbol)
+      // Also add underlying symbol if different (for reference)
+      if (trade.underlyingSymbol && trade.underlyingSymbol !== trade.symbol) {
+        symbolsSet.add(trade.underlyingSymbol)
+      }
+    })
+    const symbols = [...symbolsSet]
 
     const pricePromises = symbols.map(async (symbol) => {
       try {
@@ -499,8 +511,8 @@ const projectedStats = computed(() => {
   const simulatedClosedTrades = openTrades.value
     .filter(trade => trade.instrumentType !== 'OPTION') // Skip options
     .map(trade => {
-      const symbol = trade.underlyingSymbol || trade.symbol
-      const currentPrice = stockPrices.value[symbol] || 0
+      // Use actual trade symbol for P&L (not underlying symbol)
+      const currentPrice = stockPrices.value[trade.symbol] || 0
 
       if (currentPrice === 0) {
         return null // Skip if price not available
@@ -870,8 +882,12 @@ const openTradesTableData = computed(() => {
     // Calculate unrealized P&L
     // Note: For options, we can't accurately calculate P&L from stock price
     // The expanded view fetches actual option prices from AlphaVantage
-    const symbol = trade.underlyingSymbol || trade.symbol
-    const currentPrice = stockPrices.value[symbol] || 0
+    //
+    // For stocks/ETFs: Always use the ACTUAL trade symbol for P&L calculation
+    // (e.g., TQQQ price for TQQQ trades, not QQQ price)
+    // The underlyingSymbol is only for strategy signal evaluation
+    const priceSymbol = trade.symbol // Always use actual trade symbol for P&L
+    const currentPrice = stockPrices.value[priceSymbol] || 0
     let unrealizedPL = 0
     let unrealizedPLPercentage = 0
     let canCalculatePL = false
