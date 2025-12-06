@@ -794,6 +794,60 @@ Access via `useRuntimeConfig()`:
 - Commit messages: Descriptive, present tense
 - Include generated Claude Code attribution in commits
 
+### Pre-Commit Checklist
+
+Before committing any changes, **always** verify the following:
+
+#### 1. All Backend Tests Must Pass
+
+Run the full test suite even if your changes seem unrelated:
+
+```bash
+cd udgaard
+./gradlew test
+```
+
+**Important:** If any tests fail (even if they appear unrelated to your changes):
+- ✅ **Investigate and fix them** - They may be revealing issues with your changes
+- ✅ **Never commit with failing tests** - This indicates broken functionality
+- ✅ **Check test output carefully** - Some failures may be timing-dependent or environment-specific
+
+**Example:** If you changed a strategy and an "unrelated" backtest test fails, it likely means your strategy change broke the backtest logic.
+
+#### 2. Frontend TypeScript Validation
+
+Run typecheck to ensure no type errors:
+
+```bash
+cd asgaard
+npm run typecheck
+```
+
+**Important:**
+- ✅ **Fix all type errors in files you modified**
+- ℹ️ Pre-existing errors in unmodified files can be noted but don't block your commit
+- ✅ **Never introduce new type errors**
+- ✅ **Verify your changes don't break existing types**
+
+#### 3. Update Relevant Documentation
+
+Update documentation to reflect your changes:
+
+**Do update:**
+- ✅ `CLAUDE.md` - Main project documentation (architecture, setup, workflows)
+- ✅ `udgaard/claude.md` - Backend-specific patterns and guidelines
+- ✅ `asgaard/claude.md` - Frontend-specific patterns and components
+- ✅ `README.md` - If user-facing features or setup changed
+
+**Do NOT update:**
+- ❌ `claude_thoughts/` directory - Historical documentation, don't modify
+
+**Examples of when to update docs:**
+- Added new API endpoint → Update relevant controller documentation
+- Created new strategy → Update strategy development workflow
+- Changed configuration → Update environment/configuration section
+- Added new component pattern → Update frontend patterns guide
+
 ### Testing
 - Write unit tests for strategy logic
 - Test backtesting results against known expected values
