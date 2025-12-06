@@ -32,9 +32,9 @@ jre/
 *:Zone.Identifier
 
 # Nuxt Frontend
-asgaard_nuxt/.nuxt/
-asgaard_nuxt/.output/
-asgaard_nuxt/node_modules/
+asgaard/.nuxt/
+asgaard/.output/
+asgaard/node_modules/
 
 # IDE
 .idea/

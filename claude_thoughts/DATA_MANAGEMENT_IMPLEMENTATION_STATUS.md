@@ -105,7 +105,7 @@ POST /api/data-management/refresh/clear        # Clear queue
 ### 6. TypeScript Type Definitions
 
 **Files Updated:**
-- `asgaard_nuxt/app/types/index.d.ts`
+- `asgaard/app/types/index.d.ts`
 
 **Added 90 lines of TypeScript interfaces** matching all backend DTOs.
 
@@ -115,25 +115,25 @@ POST /api/data-management/refresh/clear        # Clear queue
 
 ### Components to Create
 
-1. **Page: `asgaard_nuxt/app/pages/data-manager.vue`**
+1. **Page: `asgaard/app/pages/data-manager.vue`**
    - Main data management dashboard
    - Layout with all component cards
    - Polling for real-time updates
    - Toast notifications
 
-2. **Component: `asgaard_nuxt/app/components/data-management/RateLimitCard.vue`**
+2. **Component: `asgaard/app/components/data-management/RateLimitCard.vue`**
    - Display rate limit status
    - Show subscription tier badge
    - Progress bars for minute/daily limits
    - Reset time countdown
 
-3. **Component: `asgaard_nuxt/app/components/data-management/DatabaseStatsCards.vue`**
+3. **Component: `asgaard/app/components/data-management/DatabaseStatsCards.vue`**
    - Show total stocks, quotes, breadth data
    - Display last updated info
    - Date range visualization
    - Data coverage stats
 
-4. **Component: `asgaard_nuxt/app/components/data-management/RefreshControlsCard.vue`**
+4. **Component: `asgaard/app/components/data-management/RefreshControlsCard.vue`**
    - "Refresh All Stocks" button
    - "Refresh Breadth" button
    - Progress bar with percentage
@@ -141,7 +141,7 @@ POST /api/data-management/refresh/clear        # Clear queue
    - Success/error indicators
    - Last refreshed item display
 
-5. **Component: `asgaard_nuxt/app/components/data-management/DataCoverageTable.vue`** (Optional)
+5. **Component: `asgaard/app/components/data-management/DataCoverageTable.vue`** (Optional)
    - Table showing recently updated stocks
    - Stock symbol, last update date, quote count
    - Indicators for stale data
@@ -150,7 +150,7 @@ POST /api/data-management/refresh/clear        # Clear queue
 ### Navigation Update
 
 **File to Update:**
-- `asgaard_nuxt/app/layouts/default.vue` or sidebar component
+- `asgaard/app/layouts/default.vue` or sidebar component
 
 **Add navigation item:**
 ```typescript

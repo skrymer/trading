@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtesting Platform - Status Update</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a;">Backtesting Platform Update</h1>
+                            <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Status update on current backtesting functionality</p>
+                        </td>
+                    </tr>
+
+                    <!-- Introduction -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #333;">
+                                Quick overview of the backtesting platform's current capabilities. The system is fully functional for testing trading strategies against historical data.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Divider -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <div style="border-top: 2px solid #e5e5e5;"></div>
+                        </td>
+                    </tr>
+
+                    <!-- Backtest Configuration Section -->
+                    <tr>
+                        <td style="padding: 30px 40px 10px 40px;">
+                            <h2 style="margin: 0; font-size: 22px; font-weight: 600; color: #1a1a1a;">Backtest Configuration</h2>
+                        </td>
+                    </tr>
+
+                    <!-- Strategy Selection -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Strategy Selection</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Choose from predefined entry and exit strategies (Plan Alpha, Plan Beta, Plan ETF, Plan Money, etc.) or build custom strategies using a condition-based builder. Custom strategies combine multiple predefined conditions like EMA crossovers, market breadth filters, sentiment thresholds, and ATR-based stops.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Strategy selection dropdown showing predefined strategies and "Create Custom" option]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Position Limiting -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Position Limiting with Trade Ranker</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Limit maximum concurrent positions and prioritize entries using the trade ranker. When multiple signals trigger simultaneously, the ranker scores potential trades based on technical strength, allowing you to take the best setups while respecting position limits.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Position limit configuration with trade ranker settings]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Cooldown Period -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Cooldown Period</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Set a cooldown period in days between trades on the same symbol. Prevents churning and allows time for new setups to develop after exiting a position.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Cooldown period input field]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Stock Selection -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Stock Selection with Underlying Assets</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Select individual stocks, ETFs, or leveraged products. System automatically maps leveraged ETFs to their underlying (TQQQ→QQQ, SOXL→SOXX, etc.) for signal generation, or manually specify custom underlying symbols for any position.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Stock selection interface showing automatic underlying mapping]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Divider -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <div style="border-top: 2px solid #e5e5e5;"></div>
+                        </td>
+                    </tr>
+
+                    <!-- Backtest Results Section -->
+                    <tr>
+                        <td style="padding: 30px 40px 10px 40px;">
+                            <h2 style="margin: 0; font-size: 22px; font-weight: 600; color: #1a1a1a;">Backtest Results</h2>
+                        </td>
+                    </tr>
+
+                    <!-- Backtest Stats -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Backtest Statistics</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Comprehensive performance metrics including total trades, win rate, average win/loss, edge (expected return per trade), total P/L, ROI, maximum drawdown, and largest winning/losing trades. Stats are broken down by sector for performance attribution analysis.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Statistics dashboard showing key metrics and sector breakdown]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Trade Details -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Trade Details</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Complete trade log with entry/exit dates, prices, position sizes, P/L per trade, and exit reasons (stop loss, signal reversal, etc.). Sortable and filterable by symbol, profit, date range, or exit condition.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Trade list table with sorting and filtering options]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Equity Curve -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Equity Curve</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Visual representation of cumulative account balance over time. Shows drawdown periods, recovery patterns, and overall strategy consistency. Interactive chart allows zooming into specific time periods.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Equity curve chart showing cumulative returns]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Monte Carlo -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333;">Monte Carlo Simulation</h3>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #555;">
+                                Run thousands of randomized variations of the trade sequence to assess strategy robustness. Shows distribution of possible outcomes, confidence intervals, probability of drawdown thresholds, and risk of ruin analysis.
+                            </p>
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f9f9f9; border: 1px dashed #ccc; text-align: center; color: #999; font-size: 12px;">
+                                [SCREENSHOT: Monte Carlo simulation results with probability distribution]
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px;">
+                            <div style="border-top: 2px solid #e5e5e5; padding-top: 30px;">
+                                <p style="margin: 0 0 10px 0; font-size: 14px; color: #333;">
+                                    All features are currently operational and tested against historical data from AlphaVantage and Ovtlyr.
+                                </p>
+                                <p style="margin: 0; font-size: 14px; color: #666;">
+                                    Questions or feedback? Reply to this email.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding: 0 40px 40px 40px;">
+                            <p style="margin: 0; font-size: 14px; color: #333;">Cheers,</p>
+                            <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">The Team</p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

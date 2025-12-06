@@ -52,12 +52,16 @@ class OptionPriceService(
         var currentDate = startDate
 
         while (!currentDate.isAfter(endDate)) {
+            // Format date in YYYY-MM-DD format (ISO 8601) for AlphaVantage API
+            val dateString = currentDate.toString() // LocalDate.toString() returns YYYY-MM-DD format
+            logger.debug("Fetching option data for $underlyingSymbol on $dateString")
+
             val contract = optionsDataClient.findOptionContract(
                 symbol = underlyingSymbol,
                 strike = strike,
-                expiration = expiration.toString(),
+                expiration = expiration.toString(), // Also YYYY-MM-DD format
                 optionType = optionType,
-                date = currentDate.toString()
+                date = dateString
             )
 
             if (contract != null) {
@@ -67,6 +71,9 @@ class OptionPriceService(
                         price = contract.price
                     )
                 )
+                logger.debug("Found price ${contract.price} for $dateString")
+            } else {
+                logger.debug("No data found for $dateString (weekend/holiday/no trading)")
             }
 
             currentDate = currentDate.plusDays(1)

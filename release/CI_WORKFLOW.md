@@ -127,7 +127,7 @@ cd udgaard
 
 ### Frontend Tests
 ```bash
-cd asgaard_nuxt
+cd asgaard
 npm run typecheck
 npm run lint
 npm run build
@@ -172,7 +172,7 @@ npm run build:all
 - Missing imports
 
 **How to fix:**
-1. Run `npm run typecheck` in `asgaard_nuxt/`
+1. Run `npm run typecheck` in `asgaard/`
 2. Fix type errors shown
 3. Push again
 
@@ -189,7 +189,7 @@ npm run build:all
 - Missing semicolons
 
 **How to fix:**
-1. Run `npm run lint` in `asgaard_nuxt/`
+1. Run `npm run lint` in `asgaard/`
 2. Fix linting errors
 3. Push again
 
@@ -208,7 +208,7 @@ npm run build:all
 1. Run `npm run build:all` locally
 2. Check for errors in console
 3. Verify `udgaard/build/libs/` has JAR
-4. Verify `asgaard_nuxt/.output/` exists
+4. Verify `asgaard/.output/` exists
 5. Fix issues and push again
 
 ---

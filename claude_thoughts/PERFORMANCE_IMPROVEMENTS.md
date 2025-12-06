@@ -11,11 +11,11 @@ The backtesting API was timing out when processing many stocks, causing "Headers
 
 ### 1. Frontend Timeout Configuration
 
-**File: `asgaard_nuxt/nuxt.config.ts`**
+**File: `asgaard/nuxt.config.ts`**
 - Added Nitro configuration with extended keep-alive timeout (600s/10 minutes)
 - Configured route-specific headers for the API proxy
 
-**File: `asgaard_nuxt/app/pages/backtesting.vue`**
+**File: `asgaard/app/pages/backtesting.vue`**
 - Increased fetch timeout to 600,000ms (10 minutes)
 - This allows large backtests to complete without timing out
 
@@ -159,7 +159,7 @@ To verify the improvements:
 1. **Test timeout fix:**
    ```bash
    # Frontend
-   cd asgaard_nuxt
+   cd asgaard
    pnpm dev
 
    # Backend

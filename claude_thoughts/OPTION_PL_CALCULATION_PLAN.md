@@ -352,7 +352,7 @@ data class OptionPricePoint(
 
 ### 3.1 Create OptionTradeChart Component
 
-**File:** `asgaard_nuxt/app/components/portfolio/OptionTradeChart.vue`
+**File:** `asgaard/app/components/portfolio/OptionTradeChart.vue`
 
 ```vue
 <template>

@@ -39,46 +39,65 @@ class AlphaVantageOptionsClient(
 
     /**
      * Get all option contracts for a symbol on a specific date.
+     * If date is null, fetches all available historical options data.
      * Returns null if no data available (weekends, holidays, or API error).
      */
-    override fun getHistoricalOptions(symbol: String, date: String): List<OptionContract>? {
+    override fun getHistoricalOptions(symbol: String, date: String?): List<OptionContract>? {
         return runCatching {
-            val url = "$baseUrl?function=$FUNCTION_HISTORICAL_OPTIONS&symbol=$symbol&date=$date&apikey=$apiKey"
-            logger.info("Fetching historical options for $symbol on $date from AlphaVantage")
-            logger.debug("AlphaVantage API URL: ${url.replace(apiKey, "***")}")
+            val dateInfo = if (date != null) " on $date" else " (all data)"
+
+            // Build the URL for logging
+            val urlBuilder = StringBuilder("$baseUrl?function=$FUNCTION_HISTORICAL_OPTIONS&symbol=$symbol")
+            if (date != null) {
+                urlBuilder.append("&date=$date")
+            }
+            urlBuilder.append("&apikey=$apiKey")
+            val fullUrl = urlBuilder.toString()
+
+            logger.info("Fetching historical options for $symbol$dateInfo from AlphaVantage")
+            logger.info("AlphaVantage URL: ${fullUrl.replace(apiKey, "***KEY***")}")
 
             val response = restClient.get()
                 .uri { uriBuilder ->
-                    uriBuilder
+                    val builder = uriBuilder
                         .queryParam("function", FUNCTION_HISTORICAL_OPTIONS)
                         .queryParam("symbol", symbol)
-                        .queryParam("date", date)
                         .queryParam("apikey", apiKey)
-                        .build()
+
+                    // Only add date parameter if provided
+                    if (date != null) {
+                        builder.queryParam("date", date)
+                    }
+
+                    builder.build()
                 }
                 .retrieve()
                 .toEntity(AlphaVantageHistoricalOptions::class.java)
                 .body
 
             if (response == null) {
-                logger.warn("No response received from AlphaVantage historical options for $symbol on $date")
+                logger.warn("No response received from AlphaVantage historical options for $symbol$dateInfo")
                 return null
             }
 
+            logger.debug("AlphaVantage response - message: ${response.message}, data count: ${response.data?.size ?: 0}")
+
             // Check if response contains an error
             if (response.hasError()) {
-                logger.error("AlphaVantage API error for historical options $symbol on $date: ${response.getErrorDescription()}")
+                logger.error("AlphaVantage API error for historical options $symbol$dateInfo: ${response.getErrorDescription()}")
+                logger.error("Response details - message: ${response.message}, data count: ${response.data?.size ?: 0}")
                 return null
             }
 
             // Check if response is valid (has required data)
             if (!response.isValid()) {
-                logger.error("AlphaVantage API returned invalid historical options response for $symbol on $date (missing symbol or data)")
+                logger.error("AlphaVantage API returned invalid or empty historical options response for $symbol$dateInfo")
+                logger.error("Response details - message: ${response.message}, data count: ${response.data?.size ?: 0}")
                 return null
             }
 
             val contracts = response.toOptionContracts()
-            logger.info("Successfully fetched ${contracts.size} option contracts for $symbol on $date")
+            logger.info("Successfully fetched ${contracts.size} option contracts for $symbol$dateInfo")
 
             if (contracts.isNotEmpty()) {
                 val sampleContract = contracts.first()
@@ -87,7 +106,7 @@ class AlphaVantageOptionsClient(
 
             contracts
         }.onFailure { e ->
-            logger.error("Failed to fetch historical options from AlphaVantage for $symbol on $date: ${e.message}", e)
+            logger.error("Failed to fetch historical options from AlphaVantage for $symbol${if (date != null) " on $date" else ""}: ${e.message}", e)
         }.getOrNull()
     }
 
@@ -102,8 +121,11 @@ class AlphaVantageOptionsClient(
         optionType: OptionType,
         date: String
     ): OptionContract? {
+        // Fetch historical options data for the specific date
+        // Date format: YYYY-MM-DD (ISO 8601 format)
         val contracts = getHistoricalOptions(symbol, date) ?: return null
 
+        // Filter for the specific contract parameters
         return contracts.firstOrNull { contract ->
             contract.strike == strike &&
                 contract.expiration.toString() == expiration &&

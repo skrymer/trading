@@ -162,11 +162,11 @@ Potential improvements:
 
 ## Files Modified
 
-1. `asgaard_nuxt/app/pages/backtesting.vue`
-2. `asgaard_nuxt/app/components/backtesting/EquityCurve.vue`
-3. `asgaard_nuxt/app/components/charts/BarChart.client.vue`
-4. `asgaard_nuxt/app/components/charts/LineChart.client.vue`
-5. `asgaard_nuxt/app/types/index.d.ts`
+1. `asgaard/app/pages/backtesting.vue`
+2. `asgaard/app/components/backtesting/EquityCurve.vue`
+3. `asgaard/app/components/charts/BarChart.client.vue`
+4. `asgaard/app/components/charts/LineChart.client.vue`
+5. `asgaard/app/types/index.d.ts`
 
 ## Notes
 

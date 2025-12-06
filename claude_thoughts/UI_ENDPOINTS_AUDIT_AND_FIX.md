@@ -9,7 +9,7 @@ Complete audit and fix of all frontend API endpoints after refactoring the monol
 ## Frontend Files Audited
 
 ### ✅ ConfigModal.vue
-**Location**: `asgaard_nuxt/app/components/backtesting/ConfigModal.vue`
+**Location**: `asgaard/app/components/backtesting/ConfigModal.vue`
 
 **Endpoints**:
 - ✅ `/api/stocks` - StockController
@@ -25,7 +25,7 @@ Complete audit and fix of all frontend API endpoints after refactoring the monol
 ```
 
 ### ✅ etf-stats.vue
-**Location**: `asgaard_nuxt/app/pages/etf-stats.vue`
+**Location**: `asgaard/app/pages/etf-stats.vue`
 
 **Endpoints**:
 - ✅ `/api/etf/{symbol}/stats` - EtfController (FIXED)
@@ -62,7 +62,7 @@ const { data: etfData } = useLazyFetch<EtfStatsResponse>(
 - More RESTful design pattern
 
 ### ✅ market-breadth.vue
-**Location**: `asgaard_nuxt/app/pages/market-breadth.vue`
+**Location**: `asgaard/app/pages/market-breadth.vue`
 
 **Endpoints**:
 - ✅ `/api/market-breadth` - MarketBreadthController (correct)
@@ -72,7 +72,7 @@ const { data: etfData } = useLazyFetch<EtfStatsResponse>(
 **Status**: No changes needed - all paths already correct
 
 ### ✅ backtesting.vue
-**Location**: `asgaard_nuxt/app/pages/backtesting.vue`
+**Location**: `asgaard/app/pages/backtesting.vue`
 
 **Endpoints**:
 - ✅ `/api/backtest` - BacktestController (correct)
@@ -80,7 +80,7 @@ const { data: etfData } = useLazyFetch<EtfStatsResponse>(
 **Status**: No changes needed
 
 ### ✅ portfolio.vue
-**Location**: `asgaard_nuxt/app/pages/portfolio.vue`
+**Location**: `asgaard/app/pages/portfolio.vue`
 
 **Endpoints**:
 - ✅ `/api/portfolio` - PortfolioController (correct)
@@ -91,7 +91,7 @@ const { data: etfData } = useLazyFetch<EtfStatsResponse>(
 **Status**: No changes needed - PortfolioController was not part of refactoring
 
 ### ✅ portfolio/EquityCurve.client.vue
-**Location**: `asgaard_nuxt/app/components/portfolio/EquityCurve.client.vue`
+**Location**: `asgaard/app/components/portfolio/EquityCurve.client.vue`
 
 **Endpoints**:
 - ✅ `/api/portfolio/{id}/equity-curve` - PortfolioController (correct)
@@ -99,7 +99,7 @@ const { data: etfData } = useLazyFetch<EtfStatsResponse>(
 **Status**: No changes needed
 
 ### ✅ portfolio/OpenTradeChart.client.vue
-**Location**: `asgaard_nuxt/app/components/portfolio/OpenTradeChart.client.vue`
+**Location**: `asgaard/app/components/portfolio/OpenTradeChart.client.vue`
 
 **Endpoints**:
 - ✅ `/api/stocks/{symbol}` - StockController (correct)

@@ -39,7 +39,7 @@ echo -e "${GREEN}✅ Backend built successfully${NC}"
 echo -e "${BLUE}🖥️  Starting Electron app...${NC}"
 echo ""
 echo "Note: Make sure Nuxt dev server is running on port 3000"
-echo "      In another terminal: cd asgaard_nuxt && npm run dev"
+echo "      In another terminal: cd asgaard && npm run dev"
 echo ""
 
 npm run dev

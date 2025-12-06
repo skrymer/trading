@@ -17,7 +17,7 @@ The frontend was still trying to fetch from the old paths.
 ## Fix Applied
 
 ### File Modified
-**Path**: `asgaard_nuxt/app/components/backtesting/ConfigModal.vue`
+**Path**: `asgaard/app/components/backtesting/ConfigModal.vue`
 
 **Lines 54-64**: Updated API endpoint paths
 

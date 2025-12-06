@@ -48,13 +48,13 @@ echo -e "${GREEN}✅ Backend built successfully${NC}"
 
 # Build frontend
 echo -e "${BLUE}🎨 Building Nuxt frontend...${NC}"
-cd asgaard_nuxt
+cd asgaard
 npm install
 npm run build
 cd ..
 
 # Verify frontend build
-if [ ! -d "asgaard_nuxt/.output" ]; then
+if [ ! -d "asgaard/.output" ]; then
     echo -e "${YELLOW}⚠️  Frontend build not found${NC}"
     exit 1
 fi

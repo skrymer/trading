@@ -7,7 +7,7 @@ This directory contains the Electron wrapper that packages the Trading Backtesti
 The desktop app consists of three parts:
 1. **Electron Main Process** (`main.js`) - Manages the application lifecycle and native OS integration
 2. **Spring Boot Backend** (`udgaard`) - Runs as a subprocess, provides REST API
-3. **Nuxt Frontend** (`asgaard_nuxt`) - Rendered in Electron's browser window
+3. **Nuxt Frontend** (`asgaard`) - Rendered in Electron's browser window
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ npm install
 **Option 1: Full Dev Mode (recommended for frontend development)**
 ```bash
 # Terminal 1: Start Nuxt dev server
-cd asgaard_nuxt
+cd asgaard
 npm run dev
 
 # Terminal 2: Build backend JAR
@@ -48,7 +48,7 @@ cd udgaard
 ./gradlew bootJar
 
 # Build frontend once
-cd ../asgaard_nuxt
+cd ../asgaard
 npm run build
 
 # Start Electron
@@ -100,7 +100,7 @@ trading/
 │   └── README.md         # This file
 ├── udgaard/              # Spring Boot backend
 │   └── build/libs/       # Built JAR location
-├── asgaard_nuxt/         # Nuxt frontend
+├── asgaard/         # Nuxt frontend
 │   └── .output/          # Built frontend
 ├── package.json          # Electron app config
 └── dist-electron/        # Built desktop apps
@@ -144,7 +144,7 @@ Change the app identifier in `package.json`:
 ### Frontend not loading
 
 **Dev mode**: Ensure Nuxt dev server is running on port 3000
-**Production**: Ensure frontend was built: `cd asgaard_nuxt && npm run build`
+**Production**: Ensure frontend was built: `cd asgaard && npm run build`
 
 ### Port conflicts
 

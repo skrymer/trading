@@ -4,6 +4,7 @@ import com.skrymer.udgaard.model.*
 import com.skrymer.udgaard.repository.PortfolioRepository
 import com.skrymer.udgaard.repository.PortfolioTradeRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
@@ -64,6 +65,7 @@ class PortfolioService(
     /**
      * Delete portfolio and all associated trades
      */
+    @Transactional
     fun deletePortfolio(portfolioId: Long) {
         // Delete all trades associated with the portfolio
         portfolioTradeRepository.deleteByPortfolioId(portfolioId)
@@ -274,6 +276,7 @@ class PortfolioService(
     /**
      * Delete a trade (only open trades can be deleted)
      */
+    @Transactional
     fun deleteTrade(tradeId: Long): Boolean {
         val trade = portfolioTradeRepository.findById(tradeId).orElse(null) ?: return false
 

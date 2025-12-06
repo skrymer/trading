@@ -4,7 +4,7 @@
 
 ### 1. Added Technique Selector to Backtesting Page
 
-**File**: `asgaard_nuxt/app/pages/backtesting.vue`
+**File**: `asgaard/app/pages/backtesting.vue`
 
 **Changes**:
 - Added `selectedTechnique` state variable (defaults to TRADE_SHUFFLING)
@@ -23,7 +23,7 @@
 
 ### 2. Enhanced Results Display
 
-**File**: `asgaard_nuxt/app/components/backtesting/MonteCarloMetrics.vue`
+**File**: `asgaard/app/components/backtesting/MonteCarloMetrics.vue`
 
 **Changes**:
 - Added contextual information based on technique used

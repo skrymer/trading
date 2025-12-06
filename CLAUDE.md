@@ -6,7 +6,7 @@ This file provides comprehensive context for the Trading Platform project.
 
 **IMPORTANT:** When working on specific parts of the codebase, read the relevant technology-specific guide:
 
-- **Frontend work** (Vue/Nuxt/UI components): Read `asgaard_nuxt/claude.md`
+- **Frontend work** (Vue/Nuxt/UI components): Read `asgaard/claude.md`
   - Includes NuxtUI component patterns, Vue composition API examples, form validation, styling conventions
 
 - **Backend work** (Kotlin/Spring Boot/Strategies): Read `udgaard/claude.md`
@@ -53,7 +53,7 @@ The desktop app uses a three-process architecture:
   - Uses JAR from `udgaard/build/libs/`
 
 - **Production Mode**:
-  - Loads frontend from built assets in `asgaard_nuxt/.output/`
+  - Loads frontend from built assets in `asgaard/.output/`
   - Uses JAR from bundled resources
   - No DevTools
 
@@ -315,7 +315,7 @@ trading/
 │   ├── compose.yaml                 # Docker compose (deprecated - used MongoDB)
 │   └── *.md                         # Documentation files
 │
-├── asgaard_nuxt/                    # Frontend (Nuxt.js)
+├── asgaard/                    # Frontend (Nuxt.js)
 │   ├── app/
 │   │   ├── components/              # Vue components
 │   │   │   ├── backtesting/         # Backtesting UI components
@@ -387,7 +387,7 @@ trading/
 
 1. **Install dependencies:**
    ```bash
-   cd asgaard_nuxt
+   cd asgaard
    npm install
    ```
 
@@ -407,7 +407,7 @@ trading/
 **Development Mode (Recommended):**
 ```bash
 # Terminal 1: Start Nuxt dev server
-cd asgaard_nuxt
+cd asgaard
 npm run dev
 
 # Terminal 2: Start Electron (loads from http://localhost:3000)
@@ -456,7 +456,7 @@ cd udgaard
 
 **Frontend:**
 ```bash
-cd asgaard_nuxt
+cd asgaard
 npm run typecheck  # TypeScript validation
 npm run lint       # ESLint
 ```
@@ -618,7 +618,7 @@ Position Value: $5.50 × 2 × 100 = $1,100
 - `claude_thoughts/PLAN_BETA_STRATEGY_README.md` - Plan Beta strategy docs
 - `udgaard/README.MD` - Backend setup instructions
 - `udgaard/claude.md` - Backend development guide (Kotlin/Spring Boot patterns)
-- `asgaard_nuxt/claude.md` - Frontend development guide (Nuxt/Vue patterns)
+- `asgaard/claude.md` - Frontend development guide (Nuxt/Vue patterns)
 - `release/CI_WORKFLOW.md` - CI/CD pipeline and automated testing
 - `release/DEPLOYMENT.md` - Release and deployment guide
 - `release/RELEASE_QUICKSTART.md` - Quick release guide
@@ -627,8 +627,8 @@ Position Value: $5.50 × 2 × 100 = $1,100
 
 ### Configuration
 - `udgaard/src/main/resources/application.properties` - Backend config
-- `asgaard_nuxt/nuxt.config.ts` - Frontend config
-- `asgaard_nuxt/package.json` - Frontend dependencies
+- `asgaard/nuxt.config.ts` - Frontend config
+- `asgaard/package.json` - Frontend dependencies
 - `udgaard/build.gradle` - Backend dependencies
 
 ### Core Code
@@ -636,7 +636,7 @@ Position Value: $5.50 × 2 × 100 = $1,100
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/model/strategy/StrategyDsl.kt` - Strategy DSL
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/service/StockService.kt` - Backtesting logic
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/mcp/StockMcpTools.kt` - MCP tools
-- `asgaard_nuxt/app/pages/backtesting.vue` - Main backtesting UI
+- `asgaard/app/pages/backtesting.vue` - Main backtesting UI
 
 ---
 
@@ -725,7 +725,7 @@ Access via `useRuntimeConfig()`:
   - Increase `BACKEND_STARTUP_TIMEOUT` in `electron/main.js`
   - Check backend logs in Electron console
 - **Frontend not loading (dev mode)**: Ensure Nuxt dev server is running on port 3000
-- **Frontend not loading (production)**: Build frontend with `cd asgaard_nuxt && npm run build`
+- **Frontend not loading (production)**: Build frontend with `cd asgaard && npm run build`
 - **Shared library errors (Linux)**: Install system dependencies:
   ```bash
   sudo apt install libatk1.0-0 libatk-bridge2.0-0 libgdk-pixbuf2.0-0 \
@@ -797,7 +797,7 @@ Access via `useRuntimeConfig()`:
 - Write unit tests for strategy logic
 - Test backtesting results against known expected values
 - TypeScript strict mode enabled
-- **Always run `npm run typecheck` in asgaard_nuxt** before completing frontend changes
+- **Always run `npm run typecheck` in asgaard** before completing frontend changes
 - ESLint validation before commits
 
 ---
@@ -947,9 +947,9 @@ Access via `useRuntimeConfig()`:
 - Stock data fetch: 300x faster with cache (30s → 0.1s)
 
 **Files Modified**:
-- `asgaard_nuxt/nuxt.config.ts`
-- `asgaard_nuxt/app/pages/backtesting.vue`
-- `asgaard_nuxt/app/components/backtesting/ConfigModal.vue`
+- `asgaard/nuxt.config.ts`
+- `asgaard/app/pages/backtesting.vue`
+- `asgaard/app/components/backtesting/ConfigModal.vue`
 - `udgaard/build.gradle`
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/config/CacheConfig.kt` (new)
 - `udgaard/src/main/kotlin/com/skrymer/udgaard/service/StockService.kt`
@@ -1031,7 +1031,7 @@ Stock Entity (saved to H2)
 This project uses a three-level documentation approach:
 
 1. **CLAUDE.md** (this file) - High-level project context, architecture, and recent work
-2. **asgaard_nuxt/claude.md** - Frontend-specific patterns, NuxtUI components, and Vue best practices
+2. **asgaard/claude.md** - Frontend-specific patterns, NuxtUI components, and Vue best practices
 3. **udgaard/claude.md** - Backend-specific patterns, Kotlin idioms, and Spring Boot conventions
 
 ---

@@ -8,7 +8,7 @@
     "dev": "electron . --dev",
     "build:backend": "cd udgaard && ./gradlew bootJar",
     "build:backend:win": "cd udgaard && .\\gradlew.bat bootJar",
-    "build:frontend": "cd asgaard_nuxt && pnpm run build",
+    "build:frontend": "cd asgaard && pnpm run build",
     "build:all": "pnpm run build:backend && pnpm run build:frontend",
     "build:all:win": "pnpm run build:backend:win && pnpm run build:frontend",
     "pack": "electron-builder --dir",
@@ -38,7 +38,7 @@
         "filter": ["**/*"]
       },
       {
-        "from": "asgaard_nuxt/.output/public/",
+        "from": "asgaard/.output/public/",
         "to": "frontend",
         "filter": ["**/*"]
       }

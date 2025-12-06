@@ -1,0 +1,118 @@
+Subject: Backtesting Platform - Status Update
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Quick overview of the backtesting platform's current capabilities. The system
+is fully functional for testing trading strategies against historical data.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKTEST CONFIGURATION
+
+────────────────────────────────────────────────────────────────────
+
+Strategy Selection
+──────────────────
+Choose from predefined entry and exit strategies (Plan Alpha, Plan Beta,
+Plan ETF, Plan Money, etc.) or build custom strategies using a condition-based
+builder. Custom strategies combine multiple predefined conditions like EMA
+crossovers, market breadth filters, sentiment thresholds, and ATR-based stops.
+
+[SCREENSHOT: Strategy selection dropdown showing predefined strategies and
+"Create Custom" option]
+
+────────────────────────────────────────────────────────────────────
+
+Position Limiting with Trade Ranker
+────────────────────────────────────
+Limit maximum concurrent positions and prioritize entries using the trade
+ranker. When multiple signals trigger simultaneously, the ranker scores
+potential trades based on technical strength, allowing you to take the best
+setups while respecting position limits.
+
+[SCREENSHOT: Position limit configuration with trade ranker settings]
+
+────────────────────────────────────────────────────────────────────
+
+Cooldown Period
+───────────────
+Set a cooldown period in days between trades on the same symbol. Prevents
+churning and allows time for new setups to develop after exiting a position.
+
+[SCREENSHOT: Cooldown period input field]
+
+────────────────────────────────────────────────────────────────────
+
+Stock Selection with Underlying Assets
+───────────────────────────────────────
+Select individual stocks, ETFs, or leveraged products. System automatically
+maps leveraged ETFs to their underlying (TQQQ→QQQ, SOXL→SOXX, etc.) for
+signal generation, or manually specify custom underlying symbols for any
+position.
+
+[SCREENSHOT: Stock selection interface showing automatic underlying mapping]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKTEST RESULTS
+
+────────────────────────────────────────────────────────────────────
+
+Backtest Statistics
+───────────────────
+Comprehensive performance metrics including total trades, win rate, average
+win/loss, edge (expected return per trade), total P/L, ROI, maximum drawdown,
+and largest winning/losing trades. Stats are broken down by sector for
+performance attribution analysis.
+
+[SCREENSHOT: Statistics dashboard showing key metrics and sector breakdown]
+
+────────────────────────────────────────────────────────────────────
+
+Trade Details
+─────────────
+Complete trade log with entry/exit dates, prices, position sizes, P/L per
+trade, and exit reasons (stop loss, signal reversal, etc.). Sortable and
+filterable by symbol, profit, date range, or exit condition.
+
+[SCREENSHOT: Trade list table with sorting and filtering options]
+
+────────────────────────────────────────────────────────────────────
+
+Sector Breakdown
+────────────────
+Performance analysis by market sector showing profit/loss, win rate, and
+trade count for each sector. Identifies which sectors your strategy performs
+best in and helps optimize sector allocation or filtering.
+
+[SCREENSHOT: Sector performance breakdown chart/table]
+
+────────────────────────────────────────────────────────────────────
+
+Equity Curve
+────────────
+Visual representation of cumulative account balance over time. Shows drawdown
+periods, recovery patterns, and overall strategy consistency. Interactive
+chart allows zooming into specific time periods.
+
+[SCREENSHOT: Equity curve chart showing cumulative returns]
+
+────────────────────────────────────────────────────────────────────
+
+Monte Carlo Simulation
+──────────────────────
+Run thousands of randomized variations of the trade sequence to assess
+strategy robustness. Shows distribution of possible outcomes, confidence
+intervals, probability of drawdown thresholds, and risk of ruin analysis.
+
+[SCREENSHOT: Monte Carlo simulation results with probability distribution]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+All features are currently operational and tested against historical data
+from AlphaVantage and Ovtlyr.
+
+Questions or feedback? Reply to this email.
+
+Cheers,
+The Team

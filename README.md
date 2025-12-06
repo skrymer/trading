@@ -69,7 +69,7 @@ curl -X POST http://localhost:8080/api/backtest \
 **Option 3: Via UI**
 
 1. Start the backend: `cd udgaard && ./gradlew bootRun`
-2. Start the frontend: `cd asgaard_nuxt && npm run dev`
+2. Start the frontend: `cd asgaard && npm run dev`
 3. Open http://localhost:3000
 4. Click "New Backtest" and configure options
 5. View results with charts and metrics
@@ -490,7 +490,7 @@ java -jar build/libs/udgaard-0.0.1-SNAPSHOT.jar
 
 **Install dependencies:**
 ```bash
-cd asgaard_nuxt
+cd asgaard
 npm install
 ```
 
@@ -506,7 +506,7 @@ npm run dev
 **Development Mode:**
 ```bash
 # Terminal 1: Start Nuxt dev server
-cd asgaard_nuxt
+cd asgaard
 npm run dev
 
 # Terminal 2: Start Electron
@@ -538,7 +538,7 @@ cd udgaard
 
 **Frontend:**
 ```bash
-cd asgaard_nuxt
+cd asgaard
 npm run typecheck
 npm run lint
 ```
@@ -559,7 +559,7 @@ npm run lint
 
 **Check:**
 ```typescript
-// asgaard_nuxt/app/pages/backtesting.vue
+// asgaard/app/pages/backtesting.vue
 const report = await $fetch('/udgaard/api/backtest', {
   timeout: 600000 // 10 minutes
 })
@@ -738,7 +738,7 @@ trading/
 │   ├── src/test/kotlin/
 │   └── build.gradle
 │
-├── asgaard_nuxt/              # Frontend (Nuxt.js)
+├── asgaard/              # Frontend (Nuxt.js)
 │   ├── app/
 │   │   ├── components/
 │   │   │   ├── backtesting/

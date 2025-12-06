@@ -454,7 +454,7 @@ class DataStatsService(
 
 ### TypeScript Type Definitions
 
-Add to `asgaard_nuxt/app/types/index.d.ts`:
+Add to `asgaard/app/types/index.d.ts`:
 
 ```typescript
 export interface RateLimitStats {

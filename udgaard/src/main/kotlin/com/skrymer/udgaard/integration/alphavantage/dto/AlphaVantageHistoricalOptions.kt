@@ -9,17 +9,25 @@ import java.time.LocalDate
 /**
  * Response from AlphaVantage HISTORICAL_OPTIONS API
  * Documentation: https://www.alphavantage.co/documentation/#historical-options
+ *
+ * Example response:
+ * {
+ *   "endpoint": "Historical Options",
+ *   "message": "success",
+ *   "data": [...]
+ * }
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageHistoricalOptions(
-    val symbol: String? = null,
+    val endpoint: String? = null,
+    val message: String? = null,
     val data: List<AlphaVantageOptionContract>? = null
 ) {
-    fun hasError(): Boolean = symbol == null && data == null
+    fun hasError(): Boolean = message != "success" || data == null
 
-    fun getErrorDescription(): String = "Invalid response - missing symbol or data"
+    fun getErrorDescription(): String = message ?: "Unknown error"
 
-    fun isValid(): Boolean = symbol != null && data != null
+    fun isValid(): Boolean = message == "success" && data != null && data.isNotEmpty()
 
     fun toOptionContracts(): List<OptionContract> {
         return data?.map { it.toOptionContract() } ?: emptyList()
