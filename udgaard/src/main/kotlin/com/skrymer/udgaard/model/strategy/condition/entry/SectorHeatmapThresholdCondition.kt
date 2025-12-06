@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
@@ -23,4 +24,24 @@ class SectorHeatmapThresholdCondition(
         type = "sectorHeatmapThreshold",
         description = description()
     )
+
+    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+        val actualHeatmap = quote.sectorHeatmap
+        val passed = actualHeatmap < threshold
+
+        val message = if (passed) {
+            "Sector heatmap ${"%.1f".format(actualHeatmap)} < ${"%.1f".format(threshold)} ✓"
+        } else {
+            "Sector heatmap ${"%.1f".format(actualHeatmap)} ≥ ${"%.1f".format(threshold)} ✗"
+        }
+
+        return ConditionEvaluationResult(
+            conditionType = "SectorHeatmapThresholdCondition",
+            description = description(),
+            passed = passed,
+            actualValue = "%.1f".format(actualHeatmap),
+            threshold = "< %.1f".format(threshold),
+            message = message
+        )
+    }
 }

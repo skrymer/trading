@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
@@ -19,4 +20,25 @@ class SectorHeatmapGreaterThanSpyCondition : TradingCondition {
         type = "sectorHeatmapGreaterThanSpy",
         description = description()
     )
+
+    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+        val sectorHeatmap = quote.sectorHeatmap
+        val spyHeatmap = quote.spyHeatmap
+        val passed = sectorHeatmap > spyHeatmap
+
+        val message = if (passed) {
+            "Sector heatmap ${"%.1f".format(sectorHeatmap)} > SPY heatmap ${"%.1f".format(spyHeatmap)} ✓"
+        } else {
+            "Sector heatmap ${"%.1f".format(sectorHeatmap)} ≤ SPY heatmap ${"%.1f".format(spyHeatmap)} ✗"
+        }
+
+        return ConditionEvaluationResult(
+            conditionType = "SectorHeatmapGreaterThanSpyCondition",
+            description = description(),
+            passed = passed,
+            actualValue = "Sector: ${"%.1f".format(sectorHeatmap)}, SPY: ${"%.1f".format(spyHeatmap)}",
+            threshold = "Sector > SPY",
+            message = message
+        )
+    }
 }
