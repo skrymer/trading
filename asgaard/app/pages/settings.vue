@@ -26,7 +26,7 @@
                 </div>
                 <UBadge
                   v-if="credentialsStatus"
-                  :color="allConfigured ? 'green' : 'orange'"
+                  :color="allConfigured ? 'success' : 'warning'"
                   variant="subtle"
                 >
                   {{ allConfigured ? 'Configured' : 'Incomplete' }}
@@ -41,7 +41,7 @@
                   Ovtlyr API
                   <UBadge
                     v-if="credentialsStatus"
-                    :color="credentialsStatus.ovtlyrConfigured ? 'green' : 'gray'"
+                    :color="credentialsStatus.ovtlyrConfigured ? 'success' : 'neutral'"
                     size="xs"
                   >
                     {{ credentialsStatus.ovtlyrConfigured ? 'Configured' : 'Not configured' }}
@@ -67,7 +67,7 @@
 
                   <UAlert
                     icon="i-lucide-info"
-                    color="blue"
+                    color="info"
                     variant="subtle"
                     title="How to get Ovtlyr credentials"
                     description="1. Login to console.ovtlyr.com  2. Open browser DevTools (F12)  3. Go to Application > Cookies  4. Copy 'token' and 'userid' values"
@@ -83,7 +83,7 @@
                   Alpha Vantage API
                   <UBadge
                     v-if="credentialsStatus"
-                    :color="credentialsStatus.alphaVantageConfigured ? 'green' : 'gray'"
+                    :color="credentialsStatus.alphaVantageConfigured ? 'success' : 'neutral'"
                     size="xs"
                   >
                     {{ credentialsStatus.alphaVantageConfigured ? 'Configured' : 'Not configured' }}
@@ -101,7 +101,7 @@
 
                   <UAlert
                     icon="i-lucide-info"
-                    color="blue"
+                    color="info"
                     variant="subtle"
                     title="Get a free API key"
                   >
@@ -131,7 +131,7 @@
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-600 dark:text-gray-400">Config file exists</span>
-                <UBadge :color="credentialsStatus.configFileExists ? 'green' : 'gray'">
+                <UBadge :color="credentialsStatus.configFileExists ? 'success' : 'neutral'">
                   {{ credentialsStatus.configFileExists ? 'Yes' : 'No' }}
                 </UBadge>
               </div>
@@ -141,7 +141,7 @@
               </div>
               <UAlert
                 icon="i-lucide-info"
-                color="gray"
+                color="neutral"
                 variant="subtle"
                 description="Your credentials are saved locally and never sent to any server except the respective API providers"
               />

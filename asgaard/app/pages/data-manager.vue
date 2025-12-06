@@ -15,7 +15,7 @@ const refreshProgress = ref<RefreshProgress>({
 })
 
 const loading = ref(false)
-const pollingInterval = ref<NodeJS.Timeout | null>(null)
+const pollingInterval = ref<number | null>(null)
 
 // Load initial data
 async function loadData() {

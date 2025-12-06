@@ -77,7 +77,7 @@ function getCumulativeReturnPct(trade: PortfolioTrade): number | undefined {
 <template>
   <UModal
     :open="isOpen"
-    :ui="{ width: 'sm:max-w-4xl' }"
+    :ui="{ content: 'sm:max-w-4xl' }"
     @update:open="isOpen = $event"
   >
     <template #header>

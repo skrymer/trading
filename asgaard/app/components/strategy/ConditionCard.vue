@@ -103,8 +103,8 @@ function getCategoryColor(category: string): BadgeColor {
         <!-- Select for number with options -->
         <USelect
           v-else-if="param.type === 'number' && param.options"
-          :model-value="String(parameters[param.name])"
-          :items="param.options.map((o: number) => ({ label: o, value: o }))"
+          :model-value="parameters[param.name]"
+          :items="param.options.map((o: string) => ({ label: o, value: Number(o) }))"
           value-key="value"
           size="xs"
           @update:model-value="updateParameter(param.name, Number($event))"

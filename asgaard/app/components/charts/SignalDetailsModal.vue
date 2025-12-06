@@ -66,9 +66,6 @@ const emit = defineEmits<{
             <p class="font-medium">
               {{ signal.entryDetails.strategyName }}
             </p>
-            <p class="text-sm text-muted">
-              {{ signal.entryDetails.strategyDescription }}
-            </p>
           </div>
 
           <!-- Conditions List -->

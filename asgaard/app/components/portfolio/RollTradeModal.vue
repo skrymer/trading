@@ -97,7 +97,7 @@ function close() {
   <UModal
     :open="isOpen"
     title="Roll Option Position"
-    :ui="{ width: 'sm:max-w-2xl' }"
+    :ui="{ content: 'sm:max-w-2xl' }"
     @update:open="isOpen = $event"
   >
     <template #body>

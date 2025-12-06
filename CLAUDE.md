@@ -824,10 +824,12 @@ npm run typecheck
 ```
 
 **Important:**
-- ✅ **Fix all type errors in files you modified**
-- ℹ️ Pre-existing errors in unmodified files can be noted but don't block your commit
-- ✅ **Never introduce new type errors**
+- ✅ **Must have ZERO typecheck errors before committing**
+- ✅ **Fix ALL type errors, including pre-existing ones if needed**
+- ✅ **Never commit with any TypeScript errors**
 - ✅ **Verify your changes don't break existing types**
+
+If you encounter pre-existing errors in files you didn't modify, you must still fix them before committing. This ensures the codebase stays in a clean, error-free state.
 
 #### 3. Update Relevant Documentation
 
