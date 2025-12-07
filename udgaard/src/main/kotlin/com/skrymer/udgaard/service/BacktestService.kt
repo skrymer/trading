@@ -1,8 +1,6 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.BacktestReport
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.Trade
+import com.skrymer.udgaard.model.*
 import com.skrymer.udgaard.model.backtest.PotentialEntry
 import com.skrymer.udgaard.model.backtest.RankedEntry
 import com.skrymer.udgaard.model.backtest.StockPair
@@ -10,10 +8,12 @@ import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import com.skrymer.udgaard.model.strategy.HeatmapRanker
 import com.skrymer.udgaard.model.strategy.StockRanker
+import com.skrymer.udgaard.repository.BreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 /**
@@ -28,7 +28,8 @@ import java.time.LocalDate
  */
 @Service
 class BacktestService(
-    private val stockRepository: StockRepository
+    private val stockRepository: StockRepository,
+    private val breadthRepository: BreadthRepository
 ) {
 
     /**
@@ -213,9 +214,10 @@ class BacktestService(
      * @param ranker - the stock ranker to use for selecting best stocks when position limit is reached (default: HeatmapRanker)
      * @param useUnderlyingAssets - enable automatic underlying asset detection for strategy evaluation (default: true)
      * @param customUnderlyingMap - custom symbol → underlying mappings (overrides AssetMapper)
-     * @param cooldownDays - global cooldown period in trading days after any exit before allowing new entries (default: 0)
+     * @param cooldownDays - global cooldown period in trading days after exit before allowing new entries (default: 0)
      * @return a backtest report
      */
+    @Transactional(readOnly = true)
     fun backtest(
         entryStrategy: EntryStrategy,
         exitStrategy: ExitStrategy,
@@ -342,8 +344,56 @@ class BacktestService(
 
         logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed")
 
+        // Get SPY and market breadth for market condition tracking
+        val spyStock = stockRepository.findByIdOrNull("SPY")
+        val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
+
+        logger.info("Calculating trade excursion metrics and market conditions...")
+
+        // Enrich each trade with excursion metrics and market conditions
+        trades.forEach { trade ->
+            trade.excursionMetrics = calculateExcursionMetrics(trade, trade.entryQuote)
+            trade.entryQuote.date?.let { entryDate ->
+                trade.marketConditionAtEntry = captureMarketCondition(
+                    entryDate,
+                    spyStock,
+                    marketBreadth
+                )
+            }
+        }
+
+        logger.info("Calculating aggregate diagnostic statistics...")
+
         val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
-        return BacktestReport(winningTrades, losingTrades, missedTrades)
+
+        // Calculate aggregate diagnostic statistics
+        val timeStats = calculateTimeBasedStats(trades)
+        val exitAnalysis = calculateExitReasonAnalysis(trades)
+        val sectorPerf = calculateSectorPerformance(trades)
+        val atrDrawdown = calculateATRDrawdownStats(winningTrades)
+
+        // Calculate market condition averages
+        val marketAvgs = trades.mapNotNull { it.marketConditionAtEntry }
+            .let { conditions ->
+                if (conditions.isEmpty()) null else mapOf(
+                    "avgSpyHeatmap" to conditions.mapNotNull { it.spyHeatmap }.average(),
+                    "avgMarketBreadth" to conditions.mapNotNull { it.marketBreadthBullPercent }.average(),
+                    "spyUptrendPercent" to (conditions.count { it.spyInUptrend }.toDouble() / conditions.size) * 100
+                )
+            }
+
+        logger.info("Backtest analysis complete with enhanced metrics")
+
+        return BacktestReport(
+            winningTrades,
+            losingTrades,
+            missedTrades,
+            timeBasedStats = timeStats,
+            exitReasonAnalysis = exitAnalysis,
+            sectorPerformance = sectorPerf,
+            atrDrawdownStats = atrDrawdown,
+            marketConditionAverages = marketAvgs
+        )
     }
 
     /**
@@ -410,4 +460,225 @@ class BacktestService(
 
     // Helper extension for formatting doubles
     private fun Double.format(decimals: Int) = "%.${decimals}f".format(this)
+
+    /**
+     * Calculate Maximum Favorable Excursion (MFE) and Maximum Adverse Excursion (MAE)
+     * for a trade, both in percentage and ATR units.
+     */
+    private fun calculateExcursionMetrics(
+        trade: Trade,
+        entryQuote: StockQuote
+    ): ExcursionMetrics {
+        val entryPrice = entryQuote.closePrice
+        val entryATR = entryQuote.atr ?: 1.0  // Fallback to 1.0 if ATR missing
+
+        var maxProfit = 0.0
+        var maxDrawdown = 0.0
+        var maxProfitATR = 0.0
+        var maxDrawdownATR = 0.0
+
+        trade.quotes.forEach { quote ->
+            val profit = ((quote.closePrice - entryPrice) / entryPrice) * 100
+            val profitATR = (quote.closePrice - entryPrice) / entryATR
+
+            if (profit > maxProfit) {
+                maxProfit = profit
+                maxProfitATR = profitATR
+            }
+            if (profit < maxDrawdown) {
+                maxDrawdown = profit
+                maxDrawdownATR = profitATR
+            }
+        }
+
+        return ExcursionMetrics(
+            maxFavorableExcursion = maxProfit,
+            maxFavorableExcursionATR = maxProfitATR,
+            maxAdverseExcursion = maxDrawdown,
+            maxAdverseExcursionATR = kotlin.math.abs(maxDrawdownATR),  // Positive value
+            mfeReached = maxProfit > 0
+        )
+    }
+
+    /**
+     * Calculate ATR drawdown statistics for winning trades.
+     * Strategy-agnostic - provides percentiles and distribution for user interpretation.
+     */
+    private fun calculateATRDrawdownStats(
+        winningTrades: List<Trade>
+    ): ATRDrawdownStats? {
+        val drawdowns = winningTrades
+            .mapNotNull { it.excursionMetrics?.maxAdverseExcursionATR }
+            .sorted()
+
+        if (drawdowns.isEmpty()) return null
+
+        val size = drawdowns.size
+        val median = drawdowns[size / 2]
+        val mean = drawdowns.average()
+
+        // Calculate percentiles
+        fun percentile(p: Double) = drawdowns[((size - 1) * p).toInt().coerceIn(0, size - 1)]
+
+        val p25 = percentile(0.25)
+        val p50 = median
+        val p75 = percentile(0.75)
+        val p90 = percentile(0.90)
+        val p95 = percentile(0.95)
+        val p99 = percentile(0.99)
+
+        // Build distribution with cumulative percentages
+        val buckets = listOf(
+            "0.0-0.5" to 0.5,
+            "0.5-1.0" to 1.0,
+            "1.0-1.5" to 1.5,
+            "1.5-2.0" to 2.0,
+            "2.0-2.5" to 2.5,
+            "2.5-3.0" to 3.0,
+            "3.0+" to Double.MAX_VALUE
+        )
+
+        val distribution = mutableMapOf<String, DrawdownBucket>()
+        var cumulativeCount = 0
+        var previousThreshold = 0.0
+
+        buckets.forEach { (range, threshold) ->
+            val count = drawdowns.count { it >= previousThreshold && it < threshold }
+            cumulativeCount += count
+            val percentage = (count.toDouble() / size) * 100
+            val cumulativePercentage = (cumulativeCount.toDouble() / size) * 100
+
+            distribution[range] = DrawdownBucket(
+                range = range,
+                count = count,
+                percentage = percentage,
+                cumulativePercentage = cumulativePercentage
+            )
+
+            previousThreshold = threshold
+        }
+
+        return ATRDrawdownStats(
+            medianDrawdown = median,
+            meanDrawdown = mean,
+            percentile25 = p25,
+            percentile50 = p50,
+            percentile75 = p75,
+            percentile90 = p90,
+            percentile95 = p95,
+            percentile99 = p99,
+            minDrawdown = drawdowns.first(),
+            maxDrawdown = drawdowns.last(),
+            distribution = distribution,
+            totalWinningTrades = size
+        )
+    }
+
+    /**
+     * Capture market conditions at trade entry date.
+     * Requires SPY stock data and optionally market breadth.
+     */
+    private fun captureMarketCondition(
+        date: LocalDate,
+        spyStock: Stock?,
+        marketBreadth: Breadth?
+    ): MarketConditionSnapshot? {
+        if (spyStock == null) return null
+
+        val spyQuote = spyStock.quotes.firstOrNull { it.date == date }
+            ?: return null
+
+        val breadthQuote = marketBreadth?.quotes?.firstOrNull { it.quoteDate == date }
+
+        return MarketConditionSnapshot(
+            spyClose = spyQuote.closePrice,
+            spyHeatmap = spyQuote.heatmap,
+            spyInUptrend = spyQuote.spyInUptrend,
+            marketBreadthBullPercent = breadthQuote?.ema_10,  // Use EMA as proxy for bull percentage
+            entryDate = date
+        )
+    }
+
+    /**
+     * Calculate performance statistics grouped by year, quarter, and month.
+     */
+    private fun calculateTimeBasedStats(trades: List<Trade>): TimeBasedStats {
+        val byYear = trades.groupBy { it.startDate?.year }
+            .mapNotNull { (year, periodTrades) ->
+                year?.let { it to calculatePeriodStats(periodTrades) }
+            }.toMap()
+
+        val byQuarter = trades.groupBy { trade ->
+            trade.startDate?.let { "${it.year}-Q${(it.monthValue - 1) / 3 + 1}" }
+        }.mapNotNull { (quarter, periodTrades) ->
+            quarter?.let { it to calculatePeriodStats(periodTrades) }
+        }.toMap()
+
+        val byMonth = trades.groupBy { trade ->
+            trade.startDate?.let { "${it.year}-${it.monthValue.toString().padStart(2, '0')}" }
+        }.mapNotNull { (month, periodTrades) ->
+            month?.let { it to calculatePeriodStats(periodTrades) }
+        }.toMap()
+
+        return TimeBasedStats(byYear, byQuarter, byMonth)
+    }
+
+    /**
+     * Calculate statistics for a specific time period.
+     */
+    private fun calculatePeriodStats(trades: List<Trade>): PeriodStats {
+        val winners = trades.count { it.profit > 0 }
+        val exitReasons = trades.groupingBy { it.exitReason }.eachCount()
+
+        return PeriodStats(
+            trades = trades.size,
+            winRate = if (trades.isNotEmpty()) (winners.toDouble() / trades.size) * 100 else 0.0,
+            avgProfit = if (trades.isNotEmpty()) trades.map { it.profitPercentage }.average() else 0.0,
+            avgHoldingDays = if (trades.isNotEmpty()) trades.mapNotNull { it.tradingDays }.average() else 0.0,
+            exitReasons = exitReasons
+        )
+    }
+
+    /**
+     * Analyze exit reasons with statistics per reason and per year.
+     */
+    private fun calculateExitReasonAnalysis(trades: List<Trade>): ExitReasonAnalysis {
+        val byReason = trades.groupBy { it.exitReason }
+            .mapValues { (_, reasonTrades) ->
+                val winners = reasonTrades.count { it.profit > 0 }
+                ExitStats(
+                    count = reasonTrades.size,
+                    avgProfit = if (reasonTrades.isNotEmpty()) reasonTrades.map { it.profitPercentage }.average() else 0.0,
+                    avgHoldingDays = if (reasonTrades.isNotEmpty()) reasonTrades.mapNotNull { it.tradingDays }.average() else 0.0,
+                    winRate = if (reasonTrades.isNotEmpty()) (winners.toDouble() / reasonTrades.size) * 100 else 0.0
+                )
+            }
+
+        val byYearAndReason = trades.groupBy { it.startDate?.year }
+            .mapNotNull { (year, yearTrades) ->
+                year?.let {
+                    it to yearTrades.groupingBy { trade -> trade.exitReason }.eachCount()
+                }
+            }.toMap()
+
+        return ExitReasonAnalysis(byReason, byYearAndReason)
+    }
+
+    /**
+     * Calculate performance statistics grouped by sector.
+     */
+    private fun calculateSectorPerformance(trades: List<Trade>): List<SectorPerformance> {
+        return trades.groupBy { it.sector }
+            .map { (sector, sectorTrades) ->
+                val winners = sectorTrades.count { it.profit > 0 }
+                SectorPerformance(
+                    sector = sector ?: "Unknown",
+                    trades = sectorTrades.size,
+                    winRate = if (sectorTrades.isNotEmpty()) (winners.toDouble() / sectorTrades.size) * 100 else 0.0,
+                    avgProfit = if (sectorTrades.isNotEmpty()) sectorTrades.map { it.profitPercentage }.average() else 0.0,
+                    avgHoldingDays = if (sectorTrades.isNotEmpty()) sectorTrades.mapNotNull { it.tradingDays }.average() else 0.0
+                )
+            }
+            .sortedByDescending { it.trades }
+    }
 }

@@ -292,21 +292,21 @@ function cancel() {
                 Cooldown Period
               </h3>
             </template>
-            <UFormField
-              label="Cooldown Days"
-              name="cooldownDays"
-              help="Trading days to wait after exiting any position before entering any new position (0 = disabled)"
-            >
+            <div class="flex items-center gap-4">
+              <label class="text-sm font-medium whitespace-nowrap">
+                Cooldown Days:
+              </label>
               <UInput
                 v-model.number="state.cooldownDays"
                 type="number"
                 min="0"
                 max="365"
                 placeholder="0"
+                class="w-32"
               />
-            </UFormField>
-            <div v-if="state.cooldownDays > 0" class="mt-2 text-sm text-muted">
-              After exiting any position, all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }} (global cooldown, excludes weekends/holidays)
+            </div>
+            <div v-if="state.cooldownDays > 0" class="text-sm text-muted">
+              After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
             </div>
             <div v-else class="text-sm text-muted">
               No cooldown: New positions can be entered immediately after exits if entry conditions are met
@@ -467,24 +467,6 @@ function cancel() {
           <UFormField name="refresh">
             <UCheckbox v-model="state.refresh" label="Refresh data from source" />
           </UFormField>
-
-          <!-- Performance Warning for All Stocks -->
-          <UAlert
-            v-if="state.stockSelection === 'all'"
-            color="warning"
-            variant="subtle"
-            title="Performance Warning"
-            icon="i-lucide-alert-triangle"
-          >
-            <template #description>
-              <div class="space-y-1">
-                <p>Backtesting all stocks may take 5-10 minutes or longer depending on the date range.</p>
-                <p class="text-sm">
-                  Consider selecting specific stocks for faster results.
-                </p>
-              </div>
-            </template>
-          </UAlert>
 
           <!-- Info Alert -->
           <UAlert

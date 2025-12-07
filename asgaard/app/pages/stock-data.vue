@@ -57,7 +57,7 @@
               />
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-3">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                 Cooldown Days:
               </label>

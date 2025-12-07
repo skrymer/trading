@@ -17,7 +17,7 @@ data class BacktestRequest(
     val refresh: Boolean = false,
     val useUnderlyingAssets: Boolean = true,  // Enable automatic underlying asset detection
     val customUnderlyingMap: Map<String, String>? = null,  // Custom symbol → underlying mappings
-    val cooldownDays: Int = 0  // Global cooldown period in trading days after any exit (0 = disabled)
+    val cooldownDays: Int = 0  // Global cooldown period in trading days after exit (0 = disabled)
 )
 
 /**
