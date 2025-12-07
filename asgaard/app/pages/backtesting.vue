@@ -307,7 +307,10 @@ const chartColors = computed(() => {
           <!-- Performance Tab -->
           <template #performance>
             <div class="grid gap-4 mt-4">
-              <!-- TODO: Add TimeBasedStats component here in Phase 3 -->
+              <BacktestingTimeBasedStats
+                :report="backtestReport"
+                :loading="false"
+              />
               <BacktestingSectorAnalysis
                 v-if="backtestReport"
                 :report="backtestReport"
