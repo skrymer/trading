@@ -27,10 +27,10 @@ const tabItems = [
     slot: 'overview'
   },
   {
-    label: 'Trades',
+    label: 'Equity Curve',
     icon: 'i-lucide-trending-up',
-    value: 'trades',
-    slot: 'trades'
+    value: 'equity-curve',
+    slot: 'equity-curve'
   },
   {
     label: 'Performance',
@@ -277,17 +277,6 @@ const chartColors = computed(() => {
           <template #overview>
             <div class="grid gap-4 mt-4">
               <BacktestingCards :report="backtestReport" :loading="false" />
-              <BacktestingEquityCurve
-                v-if="allTrades && allTrades.length > 0"
-                :trades="allTrades"
-                :loading="false"
-              />
-            </div>
-          </template>
-
-          <!-- Trades Tab -->
-          <template #trades>
-            <div class="grid gap-4 mt-4">
               <ChartsBarChart
                 v-if="allTrades && allTrades.length > 0"
                 :series="chartSeries"
@@ -301,7 +290,17 @@ const chartColors = computed(() => {
                 :show-legend="false"
                 @bar-click="handleBarClick"
               />
-              <!-- TODO: Add Trade Table component here in Phase 2 -->
+            </div>
+          </template>
+
+          <!-- Equity Curve Tab -->
+          <template #equity-curve>
+            <div class="grid gap-4 mt-4">
+              <BacktestingEquityCurve
+                v-if="allTrades && allTrades.length > 0"
+                :trades="allTrades"
+                :loading="false"
+              />
             </div>
           </template>
 
