@@ -91,6 +91,12 @@ export interface BacktestReport {
   stockProfits: any
   tradesGroupedByDate: { date: string, profitPercentage: number, trades: Trade[] }[]
   sectorStats: SectorStats[]
+  // New diagnostic metrics
+  timeBasedStats?: TimeBasedStats
+  exitReasonAnalysis?: ExitReasonAnalysis
+  sectorPerformance: SectorPerformance[]
+  atrDrawdownStats?: ATRDrawdownStats
+  marketConditionAverages?: Record<string, number>
 }
 
 export interface Stock {
@@ -146,6 +152,109 @@ export interface Trade {
   quotes: StockQuote[]
   tradingDays: number
   startDate: string
+  excursionMetrics?: ExcursionMetrics
+  marketConditionAtEntry?: MarketConditionSnapshot
+}
+
+// Trade Performance Metrics - Diagnostic Data
+
+/**
+ * Trade excursion metrics - maximum profit/loss reached during trade
+ */
+export interface ExcursionMetrics {
+  maxFavorableExcursion: number          // Highest % profit reached
+  maxFavorableExcursionATR: number       // In ATR units
+  maxAdverseExcursion: number            // Deepest % drawdown (negative)
+  maxAdverseExcursionATR: number         // In ATR units (positive value)
+  mfeReached: boolean                    // Did trade reach positive territory?
+}
+
+/**
+ * Snapshot of market conditions at trade entry
+ */
+export interface MarketConditionSnapshot {
+  spyClose: number
+  spyHeatmap: number | null
+  spyInUptrend: boolean
+  marketBreadthBullPercent: number | null
+  entryDate: string
+}
+
+/**
+ * Performance statistics grouped by time periods (year, quarter, month)
+ */
+export interface TimeBasedStats {
+  byYear: Record<number, PeriodStats>
+  byQuarter: Record<string, PeriodStats>     // "2025-Q1"
+  byMonth: Record<string, PeriodStats>       // "2025-01"
+}
+
+/**
+ * Performance statistics for a specific time period
+ */
+export interface PeriodStats {
+  trades: number
+  winRate: number
+  avgProfit: number
+  avgHoldingDays: number
+  exitReasons: Record<string, number>
+}
+
+/**
+ * Exit reason analysis - breakdown by reason with stats
+ */
+export interface ExitReasonAnalysis {
+  byReason: Record<string, ExitStats>
+  byYearAndReason: Record<number, Record<string, number>>  // Year -> Reason -> Count
+}
+
+/**
+ * Statistics for a specific exit reason
+ */
+export interface ExitStats {
+  count: number
+  avgProfit: number
+  avgHoldingDays: number
+  winRate: number
+}
+
+/**
+ * Performance statistics for a specific sector
+ */
+export interface SectorPerformance {
+  sector: string
+  trades: number
+  winRate: number
+  avgProfit: number
+  avgHoldingDays: number
+}
+
+/**
+ * ATR drawdown statistics for winning trades
+ */
+export interface ATRDrawdownStats {
+  medianDrawdown: number
+  meanDrawdown: number
+  percentile25: number
+  percentile50: number                   // Same as median
+  percentile75: number
+  percentile90: number
+  percentile95: number
+  percentile99: number
+  minDrawdown: number
+  maxDrawdown: number
+  distribution: Record<string, DrawdownBucket>
+  totalWinningTrades: number
+}
+
+/**
+ * Bucket for ATR drawdown distribution
+ */
+export interface DrawdownBucket {
+  range: string                          // "0.0-0.5", "0.5-1.0", etc.
+  count: number
+  percentage: number
+  cumulativePercentage: number           // Running total
 }
 
 /**

@@ -15,6 +15,43 @@ const monteCarloStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const showMonteCarloResults = ref(false)
 const selectedTechnique = ref<MonteCarloTechnique>(MonteCarloTechnique.TRADE_SHUFFLING)
 
+// Tab state
+const activeTab = ref('overview')
+
+// Tab items configuration
+const tabItems = [
+  {
+    label: 'Overview',
+    icon: 'i-lucide-layout-dashboard',
+    value: 'overview',
+    slot: 'overview'
+  },
+  {
+    label: 'Trades',
+    icon: 'i-lucide-trending-up',
+    value: 'trades',
+    slot: 'trades'
+  },
+  {
+    label: 'Performance',
+    icon: 'i-lucide-bar-chart-3',
+    value: 'performance',
+    slot: 'performance'
+  },
+  {
+    label: 'Diagnostics',
+    icon: 'i-lucide-activity',
+    value: 'diagnostics',
+    slot: 'diagnostics'
+  },
+  {
+    label: 'Monte Carlo',
+    icon: 'i-lucide-chart-scatter',
+    value: 'monte-carlo',
+    slot: 'monte-carlo'
+  }
+]
+
 function openConfigModal() {
   isConfigModalOpen.value = true
 }
@@ -233,113 +270,144 @@ const chartColors = computed(() => {
         </p>
       </div>
 
-      <!-- Loading & Results -->
-      <div v-else class="grid gap-4 lg:grid-cols-1">
-        <!-- Cards with loading state -->
-        <BacktestingCards :report="backtestReport" :loading="false" />
-
-        <!-- Chart loading skeleton - not shown since we're in v-else after 'pending' check -->
-        <UCard v-if="false">
-          <template #header>
-            <USkeleton class="h-6 w-48" />
-          </template>
-          <USkeleton class="h-96 w-full" />
-        </UCard>
-
-        <!-- Chart loaded content -->
-        <ChartsBarChart
-          v-else-if="allTrades && allTrades.length > 0"
-          :series="chartSeries"
-          :categories="chartCategories"
-          :bar-colors="chartColors"
-          :distributed="true"
-          title="Trades Profit by Start Date"
-          y-axis-label="Total Profit %"
-          :height="400"
-          :show-data-labels="false"
-          :show-legend="false"
-          @bar-click="handleBarClick"
-        />
-
-        <!-- Equity Curve -->
-        <BacktestingEquityCurve
-          v-if="allTrades && allTrades.length > 0"
-          :trades="allTrades"
-          :loading="false"
-        />
-
-        <!-- Sector Analysis -->
-        <BacktestingSectorAnalysis
-          v-if="backtestReport"
-          :report="backtestReport"
-          :loading="false"
-        />
-
-        <!-- Monte Carlo Section -->
-        <UCard v-if="status === 'success' && allTrades && allTrades.length > 0">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-chart-scatter" class="w-5 h-5" />
-              <h3 class="text-lg font-semibold">
-                Monte Carlo Simulation
-              </h3>
+      <!-- Tabbed Results -->
+      <div v-else>
+        <UTabs v-model="activeTab" :items="tabItems" variant="link" class="w-full">
+          <!-- Overview Tab -->
+          <template #overview>
+            <div class="grid gap-4 mt-4">
+              <BacktestingCards :report="backtestReport" :loading="false" />
+              <BacktestingEquityCurve
+                v-if="allTrades && allTrades.length > 0"
+                :trades="allTrades"
+                :loading="false"
+              />
             </div>
           </template>
 
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-2">Simulation Technique</label>
-              <USelect
-                v-model="selectedTechnique"
-                :items="[
-                  { value: MonteCarloTechnique.TRADE_SHUFFLING, label: MonteCarloTechniqueDescriptions[MonteCarloTechnique.TRADE_SHUFFLING].name },
-                  { value: MonteCarloTechnique.BOOTSTRAP_RESAMPLING, label: MonteCarloTechniqueDescriptions[MonteCarloTechnique.BOOTSTRAP_RESAMPLING].name }
-                ]"
-                value-key="value"
+          <!-- Trades Tab -->
+          <template #trades>
+            <div class="grid gap-4 mt-4">
+              <ChartsBarChart
+                v-if="allTrades && allTrades.length > 0"
+                :series="chartSeries"
+                :categories="chartCategories"
+                :bar-colors="chartColors"
+                :distributed="true"
+                title="Trades Profit by Start Date"
+                y-axis-label="Total Profit %"
+                :height="400"
+                :show-data-labels="false"
+                :show-legend="false"
+                @bar-click="handleBarClick"
               />
-              <p class="text-sm text-muted mt-2">
-                {{ MonteCarloTechniqueDescriptions[selectedTechnique].description }}
-              </p>
+              <!-- TODO: Add Trade Table component here in Phase 2 -->
             </div>
+          </template>
 
-            <div class="flex justify-center">
-              <UButton
-                label="Run Simulation"
-                icon="i-lucide-play"
-                size="lg"
-                :loading="monteCarloStatus === 'pending'"
-                @click="runMonteCarloSimulation()"
+          <!-- Performance Tab -->
+          <template #performance>
+            <div class="grid gap-4 mt-4">
+              <!-- TODO: Add TimeBasedStats component here in Phase 3 -->
+              <BacktestingSectorAnalysis
+                v-if="backtestReport"
+                :report="backtestReport"
+                :loading="false"
               />
+              <!-- TODO: Add ExitReasonAnalysis component here in Phase 4 -->
             </div>
-          </div>
-        </UCard>
+          </template>
 
-        <!-- Monte Carlo Results -->
-        <div v-if="showMonteCarloResults" class="mt-8">
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold">
-                  Monte Carlo Simulation Results
-                </h2>
-                <UButton
-                  v-if="monteCarloStatus === 'success'"
-                  icon="i-lucide-x"
-                  size="sm"
-                  variant="ghost"
-                  @click="showMonteCarloResults = false"
-                />
+          <!-- Diagnostics Tab -->
+          <template #diagnostics>
+            <div class="grid gap-4 mt-4">
+              <UCard>
+                <div class="text-center py-8">
+                  <UIcon name="i-lucide-activity" class="w-12 h-12 text-muted mx-auto mb-2" />
+                  <p class="text-muted">
+                    Advanced diagnostics coming soon
+                  </p>
+                  <p class="text-sm text-muted mt-2">
+                    ATR drawdowns, market conditions, and excursion analysis
+                  </p>
+                </div>
+              </UCard>
+              <!-- TODO: Add ATRDrawdownStats component here in Phase 5 -->
+              <!-- TODO: Add MarketConditions component here in Phase 6 -->
+              <!-- TODO: Add ExcursionAnalysis component here in Phase 7 -->
+            </div>
+          </template>
+
+          <!-- Monte Carlo Tab -->
+          <template #monte-carlo>
+            <div class="grid gap-4 mt-4">
+              <UCard v-if="status === 'success' && allTrades && allTrades.length > 0">
+                <template #header>
+                  <div class="flex items-center gap-2">
+                    <UIcon name="i-lucide-chart-scatter" class="w-5 h-5" />
+                    <h3 class="text-lg font-semibold">
+                      Monte Carlo Simulation
+                    </h3>
+                  </div>
+                </template>
+
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium mb-2">Simulation Technique</label>
+                    <USelect
+                      v-model="selectedTechnique"
+                      :items="[
+                        { value: MonteCarloTechnique.TRADE_SHUFFLING, label: MonteCarloTechniqueDescriptions[MonteCarloTechnique.TRADE_SHUFFLING].name },
+                        { value: MonteCarloTechnique.BOOTSTRAP_RESAMPLING, label: MonteCarloTechniqueDescriptions[MonteCarloTechnique.BOOTSTRAP_RESAMPLING].name }
+                      ]"
+                      value-key="value"
+                    />
+                    <p class="text-sm text-muted mt-2">
+                      {{ MonteCarloTechniqueDescriptions[selectedTechnique].description }}
+                    </p>
+                  </div>
+
+                  <div class="flex justify-center">
+                    <UButton
+                      label="Run Simulation"
+                      icon="i-lucide-play"
+                      size="lg"
+                      :loading="monteCarloStatus === 'pending'"
+                      @click="runMonteCarloSimulation()"
+                    />
+                  </div>
+                </div>
+              </UCard>
+
+              <!-- Monte Carlo Results -->
+              <div v-if="showMonteCarloResults">
+                <UCard>
+                  <template #header>
+                    <div class="flex items-center justify-between">
+                      <h2 class="text-xl font-semibold">
+                        Monte Carlo Simulation Results
+                      </h2>
+                      <UButton
+                        v-if="monteCarloStatus === 'success'"
+                        icon="i-lucide-x"
+                        size="sm"
+                        variant="ghost"
+                        @click="showMonteCarloResults = false"
+                      />
+                    </div>
+                  </template>
+                  <BacktestingMonteCarloResults
+                    :result="monteCarloResult"
+                    :loading="monteCarloStatus === 'pending'"
+                  />
+                </UCard>
               </div>
-            </template>
-            <BacktestingMonteCarloResults
-              :result="monteCarloResult"
-              :loading="monteCarloStatus === 'pending'"
-            />
-          </UCard>
-        </div>
+            </div>
+          </template>
+        </UTabs>
 
-        <!-- No results -->
-        <UCard v-else-if="status === 'success' && (!allTrades || allTrades.length === 0)">
+        <!-- No results message -->
+        <UCard v-if="status === 'success' && (!allTrades || allTrades.length === 0)" class="mt-4">
           <div class="text-center py-8">
             <p class="text-muted">
               No trades found for the selected criteria
@@ -348,7 +416,7 @@ const chartColors = computed(() => {
         </UCard>
 
         <!-- Error state -->
-        <UCard v-else-if="status === 'error'">
+        <UCard v-if="status === 'error'" class="mt-4">
           <div class="text-center py-8">
             <UIcon name="i-lucide-alert-circle" class="w-12 h-12 text-error mx-auto mb-2" />
             <p class="text-error">
