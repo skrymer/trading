@@ -68,35 +68,33 @@ const chartOptions = computed<ApexOptions>(() => {
           colors: isDark ? '#9ca3af' : '#6b7280'
         }
       },
-      title: props.xAxisLabel ? {
-        text: props.xAxisLabel,
-        style: {
-          color: isDark ? '#9ca3af' : '#6b7280'
-        }
-      } : undefined
-    },
-    yaxis: [
-      {
-        title: props.yAxisLabel ? {
-          text: props.yAxisLabel,
+      ...(props.xAxisLabel && {
+        title: {
+          text: props.xAxisLabel,
           style: {
             color: isDark ? '#9ca3af' : '#6b7280'
           }
-        } : undefined,
+        }
+      })
+    },
+    yaxis: [
+      {
         labels: {
           style: {
             colors: isDark ? '#9ca3af' : '#6b7280'
           }
-        }
+        },
+        ...(props.yAxisLabel && {
+          title: {
+            text: props.yAxisLabel,
+            style: {
+              color: isDark ? '#9ca3af' : '#6b7280'
+            }
+          }
+        })
       },
       {
         opposite: true,
-        title: props.y2AxisLabel ? {
-          text: props.y2AxisLabel,
-          style: {
-            color: isDark ? '#9ca3af' : '#6b7280'
-          }
-        } : undefined,
         labels: {
           style: {
             colors: isDark ? '#9ca3af' : '#6b7280'
@@ -106,7 +104,15 @@ const chartOptions = computed<ApexOptions>(() => {
           }
         },
         min: 0,
-        max: 100
+        max: 100,
+        ...(props.y2AxisLabel && {
+          title: {
+            text: props.y2AxisLabel,
+            style: {
+              color: isDark ? '#9ca3af' : '#6b7280'
+            }
+          }
+        })
       }
     ],
     grid: {
