@@ -23,7 +23,29 @@ data class SectorStats(
 class BacktestReport(
     val winningTrades: List<Trade>,
     val losingTrades: List<Trade>,
-    val missedTrades: List<Trade> = emptyList()
+    val missedTrades: List<Trade> = emptyList(),
+    /**
+     * Performance broken down by time periods (year, quarter, month).
+     */
+    val timeBasedStats: TimeBasedStats? = null,
+    /**
+     * Exit reason analysis with stats per reason and per year.
+     */
+    val exitReasonAnalysis: ExitReasonAnalysis? = null,
+    /**
+     * Performance broken down by sector.
+     */
+    val sectorPerformance: List<SectorPerformance> = emptyList(),
+    /**
+     * ATR drawdown statistics for winning trades.
+     * Shows how much adverse movement winners endure before becoming profitable.
+     */
+    val atrDrawdownStats: ATRDrawdownStats? = null,
+    /**
+     * Average market conditions at trade entry.
+     * Keys: "avgSpyHeatmap", "avgMarketBreadth", "spyUptrendPercent"
+     */
+    val marketConditionAverages: Map<String, Double>? = null
 ) {
     /**
      * Calculated as (number of winning trades / total trades)

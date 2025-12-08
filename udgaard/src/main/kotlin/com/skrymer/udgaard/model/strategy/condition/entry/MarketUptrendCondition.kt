@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.TradingCondition
@@ -19,4 +20,24 @@ class MarketUptrendCondition : TradingCondition {
         type = "marketUptrend",
         description = description()
     )
+
+    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+        val passed = evaluate(stock, quote)
+        val breadth = quote.marketAdvancingPercent
+
+        val message = if (passed) {
+            "Market breadth %.1f%% is above 10 EMA ✓".format(breadth)
+        } else {
+            "Market breadth %.1f%% is below 10 EMA ✗".format(breadth)
+        }
+
+        return ConditionEvaluationResult(
+            conditionType = "MarketUptrendCondition",
+            description = description(),
+            passed = passed,
+            actualValue = "%.1f%%".format(breadth),
+            threshold = "> 10 EMA",
+            message = message
+        )
+    }
 }

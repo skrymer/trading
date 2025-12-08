@@ -1,0 +1,44 @@
+{
+  "report_date": "2025-12-06T17:30:27.723307",
+  "test_period": {
+    "start": "2020-01-01",
+    "end": "2025-12-06",
+    "years": 5.94
+  },
+  "winner": {
+    "name": "Heatmap",
+    "return_dd_ratio": 491203.9,
+    "max_drawdown": 51.94,
+    "edge": 2.34,
+    "win_rate": 60.0,
+    "positive_years": "6/6 (100%)",
+    "avg_win": 6.42,
+    "avg_loss": -3.78,
+    "total_trades": 600
+  },
+  "key_findings": [
+    "Heatmap is ONLY ranker with 100% positive years (6/6)",
+    "Heatmap has 57% better Return/DD ratio than 2nd place (Composite)",
+    "Heatmap has 36% lower drawdown than Composite (51.94% vs 88.28%)",
+    "2021 was the defining year - only Heatmap stayed positive (+277%)",
+    "Composite and Volatility had catastrophic losing years (-47%, -76%)"
+  ],
+  "recommendations": [
+    "Use Heatmap ranker for PlanAlpha strategy",
+    "Add cooldown period (10-20 days) to reduce 52% drawdown",
+    "Test with reduced maxPositions (5-7) for lower exposure",
+    "Consider tighter stop losses (1.5 ATR)",
+    "Test with less aggressive entry strategies (PlanEtf)"
+  ],
+  "report_file": "/tmp/RANKER_COMPARISON_REPORT_20251206_173027.md",
+  "data_files": {
+    "heatmap": "/tmp/backtest_heatmap.json",
+    "composite": "/tmp/backtest_composite.json",
+    "volatility": "/tmp/backtest_volatility.json",
+    "random": "/tmp/backtest_random.json",
+    "sectorstrength": "/tmp/backtest_sectorstrength.json",
+    "distancefrom10ema": "/tmp/backtest_distancefrom10ema.json",
+    "adaptive": "/tmp/backtest_adaptive.json",
+    "relativestrength": "/tmp/backtest_relativestrength.json"
+  }
+}

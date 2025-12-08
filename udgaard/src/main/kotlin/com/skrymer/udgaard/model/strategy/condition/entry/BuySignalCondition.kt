@@ -51,8 +51,8 @@ class BuySignalCondition(private val daysOld: Int = -1) : TradingCondition {
         val message = when {
             !quote.hasBuySignal() -> "No buy signal present ✗"
             daysOld < 0 && signalAge >= 0 -> "Buy signal present (${signalAge} days old) ✓"
-            daysOld >= 0 && signalAge > daysOld -> "Buy signal is ${signalAge} days old (requires ≤ ${daysOld} days) ✗"
-            daysOld >= 0 && signalAge >= 0 && signalAge <= daysOld -> "Buy signal is ${signalAge} days old (≤ ${daysOld} days) ✓"
+            daysOld in 0..<signalAge -> "Buy signal is ${signalAge} days old (requires ≤ ${daysOld} days) ✗"
+            daysOld >= 0 && signalAge >= 0 -> "Buy signal is ${signalAge} days old (≤ ${daysOld} days) ✓"
             else -> "Buy signal status unknown ✗"
         }
 

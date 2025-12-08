@@ -245,6 +245,21 @@ export interface ATRDrawdownStats {
   maxDrawdown: number
   distribution: Record<string, DrawdownBucket>
   totalWinningTrades: number
+  // Losing trades stats (for comparison)
+  losingTradesStats?: {
+    medianLoss: number
+    meanLoss: number
+    percentile25: number
+    percentile50: number
+    percentile75: number
+    percentile90: number
+    percentile95: number
+    percentile99: number
+    minLoss: number
+    maxLoss: number
+    distribution: Record<string, DrawdownBucket>
+    totalLosingTrades: number
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.ExitCondition
@@ -36,4 +37,5 @@ class BeforeEarningsExit(
         type = "beforeEarnings",
         description = description()
     )
+
 }

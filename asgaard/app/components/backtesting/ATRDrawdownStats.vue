@@ -9,6 +9,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const stats = computed(() => props.report?.atrDrawdownStats)
+const loserStats = computed(() => stats.value?.losingTradesStats)
 
 // Get distribution data sorted by range
 const distributionData = computed(() => {
@@ -120,31 +121,61 @@ const stopLossRecommendation = computed(() => {
     </div>
 
     <div v-else class="space-y-6">
-      <!-- Summary Stats -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <UCard :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Winning Trades</div>
-          <div class="font-semibold text-2xl">{{ stats.totalWinningTrades }}</div>
-        </UCard>
+      <!-- Comparison View: Winners vs Losers -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Winning Trades Column -->
+        <UCard :ui="{ body: 'p-4' }" class="border-2 border-success/20">
+          <div class="flex items-center gap-2 mb-4">
+            <UIcon name="i-lucide-trending-up" class="w-5 h-5 text-success" />
+            <h4 class="font-semibold text-success">Winning Trades</h4>
+            <UBadge color="success" variant="subtle">{{ stats.totalWinningTrades }} trades</UBadge>
+          </div>
 
-        <UCard :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Median Drawdown</div>
-          <div class="font-semibold text-2xl" :class="getPercentileColor(stats.medianDrawdown)">
-            {{ stats.medianDrawdown.toFixed(2) }} ATR
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Median Drawdown</span>
+              <span class="font-semibold">{{ stats.medianDrawdown.toFixed(2) }} ATR</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Mean Drawdown</span>
+              <span class="font-semibold">{{ stats.meanDrawdown.toFixed(2) }} ATR</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">90th Percentile</span>
+              <span class="font-semibold">{{ stats.percentile90.toFixed(2) }} ATR</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Max Drawdown</span>
+              <span class="font-semibold text-error">{{ stats.maxDrawdown.toFixed(2) }} ATR</span>
+            </div>
           </div>
         </UCard>
 
-        <UCard :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Mean Drawdown</div>
-          <div class="font-semibold text-2xl" :class="getPercentileColor(stats.meanDrawdown)">
-            {{ stats.meanDrawdown.toFixed(2) }} ATR
+        <!-- Losing Trades Column -->
+        <UCard v-if="loserStats" :ui="{ body: 'p-4' }" class="border-2 border-error/20">
+          <div class="flex items-center gap-2 mb-4">
+            <UIcon name="i-lucide-trending-down" class="w-5 h-5 text-error" />
+            <h4 class="font-semibold text-error">Losing Trades</h4>
+            <UBadge color="error" variant="subtle">{{ loserStats.totalLosingTrades }} trades</UBadge>
           </div>
-        </UCard>
 
-        <UCard :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Max Drawdown</div>
-          <div class="font-semibold text-2xl text-error">
-            {{ stats.maxDrawdown.toFixed(2) }} ATR
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Median Loss</span>
+              <span class="font-semibold">{{ loserStats.medianLoss.toFixed(2) }} ATR</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Mean Loss</span>
+              <span class="font-semibold">{{ loserStats.meanLoss.toFixed(2) }} ATR</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">90th Percentile</span>
+              <span class="font-semibold">{{ loserStats.percentile90.toFixed(2) }} ATR</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-muted">Max Loss</span>
+              <span class="font-semibold text-error">{{ loserStats.maxLoss.toFixed(2) }} ATR</span>
+            </div>
           </div>
         </UCard>
       </div>
@@ -186,46 +217,77 @@ const stopLossRecommendation = computed(() => {
         />
       </div>
 
-      <!-- Insights -->
+      <!-- Enhanced Insights with Winner/Loser Comparison -->
       <UCard v-if="stopLossRecommendation" :ui="{ body: 'p-4' }" class="bg-primary/5">
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-lightbulb" class="w-5 h-5 text-primary mt-0.5" />
           <div class="flex-1">
             <h4 class="font-semibold mb-2">Stop Loss Optimization Insights</h4>
             <ul class="space-y-2 text-sm">
-              <li>
+              <!-- Winner/Loser Comparison -->
+              <li v-if="loserStats">
                 <span class="text-muted">•</span>
-                <strong class="ml-2">{{ (100 - stopLossRecommendation.at1ATR).toFixed(1) }}%</strong>
-                of winning trades stayed within 1.0 ATR drawdown.
+                <strong class="ml-2">Risk Profile:</strong>
+                Winners require {{ (stats.medianDrawdown / loserStats.medianLoss).toFixed(1) }}x
+                more drawdown tolerance than losers
+                ({{ stats.medianDrawdown.toFixed(2) }} vs {{ loserStats.medianLoss.toFixed(2) }} ATR median).
+                <span v-if="stats.medianDrawdown > loserStats.medianLoss * 1.5" class="text-success">
+                  Good asymmetry - winners need patience.
+                </span>
+                <span v-else class="text-warning">
+                  Consider if stops are cutting winners too early.
+                </span>
               </li>
+
+              <!-- Optimal Stop Recommendation -->
+              <li v-if="loserStats">
+                <span class="text-muted">•</span>
+                <strong class="ml-2">Optimal Stop Range:</strong>
+                Between {{ loserStats.percentile90.toFixed(2) }} ATR
+                (exits 90% of losers) and {{ stopLossRecommendation.p90.toFixed(2) }} ATR
+                (keeps 90% of winners).
+                <span v-if="stopLossRecommendation.p90 - loserStats.percentile90 > 0.5" class="text-success">
+                  Wide buffer allows flexibility.
+                </span>
+                <span v-else class="text-error">
+                  Narrow buffer - any stop will cut winners or let losers run.
+                </span>
+              </li>
+
+              <!-- Stop Too Tight Warning -->
+              <li v-if="loserStats && loserStats.medianLoss < stats.percentile25">
+                <span class="text-muted">•</span>
+                <strong class="ml-2 text-warning">Stops may be too tight:</strong>
+                Losers exit at {{ loserStats.medianLoss.toFixed(2) }} ATR
+                but 75% of winners need >{{ stats.percentile25.toFixed(2) }} ATR.
+                A {{ loserStats.medianLoss.toFixed(2) }} ATR stop would cut most winners.
+              </li>
+
+              <!-- Stop Too Loose Warning -->
+              <li v-if="loserStats && loserStats.percentile90 > stats.percentile75">
+                <span class="text-muted">•</span>
+                <strong class="ml-2 text-warning">Stops may be too loose:</strong>
+                90% of losers reach {{ loserStats.percentile90.toFixed(2) }} ATR
+                while 75% of winners only need {{ stats.percentile75.toFixed(2) }} ATR.
+                Consider tightening stops.
+              </li>
+
+              <!-- Standard insights -->
               <li>
                 <span class="text-muted">•</span>
                 <strong class="ml-2">{{ (100 - stopLossRecommendation.at2ATR).toFixed(1) }}%</strong>
                 of winning trades stayed within 2.0 ATR drawdown.
               </li>
-              <li>
-                <span class="text-muted">•</span>
-                Median drawdown is
-                <strong class="ml-2">{{ stopLossRecommendation.median.toFixed(2) }} ATR</strong>
-                - half of winners endured this much or less.
-              </li>
-              <li>
-                <span class="text-muted">•</span>
-                <strong class="ml-2">90% of winners</strong>
-                stayed under {{ stopLossRecommendation.p90.toFixed(2) }} ATR drawdown
-                - consider this for stop loss placement.
-              </li>
+
               <li v-if="stopLossRecommendation.p95 < 2.0">
                 <span class="text-muted">•</span>
                 <strong class="ml-2 text-success">Excellent risk control:</strong>
-                95% of winners stayed under {{ stopLossRecommendation.p95.toFixed(2) }} ATR,
-                suggesting tight stops are viable.
+                95% of winners stayed under {{ stopLossRecommendation.p95.toFixed(2) }} ATR.
               </li>
               <li v-else-if="stopLossRecommendation.p95 > 3.0">
                 <span class="text-muted">•</span>
                 <strong class="ml-2 text-warning">Wide drawdowns:</strong>
-                95th percentile is {{ stopLossRecommendation.p95.toFixed(2) }} ATR,
-                consider if tighter entries could reduce this.
+                95th percentile is {{ stopLossRecommendation.p95.toFixed(2) }} ATR.
               </li>
             </ul>
           </div>

@@ -13,9 +13,11 @@ When the user asks to run a backtest, Claude should:
 
 1. **Discover available resources** using MCP tools
 2. **Run backtests** with appropriate parameters
-3. **Calculate comprehensive metrics** (returns, drawdowns, year-by-year)
-4. **Compare strategies** side-by-side
-5. **Present actionable insights** with clear recommendations
+3. **Analyze diagnostic metrics** (time-based stats, ATR drawdowns, market conditions, exit reasons)
+4. **Calculate comprehensive metrics** (returns, drawdowns, year-by-year, risk-adjusted performance)
+5. **Compare strategies** side-by-side
+6. **Validate with Monte Carlo** simulations
+7. **Present actionable insights** with clear recommendations
 
 ## Getting Available Resources
 
@@ -450,6 +452,193 @@ for year in all_years:
     print(f"{year:<8} {a_year_return:>14.2f}% {b_year_return:>14.2f}% {winner_symbol} {winner}")
 ```
 
+## Backtest Diagnostic Metrics
+
+Backtest reports include comprehensive diagnostic metrics to help analyze strategy performance and identify areas for improvement. These metrics are completely strategy-agnostic and work with any entry/exit strategy combination.
+
+### Available Diagnostic Metrics
+
+**1. Time-Based Performance (`timeBasedStats`)**
+
+Breakdown of strategy performance by time periods:
+- **By Year**: Annual performance with trades, win rate, avg profit, holding days, exit reasons
+- **By Quarter**: Quarterly breakdown (e.g., "2025-Q1")
+- **By Month**: Monthly breakdown (e.g., "2025-01")
+
+**Use Case:** Identify which years/quarters/months underperformed and correlate with market conditions.
+
+```python
+# Example: Analyze year-by-year performance
+time_stats = result['timeBasedStats']
+for year, stats in time_stats['byYear'].items():
+    print(f"{year}: {stats['trades']} trades, {stats['winRate']*100:.1f}% win rate, {stats['avgProfit']:.2f}% avg profit")
+```
+
+**2. ATR Drawdown Statistics (`atrDrawdownStats`)**
+
+Shows how much adverse movement (in ATR units) winning trades endure before becoming profitable:
+- **Percentiles**: 25th, 50th, 75th, 90th, 95th, 99th
+- **Mean/Median**: Average and median drawdown
+- **Min/Max**: Best and worst case
+- **Distribution**: Buckets with cumulative percentages
+
+**Use Case:** Understand pain tolerance required. If 75% of winning trades require enduring >2 ATR drawdown, you know most winners will test your discipline.
+
+```python
+# Example: Analyze ATR drawdown distribution
+atr_stats = result['atrDrawdownStats']
+print(f"Median drawdown: {atr_stats['medianDrawdown']:.2f} ATR")
+print(f"75th percentile: {atr_stats['percentile75']:.2f} ATR")
+print(f"95th percentile: {atr_stats['percentile95']:.2f} ATR")
+
+# Distribution shows cumulative percentages
+for range_name, bucket in atr_stats['distribution'].items():
+    print(f"{bucket['range']}: {bucket['count']} trades ({bucket['cumulativePercentage']:.1f}% cumulative)")
+```
+
+**3. Market Condition Snapshots (per trade)**
+
+Each trade captures market state at entry:
+- **SPY Close**: Price level
+- **SPY Heatmap**: Fear & Greed indicator (0-100)
+- **SPY In Uptrend**: Boolean trend status
+- **Market Breadth**: Bull percentage
+
+**Use Case:** Identify if poor performance correlates with specific market conditions (e.g., low breadth, downtrend).
+
+```python
+# Example: Analyze losing trades vs market conditions
+losing_trades = [t for t in result['trades'] if t['profit'] < 0]
+if losing_trades:
+    avg_heatmap_losses = sum(t['marketConditionAtEntry']['spyHeatmap']
+                             for t in losing_trades if t.get('marketConditionAtEntry')) / len(losing_trades)
+    print(f"Average SPY heatmap on losing trades: {avg_heatmap_losses:.1f}")
+```
+
+**4. Excursion Metrics (per trade)**
+
+Per-trade metrics showing maximum favorable/adverse movement:
+- **MFE (Max Favorable Excursion)**: Highest % profit reached (and in ATR)
+- **MAE (Max Adverse Excursion)**: Deepest % drawdown (and in ATR)
+- **MFE Reached**: Did trade reach positive territory?
+
+**Use Case:** Identify if exits are too early (high MFE but small final profit) or stops are too tight (large MAE on winners).
+
+```python
+# Example: Analyze if exits are premature
+winning_trades = [t for t in result['trades'] if t['profit'] > 0]
+for trade in winning_trades:
+    if trade.get('excursionMetrics'):
+        mfe = trade['excursionMetrics']['maxFavorableExcursion']
+        final_profit = trade['profitPercentage']
+        if mfe > final_profit * 2:
+            print(f"{trade['stockSymbol']}: Left {mfe - final_profit:.2f}% on table")
+```
+
+**5. Exit Reason Analysis (`exitReasonAnalysis`)**
+
+Statistics per exit reason:
+- **By Reason**: Count, avg profit, avg holding days, win rate per exit reason
+- **By Year and Reason**: Historical breakdown
+
+**Use Case:** Identify which exit conditions are most profitable and which are problematic.
+
+```python
+# Example: Compare exit reason profitability
+exit_analysis = result['exitReasonAnalysis']
+for reason, stats in exit_analysis['byReason'].items():
+    print(f"{reason}: {stats['count']} exits, {stats['avgProfit']:.2f}% avg, {stats['winRate']*100:.1f}% win rate")
+```
+
+**6. Sector Performance (`sectorPerformance`)**
+
+Performance breakdown by sector:
+- Trades, win rate, avg profit, avg holding days per sector
+
+**Use Case:** Identify which sectors work best with the strategy.
+
+```python
+# Example: Find best performing sectors
+sector_perf = result['sectorPerformance']
+sorted_sectors = sorted(sector_perf, key=lambda x: x['avgProfit'], reverse=True)
+for sector in sorted_sectors[:5]:
+    print(f"{sector['sector']}: {sector['avgProfit']:.2f}% avg profit, {sector['winRate']*100:.1f}% win rate")
+```
+
+**7. Market Condition Averages (`marketConditionAverages`)**
+
+Average market conditions across all trades:
+- `avgSpyHeatmap`: Average fear/greed level
+- `avgMarketBreadth`: Average bull percentage
+- `spyUptrendPercent`: % of trades entered during SPY uptrend
+
+**Use Case:** Understand typical market environment for the strategy.
+
+### Using Diagnostic Metrics for Strategy Improvement
+
+**Common Analysis Patterns:**
+
+**Performance Degradation Analysis**
+```python
+# Why did strategy underperform in a specific year?
+time_stats = result['timeBasedStats']
+stats_2025 = time_stats['byYear']['2025']
+
+# Check market conditions in that year's trades
+trades_2025 = [t for t in result['trades'] if t['entryQuote']['date'].startswith('2025')]
+if trades_2025:
+    avg_breadth_2025 = sum(t['marketConditionAtEntry']['marketBreadthBullPercent']
+                           for t in trades_2025 if t.get('marketConditionAtEntry')) / len(trades_2025)
+
+    # Compare with overall averages
+    overall_avg_breadth = result['marketConditionAverages']['avgMarketBreadth']
+
+    print(f"2025 avg breadth: {avg_breadth_2025:.1f}% vs overall: {overall_avg_breadth:.1f}%")
+```
+
+**Stop Loss Optimization**
+```python
+# What % of winners required enduring >2 ATR drawdown?
+atr_stats = result['atrDrawdownStats']
+
+# Find cumulative % that stayed under 2.0 ATR
+below_2atr_cumulative = 0
+for range_name, bucket in sorted(atr_stats['distribution'].items()):
+    range_max = float(bucket['range'].split('-')[1])
+    if range_max <= 2.0:
+        below_2atr_cumulative = bucket['cumulativePercentage']
+
+pct_above_2atr = 100 - below_2atr_cumulative
+print(f"{pct_above_2atr:.1f}% of winners required enduring >2 ATR drawdown")
+# If this is high (>50%), a 2 ATR stop loss would kill most winners
+```
+
+**Exit Strategy Analysis**
+```python
+# Which exit reasons are problematic?
+exit_analysis = result['exitReasonAnalysis']
+for reason, stats in exit_analysis['byReason'].items():
+    if stats['winRate'] < 0.3:  # Less than 30% win rate
+        print(f"⚠ {reason}: Only {stats['winRate']*100:.1f}% win rate with {stats['avgProfit']:.2f}% avg")
+```
+
+**Market Regime Filtering**
+```python
+# Should we filter out low breadth entries?
+low_breadth_trades = [t for t in result['trades']
+                     if t.get('marketConditionAtEntry') and
+                        t['marketConditionAtEntry']['marketBreadthBullPercent'] < 50]
+low_breadth_winrate = sum(1 for t in low_breadth_trades if t['profit'] > 0) / len(low_breadth_trades)
+
+high_breadth_trades = [t for t in result['trades']
+                      if t.get('marketConditionAtEntry') and
+                         t['marketConditionAtEntry']['marketBreadthBullPercent'] >= 50]
+high_breadth_winrate = sum(1 for t in high_breadth_trades if t['profit'] > 0) / len(high_breadth_trades)
+
+print(f"Low breadth (<50%): {low_breadth_winrate*100:.1f}% win rate")
+print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
+```
+
 ## Analysis Guidelines
 
 ### What to Look For
@@ -540,6 +729,10 @@ Report should include:
 - Performance metrics table
 - Risk metrics comparison
 - Year-by-year breakdown
+- ATR drawdown analysis (percentiles and distribution)
+- Exit reason breakdown with win rates
+- Market condition analysis
+- Sector performance comparison
 - Key insights and why one strategy won
 - Strategy differences explanation
 - Technical details and configuration
@@ -950,21 +1143,37 @@ Test same strategy with different maxPositions values (1, 5, 10, 15, unlimited),
 
 Break down performance by calendar year to understand strategy behavior in different market conditions (bull, bear, choppy).
 
+### 6. Diagnose Underperformance
+
+Use diagnostic metrics to identify why a strategy underperforms:
+- Check time-based stats to isolate problematic periods
+- Analyze market conditions during losing trades
+- Review ATR drawdown distribution to optimize stop losses
+- Examine exit reason analysis to identify ineffective exits
+- Compare sector performance to find weak sectors
+
 ## Best Practices
 
 1. **Optimize for BOTH edge AND drawdown** - never optimize for returns alone
 2. **Use Return/Drawdown ratio as primary metric** (target > 5.0)
 3. **Save results to files** before analysis
 4. **Calculate comprehensive metrics** (edge, drawdown, CAGR, win rate)
-5. **Compare risk-adjusted performance** (Return/Drawdown ratio is king)
-6. **Analyze year-by-year** to ensure consistency
-7. **Check exit reasons** to understand strategy behavior
-8. **Consider cooldown periods** especially for leveraged ETFs
-9. **Use underlying assets** for cleaner signals on leveraged instruments
-10. **Present clear recommendations** based on risk-adjusted metrics
-11. **Generate written reports** for future reference
-12. **Reject strategies with drawdown > 25%** regardless of returns
-13. **Reject strategies with edge < 2%** regardless of win rate
+5. **Leverage diagnostic metrics** to understand performance:
+   - Use time-based stats to identify underperforming periods
+   - Analyze ATR drawdown distribution for stop loss optimization
+   - Check market conditions on losing trades
+   - Review exit reason analysis to identify problematic exits
+   - Examine excursion metrics to optimize exit timing
+6. **Compare risk-adjusted performance** (Return/Drawdown ratio is king)
+7. **Analyze year-by-year** to ensure consistency
+8. **Check exit reasons** to understand strategy behavior
+9. **Consider cooldown periods** especially for leveraged ETFs
+10. **Use underlying assets** for cleaner signals on leveraged instruments
+11. **Validate with Monte Carlo** to confirm edge is real, not luck
+12. **Present clear recommendations** based on risk-adjusted metrics
+13. **Generate written reports** for future reference
+14. **Reject strategies with drawdown > 25%** regardless of returns
+15. **Reject strategies with edge < 2%** regardless of win rate
 
 ## MCP Integration
 

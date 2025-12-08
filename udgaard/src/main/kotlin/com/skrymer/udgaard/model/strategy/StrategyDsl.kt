@@ -50,6 +50,10 @@ class EntryStrategyBuilder {
         conditions.add(MarketUptrendCondition())
     }
 
+    fun marketBreadthAbove(threshold: Double) = apply {
+        conditions.add(MarketBreadthAboveCondition(threshold))
+    }
+
     fun spyHeatmap(threshold: Int = 70) = apply {
         conditions.add(SpyHeatmapThresholdCondition(threshold.toDouble()))
     }

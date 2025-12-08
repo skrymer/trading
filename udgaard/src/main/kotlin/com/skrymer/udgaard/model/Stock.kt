@@ -23,13 +23,13 @@ class Stock {
   @Column(name = "sector_symbol", length = 50)
   var sectorSymbol: String? = null
 
-  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
   var quotes: MutableList<StockQuote> = mutableListOf()
 
-  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
   var orderBlocks: MutableList<OrderBlock> = mutableListOf()
 
-  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
   @JsonManagedReference
   var earnings: MutableList<Earning> = mutableListOf()
 

@@ -4,6 +4,7 @@ import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
+import com.skrymer.udgaard.repository.BreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
@@ -19,11 +20,13 @@ class BacktestServiceTest {
 
   private lateinit var backtestService: BacktestService
   private lateinit var stockRepository: StockRepository
+  private lateinit var breadthRepository: BreadthRepository
 
   @BeforeEach
   fun setup() {
     stockRepository = mock<StockRepository>()
-    backtestService = BacktestService(stockRepository)
+    breadthRepository = mock<BreadthRepository>()
+    backtestService = BacktestService(stockRepository, breadthRepository)
   }
 
   @Test

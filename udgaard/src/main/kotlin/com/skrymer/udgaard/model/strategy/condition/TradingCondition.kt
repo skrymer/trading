@@ -35,20 +35,9 @@ interface TradingCondition {
      * Evaluates the condition and returns detailed results.
      * Includes actual values, thresholds, and explanatory messages.
      *
-     * Default implementation uses the standard evaluate() method without extra details.
-     * Conditions should override this to provide richer information.
+     * All conditions must implement this to provide meaningful diagnostic information.
      *
      * @return Detailed evaluation result including pass/fail, actual values, and explanations
      */
-    fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val passed = evaluate(stock, quote)
-        return ConditionEvaluationResult(
-            conditionType = this::class.simpleName ?: "Unknown",
-            description = description(),
-            passed = passed,
-            actualValue = null,
-            threshold = null,
-            message = if (passed) "Condition met" else "Condition not met"
-        )
-    }
+    fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult
 }

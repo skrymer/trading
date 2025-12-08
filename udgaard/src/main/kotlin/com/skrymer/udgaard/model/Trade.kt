@@ -25,6 +25,20 @@ class Trade(
 ) {
 
     /**
+     * Market conditions at the time of trade entry.
+     * Helps identify if poor performance correlates with market state.
+     */
+    @Transient
+    var marketConditionAtEntry: MarketConditionSnapshot? = null
+
+    /**
+     * Trade excursion metrics (MFE/MAE and ATR drawdown).
+     * Helps understand trade quality and pain tolerance required.
+     */
+    @Transient
+    var excursionMetrics: ExcursionMetrics? = null
+
+    /**
      * Calculate the profit percentage of this trade: (profit/entry close price) * 100
      * @return
      */

@@ -12,6 +12,7 @@ import com.skrymer.udgaard.model.StockQuote
  * - SPY has a buy signal
  * - SPY is in uptrend (10 > 20, price > 50)
  * - Market stocks bull % over 10 EMA
+ * - Market breadth above 35% (absolute threshold)
  * - SPY heatmap < 70
  * - SPY heatmap is rising
  *
