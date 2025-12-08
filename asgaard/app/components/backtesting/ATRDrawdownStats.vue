@@ -96,7 +96,7 @@ const stopLossRecommendation = computed(() => {
       <div class="flex items-center gap-2">
         <UIcon name="i-lucide-trending-down" class="w-5 h-5" />
         <h3 class="text-lg font-semibold">
-          ATR Drawdown Analysis
+          ATR Drawdown Analysis (Winning Trades)
         </h3>
         <UTooltip text="Shows how much adverse movement winning trades endured before becoming profitable">
           <UIcon name="i-lucide-help-circle" class="w-4 h-4 text-muted" />
