@@ -190,8 +190,7 @@ const chartOptions = computed<ApexOptions>(() => {
         title: {
           formatter: (seriesName: string) => seriesName + ' (click to view details)'
         }
-      },
-      custom: undefined
+      }
     },
     colors: props.barColors || (props.series.map(s => s.color).filter(Boolean) as string[])
   }
