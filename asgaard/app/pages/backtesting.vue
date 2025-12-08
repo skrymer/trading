@@ -326,18 +326,10 @@ const chartColors = computed(() => {
           <!-- Diagnostics Tab -->
           <template #diagnostics>
             <div class="grid gap-4 mt-4">
-              <UCard>
-                <div class="text-center py-8">
-                  <UIcon name="i-lucide-activity" class="w-12 h-12 text-muted mx-auto mb-2" />
-                  <p class="text-muted">
-                    Advanced diagnostics coming soon
-                  </p>
-                  <p class="text-sm text-muted mt-2">
-                    ATR drawdowns, market conditions, and excursion analysis
-                  </p>
-                </div>
-              </UCard>
-              <!-- TODO: Add ATRDrawdownStats component here in Phase 5 -->
+              <BacktestingATRDrawdownStats
+                :report="backtestReport"
+                :loading="false"
+              />
               <!-- TODO: Add MarketConditions component here in Phase 6 -->
               <!-- TODO: Add ExcursionAnalysis component here in Phase 7 -->
             </div>
