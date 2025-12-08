@@ -82,6 +82,9 @@ const chartOptions = computed<ApexOptions>(() => {
         labels: {
           style: {
             colors: isDark ? '#9ca3af' : '#6b7280'
+          },
+          formatter: (val: number) => {
+            return val.toFixed(2)
           }
         },
         ...(props.yAxisLabel && {
