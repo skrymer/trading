@@ -59,8 +59,13 @@ const chartOptions = computed<ApexOptions>(() => {
       labels: {
         style: {
           colors: isDark ? '#9ca3af' : '#6b7280'
-        }
+        },
+        rotate: -45,
+        rotateAlways: false,
+        hideOverlappingLabels: true,
+        maxHeight: 60
       },
+      tickAmount: 8,
       ...(props.xAxisLabel && {
         title: {
           text: props.xAxisLabel,
