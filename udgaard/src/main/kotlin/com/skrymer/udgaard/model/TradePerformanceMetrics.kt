@@ -64,7 +64,27 @@ data class ATRDrawdownStats(
     val minDrawdown: Double,                    // Smallest drawdown observed
     val maxDrawdown: Double,                    // Largest drawdown observed
     val distribution: Map<String, DrawdownBucket>,  // Distribution with cumulative %
-    val totalWinningTrades: Int
+    val totalWinningTrades: Int,
+    val losingTradesStats: LosingTradesATRStats? = null  // ATR metrics for losing trades
+)
+
+/**
+ * ATR statistics for losing trades.
+ * Shows how deep losses went in ATR units for comparison with winning trades.
+ */
+data class LosingTradesATRStats(
+    val medianLoss: Double,                     // Median ATR loss
+    val meanLoss: Double,                       // Mean ATR loss
+    val percentile25: Double,                   // 25th percentile
+    val percentile50: Double,                   // 50th percentile (median)
+    val percentile75: Double,                   // 75th percentile
+    val percentile90: Double,                   // 90th percentile
+    val percentile95: Double,                   // 95th percentile
+    val percentile99: Double,                   // 99th percentile
+    val minLoss: Double,                        // Smallest loss observed
+    val maxLoss: Double,                        // Largest loss observed
+    val distribution: Map<String, DrawdownBucket>,  // Distribution with cumulative %
+    val totalLosingTrades: Int
 )
 
 /**

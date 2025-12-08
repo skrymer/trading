@@ -370,7 +370,7 @@ class BacktestService(
         val timeStats = calculateTimeBasedStats(trades)
         val exitAnalysis = calculateExitReasonAnalysis(trades)
         val sectorPerf = calculateSectorPerformance(trades)
-        val atrDrawdown = calculateATRDrawdownStats(winningTrades)
+        val atrDrawdown = calculateATRDrawdownStats(winningTrades, losingTrades)
 
         // Calculate market condition averages
         val marketAvgs = trades.mapNotNull { it.marketConditionAtEntry }
@@ -501,11 +501,14 @@ class BacktestService(
     }
 
     /**
-     * Calculate ATR drawdown statistics for winning trades.
+     * Calculate ATR drawdown statistics for winning trades and ATR loss statistics for losing trades.
+     * Measures how much adverse movement winners endured before becoming profitable,
+     * and how deep losses went for comparison.
      * Strategy-agnostic - provides percentiles and distribution for user interpretation.
      */
     private fun calculateATRDrawdownStats(
-        winningTrades: List<Trade>
+        winningTrades: List<Trade>,
+        losingTrades: List<Trade>
     ): ATRDrawdownStats? {
         val drawdowns = winningTrades
             .mapNotNull { it.excursionMetrics?.maxAdverseExcursionATR }
@@ -518,14 +521,14 @@ class BacktestService(
         val mean = drawdowns.average()
 
         // Calculate percentiles
-        fun percentile(p: Double) = drawdowns[((size - 1) * p).toInt().coerceIn(0, size - 1)]
+        fun percentile(p: Double, values: List<Double>) = values[((values.size - 1) * p).toInt().coerceIn(0, values.size - 1)]
 
-        val p25 = percentile(0.25)
+        val p25 = percentile(0.25, drawdowns)
         val p50 = median
-        val p75 = percentile(0.75)
-        val p90 = percentile(0.90)
-        val p95 = percentile(0.95)
-        val p99 = percentile(0.99)
+        val p75 = percentile(0.75, drawdowns)
+        val p90 = percentile(0.90, drawdowns)
+        val p95 = percentile(0.95, drawdowns)
+        val p99 = percentile(0.99, drawdowns)
 
         // Build distribution with cumulative percentages
         val buckets = listOf(
@@ -538,24 +541,58 @@ class BacktestService(
             "3.0+" to Double.MAX_VALUE
         )
 
-        val distribution = mutableMapOf<String, DrawdownBucket>()
-        var cumulativeCount = 0
-        var previousThreshold = 0.0
+        fun buildDistribution(values: List<Double>): Map<String, DrawdownBucket> {
+            val distribution = mutableMapOf<String, DrawdownBucket>()
+            var cumulativeCount = 0
+            var previousThreshold = 0.0
 
-        buckets.forEach { (range, threshold) ->
-            val count = drawdowns.count { it >= previousThreshold && it < threshold }
-            cumulativeCount += count
-            val percentage = (count.toDouble() / size) * 100
-            val cumulativePercentage = (cumulativeCount.toDouble() / size) * 100
+            buckets.forEach { (range, threshold) ->
+                val count = values.count { it >= previousThreshold && it < threshold }
+                cumulativeCount += count
+                val percentage = (count.toDouble() / values.size) * 100
+                val cumulativePercentage = (cumulativeCount.toDouble() / values.size) * 100
 
-            distribution[range] = DrawdownBucket(
-                range = range,
-                count = count,
-                percentage = percentage,
-                cumulativePercentage = cumulativePercentage
+                distribution[range] = DrawdownBucket(
+                    range = range,
+                    count = count,
+                    percentage = percentage,
+                    cumulativePercentage = cumulativePercentage
+                )
+
+                previousThreshold = threshold
+            }
+
+            return distribution
+        }
+
+        val distribution = buildDistribution(drawdowns)
+
+        // Calculate losing trades ATR stats
+        val losingTradesStats = run {
+            val losses = losingTrades
+                .mapNotNull { it.excursionMetrics?.maxAdverseExcursionATR }
+                .sorted()
+
+            if (losses.isEmpty()) return@run null
+
+            val lossSize = losses.size
+            val lossMedian = losses[lossSize / 2]
+            val lossMean = losses.average()
+
+            LosingTradesATRStats(
+                medianLoss = lossMedian,
+                meanLoss = lossMean,
+                percentile25 = percentile(0.25, losses),
+                percentile50 = lossMedian,
+                percentile75 = percentile(0.75, losses),
+                percentile90 = percentile(0.90, losses),
+                percentile95 = percentile(0.95, losses),
+                percentile99 = percentile(0.99, losses),
+                minLoss = losses.first(),
+                maxLoss = losses.last(),
+                distribution = buildDistribution(losses),
+                totalLosingTrades = lossSize
             )
-
-            previousThreshold = threshold
         }
 
         return ATRDrawdownStats(
@@ -570,7 +607,8 @@ class BacktestService(
             minDrawdown = drawdowns.first(),
             maxDrawdown = drawdowns.last(),
             distribution = distribution,
-            totalWinningTrades = size
+            totalWinningTrades = size,
+            losingTradesStats = losingTradesStats
         )
     }
 
