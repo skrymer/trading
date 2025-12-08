@@ -330,7 +330,10 @@ const chartColors = computed(() => {
                 :report="backtestReport"
                 :loading="false"
               />
-              <!-- TODO: Add MarketConditions component here in Phase 6 -->
+              <BacktestingMarketConditions
+                :report="backtestReport"
+                :loading="false"
+              />
               <!-- TODO: Add ExcursionAnalysis component here in Phase 7 -->
             </div>
           </template>
