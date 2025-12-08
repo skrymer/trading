@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
 import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -50,7 +49,7 @@ class PlanMoneyExitStrategyTest {
             startDate = LocalDate.of(2024, 1, 1),
             endDate = LocalDate.of(2024, 5, 30),  // 150 days duration (> 120 threshold)
             orderBlockType = OrderBlockType.BEARISH,  // Must be BEARISH
-            source = OrderBlockSource.CALCULATED  // Default is CALCULATED
+              // Default is CALCULATED
         )
 
         val stock = Stock(
@@ -69,7 +68,7 @@ class PlanMoneyExitStrategyTest {
 
         assertTrue(exitStrategy.match(stock, null, quote),
             "Should exit when within order block")
-        assertEquals("Quote is within an order block (calculated) older than 120 days",
+        assertEquals("Quote is within an order block older than 120 days",
             exitStrategy.reason(stock, null, quote))
     }
 

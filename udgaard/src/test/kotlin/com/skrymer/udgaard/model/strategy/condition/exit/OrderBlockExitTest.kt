@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -22,7 +21,6 @@ class OrderBlockExitTest {
             startDate = LocalDate.of(2024, 1, 1),
             endDate = LocalDate.of(2024, 5, 30),  // 150 days duration
             orderBlockType = OrderBlockType.BEARISH,  // Must be BEARISH
-            source = OrderBlockSource.CALCULATED  // Default is CALCULATED
         )
 
         val stock = Stock(
@@ -100,7 +98,6 @@ class OrderBlockExitTest {
             startDate = LocalDate.of(2024, 4, 1),
             endDate = LocalDate.of(2024, 5, 30),  // 60 days duration
             orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.CALCULATED  // Default is CALCULATED
         )
 
         val stock = Stock(
@@ -121,13 +118,13 @@ class OrderBlockExitTest {
 
     @Test
     fun `should provide correct exit reason`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120, source = "ALL")
+        val condition = OrderBlockExit(orderBlockAgeInDays = 120)
         assertEquals("Quote is within an order block older than 120 days", condition.exitReason())
     }
 
     @Test
     fun `should provide correct description`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120, source = "ALL")
+        val condition = OrderBlockExit(orderBlockAgeInDays = 120)
         assertEquals("Within order block (age > 120d)", condition.description())
     }
 
@@ -135,156 +132,5 @@ class OrderBlockExitTest {
     fun `should use default age of 120 days`() {
         val condition = OrderBlockExit()
         assertTrue(condition.exitReason().contains("120 days"))
-    }
-
-    @Test
-    fun `should filter by CALCULATED source only`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120, source = "CALCULATED")
-
-        // Create two order blocks - one CALCULATED, one OVTLYR
-        val calculatedBlock = OrderBlock(
-            low = 95.0,
-            high = 105.0,
-            startDate = LocalDate.of(2024, 1, 1),
-            endDate = LocalDate.of(2024, 5, 30),
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.CALCULATED
-        )
-
-        val ovtlyrBlock = OrderBlock(
-            low = 95.0,
-            high = 105.0,
-            startDate = LocalDate.of(2024, 1, 1),
-            endDate = LocalDate.of(2024, 5, 30),
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.OVTLYR
-        )
-
-        val stock = Stock(
-            symbol = "TEST",
-            sectorSymbol = "XLK",
-            quotes = mutableListOf(),
-            orderBlocks = mutableListOf(calculatedBlock, ovtlyrBlock)
-        )
-
-        val quote = StockQuote(
-            date = LocalDate.of(2024, 3, 1),
-            closePrice = 100.0  // Within both blocks
-        )
-
-        // Should exit because CALCULATED block exists
-        assertTrue(condition.shouldExit(stock, null, quote),
-            "Should exit when within CALCULATED order block")
-        assertTrue(condition.exitReason().contains("calculated"))
-    }
-
-    @Test
-    fun `should filter by OVTLYR source only`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120, source = "OVTLYR")
-
-        val calculatedBlock = OrderBlock(
-            low = 95.0,
-            high = 105.0,
-            startDate = LocalDate.of(2024, 1, 1),
-            endDate = LocalDate.of(2024, 5, 30),
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.CALCULATED
-        )
-
-        val ovtlyrBlock = OrderBlock(
-            low = 95.0,
-            high = 105.0,
-            startDate = LocalDate.of(2024, 1, 1),
-            endDate = LocalDate.of(2024, 5, 30),
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.OVTLYR
-        )
-
-        val stock = Stock(
-            symbol = "TEST",
-            sectorSymbol = "XLK",
-            quotes = mutableListOf(),
-            orderBlocks = mutableListOf(calculatedBlock, ovtlyrBlock)
-        )
-
-        val quote = StockQuote(
-            date = LocalDate.of(2024, 3, 1),
-            closePrice = 100.0
-        )
-
-        // Should exit because OVTLYR block exists
-        assertTrue(condition.shouldExit(stock, null, quote),
-            "Should exit when within OVTLYR order block")
-        assertTrue(condition.exitReason().contains("Ovtlyr"))
-    }
-
-    @Test
-    fun `should not exit when only wrong source order block exists`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120, source = "CALCULATED")
-
-        // Only OVTLYR block exists
-        val ovtlyrBlock = OrderBlock(
-            low = 95.0,
-            high = 105.0,
-            startDate = LocalDate.of(2024, 1, 1),
-            endDate = LocalDate.of(2024, 5, 30),
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.OVTLYR
-        )
-
-        val stock = Stock(
-            symbol = "TEST",
-            sectorSymbol = "XLK",
-            quotes = mutableListOf(),
-            orderBlocks = mutableListOf(ovtlyrBlock)
-        )
-
-        val quote = StockQuote(
-            date = LocalDate.of(2024, 3, 1),
-            closePrice = 100.0
-        )
-
-        // Should NOT exit because we're filtering for CALCULATED only
-        assertFalse(condition.shouldExit(stock, null, quote),
-            "Should not exit when only OVTLYR block exists but filtering for CALCULATED")
-    }
-
-    @Test
-    fun `should consider all sources when source is ALL`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120, source = "ALL")
-
-        val calculatedBlock = OrderBlock(
-            low = 95.0,
-            high = 105.0,
-            startDate = LocalDate.of(2024, 1, 1),
-            endDate = LocalDate.of(2024, 5, 30),
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.CALCULATED
-        )
-
-        val stock = Stock(
-            symbol = "TEST",
-            sectorSymbol = "XLK",
-            quotes = mutableListOf(),
-            orderBlocks = mutableListOf(calculatedBlock)
-        )
-
-        val quote = StockQuote(
-            date = LocalDate.of(2024, 3, 1),
-            closePrice = 100.0
-        )
-
-        assertTrue(condition.shouldExit(stock, null, quote),
-            "Should exit when source is ALL and CALCULATED block exists")
-        assertFalse(condition.exitReason().contains("calculated"))
-        assertFalse(condition.exitReason().contains("Ovtlyr"))
-    }
-
-    @Test
-    fun `should use CALCULATED as default source`() {
-        val condition = OrderBlockExit(orderBlockAgeInDays = 120)
-
-        // Default should use CALCULATED source
-        assertTrue(condition.description().contains("calc"))
     }
 }

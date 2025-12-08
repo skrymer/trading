@@ -9,8 +9,9 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * Entry condition that checks if the price is below a bearish order block by a specified percentage.
- * This is useful for entering positions when price pulls back to support areas.
+ * Entry condition that checks if the price is sufficiently below any bearish order blocks.
+ * Returns true (allows entry) only when price is at least X% below all relevant order blocks.
+ * Returns false (blocks entry) when price is within or too close to any order block.
  *
  * @param percentBelow Percentage below order block required (e.g., 2.0 for 2%)
  * @param ageInDays Minimum age of order block to consider (default 30 days)
@@ -20,14 +21,14 @@ class BelowOrderBlockCondition(
     private val ageInDays: Int = 30
 ) : TradingCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        // Find bearish order blocks older than specified age
+        // Find bearish order blocks at least as old as specified age
         val relevantOrderBlocks = stock.orderBlocks
             .filter {
                 // Must be a bearish order block (resistance)
                 it.orderBlockType == OrderBlockType.BEARISH
             }
             .filter {
-                // Must be older than specified age
+                // Must be at least ageInDays old (>= ageInDays)
                 ChronoUnit.DAYS.between(
                     it.startDate,
                     quote.date
@@ -39,11 +40,12 @@ class BelowOrderBlockCondition(
             }
             .filter {
                 // Order block must still be active (endDate is null or in the future)
-                it.endDate == null || it.endDate.isAfter(quote.date)
+                val endDate = it.endDate
+                endDate == null || endDate.isAfter(quote.date)
             }
             .filter {
-                // Order block must be above current price (we're below it)
-                it.low > quote.closePrice
+                // Price must be at or below the order block's high (below or within)
+                quote.closePrice <= it.high
             }
 
         // If no relevant order blocks exist, allow entry
@@ -51,15 +53,17 @@ class BelowOrderBlockCondition(
             return true
         }
 
-        // Check if price is at least percentBelow% below any relevant order block's low
-        return relevantOrderBlocks.any { orderBlock ->
+        // Check if price is sufficiently below ALL relevant order blocks
+        // Return false (block entry) if price is within OR too close to ANY order block
+        return relevantOrderBlocks.all { orderBlock ->
             val requiredPrice = orderBlock.low * (1.0 - percentBelow / 100.0)
+            // Allow entry only if price is at least percentBelow% below the order block's low
             quote.closePrice <= requiredPrice
         }
     }
 
     override fun description(): String =
-        "Price at least ${percentBelow}% below order block (age > ${ageInDays}d)"
+        "Price at least ${percentBelow}% below order block (age >= ${ageInDays}d)"
 
     override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
         type = "belowOrderBlock",
@@ -74,8 +78,11 @@ class BelowOrderBlockCondition(
             .filter { it.orderBlockType == OrderBlockType.BEARISH }
             .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
             .filter { it.startDate.isBefore(quote.date) }
-            .filter { it.endDate == null || it.endDate.isAfter(quote.date) }
-            .filter { it.low > price }
+            .filter {
+                val endDate = it.endDate
+                endDate == null || endDate.isAfter(quote.date)
+            }
+            .filter { price <= it.high }
 
         val message: String
         val actualValue: String
@@ -84,19 +91,24 @@ class BelowOrderBlockCondition(
 
         if (relevantOrderBlocks.isEmpty()) {
             passed = true
-            message = "No relevant order blocks found (age > ${ageInDays}d) ✓"
+            message = "No relevant order blocks found (age >= ${ageInDays}d) ✓"
             actualValue = "No blocks"
             threshold = ">= ${ageInDays}d old"
         } else {
-            // Find the closest order block
+            // Find the closest order block (lowest low)
             val closestBlock = relevantOrderBlocks.minByOrNull { it.low }!!
             val blockAge = ChronoUnit.DAYS.between(closestBlock.startDate, quote.date)
             val requiredPrice = closestBlock.low * (1.0 - percentBelow / 100.0)
             val actualPercentBelow = ((closestBlock.low - price) / closestBlock.low) * 100.0
 
-            passed = price <= requiredPrice
+            val isWithinBlock = price >= closestBlock.low && price <= closestBlock.high
+            val isSufficientlyBelow = price <= requiredPrice
 
-            message = if (passed) {
+            passed = isSufficientlyBelow
+
+            message = if (isWithinBlock) {
+                "Price ${"%.2f".format(price)} is WITHIN block [${"%.2f".format(closestBlock.low)}-${"%.2f".format(closestBlock.high)}] (${blockAge}d old) ✗"
+            } else if (isSufficientlyBelow) {
                 "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${"%.2f".format(closestBlock.low)} (${blockAge}d old) ✓"
             } else {
                 "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${"%.2f".format(closestBlock.low)} (requires >= ${percentBelow}%) ✗"

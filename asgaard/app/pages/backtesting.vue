@@ -334,7 +334,10 @@ const chartColors = computed(() => {
                 :report="backtestReport"
                 :loading="false"
               />
-              <!-- TODO: Add ExcursionAnalysis component here in Phase 7 -->
+              <BacktestingExcursionAnalysis
+                :report="backtestReport"
+                :loading="false"
+              />
             </div>
           </template>
 

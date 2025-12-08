@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.model.OrderBlockSensitivity
-import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.StockQuote
 import org.junit.jupiter.api.Assertions.*
@@ -39,7 +38,6 @@ class OrderBlockCalculatorTest {
 
         // Verify the order block properties
         val block = bullishBlocks.first()
-        assertEquals(OrderBlockSource.CALCULATED, block.source)
         assertEquals(OrderBlockSensitivity.HIGH, block.sensitivity)
         assertTrue(block.rateOfChange >= OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0,
             "ROC ${block.rateOfChange} should be >= ${OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0}")
@@ -60,7 +58,6 @@ class OrderBlockCalculatorTest {
 
         // Verify the order block properties
         val block = bearishBlocks.first()
-        assertEquals(OrderBlockSource.CALCULATED, block.source)
         assertEquals(OrderBlockSensitivity.HIGH, block.sensitivity)
         assertTrue(block.rateOfChange <= -(OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0),
             "ROC ${block.rateOfChange} should be <= -${OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0}")

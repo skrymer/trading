@@ -91,6 +91,9 @@ class DefaultStockFactory(
         // Set the stock reference on all earnings for proper JPA relationship
         stock.earnings.forEach { it.stock = stock }
 
+        // Set the stock reference on all order blocks for proper JPA relationship
+        stock.orderBlocks.forEach { it.stock = stock }
+
         return stock
     }
 

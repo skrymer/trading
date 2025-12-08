@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
 import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -230,8 +229,7 @@ class PlanEtfStrategyIntegrationTest {
             high = 105.0,
             startDate = LocalDate.of(2023, 11, 1),
             endDate = LocalDate.of(2024, 2, 1), // Must not be null!
-            orderBlockType = OrderBlockType.BEARISH,
-            source = OrderBlockSource.CALCULATED  // Default is CALCULATED
+            orderBlockType = OrderBlockType.BEARISH  // Default is CALCULATED
         )
 
         val stock = Stock(

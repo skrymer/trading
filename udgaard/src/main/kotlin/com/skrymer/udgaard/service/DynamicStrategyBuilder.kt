@@ -130,9 +130,8 @@ class DynamicStrategyBuilder(
             }
             "orderblock" -> {
                 val ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 120
-                val source = config.parameters["source"] as? String ?: "CALCULATED"
-                logger.info("  -> OrderBlockExit(ageInDays=$ageInDays, source=$source)")
-                OrderBlockExit(ageInDays, source)
+                logger.info("  -> OrderBlockExit(ageInDays=$ageInDays)")
+                OrderBlockExit(ageInDays)
             }
             "stoploss" -> StopLossExit(
                 atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.0
@@ -149,6 +148,11 @@ class DynamicStrategyBuilder(
             "heatmapthreshold" -> HeatmapThresholdExit()
             "heatmapdeclining" -> HeatmapDecliningExit()
             "marketandsectordowntrend" -> MarketAndSectorDowntrendExit()
+            "beforeearnings" -> {
+                val daysBeforeEarnings = (config.parameters["daysBeforeEarnings"] as? Number)?.toInt() ?: 1
+                logger.info("  -> BeforeEarningsExit(daysBeforeEarnings=$daysBeforeEarnings)")
+                BeforeEarningsExit(daysBeforeEarnings)
+            }
             else -> throw IllegalArgumentException("Unknown exit condition type: ${config.type}")
         }
         return condition
@@ -564,6 +568,23 @@ class DynamicStrategyBuilder(
                 description = "Exit when both market and sector are in downtrend",
                 parameters = emptyList(),
                 category = "Trend"
+            ),
+            ConditionMetadata(
+                type = "beforeEarnings",
+                displayName = "Exit Before Earnings",
+                description = "Exit X days before earnings announcement",
+                parameters = listOf(
+                    ParameterMetadata(
+                        name = "daysBeforeEarnings",
+                        displayName = "Days Before Earnings",
+                        type = "number",
+                        defaultValue = 1,
+                        min = 0,
+                        max = 10,
+                        options = listOf("0", "1", "2", "3", "5", "7")
+                    )
+                ),
+                category = "Earnings"
             )
         )
     }

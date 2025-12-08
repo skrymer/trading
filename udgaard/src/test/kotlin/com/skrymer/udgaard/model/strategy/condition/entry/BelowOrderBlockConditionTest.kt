@@ -86,7 +86,7 @@ class BelowOrderBlockConditionTest {
     }
 
     @Test
-    fun `should return true when price is above order block`() {
+    fun `should return false when price is within order block`() {
         val orderBlock = OrderBlock(
             low = 100.0,
             high = 105.0,
@@ -100,14 +100,14 @@ class BelowOrderBlockConditionTest {
 
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
-        // Price at 102.0 is above order block low (within the OB range)
+        // Price at 102.0 is within the order block range (100-105)
         val quote = StockQuote(
             date = LocalDate.of(2024, 3, 1),
             closePrice = 102.0
         )
 
-        assertTrue(condition.evaluate(stock, quote),
-            "Condition should be true when price is above/within order block (OB not above price)")
+        assertFalse(condition.evaluate(stock, quote),
+            "Condition should be false when price is within order block (should block entry)")
     }
 
     @Test
@@ -293,6 +293,50 @@ class BelowOrderBlockConditionTest {
     @Test
     fun `should provide correct description`() {
         val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
-        assertEquals("Price at least 2.0% below order block (age > 30d)", condition.description())
+        assertEquals("Price at least 2.0% below order block (age >= 30d)", condition.description())
+    }
+
+    @Test
+    fun `should consider all order blocks when ageInDays is 0`() {
+        // Order block created on March 1st
+        val orderBlock = OrderBlock(
+            low = 100.0,
+            high = 105.0,
+            startDate = LocalDate.of(2024, 3, 1),
+            endDate = null,
+            orderBlockType = OrderBlockType.BEARISH
+        )
+
+        val stock = Stock()
+        stock.orderBlocks = mutableListOf(orderBlock)
+
+        val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 0)
+
+        // Quote on the same day the order block was created - should return true (no valid blocks)
+        val quote = StockQuote(
+            date = LocalDate.of(2024, 3, 1),
+            closePrice = 98.0 // 2% below order block
+        )
+
+        assertTrue(condition.evaluate(stock, quote),
+            "Condition should be true when order block hasn't started yet (same day means no valid blocks)")
+
+        // Quote 1 day after order block was created (block is now 0 days old and started before quote)
+        val quote2 = StockQuote(
+            date = LocalDate.of(2024, 3, 2),
+            closePrice = 98.0 // 2% below order block
+        )
+
+        assertTrue(condition.evaluate(stock, quote2),
+            "Condition should consider order blocks that are 0 days old (ageInDays=0 includes blocks from previous day)")
+
+        // Verify it would be false if price wasn't far enough below
+        val quote3 = StockQuote(
+            date = LocalDate.of(2024, 3, 2),
+            closePrice = 98.5 // Only 1.5% below order block
+        )
+
+        assertFalse(condition.evaluate(stock, quote3),
+            "Condition should be false when price is not below enough and not within block")
     }
 }

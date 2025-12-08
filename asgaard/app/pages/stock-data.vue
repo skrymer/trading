@@ -1,87 +1,85 @@
 <template>
-  <div class="container mx-auto p-6 flex flex-col min-h-[calc(100vh-4rem)]">
-    <UCard class="flex flex-col flex-1">
-      <template #header>
-        <div class="flex flex-col gap-4">
-          <!-- Top Row: Title and Symbol Search -->
-          <div class="flex items-center justify-between gap-4">
-            <h1 class="text-2xl font-bold">
-              Stock Data Viewer
-            </h1>
-            <div class="flex items-center gap-3 flex-1 max-w-md">
-              <UInputMenu
-                v-model="selectedSymbol"
-                :items="stockSymbols"
-                :placeholder="loadingSymbols ? 'Loading symbols...' : 'Type to search stocks...'"
-                :disabled="loadingSymbols"
-                :loading="loadingSymbols"
-                icon="i-lucide-search"
-                class="flex-1"
-              />
-              <UButton
-                v-if="selectedStock"
-                icon="i-heroicons-arrow-path"
-                :loading="loading"
-                @click="refreshStock"
-              >
-                Refresh
-              </UButton>
-            </div>
-          </div>
+  <UDashboardPanel id="stock-data">
+    <template #header>
+      <UDashboardNavbar title="Stock Data Viewer" :ui="{ right: 'gap-3' }">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
 
-          <!-- Strategy Selection Row -->
-          <div v-if="selectedStock" class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div class="flex items-center gap-2 flex-1">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                Entry Strategy:
-              </label>
-              <USelectMenu
-                v-model="selectedEntryStrategy"
-                :items="entryStrategies"
-                :loading="loadingStrategies"
-                placeholder="Select entry strategy"
-                class="flex-1 max-w-xs"
-              />
-            </div>
+        <template #right>
+          <UInputMenu
+            v-model="selectedSymbol"
+            :items="stockSymbols"
+            :placeholder="loadingSymbols ? 'Loading symbols...' : 'Type to search stocks...'"
+            :disabled="loadingSymbols"
+            :loading="loadingSymbols"
+            icon="i-lucide-search"
+            class="w-64"
+          />
+          <UButton
+            v-if="selectedStock"
+            icon="i-heroicons-arrow-path"
+            :loading="loading"
+            @click="refreshStock"
+          >
+            Refresh
+          </UButton>
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-            <div class="flex items-center gap-2 flex-1">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                Exit Strategy:
-              </label>
-              <USelectMenu
-                v-model="selectedExitStrategy"
-                :items="exitStrategies"
-                :loading="loadingStrategies"
-                placeholder="Select exit strategy"
-                class="flex-1 max-w-xs"
-              />
-            </div>
-
-            <div class="flex items-center gap-3">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                Cooldown Days:
-              </label>
-              <UInput
-                v-model.number="cooldownDays"
-                type="number"
-                min="0"
-                max="100"
-                class="w-24"
-                placeholder="0"
-              />
-            </div>
-
-            <UButton
-              icon="i-heroicons-chart-bar"
-              :loading="loadingSignals"
-              :disabled="!selectedEntryStrategy || !selectedExitStrategy"
-              @click="fetchSignals"
-            >
-              Show Signals
-            </UButton>
-          </div>
+    <template #body>
+      <!-- Strategy Selection Row -->
+      <div v-if="selectedStock" class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-4">
+        <div class="flex items-center gap-2 flex-1">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            Entry Strategy:
+          </label>
+          <USelectMenu
+            v-model="selectedEntryStrategy"
+            :items="entryStrategies"
+            :loading="loadingStrategies"
+            placeholder="Select entry strategy"
+            class="flex-1 max-w-xs"
+          />
         </div>
-      </template>
+
+        <div class="flex items-center gap-2 flex-1">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            Exit Strategy:
+          </label>
+          <USelectMenu
+            v-model="selectedExitStrategy"
+            :items="exitStrategies"
+            :loading="loadingStrategies"
+            placeholder="Select exit strategy"
+            class="flex-1 max-w-xs"
+          />
+        </div>
+
+        <div class="flex items-center gap-3">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            Cooldown Days:
+          </label>
+          <UInput
+            v-model.number="cooldownDays"
+            type="number"
+            min="0"
+            max="100"
+            class="w-24"
+            placeholder="0"
+          />
+        </div>
+
+        <UButton
+          icon="i-heroicons-chart-bar"
+          :loading="loadingSignals"
+          :disabled="!selectedEntryStrategy || !selectedExitStrategy"
+          @click="fetchSignals"
+        >
+          Show Signals
+        </UButton>
+      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center py-12">
@@ -89,7 +87,7 @@
       </div>
 
       <!-- Stock Data Display -->
-      <div v-else-if="selectedStock" class="flex flex-col flex-1 min-h-0">
+      <div v-else-if="selectedStock" class="space-y-4">
         <StockPriceChart
           v-if="selectedStock.quotes && selectedStock.quotes.length > 0"
           :quotes="selectedStock.quotes"
@@ -98,14 +96,56 @@
           :signals="signalsData"
           :entry-strategy="selectedEntryStrategy"
         />
+
+        <!-- Heatmap Chart -->
+        <div v-if="selectedStock" class="mt-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-semibold">Stock Heatmap (Fear & Greed)</h3>
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Time Range:
+              </label>
+              <USelectMenu
+                v-model="heatmapMonths"
+                :items="[
+                  { label: '3 Months', value: 3 },
+                  { label: '6 Months', value: 6 },
+                  { label: '1 Year', value: 12 },
+                  { label: '2 Years', value: 24 },
+                  { label: 'All Time', value: 1000 }
+                ]"
+                value-attribute="value"
+                class="w-36"
+              />
+            </div>
+          </div>
+          <ChartsBarChart
+            v-if="heatmapChartSeries.length > 0"
+            :series="heatmapChartSeries"
+            :categories="heatmapChartCategories"
+            :bar-colors="heatmapBarColors"
+            :distributed="true"
+            y-axis-label="Heatmap Value"
+            :height="350"
+            :show-legend="false"
+            :show-data-labels="false"
+            :y-axis-max="100"
+          />
+        </div>
       </div>
 
       <!-- No Selection State -->
-      <div v-else class="text-center py-12 text-gray-500">
-        Select a stock symbol to view data
+      <div v-else class="flex flex-col items-center justify-center h-96">
+        <UIcon name="i-lucide-database" class="w-16 h-16 text-muted mb-4" />
+        <h3 class="text-lg font-semibold mb-2">
+          No Stock Selected
+        </h3>
+        <p class="text-muted text-center">
+          Search for a stock symbol to view data
+        </p>
       </div>
-    </UCard>
-  </div>
+    </template>
+  </UDashboardPanel>
 </template>
 
 <script setup lang="ts">
@@ -130,6 +170,52 @@ const selectedEntryStrategy = ref<string>('')
 const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
+const heatmapMonths = ref<{ label: string; value: number }>({ label: '3 Months', value: 3 })
+
+// Computed properties for heatmap chart
+const filteredHeatmapQuotes = computed(() => {
+  if (!selectedStock.value?.quotes) return []
+
+  const quotes = selectedStock.value.quotes
+  const today = new Date()
+  const monthsAgo = new Date()
+  monthsAgo.setMonth(today.getMonth() - heatmapMonths.value.value)
+
+  return quotes.filter(q => {
+    if (!q.date) return false
+    const quoteDate = new Date(q.date)
+    return quoteDate >= monthsAgo
+  })
+})
+
+const heatmapChartSeries = computed(() => {
+  if (filteredHeatmapQuotes.value.length === 0) return []
+
+  return [{
+    name: 'Heatmap',
+    data: filteredHeatmapQuotes.value.map(q => q.heatmap || 0)
+  }]
+})
+
+const heatmapChartCategories = computed(() => {
+  if (filteredHeatmapQuotes.value.length === 0) return []
+
+  return filteredHeatmapQuotes.value.map(q => {
+    const date = new Date(q.date)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  })
+})
+
+const heatmapBarColors = computed(() => {
+  if (filteredHeatmapQuotes.value.length === 0) return []
+
+  // Color bars based on heatmap value (0-100 scale)
+  // Green if > 50, Red if <= 50
+  return filteredHeatmapQuotes.value.map(q => {
+    const heatmap = q.heatmap || 0
+    return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
+  })
+})
 
 // Methods
 const fetchStockSymbols = async () => {

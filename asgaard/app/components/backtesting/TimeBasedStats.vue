@@ -24,9 +24,12 @@ interface PeriodRow extends PeriodStats {
 
 // Get stats for selected period
 const periodStats = computed<PeriodRow[]>(() => {
-  if (!props.report?.timeBasedStats) return []
+  if (!props.report?.timeBasedStats) {
+    return []
+  }
 
   const stats = props.report.timeBasedStats
+
   let data: Record<string, PeriodStats> = {}
 
   switch (selectedPeriod.value) {
@@ -87,7 +90,9 @@ const winRateChartCategories = computed(() => {
 
 // Chart data for profit by period
 const profitChartSeries = computed(() => {
-  if (!periodStats.value.length) return []
+  if (!periodStats.value.length) {
+    return []
+  }
 
   return [{
     name: 'Avg Profit %',
@@ -105,7 +110,7 @@ const profitBarColors = computed(() => {
 })
 
 // Format helpers
-const formatWinRate = (value: number) => `${(value * 100).toFixed(1)}%`
+const formatWinRate = (value: number) => `${value.toFixed(1)}%`  // Backend already returns as percentage (0-100)
 const formatProfit = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 const formatDays = (value: number) => value.toFixed(1)
 </script>
@@ -140,7 +145,10 @@ const formatDays = (value: number) => value.toFixed(1)
         No time-based statistics available
       </p>
       <p class="text-sm text-muted mt-2">
-        Run a new backtest to see performance over time
+        This backtest was run before time-based stats were added.
+      </p>
+      <p class="text-sm text-primary mt-1 font-medium">
+        Run a new backtest to see performance over time.
       </p>
     </div>
 
@@ -213,7 +221,11 @@ const formatDays = (value: number) => value.toFixed(1)
         <h4 class="text-sm font-medium mb-3">
           Average Profit by {{ selectedPeriod === 'year' ? 'Year' : selectedPeriod === 'quarter' ? 'Quarter' : 'Month' }}
         </h4>
+        <div v-if="profitChartSeries.length === 0 || !profitChartSeries[0] || profitChartSeries[0].data.length === 0" class="text-center py-8">
+          <p class="text-muted text-sm">No data available for chart</p>
+        </div>
         <ChartsBarChart
+          v-else
           :series="profitChartSeries"
           :categories="profitChartCategories"
           :bar-colors="profitBarColors"

@@ -2,7 +2,6 @@ package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.model.OrderBlock
 import com.skrymer.udgaard.model.OrderBlockSensitivity
-import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.model.OrderBlockType
 import com.skrymer.udgaard.model.StockQuote
 import org.slf4j.LoggerFactory
@@ -209,7 +208,6 @@ class OrderBlockCalculator {
                     startDate = quote.date ?: LocalDate.now(),
                     endDate = endDate,
                     orderBlockType = type,
-                    source = OrderBlockSource.CALCULATED,
                     volume = quote.volume,
                     volumeStrength = volumeStrength,
                     sensitivity = sensitivityLevel,  // Use passed sensitivity level
@@ -303,11 +301,7 @@ class OrderBlockCalculator {
 
         // Update mitigated blocks with end date
         blocksToMitigate.forEach { block ->
-            val mitigatedBlock = block.copy(endDate = currentQuote.date)
-            val index = activeBlocks.indexOf(block)
-            if (index >= 0) {
-                activeBlocks[index] = mitigatedBlock
-            }
+            block.endDate = currentQuote.date
         }
 
         // Remove mitigated blocks from active list

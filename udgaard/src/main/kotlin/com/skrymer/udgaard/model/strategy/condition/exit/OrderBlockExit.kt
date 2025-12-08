@@ -1,6 +1,5 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.model.OrderBlockSource
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
@@ -8,40 +7,23 @@ import com.skrymer.udgaard.model.strategy.ExitCondition
 
 /**
  * Exit condition that triggers when price is within an order block older than specified age.
+ * All order blocks are calculated using ROC (Rate of Change) analysis.
  * @param orderBlockAgeInDays Minimum age of order block in days (default 120)
- * @param source Order block source to consider: "CALCULATED", "OVTLYR", or "ALL" (default CALCULATED)
  */
 class OrderBlockExit(
-    private val orderBlockAgeInDays: Int = 120,
-    private val source: String = "CALCULATED"
+    private val orderBlockAgeInDays: Int = 120
 ) : ExitCondition {
 
     override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-        val orderBlockSource = when (source.uppercase()) {
-            "CALCULATED" -> OrderBlockSource.CALCULATED
-            "OVTLYR" -> OrderBlockSource.OVTLYR
-            "ALL" -> null  // null means all sources
-            else -> null
-        }
-        return stock.withinOrderBlock(quote, orderBlockAgeInDays, orderBlockSource)
+        return stock.withinOrderBlock(quote, orderBlockAgeInDays)
     }
 
     override fun exitReason(): String {
-        val sourceText = when (source.uppercase()) {
-            "CALCULATED" -> " (calculated)"
-            "OVTLYR" -> " (Ovtlyr)"
-            else -> ""
-        }
-        return "Quote is within an order block$sourceText older than $orderBlockAgeInDays days"
+        return "Quote is within an order block older than $orderBlockAgeInDays days"
     }
 
     override fun description(): String {
-        val sourceText = when (source.uppercase()) {
-            "CALCULATED" -> " calc"
-            "OVTLYR" -> " Ovtlyr"
-            else -> ""
-        }
-        return "Within order block$sourceText (age > ${orderBlockAgeInDays}d)"
+        return "Within order block (age > ${orderBlockAgeInDays}d)"
     }
 
     override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(

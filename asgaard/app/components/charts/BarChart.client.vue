@@ -20,6 +20,7 @@ export interface BarChartProps {
   xAxisLabel?: string
   barColors?: string[]
   distributed?: boolean
+  yAxisMax?: number
 }
 
 const props = withDefaults(defineProps<BarChartProps>(), {
@@ -110,7 +111,11 @@ const chartOptions = computed<ApexOptions>(() => {
     }
   }
 
-  return {
+  if (props.yAxisMax !== undefined) {
+    yaxisConfig.max = props.yAxisMax
+  }
+
+  const baseConfig: ApexOptions = {
     chart: {
       type: 'bar',
       height: props.height,
@@ -119,61 +124,21 @@ const chartOptions = computed<ApexOptions>(() => {
       },
       background: 'transparent',
       foreColor: isDark ? '#d1d5db' : '#6b7280',
-      stacked: props.stacked,
-      events: {
-        dataPointSelection: (event: any, chartContext: any, config: any) => {
-          emit('barClick', config.dataPointIndex, config.seriesIndex)
-        },
-        click: (event: any, chartContext: any, config: any) => {
-          // Handle clicks anywhere on the chart area
-          if (config.dataPointIndex !== undefined && config.dataPointIndex >= 0) {
-            emit('barClick', config.dataPointIndex, config.seriesIndex || 0)
-          }
-        }
-      }
+      stacked: props.stacked
     },
-    title: props.title
-      ? {
-          text: props.title,
-          align: 'left',
-          style: {
-            color: isDark ? '#f3f4f6' : '#111827'
-          }
-        }
-      : undefined,
     plotOptions: {
       bar: {
         horizontal: props.horizontal,
         borderRadius: 4,
         distributed: props.distributed,
-        dataLabels: {
-          position: 'top'
-        },
-        columnWidth: '60%',
-        barHeight: '100%'
-      }
-    },
-    states: {
-      hover: {
-        filter: {
-          type: 'none'
-        }
-      },
-      active: {
-        filter: {
-          type: 'none'
-        }
+        columnWidth: '60%'
       }
     },
     dataLabels: {
-      enabled: props.showDataLabels,
-      style: {
-        colors: [isDark ? '#f3f4f6' : '#111827']
-      },
-      formatter: (val: number) => val.toFixed(2)
+      enabled: props.showDataLabels
     },
     legend: {
-      show: props.showLegend,
+      show: props.showLegend && !props.distributed,
       labels: {
         colors: isDark ? '#d1d5db' : '#6b7280'
       }
@@ -184,16 +149,35 @@ const chartOptions = computed<ApexOptions>(() => {
       borderColor: isDark ? '#374151' : '#e5e7eb'
     },
     tooltip: {
-      theme: isDark ? 'dark' : 'light',
-      y: {
-        formatter: (val: number) => val.toFixed(2),
-        title: {
-          formatter: (seriesName: string) => seriesName + ' (click to view details)'
-        }
-      }
+      theme: isDark ? 'dark' : 'light'
     },
     colors: props.barColors || (props.series.map(s => s.color).filter(Boolean) as string[])
   }
+
+  // Add title if provided
+  if (props.title) {
+    baseConfig.title = {
+      text: props.title,
+      align: 'left',
+      style: {
+        color: isDark ? '#f3f4f6' : '#111827'
+      }
+    }
+  }
+
+  // Add click events
+  baseConfig.chart!.events = {
+    dataPointSelection: (event: any, chartContext: any, config: any) => {
+      emit('barClick', config.dataPointIndex, config.seriesIndex)
+    },
+    click: (event: any, chartContext: any, config: any) => {
+      if (config.dataPointIndex !== undefined && config.dataPointIndex >= 0) {
+        emit('barClick', config.dataPointIndex, config.seriesIndex || 0)
+      }
+    }
+  }
+
+  return baseConfig
 })
 </script>
 
@@ -201,6 +185,20 @@ const chartOptions = computed<ApexOptions>(() => {
   <UCard :ui="{ body: '!p-4' }">
     <ClientOnly>
       <div
+        v-if="distributed"
+        ref="chartRef"
+        class="cursor-pointer bar-chart-wrapper relative"
+        @click="handleChartClick"
+      >
+        <apexchart
+          type="bar"
+          :options="chartOptions"
+          :series="series"
+          :height="height"
+        />
+      </div>
+      <div
+        v-else
         ref="chartRef"
         class="cursor-pointer bar-chart-wrapper relative"
         @click="handleChartClick"

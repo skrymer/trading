@@ -107,6 +107,7 @@ export interface Stock {
 
 export interface StockQuote {
   atr: number
+  signal?: string | null
   lastBuySignal: string
   lastSellSignal: string
   date: string
@@ -125,7 +126,6 @@ export interface StockQuote {
 }
 
 export type OrderBlockType = 'BULLISH' | 'BEARISH'
-export type OrderBlockSource = 'OVTLYR' | 'CALCULATED'
 export type OrderBlockSensitivity = 'HIGH' | 'LOW'
 
 export interface OrderBlock {
@@ -134,7 +134,6 @@ export interface OrderBlock {
   startDate: string
   endDate: string | null
   orderBlockType: OrderBlockType
-  source: OrderBlockSource
   volume: number
   volumeStrength: number
   sensitivity?: OrderBlockSensitivity

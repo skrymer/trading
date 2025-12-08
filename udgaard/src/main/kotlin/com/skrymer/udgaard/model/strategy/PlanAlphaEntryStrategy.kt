@@ -52,7 +52,7 @@ class PlanAlphaEntryStrategy: DetailedEntryStrategy {
     uptrend()
     buySignal(daysOld = 5)  // Buy signal must be ≤ 5 day old
     stockHeatmapRising()
-    belowOrderBlock(2.0, 120)
+    belowOrderBlock(percentBelow = 2.0, ageInDays = 0)
     priceAbove(10)
   }
 

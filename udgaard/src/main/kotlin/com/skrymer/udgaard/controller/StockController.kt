@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.controller
 
+import com.skrymer.udgaard.controller.dto.EntrySignalDetails
 import com.skrymer.udgaard.controller.dto.StockWithSignals
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
@@ -200,7 +201,7 @@ class StockController(
         @PathVariable symbol: String,
         @PathVariable date: String,
         @RequestParam entryStrategy: String
-    ): ResponseEntity<com.skrymer.udgaard.controller.dto.EntrySignalDetails> {
+    ): ResponseEntity<EntrySignalDetails> {
         logger.info("Evaluating entry conditions for $symbol on date=$date with strategy=$entryStrategy")
 
         // Get stock data

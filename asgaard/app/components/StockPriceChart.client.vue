@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full flex flex-col bg-white dark:bg-gray-900 rounded-lg p-4">
+  <div class="w-full flex flex-col bg-white dark:bg-gray-900 rounded-lg p-4">
     <!-- Chart Toolbar -->
     <div class="flex items-center justify-between mb-4 gap-4">
       <div class="flex items-center gap-2">
@@ -38,6 +38,15 @@
           @click="showEMA = !showEMA"
         >
           EMA Lines
+        </UButton>
+        <UButton
+          :icon="showBuySellSignals ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+          size="sm"
+          :color="showBuySellSignals ? 'primary' : 'neutral'"
+          variant="soft"
+          @click="showBuySellSignals = !showBuySellSignals"
+        >
+          Buy/Sell Signals
         </UButton>
       </div>
 
@@ -87,7 +96,7 @@
     </div>
 
     <!-- Chart Container -->
-    <div ref="chartContainer" class="w-full flex-1 min-h-[400px]" />
+    <div ref="chartContainer" class="w-full h-[600px]" />
 
     <!-- Signal Details Modal -->
     <ChartsSignalDetailsModal
@@ -120,6 +129,7 @@ let ema50Series: any = null
 const dateRange = ref<string>('3M')
 const showOrderBlocks = ref<boolean>(true)
 const showEMA = ref<boolean>(true)
+const showBuySellSignals = ref<boolean>(true)
 
 // Signal details modal state
 const signalDetailsModalOpen = ref(false)
@@ -261,9 +271,8 @@ class OrderBlockRenderer {
         const scaledY1 = y1 * scope.verticalPixelRatio
         const scaledY2 = y2 * scope.verticalPixelRatio
 
-        // Draw filled rectangle with different opacity for calculated blocks
-        const isCalculated = block.source === 'CALCULATED'
-        const fillOpacity = isCalculated ? 0.4 : 0.2 // More opaque for calculated
+        // Draw filled rectangle
+        const fillOpacity = 0.4
         const fillColor = block.orderBlockType === 'BULLISH'
           ? `rgba(16, 185, 129, ${fillOpacity})`
           : `rgba(239, 68, 68, ${fillOpacity})`
@@ -280,15 +289,10 @@ class OrderBlockRenderer {
           scaledY2 - scaledY1
         )
 
-        // Draw border - thicker for calculated blocks
+        // Draw border with dashed line
         ctx.strokeStyle = strokeColor
-        ctx.lineWidth = (isCalculated ? 3 : 2) * scope.verticalPixelRatio
-        if (isCalculated) {
-          // Draw dashed line for calculated blocks
-          ctx.setLineDash([5 * scope.horizontalPixelRatio, 3 * scope.horizontalPixelRatio])
-        } else {
-          ctx.setLineDash([])
-        }
+        ctx.lineWidth = 3 * scope.verticalPixelRatio
+        ctx.setLineDash([5 * scope.horizontalPixelRatio, 3 * scope.horizontalPixelRatio])
         ctx.strokeRect(
           scaledX1,
           scaledY1,
@@ -298,7 +302,7 @@ class OrderBlockRenderer {
         ctx.setLineDash([]) // Reset line dash
 
         // Draw label
-        const label = `${block.orderBlockType} (${block.source})`
+        const label = block.orderBlockType
         ctx.font = `${10 * scope.verticalPixelRatio}px sans-serif`
         ctx.fillStyle = strokeColor
         ctx.fillText(label, scaledX1 + 5, scaledY1 + 15 * scope.verticalPixelRatio)
@@ -500,6 +504,9 @@ onMounted(async () => {
   // Update chart data
   updateChartData()
 
+  // Update markers to show buy/sell signals
+  updateMarkers()
+
   // Add click event listener to chart for marker interaction
   chart.subscribeClick(handleChartClick)
 
@@ -524,20 +531,45 @@ onMounted(async () => {
 
 // Function to update markers based on signals
 function updateMarkers() {
-  if (!seriesMarkersPlugin || !props.signals) {
-    // Clear markers if no signals
-    if (seriesMarkersPlugin) {
-      seriesMarkersPlugin.setMarkers([])
-    }
-    // Clear signal data map
-    signalDataMap.clear()
+  if (!seriesMarkersPlugin) {
     return
   }
 
   const markers: any[] = []
+  signalDataMap.clear()
 
-  // Process signals data
-  if (props.signals.quotesWithSignals) {
+  // Add buy/sell signals from quote data (if toggle is enabled)
+  if (showBuySellSignals.value && props.quotes) {
+    props.quotes.forEach((quote: StockQuote) => {
+      if (!quote.date || !quote.signal) return
+      const time = (new Date(quote.date).getTime() / 1000) as any
+
+      // Add buy signal marker (blue circle)
+      if (quote.signal === 'Buy') {
+        markers.push({
+          time,
+          position: 'belowBar',
+          color: '#3b82f6',
+          shape: 'circle',
+          text: 'Buy'
+        })
+      }
+
+      // Add sell signal marker (orange circle)
+      if (quote.signal === 'Sell') {
+        markers.push({
+          time,
+          position: 'aboveBar',
+          color: '#f59e0b',
+          shape: 'circle',
+          text: 'Sell'
+        })
+      }
+    })
+  }
+
+  // Process strategy-based entry/exit signals
+  if (props.signals && props.signals.quotesWithSignals) {
     props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
       const quote = quoteWithSignal.quote
       if (!quote.date) return
@@ -653,6 +685,11 @@ watch(showOrderBlocks, () => {
 // Watch for EMA toggle
 watch(showEMA, () => {
   updateChartData()
+})
+
+// Watch for buy/sell signals toggle
+watch(showBuySellSignals, () => {
+  updateMarkers()
 })
 
 function updateChartData() {

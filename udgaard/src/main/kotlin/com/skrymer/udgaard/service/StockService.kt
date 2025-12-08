@@ -35,8 +35,8 @@ open class StockService(
    * @param symbol - the [symbol] of the stock to get
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
-  @Cacheable(value = ["stocks"], key = "#symbol", condition = "!#forceFetch")
-  @CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
+//  @Cacheable(value = ["stocks"], key = "#symbol", condition = "!#forceFetch")
+//  @CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
   open fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
     logger.info("Getting stock $symbol with forceFetch=$forceFetch")
 
@@ -45,6 +45,10 @@ open class StockService(
     } else {
       stockRepository.findById(symbol).orElseGet {
         fetchStock(symbol, getSpy())
+      }?.also {
+        // Force loading of orderBlocks and earnings to ensure they're in cache
+        it.orderBlocks.size
+        it.earnings.size
       }
     }
   }
@@ -258,15 +262,16 @@ open class StockService(
       sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
     )
 
-    // Create new order blocks with stock reference (using copy since OrderBlock is immutable data class)
-    val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).map { it.copy(stock = stock) }.toMutableList()
+    // Create new order blocks list
+    val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
 
     // Explicitly clear existing order blocks (orphanRemoval = true will delete from DB)
     stock.orderBlocks.clear()
     stockRepository.flush() // Force orphan removal to execute before adding new blocks
 
-    // Add new order blocks
+    // Add new order blocks and set stock reference
     stock.orderBlocks.addAll(newOrderBlocks)
+    stock.orderBlocks.forEach { it.stock = stock }
 
     logger.info("Recalculated ${newOrderBlocks.size} order blocks for $symbol (${orderBlocksHigh.size} HIGH + ${orderBlocksLow.size} LOW)")
 
@@ -315,15 +320,16 @@ open class StockService(
           sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
         )
 
-        // Create new order blocks with stock reference
-        val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).map { it.copy(stock = stock) }.toMutableList()
+        // Create new order blocks list
+        val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
 
         // Explicitly clear existing order blocks (orphanRemoval = true will delete from DB)
         stock.orderBlocks.clear()
         stockRepository.flush() // Force orphan removal to execute before adding new blocks
 
-        // Add new order blocks
+        // Add new order blocks and set stock reference
         stock.orderBlocks.addAll(newOrderBlocks)
+        stock.orderBlocks.forEach { it.stock = stock }
 
         stockRepository.save(stock)
 
