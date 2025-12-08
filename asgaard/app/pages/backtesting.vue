@@ -311,12 +311,15 @@ const chartColors = computed(() => {
                 :report="backtestReport"
                 :loading="false"
               />
+              <BacktestingExitReasonAnalysis
+                :report="backtestReport"
+                :loading="false"
+              />
               <BacktestingSectorAnalysis
                 v-if="backtestReport"
                 :report="backtestReport"
                 :loading="false"
               />
-              <!-- TODO: Add ExitReasonAnalysis component here in Phase 4 -->
             </div>
           </template>
 
