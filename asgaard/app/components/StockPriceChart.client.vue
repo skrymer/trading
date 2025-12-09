@@ -538,11 +538,63 @@ function updateMarkers() {
   const markers: any[] = []
   signalDataMap.clear()
 
+  // First, collect all strategy signal times to avoid duplicates
+  const strategySignalTimes = new Set<number>()
+
+  // Process strategy-based entry/exit signals first
+  if (props.signals && props.signals.quotesWithSignals) {
+    props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
+      const quote = quoteWithSignal.quote
+      if (!quote.date) return
+
+      const time = (new Date(quote.date).getTime() / 1000) as any
+
+      // Add entry signal marker (green triangle up)
+      if (quoteWithSignal.entrySignal) {
+        strategySignalTimes.add(time)
+
+        // Store signal data for click handling
+        signalDataMap.set(time, {
+          date: quote.date,
+          price: quote.closePrice,
+          entryDetails: quoteWithSignal.entryDetails
+        })
+
+        markers.push({
+          time,
+          position: 'belowBar',
+          color: '#10b981',
+          shape: 'arrowUp',
+          text: 'Entry'
+        })
+      }
+
+      // Add exit signal marker (red triangle down)
+      if (quoteWithSignal.exitSignal) {
+        strategySignalTimes.add(time)
+
+        markers.push({
+          time,
+          position: 'aboveBar',
+          color: '#ef4444',
+          shape: 'arrowDown',
+          text: quoteWithSignal.exitReason || 'Exit'
+        })
+      }
+    })
+  }
+
   // Add buy/sell signals from quote data (if toggle is enabled)
+  // Only add if there's no strategy signal at the same time
   if (showBuySellSignals.value && props.quotes) {
     props.quotes.forEach((quote: StockQuote) => {
       if (!quote.date || !quote.signal) return
       const time = (new Date(quote.date).getTime() / 1000) as any
+
+      // Skip if there's already a strategy signal at this time
+      if (strategySignalTimes.has(time)) {
+        return
+      }
 
       // Add buy signal marker (blue circle)
       if (quote.signal === 'Buy') {
@@ -563,45 +615,6 @@ function updateMarkers() {
           color: '#f59e0b',
           shape: 'circle',
           text: 'Sell'
-        })
-      }
-    })
-  }
-
-  // Process strategy-based entry/exit signals
-  if (props.signals && props.signals.quotesWithSignals) {
-    props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
-      const quote = quoteWithSignal.quote
-      if (!quote.date) return
-
-      const time = (new Date(quote.date).getTime() / 1000) as any
-
-      // Add entry signal marker (green triangle up)
-      if (quoteWithSignal.entrySignal) {
-        // Store signal data for click handling
-        signalDataMap.set(time, {
-          date: quote.date,
-          price: quote.closePrice,
-          entryDetails: quoteWithSignal.entryDetails
-        })
-
-        markers.push({
-          time,
-          position: 'belowBar',
-          color: '#10b981',
-          shape: 'arrowUp',
-          text: 'Entry'
-        })
-      }
-
-      // Add exit signal marker (red triangle down)
-      if (quoteWithSignal.exitSignal) {
-        markers.push({
-          time,
-          position: 'aboveBar',
-          color: '#ef4444',
-          shape: 'arrowDown',
-          text: quoteWithSignal.exitReason || 'Exit'
         })
       }
     })
