@@ -32,6 +32,7 @@ class DefaultStockFactory(
     symbol: String,
     stockQuotes: List<StockQuote>,
     atrMap: Map<LocalDate, Double>?,
+    adxMap: Map<LocalDate, Double>?,
     marketBreadth: Breadth?,
     sectorBreadth: Breadth?,
     spy: OvtlyrStockInformation,
@@ -51,10 +52,14 @@ class DefaultStockFactory(
     val quotesWithATR = enrichWithATR(quotesWithIndicators, atrMap, symbol)
     logger.info("Enriched $symbol with ATR data")
 
-    // Step 3: Enrich with Ovtlyr signals, heatmaps, and sector data
+    // Step 3: Enrich with ADX data from AlphaVantage
+    val quotesWithADX = enrichWithADX(quotesWithATR, adxMap, symbol)
+    logger.info("Enriched $symbol with ADX data")
+
+    // Step 4: Enrich with Ovtlyr signals, heatmaps, and sector data
     val enrichedQuotes =
       ovtlyrEnrichmentService.enrichWithOvtlyr(
-        quotesWithATR,
+        quotesWithADX,
         symbol,
         marketBreadth,
         sectorBreadth,
@@ -134,6 +139,44 @@ class DefaultStockFactory(
     }
 
     logger.info("ATR enrichment complete for $symbol: $matchedCount quotes matched, $unmatchedCount unmatched")
+
+    return quotes
+  }
+
+  // ===================================================================
+  // ADX ENRICHMENT
+  // ===================================================================
+
+  /**
+   * Enrich quotes with ADX data from AlphaVantage.
+   * Mutates the quote objects to add ADX data.
+   */
+  private fun enrichWithADX(
+    quotes: List<StockQuote>,
+    alphaADX: Map<LocalDate, Double>?,
+    symbol: String,
+  ): List<StockQuote> {
+    if (alphaADX == null) {
+      logger.warn("No AlphaVantage ADX available for $symbol - ADX will be null")
+      return quotes
+    }
+
+    logger.info("Enriching $symbol with ADX data from Alpha Vantage (${alphaADX.size} ADX values available)")
+
+    var matchedCount = 0
+    var unmatchedCount = 0
+
+    quotes.forEach { quote ->
+      val matchingADX = alphaADX[quote.date]
+      if (matchingADX != null) {
+        quote.adx = matchingADX
+        matchedCount++
+      } else {
+        unmatchedCount++
+      }
+    }
+
+    logger.info("ADX enrichment complete for $symbol: $matchedCount quotes matched, $unmatchedCount unmatched")
 
     return quotes
   }

@@ -153,6 +153,15 @@ open class StockService(
       }
       logger.info("Fetched ${atrMap.size} ATR values for $symbol")
 
+      // Step 3.1: Fetch ADX data (optional, for trend strength conditions)
+      logger.info("Fetching ADX data for $symbol")
+      val adxMap = technicalIndicatorProvider.getADX(symbol)
+      if (adxMap != null) {
+        logger.info("Fetched ${adxMap.size} ADX values for $symbol")
+      } else {
+        logger.warn("Could not fetch ADX data for $symbol - ADX conditions will not work")
+      }
+
       // Step 3.5: Fetch earnings history (for exit-before-earnings strategies)
       logger.info("Fetching earnings history for $symbol")
       val earnings = fundamentalDataProvider.getEarnings(symbol) ?: emptyList()
@@ -176,13 +185,14 @@ open class StockService(
         }
 
       // Step 6: Create enriched quotes using StockFactory
-      // This will: calculate EMAs, add ATR, calculate Donchian, determine trend, enrich with Ovtlyr
+      // This will: calculate EMAs, add ATR, add ADX, calculate Donchian, determine trend, enrich with Ovtlyr
       logger.info("Creating enriched quotes for $symbol")
       val enrichedQuotes =
         stockFactory.enrichQuotes(
           symbol = symbol,
           stockQuotes = stockQuotes,
           atrMap = atrMap,
+          adxMap = adxMap,
           marketBreadth = marketBreadth,
           sectorBreadth = sectorBreadth,
           spy = spy,
