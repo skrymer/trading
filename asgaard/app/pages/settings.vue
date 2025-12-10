@@ -19,7 +19,9 @@
             <template #header>
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-lg font-semibold">API Credentials</h3>
+                  <h3 class="text-lg font-semibold">
+                    API Credentials
+                  </h3>
                   <p class="text-sm text-gray-500 mt-1">
                     Configure your API credentials for stock data providers
                   </p>
@@ -125,7 +127,9 @@
           <!-- Configuration File Info -->
           <UCard v-if="credentialsStatus">
             <template #header>
-              <h3 class="text-lg font-semibold">Configuration File</h3>
+              <h3 class="text-lg font-semibold">
+                Configuration File
+              </h3>
             </template>
 
             <div class="space-y-3">

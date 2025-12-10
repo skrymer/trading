@@ -470,7 +470,7 @@ async function fetchCurrentPrices() {
     // - For stocks/ETFs: Always use the actual trade symbol for P&L calculation
     // - Also fetch underlying symbols if they exist (for reference/display)
     const symbolsSet = new Set<string>()
-    openTrades.value.forEach(trade => {
+    openTrades.value.forEach((trade) => {
       // Always add the actual trade symbol (for P&L calculation)
       symbolsSet.add(trade.symbol)
       // Also add underlying symbol if different (for reference)
@@ -523,7 +523,7 @@ const projectedStats = computed(() => {
   // Only include stocks and ETFs - skip options (can't accurately price with stock price)
   const simulatedClosedTrades = openTrades.value
     .filter(trade => trade.instrumentType !== 'OPTION') // Skip options
-    .map(trade => {
+    .map((trade) => {
       // Use actual trade symbol for P&L (not underlying symbol)
       const currentPrice = stockPrices.value[trade.symbol] || 0
 
@@ -1091,93 +1091,93 @@ const openTradesTableData = computed(() => {
           </h3>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Total Trades
-              </p>
-              <p class="text-2xl font-bold">
-                {{ displayStats?.totalTrades }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Total Trades
+                </p>
+                <p class="text-2xl font-bold">
+                  {{ displayStats?.totalTrades }}
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Win Rate
-              </p>
-              <p class="text-2xl font-bold">
-                {{ displayStats?.winRate.toFixed(1) }}%
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Win Rate
+                </p>
+                <p class="text-2xl font-bold">
+                  {{ displayStats?.winRate.toFixed(1) }}%
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                YTD Return
-              </p>
-              <p class="text-2xl font-bold" :class="(displayStats?.ytdReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatPercentage(displayStats?.ytdReturn ?? 0) }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  YTD Return
+                </p>
+                <p class="text-2xl font-bold" :class="(displayStats?.ytdReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ formatPercentage(displayStats?.ytdReturn ?? 0) }}
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Proven Edge
-              </p>
-              <p class="text-2xl font-bold" :class="(displayStats?.provenEdge ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatPercentage(displayStats?.provenEdge ?? 0) }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Proven Edge
+                </p>
+                <p class="text-2xl font-bold" :class="(displayStats?.provenEdge ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ formatPercentage(displayStats?.provenEdge ?? 0) }}
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Avg Win
-              </p>
-              <p class="text-2xl font-bold text-green-600">
-                {{ formatPercentage(displayStats?.avgWin ?? 0) }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Avg Win
+                </p>
+                <p class="text-2xl font-bold text-green-600">
+                  {{ formatPercentage(displayStats?.avgWin ?? 0) }}
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Avg Loss
-              </p>
-              <p class="text-2xl font-bold text-red-600">
-                {{ formatPercentage(displayStats?.avgLoss ?? 0) }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Avg Loss
+                </p>
+                <p class="text-2xl font-bold text-red-600">
+                  {{ formatPercentage(displayStats?.avgLoss ?? 0) }}
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Open Trades
-              </p>
-              <p class="text-2xl font-bold">
-                {{ displayStats?.openTrades }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Open Trades
+                </p>
+                <p class="text-2xl font-bold">
+                  {{ displayStats?.openTrades }}
+                </p>
+              </div>
+            </UCard>
 
-          <UCard>
-            <div>
-              <p class="text-sm text-muted">
-                Closed Trades
-              </p>
-              <p class="text-2xl font-bold">
-                {{ displayStats?.closedTrades }}
-              </p>
-            </div>
-          </UCard>
+            <UCard>
+              <div>
+                <p class="text-sm text-muted">
+                  Closed Trades
+                </p>
+                <p class="text-2xl font-bold">
+                  {{ displayStats?.closedTrades }}
+                </p>
+              </div>
+            </UCard>
           </div>
         </div>
 

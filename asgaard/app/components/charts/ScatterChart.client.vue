@@ -3,7 +3,7 @@ import type { ApexOptions } from 'apexcharts'
 
 export interface ScatterChartSeries {
   name: string
-  data: number[][]  // Array of [x, y] pairs
+  data: number[][] // Array of [x, y] pairs
 }
 
 export interface ScatterChartProps {

@@ -49,7 +49,9 @@
         <div v-if="selectedStock" class="space-y-4">
           <!-- Time Range Selector (shared by both charts) -->
           <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold">Heatmap Analysis</h3>
+            <h3 class="text-lg font-semibold">
+              Heatmap Analysis
+            </h3>
             <div class="flex items-center gap-2">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Time Range:
@@ -71,7 +73,9 @@
 
           <!-- Stock Heatmap Chart -->
           <div>
-            <h4 class="text-md font-medium mb-2">Stock Heatmap (Fear & Greed)</h4>
+            <h4 class="text-md font-medium mb-2">
+              Stock Heatmap (Fear & Greed)
+            </h4>
             <ChartsBarChart
               v-if="heatmapChartSeries.length > 0"
               :series="heatmapChartSeries"
@@ -182,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Stock, StockQuote, OrderBlock } from '~/types'
+import type { Stock } from '~/types'
 import { getSectorName } from '~/types/enums'
 
 // Page meta
@@ -204,7 +208,7 @@ const selectedEntryStrategy = ref<string>('')
 const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
-const heatmapMonths = ref<{ label: string; value: number }>({ label: '3 Months', value: 3 })
+const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
 
 // Computed properties for heatmap charts (shared time range)
 const filteredHeatmapQuotes = computed(() => {
@@ -215,7 +219,7 @@ const filteredHeatmapQuotes = computed(() => {
   const monthsAgo = new Date()
   monthsAgo.setMonth(today.getMonth() - heatmapMonths.value.value)
 
-  return quotes.filter(q => {
+  return quotes.filter((q) => {
     if (!q.date) return false
     const quoteDate = new Date(q.date)
     return quoteDate >= monthsAgo
@@ -235,7 +239,7 @@ const heatmapChartSeries = computed(() => {
 const heatmapChartCategories = computed(() => {
   if (filteredHeatmapQuotes.value.length === 0) return []
 
-  return filteredHeatmapQuotes.value.map(q => {
+  return filteredHeatmapQuotes.value.map((q) => {
     const date = new Date(q.date)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   })
@@ -246,7 +250,7 @@ const heatmapBarColors = computed(() => {
 
   // Color bars based on heatmap value (0-100 scale)
   // Green if > 50, Red if <= 50
-  return filteredHeatmapQuotes.value.map(q => {
+  return filteredHeatmapQuotes.value.map((q) => {
     const heatmap = q.heatmap || 0
     return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
   })
@@ -267,7 +271,7 @@ const sectorHeatmapBarColors = computed(() => {
 
   // Color bars based on sector heatmap value (0-100 scale)
   // Green if > 50, Red if <= 50
-  return filteredHeatmapQuotes.value.map(q => {
+  return filteredHeatmapQuotes.value.map((q) => {
     const heatmap = q.sectorHeatmap || 0
     return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
   })

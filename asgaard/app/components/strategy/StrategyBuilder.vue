@@ -17,23 +17,6 @@ const description = ref(props.modelValue.description || '')
 const conditions = ref<ConditionConfig[]>(props.modelValue.conditions || [])
 const selectedConditionType = ref<string>('')
 
-// Group conditions by category
-const conditionsByCategory = computed(() => {
-  const groups = new Map<string, ConditionMetadata[]>()
-
-  props.availableConditions.forEach((condition) => {
-    if (!groups.has(condition.category)) {
-      groups.set(condition.category, [])
-    }
-    groups.get(condition.category)!.push(condition)
-  })
-
-  return Array.from(groups.entries()).map(([category, items]) => ({
-    category,
-    conditions: items
-  }))
-})
-
 // Available condition options for dropdown
 const conditionOptions = computed(() => {
   return props.availableConditions.map(c => ({

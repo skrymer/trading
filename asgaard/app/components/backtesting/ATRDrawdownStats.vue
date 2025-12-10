@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BacktestReport, ATRDrawdownStats, DrawdownBucket } from '~/types'
+import type { BacktestReport } from '~/types'
 
 interface Props {
   report: BacktestReport | null
@@ -127,8 +127,12 @@ const stopLossRecommendation = computed(() => {
         <UCard :ui="{ body: 'p-4' }" class="border-2 border-success/20">
           <div class="flex items-center gap-2 mb-4">
             <UIcon name="i-lucide-trending-up" class="w-5 h-5 text-success" />
-            <h4 class="font-semibold text-success">Winning Trades</h4>
-            <UBadge color="success" variant="subtle">{{ stats.totalWinningTrades }} trades</UBadge>
+            <h4 class="font-semibold text-success">
+              Winning Trades
+            </h4>
+            <UBadge color="success" variant="subtle">
+              {{ stats.totalWinningTrades }} trades
+            </UBadge>
           </div>
 
           <div class="space-y-3">
@@ -155,8 +159,12 @@ const stopLossRecommendation = computed(() => {
         <UCard v-if="loserStats" :ui="{ body: 'p-4' }" class="border-2 border-error/20">
           <div class="flex items-center gap-2 mb-4">
             <UIcon name="i-lucide-trending-down" class="w-5 h-5 text-error" />
-            <h4 class="font-semibold text-error">Losing Trades</h4>
-            <UBadge color="error" variant="subtle">{{ loserStats.totalLosingTrades }} trades</UBadge>
+            <h4 class="font-semibold text-error">
+              Losing Trades
+            </h4>
+            <UBadge color="error" variant="subtle">
+              {{ loserStats.totalLosingTrades }} trades
+            </UBadge>
           </div>
 
           <div class="space-y-3">
@@ -191,14 +199,18 @@ const stopLossRecommendation = computed(() => {
             :key="p.key"
             :ui="{ body: 'p-3' }"
           >
-            <div class="text-xs text-muted mb-1">{{ p.label }}</div>
+            <div class="text-xs text-muted mb-1">
+              {{ p.label }}
+            </div>
             <div
               class="font-semibold text-lg"
               :class="`text-${getPercentileColor(p.value)}`"
             >
               {{ p.value.toFixed(2) }}
             </div>
-            <div class="text-xs text-muted">ATR</div>
+            <div class="text-xs text-muted">
+              ATR
+            </div>
           </UCard>
         </div>
       </div>
@@ -222,7 +234,9 @@ const stopLossRecommendation = computed(() => {
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-lightbulb" class="w-5 h-5 text-primary mt-0.5" />
           <div class="flex-1">
-            <h4 class="font-semibold mb-2">Stop Loss Optimization Insights</h4>
+            <h4 class="font-semibold mb-2">
+              Stop Loss Optimization Insights
+            </h4>
             <ul class="space-y-2 text-sm">
               <!-- Winner/Loser Comparison -->
               <li v-if="loserStats">
@@ -299,14 +313,16 @@ const stopLossRecommendation = computed(() => {
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-info" class="w-5 h-5 text-muted mt-0.5" />
           <div class="flex-1">
-            <h4 class="font-semibold mb-2">How to Interpret This Data</h4>
+            <h4 class="font-semibold mb-2">
+              How to Interpret This Data
+            </h4>
             <div class="text-sm space-y-2">
               <p>
                 <strong>ATR Drawdown</strong> measures how much adverse price movement
                 (in ATR units) winning trades endured before becoming profitable.
               </p>
               <p>
-                <strong class="text-success">Lower values (< 1.0 ATR)</strong> suggest tight,
+                <strong class="text-success">Lower values (&lt; 1.0 ATR)</strong> suggest tight,
                 precise entries with minimal drawdown.
               </p>
               <p>

@@ -2,7 +2,7 @@
 import type { MonteCarloResult } from '@/types'
 import MonteCarloEquityCurve from './MonteCarloEquityCurve.client.vue'
 
-const props = defineProps<{
+defineProps<{
   result: MonteCarloResult | null
   loading?: boolean
 }>()

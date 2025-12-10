@@ -50,10 +50,6 @@ function handleChartClick(event: MouseEvent) {
   const svgElement = chartElement.querySelector('svg')
   if (!svgElement) return
 
-  // Get the click position relative to the chart
-  const rect = svgElement.getBoundingClientRect()
-  const x = event.clientX - rect.left
-
   // Find the plotArea (where the bars are drawn)
   const plotArea = svgElement.querySelector('.apexcharts-inner')
   if (!plotArea) return

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BacktestRequest, StrategyConfig, AvailableConditions } from '~/types'
 
-const props = defineProps<{
+defineProps<{
   open: boolean
 }>()
 
@@ -9,8 +9,6 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   'run-backtest': [config: BacktestRequest]
 }>()
-
-interface BacktestConfig extends BacktestRequest {}
 
 // Form ref
 const form = ref<{ submit: () => void } | null>(null)

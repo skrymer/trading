@@ -23,7 +23,7 @@ interface SignalData {
   entryDetails?: EntrySignalDetails | null
 }
 
-const props = defineProps<{
+defineProps<{
   open: boolean
   signal?: SignalData | null
 }>()

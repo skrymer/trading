@@ -1,7 +1,9 @@
 <template>
   <div class="w-full">
     <div class="mb-3">
-      <h3 class="text-lg font-semibold">Strategy Signals</h3>
+      <h3 class="text-lg font-semibold">
+        Strategy Signals
+      </h3>
       <p class="text-sm text-muted">
         <template v-if="entryStrategy && exitStrategy">
           Entry Strategy: <span class="font-medium">{{ entryStrategy }}</span>
@@ -22,7 +24,9 @@
         <template #empty-state>
           <div class="flex flex-col items-center justify-center py-12 text-center">
             <UIcon name="i-heroicons-chart-bar" class="w-12 h-12 text-muted mb-3" />
-            <h4 class="text-lg font-semibold mb-2">No Signals Found</h4>
+            <h4 class="text-lg font-semibold mb-2">
+              No Signals Found
+            </h4>
             <p class="text-sm text-muted max-w-md">
               <template v-if="!entryStrategy || !exitStrategy">
                 Select entry and exit strategies, then click "Show Signals" to view trading signals.
@@ -68,7 +72,9 @@
                 class="flex-shrink-0 mt-0.5"
               />
               <div class="flex-1 min-w-0">
-                <div class="font-medium truncate">{{ condition.description }}</div>
+                <div class="font-medium truncate">
+                  {{ condition.description }}
+                </div>
                 <div v-if="condition.message" class="text-xs text-muted truncate">
                   {{ condition.message }}
                 </div>
@@ -103,7 +109,6 @@
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
 interface SignalRow {

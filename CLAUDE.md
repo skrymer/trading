@@ -835,7 +835,28 @@ ktlint enforces:
 - No empty first lines in class bodies
 - No multiple consecutive spaces
 
-#### 3. Frontend TypeScript Validation
+#### 3. Frontend Code Linting (ESLint)
+
+Run ESLint to ensure code style compliance:
+
+```bash
+cd asgaard
+npm run lint
+```
+
+**Important:**
+- ✅ **Must pass ESLint checks before committing**
+- ✅ **Auto-fix most issues with `npm run lint -- --fix`**
+- ✅ **Check the output for any remaining issues**
+
+ESLint enforces:
+- Consistent code style and formatting
+- No unused variables and imports (use `_` prefix if intentionally unused)
+- Proper Vue component patterns
+- TypeScript best practices
+- No parsing errors in templates (escape `<` as `&lt;`, `>` as `&gt;`)
+
+#### 4. Frontend TypeScript Validation
 
 Run typecheck to ensure no type errors:
 
@@ -852,7 +873,7 @@ npm run typecheck
 
 If you encounter pre-existing errors in files you didn't modify, you must still fix them before committing. This ensures the codebase stays in a clean, error-free state.
 
-#### 4. Update Relevant Documentation
+#### 5. Update Relevant Documentation
 
 Update documentation to reflect your changes:
 

@@ -69,25 +69,39 @@ const positionValue = computed(() => {
 
           <div class="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div>
-              <p class="text-xs text-muted">Symbol</p>
-              <p class="font-semibold">{{ trade.symbol }}</p>
+              <p class="text-xs text-muted">
+                Symbol
+              </p>
+              <p class="font-semibold">
+                {{ trade.symbol }}
+              </p>
             </div>
 
             <div>
-              <p class="text-xs text-muted">Type</p>
+              <p class="text-xs text-muted">
+                Type
+              </p>
               <p class="font-semibold">
                 {{ trade.instrumentType === 'OPTION' ? 'Option' : trade.instrumentType === 'LEVERAGED_ETF' ? 'Leveraged ETF' : 'Stock' }}
               </p>
             </div>
 
             <div>
-              <p class="text-xs text-muted">Entry Date</p>
-              <p class="font-semibold">{{ format(new Date(trade.entryDate), 'MMM dd, yyyy') }}</p>
+              <p class="text-xs text-muted">
+                Entry Date
+              </p>
+              <p class="font-semibold">
+                {{ format(new Date(trade.entryDate), 'MMM dd, yyyy') }}
+              </p>
             </div>
 
             <div>
-              <p class="text-xs text-muted">Entry Price</p>
-              <p class="font-semibold">{{ formatCurrency(trade.entryPrice, trade.currency) }}</p>
+              <p class="text-xs text-muted">
+                Entry Price
+              </p>
+              <p class="font-semibold">
+                {{ formatCurrency(trade.entryPrice, trade.currency) }}
+              </p>
             </div>
 
             <div>
@@ -100,13 +114,19 @@ const positionValue = computed(() => {
             </div>
 
             <div>
-              <p class="text-xs text-muted">Position Value</p>
-              <p class="font-semibold">{{ formatCurrency(positionValue, trade.currency) }}</p>
+              <p class="text-xs text-muted">
+                Position Value
+              </p>
+              <p class="font-semibold">
+                {{ formatCurrency(positionValue, trade.currency) }}
+              </p>
             </div>
           </div>
 
           <div v-if="trade.instrumentType === 'OPTION'" class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p class="text-xs text-muted mb-2">Option Details</p>
+            <p class="text-xs text-muted mb-2">
+              Option Details
+            </p>
             <div class="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span class="text-muted">Type:</span>

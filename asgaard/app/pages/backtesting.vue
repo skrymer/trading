@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { format, sub } from 'date-fns'
+import { format } from 'date-fns'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import type { Range, Trade, BacktestRequest, MonteCarloResult, BacktestReport } from '~/types'
+import type { Trade, BacktestRequest, MonteCarloResult, BacktestReport } from '~/types'
 import { MonteCarloTechnique, MonteCarloTechniqueDescriptions } from '~/types/enums'
 
 const allTrades = ref<Trade[]>([])
@@ -75,7 +75,7 @@ async function runBacktest(config: BacktestRequest) {
     color: 'primary'
   })
 
-  const startTime = Date.now()
+  const _startTime = Date.now()
 
   try {
     // Use POST endpoint for dynamic strategy support
@@ -122,7 +122,7 @@ async function runMonteCarloSimulation() {
     color: 'primary'
   })
 
-  const startTime = Date.now()
+  const _startTime = Date.now()
 
   try {
     // Send only trades - backend will construct BacktestReport
@@ -272,7 +272,12 @@ const chartColors = computed(() => {
 
       <!-- Tabbed Results -->
       <div v-else>
-        <UTabs v-model="activeTab" :items="tabItems" variant="link" class="w-full">
+        <UTabs
+          v-model="activeTab"
+          :items="tabItems"
+          variant="link"
+          class="w-full"
+        >
           <!-- Overview Tab -->
           <template #overview>
             <div class="grid gap-4 mt-4">

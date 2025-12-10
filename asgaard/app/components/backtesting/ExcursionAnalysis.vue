@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BacktestReport, Trade, ExcursionMetrics } from '~/types'
+import type { BacktestReport } from '~/types'
 
 interface Props {
   report: BacktestReport | null
@@ -38,7 +38,7 @@ const mfeMaeScatterSeries = computed(() => {
 
 // MFE Efficiency - How much of MFE was captured at exit
 const mfeEfficiency = computed(() => {
-  return winningTrades.value.map(t => {
+  return winningTrades.value.map((t) => {
     const mfe = t.excursionMetrics!.maxFavorableExcursion
     const finalProfit = t.profitPercentage
     return mfe > 0 ? (finalProfit / mfe) * 100 : 0
@@ -101,7 +101,6 @@ const losingSummary = computed(() => {
 
 // Format helpers
 const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
-const formatATR = (value: number) => `${value.toFixed(2)} ATR`
 const formatEfficiency = (value: number) => `${value.toFixed(1)}%`
 </script>
 

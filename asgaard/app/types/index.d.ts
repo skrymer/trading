@@ -162,11 +162,11 @@ export interface Trade {
  * Trade excursion metrics - maximum profit/loss reached during trade
  */
 export interface ExcursionMetrics {
-  maxFavorableExcursion: number          // Highest % profit reached
-  maxFavorableExcursionATR: number       // In ATR units
-  maxAdverseExcursion: number            // Deepest % drawdown (negative)
-  maxAdverseExcursionATR: number         // In ATR units (positive value)
-  mfeReached: boolean                    // Did trade reach positive territory?
+  maxFavorableExcursion: number // Highest % profit reached
+  maxFavorableExcursionATR: number // In ATR units
+  maxAdverseExcursion: number // Deepest % drawdown (negative)
+  maxAdverseExcursionATR: number // In ATR units (positive value)
+  mfeReached: boolean // Did trade reach positive territory?
 }
 
 /**
@@ -185,8 +185,8 @@ export interface MarketConditionSnapshot {
  */
 export interface TimeBasedStats {
   byYear: Record<number, PeriodStats>
-  byQuarter: Record<string, PeriodStats>     // "2025-Q1"
-  byMonth: Record<string, PeriodStats>       // "2025-01"
+  byQuarter: Record<string, PeriodStats> // "2025-Q1"
+  byMonth: Record<string, PeriodStats> // "2025-01"
 }
 
 /**
@@ -205,7 +205,7 @@ export interface PeriodStats {
  */
 export interface ExitReasonAnalysis {
   byReason: Record<string, ExitStats>
-  byYearAndReason: Record<number, Record<string, number>>  // Year -> Reason -> Count
+  byYearAndReason: Record<number, Record<string, number>> // Year -> Reason -> Count
 }
 
 /**
@@ -236,7 +236,7 @@ export interface ATRDrawdownStats {
   medianDrawdown: number
   meanDrawdown: number
   percentile25: number
-  percentile50: number                   // Same as median
+  percentile50: number // Same as median
   percentile75: number
   percentile90: number
   percentile95: number
@@ -266,10 +266,10 @@ export interface ATRDrawdownStats {
  * Bucket for ATR drawdown distribution
  */
 export interface DrawdownBucket {
-  range: string                          // "0.0-0.5", "0.5-1.0", etc.
+  range: string // "0.0-0.5", "0.5-1.0", etc.
   count: number
   percentage: number
-  cumulativePercentage: number           // Running total
+  cumulativePercentage: number // Running total
 }
 
 /**

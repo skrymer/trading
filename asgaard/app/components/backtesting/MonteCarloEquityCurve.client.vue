@@ -90,7 +90,7 @@ const chartOptions = computed<ApexOptions>(() => {
         text: 'Cumulative Return (%)'
       },
       labels: {
-        formatter: function(value: number) {
+        formatter: function (value: number) {
           return value ? `${value.toFixed(1)}%` : '0%'
         }
       }
@@ -99,7 +99,7 @@ const chartOptions = computed<ApexOptions>(() => {
       shared: true,
       intersect: false,
       y: {
-        formatter: function(value: number) {
+        formatter: function (value: number) {
           return value ? `${value.toFixed(2)}%` : '0%'
         }
       }

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
 import type { Breadth, Stock } from '~/types'
-import { SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
+import { SectorSymbol } from '~/types/enums'
 
 // Fetch FULLSTOCK data for overall market metrics
 const { data: fullstockData, pending, error, refresh: refreshFullstock } = await useFetch<Breadth>('/udgaard/api/breadth/market')
 
 // Fetch SPY stock data for heatmap comparison
-const { data: spyData, refresh: refreshSpy } = await useFetch<Stock>('/udgaard/api/stocks/SPY')
+const { data: spyData, refresh: _refreshSpy } = await useFetch<Stock>('/udgaard/api/stocks/SPY')
 
 // Calculate current FULLSTOCK metrics
 const fullstockMetrics = computed(() => {

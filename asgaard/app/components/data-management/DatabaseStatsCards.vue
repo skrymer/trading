@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DatabaseStats } from '~/types'
 
-const props = defineProps<{
+defineProps<{
   stats: DatabaseStats
 }>()
 </script>

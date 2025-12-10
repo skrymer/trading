@@ -26,13 +26,13 @@ async function fetchOptionPrices() {
     const endDate = props.trade.exitDate || new Date().toISOString().split('T')[0]
 
     const response = await $fetch<OptionPricePoint[]>(
-      `/udgaard/api/options/historical-prices?` +
-      `symbol=${props.trade.symbol}&` +
-      `strike=${props.trade.strikePrice}&` +
-      `expiration=${props.trade.expirationDate}&` +
-      `type=${props.trade.optionType}&` +
-      `startDate=${props.trade.entryDate}&` +
-      `endDate=${endDate}`
+      `/udgaard/api/options/historical-prices?`
+      + `symbol=${props.trade.symbol}&`
+      + `strike=${props.trade.strikePrice}&`
+      + `expiration=${props.trade.expirationDate}&`
+      + `type=${props.trade.optionType}&`
+      + `startDate=${props.trade.entryDate}&`
+      + `endDate=${endDate}`
     )
 
     priceData.value = response
@@ -77,7 +77,7 @@ const chartSeries = computed(() => {
   return [
     {
       name: 'Option Premium',
-      data: priceData.value.map((point) => ({
+      data: priceData.value.map(point => ({
         x: point.date,
         y: point.price
       }))

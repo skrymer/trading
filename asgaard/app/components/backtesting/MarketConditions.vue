@@ -181,27 +181,39 @@ const insights = computed(() => {
         </h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <UCard :ui="{ body: 'p-3' }">
-            <div class="text-xs text-muted mb-1">Avg SPY Heatmap</div>
+            <div class="text-xs text-muted mb-1">
+              Avg SPY Heatmap
+            </div>
             <div class="font-semibold text-lg">
               {{ marketAvgs.avgSpyHeatmap?.toFixed(1) ?? 'N/A' }}
             </div>
-            <div class="text-xs text-muted">0-100 scale</div>
+            <div class="text-xs text-muted">
+              0-100 scale
+            </div>
           </UCard>
 
           <UCard :ui="{ body: 'p-3' }">
-            <div class="text-xs text-muted mb-1">Avg Market Breadth</div>
+            <div class="text-xs text-muted mb-1">
+              Avg Market Breadth
+            </div>
             <div class="font-semibold text-lg">
               {{ marketAvgs.avgMarketBreadth?.toFixed(1) ?? 'N/A' }}
             </div>
-            <div class="text-xs text-muted">% bullish</div>
+            <div class="text-xs text-muted">
+              % bullish
+            </div>
           </UCard>
 
           <UCard :ui="{ body: 'p-3' }">
-            <div class="text-xs text-muted mb-1">Trades in SPY Uptrend</div>
+            <div class="text-xs text-muted mb-1">
+              Trades in SPY Uptrend
+            </div>
             <div class="font-semibold text-lg">
               {{ marketAvgs.spyUptrendPercent?.toFixed(1) ?? 'N/A' }}%
             </div>
-            <div class="text-xs text-muted">{{ uptrendStats?.uptrendCount ?? 0 }} of {{ tradesWithMarketData.length }} trades</div>
+            <div class="text-xs text-muted">
+              {{ uptrendStats?.uptrendCount ?? 0 }} of {{ tradesWithMarketData.length }} trades
+            </div>
           </UCard>
         </div>
       </div>
@@ -217,8 +229,12 @@ const insights = computed(() => {
               <UIcon name="i-lucide-trending-up" class="w-4 h-4 text-success" />
               <span class="text-sm font-medium text-success">SPY Uptrend</span>
             </div>
-            <div class="font-semibold text-2xl">{{ uptrendStats.uptrendWinRate.toFixed(1) }}%</div>
-            <div class="text-xs text-muted">Win rate ({{ uptrendStats.uptrendCount }} trades)</div>
+            <div class="font-semibold text-2xl">
+              {{ uptrendStats.uptrendWinRate.toFixed(1) }}%
+            </div>
+            <div class="text-xs text-muted">
+              Win rate ({{ uptrendStats.uptrendCount }} trades)
+            </div>
           </UCard>
 
           <UCard :ui="{ body: 'p-3' }" class="border-2 border-error/20">
@@ -226,8 +242,12 @@ const insights = computed(() => {
               <UIcon name="i-lucide-trending-down" class="w-4 h-4 text-error" />
               <span class="text-sm font-medium text-error">SPY Downtrend</span>
             </div>
-            <div class="font-semibold text-2xl">{{ uptrendStats.downtrendWinRate.toFixed(1) }}%</div>
-            <div class="text-xs text-muted">Win rate ({{ uptrendStats.downtrendCount }} trades)</div>
+            <div class="font-semibold text-2xl">
+              {{ uptrendStats.downtrendWinRate.toFixed(1) }}%
+            </div>
+            <div class="text-xs text-muted">
+              Win rate ({{ uptrendStats.downtrendCount }} trades)
+            </div>
           </UCard>
         </div>
       </div>
@@ -280,7 +300,9 @@ const insights = computed(() => {
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-lightbulb" class="w-5 h-5 text-primary mt-0.5" />
           <div class="flex-1">
-            <h4 class="font-semibold mb-2">Market Condition Insights</h4>
+            <h4 class="font-semibold mb-2">
+              Market Condition Insights
+            </h4>
             <ul class="space-y-2 text-sm">
               <li v-for="(insight, idx) in insights" :key="idx">
                 <span class="text-muted">•</span>
@@ -296,7 +318,9 @@ const insights = computed(() => {
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-info" class="w-5 h-5 text-muted mt-0.5" />
           <div class="flex-1">
-            <h4 class="font-semibold mb-2">How to Interpret This Data</h4>
+            <h4 class="font-semibold mb-2">
+              How to Interpret This Data
+            </h4>
             <div class="text-sm space-y-2">
               <p>
                 <strong>Correlation</strong> measures the relationship between market conditions and trade performance.
@@ -305,10 +329,10 @@ const insights = computed(() => {
                 <strong class="text-success">Positive correlation (> 0.3)</strong> means trades perform better when the metric is higher.
               </p>
               <p>
-                <strong class="text-error">Negative correlation (< -0.3)</strong> means trades perform better when the metric is lower.
+                <strong class="text-error">Negative correlation (&lt; -0.3)</strong> means trades perform better when the metric is lower.
               </p>
               <p>
-                <strong class="text-warning">Weak correlation (|r| < 0.3)</strong> suggests market conditions don't strongly predict trade outcomes for this strategy.
+                <strong class="text-warning">Weak correlation (|r| &lt; 0.3)</strong> suggests market conditions don't strongly predict trade outcomes for this strategy.
               </p>
               <p class="text-muted">
                 Use these insights to refine entry filters or avoid trading during unfavorable market conditions.

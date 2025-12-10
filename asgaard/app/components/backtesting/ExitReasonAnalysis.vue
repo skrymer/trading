@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BacktestReport, ExitReasonAnalysis, ExitStats } from '~/types'
+import type { BacktestReport } from '~/types'
 
 interface Props {
   report: BacktestReport | null
@@ -37,7 +37,7 @@ const totalTrades = computed(() => {
 
 // Table data
 const tableData = computed(() => {
-  return exitReasonStats.value.map(stat => {
+  return exitReasonStats.value.map((stat) => {
     const percentage = totalTrades.value > 0 ? (stat.count / totalTrades.value) * 100 : 0
 
     return {
@@ -122,32 +122,48 @@ const bestWinRateExit = computed(() => {
       <!-- Insights Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <UCard v-if="mostCommonExit" :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Most Common Exit</div>
-          <div class="font-semibold text-lg">{{ mostCommonExit.reason }}</div>
+          <div class="text-sm text-muted mb-1">
+            Most Common Exit
+          </div>
+          <div class="font-semibold text-lg">
+            {{ mostCommonExit.reason }}
+          </div>
           <div class="text-sm text-muted mt-1">
             {{ mostCommonExit.count }} trades ({{ ((mostCommonExit.count / totalTrades) * 100).toFixed(1) }}%)
           </div>
         </UCard>
 
         <UCard v-if="mostProfitableExit" :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Most Profitable Exit</div>
-          <div class="font-semibold text-lg text-success">{{ mostProfitableExit.reason }}</div>
+          <div class="text-sm text-muted mb-1">
+            Most Profitable Exit
+          </div>
+          <div class="font-semibold text-lg text-success">
+            {{ mostProfitableExit.reason }}
+          </div>
           <div class="text-sm text-muted mt-1">
             Avg: +{{ mostProfitableExit.avgProfit.toFixed(2) }}%
           </div>
         </UCard>
 
         <UCard v-if="bestWinRateExit" :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Best Win Rate</div>
-          <div class="font-semibold text-lg">{{ bestWinRateExit.reason }}</div>
+          <div class="text-sm text-muted mb-1">
+            Best Win Rate
+          </div>
+          <div class="font-semibold text-lg">
+            {{ bestWinRateExit.reason }}
+          </div>
           <div class="text-sm text-muted mt-1">
             {{ (bestWinRateExit.winRate * 100).toFixed(1) }}% win rate
           </div>
         </UCard>
 
         <UCard v-if="leastProfitableExit" :ui="{ body: 'p-4' }">
-          <div class="text-sm text-muted mb-1">Needs Improvement</div>
-          <div class="font-semibold text-lg text-error">{{ leastProfitableExit.reason }}</div>
+          <div class="text-sm text-muted mb-1">
+            Needs Improvement
+          </div>
+          <div class="font-semibold text-lg text-error">
+            {{ leastProfitableExit.reason }}
+          </div>
           <div class="text-sm text-muted mt-1">
             Avg: {{ leastProfitableExit.avgProfit.toFixed(2) }}%
           </div>
@@ -226,7 +242,9 @@ const bestWinRateExit = computed(() => {
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-lightbulb" class="w-5 h-5 text-primary mt-0.5" />
           <div class="flex-1">
-            <h4 class="font-semibold mb-2">Insights & Recommendations</h4>
+            <h4 class="font-semibold mb-2">
+              Insights & Recommendations
+            </h4>
             <ul class="space-y-2 text-sm">
               <li v-if="mostCommonExit">
                 <span class="text-muted">•</span>

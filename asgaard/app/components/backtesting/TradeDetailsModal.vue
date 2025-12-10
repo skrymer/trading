@@ -100,7 +100,7 @@ const columns: TableColumn<any>[] = [
 ]
 
 const tableData = computed(() => {
-  return props.trades.map((trade, index) => {
+  return props.trades.map((trade) => {
     const exitQuote = trade.quotes?.[trade.quotes.length - 1]
     const exitDate = exitQuote?.date ? format(new Date(exitQuote.date), 'MMM dd, yyyy') : 'N/A'
 

@@ -9,18 +9,7 @@ export enum Sector {
   XLB = 'Materials',
   XLRE = 'Real Estate',
   XLU = 'Utilities',
-  XLC = 'Communication Services',
-  TECH = 'Technology',
-  FINC = 'Financials',
-  HLTH = 'Healthcare',
-  ENGY = 'Energy',
-  INDU = 'Industrials',
-  COND = 'Consumer Discretionary',
-  CONS = 'Consumer Staples',
-  MATL = 'Materials',
-  REAL = 'Real Estate',
-  UTIL = 'Utilities',
-  COMM = 'Communication Services'
+  XLC = 'Communication Services'
 }
 
 export function getSectorName(sectorCode: string): string {
@@ -42,17 +31,17 @@ export const MarketSymbolDescriptions: Record<MarketSymbol, string> = {
  * Sector symbols - represent individual market sectors
  */
 export enum SectorSymbol {
-  XLE = 'XLE',   // Energy
-  XLV = 'XLV',   // Health
-  XLB = 'XLB',   // Materials
-  XLC = 'XLC',   // Communications
-  XLK = 'XLK',   // Technology
+  XLE = 'XLE', // Energy
+  XLV = 'XLV', // Health
+  XLB = 'XLB', // Materials
+  XLC = 'XLC', // Communications
+  XLK = 'XLK', // Technology
   XLRE = 'XLRE', // Real Estate
-  XLI = 'XLI',   // Industrials
-  XLF = 'XLF',   // Financials
-  XLY = 'XLY',   // Discretionary
-  XLP = 'XLP',   // Staples
-  XLU = 'XLU'    // Utilities
+  XLI = 'XLI', // Industrials
+  XLF = 'XLF', // Financials
+  XLY = 'XLY', // Discretionary
+  XLP = 'XLP', // Staples
+  XLU = 'XLU' // Utilities
 }
 
 export const SectorSymbolDescriptions: Record<SectorSymbol, string> = {
@@ -72,9 +61,9 @@ export const SectorSymbolDescriptions: Record<SectorSymbol, string> = {
 /**
  * Type representing either market or sector breadth symbol
  */
-export type BreadthSymbol =
-  | { type: 'market', symbol: MarketSymbol }
-  | { type: 'sector', symbol: SectorSymbol }
+export type BreadthSymbol
+  = | { type: 'market', symbol: MarketSymbol }
+    | { type: 'sector', symbol: SectorSymbol }
 
 /**
  * ETF symbols with support for leveraged and inverse ETFs

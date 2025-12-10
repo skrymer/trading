@@ -13,7 +13,7 @@ const colorMode = useColorMode()
 
 // Transform trade quotes into candlestick data (using formatted date strings to avoid gaps)
 const candlestickData = computed(() => {
-  return props.trade.quotes.map((quote, index) => ({
+  return props.trade.quotes.map(quote => ({
     x: quote.date,
     y: [
       quote.openPrice,
@@ -26,7 +26,7 @@ const candlestickData = computed(() => {
 
 // EMA 10 data
 const ema10Data = computed(() => {
-  return props.trade.quotes.map((quote, index) => ({
+  return props.trade.quotes.map(quote => ({
     x: quote.date,
     y: quote.closePriceEMA10
   }))
@@ -34,7 +34,7 @@ const ema10Data = computed(() => {
 
 // EMA 20 data
 const ema20Data = computed(() => {
-  return props.trade.quotes.map((quote, index) => ({
+  return props.trade.quotes.map(quote => ({
     x: quote.date,
     y: quote.closePriceEMA20
   }))

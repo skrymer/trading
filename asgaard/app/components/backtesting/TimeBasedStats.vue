@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BacktestReport, TimeBasedStats, PeriodStats } from '~/types'
+import type { BacktestReport, PeriodStats } from '~/types'
 
 interface Props {
   report: BacktestReport | null
@@ -110,7 +110,7 @@ const profitBarColors = computed(() => {
 })
 
 // Format helpers
-const formatWinRate = (value: number) => `${value.toFixed(1)}%`  // Backend already returns as percentage (0-100)
+const formatWinRate = (value: number) => `${value.toFixed(1)}%` // Backend already returns as percentage (0-100)
 const formatProfit = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 const formatDays = (value: number) => value.toFixed(1)
 </script>
@@ -222,7 +222,9 @@ const formatDays = (value: number) => value.toFixed(1)
           Average Profit by {{ selectedPeriod === 'year' ? 'Year' : selectedPeriod === 'quarter' ? 'Quarter' : 'Month' }}
         </h4>
         <div v-if="profitChartSeries.length === 0 || !profitChartSeries[0] || profitChartSeries[0].data.length === 0" class="text-center py-8">
-          <p class="text-muted text-sm">No data available for chart</p>
+          <p class="text-muted text-sm">
+            No data available for chart
+          </p>
         </div>
         <ChartsBarChart
           v-else
