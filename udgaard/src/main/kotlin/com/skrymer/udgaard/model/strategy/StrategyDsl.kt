@@ -33,6 +33,13 @@ class EntryStrategyBuilder {
       conditions.add(PriceAboveEmaCondition(emaPeriod))
     }
 
+  fun emaAlignment(
+    fastEmaPeriod: Int = 10,
+    slowEmaPeriod: Int = 20,
+  ) = apply {
+    conditions.add(EmaAlignmentCondition(fastEmaPeriod, slowEmaPeriod))
+  }
+
   fun inValueZone(atrMultiplier: Double = 2.0) =
     apply {
       conditions.add(ValueZoneCondition(atrMultiplier))
