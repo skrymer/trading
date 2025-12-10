@@ -25,4 +25,28 @@ interface TechnicalIndicatorProvider {
     interval: String = "daily",
     timePeriod: Int = 14,
   ): Map<LocalDate, Double>?
+
+  /**
+   * Get ADX (Average Directional Index) technical indicator values
+   *
+   * ADX measures the strength of a trend (not the direction).
+   * Values range from 0 to 100:
+   * - 0-25: Absent or weak trend
+   * - 25-50: Strong trend
+   * - 50-75: Very strong trend
+   * - 75-100: Extremely strong trend
+   *
+   * Commonly used to identify trending markets vs ranging markets.
+   * Higher values indicate stronger trends (either up or down).
+   *
+   * @param symbol Stock symbol (e.g., "AAPL", "QQQ", "TQQQ")
+   * @param interval Time interval: "daily", "weekly", "monthly"
+   * @param timePeriod Number of data points used to calculate ADX (typical: 14)
+   * @return Map of date to ADX value, or null if unavailable
+   */
+  fun getADX(
+    symbol: String,
+    interval: String = "daily",
+    timePeriod: Int = 14,
+  ): Map<LocalDate, Double>?
 }

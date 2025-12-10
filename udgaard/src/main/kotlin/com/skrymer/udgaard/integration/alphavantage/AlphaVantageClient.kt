@@ -4,6 +4,7 @@ import com.skrymer.udgaard.integration.EtfProvider
 import com.skrymer.udgaard.integration.FundamentalDataProvider
 import com.skrymer.udgaard.integration.StockProvider
 import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
+import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageADX
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEarnings
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
@@ -47,6 +48,7 @@ open class AlphaVantageClient(
     private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
     private const val FUNCTION_ETF_PROFILE = "ETF_PROFILE"
     private const val FUNCTION_ATR = "ATR"
+    private const val FUNCTION_ADX = "ADX"
     private const val FUNCTION_EARNINGS = "EARNINGS"
     private const val OUTPUT_SIZE_FULL = "full"
     private const val OUTPUT_SIZE_COMPACT = "compact" // Last 100 data points
@@ -248,6 +250,83 @@ open class AlphaVantageClient(
       atrMap
     }.onFailure { e ->
       logger.error("Failed to fetch ATR from Alpha Vantage for $symbol: ${e.message}", e)
+      logger.error("Stack trace:", e)
+    }.getOrNull()
+  }
+
+  /**
+   * Get ADX (Average Directional Index) technical indicator values
+   *
+   * ADX measures the strength of a trend (not the direction).
+   * Values range from 0 to 100:
+   * - 0-25: Absent or weak trend
+   * - 25-50: Strong trend
+   * - 50-75: Very strong trend
+   * - 75-100: Extremely strong trend
+   *
+   * Commonly used to identify trending markets vs ranging markets.
+   * Higher values indicate stronger trends (either up or down).
+   *
+   * @param symbol Stock symbol (e.g., "AAPL", "QQQ", "TQQQ")
+   * @param interval Time interval: "daily", "weekly", "monthly"
+   * @param timePeriod Number of data points used to calculate ADX (default: 14)
+   * @return Map of date to ADX value, or null if request fails
+   */
+  override fun getADX(
+    symbol: String,
+    interval: String,
+    timePeriod: Int,
+  ): Map<LocalDate, Double>? {
+    return runCatching {
+      val url = "$baseUrl?function=$FUNCTION_ADX&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
+      logger.info("Fetching ADX for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
+      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+
+      val response =
+        restClient
+          .get()
+          .uri { uriBuilder ->
+            uriBuilder
+              .queryParam("function", FUNCTION_ADX)
+              .queryParam("symbol", symbol)
+              .queryParam("interval", interval)
+              .queryParam("time_period", timePeriod)
+              .queryParam("apikey", apiKey)
+              .build()
+          }.retrieve()
+          .toEntity(AlphaVantageADX::class.java)
+          .body
+
+      if (response == null) {
+        logger.warn("No response received from Alpha Vantage ADX for $symbol")
+        return null
+      }
+
+      // Check if response contains an error
+      if (response.hasError()) {
+        logger.error("Alpha Vantage API error for ADX $symbol: ${response.getErrorDescription()}")
+        return null
+      }
+
+      // Check if response is valid (has required data)
+      if (!response.isValid()) {
+        logger.error("Alpha Vantage API returned invalid ADX response for $symbol (missing Meta Data or Technical Analysis)")
+        return null
+      }
+
+      val adxMap = response.toADXMap()
+      logger.info(
+        "Successfully fetched ${adxMap.size} ADX values for $symbol (${adxMap.keys.minOrNull()} to ${adxMap.keys.maxOrNull()})",
+      )
+
+      if (adxMap.isNotEmpty()) {
+        val sampleEntry = adxMap.entries.first()
+        logger.debug("Sample ADX: date=${sampleEntry.key}, adx=${sampleEntry.value}")
+      }
+
+      adxMap
+    }.onFailure { e ->
+      logger.error("Failed to fetch ADX from Alpha Vantage for $symbol: ${e.message}", e)
       logger.error("Stack trace:", e)
     }.getOrNull()
   }
