@@ -258,6 +258,17 @@ class StockQuote {
   var atr: Double = 0.0
 
   /**
+   * The Average Directional Index (ADX) for this quote.
+   * Measures trend strength (not direction):
+   * - 0-20: Weak or absent trend (ranging market)
+   * - 20-25: Emerging trend
+   * - 25-50: Strong trend
+   * - 50-75: Very strong trend
+   * - 75-100: Extremely strong trend
+   */
+  var adx: Double? = null
+
+  /**
    * Trading volume for this quote.
    * Number of shares traded during the period.
    */
@@ -326,6 +337,7 @@ class StockQuote {
     marketDonkeyChannelScore: Int = 0,
     previousQuoteDate: LocalDate? = null,
     atr: Double = 0.0,
+    adx: Double? = null,
     volume: Long = 0L,
     sectorStocksInDowntrend: Int = 0,
     sectorStocksInUptrend: Int = 0,
@@ -370,6 +382,7 @@ class StockQuote {
     this.marketDonkeyChannelScore = marketDonkeyChannelScore
     this.previousQuoteDate = previousQuoteDate
     this.atr = atr
+    this.adx = adx
     this.volume = volume
     this.sectorStocksInUptrend = sectorStocksInUptrend
     this.sectorStocksInDowntrend = sectorStocksInDowntrend
