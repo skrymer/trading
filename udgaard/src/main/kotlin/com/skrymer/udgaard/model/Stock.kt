@@ -1,14 +1,11 @@
 package com.skrymer.udgaard.model
 
 import com.fasterxml.jackson.annotation.JsonManagedReference
-import com.skrymer.udgaard.isBetween
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import jakarta.persistence.*
 import java.time.LocalDate
-import java.time.Period
 import java.time.temporal.ChronoUnit
-import java.util.*
 
 /**
  * Represents a stock with a list of quotes.

@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.model.strategy.condition.entry.*
 import com.skrymer.udgaard.model.strategy.condition.exit.*
 
@@ -9,7 +9,7 @@ import com.skrymer.udgaard.model.strategy.condition.exit.*
  * DSL builder for creating entry strategies using composition.
  */
 class EntryStrategyBuilder {
-    private val conditions = mutableListOf<TradingCondition>()
+    private val conditions = mutableListOf<EntryCondition>()
     private var operator: LogicalOperator = LogicalOperator.AND
     private var description: String? = null
 

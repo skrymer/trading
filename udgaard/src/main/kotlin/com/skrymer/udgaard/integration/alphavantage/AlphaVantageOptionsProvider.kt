@@ -2,7 +2,7 @@ package com.skrymer.udgaard.integration.alphavantage
 
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageHistoricalOptions
 import com.skrymer.udgaard.integration.options.OptionContract
-import com.skrymer.udgaard.integration.options.OptionsDataClient
+import com.skrymer.udgaard.integration.options.OptionsDataProvider
 import com.skrymer.udgaard.model.OptionType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -23,13 +23,13 @@ import org.springframework.web.client.RestClient
  */
 @Service
 @Primary
-class AlphaVantageOptionsClient(
+class AlphaVantageOptionsProvider(
     @Value("\${alphavantage.api.key:}") private val apiKey: String,
     @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String
-) : OptionsDataClient {
+) : OptionsDataProvider {
 
     companion object {
-        private val logger: Logger = LoggerFactory.getLogger(AlphaVantageOptionsClient::class.java)
+        private val logger: Logger = LoggerFactory.getLogger(AlphaVantageOptionsProvider::class.java)
         private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
     }
 

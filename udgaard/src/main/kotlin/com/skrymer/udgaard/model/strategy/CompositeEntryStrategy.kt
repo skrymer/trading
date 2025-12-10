@@ -4,16 +4,16 @@ import com.skrymer.udgaard.controller.dto.EntrySignalDetails
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 
 /**
  * A composite entry strategy that combines multiple conditions using logical operators.
  * This allows for flexible composition of trading rules without creating new strategy classes.
  */
 class CompositeEntryStrategy(
-    private val conditions: List<TradingCondition>,
-    private val operator: LogicalOperator = LogicalOperator.AND,
-    private val strategyDescription: String? = null
+  private val conditions: List<EntryCondition>,
+  private val operator: LogicalOperator = LogicalOperator.AND,
+  private val strategyDescription: String? = null
 ) : DetailedEntryStrategy {
 
     override fun test(stock: Stock, quote: StockQuote): Boolean {
@@ -44,7 +44,7 @@ class CompositeEntryStrategy(
      * Returns all conditions in this composite strategy.
      * This is useful for backtest lifecycle management (e.g., resetting stateful conditions).
      */
-    fun getConditions(): List<TradingCondition> = conditions
+    fun getConditions(): List<EntryCondition> = conditions
 
     /**
      * Evaluates the strategy and returns detailed condition results.

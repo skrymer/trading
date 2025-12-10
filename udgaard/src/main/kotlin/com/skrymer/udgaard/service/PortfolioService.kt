@@ -391,8 +391,10 @@ class PortfolioService(
         val updatedClosedTrade = closedTrade.copy(rolledToTradeId = savedNewTrade.id)
         portfolioTradeRepository.save(updatedClosedTrade)
 
-        // 7. Adjust portfolio balance for roll cost (if any)
-        // Note: closeTrade() already added exitValue back, now deduct newEntryCost
+        // 7. Adjust portfolio balance for roll cost
+        // closeTrade() already added exitValue (+), now deduct newEntryCost (-)
+        // Net effect: exitValue - newEntryCost = -rollCost
+        // When rollCost is negative (credit), this increases balance ✓
         val portfolio = getPortfolio(originalTrade.portfolioId)
         portfolio?.let {
             updatePortfolio(it.id!!, it.currentBalance - newEntryCost)

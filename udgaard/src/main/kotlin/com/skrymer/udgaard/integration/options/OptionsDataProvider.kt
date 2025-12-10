@@ -7,7 +7,7 @@ import java.time.LocalDate
  * Interface for fetching historical options data from various providers.
  * Allows switching between AlphaVantage, Polygon, or other data sources.
  */
-interface OptionsDataClient {
+interface OptionsDataProvider {
     /**
      * Get all option contracts available for a given symbol on a specific date.
      * If date is null, fetches all available historical options data.

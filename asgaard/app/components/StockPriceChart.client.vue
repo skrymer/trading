@@ -272,7 +272,7 @@ class OrderBlockRenderer {
         const scaledY2 = y2 * scope.verticalPixelRatio
 
         // Draw filled rectangle
-        const fillOpacity = 0.4
+        const fillOpacity = 0.08
         const fillColor = block.orderBlockType === 'BULLISH'
           ? `rgba(16, 185, 129, ${fillOpacity})`
           : `rgba(239, 68, 68, ${fillOpacity})`
@@ -289,23 +289,15 @@ class OrderBlockRenderer {
           scaledY2 - scaledY1
         )
 
-        // Draw border with dashed line
+        // Draw border with solid thin line
         ctx.strokeStyle = strokeColor
-        ctx.lineWidth = 3 * scope.verticalPixelRatio
-        ctx.setLineDash([5 * scope.horizontalPixelRatio, 3 * scope.horizontalPixelRatio])
+        ctx.lineWidth = 1 * scope.verticalPixelRatio
         ctx.strokeRect(
           scaledX1,
           scaledY1,
           scaledX2 - scaledX1,
           scaledY2 - scaledY1
         )
-        ctx.setLineDash([]) // Reset line dash
-
-        // Draw label
-        const label = block.orderBlockType
-        ctx.font = `${10 * scope.verticalPixelRatio}px sans-serif`
-        ctx.fillStyle = strokeColor
-        ctx.fillText(label, scaledX1 + 5, scaledY1 + 15 * scope.verticalPixelRatio)
       })
     })
   }
@@ -568,7 +560,7 @@ function updateMarkers() {
     })
   }
 
-  // Process strategy-based entry/exit signals
+  // Store strategy-based entry/exit signals for click handling (but don't display markers)
   if (props.signals && props.signals.quotesWithSignals) {
     props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
       const quote = quoteWithSignal.quote
@@ -576,32 +568,12 @@ function updateMarkers() {
 
       const time = (new Date(quote.date).getTime() / 1000) as any
 
-      // Add entry signal marker (green triangle up)
+      // Store signal data for click handling only
       if (quoteWithSignal.entrySignal) {
-        // Store signal data for click handling
         signalDataMap.set(time, {
           date: quote.date,
           price: quote.closePrice,
           entryDetails: quoteWithSignal.entryDetails
-        })
-
-        markers.push({
-          time,
-          position: 'belowBar',
-          color: '#10b981',
-          shape: 'arrowUp',
-          text: 'Entry'
-        })
-      }
-
-      // Add exit signal marker (red triangle down)
-      if (quoteWithSignal.exitSignal) {
-        markers.push({
-          time,
-          position: 'aboveBar',
-          color: '#ef4444',
-          shape: 'arrowDown',
-          text: quoteWithSignal.exitReason || 'Exit'
         })
       }
     })

@@ -3,15 +3,16 @@ package com.skrymer.udgaard.model.strategy
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
+import com.skrymer.udgaard.model.strategy.condition.exit.ExitCondition
 import org.slf4j.LoggerFactory
 
 /**
  * A composite exit strategy that combines multiple exit conditions using logical operators.
  */
 class CompositeExitStrategy(
-    private val exitConditions: List<ExitCondition>,
-    private val operator: LogicalOperator = LogicalOperator.OR,
-    private val strategyDescription: String? = null
+  private val exitConditions: List<ExitCondition>,
+  private val operator: LogicalOperator = LogicalOperator.OR,
+  private val strategyDescription: String? = null
 ) : ExitStrategy {
     private val logger = LoggerFactory.getLogger(CompositeExitStrategy::class.java)
 
@@ -64,33 +65,3 @@ class CompositeExitStrategy(
     fun getConditions(): List<ExitCondition> = exitConditions
 }
 
-/**
- * Represents an exit condition that can be evaluated.
- */
-interface ExitCondition {
-    /**
-     * Determines if the exit condition is met.
-     */
-    fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean
-
-    /**
-     * Returns the reason for exiting.
-     */
-    fun exitReason(): String
-
-    /**
-     * Returns a description of the exit condition.
-     */
-    fun description(): String
-
-    /**
-     * Get metadata for this condition.
-     * Used by UI to display strategy information.
-     */
-    fun getMetadata(): com.skrymer.udgaard.model.strategy.condition.ConditionMetadata {
-        return com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
-            type = this::class.simpleName ?: "unknown",
-            description = description()
-        )
-    }
-}

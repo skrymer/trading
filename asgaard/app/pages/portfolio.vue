@@ -101,12 +101,14 @@ async function loadPortfolioData() {
 
   status.value = 'pending'
   try {
-    const [statsData, openTradesData, closedTradesData] = await Promise.all([
+    const [portfolioData, statsData, openTradesData, closedTradesData] = await Promise.all([
+      $fetch<Portfolio>(`/udgaard/api/portfolio/${portfolio.value.id}`),
       $fetch<PortfolioStats>(`/udgaard/api/portfolio/${portfolio.value.id}/stats?groupRolledTrades=${groupRolledTrades.value}`),
       $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=OPEN`),
       $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=CLOSED`)
     ])
 
+    portfolio.value = portfolioData
     stats.value = statsData
     openTrades.value = openTradesData
     closedTrades.value = closedTradesData
@@ -280,14 +282,25 @@ async function deleteTrade(tradeId: string) {
 }
 
 // Close trade
-async function closeTrade(tradeId: string, exitPrice: number, exitDate: string) {
+async function closeTrade(
+  tradeId: string,
+  exitPrice: number,
+  exitDate: string,
+  exitIntrinsicValue?: number,
+  exitExtrinsicValue?: number
+) {
   if (!portfolio.value?.id) return
 
   isClosingTrade.value = true
   try {
     await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades/${tradeId}/close`, {
       method: 'PUT',
-      body: { exitPrice, exitDate }
+      body: {
+        exitPrice,
+        exitDate,
+        exitIntrinsicValue,
+        exitExtrinsicValue
+      }
     })
 
     isCloseTradeModalOpen.value = false

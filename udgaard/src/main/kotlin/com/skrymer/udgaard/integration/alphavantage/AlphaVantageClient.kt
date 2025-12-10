@@ -1,5 +1,9 @@
 package com.skrymer.udgaard.integration.alphavantage
 
+import com.skrymer.udgaard.integration.EtfProvider
+import com.skrymer.udgaard.integration.FundamentalDataProvider
+import com.skrymer.udgaard.integration.StockProvider
+import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEarnings
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
@@ -16,12 +20,15 @@ import org.springframework.web.client.RestClient
 import java.time.LocalDate
 
 /**
- * Client for Alpha Vantage API
+ * Alpha Vantage implementation of stock, ETF, technical indicator, and fundamental data providers
  *
  * Documentation: https://www.alphavantage.co/documentation/
  *
- * Provides stock data including volume information that is not available from Ovtlyr.
- * Used to enrich stock quotes with volume data for order block analysis.
+ * Provides:
+ * - Stock price data (adjusted for splits and dividends)
+ * - ETF profile data (holdings, expense ratios, etc.)
+ * - Technical indicators (ATR)
+ * - Fundamental data (earnings history)
  *
  * API Rate Limits:
  * - Free tier: 25 requests per day
@@ -33,7 +40,7 @@ import java.time.LocalDate
 open class AlphaVantageClient(
     @Value("\${alphavantage.api.key:}") private val apiKey: String,
     @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String
-) {
+) : StockProvider, EtfProvider, TechnicalIndicatorProvider, FundamentalDataProvider {
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(AlphaVantageClient::class.java)
         private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
@@ -63,7 +70,7 @@ open class AlphaVantageClient(
      * @param outputSize "compact" for last 100 data points, "full" for 20+ years of historical data
      * @return List of stock quotes with adjusted prices and volume data, or null if request fails
      */
-    fun getDailyAdjustedTimeSeries(symbol: String, outputSize: String = OUTPUT_SIZE_FULL): List<StockQuote>? {
+    override fun getDailyAdjustedTimeSeries(symbol: String, outputSize: String): List<StockQuote>? {
         return runCatching {
             val url = "$baseUrl?function=$FUNCTION_DAILY_ADJUSTED&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
             logger.info("Fetching adjusted daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
@@ -120,7 +127,7 @@ open class AlphaVantageClient(
      * @param symbol ETF symbol (e.g., "SPY", "QQQ", "TQQQ")
      * @return ETF profile data, or null if request fails
      */
-    fun getEtfProfile(symbol: String): AlphaVantageEtfProfile? {
+    override fun getEtfProfile(symbol: String): AlphaVantageEtfProfile? {
         return runCatching {
             val url = "$baseUrl?function=$FUNCTION_ETF_PROFILE&symbol=$symbol&apikey=$apiKey"
             logger.info("Fetching ETF profile for $symbol from Alpha Vantage")
@@ -174,10 +181,10 @@ open class AlphaVantageClient(
      * @param timePeriod Number of data points used to calculate ATR (default: 14)
      * @return Map of date to ATR value, or null if request fails
      */
-    fun getATR(
+    override fun getATR(
         symbol: String,
-        interval: String = "daily",
-        timePeriod: Int = 14
+        interval: String,
+        timePeriod: Int
     ): Map<LocalDate, Double>? {
         return runCatching {
             val url = "$baseUrl?function=$FUNCTION_ATR&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
@@ -245,7 +252,7 @@ open class AlphaVantageClient(
      * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
      * @return List of quarterly earnings, or null if request fails
      */
-    fun getEarnings(symbol: String): List<Earning>? {
+    override fun getEarnings(symbol: String): List<Earning>? {
         return runCatching {
             val url = "$baseUrl?function=$FUNCTION_EARNINGS&symbol=$symbol&apikey=$apiKey"
             logger.info("Fetching earnings history for $symbol from Alpha Vantage")

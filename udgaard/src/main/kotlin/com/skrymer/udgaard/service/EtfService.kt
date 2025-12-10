@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient
+import com.skrymer.udgaard.integration.EtfProvider
 import com.skrymer.udgaard.model.EtfEntity
 import com.skrymer.udgaard.model.EtfHolding
 import com.skrymer.udgaard.model.EtfMetadata
@@ -19,7 +19,7 @@ import java.time.LocalDate
 class EtfService(
     private val etfRepository: EtfRepository,
     private val stockService: StockService,
-    private val alphaVantageClient: AlphaVantageClient
+    private val etfProvider: EtfProvider
 ) {
     private val logger = LoggerFactory.getLogger(EtfService::class.java)
 
@@ -119,8 +119,8 @@ class EtfService(
         etf.quotes.clear()
         etf.quotes.addAll(etfQuotes)
 
-        // Fetch ETF profile from AlphaVantage for additional metadata and holdings
-        val profile = alphaVantageClient.getEtfProfile(symbol)
+        // Fetch ETF profile from EtfProvider for additional metadata and holdings
+        val profile = etfProvider.getEtfProfile(symbol)
         if (profile != null) {
             logger.info("Fetched ETF profile from AlphaVantage for $symbol")
 

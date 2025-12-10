@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.integration.options.OptionContract
-import com.skrymer.udgaard.integration.options.OptionsDataClient
+import com.skrymer.udgaard.integration.options.OptionsDataProvider
 import com.skrymer.udgaard.model.InstrumentType
 import com.skrymer.udgaard.model.OptionType
 import com.skrymer.udgaard.model.PortfolioTrade
@@ -16,7 +16,7 @@ import java.time.LocalDate
  */
 @Service
 class OptionPriceService(
-    private val optionsDataClient: OptionsDataClient
+    private val optionsDataProvider: OptionsDataProvider
 ) {
 
     companion object {
@@ -56,7 +56,7 @@ class OptionPriceService(
             val dateString = currentDate.toString() // LocalDate.toString() returns YYYY-MM-DD format
             logger.debug("Fetching option data for $underlyingSymbol on $dateString")
 
-            val contract = optionsDataClient.findOptionContract(
+            val contract = optionsDataProvider.findOptionContract(
                 symbol = underlyingSymbol,
                 strike = strike,
                 expiration = expiration.toString(), // Also YYYY-MM-DD format
@@ -94,7 +94,7 @@ class OptionPriceService(
         optionType: OptionType,
         date: LocalDate
     ): OptionContract? {
-        return optionsDataClient.findOptionContract(
+        return optionsDataProvider.findOptionContract(
             symbol = underlyingSymbol,
             strike = strike,
             expiration = expiration.toString(),

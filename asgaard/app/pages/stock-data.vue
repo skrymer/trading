@@ -29,58 +29,6 @@
     </template>
 
     <template #body>
-      <!-- Strategy Selection Row -->
-      <div v-if="selectedStock" class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-4">
-        <div class="flex items-center gap-2 flex-1">
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            Entry Strategy:
-          </label>
-          <USelectMenu
-            v-model="selectedEntryStrategy"
-            :items="entryStrategies"
-            :loading="loadingStrategies"
-            placeholder="Select entry strategy"
-            class="flex-1 max-w-xs"
-          />
-        </div>
-
-        <div class="flex items-center gap-2 flex-1">
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            Exit Strategy:
-          </label>
-          <USelectMenu
-            v-model="selectedExitStrategy"
-            :items="exitStrategies"
-            :loading="loadingStrategies"
-            placeholder="Select exit strategy"
-            class="flex-1 max-w-xs"
-          />
-        </div>
-
-        <div class="flex items-center gap-3">
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            Cooldown Days:
-          </label>
-          <UInput
-            v-model.number="cooldownDays"
-            type="number"
-            min="0"
-            max="100"
-            class="w-24"
-            placeholder="0"
-          />
-        </div>
-
-        <UButton
-          icon="i-heroicons-chart-bar"
-          :loading="loadingSignals"
-          :disabled="!selectedEntryStrategy || !selectedExitStrategy"
-          @click="fetchSignals"
-        >
-          Show Signals
-        </UButton>
-      </div>
-
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center py-12">
         <UIcon name="i-heroicons-arrow-path" class="animate-spin text-4xl" />
@@ -97,10 +45,11 @@
           :entry-strategy="selectedEntryStrategy"
         />
 
-        <!-- Heatmap Chart -->
-        <div v-if="selectedStock" class="mt-4">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-lg font-semibold">Stock Heatmap (Fear & Greed)</h3>
+        <!-- Heatmap Charts -->
+        <div v-if="selectedStock" class="space-y-4">
+          <!-- Time Range Selector (shared by both charts) -->
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold">Heatmap Analysis</h3>
             <div class="flex items-center gap-2">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Time Range:
@@ -119,19 +68,103 @@
               />
             </div>
           </div>
-          <ChartsBarChart
-            v-if="heatmapChartSeries.length > 0"
-            :series="heatmapChartSeries"
-            :categories="heatmapChartCategories"
-            :bar-colors="heatmapBarColors"
-            :distributed="true"
-            y-axis-label="Heatmap Value"
-            :height="350"
-            :show-legend="false"
-            :show-data-labels="false"
-            :y-axis-max="100"
-          />
+
+          <!-- Stock Heatmap Chart -->
+          <div>
+            <h4 class="text-md font-medium mb-2">Stock Heatmap (Fear & Greed)</h4>
+            <ChartsBarChart
+              v-if="heatmapChartSeries.length > 0"
+              :series="heatmapChartSeries"
+              :categories="heatmapChartCategories"
+              :bar-colors="heatmapBarColors"
+              :distributed="true"
+              y-axis-label="Stock Heatmap"
+              :height="300"
+              :show-legend="false"
+              :show-data-labels="false"
+              :y-axis-max="100"
+            />
+          </div>
+
+          <!-- Sector Heatmap Chart -->
+          <div>
+            <h4 class="text-md font-medium mb-2">
+              Sector Heatmap (Fear & Greed)
+              <span v-if="selectedStock.sectorSymbol" class="text-muted"> - {{ getSectorName(selectedStock.sectorSymbol) }}</span>
+            </h4>
+            <ChartsBarChart
+              v-if="sectorHeatmapChartSeries.length > 0"
+              :series="sectorHeatmapChartSeries"
+              :categories="heatmapChartCategories"
+              :bar-colors="sectorHeatmapBarColors"
+              :distributed="true"
+              y-axis-label="Sector Heatmap"
+              :height="300"
+              :show-legend="false"
+              :show-data-labels="false"
+              :y-axis-max="100"
+            />
+          </div>
         </div>
+
+        <!-- Strategy Selection Row -->
+        <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div class="flex items-center gap-2 flex-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Entry Strategy:
+            </label>
+            <USelectMenu
+              v-model="selectedEntryStrategy"
+              :items="entryStrategies"
+              :loading="loadingStrategies"
+              placeholder="Select entry strategy"
+              class="flex-1 max-w-xs"
+            />
+          </div>
+
+          <div class="flex items-center gap-2 flex-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Exit Strategy:
+            </label>
+            <USelectMenu
+              v-model="selectedExitStrategy"
+              :items="exitStrategies"
+              :loading="loadingStrategies"
+              placeholder="Select exit strategy"
+              class="flex-1 max-w-xs"
+            />
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Cooldown Days:
+            </label>
+            <UInput
+              v-model.number="cooldownDays"
+              type="number"
+              min="0"
+              max="100"
+              class="w-24"
+              placeholder="0"
+            />
+          </div>
+
+          <UButton
+            icon="i-heroicons-chart-bar"
+            :loading="loadingSignals"
+            :disabled="!selectedEntryStrategy || !selectedExitStrategy"
+            @click="fetchSignals"
+          >
+            Show Signals
+          </UButton>
+        </div>
+
+        <!-- Strategy Signals Table -->
+        <ChartsStrategySignalsTable
+          :signals="signalsData"
+          :entry-strategy="selectedEntryStrategy"
+          :exit-strategy="selectedExitStrategy"
+        />
       </div>
 
       <!-- No Selection State -->
@@ -150,6 +183,7 @@
 
 <script setup lang="ts">
 import type { Stock, StockQuote, OrderBlock } from '~/types'
+import { getSectorName } from '~/types/enums'
 
 // Page meta
 definePageMeta({
@@ -172,7 +206,7 @@ const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
 const heatmapMonths = ref<{ label: string; value: number }>({ label: '3 Months', value: 3 })
 
-// Computed properties for heatmap chart
+// Computed properties for heatmap charts (shared time range)
 const filteredHeatmapQuotes = computed(() => {
   if (!selectedStock.value?.quotes) return []
 
@@ -188,11 +222,12 @@ const filteredHeatmapQuotes = computed(() => {
   })
 })
 
+// Stock Heatmap
 const heatmapChartSeries = computed(() => {
   if (filteredHeatmapQuotes.value.length === 0) return []
 
   return [{
-    name: 'Heatmap',
+    name: 'Stock Heatmap',
     data: filteredHeatmapQuotes.value.map(q => q.heatmap || 0)
   }]
 })
@@ -213,6 +248,27 @@ const heatmapBarColors = computed(() => {
   // Green if > 50, Red if <= 50
   return filteredHeatmapQuotes.value.map(q => {
     const heatmap = q.heatmap || 0
+    return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
+  })
+})
+
+// Sector Heatmap
+const sectorHeatmapChartSeries = computed(() => {
+  if (filteredHeatmapQuotes.value.length === 0) return []
+
+  return [{
+    name: 'Sector Heatmap',
+    data: filteredHeatmapQuotes.value.map(q => q.sectorHeatmap || 0)
+  }]
+})
+
+const sectorHeatmapBarColors = computed(() => {
+  if (filteredHeatmapQuotes.value.length === 0) return []
+
+  // Color bars based on sector heatmap value (0-100 scale)
+  // Green if > 50, Red if <= 50
+  return filteredHeatmapQuotes.value.map(q => {
+    const heatmap = q.sectorHeatmap || 0
     return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
   })
 })

@@ -101,6 +101,7 @@ export interface BacktestReport {
 
 export interface Stock {
   symbol: string
+  sectorSymbol?: string
   quotes: StockQuote[]
   orderBlocks: OrderBlock[]
 }

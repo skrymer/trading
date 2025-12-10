@@ -10,20 +10,42 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'close-trade': [tradeId: string, exitPrice: number, exitDate: string]
+  'close-trade': [tradeId: string, exitPrice: number, exitDate: string, exitIntrinsicValue?: number, exitExtrinsicValue?: number]
 }>()
 
 const exitPrice = ref(0)
 const exitDate = ref(format(new Date(), 'yyyy-MM-dd'))
+const exitIntrinsicValue = ref<number | undefined>(undefined)
+const exitExtrinsicValue = ref<number | undefined>(undefined)
+
+// Check if trade is an option
+const isOption = computed(() => props.trade.instrumentType === 'OPTION')
 
 // Calculate profit preview
 const profitPreview = computed(() => {
   if (exitPrice.value <= 0) return null
 
-  const profit = (exitPrice.value - props.trade.entryPrice) * props.trade.quantity
-  const profitPercentage = ((exitPrice.value - props.trade.entryPrice) / props.trade.entryPrice) * 100
+  let profit: number
+  let exitValue: number
+  let entryValue: number
 
-  return { profit, profitPercentage }
+  if (isOption.value) {
+    // For options: value = price × contracts × multiplier
+    const contracts = props.trade.contracts || 1
+    const multiplier = props.trade.multiplier || 100
+    exitValue = exitPrice.value * contracts * multiplier
+    entryValue = props.trade.entryPrice * contracts * multiplier
+    profit = exitValue - entryValue
+  } else {
+    // For stocks: value = price × quantity
+    exitValue = exitPrice.value * props.trade.quantity
+    entryValue = props.trade.entryPrice * props.trade.quantity
+    profit = exitValue - entryValue
+  }
+
+  const profitPercentage = (profit / entryValue) * 100
+
+  return { profit, profitPercentage, exitValue, entryValue }
 })
 
 function handleCloseTrade() {
@@ -31,12 +53,14 @@ function handleCloseTrade() {
     return
   }
 
-  emit('close-trade', props.trade.id, exitPrice.value, exitDate.value)
-}
-
-function handleClose() {
-  if (props.loading) return
-  emit('update:open', false)
+  emit(
+    'close-trade',
+    props.trade.id,
+    exitPrice.value,
+    exitDate.value,
+    exitIntrinsicValue.value,
+    exitExtrinsicValue.value
+  )
 }
 
 // Reset form when modal closes
@@ -44,6 +68,8 @@ watch(() => props.open, (isOpen) => {
   if (!isOpen && !props.loading) {
     exitPrice.value = 0
     exitDate.value = format(new Date(), 'yyyy-MM-dd')
+    exitIntrinsicValue.value = undefined
+    exitExtrinsicValue.value = undefined
   }
 })
 </script>
@@ -59,10 +85,18 @@ watch(() => props.open, (isOpen) => {
         <!-- Trade Info -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-2">
           <div class="flex justify-between text-sm">
-            <span class="text-muted">Entry Price:</span>
+            <span class="text-muted">{{ isOption ? 'Entry Premium' : 'Entry Price' }}:</span>
             <span class="font-semibold">{{ trade.entryPrice.toFixed(2) }} {{ trade.currency }}</span>
           </div>
-          <div class="flex justify-between text-sm">
+          <div v-if="isOption" class="flex justify-between text-sm">
+            <span class="text-muted">Contracts:</span>
+            <span class="font-semibold">{{ trade.contracts || 1 }}</span>
+          </div>
+          <div v-if="isOption" class="flex justify-between text-sm">
+            <span class="text-muted">Multiplier:</span>
+            <span class="font-semibold">{{ trade.multiplier || 100 }}</span>
+          </div>
+          <div v-if="!isOption" class="flex justify-between text-sm">
             <span class="text-muted">Quantity:</span>
             <span class="font-semibold">{{ trade.quantity }}</span>
           </div>
@@ -71,20 +105,56 @@ watch(() => props.open, (isOpen) => {
             <span class="font-semibold">{{ format(new Date(trade.entryDate), 'MMM dd, yyyy') }}</span>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-muted">Total Cost:</span>
-            <span class="font-semibold">{{ (trade.entryPrice * trade.quantity).toFixed(2) }} {{ trade.currency }}</span>
+            <span class="text-muted">{{ isOption ? 'Position Value' : 'Total Cost' }}:</span>
+            <span class="font-semibold">
+              {{ isOption
+                ? (trade.entryPrice * (trade.contracts || 1) * (trade.multiplier || 100)).toFixed(2)
+                : (trade.entryPrice * trade.quantity).toFixed(2)
+              }} {{ trade.currency }}
+            </span>
+          </div>
+          <div v-if="isOption && trade.entryIntrinsicValue !== undefined && trade.entryIntrinsicValue !== null" class="flex justify-between text-sm">
+            <span class="text-muted">Entry Intrinsic:</span>
+            <span class="font-semibold">{{ trade.entryIntrinsicValue.toFixed(2) }} {{ trade.currency }}</span>
+          </div>
+          <div v-if="isOption && trade.entryExtrinsicValue !== undefined && trade.entryExtrinsicValue !== null" class="flex justify-between text-sm">
+            <span class="text-muted">Entry Extrinsic:</span>
+            <span class="font-semibold">{{ trade.entryExtrinsicValue.toFixed(2) }} {{ trade.currency }}</span>
           </div>
         </div>
 
-        <UFormField label="Exit Price" required>
+        <UFormField :label="isOption ? 'Exit Premium' : 'Exit Price'" required>
           <UInput
             v-model.number="exitPrice"
             type="number"
             min="0"
             step="0.01"
-            placeholder="Enter exit price"
+            :placeholder="isOption ? 'Enter exit premium' : 'Enter exit price'"
           />
         </UFormField>
+
+        <!-- Option-specific fields -->
+        <div v-if="isOption" class="grid grid-cols-2 gap-4">
+          <UFormField label="Exit Intrinsic Value">
+            <UInput
+              v-model.number="exitIntrinsicValue"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Optional"
+            />
+          </UFormField>
+
+          <UFormField label="Exit Extrinsic Value">
+            <UInput
+              v-model.number="exitExtrinsicValue"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Optional"
+            />
+          </UFormField>
+        </div>
 
         <UFormField label="Exit Date" required>
           <UInput
@@ -100,8 +170,8 @@ watch(() => props.open, (isOpen) => {
           </p>
           <div class="space-y-1">
             <div class="flex justify-between text-sm">
-              <span class="text-muted">Total Value:</span>
-              <span class="font-semibold">{{ (exitPrice * trade.quantity).toFixed(2) }} {{ trade.currency }}</span>
+              <span class="text-muted">{{ isOption ? 'Exit Position Value' : 'Total Value' }}:</span>
+              <span class="font-semibold">{{ profitPreview.exitValue.toFixed(2) }} {{ trade.currency }}</span>
             </div>
             <div class="flex justify-between text-sm">
               <span class="text-muted">Profit/Loss:</span>
@@ -115,14 +185,14 @@ watch(() => props.open, (isOpen) => {
       </div>
     </template>
 
-    <template #footer>
+    <template #footer="{ close }">
       <div class="flex justify-end gap-2">
         <UButton
           label="Cancel"
           color="neutral"
           variant="outline"
           :disabled="loading"
-          @click="handleClose"
+          @click="close"
         />
         <UButton
           label="Close Trade"

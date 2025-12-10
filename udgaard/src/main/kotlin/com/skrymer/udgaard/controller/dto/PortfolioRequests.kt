@@ -37,7 +37,9 @@ data class OpenTradeRequest(
 
 data class CloseTradeRequest(
     val exitPrice: Double,
-    val exitDate: LocalDate
+    val exitDate: LocalDate,
+    val exitIntrinsicValue: Double? = null,
+    val exitExtrinsicValue: Double? = null
 )
 
 data class UpdateTradeRequest(

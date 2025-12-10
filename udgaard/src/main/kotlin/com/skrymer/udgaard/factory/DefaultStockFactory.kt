@@ -29,27 +29,27 @@ class DefaultStockFactory(
 
     private val logger = LoggerFactory.getLogger(DefaultStockFactory::class.java)
 
-    override fun createQuotes(
-        symbol: String,
-        alphaQuotes: List<StockQuote>,
-        alphaATR: Map<LocalDate, Double>?,
-        marketBreadth: Breadth?,
-        sectorBreadth: Breadth?,
-        spy: OvtlyrStockInformation
+    override fun enrichQuotes(
+      symbol: String,
+      stockQuotes: List<StockQuote>,
+      atrMap: Map<LocalDate, Double>?,
+      marketBreadth: Breadth?,
+      sectorBreadth: Breadth?,
+      spy: OvtlyrStockInformation
     ): List<StockQuote>? {
-        logger.info("Creating enriched quotes for $symbol from AlphaVantage data (${alphaQuotes.size} quotes)")
+        logger.info("Creating enriched quotes for $symbol from AlphaVantage data (${stockQuotes.size} quotes)")
 
-        if (alphaQuotes.isEmpty()) {
+        if (stockQuotes.isEmpty()) {
             logger.warn("No AlphaVantage quotes provided for $symbol")
             return null
         }
 
         // Step 1: Enrich with calculated technical indicators (EMAs, Donchian, trend)
-        val quotesWithIndicators = technicalIndicatorService.enrichWithIndicators(alphaQuotes, symbol)
+        val quotesWithIndicators = technicalIndicatorService.enrichWithIndicators(stockQuotes, symbol)
         logger.info("Calculated technical indicators for $symbol")
 
         // Step 2: Enrich with ATR data from AlphaVantage
-        val quotesWithATR = enrichWithATR(quotesWithIndicators, alphaATR, symbol)
+        val quotesWithATR = enrichWithATR(quotesWithIndicators, atrMap, symbol)
         logger.info("Enriched $symbol with ATR data")
 
         // Step 3: Enrich with Ovtlyr signals, heatmaps, and sector data

@@ -159,8 +159,13 @@ class PortfolioController(
         @PathVariable tradeId: Long,
         @RequestBody request: CloseTradeRequest
     ): ResponseEntity<PortfolioTrade> {
-        val trade = portfolioService.closeTrade(tradeId, request.exitPrice, request.exitDate)
-            ?: return ResponseEntity.notFound().build()
+        val trade = portfolioService.closeTrade(
+            tradeId,
+            request.exitPrice,
+            request.exitDate,
+            request.exitIntrinsicValue,
+            request.exitExtrinsicValue
+        ) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(trade)
     }
 

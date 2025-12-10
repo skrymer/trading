@@ -1,6 +1,9 @@
 package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.factory.StockFactory
+import com.skrymer.udgaard.integration.FundamentalDataProvider
+import com.skrymer.udgaard.integration.StockProvider
+import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.model.BreadthSymbol
@@ -22,7 +25,9 @@ open class StockService(
   val ovtlyrClient: OvtlyrClient,
   val breadthRepository: BreadthRepository,
   val orderBlockCalculator: OrderBlockCalculator,
-  val alphaVantageClient: com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient,
+  val stockProvider: StockProvider,
+  val technicalIndicatorProvider: TechnicalIndicatorProvider,
+  val fundamentalDataProvider: FundamentalDataProvider,
   val stockFactory: StockFactory
 ) {
 
@@ -35,8 +40,6 @@ open class StockService(
    * @param symbol - the [symbol] of the stock to get
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
-//  @Cacheable(value = ["stocks"], key = "#symbol", condition = "!#forceFetch")
-//  @CacheEvict(value = ["stocks"], key = "#symbol", condition = "#forceFetch")
   open fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
     logger.info("Getting stock $symbol with forceFetch=$forceFetch")
 
@@ -124,27 +127,27 @@ open class StockService(
         stockRepository.flush() // Ensure delete is committed before insert
       }
 
-      // Step 2: Fetch adjusted daily data from AlphaVantage (PRIMARY data source - REQUIRED)
-      logger.info("Fetching adjusted daily data from AlphaVantage for $symbol")
-      val alphaQuotes = alphaVantageClient.getDailyAdjustedTimeSeries(symbol)
-      if (alphaQuotes == null) {
-        logger.error("FAILED: Could not fetch data from AlphaVantage for $symbol")
+      // Step 2: Fetch adjusted daily data from StockProvider (PRIMARY data source - REQUIRED)
+      logger.info("Fetching adjusted daily data from StockProvider for $symbol")
+      val stockQuotes = stockProvider.getDailyAdjustedTimeSeries(symbol)
+      if (stockQuotes == null) {
+        logger.error("FAILED: Could not fetch data from StockProvider for $symbol")
         return null
       }
-      logger.info("Fetched ${alphaQuotes.size} quotes from AlphaVantage for $symbol")
+      logger.info("Fetched ${stockQuotes.size} quotes from StockProvider for $symbol")
 
-      // Step 3: Fetch ATR data from AlphaVantage (REQUIRED for strategies)
-      logger.info("Fetching ATR data from AlphaVantage for $symbol")
-      val alphaATR = alphaVantageClient.getATR(symbol)
-      if (alphaATR == null) {
-        logger.error("FAILED: Could not fetch ATR data from AlphaVantage for $symbol")
+      // Step 3: Fetch ATR data (REQUIRED for strategies)
+      logger.info("Fetching ATR data for $symbol")
+      val atrMap = technicalIndicatorProvider.getATR(symbol)
+      if (atrMap == null) {
+        logger.error("FAILED: Could not fetch ATR data for $symbol")
         return null
       }
-      logger.info("Fetched ${alphaATR.size} ATR values from AlphaVantage for $symbol")
+      logger.info("Fetched ${atrMap.size} ATR values for $symbol")
 
-      // Step 3.5: Fetch earnings history from AlphaVantage (for exit-before-earnings strategies)
-      logger.info("Fetching earnings history from AlphaVantage for $symbol")
-      val earnings = alphaVantageClient.getEarnings(symbol) ?: emptyList()
+      // Step 3.5: Fetch earnings history (for exit-before-earnings strategies)
+      logger.info("Fetching earnings history for $symbol")
+      val earnings = fundamentalDataProvider.getEarnings(symbol) ?: emptyList()
       logger.info("Fetched ${earnings.size} quarterly earnings for $symbol")
 
       // Step 4: Get sector symbol from Ovtlyr (needed for sector breadth lookup)
@@ -166,10 +169,10 @@ open class StockService(
       // Step 6: Create enriched quotes using StockFactory
       // This will: calculate EMAs, add ATR, calculate Donchian, determine trend, enrich with Ovtlyr
       logger.info("Creating enriched quotes for $symbol")
-      val enrichedQuotes = stockFactory.createQuotes(
+      val enrichedQuotes = stockFactory.enrichQuotes(
         symbol = symbol,
-        alphaQuotes = alphaQuotes,
-        alphaATR = alphaATR,
+        stockQuotes = stockQuotes,
+        atrMap = atrMap,
         marketBreadth = marketBreadth,
         sectorBreadth = sectorBreadth,
         spy = spy

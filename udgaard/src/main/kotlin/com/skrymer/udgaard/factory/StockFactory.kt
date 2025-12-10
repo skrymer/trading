@@ -23,7 +23,7 @@ interface StockFactory {
      * Create fully enriched quotes from AlphaVantage data.
      *
      * Processing pipeline:
-     * 1. AlphaVantage quotes (OHLCV + volume) - input
+     * 1. Stock quotes (OHLCV + volume) - input
      * 2. Calculate EMAs (5, 10, 20, 50) using TechnicalIndicatorService
      * 3. Match ATR data from AlphaVantage by date
      * 4. Calculate Donchian channels and trend
@@ -31,20 +31,20 @@ interface StockFactory {
      * 6. Add market/sector context from breadth data
      *
      * @param symbol - Stock symbol
-     * @param alphaQuotes - OHLCV quotes from AlphaVantage (PRIMARY data source)
-     * @param alphaATR - ATR values from AlphaVantage keyed by date
+     * @param stockQuotes - OHLCV quotes from AlphaVantage (PRIMARY data source)
+     * @param atrMap - ATR values from AlphaVantage keyed by date
      * @param marketBreadth - Market breadth data for context
      * @param sectorBreadth - Sector breadth data for context
      * @param spy - SPY reference data
      * @return Fully enriched StockQuote list, or null if enrichment fails
      */
-    fun createQuotes(
-        symbol: String,
-        alphaQuotes: List<StockQuote>,
-        alphaATR: Map<LocalDate, Double>?,
-        marketBreadth: Breadth?,
-        sectorBreadth: Breadth?,
-        spy: OvtlyrStockInformation
+    fun enrichQuotes(
+      symbol: String,
+      stockQuotes: List<StockQuote>,
+      atrMap: Map<LocalDate, Double>?,
+      marketBreadth: Breadth?,
+      sectorBreadth: Breadth?,
+      spy: OvtlyrStockInformation
     ): List<StockQuote>?
 
     /**
