@@ -17,7 +17,10 @@ import org.springframework.stereotype.Component
  */
 @Component
 class DonkeyChannelCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean {
     // AS1 or AS2: (market >= 1 && sector >= 1) OR market == 2
     return (quote.marketDonkeyChannelScore >= 1 && quote.sectorDonkeyChannelScore >= 1)
       .or(quote.marketDonkeyChannelScore == 2)
@@ -25,15 +28,19 @@ class DonkeyChannelCondition : EntryCondition {
 
   override fun description(): String = "Donkey channel AS1 or AS2"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "donkeyChannel",
-    displayName = "Donkey Channel",
-    description = "Stock is in donkey channel conditions",
-    parameters = emptyList(),
-    category = "Sector"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "donkeyChannel",
+      displayName = "Donkey Channel",
+      description = "Stock is in donkey channel conditions",
+      parameters = emptyList(),
+      category = "Sector",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val message = if (passed) description() + " ✓" else description() + " ✗"
 
@@ -43,7 +50,7 @@ class DonkeyChannelCondition : EntryCondition {
       passed = passed,
       actualValue = null,
       threshold = null,
-      message = message
+      message = message,
     )
   }
 }

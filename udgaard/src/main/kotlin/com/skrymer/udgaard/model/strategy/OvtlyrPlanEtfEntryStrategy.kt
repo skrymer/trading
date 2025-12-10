@@ -23,20 +23,25 @@ import com.skrymer.udgaard.model.StockQuote
  * - Edge: 4.84% (improved from 4.48%)
  */
 @RegisteredStrategy(name = "OvtlyrPlanEtf", type = StrategyType.ENTRY)
-class OvtlyrPlanEtfEntryStrategy: DetailedEntryStrategy {
-  private val compositeStrategy = entryStrategy {
-    uptrend()
-    buySignal(daysOld = -1)  // Accept any buy signal age
-    heatmap(70)
-    inValueZone(1.5)  // Optimized: 1.5 ATR (was 2.0) - tighter entry timing
-    belowOrderBlock(percentBelow = 2.0, ageInDays = 30)
-  }
+class OvtlyrPlanEtfEntryStrategy : DetailedEntryStrategy {
+  private val compositeStrategy =
+    entryStrategy {
+      uptrend()
+      buySignal(daysOld = -1) // Accept any buy signal age
+      heatmap(70)
+      inValueZone(1.5) // Optimized: 1.5 ATR (was 2.0) - tighter entry timing
+      belowOrderBlock(percentBelow = 2.0, ageInDays = 30)
+    }
 
   override fun description() = "Ovtlyr Plan ETF entry strategy"
 
-  override fun test(stock: Stock, quote: StockQuote): Boolean {
-    return compositeStrategy.test(stock, quote)
-  }
+  override fun test(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = compositeStrategy.test(stock, quote)
 
-  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
+  override fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ) = compositeStrategy.testWithDetails(stock, quote)
 }

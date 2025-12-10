@@ -31,7 +31,6 @@ class BacktestServiceTest {
 
   @Test
   fun `should do something`() {
-
     // given some stock quotes
     val quote1 = StockQuote(closePrice = 99.9, date = LocalDate.of(2025, 7, 1))
     val quote2 = StockQuote(closePrice = 100.0, date = LocalDate.of(2025, 7, 2))
@@ -45,9 +44,9 @@ class BacktestServiceTest {
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-          mutableListOf(stock),
+        mutableListOf(stock),
         LocalDate.of(2024, 1, 1),
-        LocalDate.now()
+        LocalDate.now(),
       )
     logger.info("Backtest report: {}", backtestReport)
   }
@@ -77,37 +76,39 @@ class BacktestServiceTest {
     val quote15 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 22))
     val quote16 = StockQuote(closePrice = 108.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 23))
 
-    val stock = Stock(
-      "TEST",
-      "TEST_SECTOR",
+    val stock =
+      Stock(
+        "TEST",
+        "TEST_SECTOR",
         mutableListOf(
-        quote1,
-        quote2,
-        quote3,
-        quote4,
-        quote5,
-        quote6,
-        quote7,
-        quote8,
-        quote9,
-        quote10,
-        quote11,
-        quote12,
-        quote13,
-        quote14,
-        quote15,
-        quote16
-      ),
-        mutableListOf()
-    )
+          quote1,
+          quote2,
+          quote3,
+          quote4,
+          quote5,
+          quote6,
+          quote7,
+          quote8,
+          quote9,
+          quote10,
+          quote11,
+          quote12,
+          quote13,
+          quote14,
+          quote15,
+          quote16,
+        ),
+        mutableListOf(),
+      )
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
         mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now()
-    )
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+      )
     Assertions.assertEquals(3, report.numberOfWinningTrades)
     Assertions.assertEquals(0.6, report.winRate)
     Assertions.assertEquals(5.33, report.averageWinPercent, 0.01)
@@ -131,13 +132,14 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
         mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),   // Should include quote1
-      LocalDate.of(2024, 12, 31)  // Should include quote3
-    )
+        LocalDate.of(2024, 1, 1), // Should include quote1
+        LocalDate.of(2024, 12, 31), // Should include quote3
+      )
 
     // Should have 2 trades (one starting on 2024-01-01, one on 2024-12-31)
     Assertions.assertEquals(2, report.totalTrades)
@@ -146,25 +148,36 @@ class BacktestServiceTest {
   @Test
   fun `should handle 100 percent win rate without division by zero`() {
     // Test the division by zero fix when all trades are winners
-    val alwaysWin = object : ExitStrategy {
-      override fun match(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) =
-        quote.closePrice > (entryQuote?.closePrice ?: 0.0)
-      override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) = "Winner"
-      override fun description() = "Always win"
-    }
+    val alwaysWin =
+      object : ExitStrategy {
+        override fun match(
+          stock: Stock,
+          entryQuote: StockQuote?,
+          quote: StockQuote,
+        ) = quote.closePrice > (entryQuote?.closePrice ?: 0.0)
+
+        override fun reason(
+          stock: Stock,
+          entryQuote: StockQuote?,
+          quote: StockQuote,
+        ) = "Winner"
+
+        override fun description() = "Always win"
+      }
 
     val quote1 = StockQuote(closePrice = 100.0, date = LocalDate.of(2025, 1, 1))
     val quote2 = StockQuote(closePrice = 105.0, date = LocalDate.of(2025, 1, 2))
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      alwaysWin,
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        alwaysWin,
         mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now()
-    )
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+      )
 
     Assertions.assertEquals(1, report.numberOfWinningTrades)
     Assertions.assertEquals(0, report.numberOfLosingTrades)
@@ -178,25 +191,36 @@ class BacktestServiceTest {
   @Test
   fun `should handle 100 percent loss rate without division by zero`() {
     // Test the division by zero fix when all trades are losers
-    val alwaysLose = object : ExitStrategy {
-      override fun match(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) =
-        quote.closePrice < (entryQuote?.closePrice ?: 0.0)
-      override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) = "Loser"
-      override fun description() = "Always lose"
-    }
+    val alwaysLose =
+      object : ExitStrategy {
+        override fun match(
+          stock: Stock,
+          entryQuote: StockQuote?,
+          quote: StockQuote,
+        ) = quote.closePrice < (entryQuote?.closePrice ?: 0.0)
+
+        override fun reason(
+          stock: Stock,
+          entryQuote: StockQuote?,
+          quote: StockQuote,
+        ) = "Loser"
+
+        override fun description() = "Always lose"
+      }
 
     val quote1 = StockQuote(closePrice = 100.0, date = LocalDate.of(2025, 1, 1))
     val quote2 = StockQuote(closePrice = 95.0, date = LocalDate.of(2025, 1, 2))
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      alwaysLose,
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        alwaysLose,
         mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now()
-    )
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+      )
 
     Assertions.assertEquals(0, report.numberOfWinningTrades)
     Assertions.assertEquals(1, report.numberOfLosingTrades)
@@ -216,31 +240,46 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
         mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now()
-    )
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+      )
 
     // Should only have 1 trade (enters on quote1, exits on quote3)
     // Should NOT enter on quote2 because still in trade from quote1
     Assertions.assertEquals(1, report.totalTrades)
   }
 
-  val closePriceIsGreaterThanOrEqualTo100 = object : EntryStrategy {
-    override fun description() = "Test entry strategy"
-    override fun test(stock: Stock, quote: StockQuote) = quote.closePrice >= 100.0
-  }
+  val closePriceIsGreaterThanOrEqualTo100 =
+    object : EntryStrategy {
+      override fun description() = "Test entry strategy"
 
-  val openPriceIsLessThan100 = object : ExitStrategy {
-    override fun match(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) = quote.openPrice < 100.0
-    override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote) =
-      "Because stone cold said so!"
+      override fun test(
+        stock: Stock,
+        quote: StockQuote,
+      ) = quote.closePrice >= 100.0
+    }
 
-    override fun description() = ""
-  }
+  val openPriceIsLessThan100 =
+    object : ExitStrategy {
+      override fun match(
+        stock: Stock,
+        entryQuote: StockQuote?,
+        quote: StockQuote,
+      ) = quote.openPrice < 100.0
+
+      override fun reason(
+        stock: Stock,
+        entryQuote: StockQuote?,
+        quote: StockQuote,
+      ) = "Because stone cold said so!"
+
+      override fun description() = ""
+    }
 
   // ===== UNDERLYING ASSET TESTS =====
 
@@ -251,14 +290,14 @@ class BacktestServiceTest {
     // TQQQ starts at 50, ends at 60 (3x leverage simulation)
 
     val qqqQuote1 = StockQuote(closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 1))
-    val qqqQuote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))  // Entry trigger
+    val qqqQuote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2)) // Entry trigger
     val qqqQuote3 = StockQuote(closePrice = 103.0, openPrice = 103.0, date = LocalDate.of(2025, 1, 3))
-    val qqqQuote4 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4))  // Exit trigger
+    val qqqQuote4 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4)) // Exit trigger
 
     val tqqqQuote1 = StockQuote(closePrice = 47.0, openPrice = 47.0, date = LocalDate.of(2025, 1, 1))
-    val tqqqQuote2 = StockQuote(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2025, 1, 2))  // Actual entry
+    val tqqqQuote2 = StockQuote(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2025, 1, 2)) // Actual entry
     val tqqqQuote3 = StockQuote(closePrice = 55.0, openPrice = 55.0, date = LocalDate.of(2025, 1, 3))
-    val tqqqQuote4 = StockQuote(closePrice = 60.0, openPrice = 48.0, date = LocalDate.of(2025, 1, 4))  // Actual exit
+    val tqqqQuote4 = StockQuote(closePrice = 60.0, openPrice = 48.0, date = LocalDate.of(2025, 1, 4)) // Actual exit
 
     val qqq = Stock("QQQ", "XLK", mutableListOf(qqqQuote1, qqqQuote2, qqqQuote3, qqqQuote4), mutableListOf())
     val tqqq = Stock("TQQQ", "XLK", mutableListOf(tqqqQuote1, tqqqQuote2, tqqqQuote3, tqqqQuote4), mutableListOf())
@@ -269,15 +308,16 @@ class BacktestServiceTest {
     // Custom map: TQQQ -> QQQ
     val customMap = mapOf("TQQQ" to "QQQ")
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,  // QQQ triggers at 100
-      openPriceIsLessThan100,              // QQQ exits when openPrice < 100
-        mutableListOf(tqqq),  // Trading TQQQ
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      useUnderlyingAssets = true,
-      customUnderlyingMap = customMap
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100, // QQQ triggers at 100
+        openPriceIsLessThan100, // QQQ exits when openPrice < 100
+        mutableListOf(tqqq), // Trading TQQQ
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        useUnderlyingAssets = true,
+        customUnderlyingMap = customMap,
+      )
 
     // Verify we got exactly 1 trade
     Assertions.assertEquals(1, report.totalTrades, "Should have 1 trade")
@@ -289,7 +329,7 @@ class BacktestServiceTest {
     Assertions.assertEquals("QQQ", trade.underlyingSymbol, "Trade should show QQQ as underlying")
 
     // Verify P/L is calculated from TQQQ prices (not QQQ)
-    val expectedProfit = 60.0 - 50.0  // TQQQ prices
+    val expectedProfit = 60.0 - 50.0 // TQQQ prices
     Assertions.assertEquals(expectedProfit, trade.profit, 0.01, "Profit should be calculated from TQQQ prices")
 
     // Verify entry/exit prices are from TQQQ
@@ -304,15 +344,16 @@ class BacktestServiceTest {
 
     val stock = Stock("TQQQ", "XLK", mutableListOf(quote1, quote2), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
         mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      useUnderlyingAssets = false,  // Disabled
-      customUnderlyingMap = mapOf("TQQQ" to "QQQ")  // Should be ignored
-    )
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        useUnderlyingAssets = false, // Disabled
+        customUnderlyingMap = mapOf("TQQQ" to "QQQ"), // Should be ignored
+      )
 
     Assertions.assertEquals(1, report.totalTrades)
     val trade = report.trades.first()
@@ -333,21 +374,22 @@ class BacktestServiceTest {
     // Custom map pointing to non-existent stock
     val customMap = mapOf("TQQQ" to "NONEXISTENT")
 
-    val exception = org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
-      backtestService.backtest(
-        closePriceIsGreaterThanOrEqualTo100,
-        openPriceIsLessThan100,
+    val exception =
+      org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+        backtestService.backtest(
+          closePriceIsGreaterThanOrEqualTo100,
+          openPriceIsLessThan100,
           mutableListOf(stock),
-        LocalDate.of(2024, 1, 1),
-        LocalDate.now(),
-        useUnderlyingAssets = true,
-        customUnderlyingMap = customMap
-      )
-    }
+          LocalDate.of(2024, 1, 1),
+          LocalDate.now(),
+          useUnderlyingAssets = true,
+          customUnderlyingMap = customMap,
+        )
+      }
 
     Assertions.assertTrue(
       exception.message?.contains("Missing underlying asset data") == true,
-      "Should mention missing underlying asset"
+      "Should mention missing underlying asset",
     )
   }
 
@@ -375,15 +417,16 @@ class BacktestServiceTest {
 
     val customMap = mapOf("TQQQ" to "QQQ")
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(aapl, tqqq),  // Only trading AAPL and TQQQ
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      useUnderlyingAssets = true,
-      customUnderlyingMap = customMap
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(aapl, tqqq), // Only trading AAPL and TQQQ
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        useUnderlyingAssets = true,
+        customUnderlyingMap = customMap,
+      )
 
     // Should have 1 trade (AAPL only, TQQQ doesn't enter because QQQ < 100)
     Assertions.assertEquals(1, report.totalTrades)
@@ -413,14 +456,15 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 0  // Cooldown disabled
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stock),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 0, // Cooldown disabled
+      )
 
     // Should have 2 trades (both entries allowed)
     Assertions.assertEquals(2, report.totalTrades, "Should allow immediate re-entry with cooldown disabled")
@@ -455,16 +499,18 @@ class BacktestServiceTest {
     val quote8 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
     val quote9 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 9))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9), mutableListOf())
+    val stock =
+      Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 5  // 5 TRADING day cooldown (not inclusive)
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stock),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 5, // 5 TRADING day cooldown (not inclusive)
+      )
 
     // Should have 2 trades:
     // Trade 1: Entry Jan 1, Exit Jan 2
@@ -475,7 +521,11 @@ class BacktestServiceTest {
     val trade2 = report.trades[1]
 
     Assertions.assertEquals(LocalDate.of(2025, 1, 1), trade1.entryQuote.date)
-    Assertions.assertEquals(LocalDate.of(2025, 1, 8), trade2.entryQuote.date, "Second entry should be on day 8, which is 6 trading days (more than 5) after Jan 2 exit")
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 8),
+      trade2.entryQuote.date,
+      "Second entry should be on day 8, which is 6 trading days (more than 5) after Jan 2 exit",
+    )
   }
 
   @Test
@@ -500,14 +550,15 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 3
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stock),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 3,
+      )
 
     Assertions.assertEquals(2, report.totalTrades)
 
@@ -515,7 +566,7 @@ class BacktestServiceTest {
     Assertions.assertEquals(
       LocalDate.of(2025, 1, 6),
       trade2.entryQuote.date,
-      "Should allow re-entry 4 days after exit (more than 3, not inclusive)"
+      "Should allow re-entry 4 days after exit (more than 3, not inclusive)",
     )
   }
 
@@ -550,17 +601,25 @@ class BacktestServiceTest {
     val stockBQuote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
     val stockBQuote5 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))
 
-    val stockA = Stock("STOCK_A", "XLK", mutableListOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6, stockAQuote7), mutableListOf())
-    val stockB = Stock("STOCK_B", "XLK", mutableListOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4, stockBQuote5), mutableListOf())
+    val stockA =
+      Stock(
+        "STOCK_A",
+        "XLK",
+        mutableListOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6, stockAQuote7),
+        mutableListOf(),
+      )
+    val stockB =
+      Stock("STOCK_B", "XLK", mutableListOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4, stockBQuote5), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stockA, stockB),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 3
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 3,
+      )
 
     // Total should be 3 trades:
     // Stock A: Jan 1-2 (first entry, no cooldown)
@@ -593,34 +652,65 @@ class BacktestServiceTest {
     // Trading day 15 (Jan 16): Exit 3
 
     // Create quotes for all consecutive days
-    val quotes = (1..17).map { day ->
-      val date = LocalDate.of(2025, 1, day)
-      when {
-        day == 2 || day == 9 || day == 16 -> StockQuote(closePrice = 101.0, openPrice = 99.0, date = date) // Exit days
-        else -> StockQuote(closePrice = 100.0, openPrice = 100.0, date = date) // Entry days
+    val quotes =
+      (1..17).map { day ->
+        val date = LocalDate.of(2025, 1, day)
+        when {
+          day == 2 || day == 9 || day == 16 -> StockQuote(closePrice = 101.0, openPrice = 99.0, date = date) // Exit days
+          else -> StockQuote(closePrice = 100.0, openPrice = 100.0, date = date) // Entry days
+        }
       }
-    }
 
     val stock = Stock("TEST", "XLK", quotes.toMutableList(), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 5
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stock),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 5,
+      )
 
     // Should have 3 trades
     Assertions.assertEquals(3, report.totalTrades, "Should track most recent exit for cooldown")
 
     Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date)
-    Assertions.assertEquals(LocalDate.of(2025, 1, 2), report.trades[0].quotes.last().date, "First exit on Jan 2")
-    Assertions.assertEquals(LocalDate.of(2025, 1, 8), report.trades[1].entryQuote.date, "Second entry 6 trading days after first exit (more than 5)")
-    Assertions.assertEquals(LocalDate.of(2025, 1, 9), report.trades[1].quotes.last().date, "Second exit on Jan 9")
-    Assertions.assertEquals(LocalDate.of(2025, 1, 15), report.trades[2].entryQuote.date, "Third entry 6 trading days after second exit (more than 5)")
-    Assertions.assertEquals(LocalDate.of(2025, 1, 16), report.trades[2].quotes.last().date, "Third exit on Jan 16")
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 2),
+      report.trades[0]
+        .quotes
+        .last()
+        .date,
+      "First exit on Jan 2",
+    )
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 8),
+      report.trades[1].entryQuote.date,
+      "Second entry 6 trading days after first exit (more than 5)",
+    )
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 9),
+      report.trades[1]
+        .quotes
+        .last()
+        .date,
+      "Second exit on Jan 9",
+    )
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 15),
+      report.trades[2].entryQuote.date,
+      "Third entry 6 trading days after second exit (more than 5)",
+    )
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 16),
+      report.trades[2]
+        .quotes
+        .last()
+        .date,
+      "Third exit on Jan 16",
+    )
   }
 
   @Test
@@ -635,35 +725,38 @@ class BacktestServiceTest {
     // Trading day 7 (Jan 8): Both can enter (6 trading days passed, more than 5), Stock A wins again (better heatmap)
     // Trading day 8 (Jan 9): Stock A exits
 
-    val stockAQuotes = mutableListOf(
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1)),
-      StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 4)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 5)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)),
-      StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 9))
-    )
+    val stockAQuotes =
+      mutableListOf(
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 4)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 5)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 9)),
+      )
 
-    val stockBQuotes = mutableListOf(
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 1)),
-      StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 8))
-    )
+    val stockBQuotes =
+      mutableListOf(
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 8)),
+      )
 
     val stockA = Stock("STOCK_A", "XLK", stockAQuotes.toMutableList(), mutableListOf())
     val stockB = Stock("STOCK_B", "XLK", stockBQuotes.toMutableList(), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stockA, stockB),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      maxPositions = 1,  // Only 1 position at a time
-      cooldownDays = 5
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 1, // Only 1 position at a time
+        cooldownDays = 5,
+      )
 
     // Should have 2 trades (both Stock A due to better heatmap):
     // Trade 1: Stock A (Jan 1-2) - wins position limit on trading day 0
@@ -690,14 +783,15 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 10  // Long cooldown
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stock),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 10, // Long cooldown
+      )
 
     // Should have 1 trade (first entry allowed, second blocked by cooldown)
     Assertions.assertEquals(1, report.totalTrades, "First entry should always be allowed regardless of cooldown")
@@ -721,27 +815,29 @@ class BacktestServiceTest {
     // Wed Jan 15: Trading day 6 since exit - ALLOWED (more than 5 trading days)
     // Note: Jan 15 is 8 CALENDAR days but 6 TRADING days since Jan 7 exit
 
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))  // Mon
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))   // Tue - Exit
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))  // Wed - Day 1, blocked
-    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9))  // Thu - Day 2, blocked
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6)) // Mon
+    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7)) // Tue - Exit
+    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8)) // Wed - Day 1, blocked
+    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9)) // Thu - Day 2, blocked
     val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 10)) // Fri - Day 3, blocked
     // Weekend: No quotes for Jan 11, 12
     val quote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 13)) // Mon - Day 4, blocked
     val quote7 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 14)) // Tue - Day 5, BLOCKED (not inclusive)
     val quote8 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 15)) // Wed - Day 6, ALLOWED
-    val quote9 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 16))  // Thu - Exit
+    val quote9 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 16)) // Thu - Exit
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9), mutableListOf())
+    val stock =
+      Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9), mutableListOf())
 
-    val report = backtestService.backtest(
-      closePriceIsGreaterThanOrEqualTo100,
-      openPriceIsLessThan100,
-      mutableListOf(stock),
-      LocalDate.of(2024, 1, 1),
-      LocalDate.now(),
-      cooldownDays = 5  // 5 TRADING days (not inclusive)
-    )
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stock),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        cooldownDays = 5, // 5 TRADING days (not inclusive)
+      )
 
     // Should have 2 trades
     Assertions.assertEquals(2, report.totalTrades, "Should count trading days, not calendar days")
@@ -754,6 +850,10 @@ class BacktestServiceTest {
 
     // Second entry should be on Jan 15 (6 trading days after Jan 7 exit, more than 5)
     // Even though it's 8 calendar days, the weekend doesn't count
-    Assertions.assertEquals(LocalDate.of(2025, 1, 15), trade2.entryQuote.date, "Second entry should be 6 trading days after exit (more than 5, not inclusive)")
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 15),
+      trade2.entryQuote.date,
+      "Second entry should be 6 trading days after exit (more than 5, not inclusive)",
+    )
   }
 }

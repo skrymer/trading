@@ -16,40 +16,47 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SectorHeatmapThresholdCondition(
-  private val threshold: Double = 70.0
+  private val threshold: Double = 70.0,
 ) : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return quote.sectorHeatmap < threshold
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.sectorHeatmap < threshold
 
   override fun description(): String = "Sector heatmap < $threshold"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "sectorHeatmap",
-    displayName = "Sector Heatmap Below Threshold",
-    description = "Sector heatmap is below the threshold",
-    parameters = listOf(
-      ParameterMetadata(
-        name = "threshold",
-        displayName = "Threshold",
-        type = "number",
-        defaultValue = 70.0,
-        min = 0,
-        max = 100
-      )
-    ),
-    category = "Sector"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "sectorHeatmap",
+      displayName = "Sector Heatmap Below Threshold",
+      description = "Sector heatmap is below the threshold",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "threshold",
+            displayName = "Threshold",
+            type = "number",
+            defaultValue = 70.0,
+            min = 0,
+            max = 100,
+          ),
+        ),
+      category = "Sector",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val actualHeatmap = quote.sectorHeatmap
     val passed = actualHeatmap < threshold
 
-    val message = if (passed) {
-      "Sector heatmap ${"%.1f".format(actualHeatmap)} < ${"%.1f".format(threshold)} ✓"
-    } else {
-      "Sector heatmap ${"%.1f".format(actualHeatmap)} ≥ ${"%.1f".format(threshold)} ✗"
-    }
+    val message =
+      if (passed) {
+        "Sector heatmap ${"%.1f".format(actualHeatmap)} < ${"%.1f".format(threshold)} ✓"
+      } else {
+        "Sector heatmap ${"%.1f".format(actualHeatmap)} ≥ ${"%.1f".format(threshold)} ✗"
+      }
 
     return ConditionEvaluationResult(
       conditionType = "SectorHeatmapThresholdCondition",
@@ -57,7 +64,7 @@ class SectorHeatmapThresholdCondition(
       passed = passed,
       actualValue = "%.1f".format(actualHeatmap),
       threshold = "< %.1f".format(threshold),
-      message = message
+      message = message,
     )
   }
 }

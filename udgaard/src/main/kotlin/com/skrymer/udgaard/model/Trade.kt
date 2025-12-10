@@ -14,53 +14,51 @@ import java.time.temporal.ChronoUnit
  * @param sector - the sector of the stock.
  */
 class Trade(
-    var stockSymbol: String,
-    var underlyingSymbol: String? = null,
-    var entryQuote: StockQuote,
-    var quotes: List<StockQuote>,
-    var exitReason: String,
-    var profit: Double = 0.0,
-    var startDate: LocalDate?,
-    var sector: String
+  var stockSymbol: String,
+  var underlyingSymbol: String? = null,
+  var entryQuote: StockQuote,
+  var quotes: List<StockQuote>,
+  var exitReason: String,
+  var profit: Double = 0.0,
+  var startDate: LocalDate?,
+  var sector: String,
 ) {
+  /**
+   * Market conditions at the time of trade entry.
+   * Helps identify if poor performance correlates with market state.
+   */
+  @Transient
+  var marketConditionAtEntry: MarketConditionSnapshot? = null
 
-    /**
-     * Market conditions at the time of trade entry.
-     * Helps identify if poor performance correlates with market state.
-     */
-    @Transient
-    var marketConditionAtEntry: MarketConditionSnapshot? = null
+  /**
+   * Trade excursion metrics (MFE/MAE and ATR drawdown).
+   * Helps understand trade quality and pain tolerance required.
+   */
+  @Transient
+  var excursionMetrics: ExcursionMetrics? = null
 
-    /**
-     * Trade excursion metrics (MFE/MAE and ATR drawdown).
-     * Helps understand trade quality and pain tolerance required.
-     */
-    @Transient
-    var excursionMetrics: ExcursionMetrics? = null
+  /**
+   * Calculate the profit percentage of this trade: (profit/entry close price) * 100
+   * @return
+   */
+  val profitPercentage: Double
+    get() = (profit / entryQuote.closePrice) * 100.0
 
-    /**
-     * Calculate the profit percentage of this trade: (profit/entry close price) * 100
-     * @return
-     */
-    val profitPercentage: Double
-        get() = (profit / entryQuote.closePrice) * 100.0
+  /**
+   * The number of days the trade lasted
+   */
+  val tradingDays: Long
+    get() {
+      val exitDate =
+        quotes
+          .sortedByDescending { it.date }
+          .first()
+          .date
 
-    /**
-     * The number of days the trade lasted
-     */
-    val tradingDays: Long
-        get() {
-            val exitDate = quotes
-                .sortedByDescending { it.date }
-                .first()
-                .date
-
-            return ChronoUnit.DAYS.between( entryQuote.date, exitDate)
-        }
-
-    fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)
-
-    override fun toString(): String {
-        return "Start date $startDate"
+      return ChronoUnit.DAYS.between(entryQuote.date, exitDate)
     }
+
+  fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)
+
+  override fun toString(): String = "Start date $startDate"
 }

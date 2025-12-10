@@ -12,8 +12,8 @@ import java.time.LocalDate
   name = "stock_quotes",
   indexes = [
     Index(name = "idx_stock_quote_symbol_date", columnList = "stock_symbol, quote_date", unique = true),
-    Index(name = "idx_stock_quote_date", columnList = "quote_date")
-  ]
+    Index(name = "idx_stock_quote_date", columnList = "quote_date"),
+  ],
 )
 class StockQuote {
   @Id
@@ -337,7 +337,7 @@ class StockQuote {
     donchianUpperBandMarket: Double = 0.0,
     donchianUpperBandSector: Double = 0.0,
     donchianLowerBandMarket: Double = 0.0,
-    donchianLowerBandSector: Double = 0.0
+    donchianLowerBandSector: Double = 0.0,
   ) {
     this.symbol = symbol
     this.date = date
@@ -447,16 +447,14 @@ class StockQuote {
    */
   fun hasSellSignal() = signal == "Sell"
 
-  override fun toString() =
-    "Symbol: $symbol Date: $date Close price: $closePrice Heatmap: $heatmap Previous heatmap: $previousHeatmap"
+  override fun toString() = "Symbol: $symbol Date: $date Close price: $closePrice Heatmap: $heatmap Previous heatmap: $previousHeatmap"
 
-  override fun equals(other: Any?): Boolean {
-    return if (other is StockQuote) {
+  override fun equals(other: Any?): Boolean =
+    if (other is StockQuote) {
       this.date?.equals(other.date) == true && this.symbol == other.symbol
     } else {
       false
     }
-  }
 
   override fun hashCode(): Int {
     var result = closePrice.hashCode()

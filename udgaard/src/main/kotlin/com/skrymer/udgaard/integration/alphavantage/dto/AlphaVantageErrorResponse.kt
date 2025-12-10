@@ -25,23 +25,20 @@ import com.fasterxml.jackson.annotation.JsonProperty
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageErrorResponse(
-    @JsonProperty("Error Message")
-    val errorMessage: String? = null,
-
-    @JsonProperty("Note")
-    val note: String? = null,
-
-    @JsonProperty("Information")
-    val information: String? = null
+  @JsonProperty("Error Message")
+  val errorMessage: String? = null,
+  @JsonProperty("Note")
+  val note: String? = null,
+  @JsonProperty("Information")
+  val information: String? = null,
 ) {
-    fun hasError(): Boolean = errorMessage != null || note != null || information != null
+  fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
-    fun getErrorDescription(): String {
-        return when {
-            errorMessage != null -> errorMessage
-            note != null -> note
-            information != null -> information
-            else -> "Unknown error"
-        }
+  fun getErrorDescription(): String =
+    when {
+      errorMessage != null -> errorMessage
+      note != null -> note
+      information != null -> information
+      else -> "Unknown error"
     }
 }

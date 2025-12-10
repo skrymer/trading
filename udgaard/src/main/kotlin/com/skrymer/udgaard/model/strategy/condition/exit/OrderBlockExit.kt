@@ -13,42 +13,41 @@ import org.springframework.stereotype.Component
  */
 @Component
 class OrderBlockExit(
-    private val orderBlockAgeInDays: Int = 120
+  private val orderBlockAgeInDays: Int = 120,
 ) : ExitCondition {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean = stock.withinOrderBlock(quote, orderBlockAgeInDays)
 
-    override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-        return stock.withinOrderBlock(quote, orderBlockAgeInDays)
-    }
+  override fun exitReason(): String = "Quote is within an order block older than $orderBlockAgeInDays days"
 
-    override fun exitReason(): String {
-        return "Quote is within an order block older than $orderBlockAgeInDays days"
-    }
+  override fun description(): String = "Within order block (age > ${orderBlockAgeInDays}d)"
 
-    override fun description(): String {
-        return "Within order block (age > ${orderBlockAgeInDays}d)"
-    }
-
-    override fun getMetadata() = ConditionMetadata(
+  override fun getMetadata() =
+    ConditionMetadata(
       type = "orderBlock",
       displayName = "Order Block",
       description = "Exit when price enters an order block",
-      parameters = listOf(
-        ParameterMetadata(
-          name = "ageInDays",
-          displayName = "Age in Days",
-          type = "number",
-          defaultValue = 120,
-          min = 1,
-          max = 365
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "ageInDays",
+            displayName = "Age in Days",
+            type = "number",
+            defaultValue = 120,
+            min = 1,
+            max = 365,
+          ),
+          ParameterMetadata(
+            name = "source",
+            displayName = "Source",
+            type = "select",
+            defaultValue = "CALCULATED",
+            options = listOf("CALCULATED", "OVTLYR", "ALL"),
+          ),
         ),
-        ParameterMetadata(
-          name = "source",
-          displayName = "Source",
-          type = "select",
-          defaultValue = "CALCULATED",
-          options = listOf("CALCULATED", "OVTLYR", "ALL")
-        )
-      ),
-      category = "ProfitTaking"
+      category = "ProfitTaking",
     )
 }

@@ -16,32 +16,38 @@ import org.springframework.stereotype.Component
  */
 @Component
 class NotInOrderBlockCondition(
-  private val ageInDays: Int = 120
+  private val ageInDays: Int = 120,
 ) : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return !stock.withinOrderBlock(quote, ageInDays)
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = !stock.withinOrderBlock(quote, ageInDays)
 
   override fun description(): String = "Not in order block (age > ${ageInDays}d)"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "notInOrderBlock",
-    displayName = "Not in Order Block",
-    description = "Price is not within an order block",
-    parameters = listOf(
-      ParameterMetadata(
-        name = "ageInDays",
-        displayName = "Age in Days",
-        type = "number",
-        defaultValue = 120,
-        min = 1,
-        max = 365
-      )
-    ),
-    category = "OrderBlock"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "notInOrderBlock",
+      displayName = "Not in Order Block",
+      description = "Price is not within an order block",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "ageInDays",
+            displayName = "Age in Days",
+            type = "number",
+            defaultValue = 120,
+            min = 1,
+            max = 365,
+          ),
+        ),
+      category = "OrderBlock",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val message = if (passed) description() + " ✓" else description() + " ✗"
 
@@ -51,8 +57,7 @@ class NotInOrderBlockCondition(
       passed = passed,
       actualValue = null,
       threshold = null,
-      message = message
+      message = message,
     )
   }
-
 }

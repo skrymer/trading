@@ -39,100 +39,97 @@ import java.time.LocalDate
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageTimeSeriesDailyAdjusted(
-    @JsonProperty("Meta Data")
-    val metaData: AdjustedMetaData? = null,
-
-    @JsonProperty("Time Series (Daily)")
-    val timeSeriesDaily: Map<String, DailyAdjustedData>? = null,
-
-    @JsonProperty("Error Message")
-    val errorMessage: String? = null,
-
-    @JsonProperty("Note")
-    val note: String? = null,
-
-    @JsonProperty("Information")
-    val information: String? = null
+  @JsonProperty("Meta Data")
+  val metaData: AdjustedMetaData? = null,
+  @JsonProperty("Time Series (Daily)")
+  val timeSeriesDaily: Map<String, DailyAdjustedData>? = null,
+  @JsonProperty("Error Message")
+  val errorMessage: String? = null,
+  @JsonProperty("Note")
+  val note: String? = null,
+  @JsonProperty("Information")
+  val information: String? = null,
 ) {
-    /**
-     * Check if the response contains an error
-     * Possible errors: rate limit exceeded, invalid API key, invalid symbol
-     */
-    fun hasError(): Boolean = errorMessage != null || note != null || information != null
+  /**
+   * Check if the response contains an error
+   * Possible errors: rate limit exceeded, invalid API key, invalid symbol
+   */
+  fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
-    /**
-     * Get human-readable error description
-     */
-    fun getErrorDescription(): String {
-        return when {
-            errorMessage != null -> errorMessage
-            note != null -> note
-            information != null -> information
-            else -> "Unknown error"
-        }
+  /**
+   * Get human-readable error description
+   */
+  fun getErrorDescription(): String =
+    when {
+      errorMessage != null -> errorMessage
+      note != null -> note
+      information != null -> information
+      else -> "Unknown error"
     }
 
-    /**
-     * Check if response is valid (has required data fields)
-     */
-    fun isValid(): Boolean = metaData != null && timeSeriesDaily != null
+  /**
+   * Check if response is valid (has required data fields)
+   */
+  fun isValid(): Boolean = metaData != null && timeSeriesDaily != null
 
-    /**
-     * Convert to StockQuote domain objects with ALL prices adjusted for splits/dividends
-     *
-     * IMPORTANT: AlphaVantage only provides adjusted close directly. We must calculate
-     * adjusted open/high/low ourselves using the adjustment factor.
-     *
-     * Adjustment factor = adjusted close / unadjusted close
-     * Adjusted open = unadjusted open × adjustment factor
-     * Adjusted high = unadjusted high × adjustment factor
-     * Adjusted low = unadjusted low × adjustment factor
-     *
-     * This ensures:
-     * - All prices account for stock splits and dividends
-     * - Candle patterns (bullish/bearish) remain accurate
-     * - Order block calculations work correctly
-     * - Historical backtesting is accurate
-     *
-     * @return List of StockQuote with ALL ADJUSTED PRICES, sorted by date (oldest first)
-     */
-    fun toStockQuotes(): List<StockQuote> {
-        val symbol = metaData?.symbol ?: ""
+  /**
+   * Convert to StockQuote domain objects with ALL prices adjusted for splits/dividends
+   *
+   * IMPORTANT: AlphaVantage only provides adjusted close directly. We must calculate
+   * adjusted open/high/low ourselves using the adjustment factor.
+   *
+   * Adjustment factor = adjusted close / unadjusted close
+   * Adjusted open = unadjusted open × adjustment factor
+   * Adjusted high = unadjusted high × adjustment factor
+   * Adjusted low = unadjusted low × adjustment factor
+   *
+   * This ensures:
+   * - All prices account for stock splits and dividends
+   * - Candle patterns (bullish/bearish) remain accurate
+   * - Order block calculations work correctly
+   * - Historical backtesting is accurate
+   *
+   * @return List of StockQuote with ALL ADJUSTED PRICES, sorted by date (oldest first)
+   */
+  fun toStockQuotes(): List<StockQuote> {
+    val symbol = metaData?.symbol ?: ""
 
-        return timeSeriesDaily?.map { (dateString, data) ->
-            // AlphaVantage provides these values from the API
-            val rawOpen = data.open.toDoubleOrNull() ?: 0.0
-            val rawHigh = data.high.toDoubleOrNull() ?: 0.0
-            val rawLow = data.low.toDoubleOrNull() ?: 0.0
-            val rawClose = data.close.toDoubleOrNull() ?: 0.0
-            val adjustedClose = data.adjustedClose.toDoubleOrNull() ?: 0.0
+    return timeSeriesDaily
+      ?.map { (dateString, data) ->
+        // AlphaVantage provides these values from the API
+        val rawOpen = data.open.toDoubleOrNull() ?: 0.0
+        val rawHigh = data.high.toDoubleOrNull() ?: 0.0
+        val rawLow = data.low.toDoubleOrNull() ?: 0.0
+        val rawClose = data.close.toDoubleOrNull() ?: 0.0
+        val adjustedClose = data.adjustedClose.toDoubleOrNull() ?: 0.0
 
-            // Calculate adjustment factor to convert raw prices to adjusted prices
-            // This accounts for all splits and dividends
-            val adjustmentFactor = if (rawClose > 0.0) {
-                adjustedClose / rawClose
-            } else {
-                1.0
-            }
+        // Calculate adjustment factor to convert raw prices to adjusted prices
+        // This accounts for all splits and dividends
+        val adjustmentFactor =
+          if (rawClose > 0.0) {
+            adjustedClose / rawClose
+          } else {
+            1.0
+          }
 
-            // Apply adjustment factor to ALL OHLC prices
-            StockQuote(
-                symbol = symbol,
-                date = LocalDate.parse(dateString),
-                openPrice = rawOpen * adjustmentFactor,      // ADJUSTED
-                closePrice = adjustedClose,                   // ADJUSTED (from API)
-                high = rawHigh * adjustmentFactor,            // ADJUSTED
-                low = rawLow * adjustmentFactor,              // ADJUSTED
-                volume = data.volume.toLongOrNull() ?: 0L
-                // Technical indicators will be calculated later by TechnicalIndicatorService
-            )
-        }?.sortedBy { it.date } ?: emptyList()
-    }
+        // Apply adjustment factor to ALL OHLC prices
+        StockQuote(
+          symbol = symbol,
+          date = LocalDate.parse(dateString),
+          openPrice = rawOpen * adjustmentFactor, // ADJUSTED
+          closePrice = adjustedClose, // ADJUSTED (from API)
+          high = rawHigh * adjustmentFactor, // ADJUSTED
+          low = rawLow * adjustmentFactor, // ADJUSTED
+          volume = data.volume.toLongOrNull() ?: 0L,
+          // Technical indicators will be calculated later by TechnicalIndicatorService
+        )
+      }?.sortedBy { it.date } ?: emptyList()
+  }
 
-    /**
-     * Get symbol from metadata
-     */
-    fun getSymbol(): String? = metaData?.symbol
+  /**
+   * Get symbol from metadata
+   */
+  fun getSymbol(): String? = metaData?.symbol
 }
 
 /**
@@ -140,20 +137,16 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AdjustedMetaData(
-    @JsonProperty("1. Information")
-    val information: String,
-
-    @JsonProperty("2. Symbol")
-    val symbol: String,
-
-    @JsonProperty("3. Last Refreshed")
-    val lastRefreshed: String,
-
-    @JsonProperty("4. Output Size")
-    val outputSize: String,
-
-    @JsonProperty("5. Time Zone")
-    val timeZone: String
+  @JsonProperty("1. Information")
+  val information: String,
+  @JsonProperty("2. Symbol")
+  val symbol: String,
+  @JsonProperty("3. Last Refreshed")
+  val lastRefreshed: String,
+  @JsonProperty("4. Output Size")
+  val outputSize: String,
+  @JsonProperty("5. Time Zone")
+  val timeZone: String,
 )
 
 /**
@@ -161,27 +154,20 @@ data class AdjustedMetaData(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class DailyAdjustedData(
-    @JsonProperty("1. open")
-    val open: String,
-
-    @JsonProperty("2. high")
-    val high: String,
-
-    @JsonProperty("3. low")
-    val low: String,
-
-    @JsonProperty("4. close")
-    val close: String,
-
-    @JsonProperty("5. adjusted close")
-    val adjustedClose: String,
-
-    @JsonProperty("6. volume")
-    val volume: String,
-
-    @JsonProperty("7. dividend amount")
-    val dividendAmount: String,
-
-    @JsonProperty("8. split coefficient")
-    val splitCoefficient: String
+  @JsonProperty("1. open")
+  val open: String,
+  @JsonProperty("2. high")
+  val high: String,
+  @JsonProperty("3. low")
+  val low: String,
+  @JsonProperty("4. close")
+  val close: String,
+  @JsonProperty("5. adjusted close")
+  val adjustedClose: String,
+  @JsonProperty("6. volume")
+  val volume: String,
+  @JsonProperty("7. dividend amount")
+  val dividendAmount: String,
+  @JsonProperty("8. split coefficient")
+  val splitCoefficient: String,
 )

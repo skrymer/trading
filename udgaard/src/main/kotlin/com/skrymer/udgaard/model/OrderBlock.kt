@@ -24,46 +24,36 @@ import java.time.LocalDate
   indexes = [
     Index(name = "idx_order_block_stock", columnList = "stock_symbol"),
     Index(name = "idx_order_block_type", columnList = "type"),
-    Index(name = "idx_order_block_start_date", columnList = "start_date")
-  ]
+    Index(name = "idx_order_block_start_date", columnList = "start_date"),
+  ],
 )
 class OrderBlock(
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   var id: Long? = null,
-
   @JsonIgnore
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "stock_symbol", referencedColumnName = "symbol")
   var stock: Stock? = null,
-
   @Column(name = "low_price")
   var low: Double = 0.0,
-
   @Column(name = "high_price")
   var high: Double = 0.0,
-
   @Column(name = "start_date", nullable = false)
   var startDate: LocalDate = LocalDate.now(),
-
   @Column(name = "end_date")
   var endDate: LocalDate? = null,
-
   @Enumerated(EnumType.STRING)
   @Column(name = "type", length = 20)
   var orderBlockType: OrderBlockType = OrderBlockType.BEARISH,
-
   var volume: Long = 0L,
-
   @Column(name = "volume_strength")
   var volumeStrength: Double = 0.0,
-
   @Enumerated(EnumType.STRING)
   @Column(length = 10)
   var sensitivity: OrderBlockSensitivity? = null,
-
   @Column(name = "rate_of_change")
-  var rateOfChange: Double = 0.0
+  var rateOfChange: Double = 0.0,
 ) {
   // No-arg constructor for JPA
   constructor() : this(
@@ -77,15 +67,16 @@ class OrderBlock(
     volume = 0L,
     volumeStrength = 0.0,
     sensitivity = null,
-    rateOfChange = 0.0
+    rateOfChange = 0.0,
   )
 }
 
 enum class OrderBlockType {
-  BEARISH, BULLISH
+  BEARISH,
+  BULLISH,
 }
 
 enum class OrderBlockSensitivity {
-  HIGH,   // More order blocks detected (lower threshold, e.g., 28%)
-  LOW     // Fewer, stronger order blocks (higher threshold, e.g., 50%)
+  HIGH, // More order blocks detected (lower threshold, e.g., 28%)
+  LOW, // Fewer, stronger order blocks (higher threshold, e.g., 50%)
 }

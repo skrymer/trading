@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model
 
 data class ExitReport(
   /**
-  *  The exit reason
-  */
+   *  The exit reason
+   */
   val exitReason: String = "",
   /**
    * The quotes that did not match the exit strategy including the quote that matched
@@ -12,5 +12,5 @@ data class ExitReport(
   /**
    * The exit price
    */
-  val exitPrice: Double = 0.0
+  val exitPrice: Double = 0.0,
 )

@@ -13,7 +13,7 @@ import com.skrymer.udgaard.model.StockQuote
  * @property tradingEntryQuote - quote from the trading stock used for actual entry price
  */
 data class PotentialEntry(
-    val stockPair: StockPair,
-    val strategyEntryQuote: StockQuote,
-    val tradingEntryQuote: StockQuote
+  val stockPair: StockPair,
+  val strategyEntryQuote: StockQuote,
+  val tradingEntryQuote: StockQuote,
 )

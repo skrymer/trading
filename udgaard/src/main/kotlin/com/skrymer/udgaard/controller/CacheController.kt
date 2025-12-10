@@ -17,31 +17,32 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/cache")
 @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
 class CacheController {
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(CacheController::class.java)
+  }
 
-    companion object {
-        private val logger: Logger = LoggerFactory.getLogger(CacheController::class.java)
-    }
-
-    /**
-     * Get cache status information
-     *
-     * @return Information about cache configuration
-     */
-    @GetMapping("/status")
-    fun getCacheStatus(): ResponseEntity<Map<String, Any>> {
-        logger.info("Request for cache status")
-        return ResponseEntity.ok(
-            mapOf(
-                "alphaVantage" to mapOf(
-                    "caching" to "disabled",
-                    "note" to "AlphaVantage caching has been disabled to ensure fresh data"
-                ),
-                "rateLimits" to mapOf(
-                    "daily" to 25,
-                    "perMinute" to 5,
-                    "tier" to "free"
-                )
-            )
-        )
-    }
+  /**
+   * Get cache status information
+   *
+   * @return Information about cache configuration
+   */
+  @GetMapping("/status")
+  fun getCacheStatus(): ResponseEntity<Map<String, Any>> {
+    logger.info("Request for cache status")
+    return ResponseEntity.ok(
+      mapOf(
+        "alphaVantage" to
+          mapOf(
+            "caching" to "disabled",
+            "note" to "AlphaVantage caching has been disabled to ensure fresh data",
+          ),
+        "rateLimits" to
+          mapOf(
+            "daily" to 25,
+            "perMinute" to 5,
+            "tier" to "free",
+          ),
+      ),
+    )
+  }
 }

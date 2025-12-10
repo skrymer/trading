@@ -16,39 +16,43 @@ import org.springframework.stereotype.Component
  */
 @Component
 class BeforeEarningsExit(
-    private val daysBeforeEarnings: Int = 1
+  private val daysBeforeEarnings: Int = 1,
 ) : ExitCondition {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
+    val quoteDate = quote.date ?: return false
+    return stock.hasEarningsWithinDays(quoteDate, daysBeforeEarnings)
+  }
 
-    override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-        val quoteDate = quote.date ?: return false
-        return stock.hasEarningsWithinDays(quoteDate, daysBeforeEarnings)
+  override fun exitReason(): String =
+    if (daysBeforeEarnings == 1) {
+      "Exit before earnings"
+    } else {
+      "Exit $daysBeforeEarnings days before earnings"
     }
 
-    override fun exitReason(): String {
-        return if (daysBeforeEarnings == 1) {
-            "Exit before earnings"
-        } else {
-            "Exit $daysBeforeEarnings days before earnings"
-        }
-    }
+  override fun description(): String = exitReason()
 
-    override fun description(): String = exitReason()
-
-    override fun getMetadata() = ConditionMetadata(
+  override fun getMetadata() =
+    ConditionMetadata(
       type = "beforeEarnings",
       displayName = "Exit Before Earnings",
       description = "Exit X days before earnings announcement",
-      parameters = listOf(
-        ParameterMetadata(
-          name = "daysBeforeEarnings",
-          displayName = "Days Before Earnings",
-          type = "number",
-          defaultValue = 1,
-          min = 0,
-          max = 10,
-          options = listOf("0", "1", "2", "3", "5", "7")
-        )
-      ),
-      category = "Earnings"
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "daysBeforeEarnings",
+            displayName = "Days Before Earnings",
+            type = "number",
+            defaultValue = 1,
+            min = 0,
+            max = 10,
+            options = listOf("0", "1", "2", "3", "5", "7"),
+          ),
+        ),
+      category = "Earnings",
     )
 }

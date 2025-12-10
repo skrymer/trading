@@ -12,7 +12,7 @@ import com.skrymer.udgaard.model.Stock
  * for strategy evaluation while trading the leveraged asset.
  */
 data class StockPair(
-    val tradingStock: Stock,
-    val strategyStock: Stock,
-    val underlyingSymbol: String?
+  val tradingStock: Stock,
+  val strategyStock: Stock,
+  val underlyingSymbol: String?,
 )

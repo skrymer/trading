@@ -24,54 +24,57 @@ import org.springframework.stereotype.Component
  */
 @Component
 class ATRTrailingStopLoss(
-    private val atrMultiplier: Double = 2.7
+  private val atrMultiplier: Double = 2.7,
 ) : ExitCondition {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
+    if (entryQuote == null) return false
 
-    override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-        if (entryQuote == null) return false
+    // Get all quotes from entry to current
+    val quotesSinceEntry =
+      stock.quotes
+        .filter { q ->
+          q.date != null &&
+            entryQuote.date != null &&
+            (q.date!! >= entryQuote.date!!) &&
+            (q.date!! <= quote.date!!)
+        }.sortedBy { it.date }
 
-        // Get all quotes from entry to current
-        val quotesSinceEntry = stock.quotes
-            .filter { q ->
-                q.date != null &&
-                entryQuote.date != null &&
-                (q.date!! >= entryQuote.date!!) &&
-                (q.date!! <= quote.date!!)
-            }
-            .sortedBy { it.date }
+    if (quotesSinceEntry.isEmpty()) return false
 
-        if (quotesSinceEntry.isEmpty()) return false
+    // Find the highest close price reached since entry
+    val highestPrice = quotesSinceEntry.maxOfOrNull { it.closePrice } ?: entryQuote.closePrice
 
-        // Find the highest close price reached since entry
-        val highestPrice = quotesSinceEntry.maxOfOrNull { it.closePrice } ?: entryQuote.closePrice
+    // Calculate trailing stop level using the ATR from the current quote
+    val trailingStopLevel = highestPrice - (atrMultiplier * quote.atr)
 
-        // Calculate trailing stop level using the ATR from the current quote
-        val trailingStopLevel = highestPrice - (atrMultiplier * quote.atr)
+    // Exit if current price drops below the trailing stop
+    return quote.closePrice < trailingStopLevel
+  }
 
-        // Exit if current price drops below the trailing stop
-        return quote.closePrice < trailingStopLevel
-    }
+  override fun exitReason(): String = "ATR trailing stop loss triggered ($atrMultiplier ATR below highest price)"
 
-    override fun exitReason(): String =
-        "ATR trailing stop loss triggered (${atrMultiplier} ATR below highest price)"
+  override fun description(): String = "ATR trailing stop ($atrMultiplier ATR)"
 
-    override fun description(): String =
-        "ATR trailing stop (${atrMultiplier} ATR)"
-
-    override fun getMetadata() = ConditionMetadata(
+  override fun getMetadata() =
+    ConditionMetadata(
       type = "trailingStopLoss",
       displayName = "ATR Trailing Stop Loss",
       description = "Exit when price drops X ATR below the highest price since entry (trailing stop)",
-      parameters = listOf(
-        ParameterMetadata(
-          name = "atrMultiplier",
-          displayName = "ATR Multiplier",
-          type = "number",
-          defaultValue = 2.7,
-          min = 0.5,
-          max = 5.0
-        )
-      ),
-      category = "StopLoss"
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "atrMultiplier",
+            displayName = "ATR Multiplier",
+            type = "number",
+            defaultValue = 2.7,
+            min = 0.5,
+            max = 5.0,
+          ),
+        ),
+      category = "StopLoss",
     )
 }

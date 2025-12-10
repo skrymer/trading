@@ -9,15 +9,20 @@ import com.skrymer.udgaard.model.StockQuote
  */
 @RegisteredStrategy(name = "SimpleBuySignal", type = StrategyType.ENTRY)
 class SimpleBuySignalEntryStrategy : DetailedEntryStrategy {
-  private val compositeStrategy = entryStrategy {
-    buySignal(daysOld = -1)  // Accept any buy signal age
-  }
+  private val compositeStrategy =
+    entryStrategy {
+      buySignal(daysOld = -1) // Accept any buy signal age
+    }
 
   override fun description() = "Simple buy signal entry strategy"
 
-  override fun test(stock: Stock, quote: StockQuote): Boolean {
-    return compositeStrategy.test(stock, quote)
-  }
+  override fun test(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = compositeStrategy.test(stock, quote)
 
-  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
+  override fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ) = compositeStrategy.testWithDetails(stock, quote)
 }

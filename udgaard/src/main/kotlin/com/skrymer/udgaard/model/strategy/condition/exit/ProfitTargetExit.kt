@@ -13,49 +13,56 @@ import org.springframework.stereotype.Component
 @Component
 class ProfitTargetExit(
   private val atrMultiplier: Double = 3.0,
-  private val emaPeriod: Int = 20
+  private val emaPeriod: Int = 20,
 ) : ExitCondition {
-
-  override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
     val emaValue = getEmaValue(quote, emaPeriod)
     return quote.closePrice > (emaValue + (atrMultiplier * quote.atr))
   }
 
-  override fun exitReason(): String = "Price is ${atrMultiplier} ATR above ${emaPeriod} EMA"
+  override fun exitReason(): String = "Price is $atrMultiplier ATR above $emaPeriod EMA"
 
   override fun description(): String = "Price > ${emaPeriod}EMA + ${atrMultiplier}ATR"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "profitTarget",
-    displayName = "Profit Target",
-    description = "Exit when price extends above EMA + ATR multiplier",
-    parameters = listOf(
-      ParameterMetadata(
-        name = "atrMultiplier",
-        displayName = "ATR Multiplier",
-        type = "number",
-        defaultValue = 3.0,
-        min = 1.0,
-        max = 10.0
-      ),
-      ParameterMetadata(
-        name = "emaPeriod",
-        displayName = "EMA Period",
-        type = "number",
-        defaultValue = 20,
-        options = listOf("10", "20", "50")
-      )
-    ),
-    category = "ProfitTaking"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "profitTarget",
+      displayName = "Profit Target",
+      description = "Exit when price extends above EMA + ATR multiplier",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "atrMultiplier",
+            displayName = "ATR Multiplier",
+            type = "number",
+            defaultValue = 3.0,
+            min = 1.0,
+            max = 10.0,
+          ),
+          ParameterMetadata(
+            name = "emaPeriod",
+            displayName = "EMA Period",
+            type = "number",
+            defaultValue = 20,
+            options = listOf("10", "20", "50"),
+          ),
+        ),
+      category = "ProfitTaking",
+    )
 
-  private fun getEmaValue(quote: StockQuote, period: Int): Double {
-    return when (period) {
+  private fun getEmaValue(
+    quote: StockQuote,
+    period: Int,
+  ): Double =
+    when (period) {
       5 -> quote.closePriceEMA5
       10 -> quote.closePriceEMA10
       20 -> quote.closePriceEMA20
       50 -> quote.closePriceEMA50
       else -> 0.0
     }
-  }
 }

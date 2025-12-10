@@ -32,35 +32,40 @@ import com.skrymer.udgaard.model.StockQuote
  * - NOT within order block older than 120 days
  */
 @RegisteredStrategy(name = "PlanAlpha", type = StrategyType.ENTRY)
-class PlanAlphaEntryStrategy: DetailedEntryStrategy {
-  private val compositeStrategy = entryStrategy {
-    // MARKET (SPY)
-    spyBuySignal()
-    spyUptrend()
-    marketUptrend()
-    spyHeatmap(70)
-    spyHeatmapRising()
+class PlanAlphaEntryStrategy : DetailedEntryStrategy {
+  private val compositeStrategy =
+    entryStrategy {
+      // MARKET (SPY)
+      spyBuySignal()
+      spyUptrend()
+      marketUptrend()
+      spyHeatmap(70)
+      spyHeatmapRising()
 
-    // SECTOR
-    sectorUptrend()
-    sectorHeatmapRising()
-    sectorHeatmap(70)
-    donkeyChannel()
-    sectorHeatmapGreaterThanSpy()
+      // SECTOR
+      sectorUptrend()
+      sectorHeatmapRising()
+      sectorHeatmap(70)
+      donkeyChannel()
+      sectorHeatmapGreaterThanSpy()
 
-    // STOCK
-    uptrend()
-    buySignal(daysOld = 5)  // Buy signal must be ≤ 5 day old
-    stockHeatmapRising()
-    belowOrderBlock(percentBelow = 2.0, ageInDays = 0)
-    priceAbove(10)
-  }
+      // STOCK
+      uptrend()
+      buySignal(daysOld = 5) // Buy signal must be ≤ 5 day old
+      stockHeatmapRising()
+      belowOrderBlock(percentBelow = 2.0, ageInDays = 0)
+      priceAbove(10)
+    }
 
   override fun description() = "Plan Alpha entry strategy"
 
-  override fun test(stock: Stock, quote: StockQuote): Boolean {
-    return compositeStrategy.test(stock, quote)
-  }
+  override fun test(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = compositeStrategy.test(stock, quote)
 
-  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
+  override fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ) = compositeStrategy.testWithDetails(stock, quote)
 }

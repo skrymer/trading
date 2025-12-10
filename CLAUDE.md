@@ -814,7 +814,28 @@ cd udgaard
 
 **Example:** If you changed a strategy and an "unrelated" backtest test fails, it likely means your strategy change broke the backtest logic.
 
-#### 2. Frontend TypeScript Validation
+#### 2. Backend Code Linting (ktlint)
+
+Run ktlint to ensure code style compliance:
+
+```bash
+cd udgaard
+./gradlew ktlintCheck
+```
+
+**Important:**
+- ✅ **Must pass ktlint checks before committing**
+- ✅ **Auto-fix most issues with `./gradlew ktlintFormat`**
+- ✅ **Check the output for any remaining issues**
+
+ktlint enforces:
+- Consistent indentation (2 spaces)
+- No unused imports
+- Final newline in files
+- No empty first lines in class bodies
+- No multiple consecutive spaces
+
+#### 3. Frontend TypeScript Validation
 
 Run typecheck to ensure no type errors:
 
@@ -831,7 +852,7 @@ npm run typecheck
 
 If you encounter pre-existing errors in files you didn't modify, you must still fix them before committing. This ensures the codebase stays in a clean, error-free state.
 
-#### 3. Update Relevant Documentation
+#### 4. Update Relevant Documentation
 
 Update documentation to reflect your changes:
 

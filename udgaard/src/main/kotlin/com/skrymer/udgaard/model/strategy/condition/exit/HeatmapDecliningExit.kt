@@ -11,19 +11,22 @@ import org.springframework.stereotype.Component
  */
 @Component
 class HeatmapDecliningExit : ExitCondition {
-  override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-    return quote.isGettingMoreFearful()
-  }
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean = quote.isGettingMoreFearful()
 
   override fun exitReason(): String = "Heatmap is declining (buyers getting fearful)"
 
   override fun description(): String = "Heatmap declining"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "heatmapDeclining",
-    displayName = "Heatmap Declining",
-    description = "Exit when heatmap is declining",
-    parameters = emptyList(),
-    category = "Signal"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "heatmapDeclining",
+      displayName = "Heatmap Declining",
+      description = "Exit when heatmap is declining",
+      parameters = emptyList(),
+      category = "Signal",
+    )
 }

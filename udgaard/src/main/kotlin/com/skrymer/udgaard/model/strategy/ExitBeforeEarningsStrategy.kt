@@ -19,28 +19,31 @@ import com.skrymer.udgaard.model.StockQuote
  */
 @RegisteredStrategy(name = "ExitBeforeEarnings", type = StrategyType.EXIT)
 class ExitBeforeEarningsStrategy : ExitStrategy {
+  override fun match(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
+    val quoteDate = quote.date ?: return false
 
-    override fun match(
-        stock: Stock,
-        entryQuote: StockQuote?,
-        quote: StockQuote
-    ): Boolean {
-        val quoteDate = quote.date ?: return false
+    // Check if there's an earnings announcement tomorrow (1 day from today)
+    return stock.hasEarningsWithinDays(quoteDate, 1)
+  }
 
-        // Check if there's an earnings announcement tomorrow (1 day from today)
-        return stock.hasEarningsWithinDays(quoteDate, 1)
+  override fun reason(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): String {
+    val quoteDate = quote.date ?: return "Exit before earnings"
+    val nextEarning = stock.getNextEarningsDate(quoteDate)
+
+    return if (nextEarning?.reportedDate != null) {
+      "Exit before earnings (${nextEarning.reportedDate})"
+    } else {
+      "Exit before earnings"
     }
+  }
 
-    override fun reason(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): String {
-        val quoteDate = quote.date ?: return "Exit before earnings"
-        val nextEarning = stock.getNextEarningsDate(quoteDate)
-
-        return if (nextEarning?.reportedDate != null) {
-            "Exit before earnings (${nextEarning.reportedDate})"
-        } else {
-            "Exit before earnings"
-        }
-    }
-
-    override fun description() = "Exit the day before earnings announcement"
+  override fun description() = "Exit the day before earnings announcement"
 }

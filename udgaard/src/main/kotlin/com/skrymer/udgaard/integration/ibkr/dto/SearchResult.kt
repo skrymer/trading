@@ -47,7 +47,7 @@ data class SearchResult(
   /**
    * Symbol of the instrument.
    */
-  val symbol: String?
+  val symbol: String?,
 )
 
 data class Section(

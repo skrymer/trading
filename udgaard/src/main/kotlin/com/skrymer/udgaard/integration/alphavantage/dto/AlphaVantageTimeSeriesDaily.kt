@@ -31,85 +31,73 @@ import java.time.LocalDate
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageTimeSeriesDaily(
-    @JsonProperty(value = "Meta Data")
-    val metaData: MetaData? = null,
-
-    @JsonProperty("Time Series (Daily)")
-    val timeSeriesDaily: Map<String, DailyData>? = null,
-
-    @JsonProperty("Error Message")
-    val errorMessage: String? = null,
-
-    @JsonProperty("Note")
-    val note: String? = null
+  @JsonProperty(value = "Meta Data")
+  val metaData: MetaData? = null,
+  @JsonProperty("Time Series (Daily)")
+  val timeSeriesDaily: Map<String, DailyData>? = null,
+  @JsonProperty("Error Message")
+  val errorMessage: String? = null,
+  @JsonProperty("Note")
+  val note: String? = null,
 ) {
-    fun hasError(): Boolean = errorMessage != null || note != null
+  fun hasError(): Boolean = errorMessage != null || note != null
 
-    fun getErrorDescription(): String {
-        return when {
-            errorMessage != null -> errorMessage
-            note != null -> note
-            else -> "Unknown error"
-        }
+  fun getErrorDescription(): String =
+    when {
+      errorMessage != null -> errorMessage
+      note != null -> note
+      else -> "Unknown error"
     }
 
-    fun isValid(): Boolean = metaData != null && timeSeriesDaily != null
+  fun isValid(): Boolean = metaData != null && timeSeriesDaily != null
 
-    fun toStockQuotes(): List<StockQuote> {
-        return timeSeriesDaily?.map { (date, data) ->
-            StockQuote(
-                date = LocalDate.parse(date),
-                openPrice = data.open.toDoubleOrNull() ?: 0.0,
-                closePrice = data.close.toDoubleOrNull() ?: 0.0,
-                high = data.high.toDoubleOrNull() ?: 0.0,
-                low = data.low.toDoubleOrNull() ?: 0.0,
-                volume = data.volume.toLongOrNull() ?: 0L,
-                atr = 0.0,
-                closePriceEMA5 = 0.0,
-                closePriceEMA10 = 0.0,
-                closePriceEMA20 = 0.0,
-                closePriceEMA50 = 0.0,
-                heatmap = 0.0,
-                sectorHeatmap = 0.0,
-                lastBuySignal = null,
-                lastSellSignal = null
-            )
-        }?.sortedBy { it.date } ?: emptyList()
-    }
+  fun toStockQuotes(): List<StockQuote> =
+    timeSeriesDaily
+      ?.map { (date, data) ->
+        StockQuote(
+          date = LocalDate.parse(date),
+          openPrice = data.open.toDoubleOrNull() ?: 0.0,
+          closePrice = data.close.toDoubleOrNull() ?: 0.0,
+          high = data.high.toDoubleOrNull() ?: 0.0,
+          low = data.low.toDoubleOrNull() ?: 0.0,
+          volume = data.volume.toLongOrNull() ?: 0L,
+          atr = 0.0,
+          closePriceEMA5 = 0.0,
+          closePriceEMA10 = 0.0,
+          closePriceEMA20 = 0.0,
+          closePriceEMA50 = 0.0,
+          heatmap = 0.0,
+          sectorHeatmap = 0.0,
+          lastBuySignal = null,
+          lastSellSignal = null,
+        )
+      }?.sortedBy { it.date } ?: emptyList()
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class MetaData(
-    @JsonProperty("1. Information")
-    val information: String,
-
-    @JsonProperty("2. Symbol")
-    val symbol: String,
-
-    @JsonProperty("3. Last Refreshed")
-    val lastRefreshed: String,
-
-    @JsonProperty("4. Output Size")
-    val outputSize: String,
-
-    @JsonProperty("5. Time Zone")
-    val timeZone: String
+  @JsonProperty("1. Information")
+  val information: String,
+  @JsonProperty("2. Symbol")
+  val symbol: String,
+  @JsonProperty("3. Last Refreshed")
+  val lastRefreshed: String,
+  @JsonProperty("4. Output Size")
+  val outputSize: String,
+  @JsonProperty("5. Time Zone")
+  val timeZone: String,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class DailyData(
-    @JsonProperty("1. open")
-    val open: String,
-
-    @JsonProperty("2. high")
-    val high: String,
-
-    @JsonProperty("3. low")
-    val low: String,
-
-    @JsonProperty("4. close")
-    val close: String,
-
-    @JsonProperty("5. volume")
-    val volume: String
+  @JsonProperty("1. open")
+  val open: String,
+  @JsonProperty("2. high")
+  val high: String,
+  @JsonProperty("3. low")
+  val low: String,
+  @JsonProperty("4. close")
+  val close: String,
+  @JsonProperty("5. volume")
+  val volume: String,
 )

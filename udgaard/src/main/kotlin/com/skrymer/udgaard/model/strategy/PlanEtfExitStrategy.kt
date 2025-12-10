@@ -14,34 +14,37 @@ import com.skrymer.udgaard.model.StockQuote
  * Note: Sell signal exit was removed as it degraded performance (-0.04% avg)
  */
 @RegisteredStrategy(name = "PlanEtf", type = StrategyType.EXIT)
-class PlanEtfExitStrategy: ExitStrategy {
-  private val compositeStrategy = exitStrategy {
-    emaCross(10, 20)
-    orderBlock(30)
-    profitTarget(3.5, 20)
-    trailingStopLoss(2.7)
-  }
+class PlanEtfExitStrategy : ExitStrategy {
+  private val compositeStrategy =
+    exitStrategy {
+      emaCross(10, 20)
+      orderBlock(30)
+      profitTarget(3.5, 20)
+      trailingStopLoss(2.7)
+    }
 
   override fun match(
     stock: Stock,
     entryQuote: StockQuote?,
-    quote: StockQuote
-  ): Boolean {
-    return compositeStrategy.match(stock, entryQuote, quote)
-  }
+    quote: StockQuote,
+  ): Boolean = compositeStrategy.match(stock, entryQuote, quote)
 
   override fun reason(
     stock: Stock,
     entryQuote: StockQuote?,
-    quote: StockQuote
-  ): String? {
-    return compositeStrategy.reason(stock, entryQuote, quote)
-  }
+    quote: StockQuote,
+  ): String? = compositeStrategy.reason(stock, entryQuote, quote)
 
   override fun description() = "Plan ETF exit strategy"
 
-  override fun exitPrice(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Double {
-    return if(quote.closePrice < 1.0) stock.getPreviousQuote(quote)?.closePrice ?: 0.0
-    else quote.closePrice
-  }
+  override fun exitPrice(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Double =
+    if (quote.closePrice < 1.0) {
+      stock.getPreviousQuote(quote)?.closePrice ?: 0.0
+    } else {
+      quote.closePrice
+    }
 }

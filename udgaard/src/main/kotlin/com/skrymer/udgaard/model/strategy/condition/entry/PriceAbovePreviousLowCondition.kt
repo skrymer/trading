@@ -14,22 +14,29 @@ import org.springframework.stereotype.Component
  */
 @Component
 class PriceAbovePreviousLowCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean {
     val previousQuote = stock.getPreviousQuote(quote)
     return quote.closePrice > (previousQuote?.low ?: 0.0)
   }
 
   override fun description(): String = "Price above previous low"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "priceAbovePreviousLow",
-    displayName = "Price Above Previous Low",
-    description = "Current price is above previous day's low",
-    parameters = emptyList(),
-    category = "Stock"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "priceAbovePreviousLow",
+      displayName = "Price Above Previous Low",
+      description = "Current price is above previous day's low",
+      parameters = emptyList(),
+      category = "Stock",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val message = if (passed) description() + " ✓" else description() + " ✗"
 
@@ -39,8 +46,7 @@ class PriceAbovePreviousLowCondition : EntryCondition {
       passed = passed,
       actualValue = null,
       threshold = null,
-      message = message
+      message = message,
     )
   }
-
 }

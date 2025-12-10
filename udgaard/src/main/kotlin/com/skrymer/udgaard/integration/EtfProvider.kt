@@ -9,17 +9,17 @@ import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
  * holdings, sector weightings, and other ETF-specific metadata.
  */
 interface EtfProvider {
-    /**
-     * Get ETF profile information
-     *
-     * Returns comprehensive ETF data including:
-     * - Holdings and their weights
-     * - Sector allocations
-     * - Asset class breakdown
-     * - Expense ratio and other fund metrics
-     *
-     * @param symbol ETF symbol (e.g., "SPY", "QQQ", "IWM")
-     * @return ETF profile data, or null if unavailable
-     */
-    fun getEtfProfile(symbol: String): AlphaVantageEtfProfile?
+  /**
+   * Get ETF profile information
+   *
+   * Returns comprehensive ETF data including:
+   * - Holdings and their weights
+   * - Sector allocations
+   * - Asset class breakdown
+   * - Expense ratio and other fund metrics
+   *
+   * @param symbol ETF symbol (e.g., "SPY", "QQQ", "IWM")
+   * @return ETF profile data, or null if unavailable
+   */
+  fun getEtfProfile(symbol: String): AlphaVantageEtfProfile?
 }

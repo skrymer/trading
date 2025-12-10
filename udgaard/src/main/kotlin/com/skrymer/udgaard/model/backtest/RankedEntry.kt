@@ -10,6 +10,6 @@ package com.skrymer.udgaard.model.backtest
  * @property score - the ranking score assigned by the StockRanker
  */
 data class RankedEntry(
-    val entry: PotentialEntry,
-    val score: Double
+  val entry: PotentialEntry,
+  val score: Double,
 )

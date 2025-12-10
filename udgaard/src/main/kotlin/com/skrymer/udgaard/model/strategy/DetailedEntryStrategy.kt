@@ -10,13 +10,16 @@ import com.skrymer.udgaard.model.StockQuote
  * was triggered or failed, including individual condition results.
  */
 interface DetailedEntryStrategy : EntryStrategy {
-    /**
-     * Evaluates the strategy and returns detailed condition results.
-     * Useful for understanding why an entry signal triggered or failed.
-     *
-     * @param stock The stock being evaluated
-     * @param quote The specific quote being evaluated
-     * @return Detailed entry signal information including all condition results
-     */
-    fun testWithDetails(stock: Stock, quote: StockQuote): EntrySignalDetails
+  /**
+   * Evaluates the strategy and returns detailed condition results.
+   * Useful for understanding why an entry signal triggered or failed.
+   *
+   * @param stock The stock being evaluated
+   * @param quote The specific quote being evaluated
+   * @return Detailed entry signal information including all condition results
+   */
+  fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): EntrySignalDetails
 }

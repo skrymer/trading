@@ -41,75 +41,84 @@ import java.time.LocalDate
  * }
  */
 class OvtlyrBreadthQuote {
-    @JsonProperty("StockSymbol")
-    val symbol: String? = null
+  @JsonProperty("StockSymbol")
+  val symbol: String? = null
 
-    @JsonProperty("Quotedate")
-    val quoteDate: LocalDate? = null
+  @JsonProperty("Quotedate")
+  val quoteDate: LocalDate? = null
 
-    @JsonProperty("Bull_Total")
-    val numberOfStocksWithABuySignal: Int = 0
+  @JsonProperty("Bull_Total")
+  val numberOfStocksWithABuySignal: Int = 0
 
-    @JsonProperty("Bear_Total")
-    val numberOfStocksWithASellSignal: Int = 0
+  @JsonProperty("Bear_Total")
+  val numberOfStocksWithASellSignal: Int = 0
 
-    @JsonProperty("Uptrend")
-    val numberOfStocksInUptrend: Int = 0
+  @JsonProperty("Uptrend")
+  val numberOfStocksInUptrend: Int = 0
 
-    @JsonProperty("Neutral")
-    val numberOfStocksInNeutral: Int = 0
+  @JsonProperty("Neutral")
+  val numberOfStocksInNeutral: Int = 0
 
-    @JsonProperty("Downtrend")
-    val numberOfStocksInDowntrend: Int = 0
+  @JsonProperty("Downtrend")
+  val numberOfStocksInDowntrend: Int = 0
 
-    @JsonProperty("Bull_per")
-    private val bull_per: Double = 0.0
+  @JsonProperty("Bull_per")
+  private val bull_per: Double = 0.0
 
-    @JsonProperty("Bull_EMA_5")
-    val ema_5: Double = 0.0
+  @JsonProperty("Bull_EMA_5")
+  val ema_5: Double = 0.0
 
-    @JsonProperty("Bull_EMA_10")
-    val ema_10: Double = 0.0
+  @JsonProperty("Bull_EMA_10")
+  val ema_10: Double = 0.0
 
-    @JsonProperty("Bull_EMA_20")
-    val ema_20: Double = 0.0
+  @JsonProperty("Bull_EMA_20")
+  val ema_20: Double = 0.0
 
-    @JsonProperty("Bull_EMA_50")
-    val ema_50: Double = 0.0
+  @JsonProperty("Bull_EMA_50")
+  val ema_50: Double = 0.0
 
-    @JsonProperty("sector_Score")
-    val donkeyChannelScore: Int = 0
+  @JsonProperty("sector_Score")
+  val donkeyChannelScore: Int = 0
 
-    fun toModel(breadth: OvtlyrBreadth, stockInSector: OvtlyrStockInformation?): BreadthQuote {
-        val stockQuote = stockInSector?.getPreviousQuote(stockInSector.getQuoteForDate(quoteDate!!))
-        return BreadthQuote(
-            symbol,
-            quoteDate,
-            numberOfStocksWithABuySignal,
-            numberOfStocksWithASellSignal,
-            numberOfStocksInUptrend,
-            numberOfStocksInNeutral,
-            numberOfStocksInDowntrend,
-            ema_5,
-            ema_10,
-            ema_20,
-            ema_50,
-            bull_per,
-            donchianUpperBand = calculateDonchianUpperBand(breadth, this),
-            previousDonchianUpperBand = calculateDonchianUpperBand(breadth, breadth.getPreviousQuote(this)),
-            donchianLowerBand = calculateDonchianLowerBand(breadth, this),
-            previousDonchianLowerBand = calculateDonchianLowerBand(breadth, breadth.getPreviousQuote(this)),
-            heatmap = stockQuote?.sectorHeatmap ?: 0.0,
-            previousHeatmap = stockInSector?.getPreviousQuote(stockQuote)?.sectorHeatmap ?: 0.0,
-            donkeyChannelScore = donkeyChannelScore
-        )
-    }
+  fun toModel(
+    breadth: OvtlyrBreadth,
+    stockInSector: OvtlyrStockInformation?,
+  ): BreadthQuote {
+    val stockQuote = stockInSector?.getPreviousQuote(stockInSector.getQuoteForDate(quoteDate!!))
+    return BreadthQuote(
+      symbol,
+      quoteDate,
+      numberOfStocksWithABuySignal,
+      numberOfStocksWithASellSignal,
+      numberOfStocksInUptrend,
+      numberOfStocksInNeutral,
+      numberOfStocksInDowntrend,
+      ema_5,
+      ema_10,
+      ema_20,
+      ema_50,
+      bull_per,
+      donchianUpperBand = calculateDonchianUpperBand(breadth, this),
+      previousDonchianUpperBand = calculateDonchianUpperBand(breadth, breadth.getPreviousQuote(this)),
+      donchianLowerBand = calculateDonchianLowerBand(breadth, this),
+      previousDonchianLowerBand = calculateDonchianLowerBand(breadth, breadth.getPreviousQuote(this)),
+      heatmap = stockQuote?.sectorHeatmap ?: 0.0,
+      previousHeatmap = stockInSector?.getPreviousQuote(stockQuote)?.sectorHeatmap ?: 0.0,
+      donkeyChannelScore = donkeyChannelScore,
+    )
+  }
 
-    fun calculateDonchianUpperBand(breadth: OvtlyrBreadth, quote: OvtlyrBreadthQuote, lookback: Int = 4) =
-        (listOf(quote) + breadth.getPreviousQuotes(quote, lookback - 1))
-            .maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+  fun calculateDonchianUpperBand(
+    breadth: OvtlyrBreadth,
+    quote: OvtlyrBreadthQuote,
+    lookback: Int = 4,
+  ) = (listOf(quote) + breadth.getPreviousQuotes(quote, lookback - 1))
+    .maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
-    fun calculateDonchianLowerBand(breadth: OvtlyrBreadth, quote: OvtlyrBreadthQuote, lookback: Int = 2) =
-        (listOf(quote) + breadth.getPreviousQuotes(quote, lookback - 1))
-            .minOfOrNull { it.numberOfStocksInDowntrend.toDouble() } ?: 0.0
+  fun calculateDonchianLowerBand(
+    breadth: OvtlyrBreadth,
+    quote: OvtlyrBreadthQuote,
+    lookback: Int = 2,
+  ) = (listOf(quote) + breadth.getPreviousQuotes(quote, lookback - 1))
+    .minOfOrNull { it.numberOfStocksInDowntrend.toDouble() } ?: 0.0
 }

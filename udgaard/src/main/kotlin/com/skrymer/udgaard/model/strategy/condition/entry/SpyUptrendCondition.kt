@@ -13,28 +13,34 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SpyUptrendCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return quote.spyInUptrend
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.spyInUptrend
 
   override fun description(): String = "SPY in uptrend"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "spyUptrend",
-    displayName = "SPY in Uptrend",
-    description = "SPY trend is 'Uptrend'",
-    parameters = emptyList(),
-    category = "SPY"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "spyUptrend",
+      displayName = "SPY in Uptrend",
+      description = "SPY trend is 'Uptrend'",
+      parameters = emptyList(),
+      category = "SPY",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
 
-    val message = if (passed) {
-      "SPY in uptrend (10 EMA > 20 EMA, price > 50 EMA) ✓"
-    } else {
-      "SPY not in uptrend ✗"
-    }
+    val message =
+      if (passed) {
+        "SPY in uptrend (10 EMA > 20 EMA, price > 50 EMA) ✓"
+      } else {
+        "SPY not in uptrend ✗"
+      }
 
     return ConditionEvaluationResult(
       conditionType = "SpyUptrendCondition",
@@ -42,7 +48,7 @@ class SpyUptrendCondition : EntryCondition {
       passed = passed,
       actualValue = if (passed) "Uptrend" else "Not uptrend",
       threshold = "10 > 20 EMA, price > 50 EMA",
-      message = message
+      message = message,
     )
   }
 }

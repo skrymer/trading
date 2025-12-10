@@ -16,7 +16,11 @@ import org.springframework.stereotype.Component
  */
 @Component
 class HeatmapThresholdExit : ExitCondition {
-  override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
     if (entryQuote == null) return true
 
     val entryHeatmapValue = entryQuote.heatmap
@@ -38,11 +42,12 @@ class HeatmapThresholdExit : ExitCondition {
 
   override fun description(): String = "Heatmap threshold exit"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "heatmapThreshold",
-    displayName = "Heatmap Threshold",
-    description = "Exit based on heatmap threshold",
-    parameters = emptyList(),
-    category = "Signal"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "heatmapThreshold",
+      displayName = "Heatmap Threshold",
+      description = "Exit based on heatmap threshold",
+      parameters = emptyList(),
+      category = "Signal",
+    )
 }

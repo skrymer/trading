@@ -13,29 +13,35 @@ import org.springframework.stereotype.Component
  */
 @Component
 class MarketUptrendCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return quote.isMarketInUptrend()
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.isMarketInUptrend()
 
   override fun description(): String = "Market in uptrend"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "marketUptrend",
-    displayName = "Market in Uptrend",
-    description = "Market is in uptrend based on breadth",
-    parameters = emptyList(),
-    category = "Market"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "marketUptrend",
+      displayName = "Market in Uptrend",
+      description = "Market is in uptrend based on breadth",
+      parameters = emptyList(),
+      category = "Market",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val breadth = quote.marketAdvancingPercent
 
-    val message = if (passed) {
-      "Market breadth %.1f%% is above 10 EMA ✓".format(breadth)
-    } else {
-      "Market breadth %.1f%% is below 10 EMA ✗".format(breadth)
-    }
+    val message =
+      if (passed) {
+        "Market breadth %.1f%% is above 10 EMA ✓".format(breadth)
+      } else {
+        "Market breadth %.1f%% is below 10 EMA ✗".format(breadth)
+      }
 
     return ConditionEvaluationResult(
       conditionType = "MarketUptrendCondition",
@@ -43,7 +49,7 @@ class MarketUptrendCondition : EntryCondition {
       passed = passed,
       actualValue = "%.1f%%".format(breadth),
       threshold = "> 10 EMA",
-      message = message
+      message = message,
     )
   }
 }

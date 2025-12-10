@@ -19,35 +19,35 @@ import java.time.temporal.ChronoUnit
  */
 class BelowOrderBlockCondition(
   private val percentBelow: Double = 2.0,
-  private val ageInDays: Int = 30
+  private val ageInDays: Int = 30,
 ) : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean {
     // Find bearish order blocks at least as old as specified age
-    val relevantOrderBlocks = stock.orderBlocks
-      .filter {
-        // Must be a bearish order block (resistance)
-        it.orderBlockType == OrderBlockType.BEARISH
-      }
-      .filter {
-        // Must be at least ageInDays old (>= ageInDays)
-        ChronoUnit.DAYS.between(
-          it.startDate,
-          quote.date
-        ) >= ageInDays
-      }
-      .filter {
-        // Order block must have started before current quote
-        it.startDate.isBefore(quote.date)
-      }
-      .filter {
-        // Order block must still be active (endDate is null or in the future)
-        val endDate = it.endDate
-        endDate == null || endDate.isAfter(quote.date)
-      }
-      .filter {
-        // Price must be at or below the order block's high (below or within)
-        quote.closePrice <= it.high
-      }
+    val relevantOrderBlocks =
+      stock.orderBlocks
+        .filter {
+          // Must be a bearish order block (resistance)
+          it.orderBlockType == OrderBlockType.BEARISH
+        }.filter {
+          // Must be at least ageInDays old (>= ageInDays)
+          ChronoUnit.DAYS.between(
+            it.startDate,
+            quote.date,
+          ) >= ageInDays
+        }.filter {
+          // Order block must have started before current quote
+          it.startDate.isBefore(quote.date)
+        }.filter {
+          // Order block must still be active (endDate is null or in the future)
+          val endDate = it.endDate
+          endDate == null || endDate.isAfter(quote.date)
+        }.filter {
+          // Price must be at or below the order block's high (below or within)
+          quote.closePrice <= it.high
+        }
 
     // If no relevant order blocks exist, allow entry
     if (relevantOrderBlocks.isEmpty()) {
@@ -63,47 +63,51 @@ class BelowOrderBlockCondition(
     }
   }
 
-  override fun description(): String =
-    "Price at least ${percentBelow}% below order block (age >= ${ageInDays}d)"
+  override fun description(): String = "Price at least $percentBelow% below order block (age >= ${ageInDays}d)"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "belowOrderBlock",
-    displayName = "Below Order Block",
-    description = "Price is below an order block by specified percentage",
-    parameters = listOf(
-      ParameterMetadata(
-        name = "percentBelow",
-        displayName = "Percent Below",
-        type = "number",
-        defaultValue = 2.0,
-        min = 0.5,
-        max = 10.0
-      ),
-      ParameterMetadata(
-        name = "ageInDays",
-        displayName = "Age in Days",
-        type = "number",
-        defaultValue = 30,
-        min = 1,
-        max = 365
-      )
-    ),
-    category = "OrderBlock"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "belowOrderBlock",
+      displayName = "Below Order Block",
+      description = "Price is below an order block by specified percentage",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "percentBelow",
+            displayName = "Percent Below",
+            type = "number",
+            defaultValue = 2.0,
+            min = 0.5,
+            max = 10.0,
+          ),
+          ParameterMetadata(
+            name = "ageInDays",
+            displayName = "Age in Days",
+            type = "number",
+            defaultValue = 30,
+            min = 1,
+            max = 365,
+          ),
+        ),
+      category = "OrderBlock",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val price = quote.closePrice
 
     // Find relevant order blocks
-    val relevantOrderBlocks = stock.orderBlocks
-      .filter { it.orderBlockType == OrderBlockType.BEARISH }
-      .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
-      .filter { it.startDate.isBefore(quote.date) }
-      .filter {
-        val endDate = it.endDate
-        endDate == null || endDate.isAfter(quote.date)
-      }
-      .filter { price <= it.high }
+    val relevantOrderBlocks =
+      stock.orderBlocks
+        .filter { it.orderBlockType == OrderBlockType.BEARISH }
+        .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
+        .filter { it.startDate.isBefore(quote.date) }
+        .filter {
+          val endDate = it.endDate
+          endDate == null || endDate.isAfter(quote.date)
+        }.filter { price <= it.high }
 
     val message: String
     val actualValue: String
@@ -127,24 +131,27 @@ class BelowOrderBlockCondition(
 
       passed = isSufficientlyBelow
 
-      message = if (isWithinBlock) {
-        "Price ${"%.2f".format(price)} is WITHIN block [${"%.2f".format(closestBlock.low)}-${"%.2f".format(closestBlock.high)}] (${blockAge}d old) ✗"
-      } else if (isSufficientlyBelow) {
-        "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${
-          "%.2f".format(
-            closestBlock.low
-          )
-        } (${blockAge}d old) ✓"
-      } else {
-        "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${
-          "%.2f".format(
-            closestBlock.low
-          )
-        } (requires >= ${percentBelow}%) ✗"
-      }
+      message =
+        if (isWithinBlock) {
+          "Price ${"%.2f".format(
+            price,
+          )} is WITHIN block [${"%.2f".format(closestBlock.low)}-${"%.2f".format(closestBlock.high)}] (${blockAge}d old) ✗"
+        } else if (isSufficientlyBelow) {
+          "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${
+            "%.2f".format(
+              closestBlock.low,
+            )
+          } (${blockAge}d old) ✓"
+        } else {
+          "Price ${"%.2f".format(price)} is ${"%.1f".format(actualPercentBelow)}% below block at ${
+            "%.2f".format(
+              closestBlock.low,
+            )
+          } (requires >= $percentBelow%) ✗"
+        }
 
       actualValue = "%.1f%%".format(actualPercentBelow)
-      threshold = ">= ${percentBelow}%"
+      threshold = ">= $percentBelow%"
     }
 
     return ConditionEvaluationResult(
@@ -153,7 +160,7 @@ class BelowOrderBlockCondition(
       passed = passed,
       actualValue = actualValue,
       threshold = threshold,
-      message = message
+      message = message,
     )
   }
 }

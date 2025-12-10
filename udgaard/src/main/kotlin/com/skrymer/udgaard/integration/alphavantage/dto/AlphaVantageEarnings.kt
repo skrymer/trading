@@ -37,73 +37,68 @@ import java.time.LocalDate
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageEarnings(
-    @JsonProperty("symbol")
-    val symbol: String? = null,
-
-    @JsonProperty("annualEarnings")
-    val annualEarnings: List<AnnualEarning>? = null,
-
-    @JsonProperty("quarterlyEarnings")
-    val quarterlyEarnings: List<QuarterlyEarning>? = null,
-
-    @JsonProperty("Error Message")
-    val errorMessage: String? = null,
-
-    @JsonProperty("Note")
-    val note: String? = null,
-
-    @JsonProperty("Information")
-    val information: String? = null
+  @JsonProperty("symbol")
+  val symbol: String? = null,
+  @JsonProperty("annualEarnings")
+  val annualEarnings: List<AnnualEarning>? = null,
+  @JsonProperty("quarterlyEarnings")
+  val quarterlyEarnings: List<QuarterlyEarning>? = null,
+  @JsonProperty("Error Message")
+  val errorMessage: String? = null,
+  @JsonProperty("Note")
+  val note: String? = null,
+  @JsonProperty("Information")
+  val information: String? = null,
 ) {
-    /**
-     * Check if the response contains an error
-     */
-    fun hasError(): Boolean = errorMessage != null || note != null || information != null
+  /**
+   * Check if the response contains an error
+   */
+  fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
-    /**
-     * Get human-readable error description
-     */
-    fun getErrorDescription(): String {
-        return when {
-            errorMessage != null -> errorMessage
-            note != null -> note
-            information != null -> information
-            else -> "Unknown error"
+  /**
+   * Get human-readable error description
+   */
+  fun getErrorDescription(): String =
+    when {
+      errorMessage != null -> errorMessage
+      note != null -> note
+      information != null -> information
+      else -> "Unknown error"
+    }
+
+  /**
+   * Check if response is valid (has required data fields)
+   */
+  fun isValid(): Boolean = symbol != null && quarterlyEarnings != null
+
+  /**
+   * Convert to Earning domain objects
+   * Focuses on quarterly earnings since that's what strategies need
+   *
+   * @return List of Earning sorted by fiscal date (oldest first)
+   */
+  fun toEarnings(): List<Earning> {
+    val symbolValue = symbol ?: ""
+
+    return quarterlyEarnings
+      ?.mapNotNull { quarterly ->
+        try {
+          Earning(
+            symbol = symbolValue,
+            fiscalDateEnding = LocalDate.parse(quarterly.fiscalDateEnding),
+            reportedDate = quarterly.reportedDate?.let { LocalDate.parse(it) },
+            reportedEPS = quarterly.reportedEPS?.toDoubleOrNull(),
+            estimatedEPS = quarterly.estimatedEPS?.toDoubleOrNull(),
+            surprise = quarterly.surprise?.toDoubleOrNull(),
+            surprisePercentage = quarterly.surprisePercentage?.toDoubleOrNull(),
+            reportTime = quarterly.reportTime,
+          )
+        } catch (e: Exception) {
+          // Skip invalid earnings entries
+          null
         }
-    }
-
-    /**
-     * Check if response is valid (has required data fields)
-     */
-    fun isValid(): Boolean = symbol != null && quarterlyEarnings != null
-
-    /**
-     * Convert to Earning domain objects
-     * Focuses on quarterly earnings since that's what strategies need
-     *
-     * @return List of Earning sorted by fiscal date (oldest first)
-     */
-    fun toEarnings(): List<Earning> {
-        val symbolValue = symbol ?: ""
-
-        return quarterlyEarnings?.mapNotNull { quarterly ->
-            try {
-                Earning(
-                    symbol = symbolValue,
-                    fiscalDateEnding = LocalDate.parse(quarterly.fiscalDateEnding),
-                    reportedDate = quarterly.reportedDate?.let { LocalDate.parse(it) },
-                    reportedEPS = quarterly.reportedEPS?.toDoubleOrNull(),
-                    estimatedEPS = quarterly.estimatedEPS?.toDoubleOrNull(),
-                    surprise = quarterly.surprise?.toDoubleOrNull(),
-                    surprisePercentage = quarterly.surprisePercentage?.toDoubleOrNull(),
-                    reportTime = quarterly.reportTime
-                )
-            } catch (e: Exception) {
-                // Skip invalid earnings entries
-                null
-            }
-        }?.sortedBy { it.fiscalDateEnding } ?: emptyList()
-    }
+      }?.sortedBy { it.fiscalDateEnding } ?: emptyList()
+  }
 }
 
 /**
@@ -111,11 +106,10 @@ data class AlphaVantageEarnings(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AnnualEarning(
-    @JsonProperty("fiscalDateEnding")
-    val fiscalDateEnding: String,
-
-    @JsonProperty("reportedEPS")
-    val reportedEPS: String
+  @JsonProperty("fiscalDateEnding")
+  val fiscalDateEnding: String,
+  @JsonProperty("reportedEPS")
+  val reportedEPS: String,
 )
 
 /**
@@ -123,24 +117,18 @@ data class AnnualEarning(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class QuarterlyEarning(
-    @JsonProperty("fiscalDateEnding")
-    val fiscalDateEnding: String,
-
-    @JsonProperty("reportedDate")
-    val reportedDate: String? = null,
-
-    @JsonProperty("reportedEPS")
-    val reportedEPS: String? = null,
-
-    @JsonProperty("estimatedEPS")
-    val estimatedEPS: String? = null,
-
-    @JsonProperty("surprise")
-    val surprise: String? = null,
-
-    @JsonProperty("surprisePercentage")
-    val surprisePercentage: String? = null,
-
-    @JsonProperty("reportTime")
-    val reportTime: String? = null
+  @JsonProperty("fiscalDateEnding")
+  val fiscalDateEnding: String,
+  @JsonProperty("reportedDate")
+  val reportedDate: String? = null,
+  @JsonProperty("reportedEPS")
+  val reportedEPS: String? = null,
+  @JsonProperty("estimatedEPS")
+  val estimatedEPS: String? = null,
+  @JsonProperty("surprise")
+  val surprise: String? = null,
+  @JsonProperty("surprisePercentage")
+  val surprisePercentage: String? = null,
+  @JsonProperty("reportTime")
+  val reportTime: String? = null,
 )

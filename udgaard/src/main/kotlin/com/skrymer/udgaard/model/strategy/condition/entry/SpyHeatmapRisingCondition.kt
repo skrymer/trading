@@ -13,30 +13,36 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SpyHeatmapRisingCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return quote.spyHeatmap > quote.spyPreviousHeatmap
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.spyHeatmap > quote.spyPreviousHeatmap
 
   override fun description(): String = "SPY heatmap rising"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "spyHeatmapRising",
-    displayName = "SPY Heatmap Rising",
-    description = "SPY heatmap is increasing",
-    parameters = emptyList(),
-    category = "SPY"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "spyHeatmapRising",
+      displayName = "SPY Heatmap Rising",
+      description = "SPY heatmap is increasing",
+      parameters = emptyList(),
+      category = "SPY",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val currentHeatmap = quote.spyHeatmap
     val previousHeatmap = quote.spyPreviousHeatmap
     val passed = currentHeatmap > previousHeatmap
 
-    val message = if (passed) {
-      "SPY heatmap rose from ${"%.1f".format(previousHeatmap)} to ${"%.1f".format(currentHeatmap)} ✓"
-    } else {
-      "SPY heatmap did not rise (${"%.1f".format(previousHeatmap)} → ${"%.1f".format(currentHeatmap)}) ✗"
-    }
+    val message =
+      if (passed) {
+        "SPY heatmap rose from ${"%.1f".format(previousHeatmap)} to ${"%.1f".format(currentHeatmap)} ✓"
+      } else {
+        "SPY heatmap did not rise (${"%.1f".format(previousHeatmap)} → ${"%.1f".format(currentHeatmap)}) ✗"
+      }
 
     return ConditionEvaluationResult(
       conditionType = "SpyHeatmapRisingCondition",
@@ -44,7 +50,7 @@ class SpyHeatmapRisingCondition : EntryCondition {
       passed = passed,
       actualValue = "${"%.1f".format(previousHeatmap)} → ${"%.1f".format(currentHeatmap)}",
       threshold = "Rising",
-      message = message
+      message = message,
     )
   }
 }

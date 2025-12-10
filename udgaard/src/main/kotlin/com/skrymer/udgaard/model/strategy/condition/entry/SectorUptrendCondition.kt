@@ -13,21 +13,26 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SectorUptrendCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return quote.sectorIsInUptrend()
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.sectorIsInUptrend()
 
   override fun description(): String = "Sector in uptrend"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "sectorUptrend",
-    displayName = "Sector in Uptrend",
-    description = "Stock's sector is in uptrend",
-    parameters = emptyList(),
-    category = "Sector"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "sectorUptrend",
+      displayName = "Sector in Uptrend",
+      description = "Stock's sector is in uptrend",
+      parameters = emptyList(),
+      category = "Sector",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val message = if (passed) description() + " ✓" else description() + " ✗"
 
@@ -37,8 +42,7 @@ class SectorUptrendCondition : EntryCondition {
       passed = passed,
       actualValue = null,
       threshold = null,
-      message = message
+      message = message,
     )
   }
-
 }

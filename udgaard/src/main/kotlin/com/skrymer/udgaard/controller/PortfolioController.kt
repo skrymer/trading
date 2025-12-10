@@ -12,267 +12,284 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/portfolio")
 @CrossOrigin
 class PortfolioController(
-    private val portfolioService: PortfolioService
+  private val portfolioService: PortfolioService,
 ) {
+  /**
+   * Get all portfolios
+   */
+  @GetMapping
+  @Transactional(readOnly = true)
+  fun getAllPortfolios(
+    @RequestParam(required = false) userId: String?,
+  ): ResponseEntity<List<Portfolio>> {
+    val portfolios = portfolioService.getAllPortfolios(userId)
+    return ResponseEntity.ok(portfolios)
+  }
 
-    /**
-     * Get all portfolios
-     */
-    @GetMapping
-    @Transactional(readOnly = true)
-    fun getAllPortfolios(@RequestParam(required = false) userId: String?): ResponseEntity<List<Portfolio>> {
-        val portfolios = portfolioService.getAllPortfolios(userId)
-        return ResponseEntity.ok(portfolios)
-    }
+  /**
+   * Create a new portfolio
+   */
+  @PostMapping
+  fun createPortfolio(
+    @RequestBody request: CreatePortfolioRequest,
+  ): ResponseEntity<Portfolio> {
+    val portfolio =
+      portfolioService.createPortfolio(
+        name = request.name,
+        initialBalance = request.initialBalance,
+        currency = request.currency,
+        userId = request.userId,
+      )
+    return ResponseEntity.status(HttpStatus.CREATED).body(portfolio)
+  }
 
-    /**
-     * Create a new portfolio
-     */
-    @PostMapping
-    fun createPortfolio(@RequestBody request: CreatePortfolioRequest): ResponseEntity<Portfolio> {
-        val portfolio = portfolioService.createPortfolio(
-            name = request.name,
-            initialBalance = request.initialBalance,
-            currency = request.currency,
-            userId = request.userId
-        )
-        return ResponseEntity.status(HttpStatus.CREATED).body(portfolio)
-    }
+  /**
+   * Get portfolio by ID
+   */
+  @GetMapping("/{portfolioId}")
+  @Transactional(readOnly = true)
+  fun getPortfolio(
+    @PathVariable portfolioId: Long,
+  ): ResponseEntity<Portfolio> {
+    val portfolio =
+      portfolioService.getPortfolio(portfolioId)
+        ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(portfolio)
+  }
 
-    /**
-     * Get portfolio by ID
-     */
-    @GetMapping("/{portfolioId}")
-    @Transactional(readOnly = true)
-    fun getPortfolio(@PathVariable portfolioId: Long): ResponseEntity<Portfolio> {
-        val portfolio = portfolioService.getPortfolio(portfolioId)
-            ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(portfolio)
-    }
+  /**
+   * Update portfolio balance
+   */
+  @PutMapping("/{portfolioId}")
+  fun updatePortfolio(
+    @PathVariable portfolioId: Long,
+    @RequestBody request: UpdatePortfolioRequest,
+  ): ResponseEntity<Portfolio> {
+    val portfolio =
+      portfolioService.updatePortfolio(portfolioId, request.currentBalance)
+        ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(portfolio)
+  }
 
-    /**
-     * Update portfolio balance
-     */
-    @PutMapping("/{portfolioId}")
-    fun updatePortfolio(
-        @PathVariable portfolioId: Long,
-        @RequestBody request: UpdatePortfolioRequest
-    ): ResponseEntity<Portfolio> {
-        val portfolio = portfolioService.updatePortfolio(portfolioId, request.currentBalance)
-            ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(portfolio)
-    }
+  /**
+   * Delete portfolio
+   */
+  @DeleteMapping("/{portfolioId}")
+  fun deletePortfolio(
+    @PathVariable portfolioId: Long,
+  ): ResponseEntity<Void> {
+    portfolioService.deletePortfolio(portfolioId)
+    return ResponseEntity.noContent().build()
+  }
 
-    /**
-     * Delete portfolio
-     */
-    @DeleteMapping("/{portfolioId}")
-    fun deletePortfolio(@PathVariable portfolioId: Long): ResponseEntity<Void> {
-        portfolioService.deletePortfolio(portfolioId)
-        return ResponseEntity.noContent().build()
-    }
+  /**
+   * Get portfolio statistics
+   * @param groupRolledTrades - If true, treat roll chains as single trades (use cumulative P&L)
+   */
+  @GetMapping("/{portfolioId}/stats")
+  @Transactional(readOnly = true)
+  fun getPortfolioStats(
+    @PathVariable portfolioId: Long,
+    @RequestParam(required = false, defaultValue = "false") groupRolledTrades: Boolean,
+  ): ResponseEntity<PortfolioStats> {
+    val stats = portfolioService.calculateStats(portfolioId, groupRolledTrades)
+    return ResponseEntity.ok(stats)
+  }
 
-    /**
-     * Get portfolio statistics
-     * @param groupRolledTrades - If true, treat roll chains as single trades (use cumulative P&L)
-     */
-    @GetMapping("/{portfolioId}/stats")
-    @Transactional(readOnly = true)
-    fun getPortfolioStats(
-        @PathVariable portfolioId: Long,
-        @RequestParam(required = false, defaultValue = "false") groupRolledTrades: Boolean
-    ): ResponseEntity<PortfolioStats> {
-        val stats = portfolioService.calculateStats(portfolioId, groupRolledTrades)
-        return ResponseEntity.ok(stats)
-    }
+  /**
+   * Open a new trade
+   */
+  @PostMapping("/{portfolioId}/trades")
+  fun openTrade(
+    @PathVariable portfolioId: Long,
+    @RequestBody request: OpenTradeRequest,
+  ): ResponseEntity<PortfolioTrade> {
+    val trade =
+      portfolioService.openTrade(
+        portfolioId = portfolioId,
+        symbol = request.symbol,
+        entryPrice = request.entryPrice,
+        entryDate = request.entryDate,
+        quantity = request.quantity,
+        entryStrategy = request.entryStrategy,
+        exitStrategy = request.exitStrategy,
+        currency = request.currency,
+        underlyingSymbol = request.underlyingSymbol,
+        instrumentType = request.instrumentType,
+        optionType = request.optionType,
+        strikePrice = request.strikePrice,
+        expirationDate = request.expirationDate,
+        contracts = request.contracts,
+        multiplier = request.multiplier,
+        entryIntrinsicValue = request.entryIntrinsicValue,
+        entryExtrinsicValue = request.entryExtrinsicValue,
+      )
+    return ResponseEntity.status(HttpStatus.CREATED).body(trade)
+  }
 
-    /**
-     * Open a new trade
-     */
-    @PostMapping("/{portfolioId}/trades")
-    fun openTrade(
-        @PathVariable portfolioId: Long,
-        @RequestBody request: OpenTradeRequest
-    ): ResponseEntity<PortfolioTrade> {
-        val trade = portfolioService.openTrade(
-            portfolioId = portfolioId,
-            symbol = request.symbol,
-            entryPrice = request.entryPrice,
-            entryDate = request.entryDate,
-            quantity = request.quantity,
-            entryStrategy = request.entryStrategy,
-            exitStrategy = request.exitStrategy,
-            currency = request.currency,
-            underlyingSymbol = request.underlyingSymbol,
-            instrumentType = request.instrumentType,
-            optionType = request.optionType,
-            strikePrice = request.strikePrice,
-            expirationDate = request.expirationDate,
-            contracts = request.contracts,
-            multiplier = request.multiplier,
-            entryIntrinsicValue = request.entryIntrinsicValue,
-            entryExtrinsicValue = request.entryExtrinsicValue
-        )
-        return ResponseEntity.status(HttpStatus.CREATED).body(trade)
-    }
-
-    /**
-     * Update an existing open trade
-     */
-    @PutMapping("/{portfolioId}/trades/{tradeId}")
-    fun updateTrade(
-        @PathVariable portfolioId: Long,
-        @PathVariable tradeId: Long,
-        @RequestBody request: UpdateTradeRequest
-    ): ResponseEntity<PortfolioTrade> {
-        try {
-            val trade = portfolioService.updateTrade(
-                tradeId = tradeId,
-                symbol = request.symbol,
-                entryPrice = request.entryPrice,
-                entryDate = request.entryDate,
-                quantity = request.quantity,
-                entryStrategy = request.entryStrategy,
-                exitStrategy = request.exitStrategy,
-                underlyingSymbol = request.underlyingSymbol,
-                instrumentType = request.instrumentType,
-                optionType = request.optionType,
-                strikePrice = request.strikePrice,
-                expirationDate = request.expirationDate,
-                contracts = request.contracts,
-                multiplier = request.multiplier,
-                entryIntrinsicValue = request.entryIntrinsicValue,
-                entryExtrinsicValue = request.entryExtrinsicValue
-            ) ?: return ResponseEntity.notFound().build()
-            return ResponseEntity.ok(trade)
-        } catch (e: IllegalArgumentException) {
-            return ResponseEntity.badRequest().build()
-        }
-    }
-
-    /**
-     * Close an existing trade
-     */
-    @PutMapping("/{portfolioId}/trades/{tradeId}/close")
-    fun closeTrade(
-        @PathVariable portfolioId: Long,
-        @PathVariable tradeId: Long,
-        @RequestBody request: CloseTradeRequest
-    ): ResponseEntity<PortfolioTrade> {
-        val trade = portfolioService.closeTrade(
-            tradeId,
-            request.exitPrice,
-            request.exitDate,
-            request.exitIntrinsicValue,
-            request.exitExtrinsicValue
+  /**
+   * Update an existing open trade
+   */
+  @PutMapping("/{portfolioId}/trades/{tradeId}")
+  fun updateTrade(
+    @PathVariable portfolioId: Long,
+    @PathVariable tradeId: Long,
+    @RequestBody request: UpdateTradeRequest,
+  ): ResponseEntity<PortfolioTrade> {
+    try {
+      val trade =
+        portfolioService.updateTrade(
+          tradeId = tradeId,
+          symbol = request.symbol,
+          entryPrice = request.entryPrice,
+          entryDate = request.entryDate,
+          quantity = request.quantity,
+          entryStrategy = request.entryStrategy,
+          exitStrategy = request.exitStrategy,
+          underlyingSymbol = request.underlyingSymbol,
+          instrumentType = request.instrumentType,
+          optionType = request.optionType,
+          strikePrice = request.strikePrice,
+          expirationDate = request.expirationDate,
+          contracts = request.contracts,
+          multiplier = request.multiplier,
+          entryIntrinsicValue = request.entryIntrinsicValue,
+          entryExtrinsicValue = request.entryExtrinsicValue,
         ) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(trade)
+      return ResponseEntity.ok(trade)
+    } catch (e: IllegalArgumentException) {
+      return ResponseEntity.badRequest().build()
     }
+  }
 
-    /**
-     * Get all trades for a portfolio
-     */
-    @GetMapping("/{portfolioId}/trades")
-    @Transactional(readOnly = true)
-    fun getTrades(
-        @PathVariable portfolioId: Long,
-        @RequestParam(required = false) status: String?
-    ): ResponseEntity<List<PortfolioTrade>> {
-        val tradeStatus = status?.let { TradeStatus.valueOf(it.uppercase()) }
-        val trades = portfolioService.getTrades(portfolioId, tradeStatus)
-        return ResponseEntity.ok(trades)
+  /**
+   * Close an existing trade
+   */
+  @PutMapping("/{portfolioId}/trades/{tradeId}/close")
+  fun closeTrade(
+    @PathVariable portfolioId: Long,
+    @PathVariable tradeId: Long,
+    @RequestBody request: CloseTradeRequest,
+  ): ResponseEntity<PortfolioTrade> {
+    val trade =
+      portfolioService.closeTrade(
+        tradeId,
+        request.exitPrice,
+        request.exitDate,
+        request.exitIntrinsicValue,
+        request.exitExtrinsicValue,
+      ) ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(trade)
+  }
+
+  /**
+   * Get all trades for a portfolio
+   */
+  @GetMapping("/{portfolioId}/trades")
+  @Transactional(readOnly = true)
+  fun getTrades(
+    @PathVariable portfolioId: Long,
+    @RequestParam(required = false) status: String?,
+  ): ResponseEntity<List<PortfolioTrade>> {
+    val tradeStatus = status?.let { TradeStatus.valueOf(it.uppercase()) }
+    val trades = portfolioService.getTrades(portfolioId, tradeStatus)
+    return ResponseEntity.ok(trades)
+  }
+
+  /**
+   * Get a specific trade
+   */
+  @GetMapping("/{portfolioId}/trades/{tradeId}")
+  @Transactional(readOnly = true)
+  fun getTrade(
+    @PathVariable portfolioId: Long,
+    @PathVariable tradeId: Long,
+  ): ResponseEntity<PortfolioTrade> {
+    val trade =
+      portfolioService.getTrade(tradeId)
+        ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(trade)
+  }
+
+  /**
+   * Delete a trade (only open trades can be deleted)
+   */
+  @DeleteMapping("/{portfolioId}/trades/{tradeId}")
+  fun deleteTrade(
+    @PathVariable portfolioId: Long,
+    @PathVariable tradeId: Long,
+  ): ResponseEntity<Void> {
+    try {
+      val deleted = portfolioService.deleteTrade(tradeId)
+      return if (deleted) {
+        ResponseEntity.noContent().build()
+      } else {
+        ResponseEntity.notFound().build()
+      }
+    } catch (e: IllegalArgumentException) {
+      return ResponseEntity.badRequest().build()
     }
+  }
 
-    /**
-     * Get a specific trade
-     */
-    @GetMapping("/{portfolioId}/trades/{tradeId}")
-    @Transactional(readOnly = true)
-    fun getTrade(
-        @PathVariable portfolioId: Long,
-        @PathVariable tradeId: Long
-    ): ResponseEntity<PortfolioTrade> {
-        val trade = portfolioService.getTrade(tradeId)
-            ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(trade)
+  /**
+   * Get equity curve data
+   */
+  @GetMapping("/{portfolioId}/equity-curve")
+  @Transactional(readOnly = true)
+  fun getEquityCurve(
+    @PathVariable portfolioId: Long,
+  ): ResponseEntity<EquityCurveData> {
+    val data = portfolioService.getEquityCurve(portfolioId)
+    return ResponseEntity.ok(data)
+  }
+
+  /**
+   * Roll an options position to a new strike/expiration
+   */
+  @PostMapping("/{portfolioId}/trades/{tradeId}/roll")
+  fun rollTrade(
+    @PathVariable portfolioId: Long,
+    @PathVariable tradeId: Long,
+    @RequestBody request: RollTradeRequest,
+  ): ResponseEntity<RollTradeResponse> {
+    try {
+      val (closedTrade, newTrade) =
+        portfolioService.rollTrade(
+          tradeId = tradeId,
+          newSymbol = request.newSymbol,
+          newStrikePrice = request.newStrikePrice,
+          newExpirationDate = request.newExpirationDate,
+          newOptionType = request.newOptionType,
+          newEntryPrice = request.newEntryPrice,
+          rollDate = request.rollDate,
+          contracts = request.contracts,
+          exitPrice = request.exitPrice,
+        )
+
+      return ResponseEntity.ok(
+        RollTradeResponse(
+          closedTrade = closedTrade,
+          newTrade = newTrade,
+          rollCost = newTrade.rollCost ?: 0.0,
+        ),
+      )
+    } catch (e: IllegalArgumentException) {
+      return ResponseEntity.badRequest().build()
+    } catch (e: IllegalStateException) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
     }
+  }
 
-    /**
-     * Delete a trade (only open trades can be deleted)
-     */
-    @DeleteMapping("/{portfolioId}/trades/{tradeId}")
-    fun deleteTrade(
-        @PathVariable portfolioId: Long,
-        @PathVariable tradeId: Long
-    ): ResponseEntity<Void> {
-        try {
-            val deleted = portfolioService.deleteTrade(tradeId)
-            return if (deleted) {
-                ResponseEntity.noContent().build()
-            } else {
-                ResponseEntity.notFound().build()
-            }
-        } catch (e: IllegalArgumentException) {
-            return ResponseEntity.badRequest().build()
-        }
-    }
-
-    /**
-     * Get equity curve data
-     */
-    @GetMapping("/{portfolioId}/equity-curve")
-    @Transactional(readOnly = true)
-    fun getEquityCurve(@PathVariable portfolioId: Long): ResponseEntity<EquityCurveData> {
-        val data = portfolioService.getEquityCurve(portfolioId)
-        return ResponseEntity.ok(data)
-    }
-
-    /**
-     * Roll an options position to a new strike/expiration
-     */
-    @PostMapping("/{portfolioId}/trades/{tradeId}/roll")
-    fun rollTrade(
-        @PathVariable portfolioId: Long,
-        @PathVariable tradeId: Long,
-        @RequestBody request: RollTradeRequest
-    ): ResponseEntity<RollTradeResponse> {
-        try {
-            val (closedTrade, newTrade) = portfolioService.rollTrade(
-                tradeId = tradeId,
-                newSymbol = request.newSymbol,
-                newStrikePrice = request.newStrikePrice,
-                newExpirationDate = request.newExpirationDate,
-                newOptionType = request.newOptionType,
-                newEntryPrice = request.newEntryPrice,
-                rollDate = request.rollDate,
-                contracts = request.contracts,
-                exitPrice = request.exitPrice
-            )
-
-            return ResponseEntity.ok(
-                RollTradeResponse(
-                    closedTrade = closedTrade,
-                    newTrade = newTrade,
-                    rollCost = newTrade.rollCost ?: 0.0
-                )
-            )
-        } catch (e: IllegalArgumentException) {
-            return ResponseEntity.badRequest().build()
-        } catch (e: IllegalStateException) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-        }
-    }
-
-    /**
-     * Get the complete roll chain for a trade
-     */
-    @GetMapping("/{portfolioId}/trades/{tradeId}/roll-chain")
-    @Transactional(readOnly = true)
-    fun getRollChain(
-        @PathVariable portfolioId: Long,
-        @PathVariable tradeId: Long
-    ): ResponseEntity<RollChainResponse> {
-        val chain = portfolioService.getRollChain(tradeId)
-        return ResponseEntity.ok(RollChainResponse(trades = chain))
-    }
+  /**
+   * Get the complete roll chain for a trade
+   */
+  @GetMapping("/{portfolioId}/trades/{tradeId}/roll-chain")
+  @Transactional(readOnly = true)
+  fun getRollChain(
+    @PathVariable portfolioId: Long,
+    @PathVariable tradeId: Long,
+  ): ResponseEntity<RollChainResponse> {
+    val chain = portfolioService.getRollChain(tradeId)
+    return ResponseEntity.ok(RollChainResponse(trades = chain))
+  }
 }

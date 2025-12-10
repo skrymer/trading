@@ -36,7 +36,6 @@ import java.time.LocalDate
 
  */
 class ScreenerStock {
-
   @JsonProperty("Symbol")
   val symbol: String? = null
 
@@ -53,12 +52,10 @@ class ScreenerStock {
   val ovtlySignalReturn: Double = 0.0
 
   @JsonProperty("heatMap")
-  val heatmap: Double  = 0.0
+  val heatmap: Double = 0.0
 
   @JsonProperty("closePrice")
   val closePrice: Double = 0.0
 
-  override fun toString(): String {
-    return "Symbol: $symbol Close price: $closePrice Signal date: $buySellDate".toString()
-  }
+  override fun toString(): String = "Symbol: $symbol Close price: $closePrice Signal date: $buySellDate".toString()
 }

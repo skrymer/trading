@@ -11,8 +11,6 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpResponse
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import java.io.BufferedInputStream
-import java.io.InputStreamReader
 
 @Component
 class OvtlyrClient(
@@ -23,7 +21,6 @@ class OvtlyrClient(
   @Value("\${ovtlyr.marketbreadth.baseUrl}") val marketBreadthBaseUrl: String,
   @Value("\${ovtlyr.screener.baseUrl}") val screenerBaseUrl: String,
 ) {
-
   companion object {
     private val logger: Logger = LoggerFactory.getLogger("Ovtlyr client")
   }
@@ -33,14 +30,15 @@ class OvtlyrClient(
    */
   fun getStockInformation(symbol: String): OvtlyrStockInformation? {
     return runCatching {
-      val restClient: RestClient = RestClient.builder()
-        .requestInterceptor{ request, body, execution ->
-          val response = execution.execute(request, body)
-          logResponse(response)
-          response
-        }
-        .baseUrl(stockInformationBaseUrl)
-        .build()
+      val restClient: RestClient =
+        RestClient
+          .builder()
+          .requestInterceptor { request, body, execution ->
+            val response = execution.execute(request, body)
+            logResponse(response)
+            response
+          }.baseUrl(stockInformationBaseUrl)
+          .build()
       val requestBody = "{\"stockSymbol\":\"${symbol}\",\"period\":\"All\",\"page_index\":0,\"page_size\":20000}"
 
       logger.info("Fetching stock information for $symbol")
@@ -49,15 +47,17 @@ class OvtlyrClient(
       logger.info("Token: $cookieToken")
       logger.info("requestBody: $requestBody")
 
-      val response = restClient.post()
-        .header("ProjectId", projectIdHeader)
-        .cookie("UserId", cookieUserId)
-        .cookie("Token", cookieToken)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(requestBody)
-        .retrieve()
-        .toEntity(OvtlyrStockInformation::class.java)
-        .getBody()
+      val response =
+        restClient
+          .post()
+          .header("ProjectId", projectIdHeader)
+          .cookie("UserId", cookieUserId)
+          .cookie("Token", cookieToken)
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(requestBody)
+          .retrieve()
+          .toEntity(OvtlyrStockInformation::class.java)
+          .getBody()
 
       logger.info("Response received: $response")
       return response
@@ -73,9 +73,11 @@ class OvtlyrClient(
    */
   fun getBreadth(symbol: String): OvtlyrBreadth? {
     return runCatching {
-      val restClient: RestClient = RestClient.builder()
-        .baseUrl(marketBreadthBaseUrl)
-        .build()
+      val restClient: RestClient =
+        RestClient
+          .builder()
+          .baseUrl(marketBreadthBaseUrl)
+          .build()
 
       val requestBody =
         "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
@@ -86,7 +88,8 @@ class OvtlyrClient(
       logger.info("Token: $cookieToken")
       logger.info("requestBody: $requestBody")
 
-      return restClient.post()
+      return restClient
+        .post()
         .cookie("UserId", cookieUserId)
         .cookie("Token", cookieToken)
         .contentType(MediaType.APPLICATION_JSON)
@@ -104,9 +107,11 @@ class OvtlyrClient(
    */
   fun getStockPerformance(symbol: String): StockPerformance? {
     return runCatching {
-      val restClient: RestClient = RestClient.builder()
-        .baseUrl(marketBreadthBaseUrl)
-        .build()
+      val restClient: RestClient =
+        RestClient
+          .builder()
+          .baseUrl(marketBreadthBaseUrl)
+          .build()
 
       val requestBody =
         "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
@@ -117,7 +122,8 @@ class OvtlyrClient(
       logger.info("Token: $cookieToken")
       logger.info("requestBody: $requestBody")
 
-      return restClient.post()
+      return restClient
+        .post()
         .cookie("UserId", cookieUserId)
         .cookie("Token", cookieToken)
         .contentType(MediaType.APPLICATION_JSON)
@@ -131,9 +137,11 @@ class OvtlyrClient(
   }
 
   fun getScreenerStocks(): ScreenerResult? {
-    val restClient: RestClient = RestClient.builder()
-      .baseUrl(screenerBaseUrl)
-      .build()
+    val restClient: RestClient =
+      RestClient
+        .builder()
+        .baseUrl(screenerBaseUrl)
+        .build()
     val requestBody =
       "{\"searchKeyword\":null,\"filter_sectorIds\":null,\"filter_industryNames\":null,\"page_size\":200,\"page_index\":0,\"filter_OvtlyrSignalReturn\":null,\"filter_OvtlyrCapitalEfficency\":null,\"filter_min30DayAvgVol\":null,\"filter_max30DayAvgVol\":null,\"filter_CurrentBuySellStatus\":null,\"filter_PriceCorrectionPeriod\":null,\"filter_PriceCorrectionValue\":null,\"filter_minMarkerCap\":null,\"filter_maxMarkerCap\":null,\"filter_minClosePrice\":null,\"filter_maxClosePrice\":null,\"filter_minHeatMap\":null,\"filter_maxHeatMap\":null,\"isShowUpTreandIndicator\":null,\"isShowDownTreandIndicator\":null,\"isShowNeutralIndicator\":null,\"sortBy\":null,\"sortOrder\":null,\"filterByOscilatorMovingUpDown\":null,\"selectedFilterId\":null}"
 
@@ -143,7 +151,8 @@ class OvtlyrClient(
     logger.info("Token: $cookieToken")
     logger.info("requestBody: $requestBody")
 
-    return restClient.post()
+    return restClient
+      .post()
       .cookie("UserId", cookieUserId)
       .cookie("Token", cookieToken)
       .contentType(MediaType.APPLICATION_JSON)
@@ -158,4 +167,3 @@ class OvtlyrClient(
     logger.info("⇦ Headers: ${response.headers}")
   }
 }
-

@@ -10,17 +10,22 @@ import com.skrymer.udgaard.model.StockQuote
  * - Price is within value zone (< 20 EMA + 1.4 ATR)
  */
 @RegisteredStrategy(name = "VegardPlanEtf", type = StrategyType.ENTRY)
-class VegardPlanEtfEntryStrategy: DetailedEntryStrategy {
-  private val compositeStrategy = entryStrategy {
-    uptrend()
-    inValueZone(1.4)
-  }
+class VegardPlanEtfEntryStrategy : DetailedEntryStrategy {
+  private val compositeStrategy =
+    entryStrategy {
+      uptrend()
+      inValueZone(1.4)
+    }
 
   override fun description() = "Vegard Plan ETF entry strategy"
 
-  override fun test(stock: Stock, quote: StockQuote): Boolean {
-    return compositeStrategy.test(stock, quote)
-  }
+  override fun test(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = compositeStrategy.test(stock, quote)
 
-  override fun testWithDetails(stock: Stock, quote: StockQuote) = compositeStrategy.testWithDetails(stock, quote)
+  override fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ) = compositeStrategy.testWithDetails(stock, quote)
 }

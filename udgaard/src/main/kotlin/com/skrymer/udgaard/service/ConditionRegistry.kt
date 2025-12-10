@@ -16,29 +16,25 @@ import org.springframework.stereotype.Service
  */
 @Service
 class ConditionRegistry(
-    private val entryConditions: List<EntryCondition>,
-    private val exitConditions: List<ExitCondition>
+  private val entryConditions: List<EntryCondition>,
+  private val exitConditions: List<ExitCondition>,
 ) {
-    private val logger = LoggerFactory.getLogger(ConditionRegistry::class.java)
+  private val logger = LoggerFactory.getLogger(ConditionRegistry::class.java)
 
-    init {
-        logger.info("Registered ${entryConditions.size} entry conditions")
-        logger.info("Registered ${exitConditions.size} exit conditions")
-    }
+  init {
+    logger.info("Registered ${entryConditions.size} entry conditions")
+    logger.info("Registered ${exitConditions.size} exit conditions")
+  }
 
-    /**
-     * Get metadata for all entry conditions.
-     * Used by the API to expose available conditions to the frontend.
-     */
-    fun getEntryConditionMetadata(): List<ConditionMetadata> {
-        return entryConditions.map { it.getMetadata() }
-    }
+  /**
+   * Get metadata for all entry conditions.
+   * Used by the API to expose available conditions to the frontend.
+   */
+  fun getEntryConditionMetadata(): List<ConditionMetadata> = entryConditions.map { it.getMetadata() }
 
-    /**
-     * Get metadata for all exit conditions.
-     * Used by the API to expose available conditions to the frontend.
-     */
-    fun getExitConditionMetadata(): List<ConditionMetadata> {
-        return exitConditions.map { it.getMetadata() }
-    }
+  /**
+   * Get metadata for all exit conditions.
+   * Used by the API to expose available conditions to the frontend.
+   */
+  fun getExitConditionMetadata(): List<ConditionMetadata> = exitConditions.map { it.getMetadata() }
 }

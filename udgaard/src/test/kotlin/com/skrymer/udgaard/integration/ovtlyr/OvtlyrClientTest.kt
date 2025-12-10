@@ -7,12 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
 internal class OvtlyrClientTest {
-
   @Autowired
   lateinit var ovtlyrClient: OvtlyrClient
 
   @Test
-  fun `GET stock information`(){
+  fun `GET stock information`() {
     val spyStockInformation = ovtlyrClient.getStockInformation("SPY")
     Assertions.assertEquals(spyStockInformation?.resultDetail, "Success")
   }

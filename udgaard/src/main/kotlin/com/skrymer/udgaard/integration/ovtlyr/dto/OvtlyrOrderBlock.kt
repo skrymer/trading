@@ -22,24 +22,19 @@ import java.time.LocalDate
 data class OvtlyrOrderBlock(
   @JsonProperty("stockSymbol")
   val stockSymbol: String,
-
   @JsonProperty("startdate")
   @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
   val startDate: LocalDate,
-
   @JsonProperty("startdate_timestamp")
   val startDateTimestamp: Long,
-
   // End date can be "NA" or null in your sample, so keep it as String?
   @JsonProperty("enddate")
   val endDate: String?,
-
   @JsonProperty("enddate_timestamp")
   val endDateTimestamp: Long?,
-
   @JsonProperty("oB_Type")
-  val obType: ObType
-){
+  val obType: ObType,
+) {
   fun toModel(information: OvtlyrStockInformation): OrderBlock {
     val quote = information.getQuoteForDate(startDate)
 
@@ -47,8 +42,8 @@ data class OvtlyrOrderBlock(
       low = quote?.low ?: 0.0,
       high = quote?.high ?: 0.0,
       startDate = startDate,
-      endDate = if(endDate.isNullOrBlank()  || endDate == "NA") null else LocalDate.parse(endDate),
-      orderBlockType = if(obType == ObType.BEARISH) OrderBlockType.BEARISH else OrderBlockType.BULLISH
+      endDate = if (endDate.isNullOrBlank() || endDate == "NA") null else LocalDate.parse(endDate),
+      orderBlockType = if (obType == ObType.BEARISH) OrderBlockType.BEARISH else OrderBlockType.BULLISH,
     )
   }
 }
@@ -58,5 +53,5 @@ enum class ObType {
   BEARISH,
 
   @JsonProperty("Bullish")
-  BULLISH
+  BULLISH,
 }

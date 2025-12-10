@@ -5,9 +5,7 @@ import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
 internal class UdgaardApplicationTests {
-
-    @Test
-    fun contextLoads() {
-    }
-
+  @Test
+  fun contextLoads() {
+  }
 }

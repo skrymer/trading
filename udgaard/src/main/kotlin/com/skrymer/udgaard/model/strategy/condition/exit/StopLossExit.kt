@@ -15,36 +15,39 @@ import org.springframework.stereotype.Component
  */
 @Component
 class StopLossExit(
-    private val atrMultiplier: Double = 2.0
+  private val atrMultiplier: Double = 2.0,
 ) : ExitCondition {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
+    if (entryQuote == null) return false
 
-    override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-        if (entryQuote == null) return false
+    val stopLossLevel = entryQuote.closePrice - (atrMultiplier * entryQuote.atr)
+    return quote.closePrice < stopLossLevel
+  }
 
-        val stopLossLevel = entryQuote.closePrice - (atrMultiplier * entryQuote.atr)
-        return quote.closePrice < stopLossLevel
-    }
+  override fun exitReason(): String = "Stop loss triggered ($atrMultiplier ATR below entry)"
 
-    override fun exitReason(): String =
-        "Stop loss triggered (${atrMultiplier} ATR below entry)"
+  override fun description(): String = "Stop loss ($atrMultiplier ATR)"
 
-    override fun description(): String =
-        "Stop loss (${atrMultiplier} ATR)"
-
-    override fun getMetadata() = ConditionMetadata(
+  override fun getMetadata() =
+    ConditionMetadata(
       type = "stopLoss",
       displayName = "Stop Loss",
       description = "Exit when price drops below entry - ATR multiplier",
-      parameters = listOf(
-        ParameterMetadata(
-          name = "atrMultiplier",
-          displayName = "ATR Multiplier",
-          type = "number",
-          defaultValue = 2.0,
-          min = 0.5,
-          max = 5.0
-        )
-      ),
-      category = "StopLoss"
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "atrMultiplier",
+            displayName = "ATR Multiplier",
+            type = "number",
+            defaultValue = 2.0,
+            min = 0.5,
+            max = 5.0,
+          ),
+        ),
+      category = "StopLoss",
     )
 }

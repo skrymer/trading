@@ -13,11 +13,11 @@ import org.springframework.stereotype.Component
 @Retention(AnnotationRetention.RUNTIME)
 @Component
 annotation class RegisteredStrategy(
-    val name: String,
-    val type: StrategyType
+  val name: String,
+  val type: StrategyType,
 )
 
 enum class StrategyType {
-    ENTRY,
-    EXIT
+  ENTRY,
+  EXIT,
 }

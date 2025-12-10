@@ -1,8 +1,10 @@
 package com.skrymer.udgaard.model
 
 // generated from current S&P 500 constituents (Wikipedia)
-enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
-
+enum class StockSymbol(
+  val sector: SectorSymbol,
+  val symbol: String,
+) {
   // =========================
   // Information Technology
   // =========================
@@ -28,21 +30,21 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   CDW(SectorSymbol.XLK, "CDW"),
   CDNS(SectorSymbol.XLK, "CDNS"),
   CEVA(SectorSymbol.XLK, "CEVA"), // (if not present in your feed, remove)
-  CEG(SectorSymbol.XLK, "CEG"),   // (check membership if needed)
+  CEG(SectorSymbol.XLK, "CEG"), // (check membership if needed)
   CRWD(SectorSymbol.XLK, "CRWD"),
   CRM(SectorSymbol.XLK, "CRM"),
   CSCO(SectorSymbol.XLK, "CSCO"),
   CTSH(SectorSymbol.XLK, "CTSH"),
   DDOG(SectorSymbol.XLK, "DDOG"),
   DXC(SectorSymbol.XLK, "DXC"),
-  EMR(SectorSymbol.XLK, "EMR"),   // (Industrial/IT overlap historically — keep if listed IT)
+  EMR(SectorSymbol.XLK, "EMR"), // (Industrial/IT overlap historically — keep if listed IT)
   ENPH(SectorSymbol.XLK, "ENPH"),
   EPAM(SectorSymbol.XLK, "EPAM"),
   FTNT(SectorSymbol.XLK, "FTNT"),
   GEN(SectorSymbol.XLK, "GEN"),
   GFS(SectorSymbol.XLK, "GFS"),
   GLW(SectorSymbol.XLK, "GLW"),
-  GOOG(SectorSymbol.XLK, "GOOG"),   // Alphabet share class (sector: Comm Svcs on GICS; map if you prefer XLC there)
+  GOOG(SectorSymbol.XLK, "GOOG"), // Alphabet share class (sector: Comm Svcs on GICS; map if you prefer XLC there)
   GOOGL(SectorSymbol.XLK, "GOOGL"), // see comment above
   HPE(SectorSymbol.XLK, "HPE"),
   HPQ(SectorSymbol.XLK, "HPQ"),
@@ -54,7 +56,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   JKHY(SectorSymbol.XLK, "JKHY"),
   KLAC(SectorSymbol.XLK, "KLAC"),
   LRCX(SectorSymbol.XLK, "LRCX"),
-  MA(SectorSymbol.XLK, "MA"),       // (Financials in GICS; move to XLF if you prefer strict GICS)
+  MA(SectorSymbol.XLK, "MA"), // (Financials in GICS; move to XLF if you prefer strict GICS)
   MDB(SectorSymbol.XLK, "MDB"),
   MCHP(SectorSymbol.XLK, "MCHP"),
   MPWR(SectorSymbol.XLK, "MPWR"),
@@ -62,7 +64,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   MSFT(SectorSymbol.XLK, "MSFT"),
   MU(SectorSymbol.XLK, "MU"),
   NET(SectorSymbol.XLK, "NET"),
-  NFLX(SectorSymbol.XLK, "NFLX"),   // (Communication Services on GICS; move to XLC if strict)
+  NFLX(SectorSymbol.XLK, "NFLX"), // (Communication Services on GICS; move to XLC if strict)
   NOW(SectorSymbol.XLK, "NOW"),
   NVDA(SectorSymbol.XLK, "NVDA"),
   NXPI(SectorSymbol.XLK, "NXPI"),
@@ -73,11 +75,11 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   PAYC(SectorSymbol.XLK, "PAYC"),
   PAYX(SectorSymbol.XLK, "PAYX"),
   PLTR(SectorSymbol.XLK, "PLTR"),
-  PTCT(SectorSymbol.XLK, "PTCT"),   // (if not present, remove)
+  PTCT(SectorSymbol.XLK, "PTCT"), // (if not present, remove)
   QCOM(SectorSymbol.XLK, "QCOM"),
   SHOP(SectorSymbol.XLK, "SHOP"),
   SNPS(SectorSymbol.XLK, "SNPS"),
-  SPLK(SectorSymbol.XLK, "SPLK"),   // (if delisted/merged, remove)
+  SPLK(SectorSymbol.XLK, "SPLK"), // (if delisted/merged, remove)
   STX(SectorSymbol.XLK, "STX"),
   SWKS(SectorSymbol.XLK, "SWKS"),
   TEAM(SectorSymbol.XLK, "TEAM"),
@@ -85,7 +87,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   TER(SectorSymbol.XLK, "TER"),
   TYL(SectorSymbol.XLK, "TYL"),
   TXN(SectorSymbol.XLK, "TXN"),
-  V(SectorSymbol.XLK, "V"),         // (Financials in GICS; move to XLF if strict)
+  V(SectorSymbol.XLK, "V"), // (Financials in GICS; move to XLF if strict)
   VRSN(SectorSymbol.XLK, "VRSN"),
   WDAY(SectorSymbol.XLK, "WDAY"),
   WDC(SectorSymbol.XLK, "WDC"),
@@ -155,7 +157,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   ABT(SectorSymbol.XLV, "ABT"),
   ABBV(SectorSymbol.XLV, "ABBV"),
   ABC(SectorSymbol.XLV, "ABC"),
-  ABMD(SectorSymbol.XLV, "ABMD"),    // (if removed, delete)
+  ABMD(SectorSymbol.XLV, "ABMD"), // (if removed, delete)
   ALGN(SectorSymbol.XLV, "ALGN"),
   AMGN(SectorSymbol.XLV, "AMGN"),
   AZN(SectorSymbol.XLV, "AZN"),
@@ -266,6 +268,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   WM(SectorSymbol.XLI, "WM"),
   XYL(SectorSymbol.XLI, "XYL"),
   ZBRA_XLI(SectorSymbol.XLI, "ZBRA"),
+
   // =========================
   // Materials
   // =========================
@@ -352,6 +355,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   SRE(SectorSymbol.XLU, "SRE"),
   WEC(SectorSymbol.XLU, "WEC"),
   XEL(SectorSymbol.XLU, "XEL"),
+
   // =========================
   // Consumer Discretionary
   // =========================
@@ -445,6 +449,7 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   TSN(SectorSymbol.XLP, "TSN"),
   WBA(SectorSymbol.XLP, "WBA"),
   WMT(SectorSymbol.XLP, "WMT"),
+
   // =========================
   // Communication Services
   // =========================
@@ -503,9 +508,9 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   WELL(SectorSymbol.XLRE, "WELL"),
   WY(SectorSymbol.XLRE, "WY"),
 
-//-------------
+// -------------
 // ETFS
-//-------------
+// -------------
   QQQ(SectorSymbol.XLK, "QQQ"),
   TQQQ(SectorSymbol.XLK, "TQQQ"),
   SPY(SectorSymbol.XLK, "SPY"),
@@ -1570,7 +1575,5 @@ enum class StockSymbol(val sector: SectorSymbol, val symbol: String) {
   // User defined stocks
   // =====================
 
-  RKLB(SectorSymbol.XLK, "RKLB")
-
+  RKLB(SectorSymbol.XLK, "RKLB"),
 }
-

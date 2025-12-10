@@ -19,13 +19,9 @@ class OvtlyrStockInformation {
   @JsonProperty("lst_orderBlock")
   val orderBlocks: List<OvtlyrOrderBlock> = emptyList()
 
-  fun getQuotes(): List<OvtlyrStockQuote?> {
-    return quotes
-  }
+  fun getQuotes(): List<OvtlyrStockQuote?> = quotes
 
-  override fun toString(): String {
-    return stockName ?: "Unknown stockinformation"
-  }
+  override fun toString(): String = stockName ?: "Unknown stockinformation"
 
   /**
    * Map nested objct stkDetail
@@ -87,30 +83,30 @@ class OvtlyrStockInformation {
    * @param date
    * @return the closest buy signal to the given date
    */
-  fun getLastBuySignal(date: LocalDate) = quotes
-    // Only care about quotes with a buy signal
-    .filter { it.hasBuySignal() }
-    // Sort by quote date desc
-    .sortedByDescending { it.getDate() }
-    // Only look at quotes that are before or equal to the given date
-    .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
-    ?.getDate()
-
+  fun getLastBuySignal(date: LocalDate) =
+    quotes
+      // Only care about quotes with a buy signal
+      .filter { it.hasBuySignal() }
+      // Sort by quote date desc
+      .sortedByDescending { it.getDate() }
+      // Only look at quotes that are before or equal to the given date
+      .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
+      ?.getDate()
 
   /**
    *
    * @param date
    * @return the closest sell signal to the given date
    */
-  fun getLastSellSignal(date: LocalDate) = quotes
-    // Only care about quotes with a sell signal
-    .filter { it.hasSellSignal() }
-    // Sort by quote date desc
-    .sortedByDescending { it.getDate() }
-    // Only look for quotes that are before or equal to the given date
-    .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
-    ?.getDate()
-
+  fun getLastSellSignal(date: LocalDate) =
+    quotes
+      // Only care about quotes with a sell signal
+      .filter { it.hasSellSignal() }
+      // Sort by quote date desc
+      .sortedByDescending { it.getDate() }
+      // Only look for quotes that are before or equal to the given date
+      .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
+      ?.getDate()
 
   fun getCurrentSignalFrom(from: LocalDate): String {
     val lastSellSignal = getLastSellSignal(from)
@@ -123,8 +119,7 @@ class OvtlyrStockInformation {
     return if (lastBuySignal?.isAfter(lastSellSignal) == true) "Buy" else "Sell"
   }
 
-  fun getQuoteForDate(date: LocalDate) =
-    getQuotes().firstOrNull() { it?.getDate()?.equals(date) == true }
+  fun getQuoteForDate(date: LocalDate) = getQuotes().firstOrNull { it?.getDate()?.equals(date) == true }
 
   fun getPreviousQuote(quote: OvtlyrStockQuote?) =
     getQuotes()
@@ -134,7 +129,10 @@ class OvtlyrStockInformation {
   /**
    * Get previous quotes
    */
-  fun getPreviousQuotes(quote: OvtlyrStockQuote, lookBack: Int): List<OvtlyrStockQuote> {
+  fun getPreviousQuotes(
+    quote: OvtlyrStockQuote,
+    lookBack: Int,
+  ): List<OvtlyrStockQuote> {
     val sortedByDateAsc = quotes.sortedBy { it.getDate() }
     val quoteIndex = sortedByDateAsc.indexOf(quote)
 

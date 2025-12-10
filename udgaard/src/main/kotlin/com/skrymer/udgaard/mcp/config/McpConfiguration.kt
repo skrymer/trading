@@ -12,11 +12,10 @@ import org.springframework.context.annotation.Configuration
  */
 @Configuration
 class McpConfiguration {
-
-    @Bean
-    fun stockToolCallbackProvider(stockMcpTools: StockMcpTools): ToolCallbackProvider {
-        return MethodToolCallbackProvider.builder()
-            .toolObjects(stockMcpTools)
-            .build()
-    }
+  @Bean
+  fun stockToolCallbackProvider(stockMcpTools: StockMcpTools): ToolCallbackProvider =
+    MethodToolCallbackProvider
+      .builder()
+      .toolObjects(stockMcpTools)
+      .build()
 }

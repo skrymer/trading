@@ -19,44 +19,48 @@ import org.springframework.stereotype.Component
  */
 @Component
 class MinimumPriceCondition(
-    private val minimumPrice: Double = 10.0
+  private val minimumPrice: Double = 10.0,
 ) : EntryCondition {
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.closePrice >= minimumPrice
 
-    override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        return quote.closePrice >= minimumPrice
-    }
+  override fun description(): String = "Price >= $${"%.2f".format(minimumPrice)}"
 
-    override fun description(): String = "Price >= $${"%.2f".format(minimumPrice)}"
-
-    override fun getMetadata() = ConditionMetadata(
-        type = "minimumPrice",
-        displayName = "Minimum Price",
-        description = "Stock price is above minimum threshold (avoids penny stocks)",
-        parameters = listOf(
-            ParameterMetadata(
-                name = "minimumPrice",
-                displayName = "Minimum Price",
-                type = "number",
-                defaultValue = 10.0,
-                min = 0.01,
-                max = 1000
-            )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "minimumPrice",
+      displayName = "Minimum Price",
+      description = "Stock price is above minimum threshold (avoids penny stocks)",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "minimumPrice",
+            displayName = "Minimum Price",
+            type = "number",
+            defaultValue = 10.0,
+            min = 0.01,
+            max = 1000,
+          ),
         ),
-        category = "Stock"
+      category = "Stock",
     )
 
-    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val passed = evaluate(stock, quote)
-        val message = if (passed) description() + " ✓" else description() + " ✗"
-        
-        return ConditionEvaluationResult(
-            conditionType = "MinimumPriceCondition",
-            description = description(),
-            passed = passed,
-            actualValue = null,
-            threshold = null,
-            message = message
-        )
-    }
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
+    val passed = evaluate(stock, quote)
+    val message = if (passed) description() + " ✓" else description() + " ✗"
 
+    return ConditionEvaluationResult(
+      conditionType = "MinimumPriceCondition",
+      description = description(),
+      passed = passed,
+      actualValue = null,
+      threshold = null,
+      message = message,
+    )
+  }
 }

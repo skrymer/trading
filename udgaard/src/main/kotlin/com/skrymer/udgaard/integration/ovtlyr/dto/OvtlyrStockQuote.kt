@@ -175,47 +175,28 @@ class OvtlyrStockQuote {
   @JsonProperty("bull_per")
   val sectorBullPercentage: Double = 0.0
 
-  fun getDate(): LocalDate {
-    return date!!
-  }
+  fun getDate(): LocalDate = date!!
 
-  fun getSymbol(): String? {
-    return symbol
-  }
+  fun getSymbol(): String? = symbol
 
-  fun getClosePrice(): Double {
-    return closePrice
-  }
+  fun getClosePrice(): Double = closePrice
 
-  fun getOpenPrice(): Double? {
-    return openPrice
-  }
+  fun getOpenPrice(): Double? = openPrice
 
-  fun getClosePriceEMA5(): Double? {
-    return closePriceEMA5
-  }
+  fun getClosePriceEMA5(): Double? = closePriceEMA5
 
-  fun getClosePriceEMA20(): Double? {
-    return closePriceEMA20
-  }
+  fun getClosePriceEMA20(): Double? = closePriceEMA20
 
-  fun getClosePriceEMA50(): Double? {
-    return closePriceEMA50
-  }
+  fun getClosePriceEMA50(): Double? = closePriceEMA50
 
-  fun hasBuySignal(): Boolean {
-    return "Buy" == signal
-  }
+  fun hasBuySignal(): Boolean = "Buy" == signal
 
-  fun hasSellSignal(): Boolean {
-    return "Sell" == signal
-  }
+  fun hasSellSignal(): Boolean = "Sell" == signal
 
   val isInUptrend: Boolean
     get() = "Uptrend" == trend
 
-  override fun toString() =
-    "Symbol: $symbol Signal: $signal Trend: $trend Date: $date"
+  override fun toString() = "Symbol: $symbol Signal: $signal Trend: $trend Date: $date"
 
   /**
    * Calculate the ATR (Average True Range)
@@ -225,10 +206,15 @@ class OvtlyrStockQuote {
    * @param stock - the stock
    * @param nPeriods - the number of periods, default 14
    */
-  private fun calculateATR(stock: OvtlyrStockInformation, nPeriods: Int = 14): Double {
-    val previousQuotes = stock.getQuotes()
-      .sortedByDescending { it?.getDate() }
-      .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+  private fun calculateATR(
+    stock: OvtlyrStockInformation,
+    nPeriods: Int = 14,
+  ): Double {
+    val previousQuotes =
+      stock
+        .getQuotes()
+        .sortedByDescending { it?.getDate() }
+        .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
 
     val toIndex = if (previousQuotes.size < nPeriods) previousQuotes.size else nPeriods
     val atrCalculationQuotes = previousQuotes.subList(0, toIndex)
@@ -255,23 +241,32 @@ class OvtlyrStockQuote {
   /**
    * Calculate the doncian upper band for the given stock.
    */
-  fun calculateDonchianUpperBand(stock: OvtlyrStockInformation, periods: Int = 5) =
-    stock.getPreviousQuotes(this, periods)
-      .maxOfOrNull { it.closePrice } ?: 0.0
+  fun calculateDonchianUpperBand(
+    stock: OvtlyrStockInformation,
+    periods: Int = 5,
+  ) = stock
+    .getPreviousQuotes(this, periods)
+    .maxOfOrNull { it.closePrice } ?: 0.0
 
   /**
    * Calculate the donchian upper band for the number of stocks in an uptrend.
    */
-  fun calculateDonchianUpperBandMarket(market: Breadth?, periods: Int = 4) =
-    market?.getPreviousQuotes(this.date, periods)
-      ?.maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+  fun calculateDonchianUpperBandMarket(
+    market: Breadth?,
+    periods: Int = 4,
+  ) = market
+    ?.getPreviousQuotes(this.date, periods)
+    ?.maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
   /**
    * Calculate the donchian lower band for the number of stocks in an uptrend.
    */
-  fun calculateDonchianLowerBandMarket(market: Breadth?, periods: Int = 4) =
-    market?.getPreviousQuotes(this.date, periods)
-      ?.minOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
+  fun calculateDonchianLowerBandMarket(
+    market: Breadth?,
+    periods: Int = 4,
+  ) = market
+    ?.getPreviousQuotes(this.date, periods)
+    ?.minOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
   /**
    * Calculate EMA for the stock's close price
@@ -279,11 +274,16 @@ class OvtlyrStockQuote {
    * @param period - the EMA period (e.g., 5, 10, 20, 50)
    * @return the calculated EMA value
    */
-  private fun calculateStockEMA(stock: OvtlyrStockInformation, period: Int): Double {
-    val prices = stock.getQuotes()
-      .sortedBy { it?.getDate() }
-      .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
-      .mapNotNull { it?.closePrice }
+  private fun calculateStockEMA(
+    stock: OvtlyrStockInformation,
+    period: Int,
+  ): Double {
+    val prices =
+      stock
+        .getQuotes()
+        .sortedBy { it?.getDate() }
+        .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+        .mapNotNull { it?.closePrice }
 
     if (prices.size < period) return 0.0
 
@@ -301,10 +301,12 @@ class OvtlyrStockQuote {
    * Calculate 200-day EMA from SPY price history
    */
   fun calculateEMA200(spy: OvtlyrStockInformation): Double {
-    val prices = spy.getQuotes()
-      .sortedBy { it?.getDate() }
-      .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
-      .mapNotNull { it?.closePrice }
+    val prices =
+      spy
+        .getQuotes()
+        .sortedBy { it?.getDate() }
+        .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+        .mapNotNull { it?.closePrice }
 
     if (prices.size < 200) return 0.0
 
@@ -322,10 +324,12 @@ class OvtlyrStockQuote {
    * Calculate 200-day SMA from SPY price history
    */
   fun calculateSMA200(spy: OvtlyrStockInformation): Double {
-    val prices = spy.getQuotes()
-      .sortedBy { it?.getDate() }
-      .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
-      .mapNotNull { it?.closePrice }
+    val prices =
+      spy
+        .getQuotes()
+        .sortedBy { it?.getDate() }
+        .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+        .mapNotNull { it?.closePrice }
 
     if (prices.size < 200) return 0.0
     return prices.takeLast(200).average()
@@ -335,10 +339,12 @@ class OvtlyrStockQuote {
    * Calculate 50-day EMA from SPY price history
    */
   fun calculateEMA50(spy: OvtlyrStockInformation): Double {
-    val prices = spy.getQuotes()
-      .sortedBy { it?.getDate() }
-      .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
-      .mapNotNull { it?.closePrice }
+    val prices =
+      spy
+        .getQuotes()
+        .sortedBy { it?.getDate() }
+        .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+        .mapNotNull { it?.closePrice }
 
     if (prices.size < 50) return 0.0
 
@@ -356,9 +362,11 @@ class OvtlyrStockQuote {
    * Count consecutive days SPY has been above 200-day SMA
    */
   fun calculateDaysAbove200SMA(spy: OvtlyrStockInformation): Int {
-    val quotes = spy.getQuotes()
-      .sortedByDescending { it?.getDate() }
-      .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
+    val quotes =
+      spy
+        .getQuotes()
+        .sortedByDescending { it?.getDate() }
+        .filter { it?.getDate()?.isBefore(date) == true || it?.getDate()?.equals(date) == true }
 
     if (quotes.size < 200) return 0
 
@@ -367,9 +375,11 @@ class OvtlyrStockQuote {
       val quote = quotes[i] ?: continue
 
       // Calculate SMA200 for this point in time
-      val pricesUpToThisPoint = quotes.subList(i, quotes.size)
-        .mapNotNull { it?.closePrice }
-        .reversed()
+      val pricesUpToThisPoint =
+        quotes
+          .subList(i, quotes.size)
+          .mapNotNull { it?.closePrice }
+          .reversed()
 
       if (pricesUpToThisPoint.size < 200) break
 
@@ -401,13 +411,12 @@ class OvtlyrStockQuote {
     return (breadthQuote.numberOfStocksInUptrend.toDouble() / total) * 100.0
   }
 
-  override fun equals(other: Any?): Boolean {
-    return if (other !is OvtlyrStockQuote) {
+  override fun equals(other: Any?): Boolean =
+    if (other !is OvtlyrStockQuote) {
       false
     } else {
       other.date?.equals(date) == true && other.symbol.equals(symbol)
     }
-  }
 
   override fun hashCode(): Int {
     var result = closePrice.hashCode()

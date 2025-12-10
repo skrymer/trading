@@ -10,19 +10,22 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SellSignalExit : ExitCondition {
-  override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
-    return quote.hasSellSignal()
-  }
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean = quote.hasSellSignal()
 
   override fun exitReason(): String = "Sell signal"
 
   override fun description(): String = "Sell signal"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "sellSignal",
-    displayName = "Sell Signal",
-    description = "Exit when sell signal appears",
-    parameters = emptyList(),
-    category = "Signal"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "sellSignal",
+      displayName = "Sell Signal",
+      description = "Exit when sell signal appears",
+      parameters = emptyList(),
+      category = "Signal",
+    )
 }

@@ -18,7 +18,6 @@ import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 
-
 @Service
 open class StockService(
   val stockRepository: StockRepository,
@@ -28,9 +27,8 @@ open class StockService(
   val stockProvider: StockProvider,
   val technicalIndicatorProvider: TechnicalIndicatorProvider,
   val fundamentalDataProvider: FundamentalDataProvider,
-  val stockFactory: StockFactory
+  val stockFactory: StockFactory,
 ) {
-
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
   }
@@ -40,19 +38,24 @@ open class StockService(
    * @param symbol - the [symbol] of the stock to get
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
-  open fun getStock(symbol: String, forceFetch: Boolean = false): Stock? {
+  open fun getStock(
+    symbol: String,
+    forceFetch: Boolean = false,
+  ): Stock? {
     logger.info("Getting stock $symbol with forceFetch=$forceFetch")
 
     return if (forceFetch) {
       fetchStock(symbol, getSpy())
     } else {
-      stockRepository.findById(symbol).orElseGet {
-        fetchStock(symbol, getSpy())
-      }?.also {
-        // Force loading of orderBlocks and earnings to ensure they're in cache
-        it.orderBlocks.size
-        it.earnings.size
-      }
+      stockRepository
+        .findById(symbol)
+        .orElseGet {
+          fetchStock(symbol, getSpy())
+        }?.also {
+          // Force loading of orderBlocks and earnings to ensure they're in cache
+          it.orderBlocks.size
+          it.earnings.size
+        }
     }
   }
 
@@ -60,9 +63,7 @@ open class StockService(
    * @return all stocks currently stored in DB
    */
   @Cacheable(value = ["stocks"], key = "'allStocks'")
-  open fun getAllStocks(): List<Stock> {
-    return stockRepository.findAll()
-  }
+  open fun getAllStocks(): List<Stock> = stockRepository.findAll()
 
   /**
    * Get stocks by a list of symbols (efficient repository query)
@@ -75,33 +76,37 @@ open class StockService(
   @Cacheable(
     value = ["stocks"],
     key = "'bySymbols:' + #symbols.toString()",
-    unless = "#forceFetch or #result.isEmpty()"
+    unless = "#forceFetch or #result.isEmpty()",
   )
   @OptIn(ExperimentalCoroutinesApi::class)
-  open fun getStocksBySymbols(symbols: List<String>, forceFetch: Boolean = false): List<Stock> = runBlocking {
-    // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
-    val sortedSymbols = symbols.sorted()
-    val logger = LoggerFactory.getLogger("StockFetcher")
-    val limited = Dispatchers.IO.limitedParallelism(10)
+  open fun getStocksBySymbols(
+    symbols: List<String>,
+    forceFetch: Boolean = false,
+  ): List<Stock> =
+    runBlocking {
+      // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
+      val sortedSymbols = symbols.sorted()
+      val logger = LoggerFactory.getLogger("StockFetcher")
+      val limited = Dispatchers.IO.limitedParallelism(10)
 
-    if (forceFetch) {
-      // Force fetch all symbols from API
-      return@runBlocking sortedSymbols.map { symbol ->
-        async(limited) {
-          runCatching {
-            fetchStock(symbol, getSpy())
-          }.onFailure { e ->
-            logger.warn("Failed to force fetch symbol={}: {}", symbol, e.message, e)
-          }.getOrNull()
-        }
+      if (forceFetch) {
+        // Force fetch all symbols from API
+        return@runBlocking sortedSymbols
+          .map { symbol ->
+            async(limited) {
+              runCatching {
+                fetchStock(symbol, getSpy())
+              }.onFailure { e ->
+                logger.warn("Failed to force fetch symbol={}: {}", symbol, e.message, e)
+              }.getOrNull()
+            }
+          }.awaitAll()
+          .filterNotNull()
       }
-        .awaitAll()
-        .filterNotNull()
-    }
 
-    // Get existing stocks from repository with quotes (single query for all symbols)
-    return@runBlocking stockRepository.findAllBySymbolIn(sortedSymbols)
-  }
+      // Get existing stocks from repository with quotes (single query for all symbols)
+      return@runBlocking stockRepository.findAllBySymbolIn(sortedSymbols)
+    }
 
   /**
    * Fetches stock data from AlphaVantage (primary) enriched with Ovtlyr indicators.
@@ -116,7 +121,10 @@ open class StockService(
    * @param spy - SPY reference data for enriching stock information
    * @return the fetched and saved stock, or null if fetch or save failed
    */
-  private fun fetchStock(symbol: String, spy: OvtlyrStockInformation): Stock? {
+  private fun fetchStock(
+    symbol: String,
+    spy: OvtlyrStockInformation,
+  ): Stock? {
     val logger = LoggerFactory.getLogger("StockService")
 
     return runCatching {
@@ -162,21 +170,23 @@ open class StockService(
       // Step 5: Fetch breadth data for context
       val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
       val sectorSymbol = SectorSymbol.fromString(sectorSymbolString)
-      val sectorBreadth = sectorSymbol?.let {
-        breadthRepository.findBySymbol(BreadthSymbol.Sector(it).toIdentifier())
-      }
+      val sectorBreadth =
+        sectorSymbol?.let {
+          breadthRepository.findBySymbol(BreadthSymbol.Sector(it).toIdentifier())
+        }
 
       // Step 6: Create enriched quotes using StockFactory
       // This will: calculate EMAs, add ATR, calculate Donchian, determine trend, enrich with Ovtlyr
       logger.info("Creating enriched quotes for $symbol")
-      val enrichedQuotes = stockFactory.enrichQuotes(
-        symbol = symbol,
-        stockQuotes = stockQuotes,
-        atrMap = atrMap,
-        marketBreadth = marketBreadth,
-        sectorBreadth = sectorBreadth,
-        spy = spy
-      )
+      val enrichedQuotes =
+        stockFactory.enrichQuotes(
+          symbol = symbol,
+          stockQuotes = stockQuotes,
+          atrMap = atrMap,
+          marketBreadth = marketBreadth,
+          sectorBreadth = sectorBreadth,
+          spy = spy,
+        )
 
       if (enrichedQuotes == null) {
         logger.error("FAILED: Could not create enriched quotes for $symbol (Ovtlyr enrichment failed)")
@@ -187,38 +197,42 @@ open class StockService(
       logger.info("Calculating order blocks for $symbol")
 
       // Calculate with HIGH sensitivity (28% - more blocks detected)
-      val orderBlocksHigh = orderBlockCalculator.calculateOrderBlocks(
-        quotes = enrichedQuotes,
-        sensitivity = 28.0,
-        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH
-      )
+      val orderBlocksHigh =
+        orderBlockCalculator.calculateOrderBlocks(
+          quotes = enrichedQuotes,
+          sensitivity = 28.0,
+          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH,
+        )
 
       // Calculate with LOW sensitivity (50% - fewer, stronger blocks)
-      val orderBlocksLow = orderBlockCalculator.calculateOrderBlocks(
-        quotes = enrichedQuotes,
-        sensitivity = 50.0,
-        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
-      )
+      val orderBlocksLow =
+        orderBlockCalculator.calculateOrderBlocks(
+          quotes = enrichedQuotes,
+          sensitivity = 50.0,
+          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW,
+        )
 
       // Combine both sensitivity levels
       val orderBlocks = orderBlocksHigh + orderBlocksLow
-      logger.info("Found ${orderBlocksHigh.size} order blocks (HIGH sensitivity) + ${orderBlocksLow.size} (LOW sensitivity) = ${orderBlocks.size} total")
+      logger.info(
+        "Found ${orderBlocksHigh.size} order blocks (HIGH sensitivity) + ${orderBlocksLow.size} (LOW sensitivity) = ${orderBlocks.size} total",
+      )
 
       // Step 8: Create Stock entity
       logger.info("Creating Stock entity for $symbol")
-      val stock = stockFactory.createStock(
-        symbol = symbol,
-        sectorSymbol = sectorSymbolString,
-        enrichedQuotes = enrichedQuotes,
-        orderBlocks = orderBlocks,
-        earnings = earnings
-      )
+      val stock =
+        stockFactory.createStock(
+          symbol = symbol,
+          sectorSymbol = sectorSymbolString,
+          enrichedQuotes = enrichedQuotes,
+          orderBlocks = orderBlocks,
+          earnings = earnings,
+        )
 
       // Step 9: Save and return
       logger.info("Saving stock $symbol to database")
       stockRepository.save(stock)
-    }
-      .onFailure { action -> Companion.logger.error("Could not fetch stock $symbol", action) }
+    }.onFailure { action -> Companion.logger.error("Could not fetch stock $symbol", action) }
       .getOrNull()
   }
 
@@ -253,17 +267,19 @@ open class StockService(
     }
 
     // Recalculate order blocks with both sensitivities
-    val orderBlocksHigh = orderBlockCalculator.calculateOrderBlocks(
-      quotes = stock.quotes.sortedBy { it.date },
-      sensitivity = 28.0,
-      sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH
-    )
+    val orderBlocksHigh =
+      orderBlockCalculator.calculateOrderBlocks(
+        quotes = stock.quotes.sortedBy { it.date },
+        sensitivity = 28.0,
+        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH,
+      )
 
-    val orderBlocksLow = orderBlockCalculator.calculateOrderBlocks(
-      quotes = stock.quotes.sortedBy { it.date },
-      sensitivity = 50.0,
-      sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
-    )
+    val orderBlocksLow =
+      orderBlockCalculator.calculateOrderBlocks(
+        quotes = stock.quotes.sortedBy { it.date },
+        sensitivity = 50.0,
+        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW,
+      )
 
     // Create new order blocks list
     val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
@@ -276,7 +292,9 @@ open class StockService(
     stock.orderBlocks.addAll(newOrderBlocks)
     stock.orderBlocks.forEach { it.stock = stock }
 
-    logger.info("Recalculated ${newOrderBlocks.size} order blocks for $symbol (${orderBlocksHigh.size} HIGH + ${orderBlocksLow.size} LOW)")
+    logger.info(
+      "Recalculated ${newOrderBlocks.size} order blocks for $symbol (${orderBlocksHigh.size} HIGH + ${orderBlocksLow.size} LOW)",
+    )
 
     // Save and return
     return stockRepository.save(stock)
@@ -311,17 +329,19 @@ open class StockService(
         }
 
         // Recalculate with both sensitivities
-        val orderBlocksHigh = orderBlockCalculator.calculateOrderBlocks(
-          quotes = stock.quotes.sortedBy { it.date },
-          sensitivity = 28.0,
-          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH
-        )
+        val orderBlocksHigh =
+          orderBlockCalculator.calculateOrderBlocks(
+            quotes = stock.quotes.sortedBy { it.date },
+            sensitivity = 28.0,
+            sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH,
+          )
 
-        val orderBlocksLow = orderBlockCalculator.calculateOrderBlocks(
-          quotes = stock.quotes.sortedBy { it.date },
-          sensitivity = 50.0,
-          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW
-        )
+        val orderBlocksLow =
+          orderBlockCalculator.calculateOrderBlocks(
+            quotes = stock.quotes.sortedBy { it.date },
+            sensitivity = 50.0,
+            sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW,
+          )
 
         // Create new order blocks list
         val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
@@ -339,7 +359,6 @@ open class StockService(
         updatedCount++
         totalBlocks += newOrderBlocks.size
         logger.info("Updated $symbol: ${newOrderBlocks.size} blocks")
-
       } catch (e: Exception) {
         logger.error("Failed to recalculate order blocks for ${stock.symbol}: ${e.message}", e)
         failedCount++
@@ -352,7 +371,7 @@ open class StockService(
       "updatedCount" to updatedCount,
       "failedCount" to failedCount,
       "totalBlocks" to totalBlocks,
-      "totalStocks" to allStocks.size
+      "totalStocks" to allStocks.size,
     )
   }
 
@@ -361,5 +380,4 @@ open class StockService(
     checkNotNull(spy) { "Failed to fetch SPY reference data" }
     return spy
   }
-
 }

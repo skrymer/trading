@@ -26,10 +26,12 @@ import org.springframework.stereotype.Component
 class ATRExpandingCondition(
   private val minPercentile: Double = 30.0,
   private val maxPercentile: Double = 70.0,
-  private val lookbackPeriod: Int = 252
+  private val lookbackPeriod: Int = 252,
 ) : EntryCondition {
-
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean {
     val currentATR = quote.atr
 
     // Get historical ATR values for percentile rank calculation
@@ -51,40 +53,45 @@ class ATRExpandingCondition(
   override fun description(): String =
     "ATR expanding (${"%.0f".format(minPercentile)}% < rank ≤ ${"%.0f".format(maxPercentile)}% and rising)"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "atrExpanding",
-    displayName = "ATR Expanding",
-    description = "ATR percentile rank is between thresholds and rising (volatility expanding)",
-    parameters = listOf(
-      ParameterMetadata(
-        name = "minPercentile",
-        displayName = "Min Percentile",
-        type = "number",
-        defaultValue = 30.0,
-        min = 0,
-        max = 100
-      ),
-      ParameterMetadata(
-        name = "maxPercentile",
-        displayName = "Max Percentile",
-        type = "number",
-        defaultValue = 70.0,
-        min = 0,
-        max = 100
-      ),
-      ParameterMetadata(
-        name = "lookbackPeriod",
-        displayName = "Lookback Period (Days)",
-        type = "number",
-        defaultValue = 252,
-        min = 30,
-        max = 500
-      )
-    ),
-    category = "Volatility"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "atrExpanding",
+      displayName = "ATR Expanding",
+      description = "ATR percentile rank is between thresholds and rising (volatility expanding)",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "minPercentile",
+            displayName = "Min Percentile",
+            type = "number",
+            defaultValue = 30.0,
+            min = 0,
+            max = 100,
+          ),
+          ParameterMetadata(
+            name = "maxPercentile",
+            displayName = "Max Percentile",
+            type = "number",
+            defaultValue = 70.0,
+            min = 0,
+            max = 100,
+          ),
+          ParameterMetadata(
+            name = "lookbackPeriod",
+            displayName = "Lookback Period (Days)",
+            type = "number",
+            defaultValue = 252,
+            min = 30,
+            max = 500,
+          ),
+        ),
+      category = "Volatility",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val currentATR = quote.atr
 
     val historicalATRs = getHistoricalATRs(stock, quote, lookbackPeriod)
@@ -95,7 +102,7 @@ class ATRExpandingCondition(
         passed = false,
         actualValue = "N/A",
         threshold = "${"%.0f".format(minPercentile)}% < rank ≤ ${"%.0f".format(maxPercentile)}% and rising",
-        message = "Insufficient historical data (${historicalATRs.size} < 30 days) ✗"
+        message = "Insufficient historical data (${historicalATRs.size} < 30 days) ✗",
       )
     }
 
@@ -110,7 +117,7 @@ class ATRExpandingCondition(
         passed = false,
         actualValue = "${"%.1f".format(percentileRank)}%",
         threshold = "${"%.0f".format(minPercentile)}% < rank ≤ ${"%.0f".format(maxPercentile)}% and rising",
-        message = "Previous ATR not available ✗"
+        message = "Previous ATR not available ✗",
       )
     }
 
@@ -118,23 +125,25 @@ class ATRExpandingCondition(
     val inRange = percentileRank > minPercentile && percentileRank <= maxPercentile
     val passed = inRange && isRising
 
-    val status = when {
-      percentileRank <= minPercentile -> "Compressed (${String.format("%.1f", percentileRank)}%)"
-      percentileRank > maxPercentile -> "Extended (${String.format("%.1f", percentileRank)}%)"
-      !isRising -> "In range but not rising (${String.format("%.1f", percentileRank)}%)"
-      else -> "Expanding (${String.format("%.1f", percentileRank)}%)"
-    }
+    val status =
+      when {
+        percentileRank <= minPercentile -> "Compressed (${String.format("%.1f", percentileRank)}%)"
+        percentileRank > maxPercentile -> "Extended (${String.format("%.1f", percentileRank)}%)"
+        !isRising -> "In range but not rising (${String.format("%.1f", percentileRank)}%)"
+        else -> "Expanding (${String.format("%.1f", percentileRank)}%)"
+      }
 
-    val message = if (passed) {
-      "ATR expanding: rank ${String.format("%.1f", percentileRank)}% (${
-        String.format(
-          "%.2f",
-          previousATR
-        )
-      } → ${String.format("%.2f", currentATR)}) ✓"
-    } else {
-      "ATR not expanding: $status ✗"
-    }
+    val message =
+      if (passed) {
+        "ATR expanding: rank ${String.format("%.1f", percentileRank)}% (${
+          String.format(
+            "%.2f",
+            previousATR,
+          )
+        } → ${String.format("%.2f", currentATR)}) ✓"
+      } else {
+        "ATR not expanding: $status ✗"
+      }
 
     return ConditionEvaluationResult(
       conditionType = "ATRExpandingCondition",
@@ -142,7 +151,7 @@ class ATRExpandingCondition(
       passed = passed,
       actualValue = "${String.format("%.1f", percentileRank)}% (${if (isRising) "rising" else "falling"})",
       threshold = "${"%.0f".format(minPercentile)}% < rank ≤ ${"%.0f".format(maxPercentile)}% and rising",
-      message = message
+      message = message,
     )
   }
 
@@ -150,14 +159,17 @@ class ATRExpandingCondition(
    * Get historical ATR values for percentile rank calculation.
    * Returns ATR values from the last N trading days including the current quote.
    */
-  private fun getHistoricalATRs(stock: Stock, currentQuote: StockQuote, periods: Int): List<Double> {
-    return stock.quotes
-      .filter { it.atr != null && it.date != null && currentQuote.date != null }
+  private fun getHistoricalATRs(
+    stock: Stock,
+    currentQuote: StockQuote,
+    periods: Int,
+  ): List<Double> =
+    stock.quotes
+      .filter { it.date != null && currentQuote.date != null }
       .filter { it.date!! <= currentQuote.date!! }
       .sortedByDescending { it.date }
       .take(periods)
-      .mapNotNull { it.atr }
-  }
+      .map { it.atr }
 
   /**
    * Calculate percentile rank: what percentage of historical values are below the current value.
@@ -169,7 +181,10 @@ class ATRExpandingCondition(
    * - Rank 50%  → Current ATR is at the median
    * - Rank 100% → Current ATR is the highest in the period
    */
-  private fun calculatePercentileRank(currentValue: Double, historicalValues: List<Double>): Double {
+  private fun calculatePercentileRank(
+    currentValue: Double,
+    historicalValues: List<Double>,
+  ): Double {
     if (historicalValues.isEmpty()) return 0.0
 
     val countBelow = historicalValues.count { it < currentValue }

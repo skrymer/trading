@@ -9,12 +9,15 @@ import com.skrymer.udgaard.model.StockQuote
  * for stocks, preferably adjusted for corporate actions like splits and dividends.
  */
 interface StockProvider {
-    /**
-     * Get daily time series data for a stock symbol
-     *
-     * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
-     * @param outputSize Size of the dataset ("compact" for recent data, "full" for historical)
-     * @return List of stock quotes with price and volume data, or null if unavailable
-     */
-    fun getDailyAdjustedTimeSeries(symbol: String, outputSize: String = "full"): List<StockQuote>?
+  /**
+   * Get daily time series data for a stock symbol
+   *
+   * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
+   * @param outputSize Size of the dataset ("compact" for recent data, "full" for historical)
+   * @return List of stock quotes with price and volume data, or null if unavailable
+   */
+  fun getDailyAdjustedTimeSeries(
+    symbol: String,
+    outputSize: String = "full",
+  ): List<StockQuote>?
 }

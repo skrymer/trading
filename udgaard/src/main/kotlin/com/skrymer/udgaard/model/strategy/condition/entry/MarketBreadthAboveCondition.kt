@@ -15,47 +15,56 @@ import org.springframework.stereotype.Component
  * @param threshold The minimum market breadth percentage required (0.0 to 100.0)
  */
 @Component
-class MarketBreadthAboveCondition(private val threshold: Double = 50.0) : EntryCondition {
-    override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        return quote.marketAdvancingPercent >= threshold
-    }
+class MarketBreadthAboveCondition(
+  private val threshold: Double = 50.0,
+) : EntryCondition {
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.marketAdvancingPercent >= threshold
 
-    override fun description(): String = "Market breadth above ${threshold.toInt()}%"
+  override fun description(): String = "Market breadth above ${threshold.toInt()}%"
 
-    override fun getMetadata() = ConditionMetadata(
-        type = "marketBreadthAbove",
-        displayName = "Market Breadth Above Threshold",
-        description = "Market breadth (% of stocks advancing) is above threshold",
-        parameters = listOf(
-            ParameterMetadata(
-                name = "threshold",
-                displayName = "Threshold",
-                type = "number",
-                defaultValue = 50.0,
-                min = 0,
-                max = 100
-            )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "marketBreadthAbove",
+      displayName = "Market Breadth Above Threshold",
+      description = "Market breadth (% of stocks advancing) is above threshold",
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "threshold",
+            displayName = "Threshold",
+            type = "number",
+            defaultValue = 50.0,
+            min = 0,
+            max = 100,
+          ),
         ),
-        category = "Market"
+      category = "Market",
     )
 
-    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val passed = evaluate(stock, quote)
-        val actualBreadth = quote.marketAdvancingPercent
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
+    val passed = evaluate(stock, quote)
+    val actualBreadth = quote.marketAdvancingPercent
 
-        val message = if (passed) {
-            "Market breadth is %.1f%% (≥ %.0f%%) ✓".format(actualBreadth, threshold)
-        } else {
-            "Market breadth is %.1f%% (requires ≥ %.0f%%) ✗".format(actualBreadth, threshold)
-        }
+    val message =
+      if (passed) {
+        "Market breadth is %.1f%% (≥ %.0f%%) ✓".format(actualBreadth, threshold)
+      } else {
+        "Market breadth is %.1f%% (requires ≥ %.0f%%) ✗".format(actualBreadth, threshold)
+      }
 
-        return ConditionEvaluationResult(
-            conditionType = "MarketBreadthAboveCondition",
-            description = description(),
-            passed = passed,
-            actualValue = "%.1f%%".format(actualBreadth),
-            threshold = "≥ %.0f%%".format(threshold),
-            message = message
-        )
-    }
+    return ConditionEvaluationResult(
+      conditionType = "MarketBreadthAboveCondition",
+      description = description(),
+      passed = passed,
+      actualValue = "%.1f%%".format(actualBreadth),
+      threshold = "≥ %.0f%%".format(threshold),
+      message = message,
+    )
+  }
 }

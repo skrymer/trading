@@ -23,18 +23,21 @@ import org.springframework.stereotype.Component
 class DataLoader(
   private val breadthService: BreadthService,
   private val stockService: StockService,
-  private val etfService: EtfService
+  private val etfService: EtfService,
 ) {
-
   fun loadData() {
     runBlocking { loadBreadthForAll() }
     runBlocking { loadStocks(true) }
     runBlocking { loadEtfs() }
   }
 
-  fun loadStocks(forceFetch: Boolean = false): List<Stock> {
-    return stockService.getStocksBySymbols(StockSymbol.entries.map { it.symbol }, forceFetch)
-  }
+  fun loadStocks(forceFetch: Boolean = false): List<Stock> =
+    stockService.getStocksBySymbols(
+      StockSymbol.entries.map {
+        it.symbol
+      },
+      forceFetch,
+    )
 
   fun loadEtfs(): List<EtfEntity> {
     val logger = LoggerFactory.getLogger("EtfLoader")
@@ -50,22 +53,23 @@ class DataLoader(
   }
 
   @OptIn(ExperimentalCoroutinesApi::class)
-  private suspend fun loadBreadthForAll() = supervisorScope {
-    val logger = LoggerFactory.getLogger("BreadthLoader")
-    val limited = Dispatchers.IO.limitedParallelism(10)
+  private suspend fun loadBreadthForAll() =
+    supervisorScope {
+      val logger = LoggerFactory.getLogger("BreadthLoader")
+      val limited = Dispatchers.IO.limitedParallelism(10)
 
-    // Load market breadth (FULLSTOCK)
-    async(limited) {
-      runCatching { breadthService.getMarketBreadth(refresh = true) }
-        .onFailure { e -> logger.warn("Failed to fetch market breadth: {}", e.message, e) }
-    }
-
-    // Load all sector breadth
-    SectorSymbol.entries.forEach { sector ->
+      // Load market breadth (FULLSTOCK)
       async(limited) {
-        runCatching { breadthService.getSectorBreadth(sector, refresh = true) }
-          .onFailure { e -> logger.warn("Failed to fetch sector={}: {}", sector, e.message, e) }
+        runCatching { breadthService.getMarketBreadth(refresh = true) }
+          .onFailure { e -> logger.warn("Failed to fetch market breadth: {}", e.message, e) }
+      }
+
+      // Load all sector breadth
+      SectorSymbol.entries.forEach { sector ->
+        async(limited) {
+          runCatching { breadthService.getSectorBreadth(sector, refresh = true) }
+            .onFailure { e -> logger.warn("Failed to fetch sector={}: {}", sector, e.message, e) }
+        }
       }
     }
-  }
 }

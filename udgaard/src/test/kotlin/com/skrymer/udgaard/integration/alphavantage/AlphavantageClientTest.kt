@@ -7,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
 internal class AlphavantageClientTest {
-
   @Autowired
   lateinit var alphaVantageClient: AlphaVantageClient
 

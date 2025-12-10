@@ -51,11 +51,14 @@ class Stock {
    * @param before - quotes before or on the date (inclusive)
    * @return quotes that matches the given entry strategy.
    */
-  fun getQuotesMatchingEntryStrategy(entryStrategy: EntryStrategy, after: LocalDate?, before: LocalDate?) =
-    quotes
-      .filter { after == null || it.date?.isAfter(after.minusDays(1)) == true }
-      .filter { before == null || it.date?.isBefore(before.plusDays(1)) == true }
-      .filter { entryStrategy.test(this, it) }
+  fun getQuotesMatchingEntryStrategy(
+    entryStrategy: EntryStrategy,
+    after: LocalDate?,
+    before: LocalDate?,
+  ) = quotes
+    .filter { after == null || it.date?.isAfter(after.minusDays(1)) == true }
+    .filter { before == null || it.date?.isBefore(before.plusDays(1)) == true }
+    .filter { entryStrategy.test(this, it) }
 
   /**
    *
@@ -65,23 +68,25 @@ class Stock {
    */
   fun testExitStrategy(
     entryQuote: StockQuote,
-    exitStrategy: ExitStrategy
+    exitStrategy: ExitStrategy,
   ): ExitReport {
-    val quotesToTest = this.quotes
-      .sortedBy { it.date }
-      // Find quotes that are after the entry quote date
-      .filter { it -> it.date?.isAfter(entryQuote.date) == true }
+    val quotesToTest =
+      this.quotes
+        .sortedBy { it.date }
+        // Find quotes that are after the entry quote date
+        .filter { it -> it.date?.isAfter(entryQuote.date) == true }
 
     val quotes = ArrayList<StockQuote>()
     var exitReason = ""
     var exitPrice = 0.0
 
     for (quote in quotesToTest) {
-      val exitStrategyReport = exitStrategy.test(
-        stock = this,
-        entryQuote = entryQuote,
-        quote = quote
-      )
+      val exitStrategyReport =
+        exitStrategy.test(
+          stock = this,
+          entryQuote = entryQuote,
+          quote = quote,
+        )
 
       quotes.add(quote)
 
@@ -100,8 +105,7 @@ class Stock {
    * @param quote
    * @return the next quote after the given [quote]
    */
-  fun getNextQuote(quote: StockQuote) =
-    quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
+  fun getNextQuote(quote: StockQuote) = quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
 
   /**
    * Get the quote previous to the given [quote]
@@ -112,33 +116,32 @@ class Stock {
   /**
    * get the quote for the given [date]
    */
-  fun getQuoteByDate(date: LocalDate) =
-    quotes.find { it.date?.equals(date) == true }
+  fun getQuoteByDate(date: LocalDate) = quotes.find { it.date?.equals(date) == true }
 
   /**
    * Check if given [quote] is within an order block that are older than [daysOld]
    * @param quote The quote to check
    * @param daysOld Minimum age of order block in days
    */
-  fun withinOrderBlock(quote: StockQuote, daysOld: Int): Boolean {
-    return orderBlocks
+  fun withinOrderBlock(
+    quote: StockQuote,
+    daysOld: Int,
+  ): Boolean =
+    orderBlocks
       .filter {
         ChronoUnit.DAYS.between(
           it.startDate,
-          it.endDate ?: LocalDate.now()
+          it.endDate ?: LocalDate.now(),
         ) >= daysOld
-      }
-      .filter { it.orderBlockType == OrderBlockType.BEARISH }
+      }.filter { it.orderBlockType == OrderBlockType.BEARISH }
       .filter { it.startDate.isBefore(quote.date) }
       .filter { it.endDate?.isAfter(quote.date) == true }
       .any { quote.closePrice > it.low && quote.closePrice < it.high }
-  }
 
   /**
    * Get active order blocks (not mitigated)
    */
-  fun getActiveOrderBlocks(): List<OrderBlock> =
-    orderBlocks.filter { it.endDate == null }
+  fun getActiveOrderBlocks(): List<OrderBlock> = orderBlocks.filter { it.endDate == null }
 
   /**
    * Get bullish order blocks for the given date
@@ -179,9 +182,10 @@ class Stock {
    * @param days Number of days to look ahead
    * @return true if earnings are within the specified days
    */
-  fun hasEarningsWithinDays(date: LocalDate, days: Int): Boolean {
-    return earnings.any { it.isWithinDaysOf(date, days) }
-  }
+  fun hasEarningsWithinDays(
+    date: LocalDate,
+    days: Int,
+  ): Boolean = earnings.any { it.isWithinDaysOf(date, days) }
 
   /**
    * Get earnings for a specific fiscal quarter
@@ -189,8 +193,7 @@ class Stock {
    * @param fiscalDateEnding Fiscal quarter ending date
    * @return Earning for that quarter, or null if not found
    */
-  fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): Earning? =
-    earnings.find { it.fiscalDateEnding == fiscalDateEnding }
+  fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): Earning? = earnings.find { it.fiscalDateEnding == fiscalDateEnding }
 
   override fun toString() = "Symbol: $symbol"
 }

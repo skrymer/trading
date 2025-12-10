@@ -11,19 +11,20 @@ import java.util.concurrent.TimeUnit
 @Configuration
 @EnableCaching
 class CacheConfig {
-
   @Bean
   fun cacheManager(): CacheManager {
-    val cacheManager = CaffeineCacheManager(
-      "stocks",
-      "backtests",
-      "marketBreadth"
-    )
+    val cacheManager =
+      CaffeineCacheManager(
+        "stocks",
+        "backtests",
+        "marketBreadth",
+      )
     cacheManager.setCaffeine(
-      Caffeine.newBuilder()
+      Caffeine
+        .newBuilder()
         .maximumSize(1000)
         .expireAfterWrite(30, TimeUnit.MINUTES)
-        .recordStats()
+        .recordStats(),
     )
     return cacheManager
   }

@@ -16,48 +16,55 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SpyHeatmapThresholdCondition(
-    private val threshold: Double = 70.0
+  private val threshold: Double = 70.0,
 ) : EntryCondition {
-    override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        return quote.spyHeatmap < threshold
-    }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.spyHeatmap < threshold
 
-    override fun description(): String = "SPY heatmap < $threshold"
+  override fun description(): String = "SPY heatmap < $threshold"
 
-    override fun getMetadata() = ConditionMetadata(
+  override fun getMetadata() =
+    ConditionMetadata(
       type = "spyHeatmap",
       displayName = "SPY Heatmap Below Threshold",
       description = "SPY heatmap is below the threshold",
-      parameters = listOf(
-        ParameterMetadata(
-          name = "threshold",
-          displayName = "Threshold",
-          type = "number",
-          defaultValue = 70.0,
-          min = 0,
-          max = 100
-        )
-      ),
-      category = "SPY"
+      parameters =
+        listOf(
+          ParameterMetadata(
+            name = "threshold",
+            displayName = "Threshold",
+            type = "number",
+            defaultValue = 70.0,
+            min = 0,
+            max = 100,
+          ),
+        ),
+      category = "SPY",
     )
 
-    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val actualHeatmap = quote.spyHeatmap
-        val passed = actualHeatmap < threshold
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
+    val actualHeatmap = quote.spyHeatmap
+    val passed = actualHeatmap < threshold
 
-        val message = if (passed) {
-            "SPY heatmap ${"%.1f".format(actualHeatmap)} < ${"%.1f".format(threshold)} ✓"
-        } else {
-            "SPY heatmap ${"%.1f".format(actualHeatmap)} ≥ ${"%.1f".format(threshold)} ✗"
-        }
+    val message =
+      if (passed) {
+        "SPY heatmap ${"%.1f".format(actualHeatmap)} < ${"%.1f".format(threshold)} ✓"
+      } else {
+        "SPY heatmap ${"%.1f".format(actualHeatmap)} ≥ ${"%.1f".format(threshold)} ✗"
+      }
 
-        return ConditionEvaluationResult(
-            conditionType = "SpyHeatmapThresholdCondition",
-            description = description(),
-            passed = passed,
-            actualValue = "%.1f".format(actualHeatmap),
-            threshold = "< %.1f".format(threshold),
-            message = message
-        )
-    }
+    return ConditionEvaluationResult(
+      conditionType = "SpyHeatmapThresholdCondition",
+      description = description(),
+      passed = passed,
+      actualValue = "%.1f".format(actualHeatmap),
+      threshold = "< %.1f".format(threshold),
+      message = message,
+    )
+  }
 }

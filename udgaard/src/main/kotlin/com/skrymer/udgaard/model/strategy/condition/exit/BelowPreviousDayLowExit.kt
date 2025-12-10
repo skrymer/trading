@@ -12,7 +12,11 @@ import org.springframework.stereotype.Component
  */
 @Component
 class BelowPreviousDayLowExit : ExitCondition {
-  override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean {
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): Boolean {
     val previousQuote = stock.getPreviousQuote(quote)
     return quote.closePrice < (previousQuote?.low ?: 0.0)
   }
@@ -21,11 +25,12 @@ class BelowPreviousDayLowExit : ExitCondition {
 
   override fun description(): String = "Below previous day low"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "belowPreviousDayLow",
-    displayName = "Below Previous Day Low",
-    description = "Exit when price closes below previous day's low",
-    parameters = emptyList(),
-    category = "StopLoss"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "belowPreviousDayLow",
+      displayName = "Below Previous Day Low",
+      description = "Exit when price closes below previous day's low",
+      parameters = emptyList(),
+      category = "StopLoss",
+    )
 }

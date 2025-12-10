@@ -12,28 +12,34 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SpyBuySignalCondition : EntryCondition {
-  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-    return quote.hasSpyBuySignal()
-  }
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+  ): Boolean = quote.hasSpyBuySignal()
 
   override fun description(): String = "SPY has buy signal"
 
-  override fun getMetadata() = ConditionMetadata(
-    type = "spyBuySignal",
-    displayName = "SPY Buy Signal",
-    description = "SPY has a buy signal",
-    parameters = emptyList(),
-    category = "SPY"
-  )
+  override fun getMetadata() =
+    ConditionMetadata(
+      type = "spyBuySignal",
+      displayName = "SPY Buy Signal",
+      description = "SPY has a buy signal",
+      parameters = emptyList(),
+      category = "SPY",
+    )
 
-  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+  ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
 
-    val message = if (passed) {
-      "SPY has buy signal ✓"
-    } else {
-      "SPY has no buy signal ✗"
-    }
+    val message =
+      if (passed) {
+        "SPY has buy signal ✓"
+      } else {
+        "SPY has no buy signal ✗"
+      }
 
     return ConditionEvaluationResult(
       conditionType = "SpyBuySignalCondition",
@@ -41,7 +47,7 @@ class SpyBuySignalCondition : EntryCondition {
       passed = passed,
       actualValue = if (quote.hasSpyBuySignal()) "Yes" else "No",
       threshold = "Yes",
-      message = message
+      message = message,
     )
   }
 }
