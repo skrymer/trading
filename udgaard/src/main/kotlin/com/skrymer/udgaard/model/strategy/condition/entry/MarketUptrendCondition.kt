@@ -1,43 +1,49 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Entry condition that checks if the market is in an uptrend.
  * Market is considered in uptrend when bull percentage is over 10 EMA.
  */
-class MarketUptrendCondition : TradingCondition {
-    override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        return quote.isMarketInUptrend()
+@Component
+class MarketUptrendCondition : EntryCondition {
+  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
+    return quote.isMarketInUptrend()
+  }
+
+  override fun description(): String = "Market in uptrend"
+
+  override fun getMetadata() = ConditionMetadata(
+    type = "marketUptrend",
+    displayName = "Market in Uptrend",
+    description = "Market is in uptrend based on breadth",
+    parameters = emptyList(),
+    category = "Market"
+  )
+
+  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+    val passed = evaluate(stock, quote)
+    val breadth = quote.marketAdvancingPercent
+
+    val message = if (passed) {
+      "Market breadth %.1f%% is above 10 EMA ✓".format(breadth)
+    } else {
+      "Market breadth %.1f%% is below 10 EMA ✗".format(breadth)
     }
 
-    override fun description(): String = "Market in uptrend"
-
-    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
-        type = "marketUptrend",
-        description = description()
+    return ConditionEvaluationResult(
+      conditionType = "MarketUptrendCondition",
+      description = description(),
+      passed = passed,
+      actualValue = "%.1f%%".format(breadth),
+      threshold = "> 10 EMA",
+      message = message
     )
-
-    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val passed = evaluate(stock, quote)
-        val breadth = quote.marketAdvancingPercent
-
-        val message = if (passed) {
-            "Market breadth %.1f%% is above 10 EMA ✓".format(breadth)
-        } else {
-            "Market breadth %.1f%% is below 10 EMA ✗".format(breadth)
-        }
-
-        return ConditionEvaluationResult(
-            conditionType = "MarketUptrendCondition",
-            description = description(),
-            passed = passed,
-            actualValue = "%.1f%%".format(breadth),
-            threshold = "> 10 EMA",
-            message = message
-        )
-    }
+  }
 }

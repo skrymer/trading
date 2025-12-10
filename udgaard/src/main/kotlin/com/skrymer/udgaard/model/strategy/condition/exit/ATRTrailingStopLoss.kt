@@ -1,10 +1,10 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.ExitCondition
-import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
+import org.springframework.stereotype.Component
 
 /**
  * Trailing stop loss that tracks the highest price reached since entry
@@ -22,6 +22,7 @@ import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
  *
  * @param atrMultiplier Number of ATRs below the highest price to trigger exit (default 2.7)
  */
+@Component
 class ATRTrailingStopLoss(
     private val atrMultiplier: Double = 2.7
 ) : ExitCondition {
@@ -58,8 +59,19 @@ class ATRTrailingStopLoss(
         "ATR trailing stop (${atrMultiplier} ATR)"
 
     override fun getMetadata() = ConditionMetadata(
-        type = "trailingStop",
-        description = description()
+      type = "trailingStopLoss",
+      displayName = "ATR Trailing Stop Loss",
+      description = "Exit when price drops X ATR below the highest price since entry (trailing stop)",
+      parameters = listOf(
+        ParameterMetadata(
+          name = "atrMultiplier",
+          displayName = "ATR Multiplier",
+          type = "number",
+          defaultValue = 2.7,
+          min = 0.5,
+          max = 5.0
+        )
+      ),
+      category = "StopLoss"
     )
-
 }

@@ -1,9 +1,12 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Entry condition that checks if SPY heatmap is below a threshold.
@@ -11,18 +14,31 @@ import com.skrymer.udgaard.model.strategy.condition.TradingCondition
  *
  * @param threshold Maximum heatmap value (default 70.0)
  */
+@Component
 class SpyHeatmapThresholdCondition(
     private val threshold: Double = 70.0
-) : TradingCondition {
+) : EntryCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
         return quote.spyHeatmap < threshold
     }
 
     override fun description(): String = "SPY heatmap < $threshold"
 
-    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
-        type = "spyHeatmapThreshold",
-        description = description()
+    override fun getMetadata() = ConditionMetadata(
+      type = "spyHeatmap",
+      displayName = "SPY Heatmap Below Threshold",
+      description = "SPY heatmap is below the threshold",
+      parameters = listOf(
+        ParameterMetadata(
+          name = "threshold",
+          displayName = "Threshold",
+          type = "number",
+          defaultValue = 70.0,
+          min = 0,
+          max = 100
+        )
+      ),
+      category = "SPY"
     )
 
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {

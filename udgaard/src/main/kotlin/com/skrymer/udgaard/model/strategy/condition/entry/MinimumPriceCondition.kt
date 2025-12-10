@@ -1,10 +1,12 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Entry condition that filters stocks by minimum price.
@@ -15,9 +17,10 @@ import com.skrymer.udgaard.model.strategy.condition.TradingCondition
  *
  * @param minimumPrice Minimum close price in dollars (default: 10.0)
  */
+@Component
 class MinimumPriceCondition(
     private val minimumPrice: Double = 10.0
-) : TradingCondition {
+) : EntryCondition {
 
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
         return quote.closePrice >= minimumPrice
@@ -27,7 +30,19 @@ class MinimumPriceCondition(
 
     override fun getMetadata() = ConditionMetadata(
         type = "minimumPrice",
-        description = description()
+        displayName = "Minimum Price",
+        description = "Stock price is above minimum threshold (avoids penny stocks)",
+        parameters = listOf(
+            ParameterMetadata(
+                name = "minimumPrice",
+                displayName = "Minimum Price",
+                type = "number",
+                defaultValue = 10.0,
+                min = 0.01,
+                max = 1000
+            )
+        ),
+        category = "Stock"
     )
 
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {

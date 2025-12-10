@@ -1,9 +1,12 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Entry condition that checks if market breadth is above a specific threshold.
@@ -11,16 +14,29 @@ import com.skrymer.udgaard.model.strategy.condition.TradingCondition
  *
  * @param threshold The minimum market breadth percentage required (0.0 to 100.0)
  */
-class MarketBreadthAboveCondition(private val threshold: Double) : TradingCondition {
+@Component
+class MarketBreadthAboveCondition(private val threshold: Double = 50.0) : EntryCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
         return quote.marketAdvancingPercent >= threshold
     }
 
     override fun description(): String = "Market breadth above ${threshold.toInt()}%"
 
-    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
+    override fun getMetadata() = ConditionMetadata(
         type = "marketBreadthAbove",
-        description = description()
+        displayName = "Market Breadth Above Threshold",
+        description = "Market breadth (% of stocks advancing) is above threshold",
+        parameters = listOf(
+            ParameterMetadata(
+                name = "threshold",
+                displayName = "Threshold",
+                type = "number",
+                defaultValue = 50.0,
+                min = 0,
+                max = 100
+            )
+        ),
+        category = "Market"
     )
 
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {

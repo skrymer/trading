@@ -1,9 +1,12 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Entry condition that triggers when a faster EMA crosses above a slower EMA (bullish cross).
@@ -15,10 +18,11 @@ import com.skrymer.udgaard.model.strategy.condition.TradingCondition
  * @param fastEma The faster EMA period (default 10)
  * @param slowEma The slower EMA period (default 20)
  */
+@Component
 class EmaBullishCrossCondition(
     private val fastEma: Int = 10,
     private val slowEma: Int = 20
-) : TradingCondition {
+) : EntryCondition {
 
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
         // Get current EMA values
@@ -52,9 +56,27 @@ class EmaBullishCrossCondition(
 
     override fun description(): String = "${fastEma}EMA crosses above ${slowEma}EMA"
 
-    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
-        type = "emaBullishCross",
-        description = description()
+    override fun getMetadata() = ConditionMetadata(
+      type = "emaBullishCross",
+      displayName = "EMA Bullish Cross",
+      description = "Fast EMA crosses above slow EMA (bullish crossover)",
+      parameters = listOf(
+        ParameterMetadata(
+          name = "fastEma",
+          displayName = "Fast EMA",
+          type = "number",
+          defaultValue = 10,
+          options = listOf("5", "10", "20")
+        ),
+        ParameterMetadata(
+          name = "slowEma",
+          displayName = "Slow EMA",
+          type = "number",
+          defaultValue = 20,
+          options = listOf("10", "20", "50")
+        )
+      ),
+      category = "Trend"
     )
 
     private fun getEmaValue(quote: StockQuote, period: Int): Double {
@@ -70,7 +92,7 @@ class EmaBullishCrossCondition(
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
         val passed = evaluate(stock, quote)
         val message = if (passed) description() + " ✓" else description() + " ✗"
-        
+
         return ConditionEvaluationResult(
             conditionType = "EmaBullishCrossCondition",
             description = description(),

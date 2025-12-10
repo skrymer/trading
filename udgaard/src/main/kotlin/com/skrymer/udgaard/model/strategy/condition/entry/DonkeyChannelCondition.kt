@@ -1,9 +1,11 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Entry condition that checks donkey channel alignment (AS1 or AS2).
@@ -13,32 +15,35 @@ import com.skrymer.udgaard.model.strategy.condition.TradingCondition
  *
  * Entry allowed when either AS1 OR AS2 is true.
  */
-class DonkeyChannelCondition : TradingCondition {
-    override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
-        // AS1 or AS2: (market >= 1 && sector >= 1) OR market == 2
-        return (quote.marketDonkeyChannelScore >= 1 && quote.sectorDonkeyChannelScore >= 1)
-            .or(quote.marketDonkeyChannelScore == 2)
-    }
+@Component
+class DonkeyChannelCondition : EntryCondition {
+  override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
+    // AS1 or AS2: (market >= 1 && sector >= 1) OR market == 2
+    return (quote.marketDonkeyChannelScore >= 1 && quote.sectorDonkeyChannelScore >= 1)
+      .or(quote.marketDonkeyChannelScore == 2)
+  }
 
-    override fun description(): String = "Donkey channel AS1 or AS2"
+  override fun description(): String = "Donkey channel AS1 or AS2"
 
-    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
-        type = "donkeyChannel",
-        description = description()
+  override fun getMetadata() = ConditionMetadata(
+    type = "donkeyChannel",
+    displayName = "Donkey Channel",
+    description = "Stock is in donkey channel conditions",
+    parameters = emptyList(),
+    category = "Sector"
+  )
+
+  override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
+    val passed = evaluate(stock, quote)
+    val message = if (passed) description() + " ✓" else description() + " ✗"
+
+    return ConditionEvaluationResult(
+      conditionType = "DonkeyChannelCondition",
+      description = description(),
+      passed = passed,
+      actualValue = null,
+      threshold = null,
+      message = message
     )
-
-    override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {
-        val passed = evaluate(stock, quote)
-        val message = if (passed) description() + " ✓" else description() + " ✗"
-        
-        return ConditionEvaluationResult(
-            conditionType = "DonkeyChannelCondition",
-            description = description(),
-            passed = passed,
-            actualValue = null,
-            threshold = null,
-            message = message
-        )
-    }
-
+  }
 }

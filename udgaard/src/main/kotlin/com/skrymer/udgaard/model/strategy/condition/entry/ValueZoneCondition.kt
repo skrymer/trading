@@ -1,16 +1,19 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Condition that checks if price is within the value zone.
  * Value zone is defined as being above 20 EMA and below 20 EMA + (ATR multiplier * ATR).
  */
-class ValueZoneCondition(private val atrMultiplier: Double = 2.0) : TradingCondition {
+@Component
+class ValueZoneCondition(private val atrMultiplier: Double = 2.0) : EntryCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
         return quote.closePrice > quote.closePriceEMA20 &&
                quote.closePrice < (quote.closePriceEMA20 + (atrMultiplier * quote.atr))
@@ -19,8 +22,20 @@ class ValueZoneCondition(private val atrMultiplier: Double = 2.0) : TradingCondi
     override fun description(): String = "Price within value zone (20EMA < price < 20EMA + ${atrMultiplier}ATR)"
 
     override fun getMetadata() = ConditionMetadata(
-        type = "valueZone",
-        description = description()
+      type = "valueZone",
+      displayName = "In Value Zone",
+      description = "Price is within value zone (20 EMA to 20 EMA + ATR multiplier)",
+      parameters = listOf(
+        ParameterMetadata(
+          name = "atrMultiplier",
+          displayName = "ATR Multiplier",
+          type = "number",
+          defaultValue = 2.0,
+          min = 0.5,
+          max = 5.0
+        )
+      ),
+      category = "Stock"
     )
 
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {

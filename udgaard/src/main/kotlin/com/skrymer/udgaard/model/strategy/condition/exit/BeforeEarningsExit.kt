@@ -1,10 +1,10 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.ExitCondition
-import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
+import org.springframework.stereotype.Component
 
 /**
  * Exit condition that triggers the day before an earnings announcement.
@@ -14,6 +14,7 @@ import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
  *
  * @param daysBeforeEarnings Number of days before earnings to exit (default: 1)
  */
+@Component
 class BeforeEarningsExit(
     private val daysBeforeEarnings: Int = 1
 ) : ExitCondition {
@@ -34,8 +35,20 @@ class BeforeEarningsExit(
     override fun description(): String = exitReason()
 
     override fun getMetadata() = ConditionMetadata(
-        type = "beforeEarnings",
-        description = description()
+      type = "beforeEarnings",
+      displayName = "Exit Before Earnings",
+      description = "Exit X days before earnings announcement",
+      parameters = listOf(
+        ParameterMetadata(
+          name = "daysBeforeEarnings",
+          displayName = "Days Before Earnings",
+          type = "number",
+          defaultValue = 1,
+          min = 0,
+          max = 10,
+          options = listOf("0", "1", "2", "3", "5", "7")
+        )
+      ),
+      category = "Earnings"
     )
-
 }

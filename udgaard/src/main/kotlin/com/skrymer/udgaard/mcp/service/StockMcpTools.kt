@@ -1,9 +1,10 @@
 package com.skrymer.udgaard.mcp.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.skrymer.udgaard.controller.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.repository.StockRepository
-import com.skrymer.udgaard.service.DynamicStrategyBuilder
+import com.skrymer.udgaard.service.ConditionRegistry
 import com.skrymer.udgaard.service.StrategyRegistry
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -20,7 +21,7 @@ import java.time.LocalDate
 @Service
 class StockMcpTools(
   private val strategyRegistry: StrategyRegistry,
-  private val dynamicStrategyBuilder: DynamicStrategyBuilder,
+  private val conditionRegistry: ConditionRegistry,
   private val stockRepository: StockRepository,
   private val cacheManager: CacheManager,
   private val objectMapper: ObjectMapper
@@ -119,7 +120,10 @@ class StockMcpTools(
       Returns separate lists for entry conditions and exit conditions."""
   )
   fun getAvailableConditions(): String {
-    val conditions = dynamicStrategyBuilder.getAvailableConditions()
+    val conditions = AvailableConditionsResponse(
+      entryConditions = conditionRegistry.getEntryConditionMetadata(),
+      exitConditions = conditionRegistry.getExitConditionMetadata()
+    )
     return objectMapper.writerWithDefaultPrettyPrinter()
       .writeValueAsString(conditions)
   }

@@ -1,10 +1,11 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.condition.ConditionMetadata
-import com.skrymer.udgaard.model.strategy.condition.TradingCondition
+import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 
 /**
  * Condition that checks if the stock is in an uptrend.
@@ -13,7 +14,8 @@ import com.skrymer.udgaard.model.strategy.condition.TradingCondition
  * - 10 EMA is above 20 EMA (short-term above medium-term)
  * - Close price is above 50 EMA (price above long-term trend)
  */
-class UptrendCondition : TradingCondition {
+@Component
+class UptrendCondition : EntryCondition {
     override fun evaluate(stock: Stock, quote: StockQuote): Boolean {
         // Check if 10 EMA > 20 EMA
         val ema10AboveEma20 = quote.closePriceEMA10 > quote.closePriceEMA20
@@ -28,8 +30,11 @@ class UptrendCondition : TradingCondition {
     override fun description(): String = "Stock is in uptrend (10 EMA > 20 EMA and price > 50 EMA)"
 
     override fun getMetadata() = ConditionMetadata(
-        type = "uptrend",
-        description = description()
+      type = "uptrend",
+      displayName = "Stock in Uptrend",
+      description = "Stock trend is 'Uptrend'",
+      parameters = emptyList(),
+      category = "Stock"
     )
 
     override fun evaluateWithDetails(stock: Stock, quote: StockQuote): ConditionEvaluationResult {

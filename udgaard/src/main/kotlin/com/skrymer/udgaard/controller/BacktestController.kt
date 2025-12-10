@@ -4,6 +4,7 @@ import com.skrymer.udgaard.controller.dto.*
 import com.skrymer.udgaard.model.BacktestReport
 import com.skrymer.udgaard.model.strategy.*
 import com.skrymer.udgaard.service.BacktestService
+import com.skrymer.udgaard.service.ConditionRegistry
 import com.skrymer.udgaard.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.service.StockService
 import com.skrymer.udgaard.service.StrategyRegistry
@@ -36,7 +37,8 @@ class BacktestController(
     private val stockService: StockService,
     private val backtestService: BacktestService,
     private val strategyRegistry: StrategyRegistry,
-    private val dynamicStrategyBuilder: DynamicStrategyBuilder
+    private val dynamicStrategyBuilder: DynamicStrategyBuilder,
+    private val conditionRegistry: ConditionRegistry
 ) {
 
     companion object {
@@ -172,8 +174,11 @@ class BacktestController(
     @GetMapping("/conditions")
     fun getAvailableConditions(): ResponseEntity<AvailableConditionsResponse> {
         logger.info("Retrieving available conditions for strategy builder")
-        val conditions = dynamicStrategyBuilder.getAvailableConditions()
-        logger.info("Returning available conditions")
+        val conditions = AvailableConditionsResponse(
+            entryConditions = conditionRegistry.getEntryConditionMetadata(),
+            exitConditions = conditionRegistry.getExitConditionMetadata()
+        )
+        logger.info("Returning ${conditions.entryConditions.size} entry conditions and ${conditions.exitConditions.size} exit conditions")
         return ResponseEntity.ok(conditions)
     }
 

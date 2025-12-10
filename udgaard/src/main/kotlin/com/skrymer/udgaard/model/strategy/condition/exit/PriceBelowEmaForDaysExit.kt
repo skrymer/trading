@@ -1,9 +1,11 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.controller.dto.ConditionMetadata
+import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockQuote
-import com.skrymer.udgaard.model.strategy.ExitCondition
+import com.skrymer.udgaard.model.strategy.condition.exit.ExitCondition
+import org.springframework.stereotype.Component
 
 /**
  * Exit condition that triggers when price has been below a specific EMA for N consecutive days.
@@ -14,6 +16,7 @@ import com.skrymer.udgaard.model.strategy.ExitCondition
  * @param emaPeriod The EMA period to check against (5, 10, 20, or 50)
  * @param consecutiveDays Number of consecutive days price must be below EMA before exiting
  */
+@Component
 class PriceBelowEmaForDaysExit(
     private val emaPeriod: Int = 10,
     private val consecutiveDays: Int = 3
@@ -90,8 +93,27 @@ class PriceBelowEmaForDaysExit(
     override fun description(): String =
         "Price below $emaPeriod EMA for $consecutiveDays days"
 
-    override fun getMetadata() = com.skrymer.udgaard.model.strategy.condition.ConditionMetadata(
-        type = "priceBelowEma",
-        description = description()
+    override fun getMetadata() = ConditionMetadata(
+        type = "priceBelowEmaForDays",
+        displayName = "Price Below EMA for N Days",
+        description = "Exit when price stays below EMA for consecutive days (confirmation exit)",
+        parameters = listOf(
+            ParameterMetadata(
+                name = "emaPeriod",
+                displayName = "EMA Period",
+                type = "number",
+                defaultValue = 10,
+                options = listOf("5", "10", "20", "50")
+            ),
+            ParameterMetadata(
+                name = "consecutiveDays",
+                displayName = "Consecutive Days",
+                type = "number",
+                defaultValue = 3,
+                min = 1,
+                max = 10
+            )
+        ),
+        category = "StopLoss"
     )
 }
