@@ -6,10 +6,12 @@ import com.skrymer.udgaard.integration.StockProvider
 import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageADX
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageATR
+import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageCompanyOverview
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEarnings
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
 import com.skrymer.udgaard.model.Earning
+import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.StockQuote
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -50,6 +52,7 @@ open class AlphaVantageClient(
     private const val FUNCTION_ATR = "ATR"
     private const val FUNCTION_ADX = "ADX"
     private const val FUNCTION_EARNINGS = "EARNINGS"
+    private const val FUNCTION_OVERVIEW = "OVERVIEW"
     private const val OUTPUT_SIZE_FULL = "full"
     private const val OUTPUT_SIZE_COMPACT = "compact" // Last 100 data points
   }
@@ -397,6 +400,69 @@ open class AlphaVantageClient(
       earnings
     }.onFailure { e ->
       logger.error("Failed to fetch earnings from Alpha Vantage for $symbol: ${e.message}", e)
+    }.getOrNull()
+  }
+
+  /**
+   * Get sector symbol for a stock using Company Overview endpoint
+   *
+   * Fetches company information and extracts the sector, mapping it to our
+   * internal SectorSymbol enum (based on S&P sector ETFs).
+   *
+   * Example sectors from Alpha Vantage:
+   * - "TECHNOLOGY" -> XLK
+   * - "FINANCIALS" -> XLF
+   * - "HEALTH CARE" -> XLV
+   *
+   * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
+   * @return SectorSymbol enum, or null if sector cannot be determined
+   */
+  override fun getSectorSymbol(symbol: String): SectorSymbol? {
+    return runCatching {
+      val url = "$baseUrl?function=$FUNCTION_OVERVIEW&symbol=$symbol&apikey=$apiKey"
+      logger.info("Fetching company overview for $symbol from Alpha Vantage")
+      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+
+      val response =
+        restClient
+          .get()
+          .uri { uriBuilder ->
+            uriBuilder
+              .queryParam("function", FUNCTION_OVERVIEW)
+              .queryParam("symbol", symbol)
+              .queryParam("apikey", apiKey)
+              .build()
+          }.retrieve()
+          .toEntity(AlphaVantageCompanyOverview::class.java)
+          .body
+
+      if (response == null) {
+        logger.warn("No response received from Alpha Vantage company overview for $symbol")
+        return null
+      }
+
+      // Check if response contains an error
+      if (response.hasError()) {
+        logger.error("Alpha Vantage API error for company overview $symbol: ${response.getErrorDescription()}")
+        return null
+      }
+
+      // Check if response is valid (has required data)
+      if (!response.isValid()) {
+        logger.error("Alpha Vantage API returned invalid company overview for $symbol (missing symbol or sector)")
+        return null
+      }
+
+      val sectorSymbol = response.toSectorSymbol()
+      if (sectorSymbol != null) {
+        logger.info("Successfully mapped $symbol to sector ${response.sector} -> $sectorSymbol")
+      } else {
+        logger.warn("Could not map sector '${response.sector}' to SectorSymbol for $symbol")
+      }
+
+      sectorSymbol
+    }.onFailure { e ->
+      logger.error("Failed to fetch company overview from Alpha Vantage for $symbol: ${e.message}", e)
     }.getOrNull()
   }
 }

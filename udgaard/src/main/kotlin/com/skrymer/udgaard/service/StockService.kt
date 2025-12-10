@@ -7,7 +7,6 @@ import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.model.BreadthSymbol
-import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.repository.BreadthRepository
 import com.skrymer.udgaard.repository.StockRepository
@@ -167,18 +166,15 @@ open class StockService(
       val earnings = fundamentalDataProvider.getEarnings(symbol) ?: emptyList()
       logger.info("Fetched ${earnings.size} quarterly earnings for $symbol")
 
-      // Step 4: Get sector symbol from Ovtlyr (needed for sector breadth lookup)
-      logger.info("Fetching sector symbol from Ovtlyr for $symbol")
-      val ovtlyrStock = ovtlyrClient.getStockInformation(symbol)
-      if (ovtlyrStock == null) {
-        logger.error("FAILED: Could not fetch stock information from Ovtlyr for $symbol")
-        return null
+      // Step 4: Get sector symbol from AlphaVantage (needed for sector breadth lookup)
+      logger.info("Fetching sector symbol for $symbol")
+      val sectorSymbol = fundamentalDataProvider.getSectorSymbol(symbol)
+      if (sectorSymbol == null) {
+        logger.warn("Could not determine sector for $symbol - sector breadth will not be available")
       }
-      val sectorSymbolString = ovtlyrStock.sectorSymbol
 
       // Step 5: Fetch breadth data for context
       val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-      val sectorSymbol = SectorSymbol.fromString(sectorSymbolString)
       val sectorBreadth =
         sectorSymbol?.let {
           breadthRepository.findBySymbol(BreadthSymbol.Sector(it).toIdentifier())
@@ -233,7 +229,7 @@ open class StockService(
       val stock =
         stockFactory.createStock(
           symbol = symbol,
-          sectorSymbol = sectorSymbolString,
+          sectorSymbol = sectorSymbol?.name,
           enrichedQuotes = enrichedQuotes,
           orderBlocks = orderBlocks,
           earnings = earnings,
