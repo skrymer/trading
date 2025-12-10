@@ -100,6 +100,11 @@ class EntryStrategyBuilder {
       conditions.add(SectorHeatmapGreaterThanSpyCondition())
     }
 
+  fun sectorBreadthGreaterThanSpy() =
+    apply {
+      conditions.add(SectorBreadthGreaterThanSpyCondition())
+    }
+
   // Stock conditions
   fun stockHeatmapRising() =
     apply {
@@ -121,6 +126,34 @@ class EntryStrategyBuilder {
     ageInDays: Int = 30,
   ) = apply {
     conditions.add(BelowOrderBlockCondition(percentBelow, ageInDays))
+  }
+
+  fun emaBullishCross(
+    fastEma: Int = 10,
+    slowEma: Int = 20,
+  ) = apply {
+    conditions.add(EmaBullishCrossCondition(fastEma, slowEma))
+  }
+
+  fun atrExpanding(
+    minPercentile: Double = 30.0,
+    maxPercentile: Double = 70.0,
+  ) = apply {
+    conditions.add(ATRExpandingCondition(minPercentile, maxPercentile))
+  }
+
+  fun adxRange(
+    minADX: Double = 20.0,
+    maxADX: Double = 50.0,
+  ) = apply {
+    conditions.add(ADXRangeCondition(minADX, maxADX))
+  }
+
+  fun volumeAboveAverage(
+    multiplier: Double = 1.3,
+    lookbackDays: Int = 20,
+  ) = apply {
+    conditions.add(VolumeAboveAverageCondition(multiplier, lookbackDays))
   }
 
   fun withOperator(op: LogicalOperator) =
