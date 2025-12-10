@@ -86,8 +86,8 @@ data class AlphaVantageCompanyOverview(
 
     return when (sector.uppercase().trim()) {
       "TECHNOLOGY" -> SectorSymbol.XLK
-      "FINANCIALS" -> SectorSymbol.XLF
-      "HEALTH CARE", "HEALTHCARE" -> SectorSymbol.XLV
+      "FINANCIAL SERVICES" -> SectorSymbol.XLF
+      "HEALTHCARE" -> SectorSymbol.XLV
       "ENERGY" -> SectorSymbol.XLE
       "INDUSTRIALS" -> SectorSymbol.XLI
       "CONSUMER DISCRETIONARY", "CONSUMER CYCLICAL" -> SectorSymbol.XLY

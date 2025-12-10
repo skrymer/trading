@@ -302,9 +302,6 @@ class BacktestServiceTest {
     val qqq = Stock("QQQ", "XLK", mutableListOf(qqqQuote1, qqqQuote2, qqqQuote3, qqqQuote4), mutableListOf())
     val tqqq = Stock("TQQQ", "XLK", mutableListOf(tqqqQuote1, tqqqQuote2, tqqqQuote3, tqqqQuote4), mutableListOf())
 
-    // Mock repository to return QQQ when requested
-    whenever(stockRepository.findById("QQQ")).thenReturn(Optional.of(qqq))
-
     // Custom map: TQQQ -> QQQ
     val customMap = mapOf("TQQQ" to "QQQ")
 
@@ -312,7 +309,7 @@ class BacktestServiceTest {
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100, // QQQ triggers at 100
         openPriceIsLessThan100, // QQQ exits when openPrice < 100
-        mutableListOf(tqqq), // Trading TQQQ
+        mutableListOf(tqqq, qqq), // Include both trading stock (TQQQ) and underlying (QQQ)
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         useUnderlyingAssets = true,
@@ -412,16 +409,13 @@ class BacktestServiceTest {
     val qqqQuote2 = StockQuote(closePrice = 96.0, openPrice = 94.0, date = LocalDate.of(2025, 1, 2))
     val qqq = Stock("QQQ", "XLK", mutableListOf(qqqQuote1, qqqQuote2), mutableListOf())
 
-    // Mock repository to return QQQ when requested
-    whenever(stockRepository.findById("QQQ")).thenReturn(Optional.of(qqq))
-
     val customMap = mapOf("TQQQ" to "QQQ")
 
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(aapl, tqqq), // Only trading AAPL and TQQQ
+        mutableListOf(aapl, tqqq, qqq), // Include all stocks: AAPL, TQQQ, and underlying QQQ
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         useUnderlyingAssets = true,

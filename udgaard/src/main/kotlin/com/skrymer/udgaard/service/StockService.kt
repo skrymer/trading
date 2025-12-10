@@ -13,9 +13,11 @@ import com.skrymer.udgaard.repository.StockRepository
 import kotlinx.coroutines.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import jakarta.persistence.EntityManager
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 open class StockService(
@@ -27,6 +29,7 @@ open class StockService(
   val technicalIndicatorProvider: TechnicalIndicatorProvider,
   val fundamentalDataProvider: FundamentalDataProvider,
   val stockFactory: StockFactory,
+  val entityManager: EntityManager,
 ) {
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
@@ -37,32 +40,69 @@ open class StockService(
    * @param symbol - the [symbol] of the stock to get
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
+  @Transactional(readOnly = true)
   open fun getStock(
     symbol: String,
     forceFetch: Boolean = false,
   ): Stock? {
     logger.info("Getting stock $symbol with forceFetch=$forceFetch")
 
-    return if (forceFetch) {
-      fetchStock(symbol, getSpy())
-    } else {
-      stockRepository
-        .findById(symbol)
-        .orElseGet {
-          fetchStock(symbol, getSpy())
-        }?.also {
-          // Force loading of orderBlocks and earnings to ensure they're in cache
-          it.orderBlocks.size
-          it.earnings.size
-        }
-    }
+    val stock =
+      if (forceFetch) {
+        fetchStock(symbol, getSpy())
+      } else {
+        stockRepository
+          .findById(symbol)
+          .orElseGet {
+            fetchStock(symbol, getSpy())
+          }?.also {
+            // Force loading of orderBlocks and earnings to ensure they're in cache
+            it.orderBlocks.size
+            it.earnings.size
+          }
+      }
+
+    // Detach the entity to prevent holding connections
+    stock?.let { entityManager.detach(it) }
+
+    return stock
   }
 
   /**
    * @return all stocks currently stored in DB
+   *
+   * Uses explicit JOIN FETCH queries to load all collections efficiently
+   * and prevent connection leaks. The three-query approach avoids Hibernate's
+   * MultipleBagFetchException while ensuring all data is loaded within the transaction.
+   *
+   * IMPORTANT: Entities are DETACHED from the persistence context after loading
+   * to prevent Hibernate from holding database connections during long-running
+   * operations (like backtesting). This allows the transaction to close immediately
+   * after data is loaded.
    */
   @Cacheable(value = ["stocks"], key = "'allStocks'")
-  open fun getAllStocks(): List<Stock> = stockRepository.findAll()
+  @Transactional(readOnly = true)
+  open fun getAllStocks(): List<Stock> {
+    // Query 1: Load stocks with quotes
+    val stocks = stockRepository.findAllWithQuotes()
+
+    if (stocks.isEmpty()) {
+      return emptyList()
+    }
+
+    // Query 2: Fetch order blocks for all stocks
+    stockRepository.fetchOrderBlocks(stocks)
+
+    // Query 3: Fetch earnings for all stocks
+    stockRepository.fetchEarnings(stocks)
+
+    // CRITICAL: Detach all entities from the Hibernate session
+    // This closes the transaction and releases the database connection
+    // before the entities are used in long-running operations (backtesting)
+    entityManager.clear() // Detaches ALL entities in the persistence context
+
+    return stocks
+  }
 
   /**
    * Get stocks by a list of symbols (efficient repository query)
@@ -379,6 +419,24 @@ open class StockService(
       "totalBlocks" to totalBlocks,
       "totalStocks" to allStocks.size,
     )
+  }
+
+  /**
+   * Get market breadth data for use in backtesting.
+   * @return Market breadth entity, or null if not available
+   */
+  @Transactional(readOnly = true)
+  open fun getMarketBreadth(): com.skrymer.udgaard.model.Breadth? {
+    val breadth = breadthRepository.findBySymbol(com.skrymer.udgaard.model.BreadthSymbol.Market().toIdentifier())
+
+    // Detach the entity to prevent holding connections
+    breadth?.let {
+      // Force load quotes collection before detaching
+      it.quotes.size
+      entityManager.detach(it)
+    }
+
+    return breadth
   }
 
   private fun getSpy(): OvtlyrStockInformation {

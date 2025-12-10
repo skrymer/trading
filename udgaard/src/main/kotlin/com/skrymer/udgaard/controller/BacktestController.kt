@@ -90,6 +90,10 @@ class BacktestController(
 
     logger.info("${stocks.size} stocks fetched")
 
+    // Load SPY and market breadth data for market condition tracking (outside backtest transaction)
+    val spyStock = stockService.getStock("SPY", forceFetch = false)
+    val marketBreadth = stockService.getMarketBreadth()
+
     // Parse dates or use defaults
     val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2020-01-01")
     val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
@@ -116,6 +120,8 @@ class BacktestController(
           request.useUnderlyingAssets,
           request.customUnderlyingMap,
           request.cooldownDays,
+          spyStock,
+          marketBreadth,
         )
 
       logger.info(

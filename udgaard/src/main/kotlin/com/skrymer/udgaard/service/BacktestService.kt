@@ -13,7 +13,6 @@ import com.skrymer.udgaard.repository.StockRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 /**
@@ -49,12 +48,14 @@ class BacktestService(
    * @param stocks - the stocks to trade
    * @param useUnderlyingAssets - whether to use underlying assets for strategy signals
    * @param customUnderlyingMap - custom symbol mappings
+   * @param allStocksMap - map of symbol to Stock for looking up underlying assets
    * @return list of stock pairs
    */
   private fun createStockPairs(
     stocks: List<Stock>,
     useUnderlyingAssets: Boolean,
     customUnderlyingMap: Map<String, String>?,
+    allStocksMap: Map<String, Stock>,
   ): List<StockPair> =
     stocks.map { tradingStock ->
       val strategySymbol = getStrategySymbol(tradingStock.symbol!!, useUnderlyingAssets, customUnderlyingMap)
@@ -62,8 +63,8 @@ class BacktestService(
       val (strategyStock, underlying) =
         if (strategySymbol != tradingStock.symbol) {
           val underlyingStock =
-            stockRepository.findByIdOrNull(strategySymbol)
-              ?: throw IllegalStateException("Underlying asset $strategySymbol not found")
+            allStocksMap[strategySymbol]
+              ?: throw IllegalStateException("Underlying asset $strategySymbol not found - ensure it's loaded before backtest")
           Pair(underlyingStock, strategySymbol)
         } else {
           Pair(tradingStock, null)
@@ -79,12 +80,12 @@ class BacktestService(
    * @return map of stock to quote index
    */
   private fun buildQuoteIndexes(stocks: List<Stock>): Map<Stock, StockQuoteIndex> =
-    stocks.associate { stock ->
+    stocks.associateWith { stock ->
       val quotesByDate =
         stock.quotes
           .filter { it.date != null }
           .associateBy { it.date!! }
-      stock to StockQuoteIndex(stock, quotesByDate)
+      StockQuoteIndex(stock, quotesByDate)
     }
 
   /**
@@ -207,9 +208,15 @@ class BacktestService(
    * This method uses date-by-date processing which ensures proper chronological evaluation
    * of all trading conditions as the backtest progresses through time.
    *
+   * NOTE: This method does NOT use @Transactional because:
+   * 1. Backtests can take 5+ minutes with many stocks
+   * 2. Holding a transaction/connection open for that long triggers connection leak detection
+   * 3. All Stock data is already loaded in memory (via getAllStocks) before this method runs
+   * 4. This method only reads data, performs no writes
+   *
    * @param entryStrategy - the entry strategy
    * @param exitStrategy - the exit strategy
-   * @param stocks - the stocks to generate the report for
+   * @param stocks - the stocks to generate the report for (MUST be fully loaded with quotes/orderBlocks/earnings)
    * @param after - start date for backtest
    * @param before - end date for backtest
    * @param maxPositions - maximum number of positions to enter per day. Null means unlimited (default: null)
@@ -217,9 +224,10 @@ class BacktestService(
    * @param useUnderlyingAssets - enable automatic underlying asset detection for strategy evaluation (default: true)
    * @param customUnderlyingMap - custom symbol → underlying mappings (overrides AssetMapper)
    * @param cooldownDays - global cooldown period in trading days after exit before allowing new entries (default: 0)
+   * @param spyStock - SPY stock for market condition tracking (optional, can be null)
+   * @param marketBreadth - Market breadth data for market condition tracking (optional, can be null)
    * @return a backtest report
    */
-  @Transactional(readOnly = true)
   fun backtest(
     entryStrategy: EntryStrategy,
     exitStrategy: ExitStrategy,
@@ -231,18 +239,23 @@ class BacktestService(
     useUnderlyingAssets: Boolean = true,
     customUnderlyingMap: Map<String, String>? = null,
     cooldownDays: Int = 0,
+    spyStock: Stock? = null,
+    marketBreadth: Breadth? = null,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
 
-    // Validate that all underlying assets exist in the database
-    validateUnderlyingAssets(stocks, useUnderlyingAssets, customUnderlyingMap)
+    // Create a map of all stocks for fast lookup (includes trading stocks and any loaded underlying assets)
+    val allStocksMap = stocks.associateBy { it.symbol!! }
+
+    // Validate that all underlying assets exist in the loaded stocks
+    validateUnderlyingAssets(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
 
     // Track most recent exit date for global cooldown enforcement
     var lastExitDate: LocalDate? = null
 
     // Create stock pairs: trading stock + strategy stock (might be the same)
-    val stockPairs = createStockPairs(stocks, useUnderlyingAssets, customUnderlyingMap)
+    val stockPairs = createStockPairs(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
 
     // Build quote indexes for O(1) date lookups
     val allStocks = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
@@ -348,10 +361,6 @@ class BacktestService(
 
     logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed")
 
-    // Get SPY and market breadth for market condition tracking
-    val spyStock = stockRepository.findByIdOrNull("SPY")
-    val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-
     logger.info("Calculating trade excursion metrics and market conditions...")
 
     // Enrich each trade with excursion metrics and market conditions
@@ -432,17 +441,19 @@ class BacktestService(
   }
 
   /**
-   * Validates that all underlying symbols exist in the database.
+   * Validates that all underlying symbols exist in the loaded stocks map.
    * Throws IllegalArgumentException if any are missing.
    *
    * @param stocks - the trading stocks
    * @param useUnderlying - whether underlying asset detection is enabled
    * @param customMap - custom overrides map
+   * @param allStocksMap - map of symbol to Stock for validation
    */
   private fun validateUnderlyingAssets(
     stocks: List<Stock>,
     useUnderlying: Boolean,
     customMap: Map<String, String>?,
+    allStocksMap: Map<String, Stock>,
   ) {
     if (!useUnderlying) return
 
@@ -453,9 +464,8 @@ class BacktestService(
       val strategySymbol = getStrategySymbol(stock.symbol!!, true, customMap)
 
       if (strategySymbol != stock.symbol) {
-        // Check if this underlying asset exists
-        val underlyingStock = stockRepository.findByIdOrNull(strategySymbol)
-        if (underlyingStock == null) {
+        // Check if this underlying asset exists in the loaded stocks
+        if (!allStocksMap.containsKey(strategySymbol)) {
           missingSymbols.add(strategySymbol)
           logger.warn("Missing underlying asset: $strategySymbol (for ${stock.symbol})")
         }
@@ -482,7 +492,7 @@ class BacktestService(
     entryQuote: StockQuote,
   ): ExcursionMetrics {
     val entryPrice = entryQuote.closePrice
-    val entryATR = entryQuote.atr ?: 1.0 // Fallback to 1.0 if ATR missing
+    val entryATR = entryQuote.atr // Fallback to 1.0 if ATR missing
 
     var maxProfit = 0.0
     var maxDrawdown = 0.0
@@ -699,7 +709,7 @@ class BacktestService(
       trades = trades.size,
       winRate = if (trades.isNotEmpty()) (winners.toDouble() / trades.size) * 100 else 0.0,
       avgProfit = if (trades.isNotEmpty()) trades.map { it.profitPercentage }.average() else 0.0,
-      avgHoldingDays = if (trades.isNotEmpty()) trades.mapNotNull { it.tradingDays }.average() else 0.0,
+      avgHoldingDays = if (trades.isNotEmpty()) trades.map { it.tradingDays }.average() else 0.0,
       exitReasons = exitReasons,
     )
   }
@@ -716,7 +726,7 @@ class BacktestService(
           ExitStats(
             count = reasonTrades.size,
             avgProfit = if (reasonTrades.isNotEmpty()) reasonTrades.map { it.profitPercentage }.average() else 0.0,
-            avgHoldingDays = if (reasonTrades.isNotEmpty()) reasonTrades.mapNotNull { it.tradingDays }.average() else 0.0,
+            avgHoldingDays = if (reasonTrades.isNotEmpty()) reasonTrades.map { it.tradingDays }.average() else 0.0,
             winRate = if (reasonTrades.isNotEmpty()) (winners.toDouble() / reasonTrades.size) * 100 else 0.0,
           )
         }
@@ -742,7 +752,7 @@ class BacktestService(
       .map { (sector, sectorTrades) ->
         val winners = sectorTrades.count { it.profit > 0 }
         SectorPerformance(
-          sector = sector ?: "Unknown",
+          sector = sector,
           trades = sectorTrades.size,
           winRate = if (sectorTrades.isNotEmpty()) (winners.toDouble() / sectorTrades.size) * 100 else 0.0,
           avgProfit = if (sectorTrades.isNotEmpty()) sectorTrades.map { it.profitPercentage }.average() else 0.0,
