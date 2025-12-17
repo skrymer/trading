@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.exit.ExitCondition
 import org.springframework.stereotype.Component
 
@@ -22,9 +22,9 @@ class PriceBelowEmaForDaysExit(
   private val consecutiveDays: Int = 3,
 ) : ExitCondition {
   override fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean {
     if (consecutiveDays <= 0) {
       return false
@@ -77,7 +77,7 @@ class PriceBelowEmaForDaysExit(
    * Get the EMA value for the specified period from a quote.
    * Returns null for unsupported periods or if EMA is 0 (not calculated).
    */
-  private fun getEmaValue(quote: StockQuote): Double? {
+  private fun getEmaValue(quote: StockQuoteDomain): Double? {
     val emaValue =
       when (emaPeriod) {
         5 -> quote.closePriceEMA5

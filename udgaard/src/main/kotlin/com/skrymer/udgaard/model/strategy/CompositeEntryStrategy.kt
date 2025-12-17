@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.model.strategy
 
 import com.skrymer.udgaard.controller.dto.EntrySignalDetails
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 
@@ -16,8 +16,8 @@ class CompositeEntryStrategy(
   private val strategyDescription: String? = null,
 ) : DetailedEntryStrategy {
   override fun test(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean {
     if (conditions.isEmpty()) return false
 
@@ -56,8 +56,8 @@ class CompositeEntryStrategy(
    * @return Detailed entry signal information including all condition results
    */
   override fun testWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): EntrySignalDetails {
     val conditionResults = conditions.map { it.evaluateWithDetails(stock, quote) }
 

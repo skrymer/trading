@@ -1,19 +1,19 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class SellSignalExitTest {
   private val condition = SellSignalExit()
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should exit when sell signal is present`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         signal = "Sell",
       )
@@ -27,7 +27,7 @@ class SellSignalExitTest {
   @Test
   fun `should not exit when sell signal is absent`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
       )
 

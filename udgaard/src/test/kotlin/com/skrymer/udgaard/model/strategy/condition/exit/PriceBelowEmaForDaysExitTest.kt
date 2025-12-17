@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -12,14 +12,14 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 4)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 102.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 101.0),
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 99.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 102.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 101.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 99.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
     val currentQuote = quotes[3] // 4th day
 
     assertTrue(
@@ -33,14 +33,14 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 4)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 102.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 101.0),
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 103.0, closePriceEMA10 = 100.0), // Above EMA
-        StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 99.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 102.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 101.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 103.0, closePriceEMA10 = 100.0), // Above EMA
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 99.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
     val currentQuote = quotes[3]
 
     assertFalse(
@@ -54,11 +54,11 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 1)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertTrue(
       condition.shouldExit(stock, null, quotes[0]),
@@ -71,13 +71,13 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 102.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 101.0),
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 105.0, closePriceEMA10 = 100.0), // Above EMA
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 102.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 101.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 105.0, closePriceEMA10 = 100.0), // Above EMA
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertFalse(
       condition.shouldExit(stock, null, quotes[2]),
@@ -90,12 +90,12 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 5)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertFalse(
       condition.shouldExit(stock, null, quotes[1]),
@@ -108,12 +108,12 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 5, consecutiveDays = 2)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA5 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA5 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA5 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA5 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertTrue(
       condition.shouldExit(stock, null, quotes[1]),
@@ -126,12 +126,12 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 20, consecutiveDays = 2)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA20 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA20 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA20 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA20 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertTrue(
       condition.shouldExit(stock, null, quotes[1]),
@@ -144,12 +144,12 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 50, consecutiveDays = 2)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA50 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA50 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA50 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA50 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertTrue(
       condition.shouldExit(stock, null, quotes[1]),
@@ -162,12 +162,12 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 2)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 100.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 100.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 100.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertFalse(
       condition.shouldExit(stock, null, quotes[1]),
@@ -180,11 +180,11 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 0)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertFalse(
       condition.shouldExit(stock, null, quotes[0]),
@@ -199,14 +199,14 @@ class PriceBelowEmaForDaysExitTest {
     val quotes =
       (1..10)
         .map { day ->
-          StockQuote(
+          StockQuoteDomain(
             date = LocalDate.of(2024, 1, day),
             closePrice = 95.0,
             closePriceEMA10 = 100.0,
           )
         }.toMutableList()
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertTrue(
       condition.shouldExit(stock, null, quotes[9]),
@@ -219,15 +219,15 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 5)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 105.0, closePriceEMA10 = 100.0), // Above
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 5), closePrice = 96.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 105.0, closePriceEMA10 = 100.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 99.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 4), closePrice = 97.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 5), closePrice = 96.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertFalse(
       condition.shouldExit(stock, null, quotes[4]),
@@ -259,13 +259,13 @@ class PriceBelowEmaForDaysExitTest {
 
     // Create quotes in random order
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 99.5, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 98.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 99.5, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertTrue(
       condition.shouldExit(stock, null, quotes[0]),
@@ -278,12 +278,12 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 2)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 0.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 0.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 0.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 0.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     // When EMA is 0, price (98 or 99) is above it, so should not exit
     assertFalse(
@@ -297,13 +297,13 @@ class PriceBelowEmaForDaysExitTest {
     val condition = PriceBelowEmaForDaysExit(emaPeriod = 10, consecutiveDays = 3)
 
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 0.0), // Zero EMA breaks streak
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 0.0), // Zero EMA breaks streak
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
 
     assertFalse(
       condition.shouldExit(stock, null, quotes[2]),
@@ -317,14 +317,14 @@ class PriceBelowEmaForDaysExitTest {
 
     // Entry on Jan 1, all days below EMA
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0), // Entry day
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 96.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0), // Entry day
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 4), closePrice = 96.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
     val entryQuote = quotes[0]
 
     // On day 4, we have: day 1 (entry, excluded), day 2, day 3, day 4
@@ -341,14 +341,14 @@ class PriceBelowEmaForDaysExitTest {
 
     // Entry on Jan 1, need 3 consecutive days AFTER entry
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0), // Entry day
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 4), closePrice = 96.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0), // Entry day
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 98.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 3), closePrice = 97.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 4), closePrice = 96.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
     val entryQuote = quotes[0]
 
     // On day 4, we have: day 2, day 3, day 4 = 3 consecutive days after entry
@@ -364,15 +364,15 @@ class PriceBelowEmaForDaysExitTest {
 
     // Entry on Jan 1, but checking on Jan 10
     val quotes =
-      mutableListOf(
-        StockQuote(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0), // Entry day
-        StockQuote(date = LocalDate.of(2024, 1, 2), closePrice = 105.0, closePriceEMA10 = 100.0), // Above EMA
-        StockQuote(date = LocalDate.of(2024, 1, 8), closePrice = 98.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 9), closePrice = 97.0, closePriceEMA10 = 100.0),
-        StockQuote(date = LocalDate.of(2024, 1, 10), closePrice = 96.0, closePriceEMA10 = 100.0),
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 1), closePrice = 99.0, closePriceEMA10 = 100.0), // Entry day
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 2), closePrice = 105.0, closePriceEMA10 = 100.0), // Above EMA
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 8), closePrice = 98.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 9), closePrice = 97.0, closePriceEMA10 = 100.0),
+        StockQuoteDomain(date = LocalDate.of(2024, 1, 10), closePrice = 96.0, closePriceEMA10 = 100.0),
       )
 
-    val stock = Stock("TEST", null, quotes, mutableListOf())
+    val stock = StockDomain("TEST", null, quotes = quotes, orderBlocks = listOf())
     val entryQuote = quotes[0]
 
     // On day 10, lookback only includes days 8, 9, 10 (entry is not in lookback)

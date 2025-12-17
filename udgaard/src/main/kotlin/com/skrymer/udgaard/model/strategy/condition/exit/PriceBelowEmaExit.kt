@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
 
 /**
@@ -17,9 +17,9 @@ class PriceBelowEmaExit(
   private val emaPeriod: Int = 10,
 ) : ExitCondition {
   override fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean =
     when (emaPeriod) {
       5 -> quote.closePrice < quote.closePriceEMA5

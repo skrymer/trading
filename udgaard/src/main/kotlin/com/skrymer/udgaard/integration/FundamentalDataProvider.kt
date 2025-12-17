@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.integration
 
-import com.skrymer.udgaard.model.Earning
+import com.skrymer.udgaard.domain.EarningDomain
 import com.skrymer.udgaard.model.SectorSymbol
 
 /**
@@ -26,7 +26,7 @@ interface FundamentalDataProvider {
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @return List of quarterly earnings, or null if unavailable
    */
-  fun getEarnings(symbol: String): List<Earning>?
+  fun getEarnings(symbol: String): List<EarningDomain>?
 
   /**
    * Get sector symbol for a stock

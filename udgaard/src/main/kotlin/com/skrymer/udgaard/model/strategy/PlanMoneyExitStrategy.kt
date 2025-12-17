@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Plan Money exit strategy using composition.
@@ -19,15 +19,15 @@ class PlanMoneyExitStrategy : ExitStrategy {
     }
 
   override fun match(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean = compositeStrategy.match(stock, entryQuote, quote)
 
   override fun reason(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): String? = compositeStrategy.reason(stock, entryQuote, quote)
 
   override fun description() = "Plan Money exit strategy"

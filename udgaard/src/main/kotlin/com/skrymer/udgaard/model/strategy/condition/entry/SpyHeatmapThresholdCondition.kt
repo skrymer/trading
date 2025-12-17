@@ -3,8 +3,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import org.springframework.stereotype.Component
 
@@ -19,8 +19,8 @@ class SpyHeatmapThresholdCondition(
   private val threshold: Double = 70.0,
 ) : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean = quote.spyHeatmap < threshold
 
   override fun description(): String = "SPY heatmap < $threshold"
@@ -45,8 +45,8 @@ class SpyHeatmapThresholdCondition(
     )
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val actualHeatmap = quote.spyHeatmap
     val passed = actualHeatmap < threshold

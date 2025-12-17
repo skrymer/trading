@@ -3,8 +3,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import org.springframework.stereotype.Component
 
@@ -17,8 +17,8 @@ class ValueZoneCondition(
   private val atrMultiplier: Double = 2.0,
 ) : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean =
     quote.closePrice > quote.closePriceEMA20 &&
       quote.closePrice < (quote.closePriceEMA20 + (atrMultiplier * quote.atr))
@@ -45,8 +45,8 @@ class ValueZoneCondition(
     )
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val price = quote.closePrice
     val ema20 = quote.closePriceEMA20

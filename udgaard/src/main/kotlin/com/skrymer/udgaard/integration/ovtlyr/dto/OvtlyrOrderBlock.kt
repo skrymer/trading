@@ -3,8 +3,8 @@ package com.skrymer.udgaard.integration.ovtlyr.dto
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockType
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.OrderBlockType
 import java.time.LocalDate
 
 /**
@@ -35,10 +35,10 @@ data class OvtlyrOrderBlock(
   @JsonProperty("oB_Type")
   val obType: ObType,
 ) {
-  fun toModel(information: OvtlyrStockInformation): OrderBlock {
+  fun toModel(information: OvtlyrStockInformation): OrderBlockDomain {
     val quote = information.getQuoteForDate(startDate)
 
-    return OrderBlock(
+    return OrderBlockDomain(
       low = quote?.low ?: 0.0,
       high = quote?.high ?: 0.0,
       startDate = startDate,

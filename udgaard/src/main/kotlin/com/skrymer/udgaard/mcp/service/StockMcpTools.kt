@@ -3,7 +3,7 @@ package com.skrymer.udgaard.mcp.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.skrymer.udgaard.controller.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.model.StockSymbol
-import com.skrymer.udgaard.repository.StockRepository
+import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import com.skrymer.udgaard.service.ConditionRegistry
 import com.skrymer.udgaard.service.StrategyRegistry
 import org.slf4j.Logger
@@ -22,7 +22,7 @@ import java.time.LocalDate
 class StockMcpTools(
   private val strategyRegistry: StrategyRegistry,
   private val conditionRegistry: ConditionRegistry,
-  private val stockRepository: StockRepository,
+  private val stockRepository: StockJooqRepository,
   private val cacheManager: CacheManager,
   private val objectMapper: ObjectMapper,
 ) {

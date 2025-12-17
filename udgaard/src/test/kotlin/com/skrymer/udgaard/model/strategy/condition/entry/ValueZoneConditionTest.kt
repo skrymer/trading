@@ -1,19 +1,18 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class ValueZoneConditionTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should return true when price is within value zone`() {
     val condition = ValueZoneCondition(atrMultiplier = 2.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 105.0,
         closePriceEMA20 = 100.0,
@@ -30,7 +29,7 @@ class ValueZoneConditionTest {
   fun `should return true when price is just below upper bound`() {
     val condition = ValueZoneCondition(atrMultiplier = 2.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 103.0,
         closePriceEMA20 = 100.0,
@@ -47,7 +46,7 @@ class ValueZoneConditionTest {
   fun `should return false when price equals upper bound`() {
     val condition = ValueZoneCondition(atrMultiplier = 2.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 104.0,
         closePriceEMA20 = 100.0,
@@ -64,7 +63,7 @@ class ValueZoneConditionTest {
   fun `should return false when price is at EMA`() {
     val condition = ValueZoneCondition(atrMultiplier = 2.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 100.0,
         closePriceEMA20 = 100.0,
@@ -81,7 +80,7 @@ class ValueZoneConditionTest {
   fun `should work with different ATR multiplier`() {
     val condition = ValueZoneCondition(atrMultiplier = 3.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 105.0,
         closePriceEMA20 = 100.0,
@@ -104,7 +103,7 @@ class ValueZoneConditionTest {
   fun `should return false when price is below EMA`() {
     val condition = ValueZoneCondition(atrMultiplier = 2.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 95.0,
         closePriceEMA20 = 100.0,

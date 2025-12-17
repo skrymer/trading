@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.controller.dto
 
-import com.skrymer.udgaard.model.InstrumentType
-import com.skrymer.udgaard.model.OptionType
-import com.skrymer.udgaard.model.PortfolioTrade
+import com.skrymer.udgaard.domain.InstrumentTypeDomain
+import com.skrymer.udgaard.domain.OptionTypeDomain
+import com.skrymer.udgaard.domain.PortfolioTradeDomain
 import java.time.LocalDate
 
 data class CreatePortfolioRequest(
@@ -25,8 +25,8 @@ data class OpenTradeRequest(
   val exitStrategy: String,
   val currency: String,
   val underlyingSymbol: String? = null,
-  val instrumentType: InstrumentType = InstrumentType.STOCK,
-  val optionType: OptionType? = null,
+  val instrumentType: InstrumentTypeDomain = InstrumentTypeDomain.STOCK,
+  val optionType: OptionTypeDomain? = null,
   val strikePrice: Double? = null,
   val expirationDate: LocalDate? = null,
   val contracts: Int? = null,
@@ -50,8 +50,8 @@ data class UpdateTradeRequest(
   val entryStrategy: String? = null,
   val exitStrategy: String? = null,
   val underlyingSymbol: String? = null,
-  val instrumentType: InstrumentType? = null,
-  val optionType: OptionType? = null,
+  val instrumentType: InstrumentTypeDomain? = null,
+  val optionType: OptionTypeDomain? = null,
   val strikePrice: Double? = null,
   val expirationDate: LocalDate? = null,
   val contracts: Int? = null,
@@ -64,7 +64,7 @@ data class RollTradeRequest(
   val newSymbol: String,
   val newStrikePrice: Double,
   val newExpirationDate: LocalDate,
-  val newOptionType: OptionType,
+  val newOptionType: OptionTypeDomain,
   val newEntryPrice: Double,
   val rollDate: LocalDate,
   val contracts: Int,
@@ -72,11 +72,11 @@ data class RollTradeRequest(
 )
 
 data class RollTradeResponse(
-  val closedTrade: PortfolioTrade,
-  val newTrade: PortfolioTrade,
+  val closedTrade: PortfolioTradeDomain,
+  val newTrade: PortfolioTradeDomain,
   val rollCost: Double,
 )
 
 data class RollChainResponse(
-  val trades: List<PortfolioTrade>,
+  val trades: List<PortfolioTradeDomain>,
 )

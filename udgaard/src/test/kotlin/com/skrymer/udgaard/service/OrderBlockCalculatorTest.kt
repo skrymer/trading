@@ -1,10 +1,11 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.OrderBlockSensitivity
-import com.skrymer.udgaard.model.OrderBlockType
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
+import com.skrymer.udgaard.domain.OrderBlockType
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -20,7 +21,7 @@ class OrderBlockCalculatorTest {
   }
 
   @Test
-  @org.junit.jupiter.api.Disabled("Test data needs updating for current OrderBlockCalculator implementation")
+  @Disabled("Test data needs updating for current OrderBlockCalculator implementation")
   fun `should detect bullish order block on strong upward momentum`() {
     // Given: A series of quotes with a strong upward move (>28% ROC)
     val quotes = createQuotesWithBullishMomentum()
@@ -29,7 +30,7 @@ class OrderBlockCalculatorTest {
     val orderBlocks = calculator.calculateOrderBlocks(quotes = quotes)
 
     // Then: Should detect at least one bullish order block
-    val bullishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BULLISH }
+    val bullishBlocks = orderBlocks.filter { it.orderBlockType == com.skrymer.udgaard.domain.OrderBlockType.BULLISH }
     logger.info("Total blocks: ${orderBlocks.size}, Bullish: ${bullishBlocks.size}, Bearish: ${orderBlocks.size - bullishBlocks.size}")
     orderBlocks.forEach { b ->
       logger.info("  ${b.orderBlockType}: start=${b.startDate}, ROC=${b.rateOfChange}")
@@ -167,7 +168,7 @@ class OrderBlockCalculatorTest {
 
   // Helper methods to create test data
 
-  private fun createQuotesWithBullishMomentum(): List<StockQuote> {
+  private fun createQuotesWithBullishMomentum(): List<StockQuoteDomain> {
     val baseDate = LocalDate.of(2025, 1, 1)
     return listOf(
       // Setup quotes with gradual increase - need at least 19 quotes for LOOKBACK_MAX + ROC_PERIOD
@@ -201,7 +202,7 @@ class OrderBlockCalculatorTest {
     )
   }
 
-  private fun createQuotesWithBearishMomentum(): List<StockQuote> {
+  private fun createQuotesWithBearishMomentum(): List<StockQuoteDomain> {
     val baseDate = LocalDate.of(2025, 1, 1)
     return listOf(
       // Setup quotes - need at least 19 quotes
@@ -235,7 +236,7 @@ class OrderBlockCalculatorTest {
     )
   }
 
-  private fun createQuotesWithModerateMomentum(): List<StockQuote> {
+  private fun createQuotesWithModerateMomentum(): List<StockQuoteDomain> {
     val baseDate = LocalDate.of(2025, 1, 1)
     return listOf(
       // Setup quotes with gradual increase - need at least 40+ quotes to test both sensitivity levels
@@ -289,7 +290,7 @@ class OrderBlockCalculatorTest {
     )
   }
 
-  private fun createQuotesWithBullishBlockAndMitigation(): List<StockQuote> {
+  private fun createQuotesWithBullishBlockAndMitigation(): List<StockQuoteDomain> {
     val bullishQuotes = createQuotesWithBullishMomentum().toMutableList()
     val lastQuote = bullishQuotes.last()
 
@@ -307,7 +308,7 @@ class OrderBlockCalculatorTest {
     return bullishQuotes
   }
 
-  private fun createQuotesWithBearishBlockAndMitigation(): List<StockQuote> {
+  private fun createQuotesWithBearishBlockAndMitigation(): List<StockQuoteDomain> {
     val bearishQuotes = createQuotesWithBearishMomentum().toMutableList()
     val lastQuote = bearishQuotes.last()
 
@@ -325,9 +326,9 @@ class OrderBlockCalculatorTest {
     return bearishQuotes
   }
 
-  private fun createQuotesWithRapidMomentumChanges(): List<StockQuote> {
+  private fun createQuotesWithRapidMomentumChanges(): List<StockQuoteDomain> {
     val baseDate = LocalDate.of(2025, 1, 1)
-    val quotes = mutableListOf<StockQuote>()
+    val quotes = mutableListOf<StockQuoteDomain>()
 
     // Create quotes with multiple CROSSOVER events to test MIN_BARS_BETWEEN_BLOCKS
     // We'll create crossovers at specific intervals to verify the spacing rule
@@ -399,8 +400,8 @@ class OrderBlockCalculatorTest {
     close: Double,
     high: Double,
     low: Double,
-  ): StockQuote =
-    StockQuote(
+  ): StockQuoteDomain =
+    StockQuoteDomain(
       symbol = "TEST",
       date = date,
       openPrice = open,

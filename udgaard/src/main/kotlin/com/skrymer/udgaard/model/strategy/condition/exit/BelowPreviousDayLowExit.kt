@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.exit.ExitCondition
 import org.springframework.stereotype.Component
 
@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component
 @Component
 class BelowPreviousDayLowExit : ExitCondition {
   override fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean {
     val previousQuote = stock.getPreviousQuote(quote)
     return quote.closePrice < (previousQuote?.low ?: 0.0)

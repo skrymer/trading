@@ -3,8 +3,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import org.springframework.stereotype.Component
 
@@ -16,8 +16,8 @@ class PriceAboveEmaCondition(
   private val emaPeriod: Int = 10,
 ) : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean =
     when (emaPeriod) {
       5 -> quote.closePrice > quote.closePriceEMA5
@@ -48,8 +48,8 @@ class PriceAboveEmaCondition(
     )
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val price = quote.closePrice
     val emaValue =

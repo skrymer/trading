@@ -1,12 +1,14 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.BreadthDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.model.Breadth
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockQuote
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 
 /**
  * Service for enriching AlphaVantage stock data with Ovtlyr-specific indicators.
@@ -40,7 +42,7 @@ class OvtlyrEnrichmentService(
    * - Sector statistics (sectorStocksInUptrend, sectorStocksInDowntrend, sectorBullPercentage)
    * - Sector uptrend status
    *
-   * @param alphaQuotes - Stock quotes from AlphaVantage (OHLCV + EMAs already calculated)
+   * @param quotes - Stock quotes from AlphaVantage (OHLCV + EMAs already calculated)
    * @param symbol - Stock symbol
    * @param marketBreadth - Market breadth data
    * @param sectorBreadth - Sector breadth data
@@ -48,13 +50,13 @@ class OvtlyrEnrichmentService(
    * @return Enriched quotes with Ovtlyr data, or null if Ovtlyr data unavailable
    */
   fun enrichWithOvtlyr(
-    alphaQuotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     symbol: String,
-    marketBreadth: Breadth?,
-    sectorBreadth: Breadth?,
+    marketBreadth: BreadthDomain?,
+    sectorBreadth: BreadthDomain?,
     spy: OvtlyrStockInformation,
-  ): List<StockQuote>? {
-    if (alphaQuotes.isEmpty()) {
+  ): List<StockQuoteDomain>? {
+    if (quotes.isEmpty()) {
       logger.warn("No AlphaVantage quotes provided for $symbol")
       return null
     }
@@ -83,13 +85,13 @@ class OvtlyrEnrichmentService(
 
     // Enrich each AlphaVantage quote with Ovtlyr data if available for that date
     val enrichedQuotes =
-      alphaQuotes.mapNotNull { alphaQuote ->
-        val ovtlyrQuote = ovtlyrQuotesByDate[alphaQuote.date]
+      quotes.mapNotNull { quote ->
+        val ovtlyrQuote = ovtlyrQuotesByDate[quote.date]
 
         if (ovtlyrQuote != null) {
-          enrichQuoteWithOvtlyr(alphaQuote, ovtlyrQuote, ovtlyrStock, marketBreadth, sectorBreadth, spy)
+          enrichQuoteWithOvtlyr(quote, ovtlyrQuote, ovtlyrStock, marketBreadth, sectorBreadth, spy)
           enrichedCount++
-          alphaQuote
+          quote
         } else {
           // No Ovtlyr data for this date - skip this quote
           skippedCount++
@@ -106,11 +108,11 @@ class OvtlyrEnrichmentService(
    * Enrich a single quote with Ovtlyr data.
    */
   private fun enrichQuoteWithOvtlyr(
-    alphaQuote: StockQuote,
-    ovtlyrQuote: com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockQuote,
+    alphaQuote: StockQuoteDomain,
+    ovtlyrQuote: OvtlyrStockQuote,
     ovtlyrStock: OvtlyrStockInformation,
-    marketBreadth: Breadth?,
-    sectorBreadth: Breadth?,
+    marketBreadth: BreadthDomain?,
+    sectorBreadth: BreadthDomain?,
     spy: OvtlyrStockInformation,
   ) {
     val previousQuote = ovtlyrStock.getPreviousQuote(ovtlyrQuote)
@@ -156,18 +158,18 @@ class OvtlyrEnrichmentService(
       sectorStocksInDowntrend = ovtlyrQuote.sectorDowntrend
       sectorBullPercentage = previousQuote?.sectorBullPercentage ?: 0.0
       sectorIsInUptrend = sectorInUptrend
-      this.sectorDonkeyChannelScore = sectorDonkeyScore
+      sectorDonkeyChannelScore = sectorDonkeyScore
 
       // Market context
       marketIsInUptrend = marketInUptrend
-      this.marketDonkeyChannelScore = marketDonkeyScore
-      this.marketAdvancingPercent = marketAdvancing
+      marketDonkeyChannelScore = marketDonkeyScore
+      marketAdvancingPercent = marketAdvancing
 
       // SPY context
       spySignal = currentSpySignal
       spyInUptrend = spyInUptrendValue
-      this.spyHeatmap = spyHeatmapValue
-      this.spyPreviousHeatmap = spyPreviousHeatmapValue
+      spyHeatmap = spyHeatmapValue
+      spyPreviousHeatmap = spyPreviousHeatmapValue
 
       // Previous quote date
       previousQuoteDate = previousQuote?.getDate()
@@ -178,8 +180,8 @@ class OvtlyrEnrichmentService(
    * Calculate market breadth - percentage of stocks advancing (above their uptrend status)
    */
   private fun calculateMarketAdvancingPercent(
-    marketBreadth: Breadth?,
-    date: java.time.LocalDate,
+    marketBreadth: BreadthDomain?,
+    date: LocalDate,
   ): Double {
     if (marketBreadth == null) return 0.0
 

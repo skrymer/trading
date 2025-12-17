@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.EtfSymbol
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -27,7 +27,7 @@ class EtfStatsServiceTest {
     // Given: Stock in uptrend (10 EMA > 20 EMA AND Close > 50 EMA)
     val date = LocalDate.of(2025, 1, 15)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 110.0,
         closePriceEMA10 = 105.0,
@@ -35,7 +35,7 @@ class EtfStatsServiceTest {
         closePriceEMA50 = 95.0,
         openPrice = 108.0,
       )
-    val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(quote).toMutableList(), orderBlocks = emptyList())
 
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
@@ -56,7 +56,7 @@ class EtfStatsServiceTest {
     // Given: Stock in downtrend (10 EMA < 20 EMA AND Close < 50 EMA)
     val date = LocalDate.of(2025, 1, 15)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 90.0,
         closePriceEMA10 = 95.0,
@@ -64,7 +64,7 @@ class EtfStatsServiceTest {
         closePriceEMA50 = 105.0,
         openPrice = 92.0,
       )
-    val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(quote).toMutableList(), orderBlocks = emptyList())
 
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
@@ -84,7 +84,7 @@ class EtfStatsServiceTest {
     // Given: Stock in neutral (10 EMA > 20 EMA BUT Close < 50 EMA)
     val date = LocalDate.of(2025, 1, 15)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 95.0,
         closePriceEMA10 = 105.0,
@@ -92,7 +92,7 @@ class EtfStatsServiceTest {
         closePriceEMA50 = 110.0,
         openPrice = 96.0,
       )
-    val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(quote).toMutableList(), orderBlocks = emptyList())
 
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
@@ -113,7 +113,7 @@ class EtfStatsServiceTest {
     val date = LocalDate.of(2025, 1, 15)
 
     val uptrendQuote1 =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 110.0,
         closePriceEMA10 = 105.0,
@@ -122,7 +122,7 @@ class EtfStatsServiceTest {
         openPrice = 108.0,
       )
     val uptrendQuote2 =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 120.0,
         closePriceEMA10 = 115.0,
@@ -131,7 +131,7 @@ class EtfStatsServiceTest {
         openPrice = 118.0,
       )
     val downtrendQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 90.0,
         closePriceEMA10 = 95.0,
@@ -142,9 +142,9 @@ class EtfStatsServiceTest {
 
     val stocks =
       listOf(
-        Stock("AAPL", "Technology", mutableListOf(uptrendQuote1).toMutableList(), mutableListOf()),
-        Stock("MSFT", "Technology", mutableListOf(uptrendQuote2).toMutableList(), mutableListOf()),
-        Stock("META", "Technology", mutableListOf(downtrendQuote).toMutableList(), mutableListOf()),
+        StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = listOf(uptrendQuote1), orderBlocks = emptyList()),
+        StockDomain(symbol = "MSFT", sectorSymbol = "Technology", quotes = listOf(uptrendQuote2), orderBlocks = emptyList()),
+        StockDomain(symbol = "META", sectorSymbol = "Technology", quotes = listOf(downtrendQuote), orderBlocks = emptyList()),
       )
 
     doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
@@ -169,7 +169,7 @@ class EtfStatsServiceTest {
     val date3 = LocalDate.of(2025, 1, 15)
 
     val quote1 =
-      StockQuote(
+      StockQuoteDomain(
         date = date1,
         closePrice = 100.0,
         closePriceEMA10 = 98.0,
@@ -178,7 +178,7 @@ class EtfStatsServiceTest {
         openPrice = 99.0,
       )
     val quote2 =
-      StockQuote(
+      StockQuoteDomain(
         date = date2,
         closePrice = 105.0,
         closePriceEMA10 = 103.0,
@@ -187,7 +187,7 @@ class EtfStatsServiceTest {
         openPrice = 104.0,
       )
     val quote3 =
-      StockQuote(
+      StockQuoteDomain(
         date = date3,
         closePrice = 110.0,
         closePriceEMA10 = 108.0,
@@ -196,7 +196,7 @@ class EtfStatsServiceTest {
         openPrice = 109.0,
       )
 
-    val stock = Stock("AAPL", "Technology", mutableListOf(quote1, quote2, quote3), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(quote1, quote2, quote3), orderBlocks = emptyList())
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When
@@ -221,7 +221,7 @@ class EtfStatsServiceTest {
     val date2 = LocalDate.of(2025, 1, 15)
 
     val downtrendQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = date1,
         closePrice = 90.0,
         closePriceEMA10 = 95.0,
@@ -230,7 +230,7 @@ class EtfStatsServiceTest {
         openPrice = 92.0,
       )
     val uptrendQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = date2,
         closePrice = 110.0,
         closePriceEMA10 = 105.0,
@@ -239,7 +239,7 @@ class EtfStatsServiceTest {
         openPrice = 108.0,
       )
 
-    val stock = Stock("AAPL", "Technology", mutableListOf(downtrendQuote, uptrendQuote), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(downtrendQuote, uptrendQuote), orderBlocks = emptyList())
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When
@@ -254,7 +254,7 @@ class EtfStatsServiceTest {
   @Test
   fun `should handle empty stock list gracefully`() {
     // Given: No stocks
-    doReturn(emptyList<Stock>()).whenever(stockService).getStocksBySymbols(any(), any())
+    doReturn(emptyList<StockDomain>()).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When
     val result =
@@ -282,7 +282,7 @@ class EtfStatsServiceTest {
     val date = LocalDate.of(2025, 1, 15)
 
     val appleQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 110.0,
         closePriceEMA10 = 105.0,
@@ -294,7 +294,7 @@ class EtfStatsServiceTest {
     // Repository query returns only stocks that match the requested symbols (in QQQ)
     val stocks =
       mutableListOf(
-        Stock("AAPL", "Technology", mutableListOf(appleQuote).toMutableList(), mutableListOf()), // In QQQ
+        StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = listOf(appleQuote), orderBlocks = emptyList()), // In QQQ
       )
 
     doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
@@ -317,7 +317,7 @@ class EtfStatsServiceTest {
 
     val quotes =
       mutableListOf(
-        StockQuote(
+        StockQuoteDomain(
           date = beforeRange,
           closePrice = 100.0,
           closePriceEMA10 = 95.0,
@@ -325,7 +325,7 @@ class EtfStatsServiceTest {
           closePriceEMA50 = 85.0,
           openPrice = 99.0,
         ),
-        StockQuote(
+        StockQuoteDomain(
           date = inRange1,
           closePrice = 110.0,
           closePriceEMA10 = 105.0,
@@ -333,7 +333,7 @@ class EtfStatsServiceTest {
           closePriceEMA50 = 95.0,
           openPrice = 108.0,
         ),
-        StockQuote(
+        StockQuoteDomain(
           date = inRange2,
           closePrice = 115.0,
           closePriceEMA10 = 110.0,
@@ -341,7 +341,7 @@ class EtfStatsServiceTest {
           closePriceEMA50 = 100.0,
           openPrice = 113.0,
         ),
-        StockQuote(
+        StockQuoteDomain(
           date = afterRange,
           closePrice = 120.0,
           closePriceEMA10 = 115.0,
@@ -351,7 +351,7 @@ class EtfStatsServiceTest {
         ),
       )
 
-    val stock = Stock("AAPL", "Technology", quotes, mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = quotes, orderBlocks = emptyList())
     doReturn(listOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When - Query only for dates in range
@@ -371,7 +371,7 @@ class EtfStatsServiceTest {
 
     val stock1Quotes =
       mutableListOf(
-        StockQuote(
+        StockQuoteDomain(
           date = date1,
           closePrice = 110.0,
           closePriceEMA10 = 105.0,
@@ -379,7 +379,7 @@ class EtfStatsServiceTest {
           closePriceEMA50 = 95.0,
           openPrice = 108.0,
         ),
-        StockQuote(
+        StockQuoteDomain(
           date = date2,
           closePrice = 115.0,
           closePriceEMA10 = 110.0,
@@ -391,7 +391,7 @@ class EtfStatsServiceTest {
 
     val stock2Quotes =
       mutableListOf(
-        StockQuote(
+        StockQuoteDomain(
           date = date1,
           closePrice = 120.0,
           closePriceEMA10 = 115.0,
@@ -404,8 +404,8 @@ class EtfStatsServiceTest {
 
     val stocks =
       mutableListOf(
-        Stock("AAPL", "Technology", stock1Quotes.toMutableList(), mutableListOf()),
-        Stock("MSFT", "Technology", stock2Quotes.toMutableList(), mutableListOf()),
+        StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = stock1Quotes, orderBlocks = emptyList()),
+        StockDomain(symbol = "MSFT", sectorSymbol = "Technology", quotes = stock2Quotes, orderBlocks = emptyList()),
       )
 
     doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())
@@ -433,7 +433,7 @@ class EtfStatsServiceTest {
   @Test
   fun `should throw exception for ETF with no configured stocks`() {
     // Given: ETF with no stocks configured (IWM, DIA return empty sets)
-    doReturn(emptyList<Stock>()).whenever(stockService).getStocksBySymbols(any(), any())
+    doReturn(emptyList<StockDomain>()).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When/Then
     val exception =
@@ -453,7 +453,7 @@ class EtfStatsServiceTest {
     // Given: Minimal data
     val date = LocalDate.of(2025, 1, 15)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 100.0,
         closePriceEMA10 = 95.0,
@@ -461,7 +461,7 @@ class EtfStatsServiceTest {
         closePriceEMA50 = 85.0,
         openPrice = 99.0,
       )
-    val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(quote).toMutableList(), orderBlocks = emptyList())
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When
@@ -477,7 +477,7 @@ class EtfStatsServiceTest {
     // Given: Only one day of data
     val date = LocalDate.of(2025, 1, 15)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 110.0,
         closePriceEMA10 = 105.0,
@@ -485,7 +485,7 @@ class EtfStatsServiceTest {
         closePriceEMA50 = 95.0,
         openPrice = 108.0,
       )
-    val stock = Stock("AAPL", "Technology", mutableListOf(quote).toMutableList(), mutableListOf())
+    val stock = StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = mutableListOf(quote).toMutableList(), orderBlocks = emptyList())
     doReturn(mutableListOf(stock)).whenever(stockService).getStocksBySymbols(any(), any())
 
     // When
@@ -502,7 +502,7 @@ class EtfStatsServiceTest {
     val date = LocalDate.of(2025, 1, 15)
 
     val uptrendQuote1 =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 110.0,
         closePriceEMA10 = 105.0,
@@ -511,7 +511,7 @@ class EtfStatsServiceTest {
         openPrice = 108.0,
       )
     val uptrendQuote2 =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 120.0,
         closePriceEMA10 = 115.0,
@@ -520,7 +520,7 @@ class EtfStatsServiceTest {
         openPrice = 118.0,
       )
     val downtrendQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 90.0,
         closePriceEMA10 = 95.0,
@@ -529,7 +529,7 @@ class EtfStatsServiceTest {
         openPrice = 92.0,
       )
     val neutralQuote1 =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 95.0,
         closePriceEMA10 = 105.0,
@@ -538,7 +538,7 @@ class EtfStatsServiceTest {
         openPrice = 96.0,
       )
     val neutralQuote2 =
-      StockQuote(
+      StockQuoteDomain(
         date = date,
         closePrice = 105.0,
         closePriceEMA10 = 95.0,
@@ -549,11 +549,11 @@ class EtfStatsServiceTest {
 
     val stocks =
       mutableListOf(
-        Stock("AAPL", "Technology", mutableListOf(uptrendQuote1).toMutableList(), mutableListOf()),
-        Stock("MSFT", "Technology", mutableListOf(uptrendQuote2).toMutableList(), mutableListOf()),
-        Stock("META", "Technology", mutableListOf(downtrendQuote).toMutableList(), mutableListOf()),
-        Stock("GOOGL", "Technology", mutableListOf(neutralQuote1).toMutableList(), mutableListOf()),
-        Stock("AMZN", "Technology", mutableListOf(neutralQuote2).toMutableList(), mutableListOf()),
+        StockDomain(symbol = "AAPL", sectorSymbol = "Technology", quotes = listOf(uptrendQuote1), orderBlocks = emptyList()),
+        StockDomain(symbol = "MSFT", sectorSymbol = "Technology", quotes = listOf(uptrendQuote2), orderBlocks = emptyList()),
+        StockDomain(symbol = "META", sectorSymbol = "Technology", quotes = listOf(downtrendQuote), orderBlocks = emptyList()),
+        StockDomain(symbol = "GOOGL", sectorSymbol = "Technology", quotes = listOf(neutralQuote1), orderBlocks = emptyList()),
+        StockDomain(symbol = "AMZN", sectorSymbol = "Technology", quotes = listOf(neutralQuote2), orderBlocks = emptyList()),
       )
 
     doReturn(stocks).whenever(stockService).getStocksBySymbols(any(), any())

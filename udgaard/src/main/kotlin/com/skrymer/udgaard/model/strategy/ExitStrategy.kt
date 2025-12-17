@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * An exit strategy.
@@ -14,18 +14,18 @@ interface ExitStrategy {
    * @return true when exit criteria has been met.
    */
   fun match(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean
 
   /**
    * @return a ExitStrategyReport.
    */
   fun test(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): ExitStrategyReport =
     if (match(stock, entryQuote, quote)) {
       ExitStrategyReport(true, reason(stock, entryQuote, quote), exitPrice(stock, entryQuote, quote))
@@ -37,9 +37,9 @@ interface ExitStrategy {
    * @return the exit reason.
    */
   fun reason(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): String?
 
   /**
@@ -51,8 +51,8 @@ interface ExitStrategy {
    * The price when the exit was hit.
    */
   fun exitPrice(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ) = quote.closePrice
 }

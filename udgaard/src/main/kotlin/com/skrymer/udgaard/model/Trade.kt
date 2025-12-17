@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -16,8 +17,8 @@ import java.time.temporal.ChronoUnit
 class Trade(
   var stockSymbol: String,
   var underlyingSymbol: String? = null,
-  var entryQuote: StockQuote,
-  var quotes: List<StockQuote>,
+  var entryQuote: StockQuoteDomain,
+  var quotes: List<StockQuoteDomain>,
   var exitReason: String,
   var profit: Double = 0.0,
   var startDate: LocalDate?,
@@ -50,15 +51,12 @@ class Trade(
   val tradingDays: Long
     get() {
       val exitDate =
-        quotes
-          .sortedByDescending { it.date }
-          .first()
-          .date
+        quotes.maxByOrNull { it.date }!!.date
 
       return ChronoUnit.DAYS.between(entryQuote.date, exitDate)
     }
 
-  fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)
+  fun containsQuote(stockQuote: StockQuoteDomain) = quotes.contains(stockQuote)
 
   override fun toString(): String = "Start date $startDate"
 }

@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -39,9 +39,9 @@ class TechnicalIndicatorService {
    * @return Enriched list of StockQuote with indicators populated
    */
   fun enrichWithIndicators(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     symbol: String,
-  ): List<StockQuote> {
+  ): List<StockQuoteDomain> {
     if (quotes.isEmpty()) {
       logger.warn("No quotes provided for $symbol, skipping indicator calculation")
       return quotes
@@ -124,7 +124,7 @@ class TechnicalIndicatorService {
    * @return Donchian upper band value
    */
   fun calculateDonchianUpperBand(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     currentIndex: Int,
     periods: Int = 5,
   ): Double {
@@ -147,7 +147,7 @@ class TechnicalIndicatorService {
    * @return Donchian lower band value
    */
   fun calculateDonchianLowerBand(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     currentIndex: Int,
     periods: Int = 5,
   ): Double {
@@ -172,68 +172,12 @@ class TechnicalIndicatorService {
    * @param quote - StockQuote with EMAs already calculated
    * @return "Uptrend" or "Downtrend"
    */
-  fun determineTrend(quote: StockQuote): String {
-    val emaAligned =
-      quote.closePriceEMA5 > quote.closePriceEMA10 &&
-        quote.closePriceEMA10 > quote.closePriceEMA20
+  fun determineTrend(quote: StockQuoteDomain): String {
+    val emaAligned = (quote.closePriceEMA5 > quote.closePriceEMA10)
+      .and(quote.closePriceEMA10 > quote.closePriceEMA20)
 
     val aboveEma50 = quote.closePrice > quote.closePriceEMA50
 
     return if (emaAligned && aboveEma50) "Uptrend" else "Downtrend"
-  }
-
-  /**
-   * Calculate number of consecutive days price has been above EMA.
-   *
-   * @param prices - List of prices
-   * @param ema - List of EMA values
-   * @param currentIndex - Current index to count from
-   * @return Number of consecutive days above EMA
-   */
-  fun calculateDaysAboveEMA(
-    prices: List<Double>,
-    ema: List<Double>,
-    currentIndex: Int,
-  ): Int {
-    var count = 0
-
-    for (i in currentIndex downTo 0) {
-      if (i >= ema.size || ema[i] == 0.0) break
-
-      if (prices[i] > ema[i]) {
-        count++
-      } else {
-        break
-      }
-    }
-
-    return count
-  }
-
-  /**
-   * Enrich SPY quotes with 200-day EMA and 50-day EMA.
-   * Used for market regime filter calculations.
-   *
-   * @param quotes - SPY quotes sorted by date
-   * @return Enriched SPY quotes with long-term indicators
-   */
-  fun enrichSpyWithLongTermIndicators(quotes: List<StockQuote>): List<StockQuote> {
-    if (quotes.isEmpty()) return quotes
-
-    logger.info("Calculating long-term indicators for SPY (${quotes.size} quotes)")
-
-    val closePrices = quotes.map { it.closePrice }
-
-    val ema50Values = calculateEMA(closePrices, 50)
-    val ema200Values = calculateEMA(closePrices, 200)
-
-    return quotes.mapIndexed { index, quote ->
-      quote.apply {
-        spyEMA50 = ema50Values.getOrNull(index) ?: 0.0
-        spyEMA200 = ema200Values.getOrNull(index) ?: 0.0
-        spySMA200 = ema200Values.getOrNull(index) ?: 0.0 // Use EMA200 for SMA200 field
-        spyDaysAbove200SMA = calculateDaysAboveEMA(closePrices, ema200Values, index)
-      }
-    }
   }
 }

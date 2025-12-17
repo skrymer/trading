@@ -3,8 +3,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
 
 /**
@@ -22,8 +22,8 @@ class VolumeAboveAverageCondition(
   private val lookbackDays: Int = 20,
 ) : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean {
     val currentVolume = quote.volume
 
@@ -80,8 +80,8 @@ class VolumeAboveAverageCondition(
     )
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val currentVolume = quote.volume
     val quoteDate = quote.date ?: return failedResult("No date available")

@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.model
 
+import com.skrymer.udgaard.domain.StockQuoteDomain
+
 data class ExitReport(
   /**
    *  The exit reason
@@ -8,7 +10,7 @@ data class ExitReport(
   /**
    * The quotes that did not match the exit strategy including the quote that matched
    */
-  val quotes: List<StockQuote> = emptyList(),
+  val quotes: List<StockQuoteDomain> = emptyList(),
   /**
    * The exit price
    */

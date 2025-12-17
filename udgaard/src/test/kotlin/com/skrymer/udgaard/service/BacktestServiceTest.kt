@@ -1,86 +1,64 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
-import com.skrymer.udgaard.repository.BreadthRepository
-import com.skrymer.udgaard.repository.StockRepository
+import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
+import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
+import org.mockito.Mockito.mock
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
-import java.util.*
 
 class BacktestServiceTest {
   private val logger = LoggerFactory.getLogger(BacktestServiceTest::class.java)
 
   private lateinit var backtestService: BacktestService
-  private lateinit var stockRepository: StockRepository
-  private lateinit var breadthRepository: BreadthRepository
+  private lateinit var stockRepository: StockJooqRepository
+  private lateinit var breadthRepository: BreadthJooqRepository
 
   @BeforeEach
   fun setup() {
-    stockRepository = mock<StockRepository>()
-    breadthRepository = mock<BreadthRepository>()
+    // Create mock repositories
+    stockRepository = mock(StockJooqRepository::class.java)
+    breadthRepository = mock(BreadthJooqRepository::class.java)
+
     backtestService = BacktestService(stockRepository, breadthRepository)
-  }
-
-  @Test
-  fun `should do something`() {
-    // given some stock quotes
-    val quote1 = StockQuote(closePrice = 99.9, date = LocalDate.of(2025, 7, 1))
-    val quote2 = StockQuote(closePrice = 100.0, date = LocalDate.of(2025, 7, 2))
-    val quote3 = StockQuote(closePrice = 100.1, date = LocalDate.of(2025, 7, 3))
-    val quote4 = StockQuote(closePrice = 100.2, date = LocalDate.of(2025, 7, 4))
-    val quote5 = StockQuote(closePrice = 99.9, date = LocalDate.of(2025, 7, 7))
-
-    val stock = Stock("TEST", "TEST_SECTOR", mutableListOf(quote1, quote2, quote3, quote4, quote5), mutableListOf())
-
-    val backtestReport =
-      backtestService.backtest(
-        closePriceIsGreaterThanOrEqualTo100,
-        openPriceIsLessThan100,
-        mutableListOf(stock),
-        LocalDate.of(2024, 1, 1),
-        LocalDate.now(),
-      )
-    logger.info("Backtest report: {}", backtestReport)
   }
 
   @Test
   fun `should calculate report results`() {
     // given some stock quotes
-    val quote1 = StockQuote(closePrice = 99.9, date = LocalDate.of(2025, 7, 1))
+    val quote1 = StockQuoteDomain(closePrice = 99.9, date = LocalDate.of(2025, 7, 1))
     // Trade 1 win 3$ 3%
-    val quote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 2))
-    val quote3 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 3))
-    val quote4 = StockQuote(closePrice = 103.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 4))
+    val quote2 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 2))
+    val quote3 = StockQuoteDomain(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 3))
+    val quote4 = StockQuoteDomain(closePrice = 103.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 4))
     // Trade 2 loss 2$ 2%
-    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 8))
-    val quote6 = StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 9))
-    val quote7 = StockQuote(closePrice = 98.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 10))
+    val quote5 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 8))
+    val quote6 = StockQuoteDomain(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 9))
+    val quote7 = StockQuoteDomain(closePrice = 98.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 10))
     // Trade 3 win 5$ 5%
-    val quote8 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 11))
-    val quote9 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 14))
-    val quote10 = StockQuote(closePrice = 105.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 15))
+    val quote8 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 11))
+    val quote9 = StockQuoteDomain(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 14))
+    val quote10 = StockQuoteDomain(closePrice = 105.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 15))
     // Trade 4 loss 4$ 4%
-    val quote11 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 16))
-    val quote12 = StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 17))
-    val quote13 = StockQuote(closePrice = 96.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 18))
+    val quote11 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 16))
+    val quote12 = StockQuoteDomain(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 17))
+    val quote13 = StockQuoteDomain(closePrice = 96.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 18))
     // Trade 5 win 8$ 8%
-    val quote14 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 21))
-    val quote15 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 22))
-    val quote16 = StockQuote(closePrice = 108.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 23))
+    val quote14 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 21))
+    val quote15 = StockQuoteDomain(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 22))
+    val quote16 = StockQuoteDomain(closePrice = 108.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 23))
 
     val stock =
-      Stock(
+      StockDomain(
         "TEST",
         "TEST_SECTOR",
-        mutableListOf(
+        quotes = listOf(
           quote1,
           quote2,
           quote3,
@@ -97,8 +75,7 @@ class BacktestServiceTest {
           quote14,
           quote15,
           quote16,
-        ),
-        mutableListOf(),
+        )
       )
 
     val report =
@@ -125,12 +102,12 @@ class BacktestServiceTest {
   @Test
   fun `should include trades on boundary dates (inclusive date filtering)`() {
     // Test the fix for inclusive date filtering
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2024, 1, 1))
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2024, 1, 2))
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2024, 12, 31))
-    val quote4 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 1))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2024, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2024, 1, 2))
+    val quote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2024, 12, 31))
+    val quote4 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 1))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4))
 
     val report =
       backtestService.backtest(
@@ -151,30 +128,30 @@ class BacktestServiceTest {
     val alwaysWin =
       object : ExitStrategy {
         override fun match(
-          stock: Stock,
-          entryQuote: StockQuote?,
-          quote: StockQuote,
+          stock: StockDomain,
+          entryQuote: StockQuoteDomain?,
+          quote: StockQuoteDomain,
         ) = quote.closePrice > (entryQuote?.closePrice ?: 0.0)
 
         override fun reason(
-          stock: Stock,
-          entryQuote: StockQuote?,
-          quote: StockQuote,
+          stock: StockDomain,
+          entryQuote: StockQuoteDomain?,
+          quote: StockQuoteDomain,
         ) = "Winner"
 
         override fun description() = "Always win"
       }
 
-    val quote1 = StockQuote(closePrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 105.0, date = LocalDate.of(2025, 1, 2))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 105.0, date = LocalDate.of(2025, 1, 2))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2))
 
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         alwaysWin,
-        mutableListOf(stock),
+        listOf(stock),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
       )
@@ -194,24 +171,24 @@ class BacktestServiceTest {
     val alwaysLose =
       object : ExitStrategy {
         override fun match(
-          stock: Stock,
-          entryQuote: StockQuote?,
-          quote: StockQuote,
+          stock: StockDomain,
+          entryQuote: StockQuoteDomain?,
+          quote: StockQuoteDomain,
         ) = quote.closePrice < (entryQuote?.closePrice ?: 0.0)
 
         override fun reason(
-          stock: Stock,
-          entryQuote: StockQuote?,
-          quote: StockQuote,
+          stock: StockDomain,
+          entryQuote: StockQuoteDomain?,
+          quote: StockQuoteDomain,
         ) = "Loser"
 
         override fun description() = "Always lose"
       }
 
-    val quote1 = StockQuote(closePrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 95.0, date = LocalDate.of(2025, 1, 2))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 95.0, date = LocalDate.of(2025, 1, 2))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2))
 
     val report =
       backtestService.backtest(
@@ -234,11 +211,11 @@ class BacktestServiceTest {
   @Test
   fun `should prevent overlapping trades`() {
     // Test that you can't enter a new trade while already in one
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
-    val quote3 = StockQuote(closePrice = 102.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 3))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuoteDomain(closePrice = 102.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 3))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2, quote3))
 
     val report =
       backtestService.backtest(
@@ -259,23 +236,23 @@ class BacktestServiceTest {
       override fun description() = "Test entry strategy"
 
       override fun test(
-        stock: Stock,
-        quote: StockQuote,
+        stock: StockDomain,
+        quote: StockQuoteDomain,
       ) = quote.closePrice >= 100.0
     }
 
   val openPriceIsLessThan100 =
     object : ExitStrategy {
       override fun match(
-        stock: Stock,
-        entryQuote: StockQuote?,
-        quote: StockQuote,
+        stock: StockDomain,
+        entryQuote: StockQuoteDomain?,
+        quote: StockQuoteDomain,
       ) = quote.openPrice < 100.0
 
       override fun reason(
-        stock: Stock,
-        entryQuote: StockQuote?,
-        quote: StockQuote,
+        stock: StockDomain,
+        entryQuote: StockQuoteDomain?,
+        quote: StockQuoteDomain,
       ) = "Because stone cold said so!"
 
       override fun description() = ""
@@ -289,27 +266,32 @@ class BacktestServiceTest {
     // QQQ triggers entry at 100, exits at 105
     // TQQQ starts at 50, ends at 60 (3x leverage simulation)
 
-    val qqqQuote1 = StockQuote(closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 1))
-    val qqqQuote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2)) // Entry trigger
-    val qqqQuote3 = StockQuote(closePrice = 103.0, openPrice = 103.0, date = LocalDate.of(2025, 1, 3))
-    val qqqQuote4 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4)) // Exit trigger
+    val qqqQuote1 = StockQuoteDomain(closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 1))
+    val qqqQuote2 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2)) // Entry trigger
+    val qqqQuote3 = StockQuoteDomain(closePrice = 103.0, openPrice = 103.0, date = LocalDate.of(2025, 1, 3))
+    val qqqQuote4 = StockQuoteDomain(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4)) // Exit trigger
 
-    val tqqqQuote1 = StockQuote(closePrice = 47.0, openPrice = 47.0, date = LocalDate.of(2025, 1, 1))
-    val tqqqQuote2 = StockQuote(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2025, 1, 2)) // Actual entry
-    val tqqqQuote3 = StockQuote(closePrice = 55.0, openPrice = 55.0, date = LocalDate.of(2025, 1, 3))
-    val tqqqQuote4 = StockQuote(closePrice = 60.0, openPrice = 48.0, date = LocalDate.of(2025, 1, 4)) // Actual exit
+    val tqqqQuote1 = StockQuoteDomain(closePrice = 47.0, openPrice = 47.0, date = LocalDate.of(2025, 1, 1))
+    val tqqqQuote2 = StockQuoteDomain(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2025, 1, 2)) // Actual entry
+    val tqqqQuote3 = StockQuoteDomain(closePrice = 55.0, openPrice = 55.0, date = LocalDate.of(2025, 1, 3))
+    val tqqqQuote4 = StockQuoteDomain(closePrice = 60.0, openPrice = 48.0, date = LocalDate.of(2025, 1, 4)) // Actual exit
 
-    val qqq = Stock("QQQ", "XLK", mutableListOf(qqqQuote1, qqqQuote2, qqqQuote3, qqqQuote4), mutableListOf())
-    val tqqq = Stock("TQQQ", "XLK", mutableListOf(tqqqQuote1, tqqqQuote2, tqqqQuote3, tqqqQuote4), mutableListOf())
+    val qqq = StockDomain("QQQ", "XLK", quotes = listOf(qqqQuote1, qqqQuote2, qqqQuote3, qqqQuote4))
+    val tqqq = StockDomain("TQQQ", "XLK", quotes = listOf(tqqqQuote1, tqqqQuote2, tqqqQuote3, tqqqQuote4))
 
     // Custom map: TQQQ -> QQQ
     val customMap = mapOf("TQQQ" to "QQQ")
+
+    // Mock the repository to return QQQ when requested (BacktestService will fetch it)
+    org.mockito.Mockito
+      .`when`(stockRepository.findBySymbol("QQQ"))
+      .thenReturn(qqq)
 
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100, // QQQ triggers at 100
         openPriceIsLessThan100, // QQQ exits when openPrice < 100
-        mutableListOf(tqqq, qqq), // Include both trading stock (TQQQ) and underlying (QQQ)
+        mutableListOf(tqqq), // Only pass TQQQ as trading stock (QQQ will be fetched as underlying)
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         useUnderlyingAssets = true,
@@ -336,10 +318,10 @@ class BacktestServiceTest {
   @Test
   fun `should work without underlying assets when disabled`() {
     // Test that when useUnderlyingAssets = false, it works normally
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
 
-    val stock = Stock("TQQQ", "XLK", mutableListOf(quote1, quote2), mutableListOf())
+    val stock = StockDomain("TQQQ", "XLK", quotes = listOf(quote1, quote2))
 
     val report =
       backtestService.backtest(
@@ -363,10 +345,10 @@ class BacktestServiceTest {
   @Test
   fun `should throw exception when underlying asset data is missing`() {
     // Test validation: should fail if underlying asset doesn't exist
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
 
-    val stock = Stock("TQQQ", "XLK", mutableListOf(quote1, quote2), mutableListOf())
+    val stock = StockDomain("TQQQ", "XLK", quotes = listOf(quote1, quote2))
 
     // Custom map pointing to non-existent stock
     val customMap = mapOf("TQQQ" to "NONEXISTENT")
@@ -385,7 +367,7 @@ class BacktestServiceTest {
       }
 
     Assertions.assertTrue(
-      exception.message?.contains("Missing underlying asset data") == true,
+      exception.message?.contains("Underlying asset") == true && exception.message?.contains("not found in database") == true,
       "Should mention missing underlying asset",
     )
   }
@@ -395,19 +377,19 @@ class BacktestServiceTest {
     // Test backtesting multiple stocks where some have underlying and some don't
 
     // AAPL - no underlying, trades on its own signals
-    val aaplQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val aaplQuote2 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
-    val aapl = Stock("AAPL", "XLK", mutableListOf(aaplQuote1, aaplQuote2), mutableListOf())
+    val aaplQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val aaplQuote2 = StockQuoteDomain(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val aapl = StockDomain("AAPL", "XLK", quotes = listOf(aaplQuote1, aaplQuote2))
 
     // TQQQ - has underlying QQQ (but QQQ doesn't meet entry conditions)
-    val tqqqQuote1 = StockQuote(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2025, 1, 1))
-    val tqqqQuote2 = StockQuote(closePrice = 55.0, openPrice = 48.0, date = LocalDate.of(2025, 1, 2))
-    val tqqq = Stock("TQQQ", "XLK", mutableListOf(tqqqQuote1, tqqqQuote2), mutableListOf())
+    val tqqqQuote1 = StockQuoteDomain(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2025, 1, 1))
+    val tqqqQuote2 = StockQuoteDomain(closePrice = 55.0, openPrice = 48.0, date = LocalDate.of(2025, 1, 2))
+    val tqqq = StockDomain("TQQQ", "XLK", quotes = listOf(tqqqQuote1, tqqqQuote2))
 
     // QQQ - underlying for TQQQ, doesn't meet entry (closePrice < 100)
-    val qqqQuote1 = StockQuote(closePrice = 95.0, openPrice = 95.0, date = LocalDate.of(2025, 1, 1))
-    val qqqQuote2 = StockQuote(closePrice = 96.0, openPrice = 94.0, date = LocalDate.of(2025, 1, 2))
-    val qqq = Stock("QQQ", "XLK", mutableListOf(qqqQuote1, qqqQuote2), mutableListOf())
+    val qqqQuote1 = StockQuoteDomain(closePrice = 95.0, openPrice = 95.0, date = LocalDate.of(2025, 1, 1))
+    val qqqQuote2 = StockQuoteDomain(closePrice = 96.0, openPrice = 94.0, date = LocalDate.of(2025, 1, 2))
+    val qqq = StockDomain("QQQ", "XLK", quotes = listOf(qqqQuote1, qqqQuote2))
 
     val customMap = mapOf("TQQQ" to "QQQ")
 
@@ -443,12 +425,12 @@ class BacktestServiceTest {
     // Day 3: Entry again (closePrice = 100) - should be allowed with cooldown = 0
     // Day 4: Exit again (openPrice = 99)
 
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
-    val quote4 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote4 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 4))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4))
 
     val report =
       backtestService.backtest(
@@ -483,18 +465,18 @@ class BacktestServiceTest {
     // Jan 8: Entry ALLOWED (trading day 7 - 6 trading days since Jan 2, more than 5)
     // Jan 9: Exit
 
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
-    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
-    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
-    val quote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
-    val quote7 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
-    val quote8 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
-    val quote9 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 9))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote4 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
+    val quote5 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
+    val quote6 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val quote7 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
+    val quote8 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
+    val quote9 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 9))
 
     val stock =
-      Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9), mutableListOf())
+      StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9))
 
     val report =
       backtestService.backtest(
@@ -534,15 +516,15 @@ class BacktestServiceTest {
     // Day 5: BLOCKED (3 days since exit, not inclusive)
     // Day 6: ALLOWED (4 days since exit, more than 3, cooldown expired)
 
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
-    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
-    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
-    val quote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
-    val quote7 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote4 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
+    val quote5 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
+    val quote6 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val quote7 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7))
 
     val report =
       backtestService.backtest(
@@ -581,29 +563,28 @@ class BacktestServiceTest {
     // Trading day 9 (Jan 10): BLOCKED (only 3 trading days, not inclusive)
     // Trading day 10 (Jan 11): Stock A re-entry ALLOWED (4 trading days since Jan 7 exit, more than 3)
 
-    val stockAQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val stockAQuote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
-    val stockAQuote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
-    val stockAQuote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9))
-    val stockAQuote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 10))
-    val stockAQuote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 11))
-    val stockAQuote7 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 12))
+    val stockAQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
+    val stockAQuote4 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9))
+    val stockAQuote5 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 10))
+    val stockAQuote6 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 11))
+    val stockAQuote7 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 12))
 
-    val stockBQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
-    val stockBQuote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
-    val stockBQuote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
-    val stockBQuote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
-    val stockBQuote5 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))
+    val stockBQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote2 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4))
+    val stockBQuote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5))
+    val stockBQuote4 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val stockBQuote5 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7))
 
     val stockA =
-      Stock(
+      StockDomain(
         "STOCK_A",
         "XLK",
-        mutableListOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6, stockAQuote7),
-        mutableListOf(),
+        quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6, stockAQuote7),
       )
     val stockB =
-      Stock("STOCK_B", "XLK", mutableListOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4, stockBQuote5), mutableListOf())
+      StockDomain("STOCK_B", "XLK", quotes = listOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4, stockBQuote5))
 
     val report =
       backtestService.backtest(
@@ -650,12 +631,12 @@ class BacktestServiceTest {
       (1..17).map { day ->
         val date = LocalDate.of(2025, 1, day)
         when {
-          day == 2 || day == 9 || day == 16 -> StockQuote(closePrice = 101.0, openPrice = 99.0, date = date) // Exit days
-          else -> StockQuote(closePrice = 100.0, openPrice = 100.0, date = date) // Entry days
+          day == 2 || day == 9 || day == 16 -> StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = date) // Exit days
+          else -> StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = date) // Entry days
         }
       }
 
-    val stock = Stock("TEST", "XLK", quotes.toMutableList(), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = quotes.toList())
 
     val report =
       backtestService.backtest(
@@ -721,25 +702,25 @@ class BacktestServiceTest {
 
     val stockAQuotes =
       mutableListOf(
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1)),
-        StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 4)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 5)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)),
-        StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 9)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 4)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 5)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)),
+        StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 9)),
       )
 
     val stockBQuotes =
       mutableListOf(
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 1)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 8)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 8)),
       )
 
-    val stockA = Stock("STOCK_A", "XLK", stockAQuotes.toMutableList(), mutableListOf())
-    val stockB = Stock("STOCK_B", "XLK", stockBQuotes.toMutableList(), mutableListOf())
+    val stockA = StockDomain("STOCK_A", "XLK", quotes = stockAQuotes.toMutableList())
+    val stockB = StockDomain("STOCK_B", "XLK", quotes = stockBQuotes.toMutableList())
 
     val report =
       backtestService.backtest(
@@ -771,11 +752,11 @@ class BacktestServiceTest {
     // Day 2: Exit
     // Day 3: Re-entry blocked by cooldown
 
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
 
-    val stock = Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3), mutableListOf())
+    val stock = StockDomain("TEST", "XLK", quotes = mutableListOf(quote1, quote2, quote3))
 
     val report =
       backtestService.backtest(
@@ -809,19 +790,19 @@ class BacktestServiceTest {
     // Wed Jan 15: Trading day 6 since exit - ALLOWED (more than 5 trading days)
     // Note: Jan 15 is 8 CALENDAR days but 6 TRADING days since Jan 7 exit
 
-    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6)) // Mon
-    val quote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7)) // Tue - Exit
-    val quote3 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8)) // Wed - Day 1, blocked
-    val quote4 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9)) // Thu - Day 2, blocked
-    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 10)) // Fri - Day 3, blocked
+    val quote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6)) // Mon
+    val quote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7)) // Tue - Exit
+    val quote3 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8)) // Wed - Day 1, blocked
+    val quote4 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9)) // Thu - Day 2, blocked
+    val quote5 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 10)) // Fri - Day 3, blocked
     // Weekend: No quotes for Jan 11, 12
-    val quote6 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 13)) // Mon - Day 4, blocked
-    val quote7 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 14)) // Tue - Day 5, BLOCKED (not inclusive)
-    val quote8 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 15)) // Wed - Day 6, ALLOWED
-    val quote9 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 16)) // Thu - Exit
+    val quote6 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 13)) // Mon - Day 4, blocked
+    val quote7 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 14)) // Tue - Day 5, BLOCKED (not inclusive)
+    val quote8 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 15)) // Wed - Day 6, ALLOWED
+    val quote9 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 16)) // Thu - Exit
 
     val stock =
-      Stock("TEST", "XLK", mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9), mutableListOf())
+      StockDomain("TEST", "XLK", quotes = mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9))
 
     val report =
       backtestService.backtest(

@@ -3,8 +3,8 @@ package com.skrymer.udgaard.service
 import com.skrymer.udgaard.controller.dto.EntrySignalDetails
 import com.skrymer.udgaard.controller.dto.QuoteWithSignal
 import com.skrymer.udgaard.controller.dto.StockWithSignals
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import org.slf4j.LoggerFactory
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class StrategySignalService(
-  private val strategyRegistry: StrategyRegistry,
+  private val strategyRegistry: StrategyRegistry
 ) {
   private val logger = LoggerFactory.getLogger(StrategySignalService::class.java)
 
@@ -29,7 +29,7 @@ class StrategySignalService(
    * @return Stock data with entry/exit signals for each quote
    */
   fun evaluateStrategies(
-    stock: Stock,
+    stock: StockDomain,
     entryStrategyName: String,
     exitStrategyName: String,
     cooldownDays: Int = 0,
@@ -78,14 +78,15 @@ class StrategySignalService(
    * @param cooldownDays Number of trading days to wait after exit before allowing new entry
    */
   private fun evaluateQuotes(
-    stock: Stock,
+    stock: StockDomain,
     entryStrategy: EntryStrategy,
     entryStrategyName: String,
     exitStrategy: ExitStrategy,
     cooldownDays: Int,
   ): List<QuoteWithSignal> {
     val sortedQuotes = stock.quotes.sortedBy { it.date }
-    var entryQuote: StockQuote? = null
+    var entryQuote: StockQuoteDomain? = null
+    var entryQuoteDomain: StockQuoteDomain? = null
     var cooldownRemaining = 0
 
     return sortedQuotes.map { quote ->
@@ -110,14 +111,16 @@ class StrategySignalService(
 
         if (entrySignal) {
           entryQuote = quote
+          entryQuoteDomain = quote
         }
       }
       // Check for exit signal if currently in a position
       else if (entryQuote != null) {
-        exitSignal = exitStrategy.match(stock, entryQuote, quote)
+        exitSignal = exitStrategy.match(stock, entryQuoteDomain, quote)
         if (exitSignal) {
-          exitReason = exitStrategy.reason(stock, entryQuote, quote)
+          exitReason = exitStrategy.reason(stock, entryQuoteDomain, quote)
           entryQuote = null // Exit position
+          entryQuoteDomain = null
           cooldownRemaining = cooldownDays + 1 // Start cooldown period (cooldownDays + exit day)
         }
       }
@@ -142,7 +145,7 @@ class StrategySignalService(
    * @return Entry signal details with all condition evaluations, or null if strategy/quote not found
    */
   fun evaluateConditionsForDate(
-    stock: Stock,
+    stock: StockDomain,
     quoteDate: String,
     entryStrategyName: String,
   ): EntrySignalDetails? {

@@ -1,6 +1,20 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.*
+import com.skrymer.udgaard.domain.BreadthDomain
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
+import com.skrymer.udgaard.model.ATRDrawdownStats
+import com.skrymer.udgaard.model.BacktestReport
+import com.skrymer.udgaard.model.DrawdownBucket
+import com.skrymer.udgaard.model.ExcursionMetrics
+import com.skrymer.udgaard.model.ExitReasonAnalysis
+import com.skrymer.udgaard.model.ExitStats
+import com.skrymer.udgaard.model.LosingTradesATRStats
+import com.skrymer.udgaard.model.MarketConditionSnapshot
+import com.skrymer.udgaard.model.PeriodStats
+import com.skrymer.udgaard.model.SectorPerformance
+import com.skrymer.udgaard.model.TimeBasedStats
+import com.skrymer.udgaard.model.Trade
 import com.skrymer.udgaard.model.backtest.PotentialEntry
 import com.skrymer.udgaard.model.backtest.RankedEntry
 import com.skrymer.udgaard.model.backtest.StockPair
@@ -8,12 +22,16 @@ import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import com.skrymer.udgaard.model.strategy.HeatmapRanker
 import com.skrymer.udgaard.model.strategy.StockRanker
-import com.skrymer.udgaard.repository.BreadthRepository
-import com.skrymer.udgaard.repository.StockRepository
+import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
+import com.skrymer.udgaard.repository.jooq.StockJooqRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Service for running backtests on trading strategies.
@@ -24,18 +42,22 @@ import java.time.LocalDate
  * - Underlying asset support (e.g., trade TQQQ using QQQ signals)
  * - Global cooldown periods to prevent overtrading
  * - Missed trade tracking for opportunity cost analysis
+ *
+ * Dependencies:
+ * - StockJooqRepository: Fetches SPY stock and underlying assets as needed
+ * - BreadthJooqRepository: Fetches market breadth data (FULLSTOCK) as needed
  */
 @Service
 class BacktestService(
-  private val stockRepository: StockRepository,
-  private val breadthRepository: BreadthRepository,
+  private val stockRepository: StockJooqRepository,
+  private val breadthRepository: BreadthJooqRepository,
 ) {
   /**
    * Holds indexed quotes for fast O(1) date lookups.
    */
   private data class StockQuoteIndex(
-    val stock: Stock,
-    val quotesByDate: Map<LocalDate, com.skrymer.udgaard.model.StockQuote>,
+    val stock: StockDomain,
+    val quotesByDate: Map<LocalDate, StockQuoteDomain>,
   ) {
     fun getQuote(date: LocalDate) = quotesByDate[date]
   }
@@ -52,13 +74,13 @@ class BacktestService(
    * @return list of stock pairs
    */
   private fun createStockPairs(
-    stocks: List<Stock>,
+    stocks: List<StockDomain>,
     useUnderlyingAssets: Boolean,
     customUnderlyingMap: Map<String, String>?,
-    allStocksMap: Map<String, Stock>,
+    allStocksMap: Map<String, StockDomain>,
   ): List<StockPair> =
     stocks.map { tradingStock ->
-      val strategySymbol = getStrategySymbol(tradingStock.symbol!!, useUnderlyingAssets, customUnderlyingMap)
+      val strategySymbol = getStrategySymbol(tradingStock.symbol, useUnderlyingAssets, customUnderlyingMap)
 
       val (strategyStock, underlying) =
         if (strategySymbol != tradingStock.symbol) {
@@ -79,12 +101,11 @@ class BacktestService(
    * @param stocks - stocks to index
    * @return map of stock to quote index
    */
-  private fun buildQuoteIndexes(stocks: List<Stock>): Map<Stock, StockQuoteIndex> =
+  private fun buildQuoteIndexes(stocks: List<StockDomain>): Map<StockDomain, StockQuoteIndex> =
     stocks.associateWith { stock ->
       val quotesByDate =
-        stock.quotes
-          .filter { it.date != null }
-          .associateBy { it.date!! }
+        stock.quotes.associateBy { it.date }
+
       StockQuoteIndex(stock, quotesByDate)
     }
 
@@ -97,7 +118,7 @@ class BacktestService(
    * @return sorted list of trading dates
    */
   private fun buildTradingDateRange(
-    stocks: List<Stock>,
+    stocks: List<StockDomain>,
     after: LocalDate,
     before: LocalDate,
   ): List<LocalDate> =
@@ -106,7 +127,7 @@ class BacktestService(
         stock.quotes
           .mapNotNull { quote ->
             val quoteDate = quote.date
-            if (quoteDate != null && !quoteDate.isBefore(after) && !quoteDate.isAfter(before)) {
+            if (!quoteDate.isBefore(after) && !quoteDate.isAfter(before)) {
               quoteDate
             } else {
               null
@@ -160,33 +181,35 @@ class BacktestService(
   private fun createTradeFromEntry(
     entry: PotentialEntry,
     exitStrategy: ExitStrategy,
-    quoteIndexes: Map<Stock, StockQuoteIndex>,
+    quoteIndexes: Map<StockDomain, StockQuoteIndex>,
   ): Trade? {
-    // Test exit strategy on STRATEGY stock
-    val exitReport = entry.stockPair.strategyStock.testExitStrategy(entry.strategyEntryQuote, exitStrategy)
+    // Test exit strategy on STRATEGY stock - convert to domain models
+    val strategyStockDomain = entry.stockPair.strategyStock
+    val strategyEntryQuoteDomain = entry.strategyEntryQuote
+    val exitReport = strategyStockDomain.testExitStrategy(strategyEntryQuoteDomain, exitStrategy)
 
     if (exitReport.exitReason.isNotBlank()) {
       // Get the exit quote from the strategy stock's exit report
       val strategyExitQuote = exitReport.quotes.lastOrNull()
 
-      if (strategyExitQuote?.date != null) {
+      if (strategyExitQuote != null) {
         // Get corresponding exit date quote from TRADING stock for P/L
-        val exitDate = strategyExitQuote.date!!
+        val exitDate = strategyExitQuote.date
         val tradingExitQuote = quoteIndexes[entry.stockPair.tradingStock]?.getQuote(exitDate)
 
         if (tradingExitQuote != null) {
           val profit = tradingExitQuote.closePrice - entry.tradingEntryQuote.closePrice
 
           // Get all trading quotes between entry and exit
-          val entryDate = entry.tradingEntryQuote.date!!
+          val entryDate = entry.tradingEntryQuote.date
           val tradingQuotes =
             entry.stockPair.tradingStock.quotes.filter { quote ->
               val qDate = quote.date
-              qDate != null && !qDate.isBefore(entryDate) && !qDate.isAfter(exitDate)
+              !qDate.isBefore(entryDate) && !qDate.isAfter(exitDate)
             }
 
           return Trade(
-            entry.stockPair.tradingStock.symbol!!,
+            entry.stockPair.tradingStock.symbol,
             entry.stockPair.underlyingSymbol, // Store which underlying was used
             entry.tradingEntryQuote, // Use trading stock prices
             tradingQuotes,
@@ -224,14 +247,12 @@ class BacktestService(
    * @param useUnderlyingAssets - enable automatic underlying asset detection for strategy evaluation (default: true)
    * @param customUnderlyingMap - custom symbol → underlying mappings (overrides AssetMapper)
    * @param cooldownDays - global cooldown period in trading days after exit before allowing new entries (default: 0)
-   * @param spyStock - SPY stock for market condition tracking (optional, can be null)
-   * @param marketBreadth - Market breadth data for market condition tracking (optional, can be null)
    * @return a backtest report
    */
   fun backtest(
     entryStrategy: EntryStrategy,
     exitStrategy: ExitStrategy,
-    stocks: List<Stock>,
+    stocks: List<StockDomain>,
     after: LocalDate,
     before: LocalDate,
     maxPositions: Int? = null,
@@ -239,14 +260,50 @@ class BacktestService(
     useUnderlyingAssets: Boolean = true,
     customUnderlyingMap: Map<String, String>? = null,
     cooldownDays: Int = 0,
-    spyStock: Stock? = null,
-    marketBreadth: Breadth? = null,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
+    val backtestStartTime = System.currentTimeMillis()
     val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
 
-    // Create a map of all stocks for fast lookup (includes trading stocks and any loaded underlying assets)
-    val allStocksMap = stocks.associateBy { it.symbol!! }
+    // Fetch SPY stock for market condition tracking
+    val spyStock = stockRepository.findBySymbol("SPY")
+    if (spyStock == null) {
+      logger.warn("SPY stock not found in database - market conditions will not be tracked")
+    }
+
+    // Fetch market breadth data (FULLSTOCK) for breadth analysis
+    val marketBreadth = breadthRepository.findBySymbol("FULLSTOCK")
+    if (marketBreadth == null) {
+      logger.warn("FULLSTOCK breadth data not found in database - breadth analysis will not be available")
+    }
+
+    // Fetch underlying assets if needed
+    val underlyingAssets = mutableListOf<StockDomain>()
+    if (useUnderlyingAssets) {
+      val underlyingSymbols =
+        stocks
+          .map { getStrategySymbol(it.symbol, useUnderlyingAssets, customUnderlyingMap) }
+          .filter { it != null && it !in stocks.map { s -> s.symbol } }
+          .distinct()
+
+      logger.info("Fetching ${underlyingSymbols.size} underlying assets: ${underlyingSymbols.joinToString(", ")}")
+
+      underlyingSymbols.forEach { symbol ->
+        val underlying = stockRepository.findBySymbol(symbol)
+        if (underlying != null) {
+          underlyingAssets.add(underlying)
+        } else {
+          logger.error("Underlying asset $symbol not found in database")
+          throw IllegalArgumentException("Underlying asset $symbol not found in database. Please load this data before running the backtest.")
+        }
+      }
+    }
+
+    // Combine trading stocks and underlying assets for processing
+    val allStocks = stocks + underlyingAssets
+    val allStocksMap = allStocks.associateBy { it.symbol }
+
+    logger.info("Backtest starting with ${stocks.size} trading stocks and ${underlyingAssets.size} underlying assets")
 
     // Validate that all underlying assets exist in the loaded stocks
     validateUnderlyingAssets(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
@@ -258,11 +315,11 @@ class BacktestService(
     val stockPairs = createStockPairs(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
 
     // Build quote indexes for O(1) date lookups
-    val allStocks = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
-    val quoteIndexes = buildQuoteIndexes(allStocks)
+    val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
+    val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
 
-    val trades = ArrayList<Trade>()
-    val missedTrades = ArrayList<Trade>()
+    val trades = ConcurrentLinkedQueue<Trade>()
+    val missedTrades = ConcurrentLinkedQueue<Trade>()
 
     // Step 1: Build date range - collect all unique trading dates from all stocks
     val allTradingDates = buildTradingDateRange(stocks, after, before)
@@ -270,6 +327,7 @@ class BacktestService(
     val positionInfo = maxPositions?.let { "max $it positions" } ?: "unlimited positions"
     val cooldownInfo = if (cooldownDays > 0) ", ${cooldownDays}d cooldown" else ""
     logger.info("Backtest: ${allTradingDates.size} trading days, $positionInfo$cooldownInfo")
+    logger.info("Parallel processing: ${stockPairs.size} stocks evaluated concurrently per date")
 
     // Step 2: Process each date chronologically
     val totalDays = allTradingDates.size
@@ -282,31 +340,41 @@ class BacktestService(
         logger.info("Backtest progress: $currentPercent% (${index + 1}/$totalDays days, ${trades.size} trades)")
         lastLoggedPercent = currentPercent
       }
-      // Step 2a: For each stock pair, check if entry strategy matches on this date
+      // Step 2a: For each stock pair, check if entry strategy matches on this date (PARALLEL)
       val entriesForThisDate =
-        stockPairs.mapNotNull { stockPair ->
-          // Get quote for this specific date from STRATEGY stock (for entry evaluation)
-          val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
+        runBlocking {
+          stockPairs
+            .map { stockPair ->
+              async(Dispatchers.Default) {
+                // Get quote for this specific date from STRATEGY stock (for entry evaluation)
+                val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
 
-          // Also get quote from TRADING stock (for actual price/P&L)
-          val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
+                // Also get quote from TRADING stock (for actual price/P&L)
+                val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
 
-          if (strategyQuote != null && tradingQuote != null) {
-            // Check global cooldown first if enabled (counting trading days, not calendar days)
-            val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
+                if (strategyQuote != null && tradingQuote != null) {
+                  // Check global cooldown first if enabled (counting trading days, not calendar days)
+                  val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
 
-            if (inCooldown) {
-              // Skip this entry due to global cooldown
-              null
-            } else if (entryStrategy.test(stockPair.strategyStock, strategyQuote)) {
-              // Test strategy against the underlying/strategy stock
-              PotentialEntry(stockPair, strategyQuote, tradingQuote)
-            } else {
-              null
-            }
-          } else {
-            null
-          }
+                  if (inCooldown) {
+                    // Skip this entry due to global cooldown
+                    null
+                  } else {
+                    // Convert to domain models for strategy testing
+                    val strategyStockDomain = stockPair.strategyStock
+                    if (entryStrategy.test(strategyStockDomain, strategyQuote)) {
+                      // Test strategy against the underlying/strategy stock
+                      PotentialEntry(stockPair, strategyQuote, tradingQuote)
+                    } else {
+                      null
+                    }
+                  }
+                } else {
+                  null
+                }
+              }
+            }.awaitAll()
+            .filterNotNull()
         }
 
       if (entriesForThisDate.isNotEmpty()) {
@@ -314,7 +382,10 @@ class BacktestService(
         val rankedEntries =
           entriesForThisDate
             .map { entry ->
-              val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote)
+              // Convert to domain models for ranking
+              val strategyStockDomain = entry.stockPair.strategyStock
+              val strategyQuoteDomain = entry.strategyEntryQuote
+              val score = ranker.score(strategyStockDomain, strategyQuoteDomain)
               RankedEntry(entry, score)
             }.sortedByDescending { it.score } // Higher score = better
 
@@ -326,8 +397,8 @@ class BacktestService(
         selectedEntries.forEach { rankedEntry ->
           val entry = rankedEntry.entry
 
-          // Check if we're not already in this trade (using trading quote)
-          if (trades.find { it.containsQuote(entry.tradingEntryQuote) } == null) {
+          // Check if we're not already in this trade (using trading quote) - thread-safe
+          if (trades.none { it.containsQuote(entry.tradingEntryQuote) }) {
             val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
 
             if (trade != null) {
@@ -345,9 +416,9 @@ class BacktestService(
         notSelectedEntries.forEach { rankedEntry ->
           val entry = rankedEntry.entry
 
-          // Check if we're not already tracking this trade
-          if (missedTrades.find { it.containsQuote(entry.tradingEntryQuote) } == null &&
-            trades.find { it.containsQuote(entry.tradingEntryQuote) } == null
+          // Check if we're not already tracking this trade - thread-safe
+          if (missedTrades.none { it.containsQuote(entry.tradingEntryQuote) } &&
+            trades.none { it.containsQuote(entry.tradingEntryQuote) }
           ) {
             val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
 
@@ -359,14 +430,15 @@ class BacktestService(
       }
     }
 
-    logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed")
+    val mainLoopDuration = System.currentTimeMillis() - backtestStartTime
+    logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed in ${mainLoopDuration}ms")
 
     logger.info("Calculating trade excursion metrics and market conditions...")
 
     // Enrich each trade with excursion metrics and market conditions
     trades.forEach { trade ->
       trade.excursionMetrics = calculateExcursionMetrics(trade, trade.entryQuote)
-      trade.entryQuote.date?.let { entryDate ->
+      trade.entryQuote.date.let { entryDate ->
         trade.marketConditionAtEntry =
           captureMarketCondition(
             entryDate,
@@ -378,17 +450,21 @@ class BacktestService(
 
     logger.info("Calculating aggregate diagnostic statistics...")
 
-    val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
+    // Convert ConcurrentLinkedQueue to List for further processing
+    val tradesList = trades.toList()
+    val missedTradesList = missedTrades.toList()
+
+    val (winningTrades, losingTrades) = tradesList.partition { it.profit > 0 }
 
     // Calculate aggregate diagnostic statistics
-    val timeStats = calculateTimeBasedStats(trades)
-    val exitAnalysis = calculateExitReasonAnalysis(trades)
-    val sectorPerf = calculateSectorPerformance(trades)
+    val timeStats = calculateTimeBasedStats(tradesList)
+    val exitAnalysis = calculateExitReasonAnalysis(tradesList)
+    val sectorPerf = calculateSectorPerformance(tradesList)
     val atrDrawdown = calculateATRDrawdownStats(winningTrades, losingTrades)
 
     // Calculate market condition averages
     val marketAvgs =
-      trades
+      tradesList
         .mapNotNull { it.marketConditionAtEntry }
         .let { conditions ->
           if (conditions.isEmpty()) {
@@ -402,12 +478,13 @@ class BacktestService(
           }
         }
 
-    logger.info("Backtest analysis complete with enhanced metrics")
+    val totalDuration = System.currentTimeMillis() - backtestStartTime
+    logger.info("Backtest analysis complete with enhanced metrics in ${totalDuration}ms total")
 
     return BacktestReport(
       winningTrades,
       losingTrades,
-      missedTrades,
+      missedTradesList,
       timeBasedStats = timeStats,
       exitReasonAnalysis = exitAnalysis,
       sectorPerformance = sectorPerf,
@@ -450,10 +527,10 @@ class BacktestService(
    * @param allStocksMap - map of symbol to Stock for validation
    */
   private fun validateUnderlyingAssets(
-    stocks: List<Stock>,
+    stocks: List<StockDomain>,
     useUnderlying: Boolean,
     customMap: Map<String, String>?,
-    allStocksMap: Map<String, Stock>,
+    allStocksMap: Map<String, StockDomain>,
   ) {
     if (!useUnderlying) return
 
@@ -461,7 +538,7 @@ class BacktestService(
     val missingSymbols = mutableListOf<String>()
 
     stocks.forEach { stock ->
-      val strategySymbol = getStrategySymbol(stock.symbol!!, true, customMap)
+      val strategySymbol = getStrategySymbol(stock.symbol, true, customMap)
 
       if (strategySymbol != stock.symbol) {
         // Check if this underlying asset exists in the loaded stocks
@@ -489,7 +566,7 @@ class BacktestService(
    */
   private fun calculateExcursionMetrics(
     trade: Trade,
-    entryQuote: StockQuote,
+    entryQuote: StockQuoteDomain,
   ): ExcursionMetrics {
     val entryPrice = entryQuote.closePrice
     val entryATR = entryQuote.atr // Fallback to 1.0 if ATR missing
@@ -574,7 +651,7 @@ class BacktestService(
       var previousThreshold = 0.0
 
       buckets.forEach { (range, threshold) ->
-        val count = values.count { it >= previousThreshold && it < threshold }
+        val count = values.count { it in previousThreshold..<threshold }
         cumulativeCount += count
         val percentage = (count.toDouble() / values.size) * 100
         val cumulativePercentage = (cumulativeCount.toDouble() / values.size) * 100
@@ -648,8 +725,8 @@ class BacktestService(
    */
   private fun captureMarketCondition(
     date: LocalDate,
-    spyStock: Stock?,
-    marketBreadth: Breadth?,
+    spyStock: StockDomain?,
+    marketBreadth: BreadthDomain?,
   ): MarketConditionSnapshot? {
     if (spyStock == null) return null
 
@@ -756,7 +833,7 @@ class BacktestService(
           trades = sectorTrades.size,
           winRate = if (sectorTrades.isNotEmpty()) (winners.toDouble() / sectorTrades.size) * 100 else 0.0,
           avgProfit = if (sectorTrades.isNotEmpty()) sectorTrades.map { it.profitPercentage }.average() else 0.0,
-          avgHoldingDays = if (sectorTrades.isNotEmpty()) sectorTrades.mapNotNull { it.tradingDays }.average() else 0.0,
+          avgHoldingDays = if (sectorTrades.isNotEmpty()) sectorTrades.map { it.tradingDays }.average() else 0.0,
         )
       }.sortedByDescending { it.trades }
 }

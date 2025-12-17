@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Plan ETF entry strategy using composition.
@@ -26,12 +26,12 @@ class PlanEtfEntryStrategy : DetailedEntryStrategy {
   override fun description() = "Plan ETF entry strategy"
 
   override fun test(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean = compositeStrategy.test(stock, quote)
 
   override fun testWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ) = compositeStrategy.testWithDetails(stock, quote)
 }

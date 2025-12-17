@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.model.backtest
 
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Represents a potential trade entry identified on a specific date.
@@ -14,6 +14,6 @@ import com.skrymer.udgaard.model.StockQuote
  */
 data class PotentialEntry(
   val stockPair: StockPair,
-  val strategyEntryQuote: StockQuote,
-  val tradingEntryQuote: StockQuote,
+  val strategyEntryQuote: StockQuoteDomain,
+  val tradingEntryQuote: StockQuoteDomain,
 )

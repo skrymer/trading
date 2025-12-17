@@ -1,19 +1,18 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class ProfitTargetExitTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should exit when price exceeds profit target`() {
     val condition = ProfitTargetExit(atrMultiplier = 3.0, emaPeriod = 20)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 110.0,
         closePriceEMA20 = 100.0,
@@ -30,7 +29,7 @@ class ProfitTargetExitTest {
   fun `should not exit when price is below profit target`() {
     val condition = ProfitTargetExit(atrMultiplier = 3.0, emaPeriod = 20)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 104.0,
         closePriceEMA20 = 100.0,
@@ -47,7 +46,7 @@ class ProfitTargetExitTest {
   fun `should not exit when price equals profit target`() {
     val condition = ProfitTargetExit(atrMultiplier = 3.0, emaPeriod = 20)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 106.0,
         closePriceEMA20 = 100.0,
@@ -64,7 +63,7 @@ class ProfitTargetExitTest {
   fun `should work with different ATR multiplier`() {
     val condition = ProfitTargetExit(atrMultiplier = 2.0, emaPeriod = 20)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 105.0,
         closePriceEMA20 = 100.0,
@@ -81,7 +80,7 @@ class ProfitTargetExitTest {
   fun `should work with 50 EMA`() {
     val condition = ProfitTargetExit(atrMultiplier = 3.0, emaPeriod = 50)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 110.0,
         closePriceEMA50 = 100.0,

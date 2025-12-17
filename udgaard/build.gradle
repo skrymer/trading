@@ -4,6 +4,7 @@ plugins {
 	id 'org.springframework.boot' version '3.5.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.jlleitschuh.gradle.ktlint' version '12.1.2'
+	id 'nu.studer.jooq' version '9.0'
 }
 
 group = 'com.skrymer'
@@ -27,9 +28,16 @@ ext {
 }
 
 dependencies {
-	// Database - H2 with JPA
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// Database - H2 with jOOQ
+	implementation 'org.springframework.boot:spring-boot-starter-jooq'
+	implementation 'org.jooq:jooq-kotlin' // Version managed by Spring Boot
 	implementation 'com.h2database:h2:2.2.224'
+
+	// Flyway for database migrations
+	implementation 'org.flywaydb:flyway-core'
+
+	// jOOQ code generation dependencies
+	jooqGenerator 'com.h2database:h2:2.2.224'
 
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -58,6 +66,13 @@ dependencyManagement {
 	imports {
 		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
 	}
+	dependencies {
+		// Force jOOQ version consistency
+		dependency 'org.jooq:jooq:3.19.23'
+		dependency 'org.jooq:jooq-kotlin:3.19.23'
+		dependency 'org.jooq:jooq-meta:3.19.23'
+		dependency 'org.jooq:jooq-codegen:3.19.23'
+	}
 }
 
 kotlin {
@@ -80,5 +95,43 @@ ktlint {
 	filter {
 		exclude("**/generated/**")
 		include("**/kotlin/**")
+	}
+}
+
+jooq {
+	version = '3.19.23' // Match Spring Boot's managed version
+	configurations {
+		main {
+			generateSchemaSourceOnCompilation = true
+			generationTool {
+				jdbc {
+					driver = 'org.h2.Driver'
+					url = 'jdbc:h2:file:~/.trading-app/database/trading'
+					user = 'sa'
+					password = ''
+				}
+				generator {
+					name = 'org.jooq.codegen.KotlinGenerator'
+					database {
+						name = 'org.jooq.meta.h2.H2Database'
+						includes = '.*'
+						excludes = ''
+						inputSchema = 'PUBLIC'
+					}
+					generate {
+						deprecated = false
+						records = true
+						pojos = true
+						daos = false
+						kotlinNotNullPojoAttributes = true
+						kotlinNotNullRecordAttributes = true
+					}
+					target {
+						packageName = 'com.skrymer.udgaard.jooq'
+						directory = 'build/generated-src/jooq/main'
+					}
+				}
+			}
+		}
 	}
 }

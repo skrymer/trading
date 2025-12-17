@@ -1,18 +1,18 @@
 package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.controller.dto.*
-import com.skrymer.udgaard.repository.BreadthRepository
-import com.skrymer.udgaard.repository.EtfRepository
-import com.skrymer.udgaard.repository.StockRepository
+import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
+import com.skrymer.udgaard.repository.jooq.EtfJooqRepository
+import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Service
 class DataStatsService(
-  private val stockRepository: StockRepository,
-  private val breadthRepository: BreadthRepository,
-  private val etfRepository: EtfRepository,
+  private val stockRepository: StockJooqRepository,
+  private val breadthRepository: BreadthJooqRepository,
+  private val etfRepository: EtfJooqRepository,
 ) {
   @Transactional(readOnly = true)
   fun calculateStats(): DatabaseStats =

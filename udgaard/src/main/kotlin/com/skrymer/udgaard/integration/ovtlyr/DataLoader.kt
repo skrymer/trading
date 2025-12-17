@@ -1,9 +1,8 @@
 package com.skrymer.udgaard.integration.ovtlyr
 
-import com.skrymer.udgaard.model.EtfEntity
+import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.model.EtfSymbol
 import com.skrymer.udgaard.model.SectorSymbol
-import com.skrymer.udgaard.model.Stock
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.BreadthService
 import com.skrymer.udgaard.service.EtfService
@@ -31,7 +30,7 @@ class DataLoader(
     runBlocking { loadEtfs() }
   }
 
-  fun loadStocks(forceFetch: Boolean = false): List<Stock> =
+  fun loadStocks(forceFetch: Boolean = false): List<StockDomain> =
     stockService.getStocksBySymbols(
       StockSymbol.entries.map {
         it.symbol
@@ -39,7 +38,7 @@ class DataLoader(
       forceFetch,
     )
 
-  fun loadEtfs(): List<EtfEntity> {
+  fun loadEtfs(): List<com.skrymer.udgaard.domain.EtfDomain> {
     val logger = LoggerFactory.getLogger("EtfLoader")
     logger.info("Loading ${EtfSymbol.entries.size} ETFs from Ovtlyr")
 

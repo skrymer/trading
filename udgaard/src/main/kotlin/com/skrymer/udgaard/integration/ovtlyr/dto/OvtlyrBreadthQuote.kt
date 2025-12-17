@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.BreadthQuote
+import com.skrymer.udgaard.domain.BreadthQuoteDomain
 import java.time.LocalDate
 
 /**
@@ -83,11 +83,11 @@ class OvtlyrBreadthQuote {
   fun toModel(
     breadth: OvtlyrBreadth,
     stockInSector: OvtlyrStockInformation?,
-  ): BreadthQuote {
+  ): BreadthQuoteDomain {
     val stockQuote = stockInSector?.getPreviousQuote(stockInSector.getQuoteForDate(quoteDate!!))
-    return BreadthQuote(
-      symbol,
-      quoteDate,
+    return BreadthQuoteDomain(
+      symbol ?: "",
+      quoteDate ?: LocalDate.now(),
       numberOfStocksWithABuySignal,
       numberOfStocksWithASellSignal,
       numberOfStocksInUptrend,

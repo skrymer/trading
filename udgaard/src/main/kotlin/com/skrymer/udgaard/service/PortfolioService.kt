@@ -1,8 +1,9 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.*
 import com.skrymer.udgaard.model.*
-import com.skrymer.udgaard.repository.PortfolioRepository
-import com.skrymer.udgaard.repository.PortfolioTradeRepository
+import com.skrymer.udgaard.repository.jooq.PortfolioJooqRepository
+import com.skrymer.udgaard.repository.jooq.PortfolioTradeJooqRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -12,15 +13,15 @@ import kotlin.math.pow
 
 @Service
 class PortfolioService(
-  private val portfolioRepository: PortfolioRepository,
-  private val portfolioTradeRepository: PortfolioTradeRepository,
+  private val portfolioRepository: PortfolioJooqRepository,
+  private val portfolioTradeRepository: PortfolioTradeJooqRepository,
   private val stockService: StockService,
   private val strategyRegistry: StrategyRegistry,
 ) {
   /**
    * Get all portfolios, optionally filtered by userId
    */
-  fun getAllPortfolios(userId: String? = null): List<Portfolio> =
+  fun getAllPortfolios(userId: String? = null): List<PortfolioDomain> =
     if (userId != null) {
       portfolioRepository.findByUserId(userId)
     } else {
@@ -35,14 +36,17 @@ class PortfolioService(
     initialBalance: Double,
     currency: String,
     userId: String? = null,
-  ): Portfolio {
+  ): PortfolioDomain {
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
+        id = null,
         userId = userId,
         name = name,
         initialBalance = initialBalance,
         currentBalance = initialBalance,
         currency = currency,
+        createdDate = LocalDateTime.now(),
+        lastUpdated = LocalDateTime.now(),
       )
     return portfolioRepository.save(portfolio)
   }
@@ -50,7 +54,7 @@ class PortfolioService(
   /**
    * Get portfolio by ID
    */
-  fun getPortfolio(portfolioId: Long): Portfolio? = portfolioRepository.findById(portfolioId).orElse(null)
+  fun getPortfolio(portfolioId: Long): PortfolioDomain? = portfolioRepository.findById(portfolioId)
 
   /**
    * Update portfolio balance
@@ -58,7 +62,7 @@ class PortfolioService(
   fun updatePortfolio(
     portfolioId: Long,
     currentBalance: Double,
-  ): Portfolio? {
+  ): PortfolioDomain? {
     val portfolio = getPortfolio(portfolioId) ?: return null
     val updated =
       portfolio.copy(
@@ -74,10 +78,13 @@ class PortfolioService(
   @Transactional
   fun deletePortfolio(portfolioId: Long) {
     // Delete all trades associated with the portfolio
-    portfolioTradeRepository.deleteByPortfolioId(portfolioId)
+    val trades = portfolioTradeRepository.findByPortfolioId(portfolioId)
+    trades.forEach { trade ->
+      trade.id?.let { portfolioTradeRepository.delete(it) }
+    }
 
     // Delete the portfolio itself
-    portfolioRepository.deleteById(portfolioId)
+    portfolioRepository.delete(portfolioId)
   }
 
   /**
@@ -93,21 +100,21 @@ class PortfolioService(
     exitStrategy: String,
     currency: String,
     underlyingSymbol: String? = null,
-    instrumentType: InstrumentType = InstrumentType.STOCK,
-    optionType: OptionType? = null,
+    instrumentType: InstrumentTypeDomain = InstrumentTypeDomain.STOCK,
+    optionType: OptionTypeDomain? = null,
     strikePrice: Double? = null,
     expirationDate: LocalDate? = null,
     contracts: Int? = null,
     multiplier: Int = 100,
     entryIntrinsicValue: Double? = null,
     entryExtrinsicValue: Double? = null,
-  ): PortfolioTrade {
+  ): PortfolioTradeDomain {
     val portfolio =
       getPortfolio(portfolioId)
         ?: throw IllegalArgumentException("Portfolio not found")
 
     // Validate options-specific fields
-    if (instrumentType == InstrumentType.OPTION) {
+    if (instrumentType == InstrumentTypeDomain.OPTION) {
       requireNotNull(optionType) { "Option type is required for option trades" }
       requireNotNull(strikePrice) { "Strike price is required for option trades" }
       requireNotNull(expirationDate) { "Expiration date is required for option trades" }
@@ -116,7 +123,7 @@ class PortfolioService(
 
     // Calculate the cost of opening this trade
     val tradeCost =
-      if (instrumentType == InstrumentType.OPTION) {
+      if (instrumentType == InstrumentTypeDomain.OPTION) {
         entryPrice * (contracts ?: 1) * multiplier
       } else {
         entryPrice * quantity
@@ -127,7 +134,8 @@ class PortfolioService(
     updatePortfolio(portfolioId, updatedBalance)
 
     val trade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
+        id = null,
         portfolioId = portfolioId,
         symbol = symbol,
         instrumentType = instrumentType,
@@ -144,7 +152,7 @@ class PortfolioService(
         entryStrategy = entryStrategy,
         exitStrategy = exitStrategy,
         currency = currency,
-        status = TradeStatus.OPEN,
+        status = TradeStatusDomain.OPEN,
         underlyingSymbol = underlyingSymbol,
       )
     return portfolioTradeRepository.save(trade)
@@ -162,25 +170,25 @@ class PortfolioService(
     entryStrategy: String? = null,
     exitStrategy: String? = null,
     underlyingSymbol: String? = null,
-    instrumentType: InstrumentType? = null,
-    optionType: OptionType? = null,
+    instrumentType: InstrumentTypeDomain? = null,
+    optionType: OptionTypeDomain? = null,
     strikePrice: Double? = null,
     expirationDate: LocalDate? = null,
     contracts: Int? = null,
     multiplier: Int? = null,
     entryIntrinsicValue: Double? = null,
     entryExtrinsicValue: Double? = null,
-  ): PortfolioTrade? {
-    val trade = portfolioTradeRepository.findById(tradeId).orElse(null) ?: return null
+  ): PortfolioTradeDomain? {
+    val trade = portfolioTradeRepository.findById(tradeId) ?: return null
 
     // Only allow updating open trades
-    if (trade.status != TradeStatus.OPEN) {
+    if (trade.status != TradeStatusDomain.OPEN) {
       throw IllegalArgumentException("Can only update open trades")
     }
 
     // Calculate old entry cost
     val oldEntryCost =
-      if (trade.instrumentType == InstrumentType.OPTION) {
+      if (trade.instrumentType == InstrumentTypeDomain.OPTION) {
         trade.entryPrice * (trade.contracts ?: trade.quantity) * trade.multiplier
       } else {
         trade.entryPrice * trade.quantity
@@ -208,7 +216,7 @@ class PortfolioService(
 
     // Calculate new entry cost
     val newEntryCost =
-      if (updatedTrade.instrumentType == InstrumentType.OPTION) {
+      if (updatedTrade.instrumentType == InstrumentTypeDomain.OPTION) {
         updatedTrade.entryPrice * (updatedTrade.contracts ?: updatedTrade.quantity) * updatedTrade.multiplier
       } else {
         updatedTrade.entryPrice * updatedTrade.quantity
@@ -235,8 +243,8 @@ class PortfolioService(
     exitDate: LocalDate,
     exitIntrinsicValue: Double? = null,
     exitExtrinsicValue: Double? = null,
-  ): PortfolioTrade? {
-    val trade = portfolioTradeRepository.findById(tradeId).orElse(null) ?: return null
+  ): PortfolioTradeDomain? {
+    val trade = portfolioTradeRepository.findById(tradeId) ?: return null
 
     // Validate exit date is not before entry date
     if (exitDate.isBefore(trade.entryDate)) {
@@ -249,12 +257,12 @@ class PortfolioService(
         exitDate = exitDate,
         exitIntrinsicValue = exitIntrinsicValue,
         exitExtrinsicValue = exitExtrinsicValue,
-        status = TradeStatus.CLOSED,
+        status = TradeStatusDomain.CLOSED,
       )
 
     // Calculate the exit value (amount received from closing the position)
     val exitValue =
-      if (trade.instrumentType == InstrumentType.OPTION) {
+      if (trade.instrumentType == InstrumentTypeDomain.OPTION) {
         exitPrice * (trade.contracts ?: trade.quantity) * trade.multiplier
       } else {
         exitPrice * trade.quantity
@@ -275,9 +283,9 @@ class PortfolioService(
   fun getTrades(
     portfolioId: Long,
     status: TradeStatus? = null,
-  ): List<PortfolioTrade> =
+  ): List<PortfolioTradeDomain> =
     if (status != null) {
-      portfolioTradeRepository.findByPortfolioIdAndStatus(portfolioId, status)
+      portfolioTradeRepository.findByPortfolioIdAndStatus(portfolioId, TradeStatusDomain.fromJpa(status))
     } else {
       portfolioTradeRepository.findByPortfolioId(portfolioId)
     }
@@ -285,23 +293,23 @@ class PortfolioService(
   /**
    * Get a specific trade
    */
-  fun getTrade(tradeId: Long): PortfolioTrade? = portfolioTradeRepository.findById(tradeId).orElse(null)
+  fun getTrade(tradeId: Long): PortfolioTradeDomain? = portfolioTradeRepository.findById(tradeId)
 
   /**
    * Delete a trade (only open trades can be deleted)
    */
   @Transactional
   fun deleteTrade(tradeId: Long): Boolean {
-    val trade = portfolioTradeRepository.findById(tradeId).orElse(null) ?: return false
+    val trade = portfolioTradeRepository.findById(tradeId) ?: return false
 
     // Only allow deleting open trades
-    if (trade.status != TradeStatus.OPEN) {
+    if (trade.status != TradeStatusDomain.OPEN) {
       throw IllegalArgumentException("Can only delete open trades")
     }
 
     // Calculate the entry cost that was deducted when opening the trade
     val entryCost =
-      if (trade.instrumentType == InstrumentType.OPTION) {
+      if (trade.instrumentType == InstrumentTypeDomain.OPTION) {
         trade.entryPrice * (trade.contracts ?: trade.quantity) * trade.multiplier
       } else {
         trade.entryPrice * trade.quantity
@@ -313,7 +321,7 @@ class PortfolioService(
       updatePortfolio(it.id!!, it.currentBalance + entryCost)
     }
 
-    portfolioTradeRepository.deleteById(tradeId)
+    portfolioTradeRepository.delete(tradeId)
     return true
   }
 
@@ -336,22 +344,22 @@ class PortfolioService(
     newSymbol: String,
     newStrikePrice: Double,
     newExpirationDate: LocalDate,
-    newOptionType: OptionType,
+    newOptionType: OptionTypeDomain,
     newEntryPrice: Double,
     rollDate: LocalDate,
     contracts: Int,
     exitPrice: Double,
-  ): Pair<PortfolioTrade, PortfolioTrade> {
+  ): Pair<PortfolioTradeDomain, PortfolioTradeDomain> {
     // 1. Get the original trade
     val originalTrade =
       getTrade(tradeId)
         ?: throw IllegalArgumentException("Trade not found")
 
-    if (originalTrade.status != TradeStatus.OPEN) {
+    if (originalTrade.status != TradeStatusDomain.OPEN) {
       throw IllegalArgumentException("Can only roll open trades")
     }
 
-    if (originalTrade.instrumentType != InstrumentType.OPTION) {
+    if (originalTrade.instrumentType != InstrumentTypeDomain.OPTION) {
       throw IllegalArgumentException("Can only roll option trades")
     }
 
@@ -374,10 +382,11 @@ class PortfolioService(
 
     // 5. Create new rolled position
     val newTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
+        id = null,
         portfolioId = originalTrade.portfolioId,
         symbol = newSymbol,
-        instrumentType = InstrumentType.OPTION,
+        instrumentType = InstrumentTypeDomain.OPTION,
         optionType = newOptionType,
         strikePrice = newStrikePrice,
         expirationDate = newExpirationDate,
@@ -389,13 +398,11 @@ class PortfolioService(
         entryStrategy = originalTrade.entryStrategy,
         exitStrategy = originalTrade.exitStrategy,
         currency = originalTrade.currency,
-        status = TradeStatus.OPEN,
+        status = TradeStatusDomain.OPEN,
         underlyingSymbol = originalTrade.underlyingSymbol,
         // Rolling fields
         parentTradeId = tradeId,
         rollNumber = rollNumber,
-        rollDate = rollDate,
-        rollCost = rollCost,
         originalEntryDate = originalEntryDate,
         originalCostBasis = originalCostBasis,
         cumulativeRealizedProfit = cumulativeProfit,
@@ -424,7 +431,7 @@ class PortfolioService(
    * Get the complete roll chain for a trade
    * Returns all trades in the chain from original to current
    */
-  fun getRollChain(tradeId: Long): List<PortfolioTrade> {
+  fun getRollChain(tradeId: Long): List<PortfolioTradeDomain> {
     val trade = getTrade(tradeId) ?: return emptyList()
 
     // Find the original trade in the chain by walking backwards
@@ -466,12 +473,12 @@ class PortfolioService(
     // When grouping, only count final trades in roll chains (not intermediate rolled-out positions)
     val closedTrades =
       if (groupRolledTrades) {
-        allTrades.filter { it.status == TradeStatus.CLOSED && it.rolledToTradeId == null }
+        allTrades.filter { it.status == TradeStatusDomain.CLOSED && it.rolledToTradeId == null }
       } else {
-        allTrades.filter { it.status == TradeStatus.CLOSED }
+        allTrades.filter { it.status == TradeStatusDomain.CLOSED }
       }
 
-    val openTrades = allTrades.filter { it.status == TradeStatus.OPEN }
+    val openTrades = allTrades.filter { it.status == TradeStatusDomain.OPEN }
 
     if (closedTrades.isEmpty()) {
       return createEmptyStats().copy(
@@ -584,8 +591,8 @@ class PortfolioService(
    * Calculate YTD return
    */
   private fun calculateYTDReturn(
-    portfolio: Portfolio,
-    closedTrades: List<PortfolioTrade>,
+    portfolio: PortfolioDomain,
+    closedTrades: List<PortfolioTradeDomain>,
     groupRolledTrades: Boolean = false,
   ): Double {
     val startOfYear = LocalDate.now().withDayOfYear(1)
@@ -606,7 +613,7 @@ class PortfolioService(
   /**
    * Calculate annualized return using CAGR formula
    */
-  private fun calculateAnnualizedReturn(portfolio: Portfolio): Double {
+  private fun calculateAnnualizedReturn(portfolio: PortfolioDomain): Double {
     val daysSinceCreation =
       ChronoUnit.DAYS.between(
         portfolio.createdDate.toLocalDate(),

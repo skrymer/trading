@@ -1,12 +1,12 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.BreadthDomain
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.model.Breadth
 import com.skrymer.udgaard.model.BreadthSymbol
 import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.StockSymbol
-import com.skrymer.udgaard.repository.BreadthRepository
+import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -17,12 +17,12 @@ import java.time.LocalDate
 @Service
 class BreadthService(
   val ovtlyrClient: OvtlyrClient,
-  val breadthRepository: BreadthRepository,
+  val breadthRepository: BreadthJooqRepository,
 ) {
   /**
    * Get market breadth (FULLSTOCK - all stocks combined).
    */
-  fun getMarketBreadth(refresh: Boolean = false): Breadth? = getBreadth(BreadthSymbol.Market(), refresh)
+  fun getMarketBreadth(refresh: Boolean = false): BreadthDomain? = getBreadth(BreadthSymbol.Market(), refresh)
 
   /**
    * Get market breadth for a specific date range.
@@ -31,7 +31,7 @@ class BreadthService(
     fromDate: LocalDate,
     toDate: LocalDate,
     refresh: Boolean = false,
-  ): Breadth? = getBreadth(BreadthSymbol.Market(), fromDate, toDate, refresh)
+  ): BreadthDomain? = getBreadth(BreadthSymbol.Market(), fromDate, toDate, refresh)
 
   /**
    * Get sector breadth for a specific sector.
@@ -39,7 +39,7 @@ class BreadthService(
   fun getSectorBreadth(
     sector: SectorSymbol,
     refresh: Boolean = false,
-  ): Breadth? = getBreadth(BreadthSymbol.Sector(sector), refresh)
+  ): BreadthDomain? = getBreadth(BreadthSymbol.Sector(sector), refresh)
 
   /**
    * Get sector breadth for a specific date range.
@@ -49,7 +49,7 @@ class BreadthService(
     fromDate: LocalDate,
     toDate: LocalDate,
     refresh: Boolean = false,
-  ): Breadth? = getBreadth(BreadthSymbol.Sector(sector), fromDate, toDate, refresh)
+  ): BreadthDomain? = getBreadth(BreadthSymbol.Sector(sector), fromDate, toDate, refresh)
 
   /**
    * Get breadth data for any symbol (market or sector).
@@ -57,7 +57,7 @@ class BreadthService(
   fun getBreadth(
     symbol: BreadthSymbol,
     refresh: Boolean = false,
-  ): Breadth? =
+  ): BreadthDomain? =
     if (refresh) {
       fetchBreadth(symbol)
     } else {
@@ -73,17 +73,18 @@ class BreadthService(
     fromDate: LocalDate,
     toDate: LocalDate,
     refresh: Boolean = false,
-  ): Breadth? {
+  ): BreadthDomain? {
     val breadth = getBreadth(symbol, refresh)
 
     return if (breadth == null) {
       null
     } else {
-      Breadth(
-        breadth.symbol ?: symbol,
-        breadth.quotes
-          .filter { it.quoteDate?.isAfter(fromDate) == true }
-          .filter { it.quoteDate?.isBefore(toDate) == true }
+      BreadthDomain(
+        symbolType = breadth.symbolType,
+        symbolValue = breadth.symbolValue,
+        quotes = breadth.quotes
+          .filter { it.quoteDate.isAfter(fromDate) }
+          .filter { it.quoteDate.isBefore(toDate) }
           .toMutableList(),
       )
     }
@@ -111,7 +112,7 @@ class BreadthService(
   /**
    * Fetch breadth data from Ovtlyr and save to database.
    */
-  private fun fetchBreadth(symbol: BreadthSymbol): Breadth? {
+  private fun fetchBreadth(symbol: BreadthSymbol): BreadthDomain? {
     val ovtlyrBreadth = ovtlyrClient.getBreadth(symbol.toIdentifier())
 
     return if (ovtlyrBreadth == null) {
@@ -120,8 +121,7 @@ class BreadthService(
       // Delete existing breadth if it exists (cascade delete will remove quotes)
       val identifier = symbol.toIdentifier()
       breadthRepository.findBySymbol(identifier)?.let { existingBreadth ->
-        breadthRepository.delete(existingBreadth)
-        breadthRepository.flush() // Ensure delete is committed before insert
+        breadthRepository.delete(symbol.toIdentifier())
       }
 
       val stockInSector = getStockInSector(symbol)

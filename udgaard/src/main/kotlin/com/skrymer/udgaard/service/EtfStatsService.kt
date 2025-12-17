@@ -3,9 +3,9 @@ package com.skrymer.udgaard.service
 import com.skrymer.udgaard.controller.dto.EtfCurrentStats
 import com.skrymer.udgaard.controller.dto.EtfHistoricalDataPoint
 import com.skrymer.udgaard.controller.dto.EtfStatsResponse
+import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.model.EtfMembership
 import com.skrymer.udgaard.model.EtfSymbol
-import com.skrymer.udgaard.model.Stock
 import kotlinx.coroutines.runBlocking
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -112,7 +112,7 @@ class EtfStatsService(
   }
 
   private fun calculateStatsForDate(
-    stocks: List<Stock>,
+    stocks: List<StockDomain>,
     date: LocalDate,
   ): EtfHistoricalDataPoint {
     var stocksInUptrend = 0

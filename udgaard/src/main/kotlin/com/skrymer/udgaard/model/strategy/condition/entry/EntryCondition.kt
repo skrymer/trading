@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Represents a single entry condition that can be evaluated.
@@ -17,8 +17,8 @@ interface EntryCondition {
    * @return true if the condition is met, false otherwise
    */
   fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean
 
   /**
@@ -50,7 +50,7 @@ interface EntryCondition {
    * @return Detailed evaluation result including pass/fail, actual values, and explanations
    */
   fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult
 }

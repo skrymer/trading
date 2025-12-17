@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.controller
 
-import com.skrymer.udgaard.model.OptionType
+import com.skrymer.udgaard.domain.OptionTypeDomain
 import com.skrymer.udgaard.service.OptionPricePoint
 import com.skrymer.udgaard.service.OptionPriceService
 import org.slf4j.Logger
@@ -52,7 +52,7 @@ class OptionController(
 
     val optionType =
       try {
-        OptionType.valueOf(type.uppercase())
+        OptionTypeDomain.valueOf(type.uppercase())
       } catch (e: IllegalArgumentException) {
         logger.error("Invalid option type: $type")
         return ResponseEntity.badRequest().build()

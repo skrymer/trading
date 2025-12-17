@@ -1,10 +1,10 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.InstrumentTypeDomain
+import com.skrymer.udgaard.domain.OptionTypeDomain
+import com.skrymer.udgaard.domain.PortfolioTradeDomain
 import com.skrymer.udgaard.integration.options.OptionContract
 import com.skrymer.udgaard.integration.options.OptionsDataProvider
-import com.skrymer.udgaard.model.InstrumentType
-import com.skrymer.udgaard.model.OptionType
-import com.skrymer.udgaard.model.PortfolioTrade
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -38,7 +38,7 @@ class OptionPriceService(
     underlyingSymbol: String,
     strike: Double,
     expiration: LocalDate,
-    optionType: OptionType,
+    optionType: OptionTypeDomain,
     startDate: LocalDate,
     endDate: LocalDate,
   ): List<OptionPricePoint> {
@@ -91,7 +91,7 @@ class OptionPriceService(
     underlyingSymbol: String,
     strike: Double,
     expiration: LocalDate,
-    optionType: OptionType,
+    optionType: OptionTypeDomain,
     date: LocalDate,
   ): OptionContract? =
     optionsDataProvider.findOptionContract(
@@ -107,10 +107,10 @@ class OptionPriceService(
    * Returns full contract details including Greeks.
    */
   fun getOptionDataForTrade(
-    trade: PortfolioTrade,
+    trade: PortfolioTradeDomain,
     date: LocalDate,
   ): OptionContract? {
-    if (trade.instrumentType != InstrumentType.OPTION) return null
+    if (trade.instrumentType != InstrumentTypeDomain.OPTION) return null
 
     val underlying = trade.symbol
 

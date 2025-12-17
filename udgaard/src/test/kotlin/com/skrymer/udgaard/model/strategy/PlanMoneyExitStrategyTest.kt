@@ -1,9 +1,8 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockType
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -13,9 +12,9 @@ class PlanMoneyExitStrategyTest {
 
   @Test
   fun `should exit when 10 EMA crosses under 20 EMA`() {
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 95.0, // Below 20 EMA
         closePriceEMA20 = 100.0,
@@ -30,9 +29,9 @@ class PlanMoneyExitStrategyTest {
 
   @Test
   fun `should exit on sell signal`() {
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         signal = "Sell",
         closePriceEMA10 = 105.0, // Above 20 EMA (no cross)
@@ -49,25 +48,25 @@ class PlanMoneyExitStrategyTest {
   @Test
   fun `should exit when within order block`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 95.0,
         high = 105.0,
         startDate = LocalDate.of(2024, 1, 1),
         endDate = LocalDate.of(2024, 5, 30), // 150 days duration (> 120 threshold)
-        orderBlockType = OrderBlockType.BEARISH, // Must be BEARISH
+        orderBlockType = com.skrymer.udgaard.domain.OrderBlockType.BEARISH, // Must be BEARISH
         // Default is CALCULATED
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
-        orderBlocks = mutableListOf(orderBlock),
+        orderBlocks = listOf(orderBlock),
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 3, 1), // Within startDate and endDate
         closePrice = 100.0, // Within order block range
         closePriceEMA10 = 105.0, // Above 20 EMA (no cross)
@@ -86,9 +85,9 @@ class PlanMoneyExitStrategyTest {
 
   @Test
   fun `should not exit when no conditions are met`() {
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0, // Above 20 EMA (no cross)
         closePriceEMA20 = 100.0,
@@ -104,24 +103,24 @@ class PlanMoneyExitStrategyTest {
   @Test
   fun `should return first matching exit reason when multiple conditions met`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 95.0,
         high = 105.0,
         startDate = LocalDate.of(2024, 1, 1),
         endDate = LocalDate.of(2024, 5, 30),
-        orderBlockType = OrderBlockType.BEARISH,
+        orderBlockType = com.skrymer.udgaard.domain.OrderBlockType.BEARISH,
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
-        orderBlocks = mutableListOf(orderBlock),
+        orderBlocks = listOf(orderBlock),
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 3, 1), // Within startDate and endDate
         signal = "Sell", // Sell signal
         closePriceEMA10 = 95.0, // EMA cross
@@ -159,9 +158,9 @@ class PlanMoneyExitStrategyTest {
         orderBlock(120)
       }
 
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         signal = "Sell",
       )

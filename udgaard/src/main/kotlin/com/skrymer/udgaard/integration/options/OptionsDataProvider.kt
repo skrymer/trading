@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.integration.options
 
-import com.skrymer.udgaard.model.OptionType
+import com.skrymer.udgaard.domain.OptionTypeDomain
 import java.time.LocalDate
 
 /**
@@ -26,7 +26,7 @@ interface OptionsDataProvider {
     symbol: String,
     strike: Double,
     expiration: String,
-    optionType: OptionType,
+    optionType: OptionTypeDomain,
     date: String,
   ): OptionContract?
 }
@@ -39,7 +39,7 @@ data class OptionContract(
   val symbol: String,
   val strike: Double,
   val expiration: LocalDate,
-  val optionType: OptionType,
+  val optionType: OptionTypeDomain,
   val date: LocalDate,
   val price: Double,
   val impliedVolatility: Double? = null,

@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 class PlanMVEntryStrategy : EntryStrategy {
   private val compositeStrategy =
@@ -23,7 +23,7 @@ class PlanMVEntryStrategy : EntryStrategy {
     TODO("Not yet implemented")
   }
 
-  override fun test(stock: Stock, quote: StockQuote): Boolean {
+  override fun test(stock: StockDomain, quote: StockQuoteDomain): Boolean {
     TODO("Not yet implemented")
   }
 }

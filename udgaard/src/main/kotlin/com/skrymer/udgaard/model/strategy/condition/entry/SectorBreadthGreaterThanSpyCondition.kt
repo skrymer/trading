@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
 
 /**
@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component
 @Component
 class SectorBreadthGreaterThanSpyCondition : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean = quote.sectorBreadth > quote.marketAdvancingPercent
 
   override fun description(): String = "Sector breadth > Market breadth"
@@ -35,8 +35,8 @@ class SectorBreadthGreaterThanSpyCondition : EntryCondition {
     )
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val sectorBreadth = quote.sectorBreadth
     val marketBreadth = quote.marketAdvancingPercent

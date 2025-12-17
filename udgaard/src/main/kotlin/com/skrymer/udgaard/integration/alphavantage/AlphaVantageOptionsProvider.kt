@@ -1,9 +1,9 @@
 package com.skrymer.udgaard.integration.alphavantage
 
+import com.skrymer.udgaard.domain.OptionTypeDomain
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageHistoricalOptions
 import com.skrymer.udgaard.integration.options.OptionContract
 import com.skrymer.udgaard.integration.options.OptionsDataProvider
-import com.skrymer.udgaard.model.OptionType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -129,7 +129,7 @@ class AlphaVantageOptionsProvider(
     symbol: String,
     strike: Double,
     expiration: String,
-    optionType: OptionType,
+    optionType: OptionTypeDomain,
     date: String,
   ): OptionContract? {
     // Fetch historical options data for the specific date

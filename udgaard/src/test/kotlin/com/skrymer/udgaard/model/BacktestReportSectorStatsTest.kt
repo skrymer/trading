@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model
 
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -299,12 +300,12 @@ class BacktestReportSectorStatsTest {
     entryDate: LocalDate,
   ): Trade {
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = entryDate,
         closePrice = 100.0,
       )
     val exitQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = entryDate.plusDays(5),
         closePrice = 100.0 + profitPercentage,
       )

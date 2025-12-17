@@ -1,11 +1,11 @@
 package com.skrymer.udgaard.factory
 
+import com.skrymer.udgaard.domain.BreadthDomain
+import com.skrymer.udgaard.domain.EarningDomain
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.model.Breadth
-import com.skrymer.udgaard.model.Earning
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.service.OvtlyrEnrichmentService
 import com.skrymer.udgaard.service.TechnicalIndicatorService
 import org.slf4j.LoggerFactory
@@ -30,13 +30,13 @@ class DefaultStockFactory(
 
   override fun enrichQuotes(
     symbol: String,
-    stockQuotes: List<StockQuote>,
+    stockQuotes: List<StockQuoteDomain>,
     atrMap: Map<LocalDate, Double>?,
     adxMap: Map<LocalDate, Double>?,
-    marketBreadth: Breadth?,
-    sectorBreadth: Breadth?,
+    marketBreadth: BreadthDomain?,
+    sectorBreadth: BreadthDomain?,
     spy: OvtlyrStockInformation,
-  ): List<StockQuote>? {
+  ): List<StockQuoteDomain>? {
     logger.info("Creating enriched quotes for $symbol from AlphaVantage data (${stockQuotes.size} quotes)")
 
     if (stockQuotes.isEmpty()) {
@@ -78,16 +78,16 @@ class DefaultStockFactory(
   override fun createStock(
     symbol: String,
     sectorSymbol: String?,
-    enrichedQuotes: List<StockQuote>,
-    orderBlocks: List<OrderBlock>,
-    earnings: List<Earning>,
-  ): Stock {
+    enrichedQuotes: List<StockQuoteDomain>,
+    orderBlocks: List<OrderBlockDomain>,
+    earnings: List<EarningDomain>,
+  ): StockDomain {
     logger.info(
       "Creating Stock entity for $symbol with ${enrichedQuotes.size} quotes, ${orderBlocks.size} order blocks, and ${earnings.size} earnings",
     )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = symbol,
         sectorSymbol = sectorSymbol,
         quotes = enrichedQuotes.toMutableList(),
@@ -95,12 +95,6 @@ class DefaultStockFactory(
         earnings = earnings.toMutableList(),
         ovtlyrPerformance = 0.0,
       )
-
-    // Set the stock reference on all earnings for proper JPA relationship
-    stock.earnings.forEach { it.stock = stock }
-
-    // Set the stock reference on all order blocks for proper JPA relationship
-    stock.orderBlocks.forEach { it.stock = stock }
 
     return stock
   }
@@ -114,10 +108,10 @@ class DefaultStockFactory(
    * Mutates the quote objects to add ATR data.
    */
   private fun enrichWithATR(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     alphaATR: Map<LocalDate, Double>?,
     symbol: String,
-  ): List<StockQuote> {
+  ): List<StockQuoteDomain> {
     if (alphaATR == null) {
       logger.warn("No AlphaVantage ATR available for $symbol - ATR will be 0.0")
       return quotes
@@ -152,10 +146,10 @@ class DefaultStockFactory(
    * Mutates the quote objects to add ADX data.
    */
   private fun enrichWithADX(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     alphaADX: Map<LocalDate, Double>?,
     symbol: String,
-  ): List<StockQuote> {
+  ): List<StockQuoteDomain> {
     if (alphaADX == null) {
       logger.warn("No AlphaVantage ADX available for $symbol - ADX will be null")
       return quotes

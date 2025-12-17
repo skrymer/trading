@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.model.backtest
 
-import com.skrymer.udgaard.model.Stock
+import com.skrymer.udgaard.domain.StockDomain
 
 /**
  * Represents a pair of stocks used during backtesting:
@@ -12,7 +12,7 @@ import com.skrymer.udgaard.model.Stock
  * for strategy evaluation while trading the leveraged asset.
  */
 data class StockPair(
-  val tradingStock: Stock,
-  val strategyStock: Stock,
+  val tradingStock: StockDomain,
+  val strategyStock: StockDomain,
   val underlyingSymbol: String?,
 )

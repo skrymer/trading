@@ -1,9 +1,8 @@
 package com.skrymer.udgaard.model.strategy
-
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockType
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.OrderBlockType
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -19,7 +18,7 @@ class PlanEtfStrategyIntegrationTest {
     // requiredPrice = 105.0 * (1.0 - 0.02) = 102.9
     // closePrice 102.0 <= 102.9 ✓
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 105.0,
         high = 110.0,
         startDate = LocalDate.of(2023, 12, 1), // > 30 days before test date
@@ -28,15 +27,15 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
-        orderBlocks = mutableListOf(orderBlock),
+        orderBlocks = listOf(orderBlock),
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -57,7 +56,7 @@ class PlanEtfStrategyIntegrationTest {
   @Test
   fun `entry strategy should fail when not in uptrend`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 105.0,
         high = 110.0,
         startDate = LocalDate.of(2023, 12, 1),
@@ -66,7 +65,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -74,7 +73,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Downtrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -95,7 +94,7 @@ class PlanEtfStrategyIntegrationTest {
   @Test
   fun `entry strategy should fail when no buy signal`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 105.0,
         high = 110.0,
         startDate = LocalDate.of(2023, 12, 1),
@@ -104,7 +103,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -112,7 +111,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         heatmap = 65.0,
@@ -132,7 +131,7 @@ class PlanEtfStrategyIntegrationTest {
   @Test
   fun `entry strategy should fail when heatmap is too high`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 105.0,
         high = 110.0,
         startDate = LocalDate.of(2023, 12, 1),
@@ -141,7 +140,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -149,7 +148,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -170,7 +169,7 @@ class PlanEtfStrategyIntegrationTest {
   @Test
   fun `entry strategy should fail when price is outside value zone`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 108.0, // Adjusted for higher price
         high = 115.0,
         startDate = LocalDate.of(2023, 12, 1),
@@ -179,7 +178,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -187,7 +186,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -211,7 +210,7 @@ class PlanEtfStrategyIntegrationTest {
     // requiredPrice = 105.0 * 0.98 = 102.9
     // closePrice 104.0 > 102.9, so it should fail
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 105.0,
         high = 110.0,
         startDate = LocalDate.of(2023, 12, 1),
@@ -220,7 +219,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -228,7 +227,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -254,7 +253,7 @@ class PlanEtfStrategyIntegrationTest {
     // - endDate is after quote date (2024-02-01 > 2024-01-15)
     // - Price (102.0) is between low (100.0) and high (105.0)
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 100.0,
         high = 105.0,
         startDate = LocalDate.of(2023, 11, 1),
@@ -263,7 +262,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -271,7 +270,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
@@ -291,9 +290,9 @@ class PlanEtfStrategyIntegrationTest {
 
   @Test
   fun `exit strategy should exit when 10 EMA crosses under 20 EMA`() {
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 95.0, // Crossed under
         closePriceEMA20 = 100.0,
@@ -310,9 +309,9 @@ class PlanEtfStrategyIntegrationTest {
 
   @Test
   fun `exit strategy should exit at profit target`() {
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
@@ -329,9 +328,9 @@ class PlanEtfStrategyIntegrationTest {
 
   @Test
   fun `exit strategy should not exit when no conditions are met`() {
-    val stock = Stock()
+    val stock = StockDomain()
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
@@ -348,16 +347,16 @@ class PlanEtfStrategyIntegrationTest {
   @Test
   fun `exit strategy should use previous close price when close price is invalid`() {
     val testStock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes =
           mutableListOf(
-            StockQuote(
+            StockQuoteDomain(
               date = LocalDate.of(2024, 1, 14),
               closePrice = 102.0,
             ),
-            StockQuote(
+            StockQuoteDomain(
               date = LocalDate.of(2024, 1, 15),
               closePrice = 0.5, // Invalid price (< 1.0)
               signal = "Sell",
@@ -380,7 +379,7 @@ class PlanEtfStrategyIntegrationTest {
   @Test
   fun `strategies should work together in a complete trade scenario`() {
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 105.0,
         high = 110.0,
         startDate = LocalDate.of(2023, 12, 1),
@@ -389,7 +388,7 @@ class PlanEtfStrategyIntegrationTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -398,7 +397,7 @@ class PlanEtfStrategyIntegrationTest {
 
     // Setup entry scenario
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -418,7 +417,7 @@ class PlanEtfStrategyIntegrationTest {
 
     // Setup exit scenario (profit target reached)
     val exitQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 20),
         closePriceEMA10 = 107.0,
         closePriceEMA20 = 105.0,

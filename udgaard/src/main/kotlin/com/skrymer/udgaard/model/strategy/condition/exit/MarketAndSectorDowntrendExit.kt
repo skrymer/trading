@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
 
 /**
@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component
 @Component
 class MarketAndSectorDowntrendExit : ExitCondition {
   override fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean = !quote.sectorIsInUptrend && !quote.marketIsInUptrend
 
   override fun exitReason(): String = "Market and sector breadth turned bearish"

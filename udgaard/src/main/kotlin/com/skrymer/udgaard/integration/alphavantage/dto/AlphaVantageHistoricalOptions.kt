@@ -2,8 +2,8 @@ package com.skrymer.udgaard.integration.alphavantage.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.skrymer.udgaard.domain.OptionTypeDomain
 import com.skrymer.udgaard.integration.options.OptionContract
-import com.skrymer.udgaard.model.OptionType
 import java.time.LocalDate
 
 /**
@@ -86,10 +86,10 @@ data class AlphaVantageOptionContract(
       LocalDate.now()
     }
 
-  private fun parseOptionType(typeStr: String?): OptionType =
+  private fun parseOptionType(typeStr: String?): OptionTypeDomain =
     when (typeStr?.lowercase()) {
-      "call" -> OptionType.CALL
-      "put" -> OptionType.PUT
-      else -> OptionType.CALL
+      "call" -> OptionTypeDomain.CALL
+      "put" -> OptionTypeDomain.PUT
+      else -> OptionTypeDomain.CALL
     }
 }

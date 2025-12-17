@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.controller
 
-import com.skrymer.udgaard.model.Breadth
+import com.skrymer.udgaard.domain.BreadthDomain
 import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.service.BreadthService
 import org.slf4j.Logger
@@ -47,7 +47,7 @@ class BreadthController(
   @Transactional(readOnly = true)
   fun getMarketBreadth(
     @RequestParam(defaultValue = "false") refresh: Boolean,
-  ): ResponseEntity<Breadth> {
+  ): ResponseEntity<BreadthDomain> {
     logger.info("Getting market breadth (refresh=$refresh)")
     val breadth =
       breadthService.getMarketBreadth(
@@ -73,7 +73,7 @@ class BreadthController(
   fun getSectorBreadth(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
-  ): ResponseEntity<Breadth> {
+  ): ResponseEntity<BreadthDomain> {
     logger.info("Getting sector breadth for: $symbol (refresh=$refresh)")
     val sectorSymbol =
       SectorSymbol.fromString(symbol)

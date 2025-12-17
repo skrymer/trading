@@ -1,5 +1,8 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.BreadthDomain
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
+import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.factory.StockFactory
 import com.skrymer.udgaard.integration.FundamentalDataProvider
 import com.skrymer.udgaard.integration.StockProvider
@@ -7,29 +10,25 @@ import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.model.BreadthSymbol
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.repository.BreadthRepository
-import com.skrymer.udgaard.repository.StockRepository
+import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
+import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import kotlinx.coroutines.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import jakarta.persistence.EntityManager
-import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 open class StockService(
-  val stockRepository: StockRepository,
+  val stockRepository: StockJooqRepository,
   val ovtlyrClient: OvtlyrClient,
-  val breadthRepository: BreadthRepository,
+  val breadthRepository: BreadthJooqRepository,
   val orderBlockCalculator: OrderBlockCalculator,
   val stockProvider: StockProvider,
   val technicalIndicatorProvider: TechnicalIndicatorProvider,
   val fundamentalDataProvider: FundamentalDataProvider,
   val stockFactory: StockFactory,
-  val entityManager: EntityManager,
 ) {
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
@@ -44,28 +43,14 @@ open class StockService(
   open fun getStock(
     symbol: String,
     forceFetch: Boolean = false,
-  ): Stock? {
+  ): StockDomain? {
     logger.info("Getting stock $symbol with forceFetch=$forceFetch")
 
-    val stock =
-      if (forceFetch) {
-        fetchStock(symbol, getSpy())
-      } else {
-        stockRepository
-          .findById(symbol)
-          .orElseGet {
-            fetchStock(symbol, getSpy())
-          }?.also {
-            // Force loading of orderBlocks and earnings to ensure they're in cache
-            it.orderBlocks.size
-            it.earnings.size
-          }
-      }
-
-    // Detach the entity to prevent holding connections
-    stock?.let { entityManager.detach(it) }
-
-    return stock
+    return if (forceFetch) {
+      fetchStock(symbol, getSpy())
+    } else {
+      stockRepository.findBySymbol(symbol) ?: fetchStock(symbol, getSpy())
+    }
   }
 
   /**
@@ -81,28 +66,7 @@ open class StockService(
    * after data is loaded.
    */
   @Cacheable(value = ["stocks"], key = "'allStocks'")
-  @Transactional(readOnly = true)
-  open fun getAllStocks(): List<Stock> {
-    // Query 1: Load stocks with quotes
-    val stocks = stockRepository.findAllWithQuotes()
-
-    if (stocks.isEmpty()) {
-      return emptyList()
-    }
-
-    // Query 2: Fetch order blocks for all stocks
-    stockRepository.fetchOrderBlocks(stocks)
-
-    // Query 3: Fetch earnings for all stocks
-    stockRepository.fetchEarnings(stocks)
-
-    // CRITICAL: Detach all entities from the Hibernate session
-    // This closes the transaction and releases the database connection
-    // before the entities are used in long-running operations (backtesting)
-    entityManager.clear() // Detaches ALL entities in the persistence context
-
-    return stocks
-  }
+  open fun getAllStocks() = stockRepository.findAll()
 
   /**
    * Get stocks by a list of symbols (efficient repository query)
@@ -121,7 +85,7 @@ open class StockService(
   open fun getStocksBySymbols(
     symbols: List<String>,
     forceFetch: Boolean = false,
-  ): List<Stock> =
+  ): List<StockDomain> =
     runBlocking {
       // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
       val sortedSymbols = symbols.sorted()
@@ -144,7 +108,7 @@ open class StockService(
       }
 
       // Get existing stocks from repository with quotes (single query for all symbols)
-      return@runBlocking stockRepository.findAllBySymbolIn(sortedSymbols)
+      return@runBlocking stockRepository.findBySymbols(sortedSymbols)
     }
 
   /**
@@ -163,15 +127,14 @@ open class StockService(
   private fun fetchStock(
     symbol: String,
     spy: OvtlyrStockInformation,
-  ): Stock? {
+  ): StockDomain? {
     val logger = LoggerFactory.getLogger("StockService")
 
     return runCatching {
       // Step 1: Delete existing stock if it exists (cascade delete will remove quotes)
-      stockRepository.findById(symbol).ifPresent { existingStock ->
+      stockRepository.findBySymbol(symbol)?.let {
         logger.info("Deleting existing stock $symbol before refreshing")
-        stockRepository.delete(existingStock)
-        stockRepository.flush() // Ensure delete is committed before insert
+        stockRepository.delete(symbol)
       }
 
       // Step 2: Fetch adjusted daily data from StockProvider (PRIMARY data source - REQUIRED)
@@ -247,7 +210,7 @@ open class StockService(
         orderBlockCalculator.calculateOrderBlocks(
           quotes = enrichedQuotes,
           sensitivity = 28.0,
-          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH,
+          sensitivityLevel = OrderBlockSensitivity.HIGH,
         )
 
       // Calculate with LOW sensitivity (50% - fewer, stronger blocks)
@@ -255,7 +218,7 @@ open class StockService(
         orderBlockCalculator.calculateOrderBlocks(
           quotes = enrichedQuotes,
           sensitivity = 50.0,
-          sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW,
+          sensitivityLevel = OrderBlockSensitivity.LOW,
         )
 
       // Combine both sensitivity levels
@@ -281,71 +244,6 @@ open class StockService(
     }.onFailure { action -> Companion.logger.error("Could not fetch stock $symbol", action) }
       .getOrNull()
   }
-
-  /**
-   * Recalculate order blocks for a stock without re-fetching data.
-   *
-   * This is much faster than refresh=true as it:
-   * 1. Loads existing quotes from database
-   * 2. Recalculates order blocks with current algorithm
-   * 3. Updates the stock with new order blocks
-   *
-   * Use this when you've updated the order block algorithm or want to test
-   * different sensitivity values without waiting for fresh data fetch.
-   *
-   * @param symbol Stock symbol to recalculate
-   * @return Updated stock with new order blocks, or null if not found
-   */
-  @CacheEvict(value = ["stocks"], key = "#symbol")
-  open fun recalculateOrderBlocks(symbol: String): Stock? {
-    logger.info("Recalculating order blocks for $symbol from existing data")
-
-    // Load stock with quotes from database
-    val stock = stockRepository.findById(symbol).orElse(null)
-    if (stock == null) {
-      logger.error("Stock not found: $symbol")
-      return null
-    }
-
-    if (stock.quotes.isEmpty()) {
-      logger.warn("No quotes found for $symbol, cannot calculate order blocks")
-      return stock
-    }
-
-    // Recalculate order blocks with both sensitivities
-    val orderBlocksHigh =
-      orderBlockCalculator.calculateOrderBlocks(
-        quotes = stock.quotes.sortedBy { it.date },
-        sensitivity = 28.0,
-        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH,
-      )
-
-    val orderBlocksLow =
-      orderBlockCalculator.calculateOrderBlocks(
-        quotes = stock.quotes.sortedBy { it.date },
-        sensitivity = 50.0,
-        sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW,
-      )
-
-    // Create new order blocks list
-    val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
-
-    // Explicitly clear existing order blocks (orphanRemoval = true will delete from DB)
-    stock.orderBlocks.clear()
-    stockRepository.flush() // Force orphan removal to execute before adding new blocks
-
-    // Add new order blocks and set stock reference
-    stock.orderBlocks.addAll(newOrderBlocks)
-    stock.orderBlocks.forEach { it.stock = stock }
-
-    logger.info(
-      "Recalculated ${newOrderBlocks.size} order blocks for $symbol (${orderBlocksHigh.size} HIGH + ${orderBlocksLow.size} LOW)",
-    )
-
-    // Save and return
-    return stockRepository.save(stock)
-  }
-
   /**
    * Recalculate order blocks for all stocks in the database.
    *
@@ -354,90 +252,76 @@ open class StockService(
    *
    * @return Map with summary: updatedCount, failedCount, totalBlocks
    */
-  @CacheEvict(value = ["stocks"], allEntries = true)
-  open fun recalculateAllOrderBlocks(): Map<String, Any> {
-    logger.info("Recalculating order blocks for ALL stocks in database")
 
-    val allStocks = stockRepository.findAll()
-    var updatedCount = 0
-    var failedCount = 0
-    var totalBlocks = 0
-
-    allStocks.forEach { stock ->
-      try {
-        val symbol = stock.symbol ?: "UNKNOWN"
-        logger.info("Recalculating order blocks for $symbol (${updatedCount + 1}/${allStocks.size})")
-
-        if (stock.quotes.isEmpty()) {
-          logger.warn("Skipping $symbol: no quotes")
-          failedCount++
-          return@forEach
-        }
-
-        // Recalculate with both sensitivities
-        val orderBlocksHigh =
-          orderBlockCalculator.calculateOrderBlocks(
-            quotes = stock.quotes.sortedBy { it.date },
-            sensitivity = 28.0,
-            sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.HIGH,
-          )
-
-        val orderBlocksLow =
-          orderBlockCalculator.calculateOrderBlocks(
-            quotes = stock.quotes.sortedBy { it.date },
-            sensitivity = 50.0,
-            sensitivityLevel = com.skrymer.udgaard.model.OrderBlockSensitivity.LOW,
-          )
-
-        // Create new order blocks list
-        val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
-
-        // Explicitly clear existing order blocks (orphanRemoval = true will delete from DB)
-        stock.orderBlocks.clear()
-        stockRepository.flush() // Force orphan removal to execute before adding new blocks
-
-        // Add new order blocks and set stock reference
-        stock.orderBlocks.addAll(newOrderBlocks)
-        stock.orderBlocks.forEach { it.stock = stock }
-
-        stockRepository.save(stock)
-
-        updatedCount++
-        totalBlocks += newOrderBlocks.size
-        logger.info("Updated $symbol: ${newOrderBlocks.size} blocks")
-      } catch (e: Exception) {
-        logger.error("Failed to recalculate order blocks for ${stock.symbol}: ${e.message}", e)
-        failedCount++
-      }
-    }
-
-    logger.info("Recalculation complete: $updatedCount updated, $failedCount failed, $totalBlocks total blocks")
-
-    return mapOf(
-      "updatedCount" to updatedCount,
-      "failedCount" to failedCount,
-      "totalBlocks" to totalBlocks,
-      "totalStocks" to allStocks.size,
-    )
-  }
+//  @CacheEvict(value = ["stocks"], allEntries = true)
+//  open fun recalculateAllOrderBlocks(): Map<String, Any> {
+//    logger.info("Recalculating order blocks for ALL stocks in database")
+//
+//    val allStocks = stockRepository.findAll()
+//    var updatedCount = 0
+//    var failedCount = 0
+//    var totalBlocks = 0
+//
+//    allStocks.forEach { stock ->
+//      try {
+//        val symbol = stock.symbol ?: "UNKNOWN"
+//        logger.info("Recalculating order blocks for $symbol (${updatedCount + 1}/${allStocks.size})")
+//
+//        if (stock.quotes.isEmpty()) {
+//          logger.warn("Skipping $symbol: no quotes")
+//          failedCount++
+//          return@forEach
+//        }
+//
+//        // Recalculate with both sensitivities
+//        val orderBlocksHigh =
+//          orderBlockCalculator.calculateOrderBlocks(
+//            quotes = stock.quotes.sortedBy { it.date },
+//            sensitivity = 28.0,
+//            sensitivityLevel = OrderBlockSensitivity.HIGH,
+//          )
+//
+//        val orderBlocksLow =
+//          orderBlockCalculator.calculateOrderBlocks(
+//            quotes = stock.quotes.sortedBy { it.date },
+//            sensitivity = 50.0,
+//            sensitivityLevel = OrderBlockSensitivity.LOW,
+//          )
+//
+//        // Create new order blocks list
+//        val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
+//
+//        // Add new order blocks and set stock reference
+//        stock.orderBlocks.addAll(newOrderBlocks)
+//        stock.orderBlocks.forEach { it.stock = stock }
+//
+//        stockRepository.save(stock)
+//
+//        updatedCount++
+//        totalBlocks += newOrderBlocks.size
+//        logger.info("Updated $symbol: ${newOrderBlocks.size} blocks")
+//      } catch (e: Exception) {
+//        logger.error("Failed to recalculate order blocks for ${stock.symbol}: ${e.message}", e)
+//        failedCount++
+//      }
+//    }
+//
+//    logger.info("Recalculation complete: $updatedCount updated, $failedCount failed, $totalBlocks total blocks")
+//
+//    return mapOf(
+//      "updatedCount" to updatedCount,
+//      "failedCount" to failedCount,
+//      "totalBlocks" to totalBlocks,
+//      "totalStocks" to allStocks.size,
+//    )
+//  }
 
   /**
    * Get market breadth data for use in backtesting.
    * @return Market breadth entity, or null if not available
    */
   @Transactional(readOnly = true)
-  open fun getMarketBreadth(): com.skrymer.udgaard.model.Breadth? {
-    val breadth = breadthRepository.findBySymbol(com.skrymer.udgaard.model.BreadthSymbol.Market().toIdentifier())
-
-    // Detach the entity to prevent holding connections
-    breadth?.let {
-      // Force load quotes collection before detaching
-      it.quotes.size
-      entityManager.detach(it)
-    }
-
-    return breadth
-  }
+  open fun getMarketBreadth(): BreadthDomain? = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
 
   private fun getSpy(): OvtlyrStockInformation {
     val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")

@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
 
 /**
@@ -15,9 +15,9 @@ class EmaCrossExit(
   private val slowEma: Int = 20,
 ) : ExitCondition {
   override fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean {
     val fastValue = getEmaValue(quote, fastEma)
     val slowValue = getEmaValue(quote, slowEma)
@@ -55,7 +55,7 @@ class EmaCrossExit(
     )
 
   private fun getEmaValue(
-    quote: StockQuote,
+    quote: StockQuoteDomain,
     period: Int,
   ): Double =
     when (period) {

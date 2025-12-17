@@ -1,9 +1,8 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
-
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockType
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.OrderBlockType
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -15,7 +14,7 @@ class OrderBlockExitTest {
 
     // Create an order block that is 150 days old (older than 120 day threshold)
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 95.0,
         high = 105.0,
         startDate = LocalDate.of(2024, 1, 1),
@@ -24,15 +23,15 @@ class OrderBlockExitTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
-        quotes = mutableListOf(),
-        orderBlocks = mutableListOf(orderBlock),
+        quotes = listOf(),
+        orderBlocks = listOf(orderBlock),
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 3, 1), // Within startDate and endDate
         closePrice = 100.0, // Within order block range (> low, < high)
       )
@@ -48,7 +47,7 @@ class OrderBlockExitTest {
     val condition = OrderBlockExit(orderBlockAgeInDays = 120)
 
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 95.0,
         high = 105.0,
         startDate = LocalDate.of(2024, 1, 1),
@@ -57,7 +56,7 @@ class OrderBlockExitTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -65,7 +64,7 @@ class OrderBlockExitTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 3, 1),
         closePrice = 110.0, // Outside order block range (> high)
       )
@@ -81,7 +80,7 @@ class OrderBlockExitTest {
     val condition = OrderBlockExit(orderBlockAgeInDays = 120)
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -89,7 +88,7 @@ class OrderBlockExitTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 6, 1),
         closePrice = 100.0,
       )
@@ -106,7 +105,7 @@ class OrderBlockExitTest {
 
     // Create an order block that is 60 days old
     val orderBlock =
-      OrderBlock(
+      OrderBlockDomain(
         low = 95.0,
         high = 105.0,
         startDate = LocalDate.of(2024, 4, 1),
@@ -115,7 +114,7 @@ class OrderBlockExitTest {
       )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(),
@@ -123,7 +122,7 @@ class OrderBlockExitTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 5, 15), // Within startDate and endDate
         closePrice = 100.0, // Within order block range
       )

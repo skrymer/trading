@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Exit strategy that exits positions the day before earnings announcements.
@@ -20,9 +20,9 @@ import com.skrymer.udgaard.model.StockQuote
 @RegisteredStrategy(name = "ExitBeforeEarnings", type = StrategyType.EXIT)
 class ExitBeforeEarningsStrategy : ExitStrategy {
   override fun match(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean {
     val quoteDate = quote.date ?: return false
 
@@ -31,9 +31,9 @@ class ExitBeforeEarningsStrategy : ExitStrategy {
   }
 
   override fun reason(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): String {
     val quoteDate = quote.date ?: return "Exit before earnings"
     val nextEarning = stock.getNextEarningsDate(quoteDate)

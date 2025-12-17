@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.integration
 
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Interface for stock price and volume data providers
@@ -19,5 +19,5 @@ interface StockProvider {
   fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String = "full",
-  ): List<StockQuote>?
+  ): List<StockQuoteDomain>?
 }

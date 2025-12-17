@@ -1,19 +1,18 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class UptrendConditionTest {
   private val condition = UptrendCondition()
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should return true when 10 EMA is above 20 EMA and price is above 50 EMA`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 100.0,
         closePriceEMA10 = 95.0,
@@ -30,7 +29,7 @@ class UptrendConditionTest {
   @Test
   fun `should return false when 10 EMA is below 20 EMA`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 100.0,
         closePriceEMA10 = 85.0, // Below 20 EMA
@@ -47,7 +46,7 @@ class UptrendConditionTest {
   @Test
   fun `should return false when price is below 50 EMA`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 80.0, // Below 50 EMA
         closePriceEMA10 = 95.0,
@@ -64,7 +63,7 @@ class UptrendConditionTest {
   @Test
   fun `should return false when both conditions fail`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 80.0, // Below 50 EMA
         closePriceEMA10 = 85.0, // Below 20 EMA
@@ -81,7 +80,7 @@ class UptrendConditionTest {
   @Test
   fun `should return true at exact boundary when 10 EMA equals 20 EMA plus epsilon and price equals 50 EMA plus epsilon`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 90.01, // Just above 50 EMA
         closePriceEMA10 = 90.01, // Just above 20 EMA
@@ -98,7 +97,7 @@ class UptrendConditionTest {
   @Test
   fun `should return false at exact boundary when values are equal`() {
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePrice = 90.0, // Equal to 50 EMA
         closePriceEMA10 = 90.0, // Equal to 20 EMA

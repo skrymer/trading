@@ -2,7 +2,7 @@ package com.skrymer.udgaard.integration.alphavantage.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import java.time.LocalDate
 
 /**
@@ -91,7 +91,7 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
    *
    * @return List of StockQuote with ALL ADJUSTED PRICES, sorted by date (oldest first)
    */
-  fun toStockQuotes(): List<StockQuote> {
+  fun toStockQuotes(): List<StockQuoteDomain> {
     val symbol = metaData?.symbol ?: ""
 
     return timeSeriesDaily
@@ -113,7 +113,7 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
           }
 
         // Apply adjustment factor to ALL OHLC prices
-        StockQuote(
+        StockQuoteDomain(
           symbol = symbol,
           date = LocalDate.parse(dateString),
           openPrice = rawOpen * adjustmentFactor, // ADJUSTED

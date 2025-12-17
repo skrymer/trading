@@ -2,7 +2,7 @@ package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.EntrySignalDetails
 import com.skrymer.udgaard.controller.dto.StockWithSignals
-import com.skrymer.udgaard.model.Stock
+import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.StockService
 import com.skrymer.udgaard.service.StrategySignalService
@@ -67,7 +67,7 @@ class StockController(
   fun getStock(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
-  ): ResponseEntity<Stock> {
+  ): ResponseEntity<StockDomain> {
     logger.info("Getting stock data for: $symbol (refresh=$refresh)")
     val stock = stockService.getStock(symbol, refresh)
     logger.info("Stock data retrieved successfully for: $symbol")
@@ -137,54 +137,6 @@ class StockController(
     return ResponseEntity.ok(
       mapOf("status" to "success", "message" to "${symbols.size} stocks refreshed successfully"),
     )
-  }
-
-  /**
-   * Recalculate order blocks for a stock without re-fetching data.
-   *
-   * This is much faster than refresh=true as it only recalculates order blocks
-   * from existing quotes in the database. Use this when:
-   * - You've updated the order block algorithm
-   * - You want to test different sensitivity values
-   * - You don't need fresh quote data
-   *
-   * Example: POST /api/stocks/QQQ/recalculate-order-blocks
-   *
-   * @param symbol Stock symbol to recalculate
-   * @return Updated stock with new order blocks
-   */
-  @PostMapping("/{symbol}/recalculate-order-blocks")
-  fun recalculateOrderBlocks(
-    @PathVariable symbol: String,
-  ): ResponseEntity<Stock> {
-    logger.info("Recalculating order blocks for $symbol (without re-fetching data)")
-    val stock = stockService.recalculateOrderBlocks(symbol.uppercase())
-
-    return if (stock != null) {
-      logger.info("Order blocks recalculated successfully for $symbol: ${stock.orderBlocks.size} blocks")
-      ResponseEntity.ok(stock)
-    } else {
-      logger.error("Stock not found: $symbol")
-      ResponseEntity.notFound().build()
-    }
-  }
-
-  /**
-   * Recalculate order blocks for all stocks in the database.
-   *
-   * WARNING: This can take a while if you have many stocks.
-   * Use this after updating the order block algorithm to update all stocks at once.
-   *
-   * Example: POST /api/stocks/recalculate-all-order-blocks
-   *
-   * @return Summary of recalculation
-   */
-  @PostMapping("/recalculate-all-order-blocks")
-  fun recalculateAllOrderBlocks(): ResponseEntity<Map<String, Any>> {
-    logger.info("Recalculating order blocks for ALL stocks in database")
-    val result = stockService.recalculateAllOrderBlocks()
-    logger.info("Recalculation complete: ${result["updatedCount"]} stocks updated")
-    return ResponseEntity.ok(result)
   }
 
   /**

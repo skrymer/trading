@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.model.strategy.condition.exit.ExitCondition
 import org.slf4j.LoggerFactory
@@ -17,9 +17,9 @@ class CompositeExitStrategy(
   private val logger = LoggerFactory.getLogger(CompositeExitStrategy::class.java)
 
   override fun match(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean {
     if (exitConditions.isEmpty()) {
       logger.warn("No exit conditions configured")
@@ -34,9 +34,9 @@ class CompositeExitStrategy(
   }
 
   override fun reason(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): String? {
     // Return the reason from the first matching exit condition
     return exitConditions
@@ -60,9 +60,9 @@ class CompositeExitStrategy(
   }
 
   override fun exitPrice(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Double =
     if (quote.closePrice < 1.0) {
       stock.getPreviousQuote(quote)?.closePrice ?: 0.0

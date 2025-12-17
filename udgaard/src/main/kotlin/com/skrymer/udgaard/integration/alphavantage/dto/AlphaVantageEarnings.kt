@@ -2,7 +2,7 @@ package com.skrymer.udgaard.integration.alphavantage.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.Earning
+import com.skrymer.udgaard.domain.EarningDomain
 import java.time.LocalDate
 
 /**
@@ -77,13 +77,13 @@ data class AlphaVantageEarnings(
    *
    * @return List of Earning sorted by fiscal date (oldest first)
    */
-  fun toEarnings(): List<Earning> {
+  fun toEarnings(): List<EarningDomain> {
     val symbolValue = symbol ?: ""
 
     return quarterlyEarnings
       ?.mapNotNull { quarterly ->
         try {
-          Earning(
+          EarningDomain(
             symbol = symbolValue,
             fiscalDateEnding = LocalDate.parse(quarterly.fiscalDateEnding),
             reportedDate = quarterly.reportedDate?.let { LocalDate.parse(it) },

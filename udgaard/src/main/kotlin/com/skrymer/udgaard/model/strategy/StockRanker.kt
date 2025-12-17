@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Ranks stocks when multiple entry signals occur on the same day.
@@ -15,8 +15,8 @@ interface StockRanker {
    * @return score (higher is better)
    */
   fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double
 
   /**
@@ -31,8 +31,8 @@ interface StockRanker {
  */
 class HeatmapRanker : StockRanker {
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double {
     // Lower heatmap is better, so return negative (will sort descending)
     // Stock with heatmap 10 scores 90, stock with heatmap 60 scores 40
@@ -48,8 +48,8 @@ class HeatmapRanker : StockRanker {
  */
 class RelativeStrengthRanker : StockRanker {
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double {
     // Compare stock heatmap to sector heatmap
     // Higher stock heatmap relative to sector = stronger stock
@@ -66,8 +66,8 @@ class RelativeStrengthRanker : StockRanker {
  */
 class VolatilityRanker : StockRanker {
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double {
     if (entryQuote.closePrice == 0.0) return 0.0
     // ATR as percentage of price
@@ -83,8 +83,8 @@ class VolatilityRanker : StockRanker {
  */
 class DistanceFrom10EmaRanker : StockRanker {
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double {
     if (entryQuote.closePriceEMA10 == 0.0) return 0.0
     // Distance as percentage
@@ -110,8 +110,8 @@ class CompositeRanker(
   private val volatilityRanker = VolatilityRanker()
 
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double {
     val heatmapScore = heatmapRanker.score(stock, entryQuote)
     val rsScore = rsRanker.score(stock, entryQuote)
@@ -146,8 +146,8 @@ class CompositeRanker(
  */
 class SectorStrengthRanker : StockRanker {
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double {
     // Sector heatmap + sector bull percentage
     return entryQuote.sectorHeatmap + entryQuote.sectorBullPercentage
@@ -161,8 +161,8 @@ class SectorStrengthRanker : StockRanker {
  */
 class RandomRanker : StockRanker {
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double = Math.random() * 100.0
 
   override fun description() = "Random (baseline)"
@@ -181,8 +181,8 @@ class AdaptiveRanker : StockRanker {
   private val distanceRanker = DistanceFrom10EmaRanker()
 
   override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain,
   ): Double =
     if (isMarketTrending(entryQuote)) {
       // Use Volatility ranker in trending markets (favors big movers)
@@ -192,7 +192,7 @@ class AdaptiveRanker : StockRanker {
       distanceRanker.score(stock, entryQuote)
     }
 
-  private fun isMarketTrending(quote: StockQuote): Boolean {
+  private fun isMarketTrending(quote: StockQuoteDomain): Boolean {
     // Market is trending if:
     // 1. SPY sustained above 200 SMA for at least 20 days
     // 2. Golden cross maintained (50 EMA > 200 EMA)

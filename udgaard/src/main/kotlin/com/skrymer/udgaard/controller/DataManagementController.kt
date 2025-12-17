@@ -2,7 +2,7 @@ package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.*
 import com.skrymer.udgaard.model.StockSymbol
-import com.skrymer.udgaard.repository.StockRepository
+import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import com.skrymer.udgaard.service.DataRefreshService
 import com.skrymer.udgaard.service.DataStatsService
 import com.skrymer.udgaard.service.RateLimiterService
@@ -16,7 +16,7 @@ class DataManagementController(
   private val dataStatsService: DataStatsService,
   private val dataRefreshService: DataRefreshService,
   private val rateLimiter: RateLimiterService,
-  private val stockRepository: StockRepository,
+  private val stockRepository: StockJooqRepository,
 ) {
   private val logger = LoggerFactory.getLogger(DataManagementController::class.java)
 

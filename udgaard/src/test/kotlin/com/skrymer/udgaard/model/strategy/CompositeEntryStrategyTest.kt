@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.model.strategy.condition.entry.BuySignalCondition
 import com.skrymer.udgaard.model.strategy.condition.entry.HeatmapCondition
@@ -11,7 +10,7 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class CompositeEntryStrategyTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should pass when all AND conditions are met`() {
@@ -27,7 +26,7 @@ class CompositeEntryStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -58,7 +57,7 @@ class CompositeEntryStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         heatmap = 65.0,
@@ -87,7 +86,7 @@ class CompositeEntryStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Downtrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),
@@ -116,7 +115,7 @@ class CompositeEntryStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Downtrend",
         closePrice = 100.0,
@@ -140,7 +139,7 @@ class CompositeEntryStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         closePrice = 100.0,
@@ -164,7 +163,7 @@ class CompositeEntryStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
       )
 
@@ -184,7 +183,7 @@ class CompositeEntryStrategyTest {
       }
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
         lastBuySignal = LocalDate.of(2024, 1, 10),

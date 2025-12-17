@@ -2,8 +2,8 @@ package com.skrymer.udgaard.model.strategy.condition.exit
 
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
 
 /**
@@ -16,9 +16,9 @@ class ProfitTargetExit(
   private val emaPeriod: Int = 20,
 ) : ExitCondition {
   override fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean {
     val emaValue = getEmaValue(quote, emaPeriod)
     return quote.closePrice > (emaValue + (atrMultiplier * quote.atr))
@@ -55,7 +55,7 @@ class ProfitTargetExit(
     )
 
   private fun getEmaValue(
-    quote: StockQuote,
+    quote: StockQuoteDomain,
     period: Int,
   ): Double =
     when (period) {

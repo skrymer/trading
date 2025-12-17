@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -13,25 +12,25 @@ class EmaBullishCrossConditionTest {
 
     // Previous quote: 10 EMA below 20 EMA
     val previousQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 1)
-        closePriceEMA10 = 95.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 1),
+        closePriceEMA10 = 95.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     // Current quote: 10 EMA above 20 EMA (crossover!)
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 2)
-        closePriceEMA10 = 101.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 2),
+        closePriceEMA10 = 101.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
-        quotes = mutableListOf(previousQuote, currentQuote),
+        quotes = listOf(previousQuote, currentQuote),
         orderBlocks = mutableListOf(),
       )
 
@@ -47,25 +46,25 @@ class EmaBullishCrossConditionTest {
 
     // Previous quote: 10 EMA already above 20 EMA
     val previousQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 1)
-        closePriceEMA10 = 101.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 1),
+        closePriceEMA10 = 101.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     // Current quote: 10 EMA still above 20 EMA (no crossover)
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 2)
-        closePriceEMA10 = 102.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 2),
+        closePriceEMA10 = 102.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
-        quotes = mutableListOf(previousQuote, currentQuote),
+        quotes = listOf(previousQuote, currentQuote),
         orderBlocks = mutableListOf(),
       )
 
@@ -80,14 +79,14 @@ class EmaBullishCrossConditionTest {
     val condition = EmaBullishCrossCondition(fastEma = 10, slowEma = 20)
 
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 2)
-        closePriceEMA10 = 95.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 2),
+        closePriceEMA10 = 95.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(currentQuote),
@@ -105,21 +104,21 @@ class EmaBullishCrossConditionTest {
     val condition = EmaBullishCrossCondition(fastEma = 5, slowEma = 10)
 
     val previousQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 1)
-        closePriceEMA5 = 95.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 1),
+        closePriceEMA5 = 95.0,
         closePriceEMA10 = 100.0
-      }
+      )
 
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 2)
-        closePriceEMA5 = 101.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 2),
+        closePriceEMA5 = 101.0,
         closePriceEMA10 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(previousQuote, currentQuote),
@@ -138,22 +137,22 @@ class EmaBullishCrossConditionTest {
 
     // Previous quote: 10 EMA equal to 20 EMA (touching)
     val previousQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 1)
-        closePriceEMA10 = 100.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 1),
+        closePriceEMA10 = 100.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     // Current quote: 10 EMA above 20 EMA (crossed)
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 2)
-        closePriceEMA10 = 101.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 2),
+        closePriceEMA10 = 101.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(previousQuote, currentQuote),
@@ -177,14 +176,14 @@ class EmaBullishCrossConditionTest {
     val condition = EmaBullishCrossCondition(fastEma = 10, slowEma = 20)
 
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 2)
-        closePriceEMA10 = 0.0 // Missing data
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 2),
+        closePriceEMA10 = 0.0, // Missing data
         closePriceEMA20 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(currentQuote),
@@ -203,14 +202,14 @@ class EmaBullishCrossConditionTest {
 
     // Only one quote (first day) with bullish setup
     val currentQuote =
-      StockQuote().apply {
-        date = LocalDate.of(2024, 1, 1)
-        closePriceEMA10 = 101.0
+      StockQuoteDomain(
+        date = LocalDate.of(2024, 1, 1),
+        closePriceEMA10 = 101.0,
         closePriceEMA20 = 100.0
-      }
+      )
 
     val stock =
-      Stock(
+      StockDomain(
         symbol = "TEST",
         sectorSymbol = "XLK",
         quotes = mutableListOf(currentQuote),

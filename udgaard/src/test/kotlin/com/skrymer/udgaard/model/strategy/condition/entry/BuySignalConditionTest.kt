@@ -1,19 +1,18 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class BuySignalConditionTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should return true when has buy signal and daysOld is -1`() {
     val condition = BuySignalCondition(daysOld = -1)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         lastBuySignal = LocalDate.of(2024, 1, 10),
       )
@@ -28,7 +27,7 @@ class BuySignalConditionTest {
   fun `should return false when no buy signal and daysOld is -1`() {
     val condition = BuySignalCondition(daysOld = -1)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
       )
 
@@ -42,7 +41,7 @@ class BuySignalConditionTest {
   fun `should return true when has current buy signal and daysOld is 1`() {
     val condition = BuySignalCondition(daysOld = 1)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         lastBuySignal = LocalDate.of(2024, 1, 14),
       )
@@ -57,7 +56,7 @@ class BuySignalConditionTest {
   fun `should return false when no current buy signal and daysOld is 1`() {
     val condition = BuySignalCondition(daysOld = 1)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
       )
 

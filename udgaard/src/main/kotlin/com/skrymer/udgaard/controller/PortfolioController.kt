@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.*
+import com.skrymer.udgaard.domain.*
 import com.skrymer.udgaard.model.*
 import com.skrymer.udgaard.service.PortfolioService
 import org.springframework.http.HttpStatus
@@ -21,7 +22,7 @@ class PortfolioController(
   @Transactional(readOnly = true)
   fun getAllPortfolios(
     @RequestParam(required = false) userId: String?,
-  ): ResponseEntity<List<Portfolio>> {
+  ): ResponseEntity<List<PortfolioDomain>> {
     val portfolios = portfolioService.getAllPortfolios(userId)
     return ResponseEntity.ok(portfolios)
   }
@@ -32,7 +33,7 @@ class PortfolioController(
   @PostMapping
   fun createPortfolio(
     @RequestBody request: CreatePortfolioRequest,
-  ): ResponseEntity<Portfolio> {
+  ): ResponseEntity<PortfolioDomain> {
     val portfolio =
       portfolioService.createPortfolio(
         name = request.name,
@@ -50,7 +51,7 @@ class PortfolioController(
   @Transactional(readOnly = true)
   fun getPortfolio(
     @PathVariable portfolioId: Long,
-  ): ResponseEntity<Portfolio> {
+  ): ResponseEntity<PortfolioDomain> {
     val portfolio =
       portfolioService.getPortfolio(portfolioId)
         ?: return ResponseEntity.notFound().build()
@@ -64,7 +65,7 @@ class PortfolioController(
   fun updatePortfolio(
     @PathVariable portfolioId: Long,
     @RequestBody request: UpdatePortfolioRequest,
-  ): ResponseEntity<Portfolio> {
+  ): ResponseEntity<PortfolioDomain> {
     val portfolio =
       portfolioService.updatePortfolio(portfolioId, request.currentBalance)
         ?: return ResponseEntity.notFound().build()
@@ -103,7 +104,7 @@ class PortfolioController(
   fun openTrade(
     @PathVariable portfolioId: Long,
     @RequestBody request: OpenTradeRequest,
-  ): ResponseEntity<PortfolioTrade> {
+  ): ResponseEntity<PortfolioTradeDomain> {
     val trade =
       portfolioService.openTrade(
         portfolioId = portfolioId,
@@ -135,7 +136,7 @@ class PortfolioController(
     @PathVariable portfolioId: Long,
     @PathVariable tradeId: Long,
     @RequestBody request: UpdateTradeRequest,
-  ): ResponseEntity<PortfolioTrade> {
+  ): ResponseEntity<PortfolioTradeDomain> {
     try {
       val trade =
         portfolioService.updateTrade(
@@ -170,7 +171,7 @@ class PortfolioController(
     @PathVariable portfolioId: Long,
     @PathVariable tradeId: Long,
     @RequestBody request: CloseTradeRequest,
-  ): ResponseEntity<PortfolioTrade> {
+  ): ResponseEntity<PortfolioTradeDomain> {
     val trade =
       portfolioService.closeTrade(
         tradeId,
@@ -190,7 +191,7 @@ class PortfolioController(
   fun getTrades(
     @PathVariable portfolioId: Long,
     @RequestParam(required = false) status: String?,
-  ): ResponseEntity<List<PortfolioTrade>> {
+  ): ResponseEntity<List<PortfolioTradeDomain>> {
     val tradeStatus = status?.let { TradeStatus.valueOf(it.uppercase()) }
     val trades = portfolioService.getTrades(portfolioId, tradeStatus)
     return ResponseEntity.ok(trades)
@@ -204,7 +205,7 @@ class PortfolioController(
   fun getTrade(
     @PathVariable portfolioId: Long,
     @PathVariable tradeId: Long,
-  ): ResponseEntity<PortfolioTrade> {
+  ): ResponseEntity<PortfolioTradeDomain> {
     val trade =
       portfolioService.getTrade(tradeId)
         ?: return ResponseEntity.notFound().build()
@@ -266,11 +267,16 @@ class PortfolioController(
           exitPrice = request.exitPrice,
         )
 
+      // Calculate roll cost from the two trades
+      val exitValue = (closedTrade.exitPrice ?: 0.0) * (closedTrade.contracts ?: closedTrade.quantity) * closedTrade.multiplier
+      val newEntryCost = newTrade.entryPrice * (newTrade.contracts ?: newTrade.quantity) * newTrade.multiplier
+      val rollCost = newEntryCost - exitValue
+
       return ResponseEntity.ok(
         RollTradeResponse(
           closedTrade = closedTrade,
           newTrade = newTrade,
-          rollCost = newTrade.rollCost ?: 0.0,
+          rollCost = rollCost,
         ),
       )
     } catch (e: IllegalArgumentException) {

@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Plan ETF exit strategy using composition - OPTIMIZED VERSION.
@@ -31,23 +31,23 @@ class OvtlyrPlanEtfExitStrategy : ExitStrategy {
     }
 
   override fun match(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean = compositeStrategy.match(stock, entryQuote, quote)
 
   override fun reason(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): String? = compositeStrategy.reason(stock, entryQuote, quote)
 
   override fun description() = "Ovtlyr Plan ETF exit strategy"
 
   override fun exitPrice(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Double =
     if (quote.closePrice < 1.0) {
       stock.getPreviousQuote(quote)?.closePrice ?: 0.0

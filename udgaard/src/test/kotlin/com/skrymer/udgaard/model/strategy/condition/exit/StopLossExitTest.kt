@@ -1,20 +1,20 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class StopLossExitTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should exit when price drops below stop loss level`() {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 2.0,
@@ -22,7 +22,7 @@ class StopLossExitTest {
 
     // Stop loss level: 100 - (2 * 2) = 96
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 95.0, // Below stop loss
       )
@@ -38,7 +38,7 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 2.0,
@@ -46,7 +46,7 @@ class StopLossExitTest {
 
     // Stop loss level: 100 - (2 * 2) = 96
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 97.0, // Above stop loss
       )
@@ -62,7 +62,7 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 2.0,
@@ -70,7 +70,7 @@ class StopLossExitTest {
 
     // Stop loss level: 100 - (2 * 2) = 96
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 96.0, // Exactly at stop loss
       )
@@ -86,7 +86,7 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 1.5)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 2.0,
@@ -94,7 +94,7 @@ class StopLossExitTest {
 
     // Stop loss level: 100 - (1.5 * 2) = 97
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 96.5, // Below stop loss
       )
@@ -110,7 +110,7 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 3.0, // Different ATR
@@ -118,7 +118,7 @@ class StopLossExitTest {
 
     // Stop loss level: 100 - (2 * 3) = 94
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 93.0, // Below stop loss
       )
@@ -134,7 +134,7 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 50.0, // Very low price
       )
@@ -150,14 +150,14 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 2.0,
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 105.0, // Price went up
       )
@@ -191,7 +191,7 @@ class StopLossExitTest {
     val condition = StopLossExit(atrMultiplier = 2.0)
 
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 1),
         closePrice = 100.0,
         atr = 2.0,
@@ -199,7 +199,7 @@ class StopLossExitTest {
 
     // Stop loss level: 100 - (2 * 2) = 96
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 96.01, // Just above stop loss
       )
@@ -210,7 +210,7 @@ class StopLossExitTest {
     )
 
     val quote2 =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 5),
         closePrice = 95.99, // Just below stop loss
       )

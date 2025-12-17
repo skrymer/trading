@@ -1,51 +1,23 @@
-package com.skrymer.udgaard.model
+package com.skrymer.udgaard.domain
 
-import com.fasterxml.jackson.annotation.JsonManagedReference
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
-import jakarta.persistence.*
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * Represents a stock with a list of quotes.
+ * Domain model for Stock (Hibernate-independent)
+ * Contains all business logic from the original Stock entity
  */
-@Entity
-@Table(name = "stocks")
-class Stock {
-  @Id
-  @Column(length = 20)
-  var symbol: String? = null
-
-  @Column(name = "sector_symbol", length = 50)
-  var sectorSymbol: String? = null
-
-  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-  var quotes: MutableList<StockQuote> = mutableListOf()
-
-  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-  var orderBlocks: MutableList<OrderBlock> = mutableListOf()
-
-  @OneToMany(mappedBy = "stock", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-  @JsonManagedReference
-  var earnings: MutableList<Earning> = mutableListOf()
-
-  @Column(name = "ovtlyr_performance")
-  var ovtlyrPerformance: Double? = 0.0
-
-  constructor()
-
-  constructor(symbol: String?, sectorSymbol: String?, quotes: MutableList<StockQuote>, orderBlocks: MutableList<OrderBlock>, earnings: MutableList<Earning> = mutableListOf(), ovtlyrPerformance: Double? = 0.0) {
-    this.symbol = symbol
-    this.sectorSymbol = sectorSymbol
-    this.quotes = quotes
-    this.orderBlocks = orderBlocks
-    this.earnings = earnings
-    this.ovtlyrPerformance = ovtlyrPerformance
-  }
-
+data class StockDomain(
+  val symbol: String = "",
+  val sectorSymbol: String? = null,
+  val ovtlyrPerformance: Double? = 0.0,
+  val quotes: List<StockQuoteDomain> = emptyList(),
+  val orderBlocks: List<OrderBlockDomain> = emptyList(),
+  val earnings: List<EarningDomain> = emptyList(),
+) {
   /**
-   *
    * @param entryStrategy
    * @param after - quotes after or on the date (inclusive)
    * @param before - quotes before or on the date (inclusive)
@@ -56,27 +28,25 @@ class Stock {
     after: LocalDate?,
     before: LocalDate?,
   ) = quotes
-    .filter { after == null || it.date?.isAfter(after.minusDays(1)) == true }
-    .filter { before == null || it.date?.isBefore(before.plusDays(1)) == true }
+    .filter { after == null || it.date.isAfter(after.minusDays(1)) }
+    .filter { before == null || it.date.isBefore(before.plusDays(1)) }
     .filter { entryStrategy.test(this, it) }
 
   /**
-   *
    * @param entryQuote - the entry quote to start the simulation from.
    * @param exitStrategy - the exit strategy being used.
    * @return an ExitReport.
    */
   fun testExitStrategy(
-    entryQuote: StockQuote,
+    entryQuote: StockQuoteDomain,
     exitStrategy: ExitStrategy,
   ): ExitReport {
     val quotesToTest =
       this.quotes
         .sortedBy { it.date }
-        // Find quotes that are after the entry quote date
-        .filter { it -> it.date?.isAfter(entryQuote.date) == true }
+        .filter { it.date.isAfter(entryQuote.date) }
 
-    val quotes = ArrayList<StockQuote>()
+    val quotes = ArrayList<StockQuoteDomain>()
     var exitReason = ""
     var exitPrice = 0.0
 
@@ -101,22 +71,20 @@ class Stock {
   }
 
   /**
-   *
    * @param quote
    * @return the next quote after the given [quote]
    */
-  fun getNextQuote(quote: StockQuote) = quotes.sortedBy { it.date }.firstOrNull { it -> it.date?.isAfter(quote.date) == true }
+  fun getNextQuote(quote: StockQuoteDomain) = quotes.sortedBy { it.date }.firstOrNull { it.date.isAfter(quote.date) }
 
   /**
    * Get the quote previous to the given [quote]
    */
-  fun getPreviousQuote(quote: StockQuote) =
-    quotes.sortedByDescending { it.date }.firstOrNull { it -> it.date?.isBefore(quote.date) == true }
+  fun getPreviousQuote(quote: StockQuoteDomain) = quotes.sortedByDescending { it.date }.firstOrNull { it.date.isBefore(quote.date) }
 
   /**
    * get the quote for the given [date]
    */
-  fun getQuoteByDate(date: LocalDate) = quotes.find { it.date?.equals(date) == true }
+  fun getQuoteByDate(date: LocalDate) = quotes.find { it.date == date }
 
   /**
    * Check if given [quote] is within an order block that are older than [daysOld]
@@ -124,7 +92,7 @@ class Stock {
    * @param daysOld Minimum age of order block in days
    */
   fun withinOrderBlock(
-    quote: StockQuote,
+    quote: StockQuoteDomain,
     daysOld: Int,
   ): Boolean =
     orderBlocks
@@ -141,12 +109,12 @@ class Stock {
   /**
    * Get active order blocks (not mitigated)
    */
-  fun getActiveOrderBlocks(): List<OrderBlock> = orderBlocks.filter { it.endDate == null }
+  fun getActiveOrderBlocks(): List<OrderBlockDomain> = orderBlocks.filter { it.endDate == null }
 
   /**
    * Get bullish order blocks for the given date
    */
-  fun getBullishOrderBlocks(date: LocalDate? = null): List<OrderBlock> =
+  fun getBullishOrderBlocks(date: LocalDate? = null): List<OrderBlockDomain> =
     orderBlocks.filter {
       val endDate = it.endDate
       it.orderBlockType == OrderBlockType.BULLISH &&
@@ -156,7 +124,7 @@ class Stock {
   /**
    * Get bearish order blocks for the given date
    */
-  fun getBearishOrderBlocks(date: LocalDate? = null): List<OrderBlock> =
+  fun getBearishOrderBlocks(date: LocalDate? = null): List<OrderBlockDomain> =
     orderBlocks.filter {
       val endDate = it.endDate
       it.orderBlockType == OrderBlockType.BEARISH &&
@@ -169,7 +137,7 @@ class Stock {
    * @param afterDate Date to check from (exclusive)
    * @return Next earnings announcement, or null if none found
    */
-  fun getNextEarningsDate(afterDate: LocalDate): Earning? =
+  fun getNextEarningsDate(afterDate: LocalDate): EarningDomain? =
     earnings
       .filter { it.reportedDate != null }
       .filter { it.reportedDate!!.isAfter(afterDate) }
@@ -193,7 +161,16 @@ class Stock {
    * @param fiscalDateEnding Fiscal quarter ending date
    * @return Earning for that quarter, or null if not found
    */
-  fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): Earning? = earnings.find { it.fiscalDateEnding == fiscalDateEnding }
+  fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): EarningDomain? = earnings.find { it.fiscalDateEnding == fiscalDateEnding }
 
   override fun toString() = "Symbol: $symbol"
 }
+
+/**
+ * Exit report containing the result of testing an exit strategy
+ */
+data class ExitReport(
+  val exitReason: String,
+  val quotes: List<StockQuoteDomain>,
+  val exitPrice: Double,
+)

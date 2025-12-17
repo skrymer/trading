@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
  * Represents an exit condition that can be evaluated.
@@ -13,9 +13,9 @@ interface ExitCondition {
    * Determines if the exit condition is met.
    */
   fun shouldExit(
-    stock: Stock,
-    entryQuote: StockQuote?,
-    quote: StockQuote,
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
   ): Boolean
 
   /**

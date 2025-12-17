@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.Breadth
+import com.skrymer.udgaard.domain.BreadthDomain
 import com.skrymer.udgaard.model.BreadthSymbol
 
 /**
@@ -14,12 +14,10 @@ class OvtlyrBreadth {
   @JsonProperty("lst_h")
   val quotes: List<OvtlyrBreadthQuote> = emptyList()
 
-  fun toModel(stockInSector: OvtlyrStockInformation?): Breadth {
-    val breadthQuotes =
-      quotes
-        .mapNotNull { it.toModel(this, stockInSector) }
+  fun toModel(stockInSector: OvtlyrStockInformation?): BreadthDomain {
+    val breadthQuotes = quotes.map { it.toModel(this, stockInSector) }
 
-    return Breadth(getBreadthSymbol(), breadthQuotes.toMutableList())
+    return BreadthDomain(getBreadthSymbol().toIdentifier(), quotes = breadthQuotes.toMutableList())
   }
 
   override fun toString() = "Symbol: ${getBreadthSymbol()}, Number of quotes: ${quotes.size}"

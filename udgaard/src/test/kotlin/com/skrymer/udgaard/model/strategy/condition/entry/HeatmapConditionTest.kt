@@ -1,19 +1,18 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class HeatmapConditionTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should return true when heatmap is below threshold`() {
     val condition = HeatmapCondition(threshold = 70.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         heatmap = 65.0,
       )
@@ -28,7 +27,7 @@ class HeatmapConditionTest {
   fun `should return false when heatmap equals threshold`() {
     val condition = HeatmapCondition(threshold = 70.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         heatmap = 70.0,
       )
@@ -43,7 +42,7 @@ class HeatmapConditionTest {
   fun `should return false when heatmap is above threshold`() {
     val condition = HeatmapCondition(threshold = 70.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         heatmap = 85.0,
       )
@@ -58,7 +57,7 @@ class HeatmapConditionTest {
   fun `should work with different threshold values`() {
     val condition = HeatmapCondition(threshold = 50.0)
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         heatmap = 45.0,
       )

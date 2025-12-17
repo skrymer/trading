@@ -44,6 +44,7 @@ curl -s http://localhost:8080/udgaard/api/backtest/conditions | python3 -m json.
 **Using Predefined Strategies:**
 
 ```bash
+# Single stock backtest
 curl -s -X POST http://localhost:8080/udgaard/api/backtest \
   -H "Content-Type: application/json" \
   -d '{
@@ -55,6 +56,20 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
     "cooldownDays": 10,
     "refresh": false
   }' > /tmp/backtest_results.json
+
+# All stocks backtest (use empty array)
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": [],
+    "entryStrategy": {"type": "predefined", "name": "PlanAlpha"},
+    "exitStrategy": {"type": "predefined", "name": "PlanMoney"},
+    "startDate": "2020-01-01",
+    "endDate": "2025-12-13",
+    "maxPositions": 10,
+    "ranker": "Heatmap",
+    "refresh": false
+  }' > /tmp/backtest_all_stocks.json
 ```
 
 **Using Custom Strategies:**

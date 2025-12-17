@@ -1,27 +1,27 @@
 package com.skrymer.udgaard.service
 
+import com.skrymer.udgaard.domain.*
 import com.skrymer.udgaard.model.*
-import com.skrymer.udgaard.repository.PortfolioRepository
-import com.skrymer.udgaard.repository.PortfolioTradeRepository
+import com.skrymer.udgaard.repository.jooq.PortfolioJooqRepository
+import com.skrymer.udgaard.repository.jooq.PortfolioTradeJooqRepository
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.util.*
 
 class PortfolioServiceTest {
   private lateinit var portfolioService: PortfolioService
-  private lateinit var portfolioRepository: PortfolioRepository
-  private lateinit var portfolioTradeRepository: PortfolioTradeRepository
+  private lateinit var portfolioRepository: PortfolioJooqRepository
+  private lateinit var portfolioTradeRepository: PortfolioTradeJooqRepository
   private lateinit var stockService: StockService
   private lateinit var strategyRegistry: StrategyRegistry
 
   @BeforeEach
   fun setup() {
-    portfolioRepository = mock<PortfolioRepository>()
-    portfolioTradeRepository = mock<PortfolioTradeRepository>()
+    portfolioRepository = mock<PortfolioJooqRepository>()
+    portfolioTradeRepository = mock<PortfolioTradeJooqRepository>()
     stockService = mock<StockService>()
     strategyRegistry = mock<StrategyRegistry>()
     portfolioService =
@@ -41,7 +41,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val initialBalance = 100000.0
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = initialBalance,
@@ -50,9 +50,9 @@ class PortfolioServiceTest {
         createdDate = LocalDateTime.now().minusDays(30),
       )
 
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Opening a $25,000 stock position (100 shares at $250)
     val trade =
@@ -65,13 +65,13 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        instrumentType = InstrumentType.STOCK,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
     // Then: Portfolio balance should be reduced by $25,000
     val expectedBalance = 75000.0
     verify(portfolioRepository).save(argThat { currentBalance == expectedBalance })
-    assertEquals(InstrumentType.STOCK, trade.instrumentType)
+    assertEquals(InstrumentTypeDomain.STOCK, trade.instrumentType)
     assertEquals(250.0, trade.entryPrice)
     assertEquals(100, trade.quantity)
   }
@@ -82,7 +82,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val initialBalance = 100000.0
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = initialBalance,
@@ -91,9 +91,9 @@ class PortfolioServiceTest {
         createdDate = LocalDateTime.now().minusDays(30),
       )
 
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Opening an option position (5 contracts at $10 premium, 100 multiplier = $5,000)
     val trade =
@@ -106,8 +106,8 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        instrumentType = InstrumentType.OPTION,
-        optionType = OptionType.CALL,
+        instrumentType = InstrumentTypeDomain.OPTION,
+        optionType = OptionTypeDomain.CALL,
         strikePrice = 250.0,
         expirationDate = LocalDate.now().plusDays(30),
         contracts = 5,
@@ -117,7 +117,7 @@ class PortfolioServiceTest {
     // Then: Portfolio balance should be reduced by $5,000 (5 * 10 * 100)
     val expectedBalance = 95000.0
     verify(portfolioRepository).save(argThat { currentBalance == expectedBalance })
-    assertEquals(InstrumentType.OPTION, trade.instrumentType)
+    assertEquals(InstrumentTypeDomain.OPTION, trade.instrumentType)
     assertEquals(10.0, trade.entryPrice)
     assertEquals(5, trade.contracts)
   }
@@ -130,7 +130,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -139,7 +139,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL",
@@ -149,14 +149,14 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.STOCK,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Closing the trade at $300 (exit value = 100 * 300 = $30,000)
     val closedTrade =
@@ -169,7 +169,7 @@ class PortfolioServiceTest {
     // Then: Balance should be $75,000 + $30,000 = $105,000
     val expectedBalance = 105000.0
     verify(portfolioRepository).save(argThat { currentBalance == expectedBalance })
-    assertEquals(TradeStatus.CLOSED, closedTrade?.status)
+    assertEquals(TradeStatusDomain.CLOSED, closedTrade?.status)
     assertEquals(300.0, closedTrade?.exitPrice)
     assertEquals(5000.0, closedTrade?.profit) // Profit: (300-250) * 100 = $5,000
   }
@@ -180,7 +180,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -189,7 +189,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL250C",
@@ -199,19 +199,19 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.OPTION,
-        optionType = OptionType.CALL,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.OPTION,
+        optionType = OptionTypeDomain.CALL,
         strikePrice = 250.0,
         expirationDate = LocalDate.now().plusDays(25),
         contracts = 5,
         multiplier = 100,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Closing at $6 (exit value = 5 * 6 * 100 = $3,000, loss of $2,000)
     val closedTrade =
@@ -224,7 +224,7 @@ class PortfolioServiceTest {
     // Then: Balance should be $95,000 + $3,000 = $98,000
     val expectedBalance = 98000.0
     verify(portfolioRepository).save(argThat { currentBalance == expectedBalance })
-    assertEquals(TradeStatus.CLOSED, closedTrade?.status)
+    assertEquals(TradeStatusDomain.CLOSED, closedTrade?.status)
     assertEquals(6.0, closedTrade?.exitPrice)
     assertEquals(-2000.0, closedTrade?.profit) // Loss: (6-10) * 5 * 100 = -$2,000
   }
@@ -237,7 +237,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -246,7 +246,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL",
@@ -256,12 +256,12 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.STOCK,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
 
     // When: Deleting the trade
@@ -270,7 +270,7 @@ class PortfolioServiceTest {
     // Then: Balance should be refunded to $100,000
     val expectedBalance = 100000.0
     verify(portfolioRepository).save(argThat { currentBalance == expectedBalance })
-    verify(portfolioTradeRepository).deleteById(tradeId)
+    verify(portfolioTradeRepository).delete(tradeId)
     assertTrue(result)
   }
 
@@ -280,7 +280,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -289,7 +289,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL250C",
@@ -299,17 +299,17 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.OPTION,
-        optionType = OptionType.CALL,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.OPTION,
+        optionType = OptionTypeDomain.CALL,
         strikePrice = 250.0,
         expirationDate = LocalDate.now().plusDays(30),
         contracts = 5,
         multiplier = 100,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
 
     // When: Deleting the trade
@@ -318,7 +318,7 @@ class PortfolioServiceTest {
     // Then: Balance should be refunded to $100,000
     val expectedBalance = 100000.0
     verify(portfolioRepository).save(argThat { currentBalance == expectedBalance })
-    verify(portfolioTradeRepository).deleteById(tradeId)
+    verify(portfolioTradeRepository).delete(tradeId)
     assertTrue(result)
   }
 
@@ -327,7 +327,7 @@ class PortfolioServiceTest {
     // Given: A closed trade
     val tradeId = 1L
     val closedTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = 1L,
         symbol = "AAPL",
@@ -339,11 +339,11 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.CLOSED,
-        instrumentType = InstrumentType.STOCK,
+        status = TradeStatusDomain.CLOSED,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(closedTrade))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(closedTrade)
 
     // When/Then: Should throw exception
     assertThrows(IllegalArgumentException::class.java) {
@@ -359,7 +359,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -368,7 +368,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL",
@@ -378,14 +378,14 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.STOCK,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Updating quantity to 120 shares (new cost = $30,000, difference = $5,000)
     val updatedTrade =
@@ -406,7 +406,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -415,7 +415,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL250C",
@@ -425,19 +425,19 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.OPTION,
-        optionType = OptionType.CALL,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.OPTION,
+        optionType = OptionTypeDomain.CALL,
         strikePrice = 250.0,
         expirationDate = LocalDate.now().plusDays(30),
         contracts = 5,
         multiplier = 100,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Updating contracts to 3 (new cost = $3,000, refund = $2,000)
     val updatedTrade =
@@ -458,7 +458,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -467,7 +467,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL",
@@ -477,14 +477,14 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.STOCK,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Updating entry price to $200 (new cost = $20,000, refund = $5,000)
     val updatedTrade =
@@ -505,7 +505,7 @@ class PortfolioServiceTest {
     val portfolioId = 1L
     val tradeId = 1L
     val portfolio =
-      Portfolio(
+      PortfolioDomain(
         id = 1L,
         name = "Test Portfolio",
         initialBalance = 100000.0,
@@ -514,7 +514,7 @@ class PortfolioServiceTest {
       )
 
     val openTrade =
-      PortfolioTrade(
+      PortfolioTradeDomain(
         id = 1L,
         portfolioId = portfolioId,
         symbol = "AAPL",
@@ -524,14 +524,14 @@ class PortfolioServiceTest {
         entryStrategy = "TestEntry",
         exitStrategy = "TestExit",
         currency = "USD",
-        status = TradeStatus.OPEN,
-        instrumentType = InstrumentType.STOCK,
+        status = TradeStatusDomain.OPEN,
+        instrumentType = InstrumentTypeDomain.STOCK,
       )
 
-    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(Optional.of(openTrade))
-    whenever(portfolioRepository.findById(portfolioId)).thenReturn(Optional.of(portfolio))
+    whenever(portfolioTradeRepository.findById(tradeId)).thenReturn(openTrade)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
     whenever(portfolioRepository.save(any())).thenAnswer { it.arguments[0] }
-    whenever(portfolioTradeRepository.save(any<PortfolioTrade>())).thenAnswer { it.arguments[0] }
+    whenever(portfolioTradeRepository.save(any<PortfolioTradeDomain>())).thenAnswer { it.arguments[0] }
 
     // When: Updating only the exit strategy
     val updatedTrade =

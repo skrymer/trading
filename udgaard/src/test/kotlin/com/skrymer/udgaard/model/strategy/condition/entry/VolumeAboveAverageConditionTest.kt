@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.entry
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -12,25 +11,25 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.3, lookbackDays = 10)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
             // Historical quotes with 1M average volume
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 7), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 8), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 9), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 10), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 7), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 8), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 9), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 10), volume = 1_000_000),
           )
-      }
+      )
 
     // Current quote with 1.5M volume (1.5x average, exceeds 1.3x requirement)
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_500_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 11), volume = 1_500_000)
 
     assertTrue(
       condition.evaluate(stock, quote),
@@ -43,24 +42,24 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.3, lookbackDays = 10)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 7), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 8), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 9), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 10), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 7), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 8), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 9), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 10), volume = 1_000_000),
           )
-      }
+      )
 
     // Current quote with 1.2M volume (1.2x average, below 1.3x requirement)
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_200_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 11), volume = 1_200_000)
 
     assertFalse(
       condition.evaluate(stock, quote),
@@ -73,19 +72,19 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.5, lookbackDays = 5)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
           )
-      }
+      )
 
     // Current quote with exactly 1.5M volume (1.5x average, exactly at threshold)
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_500_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 1_500_000)
 
     assertTrue(
       condition.evaluate(stock, quote),
@@ -98,19 +97,19 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.3, lookbackDays = 20)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
             // Only 5 quotes, less than 50% of 20-day lookback
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
           )
-      }
+      )
 
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 2_000_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 2_000_000)
 
     assertFalse(
       condition.evaluate(stock, quote),
@@ -119,48 +118,28 @@ class VolumeAboveAverageConditionTest {
   }
 
   @Test
-  fun `should return false when quote has no date`() {
-    val condition = VolumeAboveAverageCondition(multiplier = 1.3, lookbackDays = 10)
-
-    val stock =
-      Stock().apply {
-        quotes =
-          mutableListOf(
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-          )
-      }
-
-    val quote = StockQuote(date = null, volume = 2_000_000)
-
-    assertFalse(
-      condition.evaluate(stock, quote),
-      "Condition should be false when quote has no date",
-    )
-  }
-
-  @Test
   fun `should calculate average from correct lookback period`() {
     val condition = VolumeAboveAverageCondition(multiplier = 1.3, lookbackDays = 5)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
             // Older quotes outside lookback period (high volume)
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 5_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 5_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 5_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 5_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 5_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 5_000_000),
             // Recent quotes in lookback period (low volume)
-            StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 12), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 13), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 14), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 15), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 11), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 12), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 13), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 14), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 15), volume = 1_000_000),
           )
-      }
+      )
 
     // Current quote should only compare to recent 5-day average (1M), not older quotes (5M)
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 16), volume = 1_400_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 16), volume = 1_400_000)
 
     assertTrue(
       condition.evaluate(stock, quote),
@@ -173,25 +152,25 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.5, lookbackDays = 10)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
             // Varying volumes: 500K, 1M, 1.5M, 2M, etc.
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 500_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_500_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 2_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 800_000),
-            StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_200_000),
-            StockQuote(date = LocalDate.of(2024, 1, 7), volume = 900_000),
-            StockQuote(date = LocalDate.of(2024, 1, 8), volume = 1_100_000),
-            StockQuote(date = LocalDate.of(2024, 1, 9), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 10), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 500_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_500_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 2_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 800_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 1_200_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 7), volume = 900_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 8), volume = 1_100_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 9), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 10), volume = 1_000_000),
           )
-      }
+      )
 
     // Average is 1.1M, 1.5x = 1.65M
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_700_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 11), volume = 1_700_000)
 
     assertTrue(
       condition.evaluate(stock, quote),
@@ -241,18 +220,18 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.3, lookbackDays = 5)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
           )
-      }
+      )
 
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_500_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 1_500_000)
 
     val result = condition.evaluateWithDetails(stock, quote)
 
@@ -269,18 +248,18 @@ class VolumeAboveAverageConditionTest {
     val condition = VolumeAboveAverageCondition(multiplier = 1.5, lookbackDays = 5)
 
     val stock =
-      Stock().apply {
+      StockDomain(
         quotes =
           mutableListOf(
-            StockQuote(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
-            StockQuote(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 1), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 2), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 3), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 4), volume = 1_000_000),
+            StockQuoteDomain(date = LocalDate.of(2024, 1, 5), volume = 1_000_000),
           )
-      }
+      )
 
-    val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_200_000)
+    val quote = StockQuoteDomain(date = LocalDate.of(2024, 1, 6), volume = 1_200_000)
 
     val result = condition.evaluateWithDetails(stock, quote)
 
@@ -289,7 +268,7 @@ class VolumeAboveAverageConditionTest {
     assertEquals("1.20×", result.actualValue)
     assertEquals("1.5×", result.threshold)
     assertTrue(result.message!!.contains("1.2M"))
-    assertTrue(result.message!!.contains("needs 1.5×"))
+    assertTrue(result.message.contains("needs 1.5×"))
     assertTrue(result.message!!.contains("✗"))
   }
 }

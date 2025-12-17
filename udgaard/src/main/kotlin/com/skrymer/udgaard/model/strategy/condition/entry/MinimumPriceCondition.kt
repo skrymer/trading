@@ -3,8 +3,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import org.springframework.stereotype.Component
 
@@ -22,8 +22,8 @@ class MinimumPriceCondition(
   private val minimumPrice: Double = 10.0,
 ) : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean = quote.closePrice >= minimumPrice
 
   override fun description(): String = "Price >= $${"%.2f".format(minimumPrice)}"
@@ -48,8 +48,8 @@ class MinimumPriceCondition(
     )
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val message = if (passed) description() + " ✓" else description() + " ✗"

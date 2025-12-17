@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.integration.alphavantage
 
+import com.skrymer.udgaard.domain.EarningDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.integration.EtfProvider
 import com.skrymer.udgaard.integration.FundamentalDataProvider
 import com.skrymer.udgaard.integration.StockProvider
@@ -10,9 +12,7 @@ import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageCompanyOverv
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEarnings
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
-import com.skrymer.udgaard.model.Earning
 import com.skrymer.udgaard.model.SectorSymbol
-import com.skrymer.udgaard.model.StockQuote
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -81,7 +81,7 @@ open class AlphaVantageClient(
   override fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String,
-  ): List<StockQuote>? {
+  ): List<StockQuoteDomain>? {
     return runCatching {
       val url = "$baseUrl?function=$FUNCTION_DAILY_ADJUSTED&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
       logger.info("Fetching adjusted daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
@@ -349,7 +349,7 @@ open class AlphaVantageClient(
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @return List of quarterly earnings, or null if request fails
    */
-  override fun getEarnings(symbol: String): List<Earning>? {
+  override fun getEarnings(symbol: String): List<EarningDomain>? {
     return runCatching {
       val url = "$baseUrl?function=$FUNCTION_EARNINGS&symbol=$symbol&apikey=$apiKey"
       logger.info("Fetching earnings history for $symbol from Alpha Vantage")

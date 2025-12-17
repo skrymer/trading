@@ -1,11 +1,10 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.OrderBlockSensitivity
-import com.skrymer.udgaard.model.OrderBlockType
-import com.skrymer.udgaard.model.StockQuote
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Service
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
+import com.skrymer.udgaard.domain.OrderBlockType
+import com.skrymer.udgaard.domain.StockQuoteDomain
+import org.springframework.stereotype.Component
 import java.time.LocalDate
 
 /**
@@ -20,10 +19,8 @@ import java.time.LocalDate
  * 3. Mark that candle as order block with its high/low range
  * 4. Track active blocks and mitigate them when price closes through
  */
-@Service
+@Component
 class OrderBlockCalculator {
-  private val logger = LoggerFactory.getLogger(OrderBlockCalculator::class.java)
-
   companion object {
     // Default sensitivity (28 in raw form, converted to 0.28 for threshold)
     const val DEFAULT_SENSITIVITY = 28.0
@@ -64,18 +61,18 @@ class OrderBlockCalculator {
    * @return List of calculated order blocks
    */
   fun calculateOrderBlocks(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     sensitivity: Double = DEFAULT_SENSITIVITY,
     sensitivityLevel: OrderBlockSensitivity = OrderBlockSensitivity.HIGH,
     sameTypeSpacing: Int = SAME_TYPE_SPACING,
     crossTypeSpacing: Int = CROSS_TYPE_SPACING,
-  ): List<OrderBlock> {
+  ): List<OrderBlockDomain> {
     if (quotes.size < LOOKBACK_MAX + ROC_PERIOD) {
       return emptyList()
     }
 
     val sortedQuotes = quotes.sortedBy { it.date }
-    val orderBlocks = mutableListOf<OrderBlock>()
+    val OrderBlockDomains = mutableListOf<OrderBlockDomain>()
     val recentCrossings = mutableListOf<Crossing>()
 
     // ROC returns percentage (e.g., 0.69 for 0.69% move)
@@ -85,7 +82,7 @@ class OrderBlockCalculator {
     val threshold = sensitivity / 100.0
 
     // Track active order blocks for mitigation detection
-    val activeBlocks = mutableListOf<OrderBlock>()
+    val activeBlocks = mutableListOf<OrderBlockDomain>()
 
     // Start from index 5 (ROC_PERIOD + 1) to allow ROC calculation
     for (i in 5 until sortedQuotes.size) {
@@ -125,14 +122,14 @@ class OrderBlockCalculator {
 
         if (!skip) {
           // Find the origin candle and create order block
-          findAndCreateOrderBlock(
+          findAndCreateOrderBlockDomain(
             sortedQuotes,
             i,
             blockType,
             roc,
             sensitivityLevel,
           )?.let { block ->
-            orderBlocks.add(block)
+            OrderBlockDomains.add(block)
             activeBlocks.add(block)
           }
         }
@@ -142,7 +139,7 @@ class OrderBlockCalculator {
       mitigateBlocks(activeBlocks, sortedQuotes[i])
     }
 
-    return orderBlocks
+    return OrderBlockDomains
   }
 
   /**
@@ -159,7 +156,7 @@ class OrderBlockCalculator {
    * - For bullish: 0.69 > 0.28 = TRUE (further right on number line)
    */
   private fun calculateRateOfChange(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     index: Int,
   ): Double {
     if (index < ROC_PERIOD) return 0.0
@@ -179,13 +176,13 @@ class OrderBlockCalculator {
    * For bearish blocks: Find last green (bullish) candle in lookback window (i-4 to i-15)
    * For bullish blocks: Find last red (bearish) candle in lookback window (i-4 to i-15)
    */
-  private fun findAndCreateOrderBlock(
-    quotes: List<StockQuote>,
+  private fun findAndCreateOrderBlockDomain(
+    quotes: List<StockQuoteDomain>,
     triggerIndex: Int,
     type: OrderBlockType,
     roc: Double,
     sensitivityLevel: OrderBlockSensitivity,
-  ): OrderBlock? {
+  ): OrderBlockDomain? {
     // Look back from i-4 to i-15 to find the origin candle
     for (j in (triggerIndex - LOOKBACK_MIN) downTo (triggerIndex - LOOKBACK_MAX)) {
       if (j < 0) continue
@@ -209,7 +206,7 @@ class OrderBlockCalculator {
         // Find the end date (mitigation point in the future)
         val endDate = findMitigationDate(quotes, j, triggerIndex, type, quote)
 
-        return OrderBlock(
+        return OrderBlockDomain(
           low = quote.low,
           high = quote.high,
           startDate = quote.date ?: LocalDate.now(),
@@ -231,11 +228,11 @@ class OrderBlockCalculator {
    * Returns null if block is still active
    */
   private fun findMitigationDate(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     startIndex: Int,
     triggerIndex: Int,
     type: OrderBlockType,
-    originQuote: StockQuote,
+    originQuote: StockQuoteDomain,
   ): LocalDate? {
     // Look forward from triggerIndex - 1 to find mitigation
     for (k in (triggerIndex - 1) until quotes.size) {
@@ -260,7 +257,7 @@ class OrderBlockCalculator {
    * Uses average volume over lookback period
    */
   private fun calculateVolumeStrength(
-    quotes: List<StockQuote>,
+    quotes: List<StockQuoteDomain>,
     index: Int,
   ): Double {
     if (index < VOLUME_LOOKBACK) {
@@ -302,8 +299,8 @@ class OrderBlockCalculator {
    * Bearish blocks are mitigated when price closes above the high
    */
   private fun mitigateBlocks(
-    activeBlocks: MutableList<OrderBlock>,
-    currentQuote: StockQuote,
+    activeBlocks: MutableList<OrderBlockDomain>,
+    currentQuote: StockQuoteDomain,
   ) {
     val blocksToMitigate =
       activeBlocks.filter { block ->

@@ -3,8 +3,8 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import org.springframework.stereotype.Component
 
@@ -24,8 +24,8 @@ class EmaBullishCrossCondition(
   private val slowEma: Int = 20,
 ) : EntryCondition {
   override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): Boolean {
     // Get current EMA values
     val currentFast = getEmaValue(quote, fastEma)
@@ -84,7 +84,7 @@ class EmaBullishCrossCondition(
     )
 
   private fun getEmaValue(
-    quote: StockQuote,
+    quote: StockQuoteDomain,
     period: Int,
   ): Double =
     when (period) {
@@ -96,8 +96,8 @@ class EmaBullishCrossCondition(
     }
 
   override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
+    stock: StockDomain,
+    quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
     val message = if (passed) description() + " ✓" else description() + " ✗"

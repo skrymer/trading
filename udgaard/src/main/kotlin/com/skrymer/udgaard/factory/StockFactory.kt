@@ -1,11 +1,11 @@
 package com.skrymer.udgaard.factory
 
+import com.skrymer.udgaard.domain.BreadthDomain
+import com.skrymer.udgaard.domain.EarningDomain
+import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.model.Breadth
-import com.skrymer.udgaard.model.Earning
-import com.skrymer.udgaard.model.OrderBlock
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
 import java.time.LocalDate
 
 /**
@@ -42,13 +42,13 @@ interface StockFactory {
    */
   fun enrichQuotes(
     symbol: String,
-    stockQuotes: List<StockQuote>,
+    stockQuotes: List<StockQuoteDomain>,
     atrMap: Map<LocalDate, Double>?,
     adxMap: Map<LocalDate, Double>?,
-    marketBreadth: Breadth?,
-    sectorBreadth: Breadth?,
+    marketBreadth: BreadthDomain?,
+    sectorBreadth: BreadthDomain?,
     spy: OvtlyrStockInformation,
-  ): List<StockQuote>?
+  ): List<StockQuoteDomain>?
 
   /**
    * Create a Stock entity from enriched quotes, order blocks, and earnings.
@@ -63,8 +63,8 @@ interface StockFactory {
   fun createStock(
     symbol: String,
     sectorSymbol: String?,
-    enrichedQuotes: List<StockQuote>,
-    orderBlocks: List<OrderBlock>,
-    earnings: List<Earning>,
-  ): Stock
+    enrichedQuotes: List<StockQuoteDomain>,
+    orderBlocks: List<OrderBlockDomain>,
+    earnings: List<EarningDomain>,
+  ): StockDomain
 }

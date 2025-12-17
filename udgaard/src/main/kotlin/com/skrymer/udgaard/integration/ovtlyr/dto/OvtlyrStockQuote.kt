@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.model.Breadth
+import com.skrymer.udgaard.domain.BreadthDomain
 import java.time.LocalDate
 
 /**
@@ -252,7 +252,7 @@ class OvtlyrStockQuote {
    * Calculate the donchian upper band for the number of stocks in an uptrend.
    */
   fun calculateDonchianUpperBandMarket(
-    market: Breadth?,
+    market: BreadthDomain?,
     periods: Int = 4,
   ) = market
     ?.getPreviousQuotes(this.date, periods)
@@ -262,7 +262,7 @@ class OvtlyrStockQuote {
    * Calculate the donchian lower band for the number of stocks in an uptrend.
    */
   fun calculateDonchianLowerBandMarket(
-    market: Breadth?,
+    market: BreadthDomain?,
     periods: Int = 4,
   ) = market
     ?.getPreviousQuotes(this.date, periods)
@@ -399,7 +399,7 @@ class OvtlyrStockQuote {
    * Calculate market breadth - percentage of stocks advancing (above their uptrend status)
    * Uses the existing market breadth data
    */
-  fun calculateMarketAdvancingPercent(marketBreadth: Breadth?): Double {
+  fun calculateMarketAdvancingPercent(marketBreadth: BreadthDomain?): Double {
     if (marketBreadth == null) return 0.0
 
     val breadthQuote = marketBreadth.getQuoteForDate(date) ?: return 0.0

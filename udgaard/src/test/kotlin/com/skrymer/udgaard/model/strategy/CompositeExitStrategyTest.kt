@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.model.strategy
-
-import com.skrymer.udgaard.model.Stock
-import com.skrymer.udgaard.model.StockQuote
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.model.strategy.condition.exit.EmaCrossExit
 import com.skrymer.udgaard.model.strategy.condition.exit.ProfitTargetExit
@@ -11,7 +10,7 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class CompositeExitStrategyTest {
-  private val stock = Stock()
+  private val stock = StockDomain()
 
   @Test
   fun `should exit when any OR condition is met`() {
@@ -27,7 +26,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         signal = "Sell",
         closePriceEMA10 = 105.0,
@@ -56,7 +55,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0, // Above 20 EMA (no cross)
         closePriceEMA20 = 100.0,
@@ -83,7 +82,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         signal = "Sell",
         closePriceEMA10 = 95.0, // Below 20 EMA (crossed under)
@@ -109,7 +108,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         signal = "Sell",
         closePriceEMA10 = 105.0, // Above 20 EMA (not crossed)
@@ -136,7 +135,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 95.0, // This triggers exit
         closePriceEMA20 = 100.0,
@@ -161,7 +160,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
@@ -181,7 +180,7 @@ class CompositeExitStrategyTest {
       }
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
@@ -239,7 +238,7 @@ class CompositeExitStrategyTest {
       )
 
     val quote =
-      StockQuote(
+      StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),
       )
 

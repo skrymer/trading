@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.model.montecarlo
 
+import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.BacktestReport
-import com.skrymer.udgaard.model.StockQuote
 import com.skrymer.udgaard.model.Trade
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -220,12 +220,12 @@ class BootstrapResamplingTechniqueTest {
     entryDate: LocalDate,
   ): Trade {
     val entryQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = entryDate,
         closePrice = 100.0,
       )
     val exitQuote =
-      StockQuote(
+      StockQuoteDomain(
         date = entryDate.plusDays(5),
         closePrice = 100.0 + profitPercentage,
       )
