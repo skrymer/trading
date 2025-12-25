@@ -33,7 +33,8 @@ class BreadthJooqRepository(
     val quotes =
       dsl
         .selectFrom(BREADTH_QUOTES)
-        .where(BREADTH_QUOTES.SYMBOL.eq(symbolValue))
+        .where(BREADTH_QUOTES.SYMBOL_TYPE.eq(breadth.symbolType))
+        .and(BREADTH_QUOTES.SYMBOL_VALUE.eq(symbolValue))
         .orderBy(BREADTH_QUOTES.QUOTE_DATE.asc())
         .fetchInto(BreadthQuotes::class.java)
 
@@ -75,7 +76,11 @@ class BreadthJooqRepository(
       .execute()
 
     // 2. Delete existing quotes
-    ctx.deleteFrom(BREADTH_QUOTES).where(BREADTH_QUOTES.SYMBOL.eq(breadth.symbolValue)).execute()
+    ctx
+      .deleteFrom(BREADTH_QUOTES)
+      .where(BREADTH_QUOTES.SYMBOL_TYPE.eq(breadth.symbolType))
+      .and(BREADTH_QUOTES.SYMBOL_VALUE.eq(breadth.symbolValue))
+      .execute()
 
     // 3. Insert quotes
     if (breadth.quotes.isNotEmpty()) {
@@ -84,6 +89,8 @@ class BreadthJooqRepository(
           val pojo = mapper.toPojo(quote)
           ctx
             .insertInto(BREADTH_QUOTES)
+            .set(BREADTH_QUOTES.SYMBOL_TYPE, breadth.symbolType)
+            .set(BREADTH_QUOTES.SYMBOL_VALUE, breadth.symbolValue)
             .set(BREADTH_QUOTES.SYMBOL, breadth.symbolValue)
             .set(BREADTH_QUOTES.QUOTE_DATE, pojo.quoteDate)
             .set(BREADTH_QUOTES.STOCKS_WITH_BUY_SIGNAL, pojo.stocksWithBuySignal)
@@ -117,8 +124,21 @@ class BreadthJooqRepository(
   fun delete(symbolValue: String) {
     dsl.transaction { configuration ->
       val ctx = configuration.dsl()
-      ctx.deleteFrom(BREADTH_QUOTES).where(BREADTH_QUOTES.SYMBOL.eq(symbolValue)).execute()
-      ctx.deleteFrom(BREADTH).where(BREADTH.SYMBOL_VALUE.eq(symbolValue)).execute()
+      // First get the breadth to get symbolType
+      val breadth =
+        ctx
+          .selectFrom(BREADTH)
+          .where(BREADTH.SYMBOL_VALUE.eq(symbolValue))
+          .fetchOneInto(Breadth::class.java)
+
+      breadth?.let {
+        ctx
+          .deleteFrom(BREADTH_QUOTES)
+          .where(BREADTH_QUOTES.SYMBOL_TYPE.eq(it.symbolType))
+          .and(BREADTH_QUOTES.SYMBOL_VALUE.eq(symbolValue))
+          .execute()
+        ctx.deleteFrom(BREADTH).where(BREADTH.SYMBOL_VALUE.eq(symbolValue)).execute()
+      }
     }
   }
 

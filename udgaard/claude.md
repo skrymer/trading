@@ -13,8 +13,10 @@ For complete tech stack details, see the main CLAUDE.md file in the project root
 **Key Technologies:**
 - **Language**: Kotlin 2.1.21
 - **Framework**: Spring Boot 3.5.0
-- **Database**: H2 (file-based SQL database with JPA/Hibernate)
-- **Build Tool**: Gradle 8.14.2
+- **Database**: H2 2.2.224 (file-based SQL database)
+- **Database Access**: jOOQ 3.19.23 (type-safe SQL queries)
+- **Database Migrations**: Flyway (via net.ltgt.flyway plugin)
+- **Build Tool**: Gradle 9.1.0
 - **Caching**: Caffeine (via Spring Cache)
 - **MCP**: Spring AI MCP Server
 

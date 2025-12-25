@@ -5,6 +5,7 @@ plugins {
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.jlleitschuh.gradle.ktlint' version '12.1.2'
 	id 'nu.studer.jooq' version '9.0'
+	id 'net.ltgt.flyway' version '0.2.0'
 }
 
 group = 'com.skrymer'
@@ -35,6 +36,8 @@ dependencies {
 
 	// Flyway for database migrations
 	implementation 'org.flywaydb:flyway-core'
+	flyway 'org.flywaydb:flyway-core'
+	flyway 'com.h2database:h2:2.2.224'
 
 	// jOOQ code generation dependencies
 	jooqGenerator 'com.h2database:h2:2.2.224'
@@ -45,6 +48,7 @@ dependencies {
 	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
+	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0'
 	implementation "de.siegmar:fastcsv:4.0.0"
 	implementation "org.apache.httpcomponents.client5:httpclient5-win:5.2.3"
 	implementation "com.github.polygon-io:client-jvm:v5.1.2"
@@ -94,8 +98,22 @@ ktlint {
 	enableExperimentalRules = false
 	filter {
 		exclude("**/generated/**")
-		include("**/kotlin/**")
+		exclude("**/build/**")
+		exclude { it.file.absolutePath.contains("/build/") }
+		include("**/src/**/*.kt")
 	}
+}
+
+flyway {
+	url = 'jdbc:h2:file:~/.trading-app/database/trading;AUTO_SERVER=TRUE'
+	user = 'sa'
+	password = ''
+	migrationLocations = files('src/main/resources/db/migration')
+	configuration = [
+		'flyway.baselineOnMigrate': 'true',
+		'flyway.baselineVersion': '1',
+		'flyway.validateOnMigrate': 'true'
+	]
 }
 
 jooq {
@@ -106,7 +124,7 @@ jooq {
 			generationTool {
 				jdbc {
 					driver = 'org.h2.Driver'
-					url = 'jdbc:h2:file:~/.trading-app/database/trading'
+					url = 'jdbc:h2:file:~/.trading-app/database/trading;AUTO_SERVER=TRUE'
 					user = 'sa'
 					password = ''
 				}
@@ -133,5 +151,110 @@ jooq {
 				}
 			}
 		}
+	}
+}
+
+// Ensure Flyway migrations run before jOOQ code generation
+tasks.named('generateJooq') {
+	dependsOn 'flywayMigrate'
+}
+
+// H2 Database Tasks
+// =================
+
+/**
+ * Starts H2 database in TCP server mode for development
+ * This allows the database to be initialized before Spring Boot starts,
+ * reducing application startup time and allowing Flyway migrations to run first.
+ *
+ * Usage: ./gradlew startH2Server
+ * Stop with: ./gradlew stopH2Server or Ctrl+C
+ */
+tasks.register('startH2Server', JavaExec) {
+	group = 'database'
+	description = 'Starts H2 database in TCP server mode'
+
+	classpath = configurations.runtimeClasspath
+	mainClass = 'org.h2.tools.Server'
+	args = [
+		'-tcp', '-tcpAllowOthers', '-tcpPort', '9092',
+		'-web', '-webAllowOthers', '-webPort', '8082',
+		'-baseDir', System.getProperty('user.home') + '/.trading-app/database'
+	]
+
+	standardOutput = System.out
+	errorOutput = System.err
+
+	doFirst {
+		println """
+╔═══════════════════════════════════════════════════════╗
+║         Starting H2 Database Server                   ║
+╚═══════════════════════════════════════════════════════╝
+TCP Port:     9092
+Web Console:  http://localhost:8082
+JDBC URL:     jdbc:h2:tcp://localhost:9092/trading
+Base Dir:     ${System.getProperty('user.home')}/.trading-app/database
+
+Next steps:
+  1. Run migrations:  ./gradlew initDatabase
+  2. Start app:       ./gradlew bootRun
+
+Press Ctrl+C to stop the server
+"""
+	}
+}
+
+/**
+ * Stops the H2 database TCP server
+ *
+ * Usage: ./gradlew stopH2Server
+ */
+tasks.register('stopH2Server', JavaExec) {
+	group = 'database'
+	description = 'Stops the H2 database TCP server'
+
+	classpath = configurations.runtimeClasspath
+	mainClass = 'org.h2.tools.Server'
+	args = ['-tcpShutdown', 'tcp://localhost:9092']
+
+	doFirst {
+		println 'Stopping H2 Database Server...'
+	}
+	doLast {
+		println 'H2 Database Server stopped.'
+	}
+}
+
+/**
+ * Initializes the database by running Flyway migrations
+ * Run this after starting the H2 server and before starting the Spring Boot app
+ * This ensures the schema exists for JOOQ code generation during app startup
+ *
+ * Usage: ./gradlew initDatabase
+ */
+tasks.register('initDatabase') {
+	group = 'database'
+	description = 'Runs Flyway migrations (required before first app startup for JOOQ code generation)'
+
+	dependsOn 'flywayMigrate'
+
+	doFirst {
+		println """
+╔═══════════════════════════════════════════════════════╗
+║         Initializing Database                         ║
+╚═══════════════════════════════════════════════════════╝
+Running Flyway migrations...
+"""
+	}
+	doLast {
+		println """
+╔═══════════════════════════════════════════════════════╗
+║         Database Initialized Successfully             ║
+╚═══════════════════════════════════════════════════════╝
+You can now start the Spring Boot app:
+  ./gradlew bootRun
+
+JOOQ code will be generated automatically during startup.
+"""
 	}
 }
