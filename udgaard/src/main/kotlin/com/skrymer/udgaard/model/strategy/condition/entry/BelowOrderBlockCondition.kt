@@ -7,6 +7,7 @@ import com.skrymer.udgaard.domain.OrderBlockType
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
+import org.springframework.stereotype.Component
 import java.time.temporal.ChronoUnit
 
 /**
@@ -17,6 +18,7 @@ import java.time.temporal.ChronoUnit
  * @param percentBelow Percentage below order block required (e.g., 2.0 for 2%)
  * @param ageInDays Minimum age of order block to consider (default 30 days)
  */
+@Component
 class BelowOrderBlockCondition(
   private val percentBelow: Double = 2.0,
   private val ageInDays: Int = 30,
