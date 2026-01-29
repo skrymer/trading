@@ -64,7 +64,7 @@ class StockController(
    */
   @GetMapping("/{symbol}")
   @Transactional(readOnly = true)
-  fun getStock(
+  suspend fun getStock(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
   ): ResponseEntity<StockDomain> {
@@ -88,7 +88,7 @@ class StockController(
    */
   @GetMapping("/{symbol}/signals")
   @Transactional(readOnly = true)
-  fun getStockWithSignals(
+  suspend fun getStockWithSignals(
     @PathVariable symbol: String,
     @RequestParam entryStrategy: String,
     @RequestParam exitStrategy: String,
@@ -152,7 +152,7 @@ class StockController(
    */
   @GetMapping("/{symbol}/evaluate-date/{date}")
   @Transactional(readOnly = true)
-  fun evaluateConditionsForDate(
+  suspend fun evaluateConditionsForDate(
     @PathVariable symbol: String,
     @PathVariable date: String,
     @RequestParam entryStrategy: String,

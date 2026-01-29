@@ -40,9 +40,9 @@ class EntryStrategyBuilder {
     conditions.add(EmaAlignmentCondition(fastEmaPeriod, slowEmaPeriod))
   }
 
-  fun inValueZone(atrMultiplier: Double = 2.0) =
+  fun inValueZone(atrMultiplier: Double = 2.0, emaPeriod: Int) =
     apply {
-      conditions.add(ValueZoneCondition(atrMultiplier))
+      conditions.add(ValueZoneCondition(atrMultiplier, emaPeriod))
     }
 
   fun minimumPrice(dollars: Double = 10.0) =

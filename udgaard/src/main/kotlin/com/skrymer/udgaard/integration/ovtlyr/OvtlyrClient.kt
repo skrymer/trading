@@ -51,6 +51,7 @@ class OvtlyrClient(
         restClient
           .post()
           .header("ProjectId", projectIdHeader)
+          .header("Accept", "application/json")
           .cookie("UserId", cookieUserId)
           .cookie("Token", cookieToken)
           .contentType(MediaType.APPLICATION_JSON)

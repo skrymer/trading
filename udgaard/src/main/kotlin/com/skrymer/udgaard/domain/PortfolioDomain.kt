@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.domain
 
+import com.skrymer.udgaard.integration.broker.BrokerType
 import java.time.LocalDateTime
 
 /**
@@ -15,4 +16,8 @@ data class PortfolioDomain(
   val currency: String = "USD",
   val createdDate: LocalDateTime = LocalDateTime.now(),
   val lastUpdated: LocalDateTime = LocalDateTime.now(),
+  val broker: BrokerType = BrokerType.MANUAL,
+  val brokerAccountId: String? = null,
+  val brokerConfig: Map<String, String> = emptyMap(),
+  val lastSyncDate: LocalDateTime? = null,
 )

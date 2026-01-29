@@ -2,7 +2,6 @@ package com.skrymer.udgaard.integration.alphavantage
 
 import com.skrymer.udgaard.domain.EarningDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
-import com.skrymer.udgaard.integration.EtfProvider
 import com.skrymer.udgaard.integration.FundamentalDataProvider
 import com.skrymer.udgaard.integration.StockProvider
 import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
@@ -10,9 +9,10 @@ import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageADX
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageCompanyOverview
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEarnings
-import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageEtfProfile
 import com.skrymer.udgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
 import com.skrymer.udgaard.model.SectorSymbol
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -21,13 +21,12 @@ import org.springframework.web.client.RestClient
 import java.time.LocalDate
 
 /**
- * Alpha Vantage implementation of stock, ETF, technical indicator, and fundamental data providers
+ * Alpha Vantage implementation of stock, technical indicator, and fundamental data providers
  *
  * Documentation: https://www.alphavantage.co/documentation/
  *
  * Provides:
  * - Stock price data (adjusted for splits and dividends)
- * - ETF profile data (holdings, expense ratios, etc.)
  * - Technical indicators (ATR)
  * - Fundamental data (earnings history)
  *
@@ -42,13 +41,11 @@ open class AlphaVantageClient(
   @Value("\${alphavantage.api.key:}") private val apiKey: String,
   @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
 ) : StockProvider,
-  EtfProvider,
   TechnicalIndicatorProvider,
   FundamentalDataProvider {
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(AlphaVantageClient::class.java)
     private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
-    private const val FUNCTION_ETF_PROFILE = "ETF_PROFILE"
     private const val FUNCTION_ATR = "ATR"
     private const val FUNCTION_ADX = "ADX"
     private const val FUNCTION_EARNINGS = "EARNINGS"
@@ -78,113 +75,63 @@ open class AlphaVantageClient(
    * @param outputSize "compact" for last 100 data points, "full" for 20+ years of historical data
    * @return List of stock quotes with adjusted prices and volume data, or null if request fails
    */
-  override fun getDailyAdjustedTimeSeries(
+  override suspend fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String,
   ): List<StockQuoteDomain>? {
-    return runCatching {
-      val url = "$baseUrl?function=$FUNCTION_DAILY_ADJUSTED&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
-      logger.info("Fetching adjusted daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
-      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+    return withContext(Dispatchers.IO) {
+      runCatching {
+        val url = "$baseUrl?function=$FUNCTION_DAILY_ADJUSTED&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
+        logger.info("Fetching adjusted daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
+        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
-      val response =
-        restClient
-          .get()
-          .uri { uriBuilder ->
-            uriBuilder
-              .queryParam("function", FUNCTION_DAILY_ADJUSTED)
-              .queryParam("symbol", symbol)
-              .queryParam("outputsize", outputSize)
-              .queryParam("apikey", apiKey)
-              .build()
-          }.retrieve()
-          .toEntity(AlphaVantageTimeSeriesDailyAdjusted::class.java)
-          .body
+        val response =
+          restClient
+            .get()
+            .uri { uriBuilder ->
+              uriBuilder
+                .queryParam("function", FUNCTION_DAILY_ADJUSTED)
+                .queryParam("symbol", symbol)
+                .queryParam("outputsize", outputSize)
+                .queryParam("apikey", apiKey)
+                .build()
+            }.retrieve()
+            .toEntity(AlphaVantageTimeSeriesDailyAdjusted::class.java)
+            .body
 
-      if (response == null) {
-        logger.warn("No response received from Alpha Vantage for $symbol")
-        return null
-      }
+        if (response == null) {
+          logger.warn("No response received from Alpha Vantage for $symbol")
+          return@runCatching null
+        }
 
-      // Check if response contains an error
-      if (response.hasError()) {
-        logger.error("Alpha Vantage API error for $symbol: ${response.getErrorDescription()}")
-        return null
-      }
+        // Check if response contains an error
+        if (response.hasError()) {
+          logger.error("Alpha Vantage API error for $symbol: ${response.getErrorDescription()}")
+          return@runCatching null
+        }
 
-      // Check if response is valid (has required data)
-      if (!response.isValid()) {
-        logger.error("Alpha Vantage API returned invalid response for $symbol (missing Meta Data or Time Series)")
-        return null
-      }
+        // Check if response is valid (has required data)
+        if (!response.isValid()) {
+          logger.error("Alpha Vantage API returned invalid response for $symbol (missing Meta Data or Time Series)")
+          return@runCatching null
+        }
 
-      logger.debug("Response metadata: ${response.metaData}")
-      val quotes = response.toStockQuotes()
-      logger.info(
-        "Successfully fetched ${quotes.size} adjusted quotes for $symbol (${quotes.firstOrNull()?.date} to ${quotes.lastOrNull()?.date})",
-      )
+        logger.debug("Response metadata: ${response.metaData}")
+        val quotes = response.toStockQuotes()
+        logger.info(
+          "Successfully fetched ${quotes.size} adjusted quotes for $symbol (${quotes.firstOrNull()?.date} to ${quotes.lastOrNull()?.date})",
+        )
 
-      if (quotes.isNotEmpty()) {
-        val sampleQuote = quotes.first()
-        logger.debug("Sample quote: date=${sampleQuote.date}, close=${sampleQuote.closePrice}, volume=${sampleQuote.volume}")
-      }
+        if (quotes.isNotEmpty()) {
+          val sampleQuote = quotes.first()
+          logger.debug("Sample quote: date=${sampleQuote.date}, close=${sampleQuote.closePrice}, volume=${sampleQuote.volume}")
+        }
 
-      quotes
-    }.onFailure { e ->
-      logger.error("Failed to fetch adjusted data from Alpha Vantage for $symbol: ${e.message}", e)
-    }.getOrNull()
-  }
-
-  /**
-   * Get ETF profile information including holdings, expense ratio, AUM, etc.
-   *
-   * @param symbol ETF symbol (e.g., "SPY", "QQQ", "TQQQ")
-   * @return ETF profile data, or null if request fails
-   */
-  override fun getEtfProfile(symbol: String): AlphaVantageEtfProfile? {
-    return runCatching {
-      val url = "$baseUrl?function=$FUNCTION_ETF_PROFILE&symbol=$symbol&apikey=$apiKey"
-      logger.info("Fetching ETF profile for $symbol from Alpha Vantage")
-      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
-
-      val response =
-        restClient
-          .get()
-          .uri { uriBuilder ->
-            uriBuilder
-              .queryParam("function", FUNCTION_ETF_PROFILE)
-              .queryParam("symbol", symbol)
-              .queryParam("apikey", apiKey)
-              .build()
-          }.retrieve()
-          .toEntity(AlphaVantageEtfProfile::class.java)
-          .body
-
-      if (response == null) {
-        logger.warn("No response received from Alpha Vantage ETF profile for $symbol")
-        return null
-      }
-
-      // Check if response contains an error
-      if (response.hasError()) {
-        logger.error("Alpha Vantage API error for ETF profile $symbol: ${response.getErrorDescription()}")
-        return null
-      }
-
-      // Check if response is valid (has required data)
-      if (!response.isValid()) {
-        logger.error("Alpha Vantage API returned invalid ETF profile for $symbol (missing required fields)")
-        return null
-      }
-
-      logger.info(
-        "Successfully fetched ETF profile for $symbol (AUM: ${response.netAssets}, Expense Ratio: ${response.netExpenseRatio}, Holdings: ${response.holdings?.size ?: 0})",
-      )
-
-      response
-    }.onFailure { e ->
-      logger.error("Failed to fetch ETF profile from Alpha Vantage for $symbol: ${e.message}", e)
-    }.getOrNull()
+        quotes
+      }.onFailure { e ->
+        logger.error("Failed to fetch adjusted data from Alpha Vantage for $symbol: ${e.message}", e)
+      }.getOrNull()
+    }
   }
 
   /**
@@ -198,63 +145,65 @@ open class AlphaVantageClient(
    * @param timePeriod Number of data points used to calculate ATR (default: 14)
    * @return Map of date to ATR value, or null if request fails
    */
-  override fun getATR(
+  override suspend fun getATR(
     symbol: String,
     interval: String,
     timePeriod: Int,
   ): Map<LocalDate, Double>? {
-    return runCatching {
-      val url = "$baseUrl?function=$FUNCTION_ATR&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
-      logger.info("Fetching ATR for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
-      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+    return withContext(Dispatchers.IO) {
+      runCatching {
+        val url = "$baseUrl?function=$FUNCTION_ATR&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
+        logger.info("Fetching ATR for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
+        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
-      val response =
-        restClient
-          .get()
-          .uri { uriBuilder ->
-            uriBuilder
-              .queryParam("function", FUNCTION_ATR)
-              .queryParam("symbol", symbol)
-              .queryParam("interval", interval)
-              .queryParam("time_period", timePeriod)
-              .queryParam("apikey", apiKey)
-              .build()
-          }.retrieve()
-          .toEntity(AlphaVantageATR::class.java)
-          .body
+        val response =
+          restClient
+            .get()
+            .uri { uriBuilder ->
+              uriBuilder
+                .queryParam("function", FUNCTION_ATR)
+                .queryParam("symbol", symbol)
+                .queryParam("interval", interval)
+                .queryParam("time_period", timePeriod)
+                .queryParam("apikey", apiKey)
+                .build()
+            }.retrieve()
+            .toEntity(AlphaVantageATR::class.java)
+            .body
 
-      if (response == null) {
-        logger.warn("No response received from Alpha Vantage ATR for $symbol")
-        return null
-      }
+        if (response == null) {
+          logger.warn("No response received from Alpha Vantage ATR for $symbol")
+          return@runCatching null
+        }
 
-      // Check if response contains an error
-      if (response.hasError()) {
-        logger.error("Alpha Vantage API error for ATR $symbol: ${response.getErrorDescription()}")
-        return null
-      }
+        // Check if response contains an error
+        if (response.hasError()) {
+          logger.error("Alpha Vantage API error for ATR $symbol: ${response.getErrorDescription()}")
+          return@runCatching null
+        }
 
-      // Check if response is valid (has required data)
-      if (!response.isValid()) {
-        logger.error("Alpha Vantage API returned invalid ATR response for $symbol (missing Meta Data or Technical Analysis)")
-        return null
-      }
+        // Check if response is valid (has required data)
+        if (!response.isValid()) {
+          logger.error("Alpha Vantage API returned invalid ATR response for $symbol (missing Meta Data or Technical Analysis)")
+          return@runCatching null
+        }
 
-      val atrMap = response.toATRMap()
-      logger.info(
-        "Successfully fetched ${atrMap.size} ATR values for $symbol (${atrMap.keys.minOrNull()} to ${atrMap.keys.maxOrNull()})",
-      )
+        val atrMap = response.toATRMap()
+        logger.info(
+          "Successfully fetched ${atrMap.size} ATR values for $symbol (${atrMap.keys.minOrNull()} to ${atrMap.keys.maxOrNull()})",
+        )
 
-      if (atrMap.isNotEmpty()) {
-        val sampleEntry = atrMap.entries.first()
-        logger.debug("Sample ATR: date=${sampleEntry.key}, atr=${sampleEntry.value}")
-      }
+        if (atrMap.isNotEmpty()) {
+          val sampleEntry = atrMap.entries.first()
+          logger.debug("Sample ATR: date=${sampleEntry.key}, atr=${sampleEntry.value}")
+        }
 
-      atrMap
-    }.onFailure { e ->
-      logger.error("Failed to fetch ATR from Alpha Vantage for $symbol: ${e.message}", e)
-      logger.error("Stack trace:", e)
-    }.getOrNull()
+        atrMap
+      }.onFailure { e ->
+        logger.error("Failed to fetch ATR from Alpha Vantage for $symbol: ${e.message}", e)
+        logger.error("Stack trace:", e)
+      }.getOrNull()
+    }
   }
 
   /**
@@ -275,63 +224,65 @@ open class AlphaVantageClient(
    * @param timePeriod Number of data points used to calculate ADX (default: 14)
    * @return Map of date to ADX value, or null if request fails
    */
-  override fun getADX(
+  override suspend fun getADX(
     symbol: String,
     interval: String,
     timePeriod: Int,
   ): Map<LocalDate, Double>? {
-    return runCatching {
-      val url = "$baseUrl?function=$FUNCTION_ADX&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
-      logger.info("Fetching ADX for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
-      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+    return withContext(Dispatchers.IO) {
+      runCatching {
+        val url = "$baseUrl?function=$FUNCTION_ADX&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
+        logger.info("Fetching ADX for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
+        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
-      val response =
-        restClient
-          .get()
-          .uri { uriBuilder ->
-            uriBuilder
-              .queryParam("function", FUNCTION_ADX)
-              .queryParam("symbol", symbol)
-              .queryParam("interval", interval)
-              .queryParam("time_period", timePeriod)
-              .queryParam("apikey", apiKey)
-              .build()
-          }.retrieve()
-          .toEntity(AlphaVantageADX::class.java)
-          .body
+        val response =
+          restClient
+            .get()
+            .uri { uriBuilder ->
+              uriBuilder
+                .queryParam("function", FUNCTION_ADX)
+                .queryParam("symbol", symbol)
+                .queryParam("interval", interval)
+                .queryParam("time_period", timePeriod)
+                .queryParam("apikey", apiKey)
+                .build()
+            }.retrieve()
+            .toEntity(AlphaVantageADX::class.java)
+            .body
 
-      if (response == null) {
-        logger.warn("No response received from Alpha Vantage ADX for $symbol")
-        return null
-      }
+        if (response == null) {
+          logger.warn("No response received from Alpha Vantage ADX for $symbol")
+          return@runCatching null
+        }
 
-      // Check if response contains an error
-      if (response.hasError()) {
-        logger.error("Alpha Vantage API error for ADX $symbol: ${response.getErrorDescription()}")
-        return null
-      }
+        // Check if response contains an error
+        if (response.hasError()) {
+          logger.error("Alpha Vantage API error for ADX $symbol: ${response.getErrorDescription()}")
+          return@runCatching null
+        }
 
-      // Check if response is valid (has required data)
-      if (!response.isValid()) {
-        logger.error("Alpha Vantage API returned invalid ADX response for $symbol (missing Meta Data or Technical Analysis)")
-        return null
-      }
+        // Check if response is valid (has required data)
+        if (!response.isValid()) {
+          logger.error("Alpha Vantage API returned invalid ADX response for $symbol (missing Meta Data or Technical Analysis)")
+          return@runCatching null
+        }
 
-      val adxMap = response.toADXMap()
-      logger.info(
-        "Successfully fetched ${adxMap.size} ADX values for $symbol (${adxMap.keys.minOrNull()} to ${adxMap.keys.maxOrNull()})",
-      )
+        val adxMap = response.toADXMap()
+        logger.info(
+          "Successfully fetched ${adxMap.size} ADX values for $symbol (${adxMap.keys.minOrNull()} to ${adxMap.keys.maxOrNull()})",
+        )
 
-      if (adxMap.isNotEmpty()) {
-        val sampleEntry = adxMap.entries.first()
-        logger.debug("Sample ADX: date=${sampleEntry.key}, adx=${sampleEntry.value}")
-      }
+        if (adxMap.isNotEmpty()) {
+          val sampleEntry = adxMap.entries.first()
+          logger.debug("Sample ADX: date=${sampleEntry.key}, adx=${sampleEntry.value}")
+        }
 
-      adxMap
-    }.onFailure { e ->
-      logger.error("Failed to fetch ADX from Alpha Vantage for $symbol: ${e.message}", e)
-      logger.error("Stack trace:", e)
-    }.getOrNull()
+        adxMap
+      }.onFailure { e ->
+        logger.error("Failed to fetch ADX from Alpha Vantage for $symbol: ${e.message}", e)
+        logger.error("Stack trace:", e)
+      }.getOrNull()
+    }
   }
 
   /**
@@ -349,58 +300,60 @@ open class AlphaVantageClient(
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @return List of quarterly earnings, or null if request fails
    */
-  override fun getEarnings(symbol: String): List<EarningDomain>? {
-    return runCatching {
-      val url = "$baseUrl?function=$FUNCTION_EARNINGS&symbol=$symbol&apikey=$apiKey"
-      logger.info("Fetching earnings history for $symbol from Alpha Vantage")
-      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+  override suspend fun getEarnings(symbol: String): List<EarningDomain>? {
+    return withContext(Dispatchers.IO) {
+      runCatching {
+        val url = "$baseUrl?function=$FUNCTION_EARNINGS&symbol=$symbol&apikey=$apiKey"
+        logger.info("Fetching earnings history for $symbol from Alpha Vantage")
+        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
-      val response =
-        restClient
-          .get()
-          .uri { uriBuilder ->
-            uriBuilder
-              .queryParam("function", FUNCTION_EARNINGS)
-              .queryParam("symbol", symbol)
-              .queryParam("apikey", apiKey)
-              .build()
-          }.retrieve()
-          .toEntity(AlphaVantageEarnings::class.java)
-          .body
+        val response =
+          restClient
+            .get()
+            .uri { uriBuilder ->
+              uriBuilder
+                .queryParam("function", FUNCTION_EARNINGS)
+                .queryParam("symbol", symbol)
+                .queryParam("apikey", apiKey)
+                .build()
+            }.retrieve()
+            .toEntity(AlphaVantageEarnings::class.java)
+            .body
 
-      if (response == null) {
-        logger.warn("No response received from Alpha Vantage earnings for $symbol")
-        return null
-      }
+        if (response == null) {
+          logger.warn("No response received from Alpha Vantage earnings for $symbol")
+          return@runCatching null
+        }
 
-      // Check if response contains an error
-      if (response.hasError()) {
-        logger.error("Alpha Vantage API error for earnings $symbol: ${response.getErrorDescription()}")
-        return null
-      }
+        // Check if response contains an error
+        if (response.hasError()) {
+          logger.error("Alpha Vantage API error for earnings $symbol: ${response.getErrorDescription()}")
+          return@runCatching null
+        }
 
-      // Check if response is valid (has required data)
-      if (!response.isValid()) {
-        logger.error("Alpha Vantage API returned invalid earnings response for $symbol (missing symbol or quarterly earnings)")
-        return null
-      }
+        // Check if response is valid (has required data)
+        if (!response.isValid()) {
+          logger.error("Alpha Vantage API returned invalid earnings response for $symbol (missing symbol or quarterly earnings)")
+          return@runCatching null
+        }
 
-      val earnings = response.toEarnings()
-      logger.info(
-        "Successfully fetched ${earnings.size} quarterly earnings for $symbol (${earnings.firstOrNull()?.fiscalDateEnding} to ${earnings.lastOrNull()?.fiscalDateEnding})",
-      )
-
-      if (earnings.isNotEmpty()) {
-        val sampleEarning = earnings.last() // Most recent
-        logger.debug(
-          "Most recent earning: fiscalDate=${sampleEarning.fiscalDateEnding}, reportedDate=${sampleEarning.reportedDate}, reportedEPS=${sampleEarning.reportedEPS}",
+        val earnings = response.toEarnings()
+        logger.info(
+          "Successfully fetched ${earnings.size} quarterly earnings for $symbol (${earnings.firstOrNull()?.fiscalDateEnding} to ${earnings.lastOrNull()?.fiscalDateEnding})",
         )
-      }
 
-      earnings
-    }.onFailure { e ->
-      logger.error("Failed to fetch earnings from Alpha Vantage for $symbol: ${e.message}", e)
-    }.getOrNull()
+        if (earnings.isNotEmpty()) {
+          val sampleEarning = earnings.last() // Most recent
+          logger.debug(
+            "Most recent earning: fiscalDate=${sampleEarning.fiscalDateEnding}, reportedDate=${sampleEarning.reportedDate}, reportedEPS=${sampleEarning.reportedEPS}",
+          )
+        }
+
+        earnings
+      }.onFailure { e ->
+        logger.error("Failed to fetch earnings from Alpha Vantage for $symbol: ${e.message}", e)
+      }.getOrNull()
+    }
   }
 
   /**
@@ -417,52 +370,54 @@ open class AlphaVantageClient(
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @return SectorSymbol enum, or null if sector cannot be determined
    */
-  override fun getSectorSymbol(symbol: String): SectorSymbol? {
-    return runCatching {
-      val url = "$baseUrl?function=$FUNCTION_OVERVIEW&symbol=$symbol&apikey=$apiKey"
-      logger.info("Fetching company overview for $symbol from Alpha Vantage")
-      logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
+  override suspend fun getSectorSymbol(symbol: String): SectorSymbol? {
+    return withContext(Dispatchers.IO) {
+      runCatching {
+        val url = "$baseUrl?function=$FUNCTION_OVERVIEW&symbol=$symbol&apikey=$apiKey"
+        logger.info("Fetching company overview for $symbol from Alpha Vantage")
+        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
-      val response =
-        restClient
-          .get()
-          .uri { uriBuilder ->
-            uriBuilder
-              .queryParam("function", FUNCTION_OVERVIEW)
-              .queryParam("symbol", symbol)
-              .queryParam("apikey", apiKey)
-              .build()
-          }.retrieve()
-          .toEntity(AlphaVantageCompanyOverview::class.java)
-          .body
+        val response =
+          restClient
+            .get()
+            .uri { uriBuilder ->
+              uriBuilder
+                .queryParam("function", FUNCTION_OVERVIEW)
+                .queryParam("symbol", symbol)
+                .queryParam("apikey", apiKey)
+                .build()
+            }.retrieve()
+            .toEntity(AlphaVantageCompanyOverview::class.java)
+            .body
 
-      if (response == null) {
-        logger.warn("No response received from Alpha Vantage company overview for $symbol")
-        return null
-      }
+        if (response == null) {
+          logger.warn("No response received from Alpha Vantage company overview for $symbol")
+          return@runCatching null
+        }
 
-      // Check if response contains an error
-      if (response.hasError()) {
-        logger.error("Alpha Vantage API error for company overview $symbol: ${response.getErrorDescription()}")
-        return null
-      }
+        // Check if response contains an error
+        if (response.hasError()) {
+          logger.error("Alpha Vantage API error for company overview $symbol: ${response.getErrorDescription()}")
+          return@runCatching null
+        }
 
-      // Check if response is valid (has required data)
-      if (!response.isValid()) {
-        logger.error("Alpha Vantage API returned invalid company overview for $symbol (missing symbol or sector)")
-        return null
-      }
+        // Check if response is valid (has required data)
+        if (!response.isValid()) {
+          logger.error("Alpha Vantage API returned invalid company overview for $symbol (missing symbol or sector)")
+          return@runCatching null
+        }
 
-      val sectorSymbol = response.toSectorSymbol()
-      if (sectorSymbol != null) {
-        logger.info("Successfully mapped $symbol to sector ${response.sector} -> $sectorSymbol")
-      } else {
-        logger.warn("Could not map sector '${response.sector}' to SectorSymbol for $symbol")
-      }
+        val sectorSymbol = response.toSectorSymbol()
+        if (sectorSymbol != null) {
+          logger.info("Successfully mapped $symbol to sector ${response.sector} -> $sectorSymbol")
+        } else {
+          logger.warn("Could not map sector '${response.sector}' to SectorSymbol for $symbol")
+        }
 
-      sectorSymbol
-    }.onFailure { e ->
-      logger.error("Failed to fetch company overview from Alpha Vantage for $symbol: ${e.message}", e)
-    }.getOrNull()
+        sectorSymbol
+      }.onFailure { e ->
+        logger.error("Failed to fetch company overview from Alpha Vantage for $symbol: ${e.message}", e)
+      }.getOrNull()
+    }
   }
 }

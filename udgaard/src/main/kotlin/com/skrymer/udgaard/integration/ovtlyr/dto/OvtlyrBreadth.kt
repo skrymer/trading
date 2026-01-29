@@ -12,30 +12,42 @@ class OvtlyrBreadth {
   val resultDetail: String? = ""
 
   @JsonProperty("lst_h")
-  val quotes: List<OvtlyrBreadthQuote> = emptyList()
+  val quotes: List<OvtlyrBreadthQuote>? = null
 
   fun toModel(stockInSector: OvtlyrStockInformation?): BreadthDomain {
-    val breadthQuotes = quotes.map { it.toModel(this, stockInSector) }
+    val breadthQuotes = (quotes ?: emptyList()).map { it.toModel(this, stockInSector) }
+    val breadthSymbol = getBreadthSymbol()
 
-    return BreadthDomain(getBreadthSymbol().toIdentifier(), quotes = breadthQuotes.toMutableList())
+    // Extract symbolType and symbolValue from BreadthSymbol
+    val (symbolType, symbolValue) = when (breadthSymbol) {
+      is BreadthSymbol.Market -> "MARKET" to breadthSymbol.toIdentifier()
+      is BreadthSymbol.Sector -> "SECTOR" to breadthSymbol.toIdentifier()
+    }
+
+    return BreadthDomain(
+      symbolType = symbolType,
+      symbolValue = symbolValue,
+      quotes = breadthQuotes
+    )
   }
 
-  override fun toString() = "Symbol: ${getBreadthSymbol()}, Number of quotes: ${quotes.size}"
+  override fun toString() = "Symbol: ${getBreadthSymbol()}, Number of quotes: ${quotes?.size ?: 0}"
 
   fun getBreadthSymbol(): BreadthSymbol {
-    val symbolStr = quotes.firstOrNull()?.symbol
+    val symbolStr = quotes?.firstOrNull()?.symbol
     return BreadthSymbol.fromString(symbolStr)
       ?: BreadthSymbol.Market() // Default to market if parsing fails
   }
 
   fun getPreviousQuote(quote: OvtlyrBreadthQuote): OvtlyrBreadthQuote {
-    val sortedByDateAsc = quotes.sortedBy { it.quoteDate }
+    val quotesList = quotes ?: return quote
+    val sortedByDateAsc = quotesList.sortedBy { it.quoteDate }
     val quoteIndex = sortedByDateAsc.indexOf(quote)
 
     return if (quoteIndex == -1 || quoteIndex == 0) {
       quote
     } else {
-      quotes[quoteIndex - 1]
+      sortedByDateAsc[quoteIndex - 1]
     }
   }
 
@@ -43,7 +55,8 @@ class OvtlyrBreadth {
     quote: OvtlyrBreadthQuote,
     lookback: Int,
   ): List<OvtlyrBreadthQuote> {
-    val sortedByDateAsc = quotes.sortedBy { it.quoteDate }
+    val quotesList = quotes ?: return emptyList()
+    val sortedByDateAsc = quotesList.sortedBy { it.quoteDate }
     val quoteIndex = sortedByDateAsc.indexOf(quote)
 
     return if (quoteIndex < lookback) {

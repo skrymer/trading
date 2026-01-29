@@ -13,6 +13,7 @@ import com.skrymer.udgaard.model.LosingTradesATRStats
 import com.skrymer.udgaard.model.MarketConditionSnapshot
 import com.skrymer.udgaard.model.PeriodStats
 import com.skrymer.udgaard.model.SectorPerformance
+import com.skrymer.udgaard.model.StockPerformance
 import com.skrymer.udgaard.model.TimeBasedStats
 import com.skrymer.udgaard.model.Trade
 import com.skrymer.udgaard.model.backtest.PotentialEntry
@@ -24,14 +25,9 @@ import com.skrymer.udgaard.model.strategy.HeatmapRanker
 import com.skrymer.udgaard.model.strategy.StockRanker
 import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
 import com.skrymer.udgaard.repository.jooq.StockJooqRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Service for running backtests on trading strategies.
@@ -318,8 +314,8 @@ class BacktestService(
     val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
     val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
 
-    val trades = ConcurrentLinkedQueue<Trade>()
-    val missedTrades = ConcurrentLinkedQueue<Trade>()
+    val trades = mutableListOf<Trade>()
+    val missedTrades = mutableListOf<Trade>()
 
     // Step 1: Build date range - collect all unique trading dates from all stocks
     val allTradingDates = buildTradingDateRange(stocks, after, before)
@@ -327,7 +323,7 @@ class BacktestService(
     val positionInfo = maxPositions?.let { "max $it positions" } ?: "unlimited positions"
     val cooldownInfo = if (cooldownDays > 0) ", ${cooldownDays}d cooldown" else ""
     logger.info("Backtest: ${allTradingDates.size} trading days, $positionInfo$cooldownInfo")
-    logger.info("Parallel processing: ${stockPairs.size} stocks evaluated concurrently per date")
+    logger.info("Sequential processing: ${stockPairs.size} stocks evaluated per date")
 
     // Step 2: Process each date chronologically
     val totalDays = allTradingDates.size
@@ -340,42 +336,37 @@ class BacktestService(
         logger.info("Backtest progress: $currentPercent% (${index + 1}/$totalDays days, ${trades.size} trades)")
         lastLoggedPercent = currentPercent
       }
-      // Step 2a: For each stock pair, check if entry strategy matches on this date (PARALLEL)
+      // Step 2a: For each stock pair, check if entry strategy matches on this date (SEQUENTIAL)
       val entriesForThisDate =
-        runBlocking {
-          stockPairs
-            .map { stockPair ->
-              async(Dispatchers.Default) {
-                // Get quote for this specific date from STRATEGY stock (for entry evaluation)
-                val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
+        stockPairs
+          .mapNotNull { stockPair ->
+            // Get quote for this specific date from STRATEGY stock (for entry evaluation)
+            val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
 
-                // Also get quote from TRADING stock (for actual price/P&L)
-                val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
+            // Also get quote from TRADING stock (for actual price/P&L)
+            val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
 
-                if (strategyQuote != null && tradingQuote != null) {
-                  // Check global cooldown first if enabled (counting trading days, not calendar days)
-                  val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
+            if (strategyQuote != null && tradingQuote != null) {
+              // Check global cooldown first if enabled (counting trading days, not calendar days)
+              val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
 
-                  if (inCooldown) {
-                    // Skip this entry due to global cooldown
-                    null
-                  } else {
-                    // Convert to domain models for strategy testing
-                    val strategyStockDomain = stockPair.strategyStock
-                    if (entryStrategy.test(strategyStockDomain, strategyQuote)) {
-                      // Test strategy against the underlying/strategy stock
-                      PotentialEntry(stockPair, strategyQuote, tradingQuote)
-                    } else {
-                      null
-                    }
-                  }
+              if (inCooldown) {
+                // Skip this entry due to global cooldown
+                null
+              } else {
+                // Convert to domain models for strategy testing
+                val strategyStockDomain = stockPair.strategyStock
+                if (entryStrategy.test(strategyStockDomain, strategyQuote)) {
+                  // Test strategy against the underlying/strategy stock
+                  PotentialEntry(stockPair, strategyQuote, tradingQuote)
                 } else {
                   null
                 }
               }
-            }.awaitAll()
-            .filterNotNull()
-        }
+            } else {
+              null
+            }
+          }
 
       if (entriesForThisDate.isNotEmpty()) {
         // Step 2b: Rank entries by score (using strategy stock for ranking)
@@ -450,21 +441,18 @@ class BacktestService(
 
     logger.info("Calculating aggregate diagnostic statistics...")
 
-    // Convert ConcurrentLinkedQueue to List for further processing
-    val tradesList = trades.toList()
-    val missedTradesList = missedTrades.toList()
-
-    val (winningTrades, losingTrades) = tradesList.partition { it.profit > 0 }
+    val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
 
     // Calculate aggregate diagnostic statistics
-    val timeStats = calculateTimeBasedStats(tradesList)
-    val exitAnalysis = calculateExitReasonAnalysis(tradesList)
-    val sectorPerf = calculateSectorPerformance(tradesList)
+    val timeStats = calculateTimeBasedStats(trades)
+    val exitAnalysis = calculateExitReasonAnalysis(trades)
+    val sectorPerf = calculateSectorPerformance(trades)
+    val stockPerf = calculateStockPerformance(trades)
     val atrDrawdown = calculateATRDrawdownStats(winningTrades, losingTrades)
 
     // Calculate market condition averages
     val marketAvgs =
-      tradesList
+      trades
         .mapNotNull { it.marketConditionAtEntry }
         .let { conditions ->
           if (conditions.isEmpty()) {
@@ -484,10 +472,11 @@ class BacktestService(
     return BacktestReport(
       winningTrades,
       losingTrades,
-      missedTradesList,
+      missedTrades,
       timeBasedStats = timeStats,
       exitReasonAnalysis = exitAnalysis,
       sectorPerformance = sectorPerf,
+      stockPerformance = stockPerf,
       atrDrawdownStats = atrDrawdown,
       marketConditionAverages = marketAvgs,
     )
@@ -836,4 +825,43 @@ class BacktestService(
           avgHoldingDays = if (sectorTrades.isNotEmpty()) sectorTrades.map { it.tradingDays }.average() else 0.0,
         )
       }.sortedByDescending { it.trades }
+
+  /**
+   * Calculate performance statistics grouped by stock symbol.
+   * Returns list sorted by edge (descending), showing top performing stocks first.
+   */
+  private fun calculateStockPerformance(trades: List<Trade>): List<StockPerformance> =
+    trades
+      .groupBy { it.stockSymbol }
+      .map { (symbol, stockTrades) ->
+        val winners = stockTrades.count { it.profit > 0 }
+        val winRate = if (stockTrades.isNotEmpty()) (winners.toDouble() / stockTrades.size) else 0.0
+
+        val avgWinPercent =
+          if (winners > 0) {
+            stockTrades.filter { it.profit > 0 }.map { it.profitPercentage }.average()
+          } else {
+            0.0
+          }
+
+        val losers = stockTrades.size - winners
+        val avgLossPercent =
+          if (losers > 0) {
+            kotlin.math.abs(stockTrades.filter { it.profit <= 0 }.map { it.profitPercentage }.average())
+          } else {
+            0.0
+          }
+
+        val edge = (avgWinPercent * winRate) - ((1.0 - winRate) * avgLossPercent)
+
+        StockPerformance(
+          symbol = symbol,
+          trades = stockTrades.size,
+          winRate = winRate * 100, // Convert to percentage
+          avgProfit = if (stockTrades.isNotEmpty()) stockTrades.map { it.profitPercentage }.average() else 0.0,
+          avgHoldingDays = if (stockTrades.isNotEmpty()) stockTrades.map { it.tradingDays.toDouble() }.average() else 0.0,
+          totalProfitPercentage = stockTrades.sumOf { it.profitPercentage },
+          edge = edge,
+        )
+      }.sortedByDescending { it.edge }
 }

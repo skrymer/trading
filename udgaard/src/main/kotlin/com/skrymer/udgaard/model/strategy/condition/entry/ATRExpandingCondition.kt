@@ -109,17 +109,14 @@ class ATRExpandingCondition(
     val percentileRank = calculatePercentileRank(currentATR, historicalATRs)
 
     val previousQuote = stock.getPreviousQuote(quote)
-    val previousATR = previousQuote?.atr
-    if (previousATR == null) {
-      return ConditionEvaluationResult(
-        conditionType = "ATRExpandingCondition",
-        description = description(),
-        passed = false,
-        actualValue = "${"%.1f".format(percentileRank)}%",
-        threshold = "${"%.0f".format(minPercentile)}% < rank ≤ ${"%.0f".format(maxPercentile)}% and rising",
-        message = "Previous ATR not available ✗",
-      )
-    }
+    val previousATR = previousQuote?.atr ?: return ConditionEvaluationResult(
+      conditionType = "ATRExpandingCondition",
+      description = description(),
+      passed = false,
+      actualValue = "${"%.1f".format(percentileRank)}%",
+      threshold = "${"%.0f".format(minPercentile)}% < rank ≤ ${"%.0f".format(maxPercentile)}% and rising",
+      message = "Previous ATR not available ✗",
+    )
 
     val isRising = currentATR > previousATR
     val inRange = percentileRank > minPercentile && percentileRank <= maxPercentile

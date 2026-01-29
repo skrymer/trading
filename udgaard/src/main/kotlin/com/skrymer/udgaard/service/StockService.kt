@@ -40,7 +40,7 @@ open class StockService(
    * @param forceFetch - force fetch the stock from the ovtlyr API
    */
   @Transactional(readOnly = true)
-  open fun getStock(
+  open suspend fun getStock(
     symbol: String,
     forceFetch: Boolean = false,
   ): StockDomain? {
@@ -90,15 +90,22 @@ open class StockService(
       // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
       val sortedSymbols = symbols.sorted()
       val logger = LoggerFactory.getLogger("StockFetcher")
+      // Process up to 10 stocks in parallel
+      // Each stock makes ~5 API calls, but rate limiting is handled transparently by provider decorators
+      // The decorators use suspend functions with Mutex backpressure to enforce 5 requests/second limit
       val limited = Dispatchers.IO.limitedParallelism(10)
 
       if (forceFetch) {
+        // Fetch SPY ONCE before parallel processing to avoid redundant API calls
+        val spy = getSpy()
+        logger.info("Fetched SPY reference data once for batch of ${sortedSymbols.size} stocks")
+
         // Force fetch all symbols from API
         return@runBlocking sortedSymbols
           .map { symbol ->
             async(limited) {
               runCatching {
-                fetchStock(symbol, getSpy())
+                fetchStock(symbol, spy)
               }.onFailure { e ->
                 logger.warn("Failed to force fetch symbol={}: {}", symbol, e.message, e)
               }.getOrNull()
@@ -112,19 +119,23 @@ open class StockService(
     }
 
   /**
-   * Fetches stock data from AlphaVantage (primary) enriched with Ovtlyr indicators.
+   * Fetches stock data from primary provider enriched with Ovtlyr indicators.
    * Uses StockFactory to create the stock entity with all enrichments.
    *
-   * NEW ARCHITECTURE:
-   * - AlphaVantage provides: OHLCV (adjusted) + volume + ATR
-   * - We calculate: EMAs, Donchian channels, trend
-   * - Ovtlyr provides: Buy/sell signals, heatmaps, sector sentiment
+   * Data Pipeline:
+   * - StockProvider: OHLCV (adjusted) + volume
+   * - TechnicalIndicatorProvider: ATR, ADX
+   * - FundamentalDataProvider: Earnings, sector information
+   * - Internal calculation: EMAs, Donchian channels, trend
+   * - Ovtlyr enrichment: Buy/sell signals, heatmaps, sector sentiment
+   *
+   * Rate limiting is handled transparently by provider decorators.
    *
    * @param symbol - the stock symbol to fetch
    * @param spy - SPY reference data for enriching stock information
    * @return the fetched and saved stock, or null if fetch or save failed
    */
-  private fun fetchStock(
+  private suspend fun fetchStock(
     symbol: String,
     spy: OvtlyrStockInformation,
   ): StockDomain? {
@@ -169,7 +180,7 @@ open class StockService(
       val earnings = fundamentalDataProvider.getEarnings(symbol) ?: emptyList()
       logger.info("Fetched ${earnings.size} quarterly earnings for $symbol")
 
-      // Step 4: Get sector symbol from AlphaVantage (needed for sector breadth lookup)
+      // Step 4: Get sector symbol (needed for sector breadth lookup)
       logger.info("Fetching sector symbol for $symbol")
       val sectorSymbol = fundamentalDataProvider.getSectorSymbol(symbol)
       if (sectorSymbol == null) {
@@ -244,77 +255,6 @@ open class StockService(
     }.onFailure { action -> Companion.logger.error("Could not fetch stock $symbol", action) }
       .getOrNull()
   }
-  /**
-   * Recalculate order blocks for all stocks in the database.
-   *
-   * WARNING: This can take a while with many stocks.
-   * Processes stocks sequentially to avoid overwhelming the database.
-   *
-   * @return Map with summary: updatedCount, failedCount, totalBlocks
-   */
-
-//  @CacheEvict(value = ["stocks"], allEntries = true)
-//  open fun recalculateAllOrderBlocks(): Map<String, Any> {
-//    logger.info("Recalculating order blocks for ALL stocks in database")
-//
-//    val allStocks = stockRepository.findAll()
-//    var updatedCount = 0
-//    var failedCount = 0
-//    var totalBlocks = 0
-//
-//    allStocks.forEach { stock ->
-//      try {
-//        val symbol = stock.symbol ?: "UNKNOWN"
-//        logger.info("Recalculating order blocks for $symbol (${updatedCount + 1}/${allStocks.size})")
-//
-//        if (stock.quotes.isEmpty()) {
-//          logger.warn("Skipping $symbol: no quotes")
-//          failedCount++
-//          return@forEach
-//        }
-//
-//        // Recalculate with both sensitivities
-//        val orderBlocksHigh =
-//          orderBlockCalculator.calculateOrderBlocks(
-//            quotes = stock.quotes.sortedBy { it.date },
-//            sensitivity = 28.0,
-//            sensitivityLevel = OrderBlockSensitivity.HIGH,
-//          )
-//
-//        val orderBlocksLow =
-//          orderBlockCalculator.calculateOrderBlocks(
-//            quotes = stock.quotes.sortedBy { it.date },
-//            sensitivity = 50.0,
-//            sensitivityLevel = OrderBlockSensitivity.LOW,
-//          )
-//
-//        // Create new order blocks list
-//        val newOrderBlocks = (orderBlocksHigh + orderBlocksLow).toMutableList()
-//
-//        // Add new order blocks and set stock reference
-//        stock.orderBlocks.addAll(newOrderBlocks)
-//        stock.orderBlocks.forEach { it.stock = stock }
-//
-//        stockRepository.save(stock)
-//
-//        updatedCount++
-//        totalBlocks += newOrderBlocks.size
-//        logger.info("Updated $symbol: ${newOrderBlocks.size} blocks")
-//      } catch (e: Exception) {
-//        logger.error("Failed to recalculate order blocks for ${stock.symbol}: ${e.message}", e)
-//        failedCount++
-//      }
-//    }
-//
-//    logger.info("Recalculation complete: $updatedCount updated, $failedCount failed, $totalBlocks total blocks")
-//
-//    return mapOf(
-//      "updatedCount" to updatedCount,
-//      "failedCount" to failedCount,
-//      "totalBlocks" to totalBlocks,
-//      "totalStocks" to allStocks.size,
-//    )
-//  }
 
   /**
    * Get market breadth data for use in backtesting.
@@ -323,7 +263,15 @@ open class StockService(
   @Transactional(readOnly = true)
   open fun getMarketBreadth(): BreadthDomain? = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
 
-  private fun getSpy(): OvtlyrStockInformation {
+  /**
+   * Get SPY reference data from Ovtlyr.
+   * Cached for 30 minutes to reduce API calls during batch stock refreshes.
+   *
+   * @return SPY stock information from Ovtlyr
+   */
+  @Cacheable(value = ["spy"], key = "'SPY'")
+  open fun getSpy(): OvtlyrStockInformation {
+    logger.info("Fetching SPY reference data from Ovtlyr (cache miss)")
     val spy: OvtlyrStockInformation? = ovtlyrClient.getStockInformation("SPY")
     checkNotNull(spy) { "Failed to fetch SPY reference data" }
     return spy

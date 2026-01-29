@@ -320,6 +320,11 @@ const chartColors = computed(() => {
                 :report="backtestReport"
                 :loading="false"
               />
+              <BacktestingStockPerformance
+                v-if="backtestReport"
+                :report="backtestReport"
+                :loading="false"
+              />
               <BacktestingSectorAnalysis
                 v-if="backtestReport"
                 :report="backtestReport"

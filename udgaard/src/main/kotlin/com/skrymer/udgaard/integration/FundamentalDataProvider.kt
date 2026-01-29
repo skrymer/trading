@@ -9,6 +9,8 @@ import com.skrymer.udgaard.model.SectorSymbol
  * Implementations should provide fundamental company data such as
  * earnings, financial statements, ratios, and other non-price metrics
  * used for fundamental analysis.
+ *
+ * All methods are suspend functions to support rate limiting with true backpressure.
  */
 interface FundamentalDataProvider {
   /**
@@ -26,7 +28,7 @@ interface FundamentalDataProvider {
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @return List of quarterly earnings, or null if unavailable
    */
-  fun getEarnings(symbol: String): List<EarningDomain>?
+  suspend fun getEarnings(symbol: String): List<EarningDomain>?
 
   /**
    * Get sector symbol for a stock
@@ -37,5 +39,5 @@ interface FundamentalDataProvider {
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @return SectorSymbol enum, or null if sector cannot be determined
    */
-  fun getSectorSymbol(symbol: String): SectorSymbol?
+  suspend fun getSectorSymbol(symbol: String): SectorSymbol?
 }

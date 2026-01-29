@@ -40,13 +40,6 @@ class OrderBlockExit(
             min = 1,
             max = 365,
           ),
-          ParameterMetadata(
-            name = "source",
-            displayName = "Source",
-            type = "select",
-            defaultValue = "CALCULATED",
-            options = listOf("CALCULATED", "OVTLYR", "ALL"),
-          ),
         ),
       category = "ProfitTaking",
     )

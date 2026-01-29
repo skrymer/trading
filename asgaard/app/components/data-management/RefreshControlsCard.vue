@@ -8,8 +8,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'refresh-stocks': []
   'refresh-breadth': []
-  'pause': []
-  'resume': []
 }>()
 
 const progressPercentage = computed(() => {
@@ -58,24 +56,6 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
         <span v-if="progress.failed > 0" class="text-red-600">
           Failed: {{ progress.failed }}
         </span>
-      </div>
-
-      <!-- Pause/Resume -->
-      <div class="flex gap-2">
-        <UButton
-          label="Pause"
-          icon="i-lucide-pause"
-          size="sm"
-          variant="outline"
-          @click="emit('pause')"
-        />
-        <UButton
-          label="Resume"
-          icon="i-lucide-play"
-          size="sm"
-          variant="outline"
-          @click="emit('resume')"
-        />
       </div>
 
       <!-- Error Display -->

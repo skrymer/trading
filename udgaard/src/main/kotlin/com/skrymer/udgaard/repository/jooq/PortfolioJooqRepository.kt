@@ -36,7 +36,7 @@ class PortfolioJooqRepository(
     val portfolios =
       dsl
         .selectFrom(PORTFOLIOS)
-        .orderBy(PORTFOLIOS.CREATED_DATE.desc())
+        .orderBy(PORTFOLIOS.CREATED_AT.desc())
         .fetchInto(Portfolios::class.java)
 
     return portfolios.map { mapper.toDomain(it) }
@@ -50,7 +50,7 @@ class PortfolioJooqRepository(
       dsl
         .selectFrom(PORTFOLIOS)
         .where(PORTFOLIOS.USER_ID.eq(userId))
-        .orderBy(PORTFOLIOS.CREATED_DATE.desc())
+        .orderBy(PORTFOLIOS.CREATED_AT.desc())
         .fetchInto(Portfolios::class.java)
 
     return portfolios.map { mapper.toDomain(it) }
@@ -73,8 +73,11 @@ class PortfolioJooqRepository(
           .set(PORTFOLIOS.INITIAL_BALANCE, pojo.initialBalance)
           .set(PORTFOLIOS.CURRENT_BALANCE, pojo.currentBalance)
           .set(PORTFOLIOS.CURRENCY, pojo.currency)
-          .set(PORTFOLIOS.CREATED_DATE, pojo.createdDate)
-          .set(PORTFOLIOS.LAST_UPDATED, pojo.lastUpdated)
+          .set(PORTFOLIOS.CREATED_AT, pojo.createdAt)
+          .set(PORTFOLIOS.UPDATED_AT, pojo.updatedAt)
+          .set(PORTFOLIOS.BROKER, pojo.broker)
+          .set(PORTFOLIOS.BROKER_CONFIG, pojo.brokerConfig)
+          .set(PORTFOLIOS.LAST_SYNC_DATE, pojo.lastSyncDate)
           .returningResult(PORTFOLIOS.ID)
           .fetchOne()
 
@@ -89,7 +92,10 @@ class PortfolioJooqRepository(
         .set(PORTFOLIOS.INITIAL_BALANCE, pojo.initialBalance)
         .set(PORTFOLIOS.CURRENT_BALANCE, pojo.currentBalance)
         .set(PORTFOLIOS.CURRENCY, pojo.currency)
-        .set(PORTFOLIOS.LAST_UPDATED, pojo.lastUpdated)
+        .set(PORTFOLIOS.UPDATED_AT, pojo.updatedAt)
+        .set(PORTFOLIOS.BROKER, pojo.broker)
+        .set(PORTFOLIOS.BROKER_CONFIG, pojo.brokerConfig)
+        .set(PORTFOLIOS.LAST_SYNC_DATE, pojo.lastSyncDate)
         .where(PORTFOLIOS.ID.eq(portfolio.id))
         .execute()
 

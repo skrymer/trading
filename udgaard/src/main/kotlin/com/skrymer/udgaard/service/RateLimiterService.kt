@@ -1,85 +1,71 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.config.AlphaVantageRateLimitConfig
-import com.skrymer.udgaard.controller.dto.RateLimitStats
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Multi-provider rate limiting service.
+ *
+ * Manages rate limiters for multiple data providers (AlphaVantage, Yahoo Finance, etc.)
+ * Each provider has independent rate limits and tracking.
+ *
+ * Usage:
+ * 1. Register providers: registerProvider(providerId, limits)
+ * 2. Acquire permits: acquirePermit(providerId) - suspends until available
+ * 3. Monitor usage: getProviderStats(providerId)
+ */
 @Service
-class RateLimiterService(
-  private val config: AlphaVantageRateLimitConfig,
-) {
-  private val requestQueue = ConcurrentLinkedQueue<Instant>()
+class RateLimiterService {
+  private val logger = LoggerFactory.getLogger(RateLimiterService::class.java)
+  private val providers = ConcurrentHashMap<String, ProviderRateLimiter>()
 
   /**
-   * Check if a new API request can be made without exceeding rate limits
+   * Register a new provider with specific rate limits
    */
-  fun canMakeRequest(): Boolean {
-    val now = Instant.now()
-    cleanOldRequests(now)
+  fun registerProvider(
+    providerId: String,
+    requestsPerSecond: Int,
+    requestsPerMinute: Int,
+    requestsPerDay: Int,
+  ) {
+    if (providers.containsKey(providerId)) {
+      logger.warn("Provider $providerId already registered, replacing with new configuration")
+    }
 
-    val lastMinute = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.MINUTES)) }
-    val lastDay = requestQueue.count { it.isAfter(now.minus(24, ChronoUnit.HOURS)) }
+    providers[providerId] = ProviderRateLimiter(
+      providerId = providerId,
+      requestsPerSecond = requestsPerSecond,
+      requestsPerMinute = requestsPerMinute,
+      requestsPerDay = requestsPerDay,
+    )
 
-    return lastMinute < config.requestsPerMinute && lastDay < config.requestsPerDay
-  }
-
-  /**
-   * Record a new API request
-   */
-  fun recordRequest() {
-    requestQueue.add(Instant.now())
-  }
-
-  /**
-   * Get current usage statistics
-   */
-  fun getUsageStats(): RateLimitStats {
-    val now = Instant.now()
-    cleanOldRequests(now)
-
-    val lastMinute = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.MINUTES)) }
-    val lastDay = requestQueue.count { it.isAfter(now.minus(24, ChronoUnit.HOURS)) }
-
-    return RateLimitStats(
-      requestsLastMinute = lastMinute,
-      requestsLastDay = lastDay,
-      remainingMinute = config.requestsPerMinute - lastMinute,
-      remainingDaily = config.requestsPerDay - lastDay,
-      minuteLimit = config.requestsPerMinute,
-      dailyLimit = config.requestsPerDay,
-      resetMinute = calculateResetTime(1, ChronoUnit.MINUTES),
-      resetDaily = calculateResetTime(24, ChronoUnit.HOURS),
+    logger.info(
+      "Registered provider $providerId with limits: $requestsPerSecond/sec, $requestsPerMinute/min, $requestsPerDay/day",
     )
   }
 
   /**
-   * Remove requests older than 24 hours from the queue
+   * Acquire a permit to make an API request for a specific provider.
+   * Suspends the coroutine until rate limits allow the request.
+   *
+   * @param providerId The provider identifier (e.g., "alphavantage")
+   * @throws IllegalStateException if provider is not registered
    */
-  private fun cleanOldRequests(now: Instant) {
-    val cutoff = now.minus(24, ChronoUnit.HOURS)
-    while (requestQueue.peek()?.isBefore(cutoff) == true) {
-      requestQueue.poll()
-    }
+  suspend fun acquirePermit(providerId: String) {
+    val rateLimiter = providers[providerId]
+      ?: throw IllegalStateException("Provider $providerId not registered. Call registerProvider() first.")
+
+    rateLimiter.acquirePermit()
   }
 
   /**
-   * Calculate seconds until the rate limit window resets
+   * Get usage statistics for a specific provider
    */
-  private fun calculateResetTime(
-    amount: Long,
-    unit: ChronoUnit,
-  ): Long {
-    val now = Instant.now()
-    val oldestInWindow = requestQueue.firstOrNull { it.isAfter(now.minus(amount, unit)) }
+  fun getProviderStats(providerId: String): ProviderRateLimitStats? = providers[providerId]?.getUsageStats()
 
-    return if (oldestInWindow != null) {
-      val resetTime = oldestInWindow.plus(amount, unit)
-      ChronoUnit.SECONDS.between(now, resetTime).coerceAtLeast(0)
-    } else {
-      0
-    }
-  }
+  /**
+   * Get usage statistics for all registered providers
+   */
+  fun getAllProviderStats(): Map<String, ProviderRateLimitStats> = providers.mapValues { it.value.getUsageStats() }
 }

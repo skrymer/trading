@@ -4,26 +4,25 @@ import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
- * Plan ETF entry strategy using composition.
- * Enters when:
- * - Stock is in uptrend
- * - Has buy signal
- * - Heatmap < 70
- * - Price is within value zone (< 20 EMA + 2 ATR)
- * - Price is at least 2% below an order block older than 15 days
+ * Project X entry strategy using composition.
  */
 @RegisteredStrategy(name = "PlanEtf", type = StrategyType.ENTRY)
-class PlanEtfEntryStrategy : DetailedEntryStrategy {
+class ProjectXEntryStrategy : DetailedEntryStrategy {
   private val compositeStrategy =
     entryStrategy {
-      uptrend()
-      buySignal(daysOld = -1) // Accept any buy signal age
-      heatmap(70)
-      inValueZone(2.0)
-      belowOrderBlock(percentBelow = 2.0, ageInDays = 15)
+      // Structure (up trend)
+      priceAbove(50)
+      priceAbove(100)
+      priceAbove(200)
+
+      // In value zone
+      inValueZone(2.5, 5)
+
+      // at least 2 percent below 30 days old order block
+      belowOrderBlock(2.0, 30)
     }
 
-  override fun description() = "Plan ETF entry strategy"
+  override fun description() = "Project X entry strategy"
 
   override fun test(
     stock: StockDomain,

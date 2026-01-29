@@ -108,7 +108,7 @@ class OvtlyrEnrichmentService(
    * Enrich a single quote with Ovtlyr data.
    */
   private fun enrichQuoteWithOvtlyr(
-    alphaQuote: StockQuoteDomain,
+    stockQuoteDomain: StockQuoteDomain,
     ovtlyrQuote: OvtlyrStockQuote,
     ovtlyrStock: OvtlyrStockInformation,
     marketBreadth: BreadthDomain?,
@@ -138,8 +138,8 @@ class OvtlyrEnrichmentService(
     // Calculate market advancing percent from breadth data
     val marketAdvancing = calculateMarketAdvancingPercent(marketBreadth, ovtlyrQuote.getDate())
 
-    // Enrich AlphaVantage quote with Ovtlyr-specific data
-    alphaQuote.apply {
+    // Enrich stock quote domain with Ovtlyr-specific data
+    stockQuoteDomain.apply {
       // Buy/sell signals
       signal = ovtlyrQuote.signal
       lastBuySignal = ovtlyrStock.getLastBuySignal(ovtlyrQuote.getDate())
@@ -164,6 +164,8 @@ class OvtlyrEnrichmentService(
       marketIsInUptrend = marketInUptrend
       marketDonkeyChannelScore = marketDonkeyScore
       marketAdvancingPercent = marketAdvancing
+      marketBullPercentage = marketBreadthQuote?.bullStocksPercentage ?: 0.0
+      marketBullPercentage_10ema = marketBreadthQuote?.ema_10 ?: 0.0
 
       // SPY context
       spySignal = currentSpySignal

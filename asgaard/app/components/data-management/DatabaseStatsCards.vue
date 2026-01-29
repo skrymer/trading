@@ -12,7 +12,7 @@ defineProps<{
       Database Statistics
     </h3>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Total Stocks -->
       <UCard>
         <div>
@@ -38,22 +38,7 @@ defineProps<{
             {{ stats.breadthStats.totalBreadthSymbols }}
           </p>
           <p class="text-xs text-muted mt-1">
-            SPY, QQQ, IWM
-          </p>
-        </div>
-      </UCard>
-
-      <!-- Total ETFs -->
-      <UCard>
-        <div>
-          <p class="text-sm text-muted">
-            ETFs Tracked
-          </p>
-          <p class="text-3xl font-bold">
-            {{ stats.etfStats.totalEtfs }}
-          </p>
-          <p class="text-xs text-muted mt-1">
-            Sector ETFs
+            Market and Sector Breadth
           </p>
         </div>
       </UCard>

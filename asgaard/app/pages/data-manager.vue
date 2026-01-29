@@ -86,49 +86,6 @@ async function handleRefreshBreadth() {
   }
 }
 
-// Pause refresh
-async function handlePause() {
-  try {
-    await $fetch('/udgaard/api/data-management/refresh/pause', {
-      method: 'POST'
-    })
-    toast.add({
-      title: 'Paused',
-      description: 'Refresh has been paused',
-      color: 'info'
-    })
-  } catch (error) {
-    console.error('Failed to pause refresh:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to pause refresh',
-      color: 'error'
-    })
-  }
-}
-
-// Resume refresh
-async function handleResume() {
-  try {
-    await $fetch('/udgaard/api/data-management/refresh/resume', {
-      method: 'POST'
-    })
-    toast.add({
-      title: 'Resumed',
-      description: 'Refresh has been resumed',
-      color: 'success'
-    })
-    startPolling()
-  } catch (error) {
-    console.error('Failed to resume refresh:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to resume refresh',
-      color: 'error'
-    })
-  }
-}
-
 // Start polling for progress updates
 function startPolling() {
   if (pollingInterval.value) return
@@ -195,27 +152,23 @@ onUnmounted(() => {
       </UDashboardNavbar>
     </template>
 
-    <template>
-      <div v-if="loading && !rateLimitStats && !dbStats" class="flex items-center justify-center h-96">
-        <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin" />
-      </div>
+    <div v-if="loading && !rateLimitStats && !dbStats" class="flex items-center justify-center h-96">
+      <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin" />
+    </div>
 
-      <div v-else class="space-y-6 p-6">
-        <!-- Section 1: Rate Limit Status -->
-        <DataManagementRateLimitCard v-if="rateLimitStats" :rate-limit="rateLimitStats" />
+    <div v-else class="space-y-6 p-6">
+      <!-- Section 1: Rate Limit Status -->
+      <DataManagementRateLimitCard v-if="rateLimitStats" :rate-limit="rateLimitStats" />
 
-        <!-- Section 2: Database Statistics -->
-        <DataManagementDatabaseStatsCards v-if="dbStats" :stats="dbStats" />
+      <!-- Section 2: Database Statistics -->
+      <DataManagementDatabaseStatsCards v-if="dbStats" :stats="dbStats" />
 
-        <!-- Section 3: Refresh Controls -->
-        <DataManagementRefreshControlsCard
-          :progress="refreshProgress"
-          @refresh-stocks="handleRefreshStocks"
-          @refresh-breadth="handleRefreshBreadth"
-          @pause="handlePause"
-          @resume="handleResume"
-        />
-      </div>
-    </template>
+      <!-- Section 3: Refresh Controls -->
+      <DataManagementRefreshControlsCard
+        :progress="refreshProgress"
+        @refresh-stocks="handleRefreshStocks"
+        @refresh-breadth="handleRefreshBreadth"
+      />
+    </div>
   </UDashboardPanel>
 </template>

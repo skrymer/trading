@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.integration.alphavantage
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -12,8 +13,9 @@ internal class AlphavantageClientTest {
 
   @Test
   fun `test get daily adjusted time series for stock`() {
-    val quotes = alphaVantageClient.getDailyAdjustedTimeSeries("PLTR", "compact")
-
+    val quotes = runBlocking {
+      alphaVantageClient.getDailyAdjustedTimeSeries("PLTR", "compact")
+    }
     // Note: This test may return null if:
     // 1. Alpha Vantage API rate limit is exceeded (75 calls/min for premium tier)
     // 2. API key is invalid or not configured
@@ -21,8 +23,6 @@ internal class AlphavantageClientTest {
     // The important thing is that it doesn't crash on error responses
 
     if (quotes != null && quotes.isNotEmpty()) {
-      Assertions.assertTrue(quotes.isNotEmpty(), "Should return adjusted quotes for PLTR when API succeeds")
-
       // Verify that prices are adjusted (all OHLC should be adjusted)
       val firstQuote = quotes.first()
       Assertions.assertTrue(firstQuote.openPrice > 0, "Open price should be adjusted")

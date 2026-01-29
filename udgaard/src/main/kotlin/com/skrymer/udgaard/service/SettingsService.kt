@@ -41,6 +41,8 @@ class SettingsService {
       ovtlyrToken = properties.getProperty("ovtlyr.cookies.token", ""),
       ovtlyrUserId = properties.getProperty("ovtlyr.cookies.userid", ""),
       alphaVantageApiKey = properties.getProperty("alphavantage.api.key", ""),
+      ibkrAccountId = properties.getProperty("ibkr.account.id", ""),
+      ibkrFlexQueryId = properties.getProperty("ibkr.flexquery.id", ""),
     )
   }
 
@@ -56,6 +58,8 @@ class SettingsService {
     properties.setProperty("ovtlyr.cookies.token", credentials.ovtlyrToken)
     properties.setProperty("ovtlyr.cookies.userid", credentials.ovtlyrUserId)
     properties.setProperty("alphavantage.api.key", credentials.alphaVantageApiKey)
+    properties.setProperty("ibkr.account.id", credentials.ibkrAccountId)
+    properties.setProperty("ibkr.flexquery.id", credentials.ibkrFlexQueryId)
 
     // Save to file
     FileOutputStream(configFile).use { output ->
@@ -68,6 +72,8 @@ class SettingsService {
     System.setProperty("ovtlyr.cookies.token", credentials.ovtlyrToken)
     System.setProperty("ovtlyr.cookies.userid", credentials.ovtlyrUserId)
     System.setProperty("alphavantage.api.key", credentials.alphaVantageApiKey)
+    System.setProperty("ibkr.account.id", credentials.ibkrAccountId)
+    System.setProperty("ibkr.flexquery.id", credentials.ibkrFlexQueryId)
   }
 
   fun getCredentialsStatus(): Map<String, Boolean> {
@@ -75,6 +81,7 @@ class SettingsService {
     return mapOf(
       "ovtlyrConfigured" to (credentials.ovtlyrToken.isNotBlank() && credentials.ovtlyrUserId.isNotBlank()),
       "alphaVantageConfigured" to credentials.alphaVantageApiKey.isNotBlank(),
+      "ibkrConfigured" to (credentials.ibkrAccountId.isNotBlank() && credentials.ibkrFlexQueryId.isNotBlank()),
       "configFileExists" to configFile.exists(),
     )
   }
@@ -93,6 +100,11 @@ class SettingsService {
       # Alpha Vantage API Key
       # Get your free API key at: https://www.alphavantage.co/support/#api-key
       alphavantage.api.key=
+
+      # Interactive Brokers Configuration
+      # Get Account ID from IBKR portal, Flex Query ID from Flex Query setup
+      ibkr.account.id=
+      ibkr.flexquery.id=
       """.trimIndent()
 
     configFile.writeText(template)

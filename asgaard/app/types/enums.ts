@@ -111,3 +111,33 @@ export const MonteCarloTechniqueDescriptions: Record<MonteCarloTechnique, { name
     description: 'Randomizes price paths while maintaining statistical properties (not yet implemented)'
   }
 }
+
+export enum BrokerType {
+  MANUAL = 'MANUAL',
+  IBKR = 'IBKR'
+}
+
+export const BrokerTypeDescriptions: Record<BrokerType, string> = {
+  [BrokerType.MANUAL]: 'Manual Entry',
+  [BrokerType.IBKR]: 'Interactive Brokers'
+}
+
+export enum PositionStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED'
+}
+
+export const PositionStatusDescriptions: Record<PositionStatus, string> = {
+  [PositionStatus.OPEN]: 'Open',
+  [PositionStatus.CLOSED]: 'Closed'
+}
+
+export enum PositionSource {
+  BROKER = 'BROKER',
+  MANUAL = 'MANUAL'
+}
+
+export const PositionSourceDescriptions: Record<PositionSource, string> = {
+  [PositionSource.BROKER]: 'Broker Import',
+  [PositionSource.MANUAL]: 'Manual Entry'
+}

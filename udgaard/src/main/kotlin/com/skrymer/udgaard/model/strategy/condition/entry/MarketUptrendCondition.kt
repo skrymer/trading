@@ -34,21 +34,22 @@ class MarketUptrendCondition : EntryCondition {
     quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val passed = evaluate(stock, quote)
-    val breadth = quote.marketAdvancingPercent
+    val bullPercentage = quote.marketBullPercentage
+    val ema10 = quote.marketBullPercentage_10ema
 
     val message =
       if (passed) {
-        "Market breadth %.1f%% is above 10 EMA ✓".format(breadth)
+        "Market bull percentage %.1f%% is above 10 EMA (%.1f%%) ✓".format(bullPercentage, ema10)
       } else {
-        "Market breadth %.1f%% is below 10 EMA ✗".format(breadth)
+        "Market bull percentage %.1f%% is below 10 EMA (%.1f%%) ✗".format(bullPercentage, ema10)
       }
 
     return ConditionEvaluationResult(
       conditionType = "MarketUptrendCondition",
       description = description(),
       passed = passed,
-      actualValue = "%.1f%%".format(breadth),
-      threshold = "> 10 EMA",
+      actualValue = "%.1f%%".format(bullPercentage),
+      threshold = "> %.1f%% (10 EMA)".format(ema10),
       message = message,
     )
   }

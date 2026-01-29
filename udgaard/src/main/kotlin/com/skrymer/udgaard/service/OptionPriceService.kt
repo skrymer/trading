@@ -2,7 +2,7 @@ package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.domain.InstrumentTypeDomain
 import com.skrymer.udgaard.domain.OptionTypeDomain
-import com.skrymer.udgaard.domain.PortfolioTradeDomain
+import com.skrymer.udgaard.domain.PositionDomain
 import com.skrymer.udgaard.integration.options.OptionContract
 import com.skrymer.udgaard.integration.options.OptionsDataProvider
 import org.slf4j.Logger
@@ -103,22 +103,22 @@ class OptionPriceService(
     )
 
   /**
-   * Get option price and Greeks for a trade at a specific date.
+   * Get option price and Greeks for a position at a specific date.
    * Returns full contract details including Greeks.
    */
-  fun getOptionDataForTrade(
-    trade: PortfolioTradeDomain,
+  fun getOptionDataForPosition(
+    position: PositionDomain,
     date: LocalDate,
   ): OptionContract? {
-    if (trade.instrumentType != InstrumentTypeDomain.OPTION) return null
+    if (position.instrumentType != InstrumentTypeDomain.OPTION) return null
 
-    val underlying = trade.symbol
+    val underlying = position.underlyingSymbol ?: position.symbol
 
     return getHistoricalOptionPrice(
       underlyingSymbol = underlying,
-      strike = trade.strikePrice!!,
-      expiration = trade.expirationDate!!,
-      optionType = trade.optionType!!,
+      strike = position.strikePrice!!,
+      expiration = position.expirationDate!!,
+      optionType = position.optionType!!,
       date = date,
     )
   }

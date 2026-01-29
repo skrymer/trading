@@ -2,7 +2,6 @@ package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.controller.dto.*
 import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
-import com.skrymer.udgaard.repository.jooq.EtfJooqRepository
 import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,14 +11,12 @@ import java.time.LocalDateTime
 class DataStatsService(
   private val stockRepository: StockJooqRepository,
   private val breadthRepository: BreadthJooqRepository,
-  private val etfRepository: EtfJooqRepository,
 ) {
   @Transactional(readOnly = true)
   fun calculateStats(): DatabaseStats =
     DatabaseStats(
       stockStats = calculateStockStats(),
       breadthStats = calculateBreadthStats(),
-      etfStats = calculateEtfStats(),
       totalDataPoints = 0, // Simplified - not counting quotes
       estimatedSizeKB = 0, // Simplified - not estimating size
       generatedAt = LocalDateTime.now(),
@@ -53,20 +50,6 @@ class DataStatsService(
       totalBreadthQuotes = 0, // Simplified - not counting
       breadthSymbols = emptyList(), // Simplified - not querying
       dateRange = null, // Simplified - not querying
-    )
-  }
-
-  private fun calculateEtfStats(): EtfDataStats {
-    // Only count ETFs, not expensive quote/holdings counting
-    val totalEtfs = etfRepository.count()
-
-    return EtfDataStats(
-      totalEtfs = totalEtfs.toInt(),
-      totalEtfQuotes = 0, // Simplified - not counting
-      totalHoldings = 0, // Simplified - not counting
-      dateRange = null, // Simplified - not querying
-      etfsWithHoldings = 0, // Simplified - not counting
-      averageHoldingsPerEtf = 0.0, // Simplified
     )
   }
 }

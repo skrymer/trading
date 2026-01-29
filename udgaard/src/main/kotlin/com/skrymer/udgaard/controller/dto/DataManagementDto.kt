@@ -25,7 +25,6 @@ data class RateLimitConfigDto(
 data class DatabaseStats(
   val stockStats: StockDataStats,
   val breadthStats: BreadthDataStats,
-  val etfStats: EtfDataStats,
   val totalDataPoints: Long,
   val estimatedSizeKB: Long,
   val generatedAt: LocalDateTime,
@@ -72,15 +71,6 @@ data class BreadthSymbolInfo(
   val lastQuoteDate: LocalDate,
 )
 
-data class EtfDataStats(
-  val totalEtfs: Int,
-  val totalEtfQuotes: Long,
-  val totalHoldings: Long,
-  val dateRange: DateRange?,
-  val etfsWithHoldings: Int,
-  val averageHoldingsPerEtf: Double,
-)
-
 // Refresh DTOs
 data class RefreshProgress(
   val total: Int = 0,
@@ -98,7 +88,6 @@ data class RefreshResponse(
 enum class RefreshType {
   STOCK,
   BREADTH,
-  ETF,
 }
 
 data class RefreshTask(

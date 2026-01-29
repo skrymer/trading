@@ -3,7 +3,7 @@ package com.skrymer.udgaard.domain
 import java.time.LocalDate
 
 /**
- * Domain model for BreadthQuote (Hibernate-independent)
+ * Domain model for BreadthQuote
  * A single breadth data point for a specific date.
  */
 data class BreadthQuoteDomain(

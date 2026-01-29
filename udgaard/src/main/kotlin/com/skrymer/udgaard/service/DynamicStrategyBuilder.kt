@@ -119,6 +119,42 @@ class DynamicStrategyBuilder(
           fastEma = (config.parameters["fastEma"] as? Number)?.toInt() ?: 10,
           slowEma = (config.parameters["slowEma"] as? Number)?.toInt() ?: 20,
         )
+      "adxrange" ->
+        ADXRangeCondition(
+          minADX = (config.parameters["minADX"] as? Number)?.toDouble() ?: 20.0,
+          maxADX = (config.parameters["maxADX"] as? Number)?.toDouble() ?: 50.0,
+        )
+      "atrexpanding" ->
+        ATRExpandingCondition(
+          minPercentile = (config.parameters["minPercentile"] as? Number)?.toDouble() ?: 30.0,
+          maxPercentile = (config.parameters["maxPercentile"] as? Number)?.toDouble() ?: 70.0,
+          lookbackPeriod = (config.parameters["lookbackPeriod"] as? Number)?.toInt() ?: 252,
+        )
+      "emaalignment" ->
+        EmaAlignmentCondition(
+          fastEmaPeriod = (config.parameters["fastEmaPeriod"] as? Number)?.toInt() ?: 10,
+          slowEmaPeriod = (config.parameters["slowEmaPeriod"] as? Number)?.toInt() ?: 20,
+        )
+      "marketbreadthabove" ->
+        MarketBreadthAboveCondition(
+          threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 50.0,
+        )
+      "minimumprice" ->
+        MinimumPriceCondition(
+          minimumPrice = (config.parameters["minimumPrice"] as? Number)?.toDouble() ?: 10.0,
+        )
+      "orderblockrejection" ->
+        OrderBlockRejectionCondition(
+          minRejections = (config.parameters["minRejections"] as? Number)?.toInt() ?: 2,
+          ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30,
+          rejectionThreshold = (config.parameters["rejectionThreshold"] as? Number)?.toDouble() ?: 2.0,
+        )
+      "sectorbreadthgreaterthanspy" -> SectorBreadthGreaterThanSpyCondition()
+      "volumeaboveaverage" ->
+        VolumeAboveAverageCondition(
+          multiplier = (config.parameters["multiplier"] as? Number)?.toDouble() ?: 1.3,
+          lookbackDays = (config.parameters["lookbackDays"] as? Number)?.toInt() ?: 20,
+        )
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }
 
@@ -157,6 +193,12 @@ class DynamicStrategyBuilder(
           PriceBelowEmaExit(
             emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10,
           )
+        "priceBelowEmaForDays" -> {
+          val emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10
+          val consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3
+          logger.info("  -> PriceBelowEmaForDaysExit(emaPeriod=$emaPeriod, consecutiveDays=$consecutiveDays)")
+          PriceBelowEmaForDaysExit(emaPeriod, consecutiveDays)
+        }
         "belowpreviousdaylow" -> BelowPreviousDayLowExit()
         "heatmapthreshold" -> HeatmapThresholdExit()
         "heatmapdeclining" -> HeatmapDecliningExit()

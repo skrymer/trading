@@ -24,6 +24,8 @@ class PriceAboveEmaCondition(
       10 -> quote.closePrice > quote.closePriceEMA10
       20 -> quote.closePrice > quote.closePriceEMA20
       50 -> quote.closePrice > quote.closePriceEMA50
+      100 -> quote.closePrice > quote.closePriceEMA100
+      200 -> quote.closePrice > quote.closePriceEMA100
       else -> false
     }
 

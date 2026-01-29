@@ -1,11 +1,9 @@
 package com.skrymer.udgaard.integration.ovtlyr
 
 import com.skrymer.udgaard.domain.StockDomain
-import com.skrymer.udgaard.model.EtfSymbol
 import com.skrymer.udgaard.model.SectorSymbol
 import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.BreadthService
-import com.skrymer.udgaard.service.EtfService
 import com.skrymer.udgaard.service.StockService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,18 +14,16 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Loads data from ovtlyr into mongo.
+ * Loads data from ovtlyr into H2 database.
  */
 @Component
 class DataLoader(
   private val breadthService: BreadthService,
   private val stockService: StockService,
-  private val etfService: EtfService,
 ) {
   fun loadData() {
     runBlocking { loadBreadthForAll() }
     runBlocking { loadStocks(true) }
-    runBlocking { loadEtfs() }
   }
 
   fun loadStocks(forceFetch: Boolean = false): List<StockDomain> =
@@ -38,37 +34,34 @@ class DataLoader(
       forceFetch,
     )
 
-  fun loadEtfs(): List<com.skrymer.udgaard.domain.EtfDomain> {
-    val logger = LoggerFactory.getLogger("EtfLoader")
-    logger.info("Loading ${EtfSymbol.entries.size} ETFs from Ovtlyr")
-
-    return EtfSymbol.entries.mapNotNull { etfSymbol ->
-      runCatching {
-        etfService.refreshEtf(etfSymbol.name)
-      }.onFailure { e ->
-        logger.warn("Failed to fetch ETF ${etfSymbol.name}: ${e.message}", e)
-      }.getOrNull()
-    }
-  }
-
   @OptIn(ExperimentalCoroutinesApi::class)
   private suspend fun loadBreadthForAll() =
     supervisorScope {
       val logger = LoggerFactory.getLogger("BreadthLoader")
       val limited = Dispatchers.IO.limitedParallelism(10)
 
+      logger.info("Loading market breadth and ${SectorSymbol.entries.size} sector breadth data")
+
       // Load market breadth (FULLSTOCK)
-      async(limited) {
-        runCatching { breadthService.getMarketBreadth(refresh = true) }
-          .onFailure { e -> logger.warn("Failed to fetch market breadth: {}", e.message, e) }
-      }
+      val marketJob =
+        async(limited) {
+          runCatching { breadthService.getMarketBreadth(refresh = true) }
+            .onFailure { e -> logger.warn("Failed to fetch market breadth: {}", e.message, e) }
+        }
 
       // Load all sector breadth
-      SectorSymbol.entries.forEach { sector ->
-        async(limited) {
-          runCatching { breadthService.getSectorBreadth(sector, refresh = true) }
-            .onFailure { e -> logger.warn("Failed to fetch sector={}: {}", sector, e.message, e) }
+      val sectorJobs =
+        SectorSymbol.entries.map { sector ->
+          async(limited) {
+            runCatching { breadthService.getSectorBreadth(sector, refresh = true) }
+              .onFailure { e -> logger.warn("Failed to fetch sector={}: {}", sector, e.message, e) }
+          }
         }
-      }
+
+      // Wait for all breadth loading to complete
+      marketJob.await()
+      sectorJobs.forEach { it.await() }
+
+      logger.info("Breadth data loading completed")
     }
 }

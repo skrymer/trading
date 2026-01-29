@@ -7,6 +7,8 @@ import java.time.LocalDate
  *
  * Implementations should provide calculated technical indicators
  * commonly used in trading strategies (ATR, EMA, MACD, RSI, etc.)
+ *
+ * All methods are suspend functions to support rate limiting with true backpressure.
  */
 interface TechnicalIndicatorProvider {
   /**
@@ -20,7 +22,7 @@ interface TechnicalIndicatorProvider {
    * @param timePeriod Number of data points used to calculate ATR (typical: 14)
    * @return Map of date to ATR value, or null if unavailable
    */
-  fun getATR(
+  suspend fun getATR(
     symbol: String,
     interval: String = "daily",
     timePeriod: Int = 14,
@@ -44,7 +46,7 @@ interface TechnicalIndicatorProvider {
    * @param timePeriod Number of data points used to calculate ADX (typical: 14)
    * @return Map of date to ADX value, or null if unavailable
    */
-  fun getADX(
+  suspend fun getADX(
     symbol: String,
     interval: String = "daily",
     timePeriod: Int = 14,

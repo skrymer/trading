@@ -4,4 +4,6 @@ data class ApiCredentialsDto(
   val ovtlyrToken: String = "",
   val ovtlyrUserId: String = "",
   val alphaVantageApiKey: String = "",
+  val ibkrAccountId: String = "",
+  val ibkrFlexQueryId: String = "",
 )

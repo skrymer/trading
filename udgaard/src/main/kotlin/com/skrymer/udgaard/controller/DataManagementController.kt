@@ -30,12 +30,50 @@ class DataManagementController(
   }
 
   /**
-   * Get current rate limit status
+   * Get current rate limit status for the primary provider (AlphaVantage)
+   * Returns stats in the format expected by the frontend
    */
   @GetMapping("/rate-limit")
   fun getRateLimitStatus(): RateLimitStats {
-    logger.info("Getting rate limit status")
-    return rateLimiter.getUsageStats()
+    logger.info("Getting rate limit status for primary provider (alphavantage)")
+    val stats = rateLimiter.getProviderStats("alphavantage")
+      ?: return RateLimitStats(
+        requestsLastMinute = 0,
+        requestsLastDay = 0,
+        remainingMinute = 0,
+        remainingDaily = 0,
+        minuteLimit = 0,
+        dailyLimit = 0,
+        resetMinute = 0,
+        resetDaily = 0,
+      )
+
+    // Calculate approximate reset times
+    // For rolling windows, we estimate based on when the oldest request will fall out of the window
+    // This is a simplification; actual reset time depends on when the oldest request was made
+    val resetMinute = 60L // Rolling minute window resets continuously
+    val resetDaily = 86400L // Rolling day window resets continuously
+
+    return RateLimitStats(
+      requestsLastMinute = stats.requestsLastMinute,
+      requestsLastDay = stats.requestsLastDay,
+      remainingMinute = stats.remainingMinute,
+      remainingDaily = stats.remainingDaily,
+      minuteLimit = stats.minuteLimit,
+      dailyLimit = stats.dailyLimit,
+      resetMinute = resetMinute,
+      resetDaily = resetDaily,
+    )
+  }
+
+  /**
+   * Get rate limit status for all registered providers
+   * Returns a map of provider ID to their stats
+   */
+  @GetMapping("/rate-limit/all")
+  fun getAllProvidersRateLimitStatus(): Map<String, com.skrymer.udgaard.service.ProviderRateLimitStats> {
+    logger.info("Getting rate limit status for all providers")
+    return rateLimiter.getAllProviderStats()
   }
 
   /**
@@ -44,7 +82,9 @@ class DataManagementController(
   @GetMapping("/rate-limit/config")
   fun getRateLimitConfig(): RateLimitConfigDto {
     logger.info("Getting rate limit configuration")
-    val stats = rateLimiter.getUsageStats()
+    // Get stats for the primary provider (AlphaVantage)
+    val stats = rateLimiter.getProviderStats("alphavantage")
+      ?: return RateLimitConfigDto(tier = "unknown", requestsPerMinute = 0, requestsPerDay = 0)
     val tier =
       when {
         stats.minuteLimit <= 5 -> "FREE"
@@ -88,16 +128,19 @@ class DataManagementController(
   }
 
   /**
-   * Queue breadth data for refresh
+   * Queue breadth data for refresh (market breadth + all sector breadth)
    */
   @PostMapping("/refresh/breadth")
   fun refreshBreadth(): RefreshResponse {
     logger.info("Queueing breadth data for refresh")
-    val symbols = listOf("SPY", "QQQ", "IWM")
-    dataRefreshService.queueBreadthRefresh(symbols)
+    // Get all breadth symbols (FULLSTOCK market + all sectors)
+    val breadthSymbols = com.skrymer.udgaard.model.BreadthSymbol
+      .all()
+    val identifiers = breadthSymbols.map { it.toIdentifier() }
+    dataRefreshService.queueBreadthRefresh(identifiers)
     return RefreshResponse(
-      queued = symbols.size,
-      message = "Queued ${symbols.size} breadth symbols for refresh",
+      queued = identifiers.size,
+      message = "Queued ${identifiers.size} breadth symbols for refresh (1 market + ${identifiers.size - 1} sectors)",
     )
   }
 
@@ -108,26 +151,6 @@ class DataManagementController(
   fun getRefreshProgress(): RefreshProgress {
     logger.debug("Getting refresh progress")
     return dataRefreshService.getProgress()
-  }
-
-  /**
-   * Pause refresh processing
-   */
-  @PostMapping("/refresh/pause")
-  fun pauseRefresh(): ResponseEntity<String> {
-    logger.info("Pausing refresh processing")
-    dataRefreshService.pauseProcessing()
-    return ResponseEntity.ok("Refresh paused")
-  }
-
-  /**
-   * Resume refresh processing
-   */
-  @PostMapping("/refresh/resume")
-  fun resumeRefresh(): ResponseEntity<String> {
-    logger.info("Resuming refresh processing")
-    dataRefreshService.resumeProcessing()
-    return ResponseEntity.ok("Refresh resumed")
   }
 
   /**

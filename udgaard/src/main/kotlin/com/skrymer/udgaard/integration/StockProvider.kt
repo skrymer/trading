@@ -7,6 +7,8 @@ import com.skrymer.udgaard.domain.StockQuoteDomain
  *
  * Implementations should provide OHLCV (Open, High, Low, Close, Volume) data
  * for stocks, preferably adjusted for corporate actions like splits and dividends.
+ *
+ * All methods are suspend functions to support rate limiting with true backpressure.
  */
 interface StockProvider {
   /**
@@ -16,7 +18,7 @@ interface StockProvider {
    * @param outputSize Size of the dataset ("compact" for recent data, "full" for historical)
    * @return List of stock quotes with price and volume data, or null if unavailable
    */
-  fun getDailyAdjustedTimeSeries(
+  suspend fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String = "full",
   ): List<StockQuoteDomain>?

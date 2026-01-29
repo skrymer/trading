@@ -46,6 +46,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0'
@@ -105,7 +106,7 @@ ktlint {
 }
 
 flyway {
-	url = 'jdbc:h2:file:~/.trading-app/database/trading;AUTO_SERVER=TRUE'
+	url = 'jdbc:h2:file:~/.trading-app/database/trading'
 	user = 'sa'
 	password = ''
 	migrationLocations = files('src/main/resources/db/migration')
@@ -124,7 +125,7 @@ jooq {
 			generationTool {
 				jdbc {
 					driver = 'org.h2.Driver'
-					url = 'jdbc:h2:file:~/.trading-app/database/trading;AUTO_SERVER=TRUE'
+					url = 'jdbc:h2:file:~/.trading-app/database/trading'
 					user = 'sa'
 					password = ''
 				}

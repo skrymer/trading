@@ -516,6 +516,9 @@ enum class StockSymbol(
   SPY(SectorSymbol.XLK, "SPY"),
   SPXL(SectorSymbol.XLK, "SPXL"),
 
+  IAU(SectorSymbol.XLB, "IAU"),
+  SLV(SectorSymbol.XLB, "SLV"),
+
   // =========================
   // S&P 400 - Energy
   // =========================

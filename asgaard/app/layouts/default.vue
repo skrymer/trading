@@ -39,14 +39,6 @@ const links = [[{
   }
 },
 {
-  label: 'ETF Stats',
-  icon: 'i-lucide-trending-up',
-  to: '/etf-stats',
-  onSelect: () => {
-    open.value = false
-  }
-},
-{
   label: 'Stock Data',
   icon: 'i-lucide-database',
   to: '/stock-data',

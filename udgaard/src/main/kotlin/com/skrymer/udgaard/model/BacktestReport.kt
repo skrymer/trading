@@ -20,6 +20,19 @@ data class SectorStats(
   val trades: List<Trade>,
 )
 
+/**
+ * Performance statistics for a specific stock
+ */
+data class StockPerformance(
+  val symbol: String,
+  val trades: Int,
+  val winRate: Double,
+  val avgProfit: Double,
+  val avgHoldingDays: Double,
+  val totalProfitPercentage: Double,
+  val edge: Double,
+)
+
 class BacktestReport(
   val winningTrades: List<Trade>,
   val losingTrades: List<Trade>,
@@ -36,6 +49,11 @@ class BacktestReport(
    * Performance broken down by sector.
    */
   val sectorPerformance: List<SectorPerformance> = emptyList(),
+  /**
+   * Performance broken down by stock symbol.
+   * Sorted by edge (descending), showing top performing stocks.
+   */
+  val stockPerformance: List<StockPerformance> = emptyList(),
   /**
    * ATR drawdown statistics for winning trades.
    * Shows how much adverse movement winners endure before becoming profitable.

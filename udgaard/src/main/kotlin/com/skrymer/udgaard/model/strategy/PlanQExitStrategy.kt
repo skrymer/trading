@@ -20,7 +20,6 @@ class PlanQExitStrategy : ExitStrategy {
       emaCross(10, 20)
       profitTarget(2.9, 20)
       trailingStopLoss(3.1)
-      priceBelowEmaForDays(emaPeriod = 10, consecutiveDays = 4)
     }
 
   override fun match(

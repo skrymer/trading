@@ -95,6 +95,7 @@ export interface BacktestReport {
   timeBasedStats?: TimeBasedStats
   exitReasonAnalysis?: ExitReasonAnalysis
   sectorPerformance: SectorPerformance[]
+  stockPerformance: StockPerformance[]
   atrDrawdownStats?: ATRDrawdownStats
   marketConditionAverages?: Record<string, number>
 }
@@ -227,6 +228,19 @@ export interface SectorPerformance {
   winRate: number
   avgProfit: number
   avgHoldingDays: number
+}
+
+/**
+ * Performance statistics for a specific stock
+ */
+export interface StockPerformance {
+  symbol: string
+  trades: number
+  winRate: number
+  avgProfit: number
+  avgHoldingDays: number
+  totalProfitPercentage: number
+  edge: number
 }
 
 /**
@@ -459,6 +473,8 @@ export interface MonteCarloResult {
 export type TradeStatus = 'OPEN' | 'CLOSED'
 export type InstrumentType = 'STOCK' | 'OPTION' | 'LEVERAGED_ETF'
 export type OptionType = 'CALL' | 'PUT'
+export type PositionStatus = 'OPEN' | 'CLOSED'
+export type PositionSource = 'BROKER' | 'MANUAL'
 
 export interface Portfolio {
   id?: string
@@ -469,6 +485,96 @@ export interface Portfolio {
   currency: string
   createdDate?: string
   lastUpdated?: string
+  broker?: string
+  brokerAccountId?: string
+  brokerConfig?: Record<string, string>
+  lastSyncDate?: string
+}
+
+export interface Position {
+  id: number
+  portfolioId: number
+  symbol: string
+  underlyingSymbol?: string
+  instrumentType: InstrumentType
+
+  // Options-specific fields
+  optionType?: OptionType
+  strikePrice?: number
+  expirationDate?: string
+  multiplier: number
+
+  // Position state (aggregated from executions)
+  currentQuantity: number
+  currentContracts?: number
+  averageEntryPrice: number
+  totalCost: number
+  status: PositionStatus
+
+  // Dates
+  openedDate: string
+  closedDate?: string
+
+  // P&L
+  realizedPnl?: number
+
+  // Rolling (clean 1-to-1 relationship)
+  rolledToPositionId?: number
+  parentPositionId?: number
+  rollNumber: number
+
+  // Strategy (editable metadata)
+  entryStrategy: string
+  exitStrategy: string
+
+  // Metadata
+  notes?: string
+  currency: string
+  source: PositionSource
+
+  createdAt: string
+  updatedAt: string
+
+  // Computed fields
+  isOpen: boolean
+  isClosed: boolean
+  positionSize: number
+  isBrokerImported: boolean
+  isRolled: boolean
+}
+
+export interface Execution {
+  id: number
+  positionId: number
+  brokerTradeId?: string
+  linkedBrokerTradeId?: string
+
+  // Execution details (signed quantity)
+  quantity: number
+  price: number
+  executionDate: string
+  executionTime?: string
+
+  // Costs
+  commission?: number
+
+  // Metadata
+  notes?: string
+  createdAt: string
+}
+
+export interface PositionWithExecutions {
+  position: Position
+  executions: Execution[]
+}
+
+export interface PositionUnrealizedPnl {
+  positionId: number
+  symbol: string
+  currentPrice: number | null
+  averageEntryPrice: number
+  unrealizedPnl: number | null
+  unrealizedPnlPercentage: number | null
 }
 
 export interface PortfolioTrade {
@@ -520,6 +626,10 @@ export interface PortfolioTrade {
   // Roll transaction details
   rollDate?: string
   rollCost?: number
+
+  // Broker integration fields
+  brokerTradeId?: string
+  linkedBrokerTradeId?: string
 
   // Computed fields
   positionSize?: number
@@ -752,4 +862,43 @@ export interface RefreshResponse {
 export interface OptionPricePoint {
   date: string
   price: number
+}
+
+// Broker Integration Types
+export interface CreatePortfolioFromBrokerRequest {
+  name: string
+  broker: string
+  credentials: Record<string, string>
+  startDate?: string
+  currency?: string
+  initialBalance?: number
+}
+
+export interface SyncPortfolioRequest {
+  credentials: Record<string, string>
+}
+
+export interface TestBrokerConnectionRequest {
+  broker: string
+  credentials: Record<string, string>
+}
+
+export interface TestBrokerConnectionResponse {
+  success: boolean
+  message: string
+}
+
+export interface CreateFromBrokerResult {
+  portfolio: Portfolio
+  tradesImported: number
+  rollsDetected: number
+  warnings: string[]
+}
+
+export interface PortfolioSyncResult {
+  tradesAdded: number
+  tradesUpdated: number
+  rollsDetected: number
+  lastSyncDate: string
+  errors: string[]
 }

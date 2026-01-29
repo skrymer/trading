@@ -79,6 +79,46 @@
 
               <UDivider />
 
+              <!-- IBKR Section -->
+              <div>
+                <h4 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                  Interactive Brokers (IBKR)
+                  <UBadge
+                    v-if="credentialsStatus"
+                    :color="credentialsStatus.ibkrConfigured ? 'success' : 'neutral'"
+                    size="xs"
+                  >
+                    {{ credentialsStatus.ibkrConfigured ? 'Configured' : 'Not configured' }}
+                  </UBadge>
+                </h4>
+
+                <div class="space-y-4">
+                  <UFormGroup label="Account ID" help="Your IBKR account number (e.g., U1234567)">
+                    <UInput
+                      v-model="credentials.ibkrAccountId"
+                      placeholder="Enter your IBKR account ID"
+                    />
+                  </UFormGroup>
+
+                  <UFormGroup label="Flex Query ID" help="Flex query ID for trade reports">
+                    <UInput
+                      v-model="credentials.ibkrFlexQueryId"
+                      placeholder="Enter your Flex Query ID"
+                    />
+                  </UFormGroup>
+
+                  <UAlert
+                    icon="i-lucide-info"
+                    color="info"
+                    variant="subtle"
+                    title="How to setup IBKR Flex Query"
+                    description="1. Login to IBKR Portal  2. Go to Reports > Flex Queries  3. Create a query with trade details  4. Copy the Query ID"
+                  />
+                </div>
+              </div>
+
+              <UDivider />
+
               <!-- Alpha Vantage Section -->
               <div>
                 <h4 class="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -163,12 +203,15 @@ const toast = useToast()
 const credentials = ref({
   ovtlyrToken: '',
   ovtlyrUserId: '',
-  alphaVantageApiKey: ''
+  alphaVantageApiKey: '',
+  ibkrAccountId: '',
+  ibkrFlexQueryId: ''
 })
 
 const credentialsStatus = ref<{
   ovtlyrConfigured: boolean
   alphaVantageConfigured: boolean
+  ibkrConfigured: boolean
   configFileExists: boolean
 } | null>(null)
 
