@@ -19,7 +19,7 @@ class PlanEtfEntryStrategy : DetailedEntryStrategy {
       uptrend()
       buySignal(daysOld = -1) // Accept any buy signal age
       heatmap(70)
-      inValueZone(2.0)
+      inValueZone(atrMultiplier = 2.0, emaPeriod = 20)
       belowOrderBlock(percentBelow = 2.0, ageInDays = 15)
     }
 

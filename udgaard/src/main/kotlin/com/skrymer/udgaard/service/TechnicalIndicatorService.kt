@@ -28,7 +28,7 @@ class TechnicalIndicatorService {
    * Enrich stock quotes with all technical indicators.
    *
    * This is the main method that calculates and adds:
-   * - EMAs (5, 10, 20, 50)
+   * - EMAs (5, 10, 20, 50, 100, 200)
    * - Donchian upper band
    * - Trend classification
    *
@@ -57,6 +57,8 @@ class TechnicalIndicatorService {
     val ema10Values = calculateEMA(closePrices, 10)
     val ema20Values = calculateEMA(closePrices, 20)
     val ema50Values = calculateEMA(closePrices, 50)
+    val ema100Values = calculateEMA(closePrices, 100)
+    val ema200Values = calculateEMA(closePrices, 200)
 
     // Enrich each quote with calculated values
     return quotes.mapIndexed { index, quote ->
@@ -65,6 +67,8 @@ class TechnicalIndicatorService {
         closePriceEMA10 = ema10Values.getOrNull(index) ?: 0.0
         closePriceEMA20 = ema20Values.getOrNull(index) ?: 0.0
         closePriceEMA50 = ema50Values.getOrNull(index) ?: 0.0
+        closePriceEMA100 = ema100Values.getOrNull(index) ?: 0.0
+        closePriceEMA200 = ema200Values.getOrNull(index) ?: 0.0
         donchianUpperBand = calculateDonchianUpperBand(quotes, index, 5)
         trend = determineTrend(quote)
       }

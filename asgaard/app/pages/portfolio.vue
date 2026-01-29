@@ -1,33 +1,57 @@
 <script setup lang="ts">
-import { format } from 'date-fns'
 import { h, resolveComponent } from 'vue'
-import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
-import type { Portfolio, PortfolioTrade, PortfolioStats, Stock } from '~/types'
+import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData } from '~/types'
+
+const { formatPositionName, formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
 
 const portfolio = ref<Portfolio | null>(null)
 const portfolios = ref<Portfolio[]>([])
 const stats = ref<PortfolioStats | null>(null)
-const openTrades = ref<PortfolioTrade[]>([])
-const closedTrades = ref<PortfolioTrade[]>([])
+const openPositions = ref<Position[]>([])
+const closedPositions = ref<Position[]>([])
+const equityCurveData = ref<EquityCurveData | null>(null)
 const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const isLoadingPortfolios = ref(true)
-const isCreatePortfolioModalOpen = ref(false)
-const isOpenTradeModalOpen = ref(false)
-const isEditTradeModalOpen = ref(false)
-const isCloseTradeModalOpen = ref(false)
-const isDeleteTradeModalOpen = ref(false)
-const isDeletePortfolioModalOpen = ref(false)
-const isRollTradeModalOpen = ref(false)
-const isRollChainModalOpen = ref(false)
-const isOpeningTrade = ref(false)
-const isEditingTrade = ref(false)
-const isClosingTrade = ref(false)
-const isDeletingTrade = ref(false)
-const isRefreshingStocks = ref(false)
-const selectedTrade = ref<PortfolioTrade | null>(null)
-const groupRolledTrades = ref(false)
+const showUnrealizedPnl = ref(false)
+const unrealizedPnlData = ref<Map<number, PositionUnrealizedPnl>>(new Map())
+const isLoadingUnrealizedPnl = ref(false)
 
+// Modal states
+const isCreatePortfolioModalOpen = ref(false)
+const isPositionDetailsModalOpen = ref(false)
+const isAddExecutionModalOpen = ref(false)
+const isClosePositionModalOpen = ref(false)
+const isEditMetadataModalOpen = ref(false)
+const isDeletePositionModalOpen = ref(false)
+const isDeletePortfolioModalOpen = ref(false)
+const isCreateFromBrokerModalOpen = ref(false)
+const isSyncPortfolioModalOpen = ref(false)
+
+const selectedPosition = ref<Position | null>(null)
 const toast = useToast()
+const activeTab = ref('open')
+
+// Tab items configuration
+const tabItems = [
+  {
+    label: 'Open Positions',
+    icon: 'i-lucide-folder-open',
+    value: 'open',
+    slot: 'open'
+  },
+  {
+    label: 'Closed Positions',
+    icon: 'i-lucide-folder-closed',
+    value: 'closed',
+    slot: 'closed'
+  },
+  {
+    label: 'Equity Curve',
+    icon: 'i-lucide-trending-up',
+    value: 'equity-curve',
+    slot: 'equity-curve'
+  }
+]
 
 // Load all portfolios on mount
 onMounted(async () => {
@@ -74,7 +98,6 @@ async function createPortfolio(data: { name: string, initialBalance: number, cur
     portfolio.value = newPortfolio
     isCreatePortfolioModalOpen.value = false
 
-    // Reload portfolios list
     await loadPortfolios()
     await loadPortfolioData()
 
@@ -101,17 +124,19 @@ async function loadPortfolioData() {
 
   status.value = 'pending'
   try {
-    const [portfolioData, statsData, openTradesData, closedTradesData] = await Promise.all([
+    const [portfolioData, statsData, openPositionsData, closedPositionsData, equityCurve] = await Promise.all([
       $fetch<Portfolio>(`/udgaard/api/portfolio/${portfolio.value.id}`),
-      $fetch<PortfolioStats>(`/udgaard/api/portfolio/${portfolio.value.id}/stats?groupRolledTrades=${groupRolledTrades.value}`),
-      $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=OPEN`),
-      $fetch<PortfolioTrade[]>(`/udgaard/api/portfolio/${portfolio.value.id}/trades?status=CLOSED`)
+      $fetch<PortfolioStats>(`/udgaard/api/positions/${portfolio.value.id}/stats`),
+      $fetch<Position[]>(`/udgaard/api/positions/${portfolio.value.id}?status=OPEN`),
+      $fetch<Position[]>(`/udgaard/api/positions/${portfolio.value.id}?status=CLOSED`),
+      $fetch<EquityCurveData>(`/udgaard/api/positions/${portfolio.value.id}/equity-curve`)
     ])
 
     portfolio.value = portfolioData
     stats.value = statsData
-    openTrades.value = openTradesData
-    closedTrades.value = closedTradesData
+    openPositions.value = openPositionsData
+    closedPositions.value = closedPositionsData
+    equityCurveData.value = equityCurve
     status.value = 'success'
   } catch (error) {
     console.error('Error loading portfolio data:', error)
@@ -125,206 +150,104 @@ async function loadPortfolioData() {
   }
 }
 
-// Watch for groupRolledTrades changes and reload stats
-watch(groupRolledTrades, () => {
-  loadPortfolioData()
+// Load unrealized P&L for open positions
+async function loadUnrealizedPnl() {
+  if (!portfolio.value?.id) return
+
+  isLoadingUnrealizedPnl.value = true
+  try {
+    const data = await $fetch<PositionUnrealizedPnl[]>(`/udgaard/api/positions/${portfolio.value.id}/unrealized-pnl`)
+
+    // Convert array to map for easy lookup
+    const pnlMap = new Map<number, PositionUnrealizedPnl>()
+    data.forEach((pnl) => {
+      pnlMap.set(pnl.positionId, pnl)
+    })
+    unrealizedPnlData.value = pnlMap
+    showUnrealizedPnl.value = true
+
+    toast.add({
+      title: 'Success',
+      description: `Loaded unrealized P&L for ${data.length} positions`,
+      icon: 'i-lucide-check-circle',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Error loading unrealized P&L:', error)
+    toast.add({
+      title: 'Error',
+      description: 'Failed to load unrealized P&L',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  } finally {
+    isLoadingUnrealizedPnl.value = false
+  }
+}
+
+// Toggle unrealized P&L display
+function toggleUnrealizedPnl() {
+  if (showUnrealizedPnl.value) {
+    // Hide unrealized P&L
+    showUnrealizedPnl.value = false
+    unrealizedPnlData.value.clear()
+  } else {
+    // Fetch and show unrealized P&L
+    loadUnrealizedPnl()
+  }
+}
+
+// Calculate total unrealized P&L
+const totalUnrealizedPnl = computed(() => {
+  if (!showUnrealizedPnl.value || unrealizedPnlData.value.size === 0) return 0
+
+  let total = 0
+  unrealizedPnlData.value.forEach((pnl) => {
+    if (pnl.unrealizedPnl !== null) {
+      total += pnl.unrealizedPnl
+    }
+  })
+  return total
 })
 
-// Open trade
-async function openTrade(data: {
-  symbol: string
-  entryPrice: number
-  entryDate: string
-  quantity: number
-  entryStrategy: string
-  exitStrategy: string
-  currency: string
-  underlyingSymbol?: string
-  instrumentType: string
-  optionType?: string
-  strikePrice?: number
-  expirationDate?: string
-  contracts?: number
-  multiplier?: number
-  entryIntrinsicValue?: number
-  entryExtrinsicValue?: number
-  underlyingEntryPrice?: number
-}) {
-  if (!portfolio.value?.id) return
+// Calculate projected balance (current + unrealized P&L)
+const projectedBalance = computed(() => {
+  if (!portfolio.value) return 0
+  return portfolio.value.currentBalance + totalUnrealizedPnl.value
+})
 
-  isOpeningTrade.value = true
-  try {
-    await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades`, {
-      method: 'POST',
-      body: data
-    })
+// Calculate projected total return including unrealized P&L
+const projectedTotalReturn = computed(() => {
+  if (!portfolio.value || portfolio.value.initialBalance === 0) return 0
+  return ((projectedBalance.value - portfolio.value.initialBalance) / portfolio.value.initialBalance) * 100
+})
 
-    isOpenTradeModalOpen.value = false
-    await loadPortfolioData()
+// Equity curve with projected balance point when unrealized P&L is shown
+const displayEquityCurve = computed(() => {
+  if (!equityCurveData.value || !portfolio.value) return null
 
-    toast.add({
-      title: 'Trade Opened',
-      description: `${data.symbol} position opened`,
-      icon: 'i-lucide-check-circle',
-      color: 'success'
-    })
-  } catch (error) {
-    console.error('Error opening trade:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to open trade',
-      icon: 'i-lucide-alert-circle',
-      color: 'error'
-    })
-  } finally {
-    isOpeningTrade.value = false
+  const baseDataPoints = [...equityCurveData.value.dataPoints]
+
+  // If showing unrealized P&L and we have data points, add a projected point
+  if (showUnrealizedPnl.value && baseDataPoints.length > 0 && totalUnrealizedPnl.value !== 0) {
+    const lastPoint = baseDataPoints[baseDataPoints.length - 1]
+    const todayDate = new Date().toISOString().split('T')[0]
+    const projectedPoint = {
+      date: todayDate,
+      balance: projectedBalance.value,
+      returnPercentage: projectedTotalReturn.value
+    }
+
+    // If the last point is today, replace it; otherwise add new point
+    if (lastPoint && lastPoint.date === todayDate) {
+      baseDataPoints[baseDataPoints.length - 1] = projectedPoint
+    } else {
+      baseDataPoints.push(projectedPoint)
+    }
   }
-}
 
-// Edit trade
-async function editTrade(data: {
-  tradeId: string
-  symbol: string
-  entryPrice: number
-  entryDate: string
-  quantity: number
-  entryStrategy: string
-  exitStrategy: string
-  underlyingSymbol?: string
-  instrumentType: string
-  optionType?: string
-  strikePrice?: number
-  expirationDate?: string
-  contracts?: number
-  multiplier?: number
-  entryIntrinsicValue?: number
-  entryExtrinsicValue?: number
-}) {
-  if (!portfolio.value?.id) return
-
-  isEditingTrade.value = true
-  try {
-    await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades/${data.tradeId}`, {
-      method: 'PUT',
-      body: {
-        symbol: data.symbol,
-        entryPrice: data.entryPrice,
-        entryDate: data.entryDate,
-        quantity: data.quantity,
-        entryStrategy: data.entryStrategy,
-        exitStrategy: data.exitStrategy,
-        underlyingSymbol: data.underlyingSymbol,
-        instrumentType: data.instrumentType,
-        optionType: data.optionType,
-        strikePrice: data.strikePrice,
-        expirationDate: data.expirationDate,
-        contracts: data.contracts,
-        multiplier: data.multiplier,
-        entryIntrinsicValue: data.entryIntrinsicValue,
-        entryExtrinsicValue: data.entryExtrinsicValue
-      }
-    })
-
-    isEditTradeModalOpen.value = false
-    selectedTrade.value = null
-    await loadPortfolioData()
-
-    toast.add({
-      title: 'Trade Updated',
-      description: `${data.symbol} position updated successfully`,
-      icon: 'i-lucide-check-circle',
-      color: 'success'
-    })
-  } catch (error) {
-    console.error('Error updating trade:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to update trade',
-      icon: 'i-lucide-alert-circle',
-      color: 'error'
-    })
-  } finally {
-    isEditingTrade.value = false
-  }
-}
-
-// Delete trade
-async function deleteTrade(tradeId: string) {
-  if (!portfolio.value?.id) return
-
-  isDeletingTrade.value = true
-  try {
-    await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades/${tradeId}`, {
-      method: 'DELETE'
-    })
-
-    isDeleteTradeModalOpen.value = false
-    selectedTrade.value = null
-    await loadPortfolioData()
-
-    toast.add({
-      title: 'Trade Deleted',
-      description: 'Position deleted successfully',
-      icon: 'i-lucide-check-circle',
-      color: 'success'
-    })
-  } catch (error) {
-    console.error('Error deleting trade:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to delete trade',
-      icon: 'i-lucide-alert-circle',
-      color: 'error'
-    })
-  } finally {
-    isDeletingTrade.value = false
-  }
-}
-
-// Close trade
-async function closeTrade(
-  tradeId: string,
-  exitPrice: number,
-  exitDate: string,
-  exitIntrinsicValue?: number,
-  exitExtrinsicValue?: number
-) {
-  if (!portfolio.value?.id) return
-
-  isClosingTrade.value = true
-  try {
-    await $fetch(`/udgaard/api/portfolio/${portfolio.value.id}/trades/${tradeId}/close`, {
-      method: 'PUT',
-      body: {
-        exitPrice,
-        exitDate,
-        exitIntrinsicValue,
-        exitExtrinsicValue
-      }
-    })
-
-    isCloseTradeModalOpen.value = false
-    selectedTrade.value = null
-    await loadPortfolioData()
-
-    toast.add({
-      title: 'Trade Closed',
-      description: 'Position closed successfully',
-      icon: 'i-lucide-check-circle',
-      color: 'success'
-    })
-  } catch (error) {
-    console.error('Error closing trade:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to close trade',
-      icon: 'i-lucide-alert-circle',
-      color: 'error'
-    })
-  } finally {
-    isClosingTrade.value = false
-  }
-}
+  return { dataPoints: baseDataPoints }
+})
 
 // Delete portfolio
 async function deletePortfolio() {
@@ -339,16 +262,16 @@ async function deletePortfolio() {
 
     toast.add({
       title: 'Portfolio Deleted',
-      description: `${portfolio.value.name} has been deleted`,
+      description: `${portfolio.value.name} deleted successfully`,
       icon: 'i-lucide-check-circle',
       color: 'success'
     })
 
-    // Reset portfolio and reload
+    // Reset and reload
     portfolio.value = null
     stats.value = null
-    openTrades.value = []
-    closedTrades.value = []
+    openPositions.value = []
+    closedPositions.value = []
     await loadPortfolios()
   } catch (error) {
     console.error('Error deleting portfolio:', error)
@@ -361,606 +284,380 @@ async function deletePortfolio() {
   }
 }
 
-// Refresh stocks for open trades
-async function refreshOpenTradeStocks() {
-  if (!portfolio.value || openTrades.value.length === 0) {
-    toast.add({
-      title: 'No Open Trades',
-      description: 'There are no open trades to refresh',
-      icon: 'i-lucide-info',
-      color: 'info'
-    })
-    return
-  }
-
-  const symbols = [...new Set(openTrades.value.map(trade => trade.symbol))]
-
-  toast.add({
-    title: 'Refreshing Stocks',
-    description: `Updating ${symbols.length} stock(s)...`,
-    icon: 'i-lucide-refresh-cw',
-    color: 'info'
-  })
-
-  isRefreshingStocks.value = true
+// Delete position
+async function deletePosition(positionId: number) {
   try {
-    await $fetch('/udgaard/api/stocks/refresh', {
-      method: 'POST',
-      body: symbols
+    await $fetch(`/udgaard/api/positions/${portfolio.value?.id}/${positionId}`, {
+      method: 'DELETE'
     })
 
+    isDeletePositionModalOpen.value = false
+    selectedPosition.value = null
+
     toast.add({
-      title: 'Success',
-      description: `Refreshed ${symbols.length} stock(s)`,
+      title: 'Position Deleted',
+      description: 'Position deleted successfully',
       icon: 'i-lucide-check-circle',
       color: 'success'
     })
+
+    await loadPortfolioData()
   } catch (error) {
-    console.error('Error refreshing stocks:', error)
+    console.error('Error deleting position:', error)
     toast.add({
       title: 'Error',
-      description: 'Failed to refresh stocks',
+      description: 'Failed to delete position',
       icon: 'i-lucide-alert-circle',
       color: 'error'
     })
-  } finally {
-    isRefreshingStocks.value = false
   }
 }
 
-// Menu items
-const items = computed(() => {
-  const menuItems: DropdownMenuItem[][] = []
+// Broker integration - handle results from modals
+async function createFromBroker(result: CreateFromBrokerResult) {
+  portfolio.value = result.portfolio
 
-  if (!portfolio.value) {
-    menuItems.push([{
-      label: 'Create Portfolio',
-      icon: 'i-lucide-plus',
-      onSelect: () => { isCreatePortfolioModalOpen.value = true }
-    }])
-  } else {
-    // Trade actions
-    menuItems.push([{
-      label: 'Open Trade',
-      icon: 'i-lucide-trending-up',
-      onSelect: () => { isOpenTradeModalOpen.value = true }
-    }])
-
-    // Portfolio management actions
-    menuItems.push([
-      {
-        label: 'Create Portfolio',
-        icon: 'i-lucide-plus',
-        onSelect: () => { isCreatePortfolioModalOpen.value = true }
-      },
-      {
-        label: 'Delete Portfolio',
-        icon: 'i-lucide-trash-2',
-        onSelect: () => { isDeletePortfolioModalOpen.value = true }
-      }
-    ])
-  }
-
-  return menuItems
-})
-
-// Format currency
-function formatCurrency(value: number, currency: string = 'USD') {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency
-  }).format(value)
-}
-
-// Format percentage
-function formatPercentage(value: number) {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
-}
-
-// Fetch current prices for open trade symbols
-const stockPrices = ref<Record<string, number>>({})
-const fetchingPrices = ref(false)
-
-async function fetchCurrentPrices() {
-  if (!openTrades.value.length) return
-
-  fetchingPrices.value = true
-  try {
-    // Collect all unique symbols we need prices for:
-    // - For stocks/ETFs: Always use the actual trade symbol for P&L calculation
-    // - Also fetch underlying symbols if they exist (for reference/display)
-    const symbolsSet = new Set<string>()
-    openTrades.value.forEach((trade) => {
-      // Always add the actual trade symbol (for P&L calculation)
-      symbolsSet.add(trade.symbol)
-      // Also add underlying symbol if different (for reference)
-      if (trade.underlyingSymbol && trade.underlyingSymbol !== trade.symbol) {
-        symbolsSet.add(trade.underlyingSymbol)
-      }
-    })
-    const symbols = [...symbolsSet]
-
-    const pricePromises = symbols.map(async (symbol) => {
-      try {
-        const stock = await $fetch<Stock>(`/udgaard/api/stocks/${symbol}`)
-        const latestQuote = stock.quotes && stock.quotes.length > 0
-          ? stock.quotes[stock.quotes.length - 1]
-          : null
-        return { symbol, price: latestQuote?.closePrice || 0 }
-      } catch (error) {
-        console.error(`Failed to fetch price for ${symbol}:`, error)
-        return { symbol, price: 0 }
-      }
-    })
-
-    const prices = await Promise.all(pricePromises)
-    stockPrices.value = prices.reduce((acc, { symbol, price }) => {
-      acc[symbol] = price
-      return acc
-    }, {} as Record<string, number>)
-  } catch (error) {
-    console.error('Failed to fetch current prices:', error)
-  } finally {
-    fetchingPrices.value = false
-  }
-}
-
-// Watch for open trades changes and fetch prices
-watch(() => openTrades.value, () => {
-  if (openTrades.value.length > 0) {
-    fetchCurrentPrices()
-  }
-}, { immediate: true })
-
-// Calculate what stats would be if open trades were closed today
-// Note: Only calculates for stocks/ETFs - options require actual option prices
-const projectedStats = computed(() => {
-  if (!stats.value || !openTrades.value.length || !portfolio.value) {
-    return null
-  }
-
-  // Simulate closing all open trades at current prices
-  // Only include stocks and ETFs - skip options (can't accurately price with stock price)
-  const simulatedClosedTrades = openTrades.value
-    .filter(trade => trade.instrumentType !== 'OPTION') // Skip options
-    .map((trade) => {
-      // Use actual trade symbol for P&L (not underlying symbol)
-      const currentPrice = stockPrices.value[trade.symbol] || 0
-
-      if (currentPrice === 0) {
-        return null // Skip if price not available
-      }
-
-      const entryValue = trade.entryPrice * trade.quantity
-      const exitValue = currentPrice * trade.quantity
-      const profit = exitValue - entryValue
-      const profitPercentage = (profit / entryValue) * 100
-
-      return {
-        profit,
-        profitPercentage
-      }
-    })
-    .filter(t => t !== null)
-
-  // Combine actual closed trades with simulated ones
-  const allTrades = [
-    ...closedTrades.value.map(t => ({
-      profit: t.profit || 0,
-      profitPercentage: t.profitPercentage || 0
-    })),
-    ...simulatedClosedTrades
-  ]
-
-  if (allTrades.length === 0) {
-    return null
-  }
-
-  // Calculate stats
-  const wins = allTrades.filter(t => t.profit > 0)
-  const losses = allTrades.filter(t => t.profit < 0)
-
-  const numberOfWins = wins.length
-  const numberOfLosses = losses.length
-  const totalTrades = allTrades.length
-  const winRate = (numberOfWins / totalTrades) * 100
-
-  const avgWin = wins.length > 0
-    ? wins.reduce((sum, t) => sum + t.profitPercentage, 0) / wins.length
-    : 0
-
-  const avgLoss = losses.length > 0
-    ? losses.reduce((sum, t) => sum + t.profitPercentage, 0) / losses.length
-    : 0
-
-  const lossRate = 100 - winRate
-  const provenEdge = (winRate / 100 * avgWin) - (lossRate / 100 * Math.abs(avgLoss))
-
-  const totalProfit = allTrades.reduce((sum, t) => sum + t.profit, 0)
-  const totalProfitPercentage = (totalProfit / portfolio.value.initialBalance) * 100
-
-  const largestWin = wins.length > 0 ? Math.max(...wins.map(t => t.profitPercentage)) : 0
-  const largestLoss = losses.length > 0 ? Math.min(...losses.map(t => t.profitPercentage)) : 0
-
-  return {
-    totalTrades,
-    openTrades: openTrades.value.length,
-    closedTrades: closedTrades.value.length,
-    numberOfWins,
-    numberOfLosses,
-    winRate,
-    avgWin,
-    avgLoss,
-    provenEdge,
-    totalProfit,
-    totalProfitPercentage,
-    largestWin,
-    largestLoss,
-    ytdReturn: stats.value.ytdReturn, // Keep original for now
-    annualizedReturn: stats.value.annualizedReturn // Keep original for now
-  }
-})
-
-// Toggle for showing projected stats
-const showOpenTradesStats = ref(false)
-
-// Display stats based on toggle
-const displayStats = computed(() => {
-  if (showOpenTradesStats.value && projectedStats.value) {
-    return projectedStats.value
-  }
-  return stats.value
-})
-
-// Calculate total capital deployed in open positions
-const capitalDeployed = computed(() => {
-  if (!portfolio.value || !openTrades.value) {
-    return 0
-  }
-
-  return openTrades.value.reduce((total, trade) => {
-    if (trade.instrumentType === 'OPTION') {
-      return total + (trade.entryPrice * (trade.contracts || trade.quantity) * (trade.multiplier || 100))
-    } else {
-      return total + (trade.entryPrice * trade.quantity)
-    }
-  }, 0)
-})
-
-// Calculate projected balance if open trades were closed today
-const projectedBalance = computed(() => {
-  if (!portfolio.value || !projectedStats.value || !stats.value) {
-    return null
-  }
-
-  // Calculate unrealized P/L from open trades (difference between projected and actual total profit)
-  const unrealizedPL = projectedStats.value.totalProfit - stats.value.totalProfit
-
-  // Add unrealized P/L to current balance
-  return portfolio.value.currentBalance + unrealizedPL
-})
-
-// Open edit trade modal
-function openEditTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
-  isEditTradeModalOpen.value = true
-}
-
-// Open delete trade modal
-function openDeleteTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
-  isDeleteTradeModalOpen.value = true
-}
-
-// Open close trade modal
-function openCloseTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
-  isCloseTradeModalOpen.value = true
-}
-
-// Open roll trade modal
-function openRollTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
-  isRollTradeModalOpen.value = true
-}
-
-// Open roll chain modal
-function openRollChainModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
-  isRollChainModalOpen.value = true
-}
-
-// Handle trade rolled
-async function handleTradeRolled() {
-  isRollTradeModalOpen.value = false
-  selectedTrade.value = null
+  await loadPortfolios()
   await loadPortfolioData()
 
   toast.add({
-    title: 'Position Rolled',
-    description: 'Position rolled successfully',
+    title: 'Import Successful',
+    description: `Imported ${result.tradesImported} positions, ${result.rollsDetected} rolls detected`,
     icon: 'i-lucide-check-circle',
     color: 'success'
   })
 }
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UIcon = resolveComponent('UIcon')
+async function syncPortfolio(result: PortfolioSyncResult) {
+  await loadPortfolioData()
 
-// Type for open trades table data
-interface OpenTradeTableRow {
-  symbol: string
-  instrumentType: string
-  optionsInfo?: string
-  status: string
-  entry: { price: string, date: string }
-  quantity: string | number
-  value: string
-  strategies: { entry: string, exit: string }
-  trade: PortfolioTrade
+  toast.add({
+    title: 'Sync Successful',
+    description: `Added ${result.tradesAdded} new positions`,
+    icon: 'i-lucide-check-circle',
+    color: 'success'
+  })
 }
 
-// Expanded rows state for open trades table
-const expandedRows = ref<Record<string, boolean>>({})
+// Position actions
+function viewPositionDetails(position: Position) {
+  selectedPosition.value = position
+  isPositionDetailsModalOpen.value = true
+}
 
-// Table columns for open trades
-const openTradesColumns: TableColumn<OpenTradeTableRow>[] = [
-  {
-    id: 'expand',
-    header: '',
-    cell: ({ row }: { row: any }) => h('button', {
-      onClick: () => row.toggleExpanded(),
-      class: [
-        'inline-flex items-center justify-center',
-        'w-8 h-8',
-        'rounded hover:bg-muted/50',
-        'transition-colors',
-        'text-gray-700 dark:text-gray-200'
-      ]
-    }, [
-      h(UIcon, {
-        name: 'i-lucide-chevron-down',
-        class: [
-          'w-4 h-4',
-          'transition-transform',
-          row.getIsExpanded() ? 'rotate-180' : ''
-        ]
-      })
-    ])
-  },
-  {
-    id: 'symbol',
-    header: 'Symbol',
-    cell: ({ row }: { row: any }) => {
-      const elements = [
-        h('div', {}, [
-          h('p', { class: 'font-medium' }, row.original.symbol),
-          row.original.optionsInfo ? h('p', { class: 'text-xs text-muted' }, row.original.optionsInfo) : null
-        ])
-      ]
+function openAddExecutionModal(position: Position) {
+  selectedPosition.value = position
+  isAddExecutionModalOpen.value = true
+}
 
-      // Add roll badge if this trade is part of a roll chain
-      if (row.original.trade.rollNumber && row.original.trade.rollNumber > 0) {
-        elements.push(h(UBadge, {
-          color: 'info',
-          size: 'xs',
-          label: `Roll #${row.original.trade.rollNumber}`
-        }))
+function openClosePositionModal(position: Position) {
+  selectedPosition.value = position
+  isClosePositionModalOpen.value = true
+}
+
+function openEditMetadataModal(position: Position) {
+  selectedPosition.value = position
+  isEditMetadataModalOpen.value = true
+}
+
+function openDeletePositionModal(position: Position) {
+  selectedPosition.value = position
+  isDeletePositionModalOpen.value = true
+}
+
+async function handleDeletePosition() {
+  if (!selectedPosition.value) return
+  await deletePosition(selectedPosition.value.id)
+}
+
+// Computed stats display
+// When unrealized P&L is shown, include it in total profit
+const displayStats = computed(() => {
+  if (!stats.value) return null
+
+  const projectedProfit = stats.value.totalProfit + totalUnrealizedPnl.value
+
+  return {
+    totalPositions: stats.value.totalTrades,
+    openPositions: stats.value.openTrades,
+    closedPositions: stats.value.closedTrades,
+    ytdReturn: stats.value.ytdReturn,
+    annualizedReturn: stats.value.annualizedReturn,
+    winRate: stats.value.winRate,
+    provenEdge: stats.value.provenEdge,
+    avgWin: stats.value.avgWin,
+    avgLoss: stats.value.avgLoss,
+    totalProfit: stats.value.totalProfit,
+    projectedProfit
+  }
+})
+
+// Format percentage
+const formatPercent = (value: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'percent',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value / 100)
+}
+
+// Equity curve chart series
+const equityCurveSeries = computed(() => {
+  if (!displayEquityCurve.value) return []
+
+  return [{
+    name: 'Balance',
+    data: displayEquityCurve.value.dataPoints.map(p => p.balance)
+  }]
+})
+
+// Equity curve chart options
+const equityCurveChartOptions = computed(() => {
+  if (!displayEquityCurve.value || !portfolio.value) return null
+
+  const dataPoints = displayEquityCurve.value.dataPoints
+  const colorMode = useColorMode()
+  const isDark = colorMode.value === 'dark'
+
+  return {
+    chart: {
+      type: 'area',
+      height: 350,
+      toolbar: {
+        show: false
+      },
+      zoom: {
+        enabled: false
+      },
+      background: 'transparent',
+      foreColor: isDark ? '#d1d5db' : '#6b7280'
+    },
+    dataLabels: {
+      enabled: false
+    },
+    stroke: {
+      curve: 'smooth',
+      width: 2
+    },
+    xaxis: {
+      type: 'datetime',
+      categories: dataPoints.map(p => p.date),
+      labels: {
+        format: 'MMM yyyy',
+        style: {
+          colors: isDark ? '#9ca3af' : '#6b7280'
+        }
       }
-
-      return h('div', { class: 'flex items-center gap-2' }, elements)
-    }
-  },
-  {
-    id: 'type',
-    header: 'Type',
-    cell: ({ row }: { row: any }) => h(UBadge, {
-      variant: 'subtle',
-      color: row.original.instrumentType === 'OPTION' ? 'info' : row.original.instrumentType === 'LEVERAGED_ETF' ? 'warning' : 'neutral',
-      label: row.original.instrumentType === 'OPTION' ? 'Option' : row.original.instrumentType === 'LEVERAGED_ETF' ? 'ETF' : 'Stock'
-    })
-  },
-  {
-    id: 'entry',
-    header: 'Entry',
-    cell: ({ row }: { row: any }) => h('div', {}, [
-      h('p', { class: 'font-medium' }, row.original.entry.price),
-      h('p', { class: 'text-xs text-muted' }, row.original.entry.date)
-    ])
-  },
-  {
-    id: 'quantity',
-    header: 'Qty',
-    cell: ({ row }: { row: any }) => h(UBadge, {
-      variant: 'subtle',
-      color: 'neutral'
-    }, () => row.original.quantity)
-  },
-  { accessorKey: 'value', header: 'Value' },
-  {
-    id: 'unrealizedPL',
-    header: 'P&L',
-    cell: ({ row }: { row: any }) => {
-      const pl = row.original.unrealizedPL
-
-      // For options, show message to expand row for accurate P&L
-      if (!pl.canCalculate) {
-        return h('div', { class: 'text-xs text-muted italic' }, [
-          h('p', {}, 'Expand row'),
-          h('p', {}, 'for P&L')
-        ])
+    },
+    yaxis: {
+      labels: {
+        formatter: (value: number) => formatCurrency(value),
+        style: {
+          colors: isDark ? '#9ca3af' : '#6b7280'
+        }
       }
-
-      const isProfit = pl.amount >= 0
-      return h('div', {}, [
-        h('p', {
-          class: ['font-medium', isProfit ? 'text-green-600' : 'text-red-600']
-        }, `${isProfit ? '+' : ''}${formatCurrency(pl.amount, row.original.trade.currency)}`),
-        h('p', {
-          class: ['text-xs', isProfit ? 'text-green-600' : 'text-red-600']
-        }, formatPercentage(pl.percentage))
-      ])
-    }
-  },
-  {
-    id: 'strategies',
-    header: 'Strategies',
-    cell: ({ row }: { row: any }) => h('div', { class: 'text-xs' }, [
-      h('p', { class: 'text-muted' }, row.original.strategies.entry),
-      h('p', { class: 'text-muted' }, `→ ${row.original.strategies.exit}`)
-    ])
-  },
-  {
-    id: 'actions',
-    header: '',
-    cell: ({ row }: { row: any }) => {
-      const buttons = []
-      const trade = row.original.trade
-
-      // Roll chain button (for any trade that's part of a roll chain)
-      if (trade.parentTradeId || trade.rolledToTradeId) {
-        buttons.push(h(UButton, {
-          icon: 'i-lucide-link',
-          size: 'sm',
-          color: 'info',
-          variant: 'ghost',
-          square: true,
-          onClick: () => openRollChainModal(trade)
-        }))
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light',
+      x: {
+        format: 'dd MMM yyyy'
+      },
+      y: {
+        formatter: (value: number) => formatCurrency(value)
       }
-
-      // Roll button (only for open option trades)
-      if (trade.instrumentType === 'OPTION') {
-        buttons.push(h(UButton, {
-          icon: 'i-lucide-repeat',
-          size: 'sm',
-          color: 'warning',
-          variant: 'ghost',
-          square: true,
-          onClick: () => openRollTradeModal(trade)
-        }))
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.7,
+        opacityTo: 0.3,
+        stops: [0, 90, 100]
       }
-
-      // Edit button
-      buttons.push(h(UButton, {
-        icon: 'i-lucide-pencil',
-        size: 'sm',
-        color: 'neutral',
-        variant: 'ghost',
-        square: true,
-        onClick: () => openEditTradeModal(trade)
-      }))
-
-      // Delete button
-      buttons.push(h(UButton, {
-        icon: 'i-lucide-trash-2',
-        size: 'sm',
-        color: 'error',
-        variant: 'ghost',
-        square: true,
-        onClick: () => openDeleteTradeModal(trade)
-      }))
-
-      // Close button
-      buttons.push(h(UButton, {
-        icon: 'i-lucide-x-circle',
-        size: 'sm',
-        color: 'success',
-        variant: 'ghost',
-        square: true,
-        onClick: () => openCloseTradeModal(trade)
-      }))
-
-      return h('div', { class: 'flex justify-end gap-1' }, buttons)
+    },
+    colors: ['#3b82f6'],
+    grid: {
+      borderColor: isDark ? '#374151' : '#e5e7eb'
     }
   }
-]
+})
 
-// Table data for open trades
-const openTradesTableData = computed(() => {
-  return openTrades.value.map((trade) => {
-    let optionsInfo = ''
-    let positionValue = 0
+// Table columns
+const openPositionsColumns = computed(() => {
+  const UButton = resolveComponent('UButton')
 
-    if (trade.instrumentType === 'OPTION') {
-      const strikeDisplay = trade.strikePrice ? `$${trade.strikePrice.toFixed(2)}` : ''
-      const expiryDisplay = trade.expirationDate ? format(new Date(trade.expirationDate), 'MMM dd') : ''
-      optionsInfo = `${trade.optionType || ''} ${strikeDisplay} exp ${expiryDisplay}`
-      positionValue = trade.entryPrice * (trade.contracts || trade.quantity) * (trade.multiplier || 100)
-    } else {
-      positionValue = trade.entryPrice * trade.quantity
+  const columns: any[] = [
+    {
+      accessorKey: 'symbol',
+      header: 'Symbol',
+      cell: ({ row }: { row: any }) => {
+        const position = row.original
+        const name = formatPositionName(position)
+        const details = formatOptionDetails(position)
+
+        return h('div', {}, [
+          h('div', { class: 'font-medium' }, name),
+          details ? h('div', { class: 'text-xs text-gray-500' }, details) : null
+        ].filter(Boolean))
+      }
+    },
+    { accessorKey: 'instrumentType', header: 'Type' },
+    { accessorKey: 'currentQuantity', header: 'Quantity' },
+    {
+      accessorKey: 'averageEntryPrice',
+      header: 'Avg Entry',
+      cell: ({ row }: { row: any }) => formatCurrency(row.original.averageEntryPrice)
+    },
+    {
+      accessorKey: 'totalCost',
+      header: 'Total Cost',
+      cell: ({ row }: { row: any }) => formatCurrency(row.original.totalCost)
     }
+  ]
 
-    // Calculate unrealized P&L
-    // Note: For options, we can't accurately calculate P&L from stock price
-    // The expanded view fetches actual option prices from AlphaVantage
-    //
-    // For stocks/ETFs: Always use the ACTUAL trade symbol for P&L calculation
-    // (e.g., TQQQ price for TQQQ trades, not QQQ price)
-    // The underlyingSymbol is only for strategy signal evaluation
-    const priceSymbol = trade.symbol // Always use actual trade symbol for P&L
-    const currentPrice = stockPrices.value[priceSymbol] || 0
-    let unrealizedPL = 0
-    let unrealizedPLPercentage = 0
-    let canCalculatePL = false
+  // Add current price and unrealized P&L columns if showing
+  if (showUnrealizedPnl.value) {
+    columns.push({
+      accessorKey: 'currentPrice',
+      header: 'Current Price',
+      cell: ({ row }: { row: any }) => {
+        const pnl = unrealizedPnlData.value.get(row.original.id)
+        if (!pnl || pnl.currentPrice === null) {
+          return h('span', { class: 'text-gray-400' }, '-')
+        }
+        return formatCurrency(pnl.currentPrice)
+      }
+    })
 
-    if (currentPrice > 0 && trade.instrumentType !== 'OPTION') {
-      // Only calculate P&L for stocks and ETFs (using stock price)
-      const entryValue = trade.entryPrice * trade.quantity
-      const exitValue = currentPrice * trade.quantity
-      unrealizedPL = exitValue - entryValue
-      unrealizedPLPercentage = (unrealizedPL / entryValue) * 100
-      canCalculatePL = true
+    columns.push({
+      accessorKey: 'unrealizedPnl',
+      header: 'Unrealized P&L',
+      cell: ({ row }: { row: any }) => {
+        const pnl = unrealizedPnlData.value.get(row.original.id)
+        if (!pnl || pnl.unrealizedPnl === null) {
+          return h('span', { class: 'text-gray-400' }, '-')
+        }
+        return h('span', {
+          class: pnl.unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600'
+        }, formatCurrency(pnl.unrealizedPnl))
+      }
+    })
+  }
+
+  columns.push(
+    {
+      accessorKey: 'openedDate',
+      header: 'Opened',
+      cell: ({ row }: { row: any }) => formatDate(row.original.openedDate)
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }: { row: any }) => h(UButton as any, {
+        icon: 'i-lucide-eye',
+        variant: 'ghost',
+        size: 'sm',
+        onClick: () => viewPositionDetails(row.original)
+      })
     }
+  )
 
-    return {
-      symbol: trade.symbol,
-      instrumentType: trade.instrumentType,
-      optionsInfo: optionsInfo || undefined,
-      status: trade.status,
-      entry: {
-        price: formatCurrency(trade.entryPrice, trade.currency),
-        date: format(new Date(trade.entryDate), 'MMM dd, yyyy')
-      },
-      quantity: trade.instrumentType === 'OPTION' ? `${trade.contracts || trade.quantity}c` : trade.quantity,
-      value: formatCurrency(positionValue, trade.currency),
-      unrealizedPL: {
-        amount: unrealizedPL,
-        percentage: unrealizedPLPercentage,
-        canCalculate: canCalculatePL
-      },
-      strategies: {
-        entry: trade.entryStrategy,
-        exit: trade.exitStrategy
-      },
-      trade: trade
+  return columns
+})
+
+const closedPositionsColumns = computed(() => {
+  const UButton = resolveComponent('UButton')
+
+  return [
+    {
+      accessorKey: 'symbol',
+      header: 'Symbol',
+      cell: ({ row }: { row: any }) => {
+        const position = row.original
+        const name = formatPositionName(position)
+        const details = formatOptionDetails(position)
+
+        return h('div', {}, [
+          h('div', { class: 'font-medium' }, name),
+          details ? h('div', { class: 'text-xs text-gray-500' }, details) : null
+        ].filter(Boolean))
+      }
+    },
+    { accessorKey: 'instrumentType', header: 'Type' },
+    {
+      accessorKey: 'averageEntryPrice',
+      header: 'Entry',
+      cell: ({ row }: { row: any }) => formatCurrency(row.original.averageEntryPrice)
+    },
+    {
+      accessorKey: 'realizedPnl',
+      header: 'Realized P&L',
+      cell: ({ row }: { row: any }) => {
+        const value = row.original.realizedPnl || 0
+        return h('span', {
+          class: value >= 0 ? 'text-green-600' : 'text-red-600'
+        }, formatCurrency(value))
+      }
+    },
+    {
+      accessorKey: 'openedDate',
+      header: 'Opened',
+      cell: ({ row }: { row: any }) => formatDate(row.original.openedDate)
+    },
+    {
+      accessorKey: 'closedDate',
+      header: 'Closed',
+      cell: ({ row }: { row: any }) => row.original.closedDate ? formatDate(row.original.closedDate) : '-'
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }: { row: any }) => h(UButton as any, {
+        icon: 'i-lucide-eye',
+        label: 'View Details',
+        variant: 'ghost',
+        size: 'sm',
+        onClick: () => viewPositionDetails(row.original)
+      })
     }
-  })
+  ]
 })
 </script>
 
 <template>
-  <UDashboardPanel id="portfolio">
+  <UDashboardPanel id="portfolio" grow>
     <template #header>
-      <UDashboardNavbar title="Portfolio Manager" :ui="{ right: 'gap-3' }">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-
-        <template #right>
+      <UDashboardNavbar title="Portfolio Manager">
+        <template #left>
           <USelect
             v-if="portfolios.length > 0"
             :model-value="portfolio?.id"
-            :items="portfolios.map((p: Portfolio) => ({ label: p.name, value: p.id }))"
+            :items="portfolios.map((p) => ({ label: p.name, value: p.id }))"
             value-key="value"
-            class="w-64"
             placeholder="Select Portfolio"
-            @update:model-value="(id) => { if (id) selectPortfolio(portfolios.find((p: Portfolio) => p.id === id)!) }"
+            class="w-64"
+            @update:model-value="(id) => { if (id) selectPortfolio(portfolios.find((p) => p.id === id)!) }"
           />
-          <UDropdownMenu :items="items">
-            <UButton icon="i-lucide-plus" size="md" class="rounded-full" />
-          </UDropdownMenu>
+        </template>
+        <template #right>
+          <div class="flex gap-2">
+            <UButton
+              label="Create Portfolio"
+              icon="i-lucide-plus"
+              @click="isCreatePortfolioModalOpen = true"
+            />
+            <UDropdownMenu
+              v-if="portfolio"
+              :items="[
+                { label: 'Sync Portfolio', icon: 'i-lucide-refresh-cw', click: (): void => { isSyncPortfolioModalOpen = true }, disabled: portfolio.broker !== 'IBKR' },
+                { label: 'Import from Broker', icon: 'i-lucide-download', click: (): void => { isCreateFromBrokerModalOpen = true } },
+                { type: 'separator' },
+                { label: 'Delete Portfolio', icon: 'i-lucide-trash', click: (): void => { isDeletePortfolioModalOpen = true } }
+              ]"
+            >
+              <UButton icon="i-lucide-more-vertical" variant="ghost" />
+            </UDropdownMenu>
+          </div>
         </template>
       </UDashboardNavbar>
     </template>
@@ -972,406 +669,289 @@ const openTradesTableData = computed(() => {
         <h3 class="text-lg font-semibold mb-2">
           Loading Portfolios
         </h3>
-        <p class="text-muted text-center">
+        <p class="text-gray-500 dark:text-gray-400 text-center">
           Please wait while we fetch your portfolios...
         </p>
       </div>
 
       <!-- No Portfolio State -->
       <div v-else-if="!portfolio" class="flex flex-col items-center justify-center h-96">
-        <UIcon name="i-lucide-briefcase" class="w-16 h-16 text-muted mb-4" />
+        <UIcon name="i-lucide-briefcase" class="w-16 h-16 text-gray-500 dark:text-gray-400 mb-4" />
         <h3 class="text-lg font-semibold mb-2">
           No Portfolio
         </h3>
-        <p class="text-muted text-center mb-4">
+        <p class="text-gray-500 dark:text-gray-400 text-center mb-4">
           Create a portfolio to start tracking your trades
         </p>
+        <div class="flex gap-2">
+          <UButton
+            label="Create Portfolio"
+            icon="i-lucide-plus"
+            @click="isCreatePortfolioModalOpen = true"
+          />
+          <UButton
+            label="Import from Broker"
+            icon="i-lucide-download"
+            variant="outline"
+            @click="isCreateFromBrokerModalOpen = true"
+          />
+        </div>
+      </div>
+
+      <!-- Unrealized P&L Toggle -->
+      <div v-if="portfolio && displayStats && displayStats.openPositions > 0" class="px-4 pt-4 flex justify-end">
         <UButton
-          label="Create Portfolio"
-          icon="i-lucide-plus"
-          @click="isCreatePortfolioModalOpen = true"
+          :label="showUnrealizedPnl ? 'Hide Unrealized P&L' : 'Show Unrealized P&L'"
+          :icon="showUnrealizedPnl ? 'i-lucide-eye-off' : 'i-lucide-trending-up'"
+          :loading="isLoadingUnrealizedPnl"
+          size="sm"
+          variant="outline"
+          @click="toggleUnrealizedPnl"
         />
       </div>
 
-      <!-- Portfolio Content -->
-      <div v-else class="grid gap-4">
-        <!-- Projected Metrics and Group Rolled Trades Toggles -->
-        <div class="flex items-center justify-end gap-6">
-          <div v-if="openTrades.length > 0 && projectedStats" class="flex items-center gap-2">
-            <label class="text-sm text-muted cursor-pointer" for="show-open-trades" title="Shows projected performance for stocks/ETFs only">
-              Show Projected Metrics
-            </label>
-            <input
-              id="show-open-trades"
-              v-model="showOpenTradesStats"
-              type="checkbox"
-              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-              title="Shows projected performance for stocks/ETFs only"
-            >
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="text-sm text-muted cursor-pointer" for="group-rolled-trades">
-              Group Rolled Trades
-            </label>
-            <input
-              id="group-rolled-trades"
-              v-model="groupRolledTrades"
-              type="checkbox"
-              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-            >
-          </div>
-        </div>
-
-        <!-- Info Note -->
-        <div v-if="showOpenTradesStats && projectedStats" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div class="flex items-start gap-2">
-            <UIcon name="i-lucide-info" class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <p class="text-sm text-blue-900 dark:text-blue-100">
-              <strong>Projected Metrics:</strong> Shows portfolio performance if <strong>stock/ETF positions</strong> were closed at today's market prices.
-              <span class="italic">Note: Options are excluded (require actual option prices, not stock prices).</span>
-            </p>
-          </div>
-        </div>
-
-        <!-- Portfolio Header Card -->
-        <UCard>
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <h2 class="text-2xl font-bold">
-                  {{ portfolio.name }}
-                </h2>
-                <p class="text-muted text-sm">
-                  {{ portfolio.currency }}
-                </p>
-              </div>
-              <div class="text-right">
-                <p class="text-sm text-muted">
-                  {{ showOpenTradesStats && projectedBalance ? 'Projected Total' : 'Available Funds' }}
-                </p>
-                <p class="text-2xl font-bold">
-                  {{ formatCurrency(showOpenTradesStats && projectedBalance ? projectedBalance : portfolio.currentBalance, portfolio.currency) }}
-                </p>
-              </div>
-            </div>
-            <div class="grid grid-cols-3 gap-4 pt-4 border-t">
-              <div>
-                <p class="text-sm text-muted">
-                  Initial Balance
-                </p>
-                <p class="font-semibold">
-                  {{ formatCurrency(portfolio.initialBalance, portfolio.currency) }}
-                </p>
-              </div>
-              <div>
-                <p class="text-sm text-muted">
-                  Capital Deployed
-                </p>
-                <p class="font-semibold text-blue-600 dark:text-blue-400">
-                  {{ formatCurrency(capitalDeployed, portfolio.currency) }}
-                </p>
-              </div>
-              <div>
-                <p class="text-sm text-muted">
-                  {{ showOpenTradesStats && projectedBalance ? 'Projected Profit' : 'Total Profit' }}
-                </p>
-                <p class="font-semibold" :class="(showOpenTradesStats && projectedBalance ? (projectedBalance - portfolio.initialBalance) : (displayStats?.totalProfit || 0)) >= 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ formatCurrency(showOpenTradesStats && projectedBalance ? (projectedBalance - portfolio.initialBalance) : (displayStats?.totalProfit || 0), portfolio.currency) }}
-                  ({{ formatPercentage(showOpenTradesStats && projectedBalance ? (((projectedBalance - portfolio.initialBalance) / portfolio.initialBalance) * 100) : (displayStats?.totalProfitPercentage || 0)) }})
-                </p>
-              </div>
-            </div>
-          </div>
-        </UCard>
-
-        <!-- Statistics Cards -->
-        <div v-if="stats">
-          <h3 class="text-sm font-semibold text-muted mb-3">
-            Portfolio Statistics
-          </h3>
-
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Total Trades
-                </p>
-                <p class="text-2xl font-bold">
-                  {{ displayStats?.totalTrades }}
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Win Rate
-                </p>
-                <p class="text-2xl font-bold">
-                  {{ displayStats?.winRate.toFixed(1) }}%
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  YTD Return
-                </p>
-                <p class="text-2xl font-bold" :class="(displayStats?.ytdReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ formatPercentage(displayStats?.ytdReturn ?? 0) }}
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Proven Edge
-                </p>
-                <p class="text-2xl font-bold" :class="(displayStats?.provenEdge ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ formatPercentage(displayStats?.provenEdge ?? 0) }}
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Avg Win
-                </p>
-                <p class="text-2xl font-bold text-green-600">
-                  {{ formatPercentage(displayStats?.avgWin ?? 0) }}
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Avg Loss
-                </p>
-                <p class="text-2xl font-bold text-red-600">
-                  {{ formatPercentage(displayStats?.avgLoss ?? 0) }}
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Open Trades
-                </p>
-                <p class="text-2xl font-bold">
-                  {{ displayStats?.openTrades }}
-                </p>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div>
-                <p class="text-sm text-muted">
-                  Closed Trades
-                </p>
-                <p class="text-2xl font-bold">
-                  {{ displayStats?.closedTrades }}
-                </p>
-              </div>
-            </UCard>
-          </div>
-        </div>
-
-        <!-- Open Trades -->
+      <!-- Stats Cards -->
+      <div v-if="portfolio && displayStats" class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <UCard>
           <template #header>
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">
-                Open Trades
-              </h3>
-              <div class="flex gap-2">
-                <UButton
-                  icon="i-lucide-refresh-cw"
-                  size="sm"
-                  color="neutral"
-                  variant="ghost"
-                  :loading="isRefreshingStocks"
-                  @click="refreshOpenTradeStocks"
-                />
-                <UButton
-                  label="Open Trade"
-                  icon="i-lucide-plus"
-                  size="sm"
-                  @click="isOpenTradeModalOpen = true"
-                />
-              </div>
-            </div>
-          </template>
-
-          <div v-if="openTrades.length === 0" class="text-center py-8 text-muted">
-            No open trades
-          </div>
-
-          <UTable
-            v-else
-            v-model:expanded="expandedRows"
-            :columns="openTradesColumns"
-            :data="openTradesTableData"
-          >
-            <template #symbol-data="{ row }">
-              <div class="flex items-center gap-2">
-                <div class="flex flex-col">
-                  <span class="font-semibold">{{ row.original.symbol }}</span>
-                  <span
-                    v-if="row.original.trade.underlyingSymbol && row.original.trade.underlyingSymbol !== row.original.symbol"
-                    class="text-xs text-muted"
-                  >
-                    Signals from {{ row.original.trade.underlyingSymbol }}
-                  </span>
-                </div>
-                <UBadge color="blue" size="xs">
-                  {{ row.original.status }}
-                </UBadge>
-              </div>
-            </template>
-
-            <template #value-data="{ row }">
-              <span class="font-semibold">{{ row.original.value }}</span>
-            </template>
-
-            <template #expanded="{ row }">
-              <div class="p-4 bg-muted/30">
-                <PortfolioOptionTradeChart v-if="row.original.trade.instrumentType === 'OPTION'" :trade="row.original.trade" />
-                <PortfolioOpenTradeChart v-else :trade="row.original.trade" />
-              </div>
-            </template>
-          </UTable>
-        </UCard>
-
-        <!-- Equity Curve -->
-        <PortfolioEquityCurve
-          v-if="portfolio.id && closedTrades.length > 0"
-          :key="`equity-${closedTrades.length}`"
-          :portfolio-id="portfolio.id"
-          :loading="status === 'pending'"
-        />
-
-        <!-- Recent Closed Trades -->
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-semibold">
-              Recent Closed Trades
+            <h3 class="text-base font-semibold">
+              Portfolio Overview
             </h3>
           </template>
-
-          <div v-if="closedTrades.length === 0" class="text-center py-8 text-muted">
-            No closed trades
-          </div>
-
-          <div v-else class="space-y-2">
-            <div
-              v-for="trade in closedTrades.slice(0, 10)"
-              :key="trade.id"
-              class="flex items-center justify-between p-4 border rounded-lg"
-            >
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <p class="font-semibold">
-                    {{ trade.symbol }}
-                  </p>
-                  <UBadge color="neutral" size="xs">
-                    {{ trade.status }}
-                  </UBadge>
-                </div>
-                <p class="text-sm text-muted">
-                  {{ format(new Date(trade.entryDate), 'MMM dd') }} →
-                  {{ trade.exitDate ? format(new Date(trade.exitDate), 'MMM dd, yyyy') : 'N/A' }}
-                </p>
-                <p class="text-xs text-muted">
-                  {{ formatCurrency(trade.entryPrice, trade.currency) }} →
-                  {{ trade.exitPrice ? formatCurrency(trade.exitPrice, trade.currency) : 'N/A' }}
-                </p>
-              </div>
-              <div class="text-right">
-                <p class="font-semibold" :class="(trade.profitPercentage || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ trade.profitPercentage ? formatPercentage(trade.profitPercentage) : 'N/A' }}
-                </p>
-                <p class="text-sm text-muted">
-                  {{ trade.profit ? formatCurrency(trade.profit, trade.currency) : 'N/A' }}
-                </p>
-              </div>
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span>Starting Balance:</span>
+              <span class="font-semibold">{{ formatCurrency(portfolio.initialBalance) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Current Balance:</span>
+              <span class="font-semibold text-primary">{{ formatCurrency(portfolio.currentBalance) }}</span>
+            </div>
+            <div v-if="showUnrealizedPnl" class="flex justify-between">
+              <span>Unrealized P&L:</span>
+              <span class="font-semibold" :class="totalUnrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ totalUnrealizedPnl >= 0 ? '+' : '' }}{{ formatCurrency(totalUnrealizedPnl) }}
+              </span>
+            </div>
+            <div v-if="showUnrealizedPnl" class="flex justify-between border-t pt-2">
+              <span class="font-medium">Projected Balance:</span>
+              <span class="font-semibold text-blue-600">{{ formatCurrency(projectedBalance) }}</span>
+            </div>
+            <div class="flex justify-between" :class="{ 'border-t pt-2': showUnrealizedPnl }">
+              <span>Total Positions:</span>
+              <span class="font-semibold">{{ displayStats.totalPositions }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Open:</span>
+              <span class="font-semibold text-blue-600">{{ displayStats.openPositions }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Closed:</span>
+              <span class="font-semibold text-gray-600">{{ displayStats.closedPositions }}</span>
             </div>
           </div>
         </UCard>
+
+        <UCard>
+          <template #header>
+            <h3 class="text-base font-semibold">
+              Performance
+            </h3>
+          </template>
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span>Win Rate:</span>
+              <span class="font-semibold">{{ formatPercent(displayStats.winRate) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Proven Edge:</span>
+              <span class="font-semibold text-green-600">{{ formatPercent(displayStats.provenEdge) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>{{ showUnrealizedPnl ? 'Realized' : 'Total' }} Return:</span>
+              <span class="font-semibold">{{ formatPercent(displayStats.ytdReturn) }}</span>
+            </div>
+            <div v-if="showUnrealizedPnl" class="flex justify-between border-t pt-2">
+              <span class="font-medium">Projected Return:</span>
+              <span class="font-semibold text-blue-600">{{ formatPercent(projectedTotalReturn) }}</span>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h3 class="text-base font-semibold">
+              P&L
+            </h3>
+          </template>
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span>{{ showUnrealizedPnl ? 'Realized' : 'Total' }} Profit:</span>
+              <span class="font-semibold" :class="displayStats.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(displayStats.totalProfit) }}
+              </span>
+            </div>
+            <div v-if="showUnrealizedPnl" class="flex justify-between">
+              <span>Unrealized P&L:</span>
+              <span class="font-semibold" :class="totalUnrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ totalUnrealizedPnl >= 0 ? '+' : '' }}{{ formatCurrency(totalUnrealizedPnl) }}
+              </span>
+            </div>
+            <div v-if="showUnrealizedPnl" class="flex justify-between border-t pt-2">
+              <span class="font-medium">Projected Profit:</span>
+              <span class="font-semibold text-blue-600" :class="displayStats.projectedProfit >= 0 ? 'text-blue-600' : 'text-orange-600'">
+                {{ formatCurrency(displayStats.projectedProfit) }}
+              </span>
+            </div>
+            <div class="flex justify-between" :class="{ 'border-t pt-2': showUnrealizedPnl }">
+              <span>Avg Win:</span>
+              <span class="font-semibold text-green-600">{{ formatCurrency(displayStats.avgWin) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Avg Loss:</span>
+              <span class="font-semibold text-red-600">{{ formatCurrency(displayStats.avgLoss) }}</span>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <!-- Tabs for Positions and Equity Curve -->
+      <div v-if="portfolio" class="p-4">
+        <UTabs
+          v-model="activeTab"
+          :items="tabItems"
+          variant="link"
+          class="w-full"
+        >
+          <!-- Open Positions Tab -->
+          <template #open>
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">
+                  Open Positions
+                </h3>
+              </template>
+
+              <div v-if="openPositions.length === 0" class="text-center py-8 text-gray-500">
+                No open positions
+              </div>
+              <UTable v-else :data="openPositions" :columns="openPositionsColumns" />
+            </UCard>
+          </template>
+
+          <!-- Closed Positions Tab -->
+          <template #closed>
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">
+                  Closed Positions
+                </h3>
+              </template>
+
+              <div v-if="closedPositions.length === 0" class="text-center py-8 text-gray-500">
+                No closed positions
+              </div>
+              <UTable v-else :data="closedPositions" :columns="closedPositionsColumns" />
+            </UCard>
+          </template>
+
+          <!-- Equity Curve Tab -->
+          <template #equity-curve>
+            <UCard v-if="displayEquityCurve && displayEquityCurve.dataPoints.length > 0">
+              <template #header>
+                <h3 class="text-lg font-semibold">
+                  Equity Curve
+                  <span v-if="showUnrealizedPnl" class="text-xs font-normal text-blue-600 ml-2">(including unrealized P&L)</span>
+                </h3>
+              </template>
+              <ClientOnly>
+                <apexchart
+                  v-if="equityCurveChartOptions"
+                  type="area"
+                  height="350"
+                  :options="equityCurveChartOptions"
+                  :series="equityCurveSeries"
+                />
+              </ClientOnly>
+            </UCard>
+
+            <!-- Empty State -->
+            <UCard v-else>
+              <div class="flex flex-col items-center justify-center py-12">
+                <UIcon name="i-lucide-trending-up" class="w-16 h-16 text-gray-400 mb-4" />
+                <h3 class="text-lg font-semibold mb-2">
+                  No Equity Data
+                </h3>
+                <p class="text-gray-500">
+                  Close some positions to see your equity curve
+                </p>
+              </div>
+            </UCard>
+          </template>
+        </UTabs>
       </div>
     </template>
   </UDashboardPanel>
 
-  <!-- Create Portfolio Modal -->
+  <!-- Modals -->
   <PortfolioCreateModal
-    v-model:open="isCreatePortfolioModalOpen"
+    :open="isCreatePortfolioModalOpen"
+    @update:open="(value) => isCreatePortfolioModalOpen = value"
     @create="createPortfolio"
   />
 
-  <!-- Open Trade Modal -->
-  <PortfolioOpenTradeModal
-    v-if="portfolio"
-    v-model:open="isOpenTradeModalOpen"
-    :currency="portfolio.currency"
-    :current-balance="portfolio.currentBalance"
-    :loading="isOpeningTrade"
-    @open-trade="openTrade"
-  />
-
-  <!-- Edit Trade Modal -->
-  <PortfolioEditTradeModal
-    v-if="selectedTrade && portfolio"
-    v-model:open="isEditTradeModalOpen"
-    :trade="selectedTrade"
-    :currency="portfolio.currency"
-    :loading="isEditingTrade"
-    @update-trade="editTrade"
-  />
-
-  <!-- Delete Trade Modal -->
-  <PortfolioDeleteTradeModal
-    v-if="selectedTrade"
-    v-model:open="isDeleteTradeModalOpen"
-    :trade="selectedTrade"
-    :loading="isDeletingTrade"
-    @delete-trade="deleteTrade"
-  />
-
-  <!-- Close Trade Modal -->
-  <PortfolioCloseTradeModal
-    v-if="selectedTrade"
-    v-model:open="isCloseTradeModalOpen"
-    :trade="selectedTrade"
-    :loading="isClosingTrade"
-    @close-trade="closeTrade"
-  />
-
-  <!-- Delete Portfolio Modal -->
   <PortfolioDeleteModal
-    v-if="portfolio && isDeletePortfolioModalOpen"
-    v-model:open="isDeletePortfolioModalOpen"
+    v-if="portfolio"
+    :open="isDeletePortfolioModalOpen"
     :portfolio="portfolio"
+    @update:open="(value) => isDeletePortfolioModalOpen = value"
     @delete="deletePortfolio"
   />
 
-  <!-- Roll Trade Modal -->
-  <PortfolioRollTradeModal
-    v-if="selectedTrade && portfolio"
-    v-model:open="isRollTradeModalOpen"
-    :trade="selectedTrade"
-    :portfolio-id="Number(portfolio.id)"
-    @rolled="handleTradeRolled"
+  <PortfolioCreateFromBrokerModal
+    :open="isCreateFromBrokerModalOpen"
+    @update:open="(value) => isCreateFromBrokerModalOpen = value"
+    @created="(result) => { isCreateFromBrokerModalOpen = false; createFromBroker(result); }"
   />
 
-  <!-- Roll Chain Modal -->
-  <PortfolioRollChainModal
-    v-if="selectedTrade && portfolio"
-    v-model:open="isRollChainModalOpen"
-    :trade="selectedTrade"
-    :portfolio-id="Number(portfolio.id)"
+  <PortfolioSyncPortfolioModal
+    v-if="portfolio"
+    :open="isSyncPortfolioModalOpen"
+    :portfolio="portfolio"
+    @update:open="(value) => isSyncPortfolioModalOpen = value"
+    @synced="(result) => { isSyncPortfolioModalOpen = false; syncPortfolio(result); }"
+  />
+
+  <PortfolioPositionDetailsModal
+    v-model="isPositionDetailsModalOpen"
+    :position="selectedPosition"
+    @add-execution="openAddExecutionModal"
+    @edit-metadata="openEditMetadataModal"
+    @close-position="openClosePositionModal"
+    @delete="openDeletePositionModal"
+  />
+
+  <PortfolioAddExecutionModal
+    v-model="isAddExecutionModalOpen"
+    :position="selectedPosition"
+    @success="loadPortfolioData"
+  />
+
+  <PortfolioClosePositionModal
+    v-model="isClosePositionModalOpen"
+    :position="selectedPosition"
+    @success="loadPortfolioData"
+  />
+
+  <PortfolioEditPositionMetadataModal
+    v-model="isEditMetadataModalOpen"
+    :position="selectedPosition"
+    @success="loadPortfolioData"
+  />
+
+  <PortfolioDeletePositionModal
+    v-model="isDeletePositionModalOpen"
+    :position="selectedPosition"
+    @delete="handleDeletePosition"
   />
 </template>

@@ -3,8 +3,7 @@ package com.skrymer.udgaard.domain
 import java.time.LocalDate
 
 /**
- * Domain model for StockQuote (Hibernate-independent)
- * Contains all business logic from the original StockQuote entity
+ * Domain model for StockQuote
  */
 data class StockQuoteDomain(
   val symbol: String = "",
@@ -24,6 +23,8 @@ data class StockQuoteDomain(
   var closePriceEMA20: Double = 0.0,
   var closePriceEMA5: Double = 0.0,
   var closePriceEMA50: Double = 0.0,
+  var closePriceEMA100: Double = 0.0,
+  var closePriceEMA200: Double = 0.0,
   var trend: String? = null,
   var lastBuySignal: LocalDate? = null,
   var lastSellSignal: LocalDate? = null,
@@ -38,6 +39,8 @@ data class StockQuoteDomain(
   var marketAdvancingPercent: Double = 0.0,
   var marketIsInUptrend: Boolean = false,
   var marketDonkeyChannelScore: Int = 0,
+  var marketBullPercentage: Double = 0.0,
+  var marketBullPercentage_10ema: Double = 0.0,
   var previousQuoteDate: LocalDate? = null,
   val sectorBreadth: Double = 0.0,
   var sectorStocksInDowntrend: Int = 0,
@@ -87,7 +90,7 @@ data class StockQuoteDomain(
   /**
    * @return true if percentage of bullish stocks are higher than the 10ema.
    */
-  fun isMarketInUptrend() = marketIsInUptrend
+  fun isMarketInUptrend() = marketBullPercentage > marketBullPercentage_10ema
 
   /**
    * @return true if it has a buy signal and the signal is the day of the quote or one day prior

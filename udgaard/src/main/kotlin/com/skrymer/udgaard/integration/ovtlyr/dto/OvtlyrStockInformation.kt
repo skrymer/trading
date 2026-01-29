@@ -14,12 +14,12 @@ class OvtlyrStockInformation {
     private set
 
   @JsonProperty("lst_h")
-  private val quotes: List<OvtlyrStockQuote> = emptyList()
+  private val quotes: List<OvtlyrStockQuote>? = null
 
   @JsonProperty("lst_orderBlock")
-  val orderBlocks: List<OvtlyrOrderBlock> = emptyList()
+  val orderBlocks: List<OvtlyrOrderBlock>? = null
 
-  fun getQuotes(): List<OvtlyrStockQuote?> = quotes
+  fun getQuotes(): List<OvtlyrStockQuote?> = quotes ?: emptyList()
 
   override fun toString(): String = stockName ?: "Unknown stockinformation"
 
@@ -85,12 +85,9 @@ class OvtlyrStockInformation {
    */
   fun getLastBuySignal(date: LocalDate) =
     quotes
-      // Only care about quotes with a buy signal
-      .filter { it.hasBuySignal() }
-      // Sort by quote date desc
-      .sortedByDescending { it.getDate() }
-      // Only look at quotes that are before or equal to the given date
-      .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
+      ?.filter { it.hasBuySignal() }
+      ?.sortedByDescending { it.getDate() }
+      ?.firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
       ?.getDate()
 
   /**
@@ -100,12 +97,9 @@ class OvtlyrStockInformation {
    */
   fun getLastSellSignal(date: LocalDate) =
     quotes
-      // Only care about quotes with a sell signal
-      .filter { it.hasSellSignal() }
-      // Sort by quote date desc
-      .sortedByDescending { it.getDate() }
-      // Only look for quotes that are before or equal to the given date
-      .firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
+      ?.filter { it.hasSellSignal() }
+      ?.sortedByDescending { it.getDate() }
+      ?.firstOrNull { it.getDate().isBefore(date) || it.getDate().isEqual(date) }
       ?.getDate()
 
   fun getCurrentSignalFrom(from: LocalDate): String {
@@ -133,7 +127,7 @@ class OvtlyrStockInformation {
     quote: OvtlyrStockQuote,
     lookBack: Int,
   ): List<OvtlyrStockQuote> {
-    val sortedByDateAsc = quotes.sortedBy { it.getDate() }
+    val sortedByDateAsc = quotes?.sortedBy { it.getDate() } ?: return emptyList()
     val quoteIndex = sortedByDateAsc.indexOf(quote)
 
     return if (quoteIndex < lookBack) {

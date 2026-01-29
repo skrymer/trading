@@ -29,7 +29,7 @@ class OvtlyrPlanEtfEntryStrategy : DetailedEntryStrategy {
       uptrend()
       buySignal(daysOld = -1) // Accept any buy signal age
       heatmap(70)
-      inValueZone(1.5) // Optimized: 1.5 ATR (was 2.0) - tighter entry timing
+      inValueZone(atrMultiplier = 1.5, emaPeriod = 20) // Optimized: 1.5 ATR (was 2.0) - tighter entry timing
       belowOrderBlock(percentBelow = 2.0, ageInDays = 30)
     }
 
