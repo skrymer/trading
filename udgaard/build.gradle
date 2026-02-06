@@ -90,6 +90,10 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.named('bootRun') {
+	jvmArgs = ['-Xmx8192m', '-Xms4096m']
+}
+
 ktlint {
 	version = "1.5.0"
 	verbose = true

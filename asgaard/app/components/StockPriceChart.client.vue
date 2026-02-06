@@ -40,13 +40,13 @@
           EMA Lines
         </UButton>
         <UButton
-          :icon="showBuySellSignals ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+          :icon="showADX ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
           size="sm"
-          :color="showBuySellSignals ? 'primary' : 'neutral'"
+          :color="showADX ? 'primary' : 'neutral'"
           variant="soft"
-          @click="showBuySellSignals = !showBuySellSignals"
+          @click="showADX = !showADX"
         >
-          Buy/Sell Signals
+          ADX
         </UButton>
       </div>
 
@@ -96,7 +96,45 @@
     </div>
 
     <!-- Chart Container -->
-    <div ref="chartContainer" class="w-full h-[600px]" />
+    <div class="relative w-full h-[600px]">
+      <div ref="chartContainer" class="w-full h-full" />
+
+      <!-- Tooltip/Legend Overlay -->
+      <div
+        v-if="tooltipData"
+        class="absolute top-2 left-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 text-sm border border-gray-200 dark:border-gray-700 z-10 pointer-events-none"
+      >
+        <div class="font-semibold mb-2">
+          {{ tooltipData.date }}
+        </div>
+        <div class="space-y-1">
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-600 dark:text-gray-400">O:</span>
+            <span class="font-medium">{{ tooltipData.open }}</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-600 dark:text-gray-400">H:</span>
+            <span class="font-medium">{{ tooltipData.high }}</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-600 dark:text-gray-400">L:</span>
+            <span class="font-medium">{{ tooltipData.low }}</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-600 dark:text-gray-400">C:</span>
+            <span class="font-medium">{{ tooltipData.close }}</span>
+          </div>
+          <div v-if="tooltipData.volume !== null" class="flex justify-between gap-4">
+            <span class="text-gray-600 dark:text-gray-400">Vol:</span>
+            <span class="font-medium">{{ tooltipData.volume }}</span>
+          </div>
+          <div v-if="showADX && tooltipData.adx !== null" class="flex justify-between gap-4 border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
+            <span class="text-purple-600 dark:text-purple-400">ADX:</span>
+            <span class="font-medium text-purple-600 dark:text-purple-400">{{ tooltipData.adx }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Signal Details Modal -->
     <ChartsSignalDetailsModal
@@ -121,6 +159,7 @@ const chartContainer = ref<HTMLElement | null>(null)
 let chart: any = null
 let candlestickSeries: any = null
 let volumeSeries: any = null
+let adxSeries: any = null
 let currentOrderBlockPrimitive: any = null
 let seriesMarkersPlugin: any = null
 let ema10Series: any = null
@@ -129,11 +168,22 @@ let ema50Series: any = null
 const dateRange = ref<string>('3M')
 const showOrderBlocks = ref<boolean>(true)
 const showEMA = ref<boolean>(true)
-const showBuySellSignals = ref<boolean>(true)
+const showADX = ref<boolean>(true)
 
 // Signal details modal state
 const signalDetailsModalOpen = ref(false)
 const selectedSignal = ref<any>(null)
+
+// Tooltip data for hover display
+const tooltipData = ref<{
+  date: string
+  open: string
+  high: string
+  low: string
+  close: string
+  volume: string | null
+  adx: string | null
+} | null>(null)
 
 // Map to store signal data by timestamp for quick lookup
 const signalDataMap = new Map<number, any>()
@@ -298,6 +348,23 @@ class OrderBlockRenderer {
           scaledX2 - scaledX1,
           scaledY2 - scaledY1
         )
+
+        // Use trading days age from backend (fallback to 0 if not available)
+        const ageInTradingDays = block.ageInTradingDays ?? 0
+
+        // Draw age label at the right edge of the block
+        const ageText = `age: ${ageInTradingDays}`
+        const fontSize = 11 * scope.verticalPixelRatio
+        ctx.font = `${fontSize}px sans-serif`
+        ctx.fillStyle = strokeColor
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'top'
+
+        // Position text at right edge, slightly inside the block
+        const textX = scaledX2 - (4 * scope.horizontalPixelRatio)
+        const textY = scaledY1 + (4 * scope.verticalPixelRatio)
+
+        ctx.fillText(ageText, textX, textY)
       })
     })
   }
@@ -407,14 +474,14 @@ onMounted(async () => {
       // Enable price scale interaction
       scaleMargins: {
         top: 0.1,
-        bottom: 0.3 // More space for volume
+        bottom: 0.4 // Space for ADX at bottom
       }
     },
     leftPriceScale: {
       visible: true,
       borderColor: '#D1D5DB',
       scaleMargins: {
-        top: 0.7, // Volume takes top 70% space, leaving 30% at bottom
+        top: 0.7, // Volume takes top 30% space
         bottom: 0
       }
     },
@@ -493,6 +560,26 @@ onMounted(async () => {
     priceScaleId: 'left'
   })
 
+  // Add ADX series as line on separate 'adx' scale
+  adxSeries = chart.addSeries(LineSeries, {
+    color: '#9333ea',
+    lineWidth: 2,
+    title: 'ADX',
+    priceScaleId: 'adx',
+    lastValueVisible: true,
+    priceLineVisible: false
+  })
+
+  // Configure ADX price scale (on right side, at bottom)
+  chart.priceScale('adx').applyOptions({
+    visible: true,
+    borderColor: '#D1D5DB',
+    scaleMargins: {
+      top: 0.6, // ADX takes bottom 40% space on right side
+      bottom: 0
+    }
+  })
+
   // Update chart data
   updateChartData()
 
@@ -501,6 +588,9 @@ onMounted(async () => {
 
   // Add click event listener to chart for marker interaction
   chart.subscribeClick(handleChartClick)
+
+  // Subscribe to crosshair move for tooltip
+  chart.subscribeCrosshairMove(handleCrosshairMove)
 
   // Handle resize
   const resizeObserver = new ResizeObserver(() => {
@@ -530,37 +620,7 @@ function updateMarkers() {
   const markers: any[] = []
   signalDataMap.clear()
 
-  // Add buy/sell signals from quote data (if toggle is enabled)
-  if (showBuySellSignals.value && props.quotes) {
-    props.quotes.forEach((quote: StockQuote) => {
-      if (!quote.date || !quote.signal) return
-      const time = (new Date(quote.date).getTime() / 1000) as any
-
-      // Add buy signal marker (blue circle)
-      if (quote.signal === 'Buy') {
-        markers.push({
-          time,
-          position: 'belowBar',
-          color: '#3b82f6',
-          shape: 'circle',
-          text: 'Buy'
-        })
-      }
-
-      // Add sell signal marker (orange circle)
-      if (quote.signal === 'Sell') {
-        markers.push({
-          time,
-          position: 'aboveBar',
-          color: '#f59e0b',
-          shape: 'circle',
-          text: 'Sell'
-        })
-      }
-    })
-  }
-
-  // Store strategy-based entry/exit signals for click handling (but don't display markers)
+  // Add strategy-based entry/exit signals as markers
   if (props.signals && props.signals.quotesWithSignals) {
     props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
       const quote = quoteWithSignal.quote
@@ -568,12 +628,33 @@ function updateMarkers() {
 
       const time = (new Date(quote.date).getTime() / 1000) as any
 
-      // Store signal data for click handling only
+      // Add entry signal marker (blue arrow up)
       if (quoteWithSignal.entrySignal) {
+        markers.push({
+          time,
+          position: 'belowBar',
+          color: '#2563eb',
+          shape: 'arrowUp',
+          text: 'Entry'
+        })
+
+        // Store signal data for click handling
         signalDataMap.set(time, {
           date: quote.date,
           price: quote.closePrice,
           entryDetails: quoteWithSignal.entryDetails
+        })
+      }
+
+      // Add exit signal marker (orange arrow down with exit reason)
+      if (quoteWithSignal.exitSignal) {
+        const exitReason = quoteWithSignal.exitReason || 'Exit'
+        markers.push({
+          time,
+          position: 'aboveBar',
+          color: '#f97316',
+          shape: 'arrowDown',
+          text: exitReason
         })
       }
     })
@@ -581,6 +662,51 @@ function updateMarkers() {
 
   // Use the plugin's setMarkers method
   seriesMarkersPlugin.setMarkers(markers)
+}
+
+// Handle crosshair move for tooltip display
+function handleCrosshairMove(param: any) {
+  if (!param.time || !candlestickSeries) {
+    tooltipData.value = null
+    return
+  }
+
+  // Get data from the candlestick series
+  const data = param.seriesData.get(candlestickSeries)
+  if (!data) {
+    tooltipData.value = null
+    return
+  }
+
+  // Find the matching quote to get ADX and volume
+  const timestamp = param.time
+  const matchingQuote = props.quotes.find((q) => {
+    const quoteTime = new Date(q.date!).getTime() / 1000
+    return Math.abs(quoteTime - timestamp) < 1
+  })
+
+  // Format date
+  const date = new Date(timestamp * 1000).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+
+  // Format volume with commas
+  const formatVolume = (vol: number | undefined) => {
+    if (vol === undefined || vol === null) return null
+    return vol.toLocaleString('en-US')
+  }
+
+  tooltipData.value = {
+    date,
+    open: data.open.toFixed(2),
+    high: data.high.toFixed(2),
+    low: data.low.toFixed(2),
+    close: data.close.toFixed(2),
+    volume: formatVolume(matchingQuote?.volume),
+    adx: matchingQuote?.adx !== null && matchingQuote?.adx !== undefined ? matchingQuote.adx.toFixed(2) : null
+  }
 }
 
 // Handle chart click to detect marker clicks or any date
@@ -659,9 +785,9 @@ watch(showEMA, () => {
   updateChartData()
 })
 
-// Watch for buy/sell signals toggle
-watch(showBuySellSignals, () => {
-  updateMarkers()
+// Watch for ADX toggle
+watch(showADX, () => {
+  updateChartData()
 })
 
 function updateChartData() {
@@ -711,6 +837,23 @@ function updateChartData() {
       .sort((a, b) => a.time - b.time)
 
     volumeSeries.setData(volumeData)
+  }
+
+  // Prepare ADX data
+  if (adxSeries) {
+    if (showADX.value) {
+      const adxData = props.quotes
+        .filter(q => q.date && q.adx !== undefined && q.adx !== null)
+        .map(quote => ({
+          time: (new Date(quote.date!).getTime() / 1000) as any,
+          value: quote.adx
+        }))
+        .sort((a, b) => a.time - b.time)
+
+      adxSeries.setData(adxData)
+    } else {
+      adxSeries.setData([])
+    }
   }
 
   // Remove old order block primitive if it exists

@@ -43,14 +43,17 @@ async function loadData() {
 }
 
 // Refresh all stocks
-async function handleRefreshStocks() {
+async function handleRefreshStocks(skipOvtlyr: boolean) {
   try {
-    await $fetch('/udgaard/api/data-management/refresh/all-stocks', {
+    await $fetch(`/udgaard/api/data-management/refresh/all-stocks?skipOvtlyr=${skipOvtlyr}`, {
       method: 'POST'
     })
+    const message = skipOvtlyr
+      ? 'Stock data refresh has been queued (Ovtlyr enrichment skipped)'
+      : 'Stock data refresh has been queued'
     toast.add({
       title: 'Refresh Started',
-      description: 'Stock data refresh has been queued',
+      description: message,
       color: 'success'
     })
     startPolling()

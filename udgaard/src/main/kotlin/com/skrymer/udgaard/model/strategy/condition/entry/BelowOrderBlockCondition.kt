@@ -8,7 +8,6 @@ import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
 import org.springframework.stereotype.Component
-import java.time.temporal.ChronoUnit
 
 /**
  * Entry condition that checks if the price is sufficiently below any bearish order blocks.
@@ -34,10 +33,10 @@ class BelowOrderBlockCondition(
           // Must be a bearish order block (resistance)
           it.orderBlockType == OrderBlockType.BEARISH
         }.filter {
-          // Must be at least ageInDays old (>= ageInDays)
-          ChronoUnit.DAYS.between(
+          // Must be at least ageInDays old (>= ageInDays) in TRADING DAYS
+          stock.countTradingDaysBetween(
             it.startDate,
-            quote.date,
+            quote.date ?: return@filter false,
           ) >= ageInDays
         }.filter {
           // Order block must have started before current quote
@@ -99,16 +98,25 @@ class BelowOrderBlockCondition(
     quote: StockQuoteDomain,
   ): ConditionEvaluationResult {
     val price = quote.closePrice
+    val quoteDate =
+      quote.date ?: return ConditionEvaluationResult(
+        conditionType = "BelowOrderBlockCondition",
+        description = description(),
+        passed = false,
+        actualValue = null,
+        threshold = null,
+        message = "Quote date is null ✗",
+      )
 
     // Find relevant order blocks
     val relevantOrderBlocks =
       stock.orderBlocks
         .filter { it.orderBlockType == OrderBlockType.BEARISH }
-        .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
-        .filter { it.startDate.isBefore(quote.date) }
+        .filter { stock.countTradingDaysBetween(it.startDate, quoteDate) >= ageInDays }
+        .filter { it.startDate.isBefore(quoteDate) }
         .filter {
           val endDate = it.endDate
-          endDate == null || endDate.isAfter(quote.date)
+          endDate == null || endDate.isAfter(quoteDate)
         }.filter { price <= it.high }
 
     val message: String
@@ -124,7 +132,7 @@ class BelowOrderBlockCondition(
     } else {
       // Find the closest order block (lowest low)
       val closestBlock = relevantOrderBlocks.minByOrNull { it.low }!!
-      val blockAge = ChronoUnit.DAYS.between(closestBlock.startDate, quote.date)
+      val blockAge = stock.countTradingDaysBetween(closestBlock.startDate, quoteDate)
       val requiredPrice = closestBlock.low * (1.0 - percentBelow / 100.0)
       val actualPercentBelow = ((closestBlock.low - price) / closestBlock.low) * 100.0
 

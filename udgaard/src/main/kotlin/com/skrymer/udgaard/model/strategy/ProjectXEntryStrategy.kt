@@ -4,9 +4,14 @@ import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 
 /**
- * Project X entry strategy using composition.
+ * Project X entry strategy using composition.*
+ *     Price > EMA50, EMA100, EMA200
+ *     Price inside Value Zone (VZ)
+ *     3 consecutive higher highs inside VZ
+ *     ≥ 2% distance to nearest bearish OB
+ *     No earnings within next 7 trading days
  */
-@RegisteredStrategy(name = "PlanEtf", type = StrategyType.ENTRY)
+@RegisteredStrategy(name = "ProjectXEntryStrategy", type = StrategyType.ENTRY)
 class ProjectXEntryStrategy : DetailedEntryStrategy {
   private val compositeStrategy =
     entryStrategy {
@@ -15,11 +20,17 @@ class ProjectXEntryStrategy : DetailedEntryStrategy {
       priceAbove(100)
       priceAbove(200)
 
-      // In value zone
-      inValueZone(2.5, 5)
+      // 3 consecutive higher highs inside VZ
+      consecutiveHigherHighsInValueZone(consecutiveDays = 3, atrMultiplier = 2.5, emaPeriod = 5)
 
       // at least 2 percent below 30 days old order block
       belowOrderBlock(2.0, 30)
+
+      // Above 30 days old bearish order block for 3 days
+      aboveBearishOrderBlock(consecutiveDays = 3, ageInDays = 30)
+
+      // No earnings within next 7 trading days
+//      noEarningsWithinDays(days = 7)
     }
 
   override fun description() = "Project X entry strategy"

@@ -16,13 +16,20 @@ const underlyingAssetPercentage = computed(() => {
   if (!props.report?.trades || props.report.trades.length === 0) return 0
   return (underlyingAssetTrades.value / props.report.trades.length) * 100
 })
+
+// Format profit factor, showing ∞ when there are no losing trades
+const formattedProfitFactor = computed(() => {
+  if (!props.report) return '0.00'
+  if (props.report.profitFactor === null) return '∞'
+  return props.report.profitFactor.toFixed(2)
+})
 </script>
 
 <template>
   <!-- Loading skeleton -->
-  <UPageGrid v-if="loading" class="lg:grid-cols-6 gap-4 sm:gap-6 lg:gap-px w-full">
+  <UPageGrid v-if="loading" class="lg:grid-cols-7 gap-4 sm:gap-6 lg:gap-px w-full">
     <UPageCard
-      v-for="i in 6"
+      v-for="i in 7"
       :key="i"
       variant="subtle"
       :ui="{
@@ -42,13 +49,14 @@ const underlyingAssetPercentage = computed(() => {
 
   <!-- Loaded content -->
   <div v-else class="space-y-4">
-    <UPageGrid class="lg:grid-cols-6 gap-4 sm:gap-6 lg:gap-px w-full">
+    <UPageGrid class="lg:grid-cols-7 gap-4 sm:gap-6 lg:gap-px w-full">
       <BacktestingDataCard title="Number of wins" :content="report?.numberOfWinningTrades || 0" />
       <BacktestingDataCard title="Number of losses" :content="report?.numberOfLosingTrades || 0" />
       <BacktestingDataCard title="Win rate" :content="((report?.winRate || 0) * 100).toFixed(2) + '%'" />
       <BacktestingDataCard title="Average win" :content="(report?.averageWinPercent || 0).toFixed(2) + '%'" />
       <BacktestingDataCard title="Average loss" :content="(report?.averageLossPercent || 0).toFixed(2) + '%'" />
       <BacktestingDataCard title="Edge" :content="(report?.edge || 0).toFixed(2) + '%'" />
+      <BacktestingDataCard title="Profit factor" :content="formattedProfitFactor" />
     </UPageGrid>
 
     <!-- Underlying Asset Info -->

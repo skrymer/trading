@@ -505,7 +505,7 @@ async function syncPortfolio(result: PortfolioSyncResult) {
   // Reload portfolio data
   await loadPortfolioData()
 
-  const totalChanges = result.tradesImported + result.tradesUpdated
+  const totalChanges = result.tradesAdded + result.tradesUpdated
   toast.add({
     title: 'Sync Complete',
     description: `${totalChanges} trades imported/updated`,
@@ -771,31 +771,31 @@ const projectedBalance = computed(() => {
 
 // Open edit trade modal
 function openEditTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
+  selectedTrade.value = trade as any
   isEditTradeModalOpen.value = true
 }
 
 // Open delete trade modal
 function openDeleteTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
+  selectedTrade.value = trade as any
   isDeleteTradeModalOpen.value = true
 }
 
 // Open close trade modal
 function openCloseTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
+  selectedTrade.value = trade as any
   isCloseTradeModalOpen.value = true
 }
 
 // Open roll trade modal
 function openRollTradeModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
+  selectedTrade.value = trade as any
   isRollTradeModalOpen.value = true
 }
 
 // Open roll chain modal
 function openRollChainModal(trade: PortfolioTrade) {
-  selectedTrade.value = trade
+  selectedTrade.value = trade as any
   isRollChainModalOpen.value = true
 }
 
@@ -1361,7 +1361,7 @@ const openTradesTableData = computed(() => {
           <UTable
             v-else
             v-model:expanded="expandedRows"
-            :columns="openTradesColumns"
+            :columns="openTradesColumns as any"
             :data="openTradesTableData"
           >
             <template #symbol-data="{ row }">

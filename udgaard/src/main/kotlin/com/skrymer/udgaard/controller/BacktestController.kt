@@ -75,17 +75,30 @@ class BacktestController(
           return ResponseEntity.badRequest().build()
         }
 
-    // Get stocks (using cached method for better performance)
+    // Get stocks from database (use Data Manager to refresh stocks before running backtest)
     val stocks =
       if (!request.stockSymbols.isNullOrEmpty()) {
-        stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() }, request.refresh)
+        // Specific symbols provided - filter from DB
+        stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() }, forceFetch = false)
       } else {
+        // "All stocks" selected - use all stocks in DB
         stockService.getAllStocks()
       }
 
     if (stocks.isEmpty()) {
-      logger.warn("No stocks found")
+      logger.warn("No stocks found in database. Use Data Manager to refresh stocks first.")
       return ResponseEntity.badRequest().build()
+    }
+
+    // Warn if some requested symbols were not found in database
+    if (!request.stockSymbols.isNullOrEmpty() && stocks.size < request.stockSymbols.size) {
+      val missingCount = request.stockSymbols.size - stocks.size
+      val foundSymbols = stocks.map { it.symbol }.toSet()
+      val missingSymbols = request.stockSymbols.filter { !foundSymbols.contains(it.uppercase()) }
+      logger.warn(
+        "WARNING: ${request.stockSymbols.size} symbols requested but only ${stocks.size} found in database. " +
+          "$missingCount missing: ${missingSymbols.joinToString(", ")}. Use Data Manager to refresh missing stocks.",
+      )
     }
 
     logger.info("${stocks.size} stocks fetched")

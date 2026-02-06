@@ -82,8 +82,6 @@ open class AlphaVantageClient(
     return withContext(Dispatchers.IO) {
       runCatching {
         val url = "$baseUrl?function=$FUNCTION_DAILY_ADJUSTED&symbol=$symbol&outputsize=$outputSize&apikey=$apiKey"
-        logger.info("Fetching adjusted daily time series for $symbol from Alpha Vantage (outputSize: $outputSize)")
-        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
         val response =
           restClient
@@ -116,18 +114,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        logger.debug("Response metadata: ${response.metaData}")
-        val quotes = response.toStockQuotes()
-        logger.info(
-          "Successfully fetched ${quotes.size} adjusted quotes for $symbol (${quotes.firstOrNull()?.date} to ${quotes.lastOrNull()?.date})",
-        )
-
-        if (quotes.isNotEmpty()) {
-          val sampleQuote = quotes.first()
-          logger.debug("Sample quote: date=${sampleQuote.date}, close=${sampleQuote.closePrice}, volume=${sampleQuote.volume}")
-        }
-
-        quotes
+        response.toStockQuotes()
       }.onFailure { e ->
         logger.error("Failed to fetch adjusted data from Alpha Vantage for $symbol: ${e.message}", e)
       }.getOrNull()
@@ -153,8 +140,6 @@ open class AlphaVantageClient(
     return withContext(Dispatchers.IO) {
       runCatching {
         val url = "$baseUrl?function=$FUNCTION_ATR&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
-        logger.info("Fetching ATR for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
-        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
         val response =
           restClient
@@ -188,17 +173,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        val atrMap = response.toATRMap()
-        logger.info(
-          "Successfully fetched ${atrMap.size} ATR values for $symbol (${atrMap.keys.minOrNull()} to ${atrMap.keys.maxOrNull()})",
-        )
-
-        if (atrMap.isNotEmpty()) {
-          val sampleEntry = atrMap.entries.first()
-          logger.debug("Sample ATR: date=${sampleEntry.key}, atr=${sampleEntry.value}")
-        }
-
-        atrMap
+        response.toATRMap()
       }.onFailure { e ->
         logger.error("Failed to fetch ATR from Alpha Vantage for $symbol: ${e.message}", e)
         logger.error("Stack trace:", e)
@@ -232,8 +207,6 @@ open class AlphaVantageClient(
     return withContext(Dispatchers.IO) {
       runCatching {
         val url = "$baseUrl?function=$FUNCTION_ADX&symbol=$symbol&interval=$interval&time_period=$timePeriod&apikey=$apiKey"
-        logger.info("Fetching ADX for $symbol from Alpha Vantage (interval: $interval, period: $timePeriod)")
-        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
         val response =
           restClient
@@ -267,17 +240,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        val adxMap = response.toADXMap()
-        logger.info(
-          "Successfully fetched ${adxMap.size} ADX values for $symbol (${adxMap.keys.minOrNull()} to ${adxMap.keys.maxOrNull()})",
-        )
-
-        if (adxMap.isNotEmpty()) {
-          val sampleEntry = adxMap.entries.first()
-          logger.debug("Sample ADX: date=${sampleEntry.key}, adx=${sampleEntry.value}")
-        }
-
-        adxMap
+        response.toADXMap()
       }.onFailure { e ->
         logger.error("Failed to fetch ADX from Alpha Vantage for $symbol: ${e.message}", e)
         logger.error("Stack trace:", e)
@@ -304,8 +267,6 @@ open class AlphaVantageClient(
     return withContext(Dispatchers.IO) {
       runCatching {
         val url = "$baseUrl?function=$FUNCTION_EARNINGS&symbol=$symbol&apikey=$apiKey"
-        logger.info("Fetching earnings history for $symbol from Alpha Vantage")
-        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
         val response =
           restClient
@@ -337,19 +298,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        val earnings = response.toEarnings()
-        logger.info(
-          "Successfully fetched ${earnings.size} quarterly earnings for $symbol (${earnings.firstOrNull()?.fiscalDateEnding} to ${earnings.lastOrNull()?.fiscalDateEnding})",
-        )
-
-        if (earnings.isNotEmpty()) {
-          val sampleEarning = earnings.last() // Most recent
-          logger.debug(
-            "Most recent earning: fiscalDate=${sampleEarning.fiscalDateEnding}, reportedDate=${sampleEarning.reportedDate}, reportedEPS=${sampleEarning.reportedEPS}",
-          )
-        }
-
-        earnings
+        response.toEarnings()
       }.onFailure { e ->
         logger.error("Failed to fetch earnings from Alpha Vantage for $symbol: ${e.message}", e)
       }.getOrNull()
@@ -374,8 +323,6 @@ open class AlphaVantageClient(
     return withContext(Dispatchers.IO) {
       runCatching {
         val url = "$baseUrl?function=$FUNCTION_OVERVIEW&symbol=$symbol&apikey=$apiKey"
-        logger.info("Fetching company overview for $symbol from Alpha Vantage")
-        logger.debug("Alpha Vantage API URL: ${url.replace(apiKey, "***")}")
 
         val response =
           restClient
@@ -409,7 +356,6 @@ open class AlphaVantageClient(
 
         val sectorSymbol = response.toSectorSymbol()
         if (sectorSymbol != null) {
-          logger.info("Successfully mapped $symbol to sector ${response.sector} -> $sectorSymbol")
         } else {
           logger.warn("Could not map sector '${response.sector}' to SectorSymbol for $symbol")
         }

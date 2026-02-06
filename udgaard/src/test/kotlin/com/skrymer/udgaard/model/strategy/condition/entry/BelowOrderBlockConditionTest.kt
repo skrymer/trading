@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class BelowOrderBlockConditionTest {
+  // Helper to create quotes between two dates (trading days only - Mon-Fri)
+  private fun createTradingDayQuotes(startDate: LocalDate, endDate: LocalDate): List<StockQuoteDomain> {
+    val quotes = mutableListOf<StockQuoteDomain>()
+    var currentDate = startDate.plusDays(1)
+    while (!currentDate.isAfter(endDate)) {
+      // Skip weekends (Sat=6, Sun=7)
+      if (currentDate.dayOfWeek.value < 6) {
+        quotes.add(StockQuoteDomain(date = currentDate, closePrice = 100.0))
+      }
+      currentDate = currentDate.plusDays(1)
+    }
+    return quotes
+  }
+
   @Test
   fun `should return true when price is 2 percent below order block`() {
     val orderBlock =
@@ -19,14 +33,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = com.skrymer.udgaard.domain.OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     // Price at 98.0 is 2% below order block low of 100.0
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1), // 60 days after order block started
+        date = testDate, // ~42 trading days after order block started
         closePrice = 98.0,
       )
 
@@ -47,14 +63,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     // Price at 95.0 is 5% below order block low of 100.0
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 95.0,
       )
 
@@ -75,14 +93,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     // Price at 99.0 is only 1% below order block low of 100.0
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 98.1,
       )
 
@@ -103,14 +123,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     // Price at 102.0 is within the order block range (100-105)
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 102.0,
       )
 
@@ -122,22 +144,26 @@ class BelowOrderBlockConditionTest {
 
   @Test
   fun `should return true when order block is too young`() {
+    val startDate = LocalDate.of(2024, 2, 15)
     val orderBlock =
       OrderBlockDomain(
         low = 100.0,
         high = 105.0,
-        startDate = LocalDate.of(2024, 2, 15), // Only 14 days before quote
+        startDate = startDate,
         endDate = null,
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    // Only ~10 trading days old (less than 30)
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(startDate, testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 98.0, // 2% below order block
       )
 
@@ -158,13 +184,15 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BULLISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 98.0,
       )
 
@@ -185,13 +213,15 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 98.0,
       )
 
@@ -221,14 +251,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock1, orderBlock2))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock1, orderBlock2), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     // Price at 107.5 is ~2.3% below orderBlock2's low (110.0)
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 107.5,
       )
 
@@ -258,12 +290,13 @@ class BelowOrderBlockConditionTest {
 
   @Test
   fun `should return true when no valid order blocks exist`() {
-    // All order blocks are too young (less than 30 days old)
+    val startDate1 = LocalDate.of(2024, 2, 20)
+    // All order blocks are too young (less than 30 trading days old)
     val orderBlock1 =
       OrderBlockDomain(
         low = 100.0,
         high = 105.0,
-        startDate = LocalDate.of(2024, 2, 20), // Only 9 days old
+        startDate = startDate1, // Only ~6 trading days old
         endDate = null,
         orderBlockType = OrderBlockType.BEARISH,
       )
@@ -278,13 +311,15 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock1, orderBlock2))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock1, orderBlock2), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 30)
 
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 98.0,
       )
 
@@ -305,14 +340,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate = LocalDate.of(2024, 3, 1)
+    val quotes = createTradingDayQuotes(LocalDate.of(2024, 1, 1), testDate)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes)
 
     val condition = BelowOrderBlockCondition(percentBelow = 5.0, ageInDays = 30)
 
     // Price at 95.0 is 5% below order block low of 100.0
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate,
         closePrice = 95.0,
       )
 
@@ -340,14 +377,16 @@ class BelowOrderBlockConditionTest {
         orderBlockType = com.skrymer.udgaard.domain.OrderBlockType.BEARISH,
       )
 
-    val stock = StockDomain(orderBlocks = listOf(orderBlock))
+    val testDate1 = LocalDate.of(2024, 3, 1)
+    val quotes1 = createTradingDayQuotes(LocalDate.of(2024, 2, 1), testDate1)
+    val stock = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes1)
 
     val condition = BelowOrderBlockCondition(percentBelow = 2.0, ageInDays = 0)
 
     // Quote on the same day the order block was created - should return true (no valid blocks)
     val quote =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 1),
+        date = testDate1,
         closePrice = 98.0, // 2% below order block
       )
 
@@ -356,27 +395,31 @@ class BelowOrderBlockConditionTest {
       "Condition should be true when order block hasn't started yet (same day means no valid blocks)",
     )
 
-    // Quote 1 day after order block was created (block is now 0 days old and started before quote)
+    // Quote 1 trading day after order block was created (block is now 1 trading day old)
+    val testDate2 = LocalDate.of(2024, 3, 4) // Monday (skip weekend)
+    val quotes2 = createTradingDayQuotes(LocalDate.of(2024, 2, 1), testDate2)
+    val stock2 = StockDomain(orderBlocks = listOf(orderBlock), quotes = quotes2)
+
     val quote2 =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 2),
+        date = testDate2,
         closePrice = 98.0, // 2% below order block
       )
 
     assertTrue(
-      condition.evaluate(stock, quote2),
-      "Condition should consider order blocks that are 0 days old (ageInDays=0 includes blocks from previous day)",
+      condition.evaluate(stock2, quote2),
+      "Condition should consider order blocks that are >= 0 trading days old",
     )
 
     // Verify it would be false if price wasn't far enough below
     val quote3 =
       StockQuoteDomain(
-        date = LocalDate.of(2024, 3, 2),
+        date = testDate2,
         closePrice = 98.5, // Only 1.5% below order block
       )
 
     assertFalse(
-      condition.evaluate(stock, quote3),
+      condition.evaluate(stock2, quote3),
       "Condition should be false when price is not below enough and not within block",
     )
   }

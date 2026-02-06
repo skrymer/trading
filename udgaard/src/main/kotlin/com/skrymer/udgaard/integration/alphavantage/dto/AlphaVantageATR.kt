@@ -67,17 +67,24 @@ data class AlphaVantageATR(
 
   /**
    * Convert to a map of LocalDate to ATR values
-   * @return Map of date to ATR value
+   * Only data from 2020-01-01 onwards is included to match stock quote filtering
+   * @return Map of date to ATR value from 2020-01-01 onwards
    */
-  fun toATRMap(): Map<LocalDate, Double> =
-    technicalAnalysis
+  fun toATRMap(): Map<LocalDate, Double> {
+    val minDate = LocalDate.of(2020, 1, 1)
+    return technicalAnalysis
       ?.mapNotNull { (dateString, data) ->
         runCatching {
           val date = LocalDate.parse(dateString)
+          // Only include data from 2020-01-01 onwards
+          if (date.isBefore(minDate)) {
+            return@runCatching null
+          }
           val atr = data.atr.toDoubleOrNull()
           if (atr != null) date to atr else null
         }.getOrNull()
       }?.toMap() ?: emptyMap()
+  }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

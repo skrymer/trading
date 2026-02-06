@@ -10,7 +10,18 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class CompositeExitStrategyTest {
-  private val stock = StockDomain()
+  // Create stock with previous quote for EMA cross detection
+  private val stock =
+    StockDomain(
+      quotes =
+        listOf(
+          StockQuoteDomain(
+            date = LocalDate.of(2024, 1, 14),
+            closePriceEMA10 = 105.0, // Above 20 EMA (before cross)
+            closePriceEMA20 = 100.0,
+          ),
+        ),
+    )
 
   @Test
   fun `should exit when any OR condition is met`() {

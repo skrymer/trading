@@ -89,13 +89,24 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
    * - Order block calculations work correctly
    * - Historical backtesting is accurate
    *
-   * @return List of StockQuote with ALL ADJUSTED PRICES, sorted by date (oldest first)
+   * Only data from 2020-01-01 onwards is included to reduce memory usage
+   * and focus on recent market conditions.
+   *
+   * @return List of StockQuote with ALL ADJUSTED PRICES from 2020-01-01 onwards, sorted by date (oldest first)
    */
   fun toStockQuotes(): List<StockQuoteDomain> {
     val symbol = metaData?.symbol ?: ""
+    val minDate = LocalDate.of(2020, 1, 1)
 
     return timeSeriesDaily
-      ?.map { (dateString, data) ->
+      ?.mapNotNull { (dateString, data) ->
+        val date = LocalDate.parse(dateString)
+
+        // Only include data from 2020-01-01 onwards
+        if (date.isBefore(minDate)) {
+          return@mapNotNull null
+        }
+
         // AlphaVantage provides these values from the API
         val rawOpen = data.open.toDoubleOrNull() ?: 0.0
         val rawHigh = data.high.toDoubleOrNull() ?: 0.0
@@ -115,7 +126,7 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
         // Apply adjustment factor to ALL OHLC prices
         StockQuoteDomain(
           symbol = symbol,
-          date = LocalDate.parse(dateString),
+          date = date,
           openPrice = rawOpen * adjustmentFactor, // ADJUSTED
           closePrice = adjustedClose, // ADJUSTED (from API)
           high = rawHigh * adjustmentFactor, // ADJUSTED

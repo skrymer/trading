@@ -1,0 +1,56 @@
+package com.skrymer.udgaard.model.strategy
+
+import com.skrymer.udgaard.domain.StockDomain
+import com.skrymer.udgaard.domain.StockQuoteDomain
+
+/**
+ * Project X exit strategy using composition.
+ *  Wick below EMA5 - 0.5 ATR (VZ failure)
+ *  EMA10 crosses below EMA20
+ *  Price enters bearish Order Block
+ *  Earnings tomorrow → mandatory exit
+ */
+@RegisteredStrategy(name = "ProjectXExitStrategy", type = StrategyType.EXIT)
+class ProjectXExitStrategy : ExitStrategy {
+  private val compositeStrategy =
+    exitStrategy {
+      // Wick below EMA5 - 0.5 ATR (VZ failure)
+      priceBelowEmaMinusAtr(emaPeriod = 5, atrMultiplier = 0.5)
+      // EMA10 crosses below EMA20
+      emaCross(10, 20)
+      // enters bearish order block
+      bearishOrderBlock(ageInDays = 30)
+      // Earnings
+//      exitBeforeEarnings(1)
+    }
+
+  override fun match(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): Boolean = compositeStrategy.match(stock, entryQuote, quote)
+
+  override fun reason(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): String? = compositeStrategy.reason(stock, entryQuote, quote)
+
+  override fun description() = "Vegard Plan ETF exit strategy"
+
+  override fun exitPrice(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): Double =
+    if (quote.closePrice < 1.0) {
+      stock.getPreviousQuote(quote)?.closePrice ?: 0.0
+    } else {
+      quote.closePrice
+    }
+
+  /**
+   * Get the underlying composite strategy for metadata extraction.
+   */
+  fun getCompositeStrategy(): CompositeExitStrategy = compositeStrategy
+}

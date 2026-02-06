@@ -22,7 +22,7 @@ const toast = useToast()
 // Load IBKR credentials from settings as fallback
 onMounted(async () => {
   try {
-    const data = await $fetch('/udgaard/api/settings/credentials')
+    const data = await $fetch<{ ibkrAccountId?: string, ibkrFlexQueryId?: string }>('/udgaard/api/settings/credentials')
     if (data.ibkrFlexQueryId && data.ibkrAccountId) {
       settingsCredentials.value = {
         queryId: data.ibkrFlexQueryId,

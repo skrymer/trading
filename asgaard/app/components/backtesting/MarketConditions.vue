@@ -185,7 +185,7 @@ const insights = computed(() => {
               Avg SPY Heatmap
             </div>
             <div class="font-semibold text-lg">
-              {{ marketAvgs.avgSpyHeatmap?.toFixed(1) ?? 'N/A' }}
+              {{ typeof marketAvgs.avgSpyHeatmap === 'number' && !isNaN(marketAvgs.avgSpyHeatmap) ? marketAvgs.avgSpyHeatmap.toFixed(1) : 'N/A' }}
             </div>
             <div class="text-xs text-muted">
               0-100 scale
@@ -197,7 +197,7 @@ const insights = computed(() => {
               Avg Market Breadth
             </div>
             <div class="font-semibold text-lg">
-              {{ marketAvgs.avgMarketBreadth?.toFixed(1) ?? 'N/A' }}
+              {{ typeof marketAvgs.avgMarketBreadth === 'number' && !isNaN(marketAvgs.avgMarketBreadth) ? marketAvgs.avgMarketBreadth.toFixed(1) : 'N/A' }}
             </div>
             <div class="text-xs text-muted">
               % bullish
@@ -209,7 +209,7 @@ const insights = computed(() => {
               Trades in SPY Uptrend
             </div>
             <div class="font-semibold text-lg">
-              {{ marketAvgs.spyUptrendPercent?.toFixed(1) ?? 'N/A' }}%
+              {{ typeof marketAvgs.spyUptrendPercent === 'number' && !isNaN(marketAvgs.spyUptrendPercent) ? marketAvgs.spyUptrendPercent.toFixed(1) : 'N/A' }}%
             </div>
             <div class="text-xs text-muted">
               {{ uptrendStats?.uptrendCount ?? 0 }} of {{ tradesWithMarketData.length }} trades

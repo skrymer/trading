@@ -25,7 +25,7 @@ class PriceAboveEmaCondition(
       20 -> quote.closePrice > quote.closePriceEMA20
       50 -> quote.closePrice > quote.closePriceEMA50
       100 -> quote.closePrice > quote.closePriceEMA100
-      200 -> quote.closePrice > quote.closePriceEMA100
+      200 -> quote.closePrice > quote.closePriceEMA200
       else -> false
     }
 
@@ -43,7 +43,7 @@ class PriceAboveEmaCondition(
             displayName = "EMA Period",
             type = "number",
             defaultValue = 10,
-            options = listOf("5", "10", "20", "50"),
+            options = listOf("5", "10", "20", "50", "100", "200"),
           ),
         ),
       category = "Stock",
@@ -60,6 +60,8 @@ class PriceAboveEmaCondition(
         10 -> quote.closePriceEMA10
         20 -> quote.closePriceEMA20
         50 -> quote.closePriceEMA50
+        100 -> quote.closePriceEMA100
+        200 -> quote.closePriceEMA200
         else -> 0.0
       }
     val passed = price > emaValue

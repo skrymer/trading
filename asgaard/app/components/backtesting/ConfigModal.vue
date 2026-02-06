@@ -47,7 +47,7 @@ const state = reactive<{
 })
 
 // Fetch available stock symbols
-const { data: stockSymbols } = useFetch<string[]>('/udgaard/api/stocks')
+const { data: stockSymbols } = useFetch<string[]>('/udgaard/api/stocks/symbols')
 
 // Fetch available strategies from backend
 const { data: availableStrategies } = useFetch<{
@@ -60,17 +60,6 @@ const { data: availableRankers } = useFetch<string[]>('/udgaard/api/backtest/ran
 
 // Fetch available conditions for custom strategies
 const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/api/backtest/conditions')
-
-const stockOptions = ref<{ label: string, value: string }[]>([])
-
-watch(stockSymbols, (newSymbols) => {
-  if (newSymbols && newSymbols.length > 0) {
-    stockOptions.value = newSymbols.map(symbol => ({
-      label: symbol,
-      value: symbol
-    }))
-  }
-}, { immediate: true })
 
 // Ranker options computed from fetched data
 const rankerOptions = computed(() => {
@@ -211,16 +200,75 @@ function cancel() {
   <UModal
     :open="open"
     title="Backtest Configuration"
-    :ui="{ content: 'sm:max-w-4xl max-h-[90vh] overflow-y-auto' }"
+    fullscreen
+    :ui="{ content: 'overflow-y-auto' }"
     @update:open="emit('update:open', $event)"
   >
     <template #body>
       <UForm ref="form" :state="state" @submit="onSubmit">
         <div class="space-y-6">
+          <!-- Stock Selection and Date Range -->
+          <UCard>
+            <template #header>
+              <h3 class="text-base font-semibold">
+                Stock Selection & Date Range
+              </h3>
+            </template>
+            <div class="space-y-4">
+              <div class="grid grid-cols-3 gap-4">
+                <UFormField label="Stock Selection" name="stockSelection">
+                  <URadioGroup
+                    v-model="state.stockSelection"
+                    :items="[
+                      { value: 'all', label: 'All Stocks' },
+                      { value: 'specific', label: 'Specific Stocks' }
+                    ]"
+                  />
+                </UFormField>
+
+                <UFormField name="startDate">
+                  <template #label>
+                    <span>Start Date <span class="text-muted">Optional</span></span>
+                  </template>
+                  <UInput
+                    v-model="state.startDate"
+                    type="date"
+                    placeholder="YYYY-MM-DD"
+                  />
+                </UFormField>
+
+                <UFormField name="endDate">
+                  <template #label>
+                    <span>End Date <span class="text-muted">Optional</span></span>
+                  </template>
+                  <UInput
+                    v-model="state.endDate"
+                    type="date"
+                    placeholder="YYYY-MM-DD"
+                  />
+                </UFormField>
+              </div>
+
+              <UInputMenu
+                v-if="state.stockSelection === 'specific'"
+                v-model="state.specificStocks"
+                :items="stockSymbols || []"
+                placeholder="Type or select stock symbols"
+                icon="i-lucide-search"
+                multiple
+              />
+            </div>
+          </UCard>
+
           <!-- Strategies Section -->
-          <div class="space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- Entry Strategy -->
             <UCard :ui="{ body: 'space-y-3' }">
+              <template #header>
+                <h3 class="text-base font-semibold">
+                  Entry Strategy
+                </h3>
+              </template>
               <StrategySelector
                 v-if="availableStrategies && availableConditions"
                 v-model="state.entryStrategy"
@@ -235,6 +283,11 @@ function cancel() {
 
             <!-- Exit Strategy -->
             <UCard :ui="{ body: 'space-y-3' }">
+              <template #header>
+                <h3 class="text-base font-semibold">
+                  Exit Strategy
+                </h3>
+              </template>
               <StrategySelector
                 v-if="availableStrategies && availableConditions"
                 v-model="state.exitStrategy"
@@ -248,114 +301,70 @@ function cancel() {
             </UCard>
           </div>
 
-          <!-- Position Limiting Section -->
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <h3 class="text-base font-semibold">
-                  Position Limiting
-                </h3>
-                <USwitch v-model="state.positionLimitEnabled" />
+          <!-- Position Limiting and Cooldown Section -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Position Limiting Section -->
+            <UCard>
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <h3 class="text-base font-semibold">
+                    Position Limiting
+                  </h3>
+                  <USwitch v-model="state.positionLimitEnabled" />
+                </div>
+              </template>
+              <div v-if="state.positionLimitEnabled" class="grid grid-cols-2 gap-4">
+                <UFormField label="Max Positions" name="maxPositions" help="Maximum positions per day">
+                  <UInput
+                    v-model.number="state.maxPositions"
+                    type="number"
+                    min="1"
+                    max="100"
+                    placeholder="10"
+                  />
+                </UFormField>
+
+                <UFormField label="Stock Ranker" name="ranker" help="Method to rank stocks on same entry date">
+                  <USelect
+                    v-model="state.ranker"
+                    :items="rankerOptions"
+                    value-key="value"
+                    placeholder="Select ranker"
+                  />
+                </UFormField>
               </div>
-            </template>
-            <div v-if="state.positionLimitEnabled" class="grid grid-cols-2 gap-4">
-              <UFormField label="Max Positions" name="maxPositions" help="Maximum positions per day">
+              <div v-else class="text-sm text-muted">
+                Unlimited positions mode: All stocks matching the entry strategy will be entered
+              </div>
+            </UCard>
+
+            <!-- Cooldown Period Section -->
+            <UCard>
+              <template #header>
+                <h3 class="text-base font-semibold">
+                  Cooldown Period
+                </h3>
+              </template>
+              <div class="flex items-center gap-4">
+                <label class="text-sm font-medium whitespace-nowrap">
+                  Cooldown Days:
+                </label>
                 <UInput
-                  v-model.number="state.maxPositions"
+                  v-model.number="state.cooldownDays"
                   type="number"
-                  min="1"
-                  max="100"
-                  placeholder="10"
+                  min="0"
+                  max="365"
+                  placeholder="0"
+                  class="w-32"
                 />
-              </UFormField>
-
-              <UFormField label="Stock Ranker" name="ranker" help="Method to rank stocks on same entry date">
-                <USelect
-                  v-model="state.ranker"
-                  :items="rankerOptions"
-                  value-key="value"
-                  placeholder="Select ranker"
-                />
-              </UFormField>
-            </div>
-            <div v-else class="text-sm text-muted">
-              Unlimited positions mode: All stocks matching the entry strategy will be entered
-            </div>
-          </UCard>
-
-          <!-- Cooldown Period Section -->
-          <UCard>
-            <template #header>
-              <h3 class="text-base font-semibold">
-                Cooldown Period
-              </h3>
-            </template>
-            <div class="flex items-center gap-4">
-              <label class="text-sm font-medium whitespace-nowrap">
-                Cooldown Days:
-              </label>
-              <UInput
-                v-model.number="state.cooldownDays"
-                type="number"
-                min="0"
-                max="365"
-                placeholder="0"
-                class="w-32"
-              />
-            </div>
-            <div v-if="state.cooldownDays > 0" class="text-sm text-muted">
-              After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
-            </div>
-            <div v-else class="text-sm text-muted">
-              No cooldown: New positions can be entered immediately after exits if entry conditions are met
-            </div>
-          </UCard>
-
-          <!-- Stock Selection and Date Range -->
-          <div class="space-y-2">
-            <div class="grid grid-cols-3 gap-4">
-              <UFormField label="Stock Selection" name="stockSelection">
-                <URadioGroup
-                  v-model="state.stockSelection"
-                  :items="[
-                    { value: 'all', label: 'All Stocks' },
-                    { value: 'specific', label: 'Specific Stocks' }
-                  ]"
-                />
-              </UFormField>
-
-              <UFormField name="startDate">
-                <template #label>
-                  <span>Start Date <span class="text-muted">Optional</span></span>
-                </template>
-                <UInput
-                  v-model="state.startDate"
-                  type="date"
-                  placeholder="YYYY-MM-DD"
-                />
-              </UFormField>
-
-              <UFormField name="endDate">
-                <template #label>
-                  <span>End Date <span class="text-muted">Optional</span></span>
-                </template>
-                <UInput
-                  v-model="state.endDate"
-                  type="date"
-                  placeholder="YYYY-MM-DD"
-                />
-              </UFormField>
-            </div>
-
-            <UInputMenu
-              v-if="state.stockSelection === 'specific'"
-              v-model="state.specificStocks"
-              :items="stockOptions"
-              value-key="value"
-              placeholder="Type or select stock symbols"
-              icon="i-lucide-search"
-              multiple
-            />
+              </div>
+              <div v-if="state.cooldownDays > 0" class="text-sm text-muted mt-4">
+                After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
+              </div>
+              <div v-else class="text-sm text-muted mt-4">
+                No cooldown: New positions can be entered immediately after exits if entry conditions are met
+              </div>
+            </UCard>
           </div>
 
           <!-- Underlying Assets Configuration -->

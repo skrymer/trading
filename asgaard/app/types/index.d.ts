@@ -87,6 +87,7 @@ export interface BacktestReport {
   averageLossPercent: number
   totalTrades: number
   edge: number
+  profitFactor: number | null
   mostProfitable: any
   stockProfits: any
   tradesGroupedByDate: { date: string, profitPercentage: number, trades: Trade[] }[]
@@ -109,6 +110,7 @@ export interface Stock {
 
 export interface StockQuote {
   atr: number
+  adx?: number | null
   signal?: string | null
   lastBuySignal: string
   lastSellSignal: string
@@ -140,6 +142,7 @@ export interface OrderBlock {
   volumeStrength: number
   sensitivity?: OrderBlockSensitivity
   rateOfChange?: number
+  ageInTradingDays?: number
 }
 
 export interface Trade {
@@ -241,6 +244,8 @@ export interface StockPerformance {
   avgHoldingDays: number
   totalProfitPercentage: number
   edge: number
+  profitFactor: number | null
+  maxDrawdown: number
 }
 
 /**
@@ -668,6 +673,7 @@ export interface PortfolioStats {
   avgLoss: number
   winRate: number
   provenEdge: number
+  profitFactor: number | null
   totalProfit: number
   totalProfitPercentage: number
   largestWin?: number

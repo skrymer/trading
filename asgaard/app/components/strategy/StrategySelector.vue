@@ -73,7 +73,7 @@ watch(customStrategy, () => {
 <template>
   <div class="space-y-4">
     <!-- Strategy Type Selection -->
-    <UFormField :label="`${strategyType === 'entry' ? 'Entry' : 'Exit'} Strategy Type`" name="strategyMode">
+    <UFormField name="strategyMode">
       <URadioGroup
         v-model="mode"
         :items="[

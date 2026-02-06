@@ -18,6 +18,8 @@ const columns = [
   { accessorKey: 'trades', header: 'Trades' },
   { accessorKey: 'winRate', header: 'Win Rate' },
   { accessorKey: 'edge', header: 'Edge %' },
+  { accessorKey: 'profitFactor', header: 'PF' },
+  { accessorKey: 'maxDrawdown', header: 'Max DD %' },
   { accessorKey: 'totalProfit', header: 'Total Profit %' },
   { accessorKey: 'avgProfit', header: 'Avg Profit %' },
   { accessorKey: 'avgHoldingDays', header: 'Avg Days' }
@@ -29,6 +31,8 @@ const tableData = computed(() => {
     trades: stock.trades,
     winRate: stock.winRate.toFixed(1) + '%',
     edge: stock.edge.toFixed(2) + '%',
+    profitFactor: stock.profitFactor !== null ? stock.profitFactor.toFixed(2) : 'N/A',
+    maxDrawdown: stock.maxDrawdown.toFixed(2) + '%',
     totalProfit: stock.totalProfitPercentage.toFixed(2) + '%',
     avgProfit: stock.avgProfit.toFixed(2) + '%',
     avgHoldingDays: stock.avgHoldingDays.toFixed(1),
@@ -94,6 +98,32 @@ const tableData = computed(() => {
           ]"
         >
           {{ row.original.raw.edge >= 0 ? '+' : '' }}{{ row.original.edge }}
+        </span>
+      </template>
+
+      <template #profitFactor-data="{ row }">
+        <span
+          v-if="row.original.raw.profitFactor !== null"
+          :class="[
+            'font-bold',
+            row.original.raw.profitFactor >= 1.0 ? 'text-success' : 'text-error'
+          ]"
+        >
+          {{ row.original.profitFactor }}
+        </span>
+        <span v-else class="text-muted italic">
+          N/A
+        </span>
+      </template>
+
+      <template #maxDrawdown-data="{ row }">
+        <span
+          :class="[
+            'font-bold',
+            row.original.raw.maxDrawdown <= 10 ? 'text-success' : row.original.raw.maxDrawdown <= 20 ? 'text-warning' : 'text-error'
+          ]"
+        >
+          {{ row.original.maxDrawdown }}
         </span>
       </template>
 

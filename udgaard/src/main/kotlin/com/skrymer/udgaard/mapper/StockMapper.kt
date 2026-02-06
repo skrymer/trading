@@ -153,10 +153,6 @@ class StockMapper {
       atr = quote.atr.toBigDecimal(),
       adx = quote.adx?.toBigDecimal(),
       ema5 = null, // Not in domain
-      ema10 = null, // Not in domain
-      ema20 = null, // Not in domain
-      ema50 = null, // Not in domain
-      ema200 = null, // Not in domain
       donchianHigh = null, // Not in domain
       donchianMid = null, // Not in domain
       donchianLow = null, // Not in domain

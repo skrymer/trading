@@ -41,7 +41,7 @@ onMounted(async () => {
 
 async function loadCredentials() {
   try {
-    const data = await $fetch('/udgaard/api/settings/credentials')
+    const data = await $fetch<{ ibkrAccountId?: string, ibkrFlexQueryId?: string }>('/udgaard/api/settings/credentials')
     if (data.ibkrAccountId) {
       accountId.value = data.ibkrAccountId
     }

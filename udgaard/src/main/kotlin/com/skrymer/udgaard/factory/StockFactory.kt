@@ -28,7 +28,7 @@ interface StockFactory {
    * 3. Match ATR data from AlphaVantage by date
    * 4. Match ADX data from AlphaVantage by date
    * 5. Calculate Donchian channels and trend
-   * 6. Enrich with Ovtlyr signals and heatmaps using OvtlyrEnrichmentService
+   * 6. Enrich with Ovtlyr signals and heatmaps using OvtlyrEnrichmentService (if not skipped)
    * 7. Add market/sector context from breadth data
    *
    * @param symbol - Stock symbol
@@ -37,7 +37,8 @@ interface StockFactory {
    * @param adxMap - ADX values from AlphaVantage keyed by date
    * @param marketBreadth - Market breadth data for context
    * @param sectorBreadth - Sector breadth data for context
-   * @param spy - SPY reference data
+   * @param spy - SPY reference data (null when skipOvtlyrEnrichment is true)
+   * @param skipOvtlyrEnrichment - Whether to skip Ovtlyr enrichment (default: false)
    * @return Fully enriched StockQuote list, or null if enrichment fails
    */
   fun enrichQuotes(
@@ -47,7 +48,8 @@ interface StockFactory {
     adxMap: Map<LocalDate, Double>?,
     marketBreadth: BreadthDomain?,
     sectorBreadth: BreadthDomain?,
-    spy: OvtlyrStockInformation,
+    spy: OvtlyrStockInformation?,
+    skipOvtlyrEnrichment: Boolean = false,
   ): List<StockQuoteDomain>?
 
   /**

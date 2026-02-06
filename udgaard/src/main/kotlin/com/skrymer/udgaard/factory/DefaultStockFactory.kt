@@ -35,10 +35,9 @@ class DefaultStockFactory(
     adxMap: Map<LocalDate, Double>?,
     marketBreadth: BreadthDomain?,
     sectorBreadth: BreadthDomain?,
-    spy: OvtlyrStockInformation,
+    spy: OvtlyrStockInformation?,
+    skipOvtlyrEnrichment: Boolean,
   ): List<StockQuoteDomain>? {
-    logger.info("Creating enriched quotes for $symbol from AlphaVantage data (${stockQuotes.size} quotes)")
-
     if (stockQuotes.isEmpty()) {
       logger.warn("No AlphaVantage quotes provided for $symbol")
       return null
@@ -46,32 +45,42 @@ class DefaultStockFactory(
 
     // Step 1: Enrich with calculated technical indicators (EMAs, Donchian, trend)
     val quotesWithIndicators = technicalIndicatorService.enrichWithIndicators(stockQuotes, symbol)
-    logger.info("Calculated technical indicators for $symbol")
 
     // Step 2: Enrich with ATR data from AlphaVantage
     val quotesWithATR = enrichWithATR(quotesWithIndicators, atrMap, symbol)
-    logger.info("Enriched $symbol with ATR data")
 
     // Step 3: Enrich with ADX data from AlphaVantage
     val quotesWithADX = enrichWithADX(quotesWithATR, adxMap, symbol)
-    logger.info("Enriched $symbol with ADX data")
 
-    // Step 4: Enrich with Ovtlyr signals, heatmaps, and sector data
+    // Step 4: Enrich with Ovtlyr signals, heatmaps, and sector data (if not skipped)
     val enrichedQuotes =
-      ovtlyrEnrichmentService.enrichWithOvtlyr(
-        quotesWithADX,
-        symbol,
-        marketBreadth,
-        sectorBreadth,
-        spy,
-      )
+      if (skipOvtlyrEnrichment) {
+        // Skip Ovtlyr enrichment - use default values
+        ovtlyrEnrichmentService.enrichWithOvtlyr(
+          quotesWithADX,
+          symbol,
+          marketBreadth,
+          sectorBreadth,
+          spy,
+          skipOvtlyrEnrichment = true,
+        )
+      } else {
+        // Perform full Ovtlyr enrichment
+        ovtlyrEnrichmentService.enrichWithOvtlyr(
+          quotesWithADX,
+          symbol,
+          marketBreadth,
+          sectorBreadth,
+          spy,
+          skipOvtlyrEnrichment = false,
+        )
+      }
 
     if (enrichedQuotes == null) {
-      logger.error("Failed to enrich $symbol with Ovtlyr data")
+      logger.error("Failed to enrich $symbol - enrichment returned null")
       return null
     }
 
-    logger.info("Successfully created ${enrichedQuotes.size} fully enriched quotes for $symbol")
     return enrichedQuotes
   }
 
@@ -82,10 +91,6 @@ class DefaultStockFactory(
     orderBlocks: List<OrderBlockDomain>,
     earnings: List<EarningDomain>,
   ): StockDomain {
-    logger.info(
-      "Creating Stock entity for $symbol with ${enrichedQuotes.size} quotes, ${orderBlocks.size} order blocks, and ${earnings.size} earnings",
-    )
-
     val stock =
       StockDomain(
         symbol = symbol,
@@ -117,8 +122,6 @@ class DefaultStockFactory(
       return quotes
     }
 
-    logger.info("Enriching $symbol with ATR data from Alpha Vantage (${alphaATR.size} ATR values available)")
-
     var matchedCount = 0
     var unmatchedCount = 0
 
@@ -131,8 +134,6 @@ class DefaultStockFactory(
         unmatchedCount++
       }
     }
-
-    logger.info("ATR enrichment complete for $symbol: $matchedCount quotes matched, $unmatchedCount unmatched")
 
     return quotes
   }
@@ -155,8 +156,6 @@ class DefaultStockFactory(
       return quotes
     }
 
-    logger.info("Enriching $symbol with ADX data from Alpha Vantage (${alphaADX.size} ADX values available)")
-
     var matchedCount = 0
     var unmatchedCount = 0
 
@@ -169,8 +168,6 @@ class DefaultStockFactory(
         unmatchedCount++
       }
     }
-
-    logger.info("ADX enrichment complete for $symbol: $matchedCount quotes matched, $unmatchedCount unmatched")
 
     return quotes
   }

@@ -1,6 +1,8 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.EntrySignalDetails
+import com.skrymer.udgaard.controller.dto.SimpleStockInfo
+import com.skrymer.udgaard.controller.dto.StockRefreshResult
 import com.skrymer.udgaard.controller.dto.StockWithSignals
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.model.StockSymbol
@@ -39,27 +41,45 @@ class StockController(
   }
 
   /**
-   * Get all available stock symbols.
+   * Get all stocks that have been loaded into the database.
+   * Returns simple stock information without loading full quote/order block data.
    *
    * Example: GET /api/stocks
    *
-   * @return List of stock symbols
+   * @return List of stocks with basic info (symbol, sector, quote count, last updated)
    */
   @GetMapping
-  fun getStockSymbols(): ResponseEntity<List<String>> {
-    logger.info("Retrieving all stock symbols")
+  fun getStocksInDatabase(): ResponseEntity<List<SimpleStockInfo>> {
+    logger.info("Retrieving all stocks from database")
+    val stocks = stockService.getAllStocksSimple()
+    logger.info("Returning ${stocks.size} stocks from database (${stocks.count { it.hasData }} with quote data)")
+    return ResponseEntity.ok(stocks)
+  }
+
+  /**
+   * Get all available stock symbols from StockSymbol enum.
+   * This returns ALL possible symbols (1,433), not just stocks with data loaded.
+   *
+   * Example: GET /api/stocks/symbols
+   *
+   * @return List of all stock symbols defined in StockSymbol enum
+   */
+  @GetMapping("/symbols")
+  fun getAllStockSymbols(): ResponseEntity<List<String>> {
+    logger.info("Retrieving all stock symbols from enum")
     val symbols = StockSymbol.entries.map { it.symbol }
-    logger.info("Returning ${symbols.size} stock symbols")
+    logger.info("Returning ${symbols.size} stock symbols from enum")
     return ResponseEntity.ok(symbols)
   }
 
   /**
    * Get stock data for a specific symbol.
    *
-   * Example: GET /api/stocks/AAPL?refresh=true
+   * Example: GET /api/stocks/AAPL?refresh=true&skipOvtlyr=true
    *
    * @param symbol Stock symbol (e.g., AAPL, GOOGL)
    * @param refresh Force refresh from external source
+   * @param skipOvtlyr Skip Ovtlyr enrichment when refreshing
    * @return Stock data including quotes and order blocks
    */
   @GetMapping("/{symbol}")
@@ -67,9 +87,10 @@ class StockController(
   suspend fun getStock(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
+    @RequestParam(defaultValue = "false") skipOvtlyr: Boolean,
   ): ResponseEntity<StockDomain> {
-    logger.info("Getting stock data for: $symbol (refresh=$refresh)")
-    val stock = stockService.getStock(symbol, refresh)
+    logger.info("Getting stock data for: $symbol (refresh=$refresh, skipOvtlyr=$skipOvtlyr)")
+    val stock = stockService.getStock(symbol, refresh, skipOvtlyr)
     logger.info("Stock data retrieved successfully for: $symbol")
     return ResponseEntity.ok(stock)
   }
@@ -125,18 +146,18 @@ class StockController(
    * Body: ["AAPL", "GOOGL", "MSFT"]
    *
    * @param symbols List of stock symbols to refresh
-   * @return Status message
+   * @return Detailed refresh result with status, counts, successful stocks, and failed stocks with errors
    */
   @PostMapping("/refresh")
   fun refreshStocks(
     @RequestBody symbols: List<String>,
-  ): ResponseEntity<Map<String, String>> {
+  ): ResponseEntity<StockRefreshResult> {
     logger.info("Refreshing ${symbols.size} stocks: ${symbols.joinToString(", ")}")
-    stockService.getStocksBySymbols(symbols.map { it.uppercase() }, forceFetch = true)
-    logger.info("Stocks refreshed successfully")
-    return ResponseEntity.ok(
-      mapOf("status" to "success", "message" to "${symbols.size} stocks refreshed successfully"),
+    val result = stockService.refreshStocksWithDetails(symbols.map { it.uppercase() })
+    logger.info(
+      "Stock refresh complete: ${result.succeeded}/${result.total} succeeded, ${result.failed} failed (${result.status})",
     )
+    return ResponseEntity.ok(result)
   }
 
   /**

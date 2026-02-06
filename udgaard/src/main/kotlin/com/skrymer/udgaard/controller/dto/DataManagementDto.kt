@@ -58,6 +58,15 @@ data class StockUpdateInfo(
   val orderBlockCount: Int,
 )
 
+data class SimpleStockInfo(
+  val symbol: String,
+  val sector: String,
+  val quoteCount: Int,
+  val orderBlockCount: Int,
+  val lastQuoteDate: LocalDate?,
+  val hasData: Boolean,
+)
+
 data class BreadthDataStats(
   val totalBreadthSymbols: Int,
   val totalBreadthQuotes: Long,
@@ -83,6 +92,21 @@ data class RefreshProgress(
 data class RefreshResponse(
   val queued: Int,
   val message: String,
+)
+
+data class StockRefreshResult(
+  val status: String, // "success", "partial_success", "failure"
+  val total: Int,
+  val succeeded: Int,
+  val failed: Int,
+  val successfulStocks: List<String>,
+  val failedStocks: List<FailedStock>,
+  val message: String,
+)
+
+data class FailedStock(
+  val symbol: String,
+  val error: String,
 )
 
 enum class RefreshType {

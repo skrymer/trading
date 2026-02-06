@@ -136,7 +136,7 @@ class OrderBlockCalculator {
       }
 
       // Check for mitigation of active blocks
-      mitigateBlocks(activeBlocks, sortedQuotes[i])
+      mitigateBlocks(activeBlocks, sortedQuotes[i], sortedQuotes.getOrNull(i - 1))
     }
 
     return OrderBlockDomains
@@ -226,6 +226,12 @@ class OrderBlockCalculator {
   /**
    * Find the date when the order block gets mitigated
    * Returns null if block is still active
+   *
+   * TradingView uses close[1] (previous bar's close) for mitigation.
+   * This means we check if the PREVIOUS bar closed through the OB boundary.
+   *
+   * IMPORTANT: We start from the origin candle (startIndex), not the trigger,
+   * because the OB could be mitigated BEFORE we detect the crossing.
    */
   private fun findMitigationDate(
     quotes: List<StockQuoteDomain>,
@@ -234,17 +240,23 @@ class OrderBlockCalculator {
     type: OrderBlockType,
     originQuote: StockQuoteDomain,
   ): LocalDate? {
-    // Look forward from triggerIndex - 1 to find mitigation
-    for (k in (triggerIndex - 1) until quotes.size) {
-      val quote = quotes[k]
-      val isMitigated =
-        when (type) {
-          OrderBlockType.BEARISH -> quote.closePrice > originQuote.high
-          OrderBlockType.BULLISH -> quote.closePrice < originQuote.low
-        }
+    // Look forward from startIndex (origin candle) to find mitigation
+    // The OB exists from the moment the origin candle forms, so mitigation
+    // can happen before the crossing is detected
+    for (k in (startIndex + 1) until quotes.size) {
+      // Check if PREVIOUS bar's close mitigated the OB (matches TradingView's close[1] logic)
+      if (k > 0) {
+        val previousQuote = quotes[k - 1]
+        val isMitigated =
+          when (type) {
+            OrderBlockType.BEARISH -> previousQuote.closePrice > originQuote.high
+            OrderBlockType.BULLISH -> previousQuote.closePrice < originQuote.low
+          }
 
-      if (isMitigated) {
-        return quote.date
+        if (isMitigated) {
+          // Return current bar's date (the bar AFTER the mitigation)
+          return quotes[k].date
+        }
       }
     }
 
@@ -295,22 +307,31 @@ class OrderBlockCalculator {
   /**
    * Check if active order blocks should be mitigated
    *
-   * Bullish blocks are mitigated when price closes below the low
-   * Bearish blocks are mitigated when price closes above the high
+   * TradingView uses close[1] (previous bar's close) for mitigation.
+   * We check if the previous bar's close went through the OB boundary.
+   *
+   * Bullish blocks are mitigated when previous close < low
+   * Bearish blocks are mitigated when previous close > high
    */
   private fun mitigateBlocks(
     activeBlocks: MutableList<OrderBlockDomain>,
     currentQuote: StockQuoteDomain,
+    previousQuote: StockQuoteDomain?,
   ) {
+    // If no previous quote available, cannot check mitigation
+    if (previousQuote == null) {
+      return
+    }
+
     val blocksToMitigate =
       activeBlocks.filter { block ->
         when (block.orderBlockType) {
-          OrderBlockType.BULLISH -> currentQuote.closePrice < block.low
-          OrderBlockType.BEARISH -> currentQuote.closePrice > block.high
+          OrderBlockType.BULLISH -> previousQuote.closePrice < block.low
+          OrderBlockType.BEARISH -> previousQuote.closePrice > block.high
         }
       }
 
-    // Update mitigated blocks with end date
+    // Update mitigated blocks with end date (current bar's date, since previous bar caused mitigation)
     blocksToMitigate.forEach { block ->
       block.endDate = currentQuote.date
     }

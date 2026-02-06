@@ -74,17 +74,24 @@ data class AlphaVantageADX(
 
   /**
    * Convert to a map of LocalDate to ADX values
-   * @return Map of date to ADX value
+   * Only data from 2020-01-01 onwards is included to match stock quote filtering
+   * @return Map of date to ADX value from 2020-01-01 onwards
    */
-  fun toADXMap(): Map<LocalDate, Double> =
-    technicalAnalysis
+  fun toADXMap(): Map<LocalDate, Double> {
+    val minDate = LocalDate.of(2020, 1, 1)
+    return technicalAnalysis
       ?.mapNotNull { (dateString, data) ->
         runCatching {
           val date = LocalDate.parse(dateString)
+          // Only include data from 2020-01-01 onwards
+          if (date.isBefore(minDate)) {
+            return@runCatching null
+          }
           val adx = data.adx.toDoubleOrNull()
           if (adx != null) date to adx else null
         }.getOrNull()
       }?.toMap() ?: emptyMap()
+  }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

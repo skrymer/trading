@@ -15,7 +15,12 @@ data class OrderBlockDomain(
   val volumeStrength: Double = 0.0,
   val sensitivity: OrderBlockSensitivity? = null,
   val rateOfChange: Double = 0.0,
-)
+  var ageInTradingDays: Int? = null,
+) {
+  fun endsAfter(date: LocalDate): Boolean = endDate == null || endDate!!.isAfter(date)
+
+  fun startsBefore(date: LocalDate): Boolean = startDate.isBefore(date)
+}
 
 enum class OrderBlockType {
   BEARISH,

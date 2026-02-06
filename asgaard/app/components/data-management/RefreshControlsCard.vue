@@ -6,9 +6,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'refresh-stocks': []
+  'refresh-stocks': [skipOvtlyr: boolean]
   'refresh-breadth': []
 }>()
+
+const skipOvtlyr = ref(false)
 
 const progressPercentage = computed(() => {
   if (props.progress.total === 0) return 0
@@ -26,13 +28,26 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
       </h3>
     </template>
 
+    <!-- Refresh Options -->
+    <div class="mb-4">
+      <UCheckbox
+        v-model="skipOvtlyr"
+        label="Skip Ovtlyr enrichment (faster refresh)"
+        :disabled="isActive"
+      />
+      <p class="text-xs text-muted mt-1 ml-6">
+        When enabled, stocks will be refreshed with AlphaVantage data only (OHLCV, EMAs, ATR, ADX).
+        Ovtlyr signals and heatmaps will be set to default values.
+      </p>
+    </div>
+
     <!-- Refresh Buttons -->
     <div class="flex gap-2 mb-4">
       <UButton
         label="Refresh All Stocks"
         icon="i-lucide-refresh-cw"
         :disabled="isActive"
-        @click="emit('refresh-stocks')"
+        @click="emit('refresh-stocks', skipOvtlyr)"
       />
       <UButton
         label="Refresh Breadth"

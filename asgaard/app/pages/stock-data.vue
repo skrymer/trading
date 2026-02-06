@@ -16,6 +16,12 @@
             icon="i-lucide-search"
             class="w-64"
           />
+          <UCheckbox
+            v-if="selectedStock"
+            v-model="skipOvtlyr"
+            label="Skip Ovtlyr"
+            :disabled="loading"
+          />
           <UButton
             v-if="selectedStock"
             icon="i-heroicons-arrow-path"
@@ -36,6 +42,58 @@
 
       <!-- Stock Data Display -->
       <div v-else-if="selectedStock" class="space-y-4">
+        <!-- Strategy Selection Row -->
+        <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div class="flex items-center gap-2 flex-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Entry Strategy:
+            </label>
+            <USelectMenu
+              v-model="selectedEntryStrategy"
+              :items="entryStrategies"
+              :loading="loadingStrategies"
+              placeholder="Select entry strategy"
+              class="flex-1 max-w-xs"
+            />
+          </div>
+
+          <div class="flex items-center gap-2 flex-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Exit Strategy:
+            </label>
+            <USelectMenu
+              v-model="selectedExitStrategy"
+              :items="exitStrategies"
+              :loading="loadingStrategies"
+              placeholder="Select exit strategy"
+              class="flex-1 max-w-xs"
+            />
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Cooldown Days:
+            </label>
+            <UInput
+              v-model.number="cooldownDays"
+              type="number"
+              min="0"
+              max="100"
+              class="w-24"
+              placeholder="0"
+            />
+          </div>
+
+          <UButton
+            icon="i-heroicons-chart-bar"
+            :loading="loadingSignals"
+            :disabled="!selectedEntryStrategy || !selectedExitStrategy"
+            @click="fetchSignals"
+          >
+            Show Signals
+          </UButton>
+        </div>
+
         <StockPriceChart
           v-if="selectedStock.quotes && selectedStock.quotes.length > 0"
           :quotes="selectedStock.quotes"
@@ -43,6 +101,13 @@
           :symbol="selectedStock.symbol"
           :signals="signalsData"
           :entry-strategy="selectedEntryStrategy"
+        />
+
+        <!-- Strategy Signals Table -->
+        <ChartsStrategySignalsTable
+          :signals="signalsData"
+          :entry-strategy="selectedEntryStrategy"
+          :exit-strategy="selectedExitStrategy"
         />
 
         <!-- Heatmap Charts -->
@@ -110,65 +175,6 @@
             />
           </div>
         </div>
-
-        <!-- Strategy Selection Row -->
-        <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div class="flex items-center gap-2 flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Entry Strategy:
-            </label>
-            <USelectMenu
-              v-model="selectedEntryStrategy"
-              :items="entryStrategies"
-              :loading="loadingStrategies"
-              placeholder="Select entry strategy"
-              class="flex-1 max-w-xs"
-            />
-          </div>
-
-          <div class="flex items-center gap-2 flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Exit Strategy:
-            </label>
-            <USelectMenu
-              v-model="selectedExitStrategy"
-              :items="exitStrategies"
-              :loading="loadingStrategies"
-              placeholder="Select exit strategy"
-              class="flex-1 max-w-xs"
-            />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Cooldown Days:
-            </label>
-            <UInput
-              v-model.number="cooldownDays"
-              type="number"
-              min="0"
-              max="100"
-              class="w-24"
-              placeholder="0"
-            />
-          </div>
-
-          <UButton
-            icon="i-heroicons-chart-bar"
-            :loading="loadingSignals"
-            :disabled="!selectedEntryStrategy || !selectedExitStrategy"
-            @click="fetchSignals"
-          >
-            Show Signals
-          </UButton>
-        </div>
-
-        <!-- Strategy Signals Table -->
-        <ChartsStrategySignalsTable
-          :signals="signalsData"
-          :entry-strategy="selectedEntryStrategy"
-          :exit-strategy="selectedExitStrategy"
-        />
       </div>
 
       <!-- No Selection State -->
@@ -209,6 +215,7 @@ const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
+const skipOvtlyr = ref<boolean>(false)
 
 // Computed properties for heatmap charts (shared time range)
 const filteredHeatmapQuotes = computed(() => {
@@ -281,7 +288,7 @@ const sectorHeatmapBarColors = computed(() => {
 const fetchStockSymbols = async () => {
   loadingSymbols.value = true
   try {
-    const data = await $fetch<string[]>('/udgaard/api/stocks')
+    const data = await $fetch<string[]>('/udgaard/api/stocks/symbols')
     console.log('Fetched stock symbols:', data.length, 'symbols')
     stockSymbols.value = data
   } catch (error) {
@@ -353,10 +360,17 @@ const fetchSignals = async () => {
   }
 }
 
-const fetchStockData = async (symbol: string, refresh = false) => {
+const fetchStockData = async (symbol: string, refresh = false, skipOvtlyrParam = false) => {
   loading.value = true
   try {
-    const url = `/udgaard/api/stocks/${symbol}${refresh ? '?refresh=true' : ''}`
+    const params = new URLSearchParams()
+    if (refresh) {
+      params.append('refresh', 'true')
+    }
+    if (skipOvtlyrParam) {
+      params.append('skipOvtlyr', 'true')
+    }
+    const url = `/udgaard/api/stocks/${symbol}${params.toString() ? `?${params.toString()}` : ''}`
     selectedStock.value = await $fetch(url)
     console.log('Fetched stock data for', symbol, ':', {
       quotes: selectedStock.value?.quotes?.length || 0,
@@ -380,8 +394,8 @@ const fetchStockData = async (symbol: string, refresh = false) => {
 
 const refreshStock = async () => {
   if (selectedSymbol.value) {
-    // Force fetch the selected stock from Ovtlyr (refresh=true)
-    await fetchStockData(selectedSymbol.value, true)
+    // Force fetch the selected stock (refresh=true), optionally skipping Ovtlyr enrichment
+    await fetchStockData(selectedSymbol.value, true, skipOvtlyr.value)
   }
 }
 

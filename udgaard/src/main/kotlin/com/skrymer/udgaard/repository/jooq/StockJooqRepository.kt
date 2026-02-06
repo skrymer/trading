@@ -140,6 +140,11 @@ class StockJooqRepository(
    * Performs an upsert (insert or update)
    */
   fun save(stock: StockDomain): StockDomain {
+    // Validate: Don't save stocks without quote data
+    require(stock.quotes.isNotEmpty()) {
+      "Cannot save stock ${stock.symbol} - no quote data provided. Stocks must have at least one quote."
+    }
+
     // Start transaction
     return dsl.transactionResult { configuration ->
       val ctx = configuration.dsl()
@@ -183,6 +188,7 @@ class StockJooqRepository(
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA50, pojo.closePriceEma50)
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
+              .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
               .set(STOCK_QUOTES.TREND, pojo.trend)
               .set(STOCK_QUOTES.LAST_BUY_SIGNAL, pojo.lastBuySignal)
               .set(STOCK_QUOTES.LAST_SELL_SIGNAL, pojo.lastSellSignal)
@@ -302,4 +308,174 @@ class StockJooqRepository(
       .selectCount()
       .from(STOCKS)
       .fetchOne(0, Long::class.java) ?: 0L
+
+  /**
+   * Delete multiple stocks by symbols in a single transaction
+   * Cascades to quotes, order blocks, and earnings
+   */
+  fun batchDelete(symbols: List<String>) {
+    if (symbols.isEmpty()) return
+
+    dsl.transaction { configuration ->
+      val ctx = configuration.dsl()
+      // Delete in correct order (children first due to foreign keys)
+      ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(STOCKS).where(STOCKS.SYMBOL.`in`(symbols)).execute()
+    }
+  }
+
+  /**
+   * Save multiple stocks with all related data in a single transaction
+   * Performs upsert operations optimized for batch processing
+   */
+  fun batchSave(stocks: List<StockDomain>): List<StockDomain> {
+    if (stocks.isEmpty()) return emptyList()
+
+    // Validate: Don't save stocks without quote data
+    val emptyStocks = stocks.filter { it.quotes.isEmpty() }
+    require(emptyStocks.isEmpty()) {
+      "Cannot save ${emptyStocks.size} stock(s) without quote data: ${emptyStocks.map { it.symbol }.joinToString()}"
+    }
+
+    return dsl.transactionResult { configuration ->
+      val ctx = configuration.dsl()
+
+      // 1. Batch upsert stocks
+      val stockBatch =
+        ctx.batch(
+          stocks.map { stock ->
+            ctx
+              .insertInto(STOCKS)
+              .set(STOCKS.SYMBOL, stock.symbol)
+              .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
+              .onDuplicateKeyUpdate()
+              .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
+          },
+        )
+      stockBatch.execute()
+
+      // 2. Delete existing child records for all stocks
+      val symbols = stocks.map { it.symbol }
+      ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.`in`(symbols)).execute()
+
+      // 3. Batch insert all quotes
+      val allQuotes = stocks.flatMap { stock -> stock.quotes.map { quote -> stock.symbol to quote } }
+      if (allQuotes.isNotEmpty()) {
+        val quoteBatch =
+          ctx.batch(
+            allQuotes.map { (symbol, quote) ->
+              val pojo = mapper.toPojo(quote)
+              ctx
+                .insertInto(STOCK_QUOTES)
+                .set(STOCK_QUOTES.STOCK_SYMBOL, symbol)
+                .set(STOCK_QUOTES.QUOTE_DATE, pojo.quoteDate)
+                .set(STOCK_QUOTES.CLOSE_PRICE, pojo.closePrice)
+                .set(STOCK_QUOTES.OPEN_PRICE, pojo.openPrice)
+                .set(STOCK_QUOTES.HIGH_PRICE, pojo.highPrice)
+                .set(STOCK_QUOTES.LOW_PRICE, pojo.lowPrice)
+                .set(STOCK_QUOTES.HEATMAP, pojo.heatmap)
+                .set(STOCK_QUOTES.PREVIOUS_HEATMAP, pojo.previousHeatmap)
+                .set(STOCK_QUOTES.SECTOR_HEATMAP, pojo.sectorHeatmap)
+                .set(STOCK_QUOTES.PREVIOUS_SECTOR_HEATMAP, pojo.previousSectorHeatmap)
+                .set(STOCK_QUOTES.SECTOR_IS_IN_UPTREND, pojo.sectorIsInUptrend)
+                .set(STOCK_QUOTES.SECTOR_DONKEY_CHANNEL_SCORE, pojo.sectorDonkeyChannelScore)
+                .set(STOCK_QUOTES.SIGNAL, pojo.signal)
+                .set(STOCK_QUOTES.CLOSE_PRICE_EMA10, pojo.closePriceEma10)
+                .set(STOCK_QUOTES.CLOSE_PRICE_EMA20, pojo.closePriceEma20)
+                .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
+                .set(STOCK_QUOTES.CLOSE_PRICE_EMA50, pojo.closePriceEma50)
+                .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
+                .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
+                .set(STOCK_QUOTES.TREND, pojo.trend)
+                .set(STOCK_QUOTES.LAST_BUY_SIGNAL, pojo.lastBuySignal)
+                .set(STOCK_QUOTES.LAST_SELL_SIGNAL, pojo.lastSellSignal)
+                .set(STOCK_QUOTES.SPY_SIGNAL, pojo.spySignal)
+                .set(STOCK_QUOTES.SPY_IN_UPTREND, pojo.spyInUptrend)
+                .set(STOCK_QUOTES.SPY_HEATMAP, pojo.spyHeatmap)
+                .set(STOCK_QUOTES.SPY_PREVIOUS_HEATMAP, pojo.spyPreviousHeatmap)
+                .set(STOCK_QUOTES.SPY_EMA200, pojo.spyEma200)
+                .set(STOCK_QUOTES.SPY_SMA200, pojo.spySma200)
+                .set(STOCK_QUOTES.SPY_EMA50, pojo.spyEma50)
+                .set(STOCK_QUOTES.SPY_DAYS_ABOVE_200SMA, pojo.spyDaysAbove_200sma)
+                .set(STOCK_QUOTES.MARKET_ADVANCING_PERCENT, pojo.marketAdvancingPercent)
+                .set(STOCK_QUOTES.MARKET_IS_IN_UPTREND, pojo.marketIsInUptrend)
+                .set(STOCK_QUOTES.MARKET_DONKEY_CHANNEL_SCORE, pojo.marketDonkeyChannelScore)
+                .set(STOCK_QUOTES.MARKET_BULL_PERCENTAGE, pojo.marketBullPercentage)
+                .set(STOCK_QUOTES.MARKET_BULL_PERCENTAGE_10EMA, pojo.marketBullPercentage_10ema)
+                .set(STOCK_QUOTES.PREVIOUS_QUOTE_DATE, pojo.previousQuoteDate)
+                .set(STOCK_QUOTES.SECTOR_BREADTH, pojo.sectorBreadth)
+                .set(STOCK_QUOTES.SECTOR_STOCKS_IN_DOWNTREND, pojo.sectorStocksInDowntrend)
+                .set(STOCK_QUOTES.SECTOR_STOCKS_IN_UPTREND, pojo.sectorStocksInUptrend)
+                .set(STOCK_QUOTES.SECTOR_BULL_PERCENTAGE, pojo.sectorBullPercentage)
+                .set(STOCK_QUOTES.ATR, pojo.atr)
+                .set(STOCK_QUOTES.ADX, pojo.adx)
+                .set(STOCK_QUOTES.VOLUME, pojo.volume)
+                .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND, pojo.donchianUpperBand)
+                .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND_MARKET, pojo.donchianUpperBandMarket)
+                .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND_SECTOR, pojo.donchianUpperBandSector)
+                .set(STOCK_QUOTES.DONCHIAN_LOWER_BAND_MARKET, pojo.donchianLowerBandMarket)
+                .set(STOCK_QUOTES.DONCHIAN_LOWER_BAND_SECTOR, pojo.donchianLowerBandSector)
+            },
+          )
+        quoteBatch.execute()
+      }
+
+      // 4. Batch insert all order blocks
+      val allOrderBlocks = stocks.flatMap { stock -> stock.orderBlocks.map { orderBlock -> stock.symbol to orderBlock } }
+      if (allOrderBlocks.isNotEmpty()) {
+        val orderBlockBatch =
+          ctx.batch(
+            allOrderBlocks.map { (symbol, orderBlock) ->
+              val pojo = mapper.toPojo(orderBlock)
+              ctx
+                .insertInto(ORDER_BLOCKS)
+                .set(ORDER_BLOCKS.STOCK_SYMBOL, symbol)
+                .set(ORDER_BLOCKS.TYPE, pojo.type)
+                .set(ORDER_BLOCKS.SENSITIVITY, pojo.sensitivity)
+                .set(ORDER_BLOCKS.START_DATE, pojo.startDate)
+                .set(ORDER_BLOCKS.END_DATE, pojo.endDate)
+                .set(ORDER_BLOCKS.START_PRICE, pojo.startPrice)
+                .set(ORDER_BLOCKS.END_PRICE, pojo.endPrice)
+                .set(ORDER_BLOCKS.LOW_PRICE, pojo.lowPrice)
+                .set(ORDER_BLOCKS.HIGH_PRICE, pojo.highPrice)
+                .set(ORDER_BLOCKS.VOLUME, pojo.volume)
+                .set(ORDER_BLOCKS.VOLUME_STRENGTH, pojo.volumeStrength)
+                .set(ORDER_BLOCKS.RATE_OF_CHANGE, pojo.rateOfChange)
+                .set(ORDER_BLOCKS.IS_ACTIVE, pojo.isActive)
+            },
+          )
+        orderBlockBatch.execute()
+      }
+
+      // 5. Batch insert all earnings
+      val allEarnings = stocks.flatMap { stock -> stock.earnings.map { earning -> stock.symbol to earning } }
+      if (allEarnings.isNotEmpty()) {
+        val earningsBatch =
+          ctx.batch(
+            allEarnings.map { (symbol, earning) ->
+              val pojo = mapper.toPojo(earning)
+              ctx
+                .insertInto(EARNINGS)
+                .set(EARNINGS.STOCK_SYMBOL, symbol)
+                .set(EARNINGS.SYMBOL, pojo.symbol)
+                .set(EARNINGS.FISCAL_DATE_ENDING, pojo.fiscalDateEnding)
+                .set(EARNINGS.REPORTED_DATE, pojo.reportedDate)
+                .set(EARNINGS.REPORTEDEPS, pojo.reportedeps)
+                .set(EARNINGS.ESTIMATEDEPS, pojo.estimatedeps)
+                .set(EARNINGS.SURPRISE, pojo.surprise)
+                .set(EARNINGS.SURPRISE_PERCENTAGE, pojo.surprisePercentage)
+                .set(EARNINGS.REPORT_TIME, pojo.reportTime)
+            },
+          )
+        earningsBatch.execute()
+      }
+
+      // Return the saved stocks
+      stocks
+    }
+  }
 }

@@ -163,6 +163,26 @@ class EntryStrategyBuilder {
     conditions.add(VolumeAboveAverageCondition(multiplier, lookbackDays))
   }
 
+  fun noEarningsWithinDays(days: Int = 7) =
+    apply {
+      conditions.add(NoEarningsWithinDaysCondition(days))
+    }
+
+  fun consecutiveHigherHighsInValueZone(
+    consecutiveDays: Int = 3,
+    atrMultiplier: Double = 2.0,
+    emaPeriod: Int = 20,
+  ) = apply {
+    conditions.add(ConsecutiveHigherHighsInValueZoneCondition(consecutiveDays, atrMultiplier, emaPeriod))
+  }
+
+  fun aboveBearishOrderBlock(
+    consecutiveDays: Int = 3,
+    ageInDays: Int = 30,
+  ) = apply {
+    conditions.add(AboveBearishOrderBlockCondition(consecutiveDays, ageInDays))
+  }
+
   fun withOperator(op: LogicalOperator) =
     apply {
       operator = op
@@ -203,10 +223,15 @@ class ExitStrategyBuilder {
     conditions.add(ProfitTargetExit(atrMultiplier, emaPeriod))
   }
 
-  fun orderBlock(ageInDays: Int = 120) =
-    apply {
-      conditions.add(OrderBlockExit(ageInDays))
-    }
+  fun bearishOrderBlock(
+    ageInDays: Int = 120,
+    useHighPrice: Boolean = false,
+  ) = apply {
+    conditions.add(BearishOrderBlockExit(ageInDays, useHighPrice))
+  }
+
+  @Deprecated("Use bearishOrderBlock() instead", ReplaceWith("bearishOrderBlock(ageInDays)"))
+  fun orderBlock(ageInDays: Int = 120) = bearishOrderBlock(ageInDays)
 
   fun stopLoss(atrMultiplier: Double = 2.0) =
     apply {
@@ -222,6 +247,13 @@ class ExitStrategyBuilder {
     apply {
       conditions.add(PriceBelowEmaExit(emaPeriod))
     }
+
+  fun priceBelowEmaMinusAtr(
+    emaPeriod: Int = 5,
+    atrMultiplier: Double = 0.5,
+  ) = apply {
+    conditions.add(PriceBelowEmaMinusAtrExit(emaPeriod, atrMultiplier))
+  }
 
   fun priceBelowEmaForDays(
     emaPeriod: Int = 10,

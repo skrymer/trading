@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
 import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData } from '~/types'
+import { usePositionFormatters } from '~/composables/usePositionFormatters'
 
 const { formatPositionName, formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
 
@@ -231,7 +232,7 @@ const displayEquityCurve = computed(() => {
   // If showing unrealized P&L and we have data points, add a projected point
   if (showUnrealizedPnl.value && baseDataPoints.length > 0 && totalUnrealizedPnl.value !== 0) {
     const lastPoint = baseDataPoints[baseDataPoints.length - 1]
-    const todayDate = new Date().toISOString().split('T')[0]
+    const todayDate = new Date().toISOString().substring(0, 10)
     const projectedPoint = {
       date: todayDate,
       balance: projectedBalance.value,
@@ -385,6 +386,7 @@ const displayStats = computed(() => {
     annualizedReturn: stats.value.annualizedReturn,
     winRate: stats.value.winRate,
     provenEdge: stats.value.provenEdge,
+    profitFactor: stats.value.profitFactor,
     avgWin: stats.value.avgWin,
     avgLoss: stats.value.avgLoss,
     totalProfit: stats.value.totalProfit,
@@ -399,6 +401,12 @@ const formatPercent = (value: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(value / 100)
+}
+
+// Format profit factor
+const formatProfitFactor = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return '∞'
+  return value.toFixed(2)
 }
 
 // Equity curve chart series
@@ -768,6 +776,10 @@ const closedPositionsColumns = computed(() => {
               <span class="font-semibold text-green-600">{{ formatPercent(displayStats.provenEdge) }}</span>
             </div>
             <div class="flex justify-between">
+              <span>Profit Factor:</span>
+              <span class="font-semibold">{{ formatProfitFactor(displayStats.profitFactor) }}</span>
+            </div>
+            <div class="flex justify-between">
               <span>{{ showUnrealizedPnl ? 'Realized' : 'Total' }} Return:</span>
               <span class="font-semibold">{{ formatPercent(displayStats.ytdReturn) }}</span>
             </div>
@@ -924,7 +936,7 @@ const closedPositionsColumns = computed(() => {
 
   <PortfolioPositionDetailsModal
     v-model="isPositionDetailsModalOpen"
-    :position="selectedPosition"
+    :position="selectedPosition || null"
     @add-execution="openAddExecutionModal"
     @edit-metadata="openEditMetadataModal"
     @close-position="openClosePositionModal"
@@ -933,25 +945,25 @@ const closedPositionsColumns = computed(() => {
 
   <PortfolioAddExecutionModal
     v-model="isAddExecutionModalOpen"
-    :position="selectedPosition"
+    :position="selectedPosition || null"
     @success="loadPortfolioData"
   />
 
   <PortfolioClosePositionModal
     v-model="isClosePositionModalOpen"
-    :position="selectedPosition"
+    :position="selectedPosition || null"
     @success="loadPortfolioData"
   />
 
   <PortfolioEditPositionMetadataModal
     v-model="isEditMetadataModalOpen"
-    :position="selectedPosition"
+    :position="selectedPosition || null"
     @success="loadPortfolioData"
   />
 
   <PortfolioDeletePositionModal
     v-model="isDeletePositionModalOpen"
-    :position="selectedPosition"
+    :position="selectedPosition || null"
     @delete="handleDeletePosition"
   />
 </template>

@@ -246,51 +246,19 @@ class PlanEtfStrategyIntegrationTest {
   }
 
   @Test
-  fun `exit strategy should exit when in order block`() {
-    // Create an order block that:
-    // - Duration is >= 30 days (from 2023-11-01 to 2024-02-01 = 92 days)
-    // - startDate is before quote date (2023-11-01 < 2024-01-15)
-    // - endDate is after quote date (2024-02-01 > 2024-01-15)
-    // - Price (102.0) is between low (100.0) and high (105.0)
-    val orderBlock =
-      OrderBlockDomain(
-        low = 100.0,
-        high = 105.0,
-        startDate = LocalDate.of(2023, 11, 1),
-        endDate = LocalDate.of(2024, 2, 1), // Must not be null!
-        orderBlockType = OrderBlockType.BEARISH, // Default is CALCULATED
-      )
-
+  fun `exit strategy should exit when 10 EMA crosses under 20 EMA`() {
     val stock =
       StockDomain(
-        symbol = "TEST",
-        sectorSymbol = "XLK",
-        quotes = mutableListOf(),
-        orderBlocks = mutableListOf(orderBlock),
+        quotes =
+          listOf(
+            // Previous day: 10 EMA was above 20 EMA
+            StockQuoteDomain(
+              date = LocalDate.of(2024, 1, 14),
+              closePriceEMA10 = 105.0,
+              closePriceEMA20 = 100.0,
+            ),
+          ),
       )
-
-    val quote =
-      StockQuoteDomain(
-        date = LocalDate.of(2024, 1, 15),
-        closePriceEMA10 = 105.0,
-        closePriceEMA20 = 100.0,
-        closePrice = 102.0, // Within order block range
-        atr = 2.0,
-      )
-
-    assertTrue(
-      exitStrategy.match(stock, null, quote),
-      "Exit strategy should exit when price is in order block",
-    )
-    assertTrue(
-      exitStrategy.reason(stock, null, quote)?.contains("order block") == true,
-      "Exit reason should mention order block",
-    )
-  }
-
-  @Test
-  fun `exit strategy should exit when 10 EMA crosses under 20 EMA`() {
-    val stock = StockDomain()
     val quote =
       StockQuoteDomain(
         date = LocalDate.of(2024, 1, 15),

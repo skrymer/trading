@@ -369,6 +369,10 @@ class BacktestService(
           }
 
       if (entriesForThisDate.isNotEmpty()) {
+        // Log potential entries found
+        val symbolsMatchingEntry = entriesForThisDate.map { it.stockPair.tradingStock.symbol }.distinct()
+        logger.debug("Date $currentDate: ${entriesForThisDate.size} potential entries from ${symbolsMatchingEntry.size} stocks: ${symbolsMatchingEntry.joinToString(", ")}")
+
         // Step 2b: Rank entries by score (using strategy stock for ranking)
         val rankedEntries =
           entriesForThisDate
@@ -384,6 +388,12 @@ class BacktestService(
         val selectedEntries = rankedEntries.take(effectiveMaxPositions)
         val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(effectiveMaxPositions) else emptyList()
 
+        // Log selected entries
+        if (selectedEntries.isNotEmpty()) {
+          val selectedSymbols = selectedEntries.map { it.entry.stockPair.tradingStock.symbol }
+          logger.debug("Date $currentDate: Selected ${selectedSymbols.size} stocks for entry: ${selectedSymbols.joinToString(", ")}")
+        }
+
         // Step 2d: Create trades for selected stocks
         selectedEntries.forEach { rankedEntry ->
           val entry = rankedEntry.entry
@@ -394,12 +404,17 @@ class BacktestService(
 
             if (trade != null) {
               trades.add(trade)
+              logger.debug("Date $currentDate: Created trade for ${entry.stockPair.tradingStock.symbol}, exit on ${trade.quotes.lastOrNull()?.date}, profit: ${String.format("%.2f", trade.profitPercentage)}%")
 
               // Record exit date for global cooldown tracking
               if (cooldownDays > 0) {
                 lastExitDate = trade.quotes.lastOrNull()?.date
               }
+            } else {
+              logger.debug("Date $currentDate: No valid exit found for ${entry.stockPair.tradingStock.symbol}")
             }
+          } else {
+            logger.debug("Date $currentDate: Skipping ${entry.stockPair.tradingStock.symbol} - already in position")
           }
         }
 
@@ -854,6 +869,19 @@ class BacktestService(
 
         val edge = (avgWinPercent * winRate) - ((1.0 - winRate) * avgLossPercent)
 
+        // Calculate profit factor for this stock
+        val profitFactor =
+          if (losers > 0) {
+            val grossProfit = stockTrades.filter { it.profit > 0 }.sumOf { it.profit }
+            val grossLoss = kotlin.math.abs(stockTrades.filter { it.profit <= 0 }.sumOf { it.profit })
+            if (grossLoss == 0.0) 0.0 else grossProfit / grossLoss
+          } else {
+            null // No losing trades means infinite profit factor
+          }
+
+        // Calculate maximum drawdown for this stock
+        val maxDrawdown = calculateMaxDrawdownForTrades(stockTrades)
+
         StockPerformance(
           symbol = symbol,
           trades = stockTrades.size,
@@ -862,6 +890,36 @@ class BacktestService(
           avgHoldingDays = if (stockTrades.isNotEmpty()) stockTrades.map { it.tradingDays.toDouble() }.average() else 0.0,
           totalProfitPercentage = stockTrades.sumOf { it.profitPercentage },
           edge = edge,
+          profitFactor = profitFactor,
+          maxDrawdown = maxDrawdown,
         )
       }.sortedByDescending { it.edge }
+
+  /**
+   * Calculate maximum drawdown for a list of trades.
+   * Drawdown is the peak-to-trough decline in cumulative returns.
+   */
+  private fun calculateMaxDrawdownForTrades(trades: List<Trade>): Double {
+    if (trades.isEmpty()) return 0.0
+
+    val sortedTrades = trades.sortedBy { it.entryQuote.date }
+    var peak = 0.0
+    var maxDrawdown = 0.0
+    var cumulativeReturn = 0.0
+
+    sortedTrades.forEach { trade ->
+      cumulativeReturn += trade.profitPercentage
+
+      if (cumulativeReturn > peak) {
+        peak = cumulativeReturn
+      }
+
+      val drawdown = peak - cumulativeReturn
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown
+      }
+    }
+
+    return maxDrawdown
+  }
 }

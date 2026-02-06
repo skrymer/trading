@@ -47,8 +47,6 @@ class TechnicalIndicatorService {
       return quotes
     }
 
-    logger.info("Calculating technical indicators for $symbol (${quotes.size} quotes)")
-
     // Extract price data for calculations
     val closePrices = quotes.map { it.closePrice }
 

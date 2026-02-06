@@ -8,6 +8,13 @@ import org.springframework.stereotype.Component
 
 /**
  * Exit condition that triggers when a faster EMA crosses under a slower EMA.
+ *
+ * This detects the actual crossover event:
+ * - Previous day: fast EMA >= slow EMA
+ * - Current day: fast EMA < slow EMA
+ *
+ * It's okay for the slow EMA to already be above the fast EMA (position exists),
+ * but the trigger is specifically when the crossover happens.
  */
 @Component
 class EmaCrossExit(
@@ -19,10 +26,23 @@ class EmaCrossExit(
     entryQuote: StockQuoteDomain?,
     quote: StockQuoteDomain,
   ): Boolean {
-    val fastValue = getEmaValue(quote, fastEma)
-    val slowValue = getEmaValue(quote, slowEma)
+    // Current day: fast EMA must be below slow EMA
+    val currentFastValue = getEmaValue(quote, fastEma)
+    val currentSlowValue = getEmaValue(quote, slowEma)
 
-    return fastValue < slowValue
+    if (currentFastValue >= currentSlowValue) {
+      return false // Not crossed yet
+    }
+
+    // Get previous quote to check for crossover
+    val previousQuote = stock.getPreviousQuote(quote) ?: return false
+
+    // Previous day: fast EMA must have been above or equal to slow EMA
+    val previousFastValue = getEmaValue(previousQuote, fastEma)
+    val previousSlowValue = getEmaValue(previousQuote, slowEma)
+
+    // Crossover occurred if fast was >= slow yesterday and < slow today
+    return previousFastValue >= previousSlowValue
   }
 
   override fun exitReason(): String = "$fastEma ema has crossed under the $slowEma ema"

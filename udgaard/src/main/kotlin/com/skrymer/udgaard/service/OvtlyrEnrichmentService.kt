@@ -46,32 +46,43 @@ class OvtlyrEnrichmentService(
    * @param symbol - Stock symbol
    * @param marketBreadth - Market breadth data
    * @param sectorBreadth - Sector breadth data
-   * @param spy - SPY reference data
-   * @return Enriched quotes with Ovtlyr data, or null if Ovtlyr data unavailable
+   * @param spy - SPY reference data (null when skipOvtlyrEnrichment is true)
+   * @param skipOvtlyrEnrichment - Whether to skip Ovtlyr API call and use default values (default: false)
+   * @return Enriched quotes with Ovtlyr data, or null if enrichment fails
    */
   fun enrichWithOvtlyr(
     quotes: List<StockQuoteDomain>,
     symbol: String,
     marketBreadth: BreadthDomain?,
     sectorBreadth: BreadthDomain?,
-    spy: OvtlyrStockInformation,
+    spy: OvtlyrStockInformation?,
+    skipOvtlyrEnrichment: Boolean = false,
   ): List<StockQuoteDomain>? {
     if (quotes.isEmpty()) {
       logger.warn("No AlphaVantage quotes provided for $symbol")
       return null
     }
 
-    logger.info("Enriching $symbol with Ovtlyr data")
+    // Skip Ovtlyr API call if flag is set
+    if (skipOvtlyrEnrichment) {
+      logger.info("$symbol - Skipping Ovtlyr enrichment, using default values")
+      quotes.forEach { setDefaultOvtlyrValues(it, marketBreadth, sectorBreadth) }
+      return quotes
+    }
 
-    // Fetch Ovtlyr data - REQUIRED, not optional
+    // Fetch Ovtlyr data - OPTIONAL, not required
     val ovtlyrStock = ovtlyrClient.getStockInformation(symbol)
 
     if (ovtlyrStock == null) {
-      logger.error("FAILED: No Ovtlyr data available for $symbol - cannot enrich stock")
-      return null
+      logger.warn("No Ovtlyr data available for $symbol - using AlphaVantage data with default Ovtlyr values")
+      // Set default values for all quotes and return them
+      quotes.forEach { setDefaultOvtlyrValues(it, marketBreadth, sectorBreadth) }
+      return quotes
     }
 
-    logger.info("Found Ovtlyr data for $symbol with ${ovtlyrStock.getQuotes().size} quotes")
+    // Debug: Check raw quotes
+    val rawQuotes = ovtlyrStock.getQuotes()
+    logger.debug("$symbol - Ovtlyr raw quotes count: ${rawQuotes.size}")
 
     // Create a map of Ovtlyr quotes by date for fast lookup
     val ovtlyrQuotesByDate =
@@ -80,28 +91,88 @@ class OvtlyrEnrichmentService(
         .filterNotNull()
         .associateBy { it.getDate() }
 
-    var enrichedCount = 0
-    var skippedCount = 0
+    // Log date ranges for debugging
+    if (ovtlyrQuotesByDate.isEmpty()) {
+      logger.warn("Ovtlyr returned stock data for $symbol but has NO quotes - using AlphaVantage data with default Ovtlyr values")
+      // Set default values for all quotes and return them
+      quotes.forEach { setDefaultOvtlyrValues(it, marketBreadth, sectorBreadth) }
+      return quotes
+    }
 
-    // Enrich each AlphaVantage quote with Ovtlyr data if available for that date
+    val alphaDateRange = "${quotes.firstOrNull()?.date} to ${quotes.lastOrNull()?.date}"
+    val ovtlyrDateRange = "${ovtlyrQuotesByDate.keys.minOrNull()} to ${ovtlyrQuotesByDate.keys.maxOrNull()}"
+    logger.debug("$symbol - AlphaVantage quotes: ${quotes.size} ($alphaDateRange), Ovtlyr quotes: ${ovtlyrQuotesByDate.size} ($ovtlyrDateRange)")
+
+    var enrichedCount = 0
+    var defaultCount = 0
+
+    // Keep ALL quotes - enrich with Ovtlyr where available, use defaults otherwise
     val enrichedQuotes =
-      quotes.mapNotNull { quote ->
+      quotes.map { quote ->
         val ovtlyrQuote = ovtlyrQuotesByDate[quote.date]
 
         if (ovtlyrQuote != null) {
           enrichQuoteWithOvtlyr(quote, ovtlyrQuote, ovtlyrStock, marketBreadth, sectorBreadth, spy)
           enrichedCount++
-          quote
         } else {
-          // No Ovtlyr data for this date - skip this quote
-          skippedCount++
-          null
+          // No Ovtlyr data for this date - use default values
+          setDefaultOvtlyrValues(quote, marketBreadth, sectorBreadth)
+          defaultCount++
         }
+        quote
       }
 
-    logger.info("Enriched $enrichedCount quotes for $symbol, skipped $skippedCount dates without Ovtlyr data")
+    logger.info("$symbol - Enriched: $enrichedCount quotes with Ovtlyr data, $defaultCount quotes with defaults (${enrichedCount * 100 / quotes.size}% Ovtlyr coverage)")
 
     return enrichedQuotes
+  }
+
+  /**
+   * Set default values for Ovtlyr-specific fields when Ovtlyr data is not available.
+   */
+  private fun setDefaultOvtlyrValues(
+    stockQuoteDomain: StockQuoteDomain,
+    marketBreadth: BreadthDomain?,
+    sectorBreadth: BreadthDomain?,
+  ) {
+    // Market breadth context (previous day's data)
+    val marketBreadthQuote = marketBreadth?.getPreviousQuote(marketBreadth.getQuoteForDate(stockQuoteDomain.date))
+    val marketInUptrend = marketBreadthQuote?.isInUptrend() ?: false
+    val marketDonkeyScore = marketBreadthQuote?.donkeyChannelScore ?: 0
+
+    // Sector breadth context (previous day's data)
+    val sectorBreadthQuote = sectorBreadth?.getPreviousQuote(sectorBreadth.getQuoteForDate(stockQuoteDomain.date))
+    val sectorInUptrend = sectorBreadthQuote?.isInUptrend() ?: false
+    val sectorDonkeyScore = sectorBreadthQuote?.donkeyChannelScore ?: 0
+
+    // Calculate market advancing percent from breadth data
+    val marketAdvancing = calculateMarketAdvancingPercent(marketBreadth, stockQuoteDomain.date)
+
+    stockQuoteDomain.apply {
+      // Default Ovtlyr-specific fields to null/zero
+      signal = null
+      lastBuySignal = null
+      lastSellSignal = null
+      heatmap = 0.0
+      previousHeatmap = 0.0
+      sectorHeatmap = 0.0
+      previousSectorHeatmap = 0.0
+      sectorStocksInUptrend = 0
+      sectorStocksInDowntrend = 0
+      sectorBullPercentage = 0.0
+      sectorIsInUptrend = sectorInUptrend
+      sectorDonkeyChannelScore = sectorDonkeyScore
+      marketIsInUptrend = marketInUptrend
+      marketDonkeyChannelScore = marketDonkeyScore
+      marketAdvancingPercent = marketAdvancing
+      marketBullPercentage = marketBreadthQuote?.bullStocksPercentage ?: 0.0
+      marketBullPercentage_10ema = marketBreadthQuote?.ema_10 ?: 0.0
+      spySignal = null
+      spyInUptrend = false
+      spyHeatmap = 0.0
+      spyPreviousHeatmap = 0.0
+      previousQuoteDate = null
+    }
   }
 
   /**
@@ -113,7 +184,7 @@ class OvtlyrEnrichmentService(
     ovtlyrStock: OvtlyrStockInformation,
     marketBreadth: BreadthDomain?,
     sectorBreadth: BreadthDomain?,
-    spy: OvtlyrStockInformation,
+    spy: OvtlyrStockInformation?,
   ) {
     val previousQuote = ovtlyrStock.getPreviousQuote(ovtlyrQuote)
     val previousPreviousQuote = if (previousQuote != null) ovtlyrStock.getPreviousQuote(previousQuote) else null
@@ -128,12 +199,12 @@ class OvtlyrEnrichmentService(
     val sectorInUptrend = sectorBreadthQuote?.isInUptrend() ?: false
     val sectorDonkeyScore = sectorBreadthQuote?.donkeyChannelScore ?: 0
 
-    // SPY context
-    val currentSpySignal = spy.getCurrentSignalFrom(ovtlyrQuote.getDate())
-    val spyInUptrendValue = spy.getQuoteForDate(ovtlyrQuote.getDate())?.isInUptrend ?: false
-    val spyQuote = spy.getPreviousQuote(spy.getQuoteForDate(ovtlyrQuote.getDate()))
+    // SPY context (null when skipOvtlyrEnrichment is true)
+    val currentSpySignal = spy?.getCurrentSignalFrom(ovtlyrQuote.getDate())
+    val spyInUptrendValue = spy?.getQuoteForDate(ovtlyrQuote.getDate())?.isInUptrend ?: false
+    val spyQuote = spy?.getPreviousQuote(spy.getQuoteForDate(ovtlyrQuote.getDate()))
     val spyHeatmapValue = spyQuote?.heatmap ?: 0.0
-    val spyPreviousHeatmapValue = spy.getPreviousQuote(spyQuote)?.heatmap ?: 0.0
+    val spyPreviousHeatmapValue = spy?.getPreviousQuote(spyQuote)?.heatmap ?: 0.0
 
     // Calculate market advancing percent from breadth data
     val marketAdvancing = calculateMarketAdvancingPercent(marketBreadth, ovtlyrQuote.getDate())

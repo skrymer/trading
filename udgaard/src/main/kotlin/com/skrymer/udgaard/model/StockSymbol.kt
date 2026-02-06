@@ -1579,4 +1579,14 @@ enum class StockSymbol(
   // =====================
 
   RKLB(SectorSymbol.XLK, "RKLB"),
+  SPOT(SectorSymbol.XLC, "SPOT"),
+  NU(SectorSymbol.XLF, "NU"),
+  PL(SectorSymbol.XLK, "PL"),
+  MSCI(SectorSymbol.XLF, "MSCI"),
+  CMG(SectorSymbol.XLY, "CMG"),
+  TPG(SectorSymbol.XLF, "TPG"),
+  TOYO(SectorSymbol.XLY, "TOYO"),
+  GTX(SectorSymbol.XLI, "GTX"),
+  BILI(SectorSymbol.XLC, "BILI"),
+  AVPT(SectorSymbol.XLK, "AVPT"),
 }

@@ -2,7 +2,6 @@ package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.*
 import com.skrymer.udgaard.model.StockSymbol
-import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import com.skrymer.udgaard.service.DataRefreshService
 import com.skrymer.udgaard.service.DataStatsService
 import com.skrymer.udgaard.service.RateLimiterService
@@ -16,7 +15,6 @@ class DataManagementController(
   private val dataStatsService: DataStatsService,
   private val dataRefreshService: DataRefreshService,
   private val rateLimiter: RateLimiterService,
-  private val stockRepository: StockJooqRepository,
 ) {
   private val logger = LoggerFactory.getLogger(DataManagementController::class.java)
 
@@ -35,7 +33,6 @@ class DataManagementController(
    */
   @GetMapping("/rate-limit")
   fun getRateLimitStatus(): RateLimitStats {
-    logger.info("Getting rate limit status for primary provider (alphavantage)")
     val stats = rateLimiter.getProviderStats("alphavantage")
       ?: return RateLimitStats(
         requestsLastMinute = 0,
@@ -71,10 +68,8 @@ class DataManagementController(
    * Returns a map of provider ID to their stats
    */
   @GetMapping("/rate-limit/all")
-  fun getAllProvidersRateLimitStatus(): Map<String, com.skrymer.udgaard.service.ProviderRateLimitStats> {
-    logger.info("Getting rate limit status for all providers")
-    return rateLimiter.getAllProviderStats()
-  }
+  fun getAllProvidersRateLimitStatus(): Map<String, com.skrymer.udgaard.service.ProviderRateLimitStats> =
+    rateLimiter.getAllProviderStats()
 
   /**
    * Get rate limit configuration
@@ -104,12 +99,13 @@ class DataManagementController(
   @PostMapping("/refresh/stocks")
   fun refreshStocks(
     @RequestBody symbols: List<String>,
+    @RequestParam(required = false, defaultValue = "false") skipOvtlyr: Boolean,
   ): RefreshResponse {
-    logger.info("Queueing ${symbols.size} stocks for refresh")
-    dataRefreshService.queueStockRefresh(symbols)
+    logger.info("Queueing ${symbols.size} stocks for refresh (skipOvtlyr=$skipOvtlyr)")
+    dataRefreshService.queueStockRefresh(symbols, skipOvtlyrEnrichment = skipOvtlyr)
     return RefreshResponse(
       queued = symbols.size,
-      message = "Queued ${symbols.size} stocks for refresh",
+      message = "Queued ${symbols.size} stocks for refresh" + if (skipOvtlyr) " (Ovtlyr enrichment skipped)" else "",
     )
   }
 
@@ -117,13 +113,15 @@ class DataManagementController(
    * Queue all stocks for refresh (from StockSymbol enum - S&P 500 constituents)
    */
   @PostMapping("/refresh/all-stocks")
-  fun refreshAllStocks(): RefreshResponse {
-    logger.info("Queueing all stocks for refresh")
+  fun refreshAllStocks(
+    @RequestParam(required = false, defaultValue = "false") skipOvtlyr: Boolean,
+  ): RefreshResponse {
+    logger.info("Queueing all stocks for refresh (skipOvtlyr=$skipOvtlyr)")
     val allSymbols = StockSymbol.entries.map { it.symbol }
-    dataRefreshService.queueStockRefresh(allSymbols)
+    dataRefreshService.queueStockRefresh(allSymbols, skipOvtlyrEnrichment = skipOvtlyr)
     return RefreshResponse(
       queued = allSymbols.size,
-      message = "Queued ${allSymbols.size} stocks for refresh",
+      message = "Queued ${allSymbols.size} stocks for refresh" + if (skipOvtlyr) " (Ovtlyr enrichment skipped)" else "",
     )
   }
 
@@ -148,10 +146,7 @@ class DataManagementController(
    * Get current refresh progress
    */
   @GetMapping("/refresh/progress")
-  fun getRefreshProgress(): RefreshProgress {
-    logger.debug("Getting refresh progress")
-    return dataRefreshService.getProgress()
-  }
+  fun getRefreshProgress(): RefreshProgress = dataRefreshService.getProgress()
 
   /**
    * Clear refresh queue

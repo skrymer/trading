@@ -13,6 +13,7 @@ data class PositionStats(
   val avgLoss: Double,
   val winRate: Double,
   val provenEdge: Double,
+  val profitFactor: Double? = null,
   val totalProfit: Double,
   val totalProfitPercentage: Double,
   val largestWin: Double? = null,

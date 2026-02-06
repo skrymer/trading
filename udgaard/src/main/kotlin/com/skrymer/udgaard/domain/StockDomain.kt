@@ -3,7 +3,6 @@ package com.skrymer.udgaard.domain
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 /**
  * Domain model for Stock (Hibernate-independent)
@@ -87,24 +86,35 @@ data class StockDomain(
   fun getQuoteByDate(date: LocalDate) = quotes.find { it.date == date }
 
   /**
-   * Check if given [quote] is within an order block that are older than [daysOld]
-   * @param quote The quote to check
-   * @param daysOld Minimum age of order block in days
+   * Count trading days between two dates by counting quotes.
+   * This matches TradingView's bar-based age calculation.
+   * Public so entry conditions can use it for OB age calculations.
    */
+  fun countTradingDaysBetween(
+    startDate: LocalDate,
+    endDate: LocalDate,
+  ): Int {
+    // Count the number of quotes between start and end date (inclusive of end, exclusive of start)
+    return quotes.count { quote ->
+      val quoteDate = quote.date
+      quoteDate.isAfter(startDate) && !quoteDate.isAfter(endDate)
+    }
+  }
+
   fun withinOrderBlock(
     quote: StockQuoteDomain,
-    daysOld: Int,
-  ): Boolean =
-    orderBlocks
-      .filter {
-        ChronoUnit.DAYS.between(
-          it.startDate,
-          it.endDate ?: LocalDate.now(),
-        ) >= daysOld
-      }.filter { it.orderBlockType == OrderBlockType.BEARISH }
-      .filter { it.startDate.isBefore(quote.date) }
-      .filter { it.endDate?.isAfter(quote.date) == true }
-      .any { quote.closePrice > it.low && quote.closePrice < it.high }
+    tradingDaysOld: Int,
+    useHighPrice: Boolean = false,
+  ): Boolean {
+    val priceToCheck = if (useHighPrice) quote.high else quote.closePrice
+
+    return orderBlocks
+      .filter { it.orderBlockType == OrderBlockType.BEARISH }
+      .filter { it.startsBefore(quote.date) }
+      .filter { it.endsAfter(quote.date) }
+      .filter { countTradingDaysBetween(it.startDate, quote.date) >= tradingDaysOld }
+      .any { priceToCheck > it.low && priceToCheck < it.high }
+  }
 
   /**
    * Get active order blocks (not mitigated)

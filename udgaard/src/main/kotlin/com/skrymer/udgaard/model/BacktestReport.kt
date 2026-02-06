@@ -31,6 +31,18 @@ data class StockPerformance(
   val avgHoldingDays: Double,
   val totalProfitPercentage: Double,
   val edge: Double,
+  /**
+   * Profit Factor = Gross Profit / Gross Loss
+   * A value > 1.0 indicates profitable performance for this stock
+   * A value of 2.0 means the stock made $2 for every $1 lost
+   * Null if there are no losing trades
+   */
+  val profitFactor: Double?,
+  /**
+   * Maximum drawdown percentage for this stock
+   * The peak-to-trough decline in cumulative returns
+   */
+  val maxDrawdown: Double,
 )
 
 class BacktestReport(
@@ -134,6 +146,20 @@ class BacktestReport(
    */
   val edge: Double
     get() = (this.averageWinPercent * this.winRate) - ((1.0 - this.winRate) * this.averageLossPercent)
+
+  /**
+   * Profit Factor = Gross Profit / Gross Loss
+   * A value > 1.0 indicates a profitable strategy
+   * A value of 2.0 means the strategy makes $2 for every $1 lost
+   * @return the profit factor, or null if there are no losing trades
+   */
+  val profitFactor: Double?
+    get() {
+      if (losingTrades.isEmpty()) return null
+      val grossProfit = winningTrades.sumOf { it.profit }
+      val grossLoss = abs(losingTrades.sumOf { it.profit })
+      return if (grossLoss == 0.0) 0.0 else grossProfit / grossLoss
+    }
 
   /**
    * The number of winning trades

@@ -41,12 +41,6 @@ class OvtlyrClient(
           .build()
       val requestBody = "{\"stockSymbol\":\"${symbol}\",\"period\":\"All\",\"page_index\":0,\"page_size\":20000}"
 
-      logger.info("Fetching stock information for $symbol")
-      logger.info("baseUrl: $stockInformationBaseUrl")
-      logger.info("User id $cookieUserId")
-      logger.info("Token: $cookieToken")
-      logger.info("requestBody: $requestBody")
-
       val response =
         restClient
           .post()
@@ -60,7 +54,6 @@ class OvtlyrClient(
           .toEntity(OvtlyrStockInformation::class.java)
           .getBody()
 
-      logger.info("Response received: $response")
       return response
     }.onFailure { e ->
       logger.error("Exception occurred fetching stock: $symbol message: ${e.message} skipping", e)
@@ -82,12 +75,6 @@ class OvtlyrClient(
 
       val requestBody =
         "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
-
-      logger.info("Getting breadth data for $symbol")
-      logger.info("baseUrl: $marketBreadthBaseUrl")
-      logger.info("User id $cookieUserId")
-      logger.info("Token: $cookieToken")
-      logger.info("requestBody: $requestBody")
 
       return restClient
         .post()
@@ -117,12 +104,6 @@ class OvtlyrClient(
       val requestBody =
         "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
 
-      logger.info("Getting market breadth for $symbol")
-      logger.info("baseUrl: $marketBreadthBaseUrl")
-      logger.info("User id $cookieUserId")
-      logger.info("Token: $cookieToken")
-      logger.info("requestBody: $requestBody")
-
       return restClient
         .post()
         .cookie("UserId", cookieUserId)
@@ -146,12 +127,6 @@ class OvtlyrClient(
     val requestBody =
       "{\"searchKeyword\":null,\"filter_sectorIds\":null,\"filter_industryNames\":null,\"page_size\":200,\"page_index\":0,\"filter_OvtlyrSignalReturn\":null,\"filter_OvtlyrCapitalEfficency\":null,\"filter_min30DayAvgVol\":null,\"filter_max30DayAvgVol\":null,\"filter_CurrentBuySellStatus\":null,\"filter_PriceCorrectionPeriod\":null,\"filter_PriceCorrectionValue\":null,\"filter_minMarkerCap\":null,\"filter_maxMarkerCap\":null,\"filter_minClosePrice\":null,\"filter_maxClosePrice\":null,\"filter_minHeatMap\":null,\"filter_maxHeatMap\":null,\"isShowUpTreandIndicator\":null,\"isShowDownTreandIndicator\":null,\"isShowNeutralIndicator\":null,\"sortBy\":null,\"sortOrder\":null,\"filterByOscilatorMovingUpDown\":null,\"selectedFilterId\":null}"
 
-    logger.info("Getting screener details")
-    logger.info("baseUrl: $screenerBaseUrl")
-    logger.info("User id $cookieUserId")
-    logger.info("Token: $cookieToken")
-    logger.info("requestBody: $requestBody")
-
     return restClient
       .post()
       .cookie("UserId", cookieUserId)
@@ -164,7 +139,5 @@ class OvtlyrClient(
   }
 
   fun logResponse(response: ClientHttpResponse) {
-    logger.info("⇦ Status: ${response.statusCode}")
-    logger.info("⇦ Headers: ${response.headers}")
   }
 }

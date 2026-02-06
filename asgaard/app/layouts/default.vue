@@ -115,14 +115,6 @@ onMounted(async () => {
       class="bg-elevated/25"
       :ui="{ footer: 'lg:border-t lg:border-default' }"
     >
-      <template #header="{ collapsed }">
-        <div class="flex items-center gap-2 p-4 border-b border-default">
-          <UIcon v-if="!collapsed" name="i-lucide-trending-up" class="text-2xl" />
-          <span v-if="!collapsed" class="font-semibold text-lg">Trading Platform</span>
-          <UIcon v-else name="i-lucide-trending-up" class="text-2xl" />
-        </div>
-      </template>
-
       <template #default="{ collapsed }">
         <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
 

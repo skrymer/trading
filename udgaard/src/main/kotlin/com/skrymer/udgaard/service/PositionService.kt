@@ -540,6 +540,16 @@ class PositionService(
     val lossRate = 100.0 - winRate
     val provenEdge = (winRate / 100.0 * avgWin) - (lossRate / 100.0 * abs(avgLoss))
 
+    // Calculate profit factor (Gross Profit / Gross Loss)
+    val profitFactor =
+      if (losses.isNotEmpty()) {
+        val grossProfit = wins.sumOf { it.realizedPnl ?: 0.0 }
+        val grossLoss = abs(losses.sumOf { it.realizedPnl ?: 0.0 })
+        if (grossLoss > 0.0) grossProfit / grossLoss else null
+      } else {
+        null // Undefined when there are no losses
+      }
+
     // Total profit
     val totalProfit = closedPositions.sumOf { it.realizedPnl ?: 0.0 }
 
@@ -587,6 +597,7 @@ class PositionService(
       avgLoss = avgLoss,
       winRate = winRate,
       provenEdge = provenEdge,
+      profitFactor = profitFactor,
       totalProfit = totalProfit,
       totalProfitPercentage = totalProfitPercentage,
       largestWin = largestWin,
@@ -666,6 +677,7 @@ class PositionService(
     avgLoss = 0.0,
     winRate = 0.0,
     provenEdge = 0.0,
+    profitFactor = null,
     totalProfit = 0.0,
     totalProfitPercentage = 0.0,
   )

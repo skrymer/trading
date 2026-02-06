@@ -155,6 +155,21 @@ class DynamicStrategyBuilder(
           multiplier = (config.parameters["multiplier"] as? Number)?.toDouble() ?: 1.3,
           lookbackDays = (config.parameters["lookbackDays"] as? Number)?.toInt() ?: 20,
         )
+      "noearningswithindays" ->
+        NoEarningsWithinDaysCondition(
+          days = (config.parameters["days"] as? Number)?.toInt() ?: 7,
+        )
+      "consecutivehigherhighsinvaluezone" ->
+        ConsecutiveHigherHighsInValueZoneCondition(
+          consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3,
+          atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.0,
+          emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 20,
+        )
+      "abovebearishorderblock" ->
+        AboveBearishOrderBlockCondition(
+          consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3,
+          ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30,
+        )
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }
 
@@ -175,10 +190,16 @@ class DynamicStrategyBuilder(
           logger.info("  -> ProfitTargetExit(atrMultiplier=$atrMultiplier, emaPeriod=$emaPeriod)")
           ProfitTargetExit(atrMultiplier, emaPeriod)
         }
-        "orderblock" -> {
+        "bearishorderblock" -> {
           val ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 120
-          logger.info("  -> OrderBlockExit(ageInDays=$ageInDays)")
-          OrderBlockExit(ageInDays)
+          logger.info("  -> BearishOrderBlockExit(ageInDays=$ageInDays)")
+          BearishOrderBlockExit(ageInDays)
+        }
+        "orderblock" -> {
+          // Deprecated: kept for backward compatibility
+          val ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 120
+          logger.info("  -> BearishOrderBlockExit(ageInDays=$ageInDays) [deprecated: orderblock]")
+          BearishOrderBlockExit(ageInDays)
         }
         "stoploss" ->
           StopLossExit(
@@ -192,6 +213,11 @@ class DynamicStrategyBuilder(
         "pricebelowema" ->
           PriceBelowEmaExit(
             emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10,
+          )
+        "pricebelowemaminusatr" ->
+          PriceBelowEmaMinusAtrExit(
+            emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 5,
+            atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 0.5,
           )
         "priceBelowEmaForDays" -> {
           val emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10
