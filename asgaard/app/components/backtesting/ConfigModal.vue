@@ -46,9 +46,6 @@ const state = reactive<{
   customOverrides: []
 })
 
-// Fetch available stock symbols
-const { data: stockSymbols } = useFetch<string[]>('/udgaard/api/stocks/symbols')
-
 // Fetch available strategies from backend
 const { data: availableStrategies } = useFetch<{
   entryStrategies: string[]
@@ -249,12 +246,10 @@ function cancel() {
                 </UFormField>
               </div>
 
-              <UInputMenu
+              <SymbolSearch
                 v-if="state.stockSelection === 'specific'"
                 v-model="state.specificStocks"
-                :items="stockSymbols || []"
-                placeholder="Type or select stock symbols"
-                icon="i-lucide-search"
+                placeholder="Type to search stock symbols..."
                 multiple
               />
             </div>

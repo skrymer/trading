@@ -55,6 +55,14 @@ const links = [[{
   }
 },
 {
+  label: 'App Metrics',
+  icon: 'i-lucide-gauge',
+  to: '/app-metrics',
+  onSelect: () => {
+    open.value = false
+  }
+},
+{
   label: 'Settings',
   icon: 'i-lucide-settings',
   to: '/settings',

@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.model.strategy.condition.entry.*
 import com.skrymer.udgaard.model.strategy.condition.entry.EntryCondition
@@ -131,8 +132,9 @@ class EntryStrategyBuilder {
   fun belowOrderBlock(
     percentBelow: Double = 2.0,
     ageInDays: Int = 30,
+    sensitivity: OrderBlockSensitivity? = null,
   ) = apply {
-    conditions.add(BelowOrderBlockCondition(percentBelow, ageInDays))
+    conditions.add(BelowOrderBlockCondition(percentBelow, ageInDays, sensitivity))
   }
 
   fun emaBullishCross(
@@ -179,8 +181,10 @@ class EntryStrategyBuilder {
   fun aboveBearishOrderBlock(
     consecutiveDays: Int = 3,
     ageInDays: Int = 30,
+    proximityPercent: Double = 2.0,
+    sensitivity: OrderBlockSensitivity? = null,
   ) = apply {
-    conditions.add(AboveBearishOrderBlockCondition(consecutiveDays, ageInDays))
+    conditions.add(AboveBearishOrderBlockCondition(consecutiveDays, ageInDays, proximityPercent, sensitivity))
   }
 
   fun withOperator(op: LogicalOperator) =
@@ -226,8 +230,9 @@ class ExitStrategyBuilder {
   fun bearishOrderBlock(
     ageInDays: Int = 120,
     useHighPrice: Boolean = false,
+    sensitivity: OrderBlockSensitivity? = null,
   ) = apply {
-    conditions.add(BearishOrderBlockExit(ageInDays, useHighPrice))
+    conditions.add(BearishOrderBlockExit(ageInDays, useHighPrice, sensitivity))
   }
 
   @Deprecated("Use bearishOrderBlock() instead", ReplaceWith("bearishOrderBlock(ageInDays)"))

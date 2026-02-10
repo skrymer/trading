@@ -424,7 +424,7 @@ class AboveBearishOrderBlockConditionTest {
   fun `should provide correct description`() {
     val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 30)
     assertEquals(
-      "Price above bearish order block for 3 consecutive days (age >= 30d)",
+      "Price above bearish order block for 3 consecutive days (age >= 30d, proximity 2.0%)",
       condition.description(),
     )
   }
@@ -441,7 +441,7 @@ class AboveBearishOrderBlockConditionTest {
       metadata.description,
     )
     assertEquals("OrderBlock", metadata.category)
-    assertEquals(2, metadata.parameters.size)
+    assertEquals(3, metadata.parameters.size)
 
     val consecutiveDaysParam = metadata.parameters.find { it.name == "consecutiveDays" }
     assertNotNull(consecutiveDaysParam)
@@ -456,6 +456,13 @@ class AboveBearishOrderBlockConditionTest {
     assertEquals(30, ageParam?.defaultValue)
     assertEquals(1, ageParam?.min)
     assertEquals(365, ageParam?.max)
+
+    val proximityParam = metadata.parameters.find { it.name == "proximityPercent" }
+    assertNotNull(proximityParam)
+    assertEquals("number", proximityParam?.type)
+    assertEquals(2.0, proximityParam?.defaultValue)
+    assertEquals(0.0, proximityParam?.min)
+    assertEquals(10.0, proximityParam?.max)
   }
 
   @Test
@@ -501,7 +508,7 @@ class AboveBearishOrderBlockConditionTest {
 
     assertTrue(result.passed)
     assertEquals("AboveBearishOrderBlockCondition", result.conditionType)
-    assertEquals("Never inside", result.actualValue)
+    assertEquals("Never inside/near", result.actualValue)
     assertTrue(result.message?.contains("✓") ?: false)
   }
 
@@ -906,5 +913,302 @@ class AboveBearishOrderBlockConditionTest {
     assertFalse(result.passed)
     assertEquals("AboveBearishOrderBlockCondition", result.conditionType)
     assertTrue(result.message?.contains("✗") ?: false, "Message should indicate failure")
+  }
+
+  // ============================================================================================
+  // PROXIMITY TESTS - Matching TradingView's bearNear logic
+  // ============================================================================================
+
+  @Test
+  fun `should return false when price is near OB within proximity percent`() {
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 100.0,
+        high = 110.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Price at 99.0: ((100 - 99) / 99) * 100 = 1.01% below OB bottom -> within 2% proximity
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 18), closePrice = 99.0), // Near OB (blocked)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (current)
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertFalse(
+      condition.evaluate(stock, quotes.last()),
+      "Should return false when price was near OB (within 2%) only 1 bar ago (need 3 bars cooldown)",
+    )
+  }
+
+  @Test
+  fun `should not treat price as near when beyond proximity percent`() {
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 100.0,
+        high = 110.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Price at 95.0: ((100 - 95) / 95) * 100 = 5.26% below OB bottom -> beyond 2% proximity
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 18), closePrice = 95.0), // Beyond proximity (NOT blocked)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (current)
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertTrue(
+      condition.evaluate(stock, quotes.last()),
+      "Should return true when price was 5.26% below OB (beyond 2% proximity threshold)",
+    )
+  }
+
+  @Test
+  fun `should respect custom proximity percent parameter`() {
+    // Use 5% proximity -- even 96.0 should be blocked
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0, proximityPercent = 5.0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 100.0,
+        high = 110.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Price at 96.0: ((100 - 96) / 96) * 100 = 4.17% below OB bottom -> within 5% proximity
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 18), closePrice = 96.0), // Near OB with 5% threshold
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (current)
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertFalse(
+      condition.evaluate(stock, quotes.last()),
+      "Should return false when price was within 5% proximity of OB (custom threshold)",
+    )
+  }
+
+  @Test
+  fun `should only check inside when proximity percent is zero`() {
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0, proximityPercent = 0.0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 100.0,
+        high = 110.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Price at 99.0 is below OB bottom but with 0% proximity it should NOT be blocked
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 18), closePrice = 99.0), // Below but not inside
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (current)
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertTrue(
+      condition.evaluate(stock, quotes.last()),
+      "Should return true when proximityPercent=0 and price was below (not inside) OB",
+    )
+  }
+
+  @Test
+  fun `proximity near OB should reset cooldown like TradingView`() {
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 100.0,
+        high = 110.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Sequence: inside OB, 3 bars above (cooldown would expire), then near OB resets cooldown,
+    // then only 2 bars above -> should still be blocked
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 12), closePrice = 105.0), // Inside OB
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 13), closePrice = 115.0), // Above (1)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 14), closePrice = 115.0), // Above (2)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 15), closePrice = 115.0), // Above (3) - cooldown would expire here without proximity
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 16), closePrice = 99.0), // Near OB (1.01% below) - RESETS cooldown
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above (1 since near)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (2 since near) - current
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertFalse(
+      condition.evaluate(stock, quotes.last()),
+      "Should return false because proximity to OB reset the cooldown, only 1 bar since near (need 3)",
+    )
+  }
+
+  @Test
+  fun `barsSince should match TradingView barssince - blocked exactly N bars ago allows entry with cooldown N`() {
+    // Regression test for off-by-one fix.
+    // TV's ta.barssince(obEntryBlocked) counts bars FROM the blocked bar TO the current bar.
+    // If blocked on bar X, and current bar is X+3, barssince = 3.
+    // With cooldown = 3, 3 >= 3 = true → entry allowed.
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 95.0,
+        high = 105.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Bar 0: inside OB (blocked), then exactly 3 bars above → should pass cooldown
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 15), closePrice = 100.0), // Inside OB (blocked)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 16), closePrice = 115.0), // Above (1)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above (2)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (3) - current, barsSince=3
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertTrue(
+      condition.evaluate(stock, quotes.last()),
+      "Should allow entry when blocked bar was exactly consecutiveDays (3) bars ago, matching TV's barssince semantics",
+    )
+  }
+
+  @Test
+  fun `barsSince should block when blocked bar was only N-1 bars ago with cooldown N`() {
+    // With cooldown = 3, if blocked 2 bars ago, barssince = 2 < 3 → blocked
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 95.0,
+        high = 105.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 16), closePrice = 100.0), // Inside OB (blocked)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above (1)
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 115.0), // Above (2) - current, barsSince=2
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    assertFalse(
+      condition.evaluate(stock, quotes.last()),
+      "Should block entry when blocked bar was only 2 bars ago (need 3)",
+    )
+  }
+
+  @Test
+  fun `should provide detailed evaluation showing near status when price is near OB`() {
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+
+    val orderBlock =
+      OrderBlockDomain(
+        low = 100.0,
+        high = 110.0,
+        startDate = LocalDate.of(2024, 1, 1),
+        endDate = null,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+
+    // Current price is near OB
+    val quotes =
+      listOf(
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 18), closePrice = 115.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 19), closePrice = 115.0), // Above
+        StockQuoteDomain(date = LocalDate.of(2024, 2, 20), closePrice = 99.0), // Near OB (current)
+      )
+
+    val stock =
+      StockDomain(
+        symbol = "TEST",
+        sectorSymbol = "XLK",
+        quotes = quotes,
+        orderBlocks = listOf(orderBlock),
+      )
+
+    val result = condition.evaluateWithDetails(stock, quotes.last())
+
+    assertFalse(result.passed)
+    assertTrue(result.actualValue?.contains("near") ?: false)
+    assertTrue(result.message?.contains("near") ?: false)
+    assertTrue(result.message?.contains("✗") ?: false)
   }
 }

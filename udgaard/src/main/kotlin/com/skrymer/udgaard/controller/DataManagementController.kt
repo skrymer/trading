@@ -1,13 +1,14 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.*
-import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.DataRefreshService
 import com.skrymer.udgaard.service.DataStatsService
 import com.skrymer.udgaard.service.RateLimiterService
+import com.skrymer.udgaard.service.SymbolService
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.time.LocalDate
 
 @RestController
 @RequestMapping("/api/data-management")
@@ -15,6 +16,7 @@ class DataManagementController(
   private val dataStatsService: DataStatsService,
   private val dataRefreshService: DataRefreshService,
   private val rateLimiter: RateLimiterService,
+  private val symbolService: SymbolService,
 ) {
   private val logger = LoggerFactory.getLogger(DataManagementController::class.java)
 
@@ -100,9 +102,11 @@ class DataManagementController(
   fun refreshStocks(
     @RequestBody symbols: List<String>,
     @RequestParam(required = false, defaultValue = "false") skipOvtlyr: Boolean,
+    @RequestParam(required = false, defaultValue = "2020-01-01") minDate: String,
   ): RefreshResponse {
-    logger.info("Queueing ${symbols.size} stocks for refresh (skipOvtlyr=$skipOvtlyr)")
-    dataRefreshService.queueStockRefresh(symbols, skipOvtlyrEnrichment = skipOvtlyr)
+    val parsedMinDate = LocalDate.parse(minDate)
+    logger.info("Queueing ${symbols.size} stocks for refresh (skipOvtlyr=$skipOvtlyr, minDate=$parsedMinDate)")
+    dataRefreshService.queueStockRefresh(symbols, skipOvtlyrEnrichment = skipOvtlyr, minDate = parsedMinDate)
     return RefreshResponse(
       queued = symbols.size,
       message = "Queued ${symbols.size} stocks for refresh" + if (skipOvtlyr) " (Ovtlyr enrichment skipped)" else "",
@@ -110,15 +114,17 @@ class DataManagementController(
   }
 
   /**
-   * Queue all stocks for refresh (from StockSymbol enum - S&P 500 constituents)
+   * Queue all stocks for refresh (from symbols table)
    */
   @PostMapping("/refresh/all-stocks")
   fun refreshAllStocks(
     @RequestParam(required = false, defaultValue = "false") skipOvtlyr: Boolean,
+    @RequestParam(required = false, defaultValue = "2020-01-01") minDate: String,
   ): RefreshResponse {
-    logger.info("Queueing all stocks for refresh (skipOvtlyr=$skipOvtlyr)")
-    val allSymbols = StockSymbol.entries.map { it.symbol }
-    dataRefreshService.queueStockRefresh(allSymbols, skipOvtlyrEnrichment = skipOvtlyr)
+    val parsedMinDate = LocalDate.parse(minDate)
+    logger.info("Queueing all stocks for refresh (skipOvtlyr=$skipOvtlyr, minDate=$parsedMinDate)")
+    val allSymbols = symbolService.getAll().map { it.symbol }
+    dataRefreshService.queueStockRefresh(allSymbols, skipOvtlyrEnrichment = skipOvtlyr, minDate = parsedMinDate)
     return RefreshResponse(
       queued = allSymbols.size,
       message = "Queued ${allSymbols.size} stocks for refresh" + if (skipOvtlyr) " (Ovtlyr enrichment skipped)" else "",

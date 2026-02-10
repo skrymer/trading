@@ -394,6 +394,225 @@ class OrderBlockCalculatorTest {
     return quotes
   }
 
+  /**
+   * Test for OB mitigation timing matching TradingView behavior.
+   *
+   * Scenario modeled after CAT April 2019:
+   * - Bar 15: Bullish origin candle → bearish OB [102.0, 106.0]
+   * - Bars 16-18: Price closes above OB high (but OB doesn't exist yet in TV)
+   * - Bar 19: ROC crossing triggers OB creation, close[1]=107.0 > OB high → immediate mitigation
+   *
+   * In TV, the box is created on the trigger bar. Mitigation only starts from
+   * the trigger bar onward. On bar 19, close[1] (bar 18 close = 107.0) > OB high (106.0),
+   * so the OB is immediately mitigated on creation.
+   */
+  @Test
+  fun `should not overwrite mitigation date when OB is mitigated before trigger`() {
+    val baseDate = LocalDate.of(2019, 4, 1)
+    val quotes = mutableListOf<StockQuoteDomain>()
+
+    // Bars 0-14: setup bars with gradual increase (open: 100.0 → 102.8)
+    for (i in 0..14) {
+      val open = 100.0 + i * 0.2
+      quotes.add(
+        createQuote(
+          baseDate.plusDays(i.toLong()),
+          open,
+          open + 0.3, // slight bullish
+          open + 0.5,
+          open - 0.5,
+        ),
+      )
+    }
+
+    // Bar 15: Bullish origin candle → will become bearish OB [102.0, 106.0]
+    quotes.add(createQuote(baseDate.plusDays(15), 103.0, 105.0, 106.0, 102.0))
+
+    // Bar 16: Close above OB high (108.0 > 106.0) → mitigation trigger
+    quotes.add(createQuote(baseDate.plusDays(16), 107.0, 108.0, 109.0, 106.5))
+
+    // Bar 17: Still above OB high
+    quotes.add(createQuote(baseDate.plusDays(17), 108.0, 109.0, 110.0, 107.0))
+
+    // Bar 18: Still above OB high
+    quotes.add(createQuote(baseDate.plusDays(18), 109.0, 107.0, 110.0, 106.0))
+
+    // Bar 19: Bearish ROC crossing triggers OB creation
+    // ROC = (open[19] - open[15]) / open[15] * 100 = (100.0 - 103.0) / 103.0 * 100 = -2.91%
+    // prevROC = (open[18] - open[14]) / open[14] * 100 = (109.0 - 102.8) / 102.8 * 100 = +6.03%
+    // Bearish crossing: prevROC > -0.28 AND ROC < -0.28 ✓
+    quotes.add(createQuote(baseDate.plusDays(19), 100.0, 99.0, 101.0, 98.0))
+
+    // Bars 20-21: trailing bars
+    quotes.add(createQuote(baseDate.plusDays(20), 99.0, 98.0, 100.0, 97.0))
+    quotes.add(createQuote(baseDate.plusDays(21), 98.0, 97.0, 99.0, 96.0))
+
+    // When
+    val orderBlocks = calculator.calculateOrderBlocks(quotes = quotes)
+
+    // Then: Should have a bearish OB with origin at bar 15
+    val bearishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BEARISH }
+    assertTrue(bearishBlocks.isNotEmpty(), "Should detect bearish OB")
+
+    val block = bearishBlocks.first { it.low == 102.0 && it.high == 106.0 }
+
+    // The OB should be mitigated at bar 19 (the trigger bar itself)
+    // because close[1] on bar 19 (= bar 18 close = 107.0) > OB high (106.0)
+    // Mitigation starts from the trigger bar, matching TV's behavior
+    assertNotNull(block.endDate, "OB should be mitigated")
+    assertEquals(
+      baseDate.plusDays(19),
+      block.endDate,
+      "OB should be mitigated at bar 19 (trigger bar, close[1] > OB high), matching TV behavior",
+    )
+  }
+
+  /**
+   * Regression test: ALL crossings (skipped or not) are recorded in recentCrossings for
+   * spacing checks, matching TradingView's cross_index behavior where cross_index updates
+   * on every crossing event. Only non-skipped crossings produce OBs.
+   *
+   * Scenario:
+   * - Bar 19: BULLISH crossing (ROC 40%) → creates OB (gap from previous is large)
+   * - Bar 23: BEARISH crossing (ROC -28.57%) → SKIPPED (gap=4 from bar 19, ≤5), but RECORDED
+   * - Bar 27: BEARISH crossing (ROC -30%) → SKIPPED (gap=4 from recorded bar 23, ≤5)
+   *   This matches TV: cross_index=23 on bar 23, so bar 27 gap = 27-23 = 4, gate fails (4 > 5 = false)
+   */
+  @Test
+  fun `skipped crossings participate in spacing but do not produce OBs`() {
+    val baseDate = LocalDate.of(2025, 3, 1)
+    val quotes = mutableListOf<StockQuoteDomain>()
+
+    // Bars 0-14: flat prices (open=100), tiny bullish candles. ROC stays at 0%.
+    for (i in 0..14) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 100.1, 101.0, 99.0))
+    }
+
+    // Bar 15: bearish candle at open=100 (origin for bullish OB from bar 19 crossing)
+    quotes.add(createQuote(baseDate.plusDays(15), 100.0, 99.5, 101.0, 99.0))
+
+    // Bars 16-18: flat at open=100
+    for (i in 16..18) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 100.1, 101.0, 99.0))
+    }
+
+    // Bar 19: BULLISH crossing
+    // ROC = (140 - 100) / 100 * 100 = 40% (> 0.28)
+    // prevROC = (100 - 100) / 100 * 100 = 0% (< 0.28) → CROSSOVER ✓
+    quotes.add(createQuote(baseDate.plusDays(19), 140.0, 141.0, 142.0, 139.0))
+
+    // Bars 20-22: stay high at open=140
+    for (i in 20..22) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 140.0, 140.1, 141.0, 139.0))
+    }
+
+    // Bar 23: BEARISH crossing
+    // ROC = (100 - 140) / 140 * 100 = -28.57% (< -0.28)
+    // prevROC = (140 - 100) / 100 * 100 = 40% (> -0.28) → CROSSUNDER ✓
+    // 23 - 19 = 4 ≤ CROSS_TYPE_SPACING(5) → SKIPPED, but recorded for spacing
+    quotes.add(createQuote(baseDate.plusDays(23), 100.0, 99.0, 101.0, 98.0))
+
+    // Bars 24-26: back to high at open=140
+    for (i in 24..26) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 140.0, 140.1, 141.0, 139.0))
+    }
+
+    // Bar 27: BEARISH crossing
+    // ROC = (70 - 100) / 100 * 100 = -30% (< -0.28)
+    // prevROC = (140 - 140) / 140 * 100 = 0% (> -0.28) → CROSSUNDER ✓
+    // 27 - 23 = 4 ≤ SAME_TYPE_SPACING(5) → SKIPPED (bar 23 recorded in recentCrossings)
+    // Matches TV: cross_index was updated to 23, gap = 27-23 = 4, gate fails (4 > 5 = false)
+    quotes.add(createQuote(baseDate.plusDays(27), 70.0, 69.0, 71.0, 68.0))
+
+    // Trailing bars
+    quotes.add(createQuote(baseDate.plusDays(28), 69.0, 68.0, 70.0, 67.0))
+    quotes.add(createQuote(baseDate.plusDays(29), 68.0, 67.0, 69.0, 66.0))
+
+    // When
+    val orderBlocks = calculator.calculateOrderBlocks(quotes = quotes)
+
+    // Then
+    val bullishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BULLISH }
+    val bearishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BEARISH }
+
+    assertTrue(bullishBlocks.isNotEmpty(), "Should detect bullish OB from bar 19 crossing")
+    assertTrue(
+      bearishBlocks.isEmpty(),
+      "Should NOT detect bearish OBs — bar 23 is too close to bar 19 (gap=4 ≤5), " +
+        "bar 27 is too close to recorded bar 23 (gap=4 ≤5), matching TV's cross_index behavior",
+    )
+
+    // Verify bullish OB origin
+    val bullishOB = bullishBlocks.first()
+    assertEquals(baseDate.plusDays(15), bullishOB.startDate, "Bullish OB origin should be bar 15 (bearish candle)")
+  }
+
+  /**
+   * Test that a crossing with sufficient gap from a skipped crossing DOES produce an OB.
+   * Skipped crossings are spacing markers but don't prevent OBs beyond the spacing window.
+   *
+   * Crossing chain:
+   *   Bar 19: BULLISH → OB created (first crossing)
+   *   Bar 23: BEARISH → skipped (gap=4 from 19, ≤5), recorded
+   *   Bar 27: BULLISH → skipped (gap=4 from 23, ≤5), recorded (price recovery causes ROC crossing)
+   *   Bar 34: BEARISH → NOT skipped (gap=7 from 27 cross-type, gap=11 from 23 same-type) → OB created
+   */
+  @Test
+  fun `crossing beyond spacing window from skipped crossing produces OB`() {
+    val baseDate = LocalDate.of(2025, 3, 1)
+    val quotes = mutableListOf<StockQuoteDomain>()
+
+    // Bars 0-14: flat prices
+    for (i in 0..14) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 100.1, 101.0, 99.0))
+    }
+
+    // Bar 15: bearish candle (origin for bullish OB)
+    quotes.add(createQuote(baseDate.plusDays(15), 100.0, 99.5, 101.0, 99.0))
+
+    // Bars 16-18: flat
+    for (i in 16..18) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 100.1, 101.0, 99.0))
+    }
+
+    // Bar 19: BULLISH crossing (ROC 40%) → creates OB
+    quotes.add(createQuote(baseDate.plusDays(19), 140.0, 141.0, 142.0, 139.0))
+
+    // Bars 20-22: high
+    for (i in 20..22) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 140.0, 140.1, 141.0, 139.0))
+    }
+
+    // Bar 23: BEARISH crossing → SKIPPED (gap=4 from bar 19), recorded for spacing
+    quotes.add(createQuote(baseDate.plusDays(23), 100.0, 99.0, 101.0, 98.0))
+
+    // Bars 24-33: back to high prices
+    // Note: Bar 27 triggers a BULLISH crossing (recovery from bar 23's dip), also skipped (gap=4 from 23)
+    for (i in 24..33) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 140.0, 140.1, 141.0, 139.0))
+    }
+
+    // Bar 34: BEARISH crossing — gap from bar 27 (last crossing) = 7 > CROSS_TYPE_SPACING(5) → creates OB
+    // ROC = (70 - 140) / 140 * 100 = -50% (< -0.28)
+    // prevROC = (140 - 140) / 140 * 100 = 0% (> -0.28) → CROSSUNDER ✓
+    quotes.add(createQuote(baseDate.plusDays(34), 70.0, 69.0, 71.0, 68.0))
+
+    // Trailing bars
+    quotes.add(createQuote(baseDate.plusDays(35), 69.0, 68.0, 70.0, 67.0))
+    quotes.add(createQuote(baseDate.plusDays(36), 68.0, 67.0, 69.0, 66.0))
+
+    val orderBlocks = calculator.calculateOrderBlocks(quotes = quotes)
+
+    val bullishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BULLISH }
+    val bearishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BEARISH }
+
+    assertTrue(bullishBlocks.isNotEmpty(), "Should detect bullish OB from bar 19")
+    assertTrue(
+      bearishBlocks.isNotEmpty(),
+      "Should detect bearish OB from bar 34 (gap=7 from skipped bar 27, > spacing 5)",
+    )
+  }
+
   private fun createQuote(
     date: LocalDate,
     open: Double,

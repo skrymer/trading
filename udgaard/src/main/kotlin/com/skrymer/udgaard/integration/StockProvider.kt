@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.integration
 
 import com.skrymer.udgaard.domain.StockQuoteDomain
+import java.time.LocalDate
 
 /**
  * Interface for stock price and volume data providers
@@ -16,10 +17,12 @@ interface StockProvider {
    *
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
    * @param outputSize Size of the dataset ("compact" for recent data, "full" for historical)
+   * @param minDate Only include data from this date onwards (default: 2020-01-01)
    * @return List of stock quotes with price and volume data, or null if unavailable
    */
   suspend fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String = "full",
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ): List<StockQuoteDomain>?
 }

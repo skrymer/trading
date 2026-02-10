@@ -18,6 +18,7 @@ class CacheConfig {
         "stocks",
         "backtests",
         "marketBreadth",
+        "symbols",
       )
     cacheManager.setCaffeine(
       Caffeine

@@ -7,14 +7,16 @@
         </template>
 
         <template #right>
-          <UInputMenu
+          <SymbolSearch
             v-model="selectedSymbol"
-            :items="stockSymbols"
-            :placeholder="loadingSymbols ? 'Loading symbols...' : 'Type to search stocks...'"
-            :disabled="loadingSymbols"
-            :loading="loadingSymbols"
-            icon="i-lucide-search"
             class="w-64"
+          />
+          <UInput
+            v-if="selectedStock"
+            v-model="minDate"
+            type="date"
+            :disabled="loading"
+            class="w-40"
           />
           <UCheckbox
             v-if="selectedStock"
@@ -204,10 +206,8 @@ definePageMeta({
 const selectedSymbol = ref<string>('')
 const selectedStock = ref<Stock | null>(null)
 const loading = ref(false)
-const loadingSymbols = ref(true)
 const loadingStrategies = ref(false)
 const loadingSignals = ref(false)
-const stockSymbols = ref<string[]>([])
 const entryStrategies = ref<string[]>([])
 const exitStrategies = ref<string[]>([])
 const selectedEntryStrategy = ref<string>('')
@@ -216,6 +216,7 @@ const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
 const skipOvtlyr = ref<boolean>(false)
+const minDate = ref('2020-01-01')
 
 // Computed properties for heatmap charts (shared time range)
 const filteredHeatmapQuotes = computed(() => {
@@ -285,24 +286,6 @@ const sectorHeatmapBarColors = computed(() => {
 })
 
 // Methods
-const fetchStockSymbols = async () => {
-  loadingSymbols.value = true
-  try {
-    const data = await $fetch<string[]>('/udgaard/api/stocks/symbols')
-    console.log('Fetched stock symbols:', data.length, 'symbols')
-    stockSymbols.value = data
-  } catch (error) {
-    console.error('Failed to fetch stock symbols:', error)
-    useToast().add({
-      title: 'Error',
-      description: 'Failed to load stock symbols',
-      color: 'error'
-    })
-  } finally {
-    loadingSymbols.value = false
-  }
-}
-
 const fetchStrategies = async () => {
   loadingStrategies.value = true
   try {
@@ -370,6 +353,7 @@ const fetchStockData = async (symbol: string, refresh = false, skipOvtlyrParam =
     if (skipOvtlyrParam) {
       params.append('skipOvtlyr', 'true')
     }
+    params.append('minDate', minDate.value)
     const url = `/udgaard/api/stocks/${symbol}${params.toString() ? `?${params.toString()}` : ''}`
     selectedStock.value = await $fetch(url)
     console.log('Fetched stock data for', symbol, ':', {
@@ -410,7 +394,6 @@ watch(selectedSymbol, (newSymbol) => {
 
 // Lifecycle
 onMounted(() => {
-  fetchStockSymbols()
   fetchStrategies()
 })
 

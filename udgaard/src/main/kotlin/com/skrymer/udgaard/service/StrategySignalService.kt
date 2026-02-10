@@ -1,12 +1,15 @@
 package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.controller.dto.EntrySignalDetails
+import com.skrymer.udgaard.controller.dto.ExitSignalDetails
 import com.skrymer.udgaard.controller.dto.QuoteWithSignal
 import com.skrymer.udgaard.controller.dto.StockWithSignals
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
+import com.skrymer.udgaard.model.strategy.CompositeExitStrategy
 import com.skrymer.udgaard.model.strategy.EntryStrategy
 import com.skrymer.udgaard.model.strategy.ExitStrategy
+import com.skrymer.udgaard.model.strategy.ProjectXExitStrategy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -181,5 +184,86 @@ class StrategySignalService(
     val details = entryStrategy.testWithDetails(stock, quote).copy(strategyName = entryStrategyName)
     logger.info("Evaluated conditions for ${stock.symbol} on $quoteDate: allConditionsMet=${details.allConditionsMet}")
     return details
+  }
+
+  /**
+   * Evaluate exit strategy conditions for a specific quote/date.
+   * Returns condition details regardless of whether the exit signal passes or fails.
+   *
+   * @param stock The stock to evaluate
+   * @param quoteDate The date of the quote to evaluate
+   * @param entryDate The date of the entry quote (exit conditions may reference it)
+   * @param exitStrategyName The name of the exit strategy to use
+   * @return Exit signal details with all condition evaluations, or null if strategy/quote not found
+   */
+  fun evaluateExitConditionsForDate(
+    stock: StockDomain,
+    quoteDate: String,
+    entryDate: String,
+    exitStrategyName: String,
+  ): ExitSignalDetails? {
+    logger.info(
+      "Evaluating exit conditions for ${stock.symbol} on date=$quoteDate (entry=$entryDate) with strategy=$exitStrategyName",
+    )
+
+    val exitStrategy = strategyRegistry.createExitStrategy(exitStrategyName)
+    if (exitStrategy == null) {
+      logger.error("Exit strategy $exitStrategyName not found")
+      return null
+    }
+
+    val targetDate =
+      try {
+        java.time.LocalDate.parse(quoteDate)
+      } catch (e: Exception) {
+        logger.error("Invalid date format: $quoteDate")
+        return null
+      }
+
+    val parsedEntryDate =
+      try {
+        java.time.LocalDate.parse(entryDate)
+      } catch (e: Exception) {
+        logger.error("Invalid entry date format: $entryDate")
+        return null
+      }
+
+    val quote = stock.quotes.find { it.date == targetDate }
+    if (quote == null) {
+      logger.error("Quote not found for date $quoteDate in stock ${stock.symbol}")
+      return null
+    }
+
+    val entryQuote = stock.quotes.find { it.date == parsedEntryDate }
+    if (entryQuote == null) {
+      logger.error("Entry quote not found for date $entryDate in stock ${stock.symbol}")
+      return null
+    }
+
+    // Try to get the composite strategy for detailed evaluation
+    val compositeStrategy =
+      when (exitStrategy) {
+        is ProjectXExitStrategy -> exitStrategy.getCompositeStrategy()
+        is CompositeExitStrategy -> exitStrategy
+        else -> null
+      }
+
+    return if (compositeStrategy != null) {
+      val details = compositeStrategy.testWithDetails(stock, entryQuote, quote)
+      details.copy(strategyName = exitStrategyName).also {
+        logger.info("Evaluated exit conditions for ${stock.symbol} on $quoteDate: anyConditionMet=${it.anyConditionMet}")
+      }
+    } else {
+      // Fallback for non-composite strategies
+      val passed = exitStrategy.match(stock, entryQuote, quote)
+      ExitSignalDetails(
+        strategyName = exitStrategyName,
+        strategyDescription = exitStrategy.description(),
+        conditions = emptyList(),
+        anyConditionMet = passed,
+      ).also {
+        logger.info("Evaluated exit (basic) for ${stock.symbol} on $quoteDate: anyConditionMet=$passed")
+      }
+    }
   }
 }

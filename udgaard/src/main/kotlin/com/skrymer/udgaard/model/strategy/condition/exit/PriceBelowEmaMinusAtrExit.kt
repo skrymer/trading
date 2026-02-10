@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.domain.StockDomain
@@ -80,6 +81,40 @@ class PriceBelowEmaMinusAtrExit(
   override fun exitReason(): String = "Red candle with low below ${emaPeriod}EMA - ${atrMultiplier}ATR"
 
   override fun description(): String = "Red candle with low below ${emaPeriod}EMA - ${atrMultiplier}ATR"
+
+  override fun evaluateWithDetails(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): ConditionEvaluationResult {
+    val isRedCandle = quote.closePrice < quote.openPrice
+    val emaValue = getEmaValue(quote, emaPeriod)
+    val exitThreshold = emaValue - (atrMultiplier * quote.atr)
+    val lowBelowThreshold = quote.low < exitThreshold
+    val passed = isRedCandle && lowBelowThreshold
+
+    val redCandleStr =
+      if (isRedCandle) {
+        "Red candle (close ${"%.2f".format(quote.closePrice)} < open ${"%.2f".format(quote.openPrice)}) ✓"
+      } else {
+        "Green candle (close ${"%.2f".format(quote.closePrice)} >= open ${"%.2f".format(quote.openPrice)}) ✗"
+      }
+    val thresholdStr =
+      if (lowBelowThreshold) {
+        "Low ${"%.2f".format(quote.low)} < threshold ${"%.2f".format(exitThreshold)} ✓"
+      } else {
+        "Low ${"%.2f".format(quote.low)} >= threshold ${"%.2f".format(exitThreshold)} ✗"
+      }
+
+    return ConditionEvaluationResult(
+      conditionType = "PriceBelowEmaMinusAtrExit",
+      description = description(),
+      passed = passed,
+      actualValue = "low=${"%.2f".format(quote.low)}, close=${"%.2f".format(quote.closePrice)}, open=${"%.2f".format(quote.openPrice)}",
+      threshold = "low < EMA$emaPeriod(${"%.2f".format(emaValue)}) - ${atrMultiplier}xATR(${"%.2f".format(quote.atr)}) = ${"%.2f".format(exitThreshold)}",
+      message = "$redCandleStr, $thresholdStr",
+    )
+  }
 
   override fun getMetadata() =
     ConditionMetadata(

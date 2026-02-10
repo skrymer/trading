@@ -3,6 +3,7 @@ package com.skrymer.udgaard.model.strategy.condition.entry
 import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
 import com.skrymer.udgaard.domain.OrderBlockType
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
@@ -16,11 +17,13 @@ import org.springframework.stereotype.Component
  *
  * @param percentBelow Percentage below order block required (e.g., 2.0 for 2%)
  * @param ageInDays Minimum age of order block to consider (default 30 days)
+ * @param sensitivity If set, only consider order blocks with this sensitivity level
  */
 @Component
 class BelowOrderBlockCondition(
   private val percentBelow: Double = 2.0,
   private val ageInDays: Int = 30,
+  private val sensitivity: OrderBlockSensitivity? = null,
 ) : EntryCondition {
   override fun evaluate(
     stock: StockDomain,
@@ -32,6 +35,8 @@ class BelowOrderBlockCondition(
         .filter {
           // Must be a bearish order block (resistance)
           it.orderBlockType == OrderBlockType.BEARISH
+        }.filter {
+          sensitivity == null || it.sensitivity == sensitivity
         }.filter {
           // Must be at least ageInDays old (>= ageInDays) in TRADING DAYS
           stock.countTradingDaysBetween(
@@ -112,6 +117,7 @@ class BelowOrderBlockCondition(
     val relevantOrderBlocks =
       stock.orderBlocks
         .filter { it.orderBlockType == OrderBlockType.BEARISH }
+        .filter { sensitivity == null || it.sensitivity == sensitivity }
         .filter { stock.countTradingDaysBetween(it.startDate, quoteDate) >= ageInDays }
         .filter { it.startDate.isBefore(quoteDate) }
         .filter {

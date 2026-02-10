@@ -19,7 +19,7 @@ class ProjectXExitStrategy : ExitStrategy {
       // EMA10 crosses below EMA20
       emaCross(10, 20)
       // enters bearish order block
-      bearishOrderBlock(ageInDays = 30)
+      bearishOrderBlock(ageInDays = 30, useHighPrice = true)
       // Earnings
 //      exitBeforeEarnings(1)
     }

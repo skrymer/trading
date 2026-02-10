@@ -5,7 +5,6 @@ import com.skrymer.udgaard.integration.ovtlyr.OvtlyrClient
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.model.BreadthSymbol
 import com.skrymer.udgaard.model.SectorSymbol
-import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -138,17 +137,17 @@ class BreadthService(
       is BreadthSymbol.Market -> null // Market doesn't need a representative stock
       is BreadthSymbol.Sector ->
         when (symbol.symbol) {
-          SectorSymbol.XLB -> ovtlyrClient.getStockInformation(StockSymbol.ALB.name)
-          SectorSymbol.XLE -> ovtlyrClient.getStockInformation(StockSymbol.XOM.name)
-          SectorSymbol.XLV -> ovtlyrClient.getStockInformation(StockSymbol.LLY.name)
-          SectorSymbol.XLC -> ovtlyrClient.getStockInformation(StockSymbol.GOOGL.name)
-          SectorSymbol.XLK -> ovtlyrClient.getStockInformation(StockSymbol.NVDA.name)
-          SectorSymbol.XLRE -> ovtlyrClient.getStockInformation(StockSymbol.AMT.name)
-          SectorSymbol.XLI -> ovtlyrClient.getStockInformation(StockSymbol.GE.name)
-          SectorSymbol.XLF -> ovtlyrClient.getStockInformation(StockSymbol.JPM.name)
-          SectorSymbol.XLY -> ovtlyrClient.getStockInformation(StockSymbol.AMZN.name)
-          SectorSymbol.XLP -> ovtlyrClient.getStockInformation(StockSymbol.WMT.name)
-          SectorSymbol.XLU -> ovtlyrClient.getStockInformation(StockSymbol.NEE.name)
+          SectorSymbol.XLB -> ovtlyrClient.getStockInformation("ALB")
+          SectorSymbol.XLE -> ovtlyrClient.getStockInformation("XOM")
+          SectorSymbol.XLV -> ovtlyrClient.getStockInformation("LLY")
+          SectorSymbol.XLC -> ovtlyrClient.getStockInformation("GOOGL")
+          SectorSymbol.XLK -> ovtlyrClient.getStockInformation("NVDA")
+          SectorSymbol.XLRE -> ovtlyrClient.getStockInformation("AMT")
+          SectorSymbol.XLI -> ovtlyrClient.getStockInformation("GE")
+          SectorSymbol.XLF -> ovtlyrClient.getStockInformation("JPM")
+          SectorSymbol.XLY -> ovtlyrClient.getStockInformation("AMZN")
+          SectorSymbol.XLP -> ovtlyrClient.getStockInformation("WMT")
+          SectorSymbol.XLU -> ovtlyrClient.getStockInformation("NEE")
         }
     }
 }

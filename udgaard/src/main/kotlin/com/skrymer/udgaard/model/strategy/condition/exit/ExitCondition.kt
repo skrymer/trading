@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 
@@ -42,4 +43,22 @@ interface ExitCondition {
    * @return Condition metadata for UI consumption
    */
   fun getMetadata(): com.skrymer.udgaard.controller.dto.ConditionMetadata
+
+  /**
+   * Evaluates the condition and returns detailed results.
+   * Includes actual values, thresholds, and explanatory messages.
+   *
+   * Default implementation provides basic pass/fail. Override to provide
+   * rich diagnostic information with actual values and thresholds.
+   */
+  fun evaluateWithDetails(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): ConditionEvaluationResult =
+    ConditionEvaluationResult(
+      conditionType = this::class.simpleName ?: "Unknown",
+      description = description(),
+      passed = shouldExit(stock, entryQuote, quote),
+    )
 }

@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.domain.StockDomain
@@ -48,6 +49,50 @@ class EmaCrossExit(
   override fun exitReason(): String = "$fastEma ema has crossed under the $slowEma ema"
 
   override fun description(): String = "${fastEma}EMA crosses under ${slowEma}EMA"
+
+  override fun evaluateWithDetails(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): ConditionEvaluationResult {
+    val currentFastValue = getEmaValue(quote, fastEma)
+    val currentSlowValue = getEmaValue(quote, slowEma)
+    val currentBelowOrEqual = currentFastValue < currentSlowValue
+
+    val previousQuote = stock.getPreviousQuote(quote)
+    val previousFastValue = previousQuote?.let { getEmaValue(it, fastEma) }
+    val previousSlowValue = previousQuote?.let { getEmaValue(it, slowEma) }
+    val previousAboveOrEqual = previousFastValue != null && previousSlowValue != null && previousFastValue >= previousSlowValue
+
+    val passed = currentBelowOrEqual && previousAboveOrEqual
+
+    val prevStr =
+      if (previousQuote == null) {
+        "No previous quote ✗"
+      } else if (previousAboveOrEqual) {
+        "Prev: EMA$fastEma(${"%.2f".format(previousFastValue)}) >= EMA$slowEma(${"%.2f".format(previousSlowValue)}) ✓"
+      } else {
+        "Prev: EMA$fastEma(${"%.2f".format(previousFastValue)}) < EMA$slowEma(${"%.2f".format(previousSlowValue)}) ✗ (already crossed)"
+      }
+
+    val nowStr =
+      if (currentBelowOrEqual) {
+        "Now: EMA$fastEma(${"%.2f".format(currentFastValue)}) < EMA$slowEma(${"%.2f".format(currentSlowValue)}) ✓"
+      } else {
+        "Now: EMA$fastEma(${"%.2f".format(currentFastValue)}) >= EMA$slowEma(${"%.2f".format(currentSlowValue)}) ✗"
+      }
+
+    val crossoverStr = if (passed) " -> Crossover" else ""
+
+    return ConditionEvaluationResult(
+      conditionType = "EmaCrossExit",
+      description = description(),
+      passed = passed,
+      actualValue = "EMA$fastEma=${"%.2f".format(currentFastValue)}, EMA$slowEma=${"%.2f".format(currentSlowValue)}",
+      threshold = "EMA$fastEma crosses below EMA$slowEma",
+      message = "$prevStr, $nowStr$crossoverStr",
+    )
+  }
 
   override fun getMetadata() =
     ConditionMetadata(

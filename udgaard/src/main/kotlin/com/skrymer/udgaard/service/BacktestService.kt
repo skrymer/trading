@@ -194,7 +194,8 @@ class BacktestService(
         val tradingExitQuote = quoteIndexes[entry.stockPair.tradingStock]?.getQuote(exitDate)
 
         if (tradingExitQuote != null) {
-          val profit = tradingExitQuote.closePrice - entry.tradingEntryQuote.closePrice
+          val exitPrice = exitStrategy.exitPrice(entry.stockPair.tradingStock, entry.tradingEntryQuote, tradingExitQuote)
+          val profit = exitPrice - entry.tradingEntryQuote.closePrice
 
           // Get all trading quotes between entry and exit
           val entryDate = entry.tradingEntryQuote.date
@@ -384,9 +385,18 @@ class BacktestService(
               RankedEntry(entry, score)
             }.sortedByDescending { it.score } // Higher score = better
 
-        // Step 2c: Take top N based on position limit (or all if unlimited)
-        val selectedEntries = rankedEntries.take(effectiveMaxPositions)
-        val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(effectiveMaxPositions) else emptyList()
+        // Step 2c: Take top N based on position limit minus currently open positions (or all if unlimited)
+        val openPositionCount = if (maxPositions != null) {
+          trades.count { trade ->
+            trade.entryQuote.date!! <= currentDate &&
+              (trade.quotes.lastOrNull()?.date ?: currentDate) >= currentDate
+          }
+        } else {
+          0
+        }
+        val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
+        val selectedEntries = rankedEntries.take(availableSlots)
+        val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(availableSlots) else emptyList()
 
         // Log selected entries
         if (selectedEntries.isNotEmpty()) {

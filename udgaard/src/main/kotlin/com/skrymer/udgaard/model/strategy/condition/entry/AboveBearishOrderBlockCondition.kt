@@ -4,6 +4,7 @@ import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
 import com.skrymer.udgaard.domain.OrderBlockDomain
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
 import com.skrymer.udgaard.domain.OrderBlockType
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
@@ -15,6 +16,10 @@ import org.springframework.stereotype.Component
  * This validates a successful breakout above resistance that has held for multiple days,
  * indicating strong momentum and reduced likelihood of a failed breakout.
  *
+ * The "blocked" state matches TradingView's obEntryBlocked logic:
+ * - Inside: price is within [low, high] of any bearish OB
+ * - Near: price is within proximityPercent% below an OB's bottom
+ *
  * Use cases:
  * - consecutiveDays=1: Price just broke above resistance
  * - consecutiveDays=3: Confirming breakout held for 3 days (default)
@@ -22,21 +27,24 @@ import org.springframework.stereotype.Component
  *
  * @param consecutiveDays Number of consecutive days price must be above order block (default: 3)
  * @param ageInDays Minimum age of order block to consider (default: 30 days)
+ * @param proximityPercent Percentage distance below OB bottom that still counts as blocked (default: 2.0%)
+ * @param sensitivity If set, only consider order blocks with this sensitivity level
  */
 @Component
 class AboveBearishOrderBlockCondition(
   private val consecutiveDays: Int = 3,
   private val ageInDays: Int = 30,
+  private val proximityPercent: Double = 2.0,
+  private val sensitivity: OrderBlockSensitivity? = null,
 ) : EntryCondition {
   override fun evaluate(
     stock: StockDomain,
     quote: StockQuoteDomain,
   ): Boolean {
     // TradingView's obCooldownBars logic (cooldown tracking only):
-    // 1. Count bars since price was last INSIDE an OB
+    // 1. Count bars since price was last INSIDE or NEAR an OB
+    //    (inside = [low, high]; near = within proximityPercent% below OB bottom)
     // 2. Allow entry if barsSinceBlocked >= consecutiveDays (default 3)
-    //
-    // Note: This condition ONLY checks if sufficient cooldown time has passed since last inside.
 
     val relevantOrderBlocks = getRelevantOrderBlocks(stock, quote)
 
@@ -70,6 +78,7 @@ class AboveBearishOrderBlockCondition(
   ): List<OrderBlockDomain> =
     stock.orderBlocks
       .filter { it.orderBlockType == OrderBlockType.BEARISH }
+      .filter { sensitivity == null || it.sensitivity == sensitivity }
       .filter {
         stock.countTradingDaysBetween(
           it.startDate,
@@ -83,7 +92,8 @@ class AboveBearishOrderBlockCondition(
 
   /**
    * Check if quote is "blocked" by order blocks.
-   * For cooldown purposes, "blocked" means price is INSIDE any OB range [low, high].
+   * For cooldown purposes, "blocked" means price is INSIDE any OB range [low, high],
+   * OR within proximityPercent% below any OB's bottom (matching TV's bearNear logic).
    */
   private fun isOrderBlockBlocked(
     orderBlocks: List<OrderBlockDomain>,
@@ -91,8 +101,11 @@ class AboveBearishOrderBlockCondition(
   ): Boolean {
     val close = quote.closePrice
 
-    // Check bearInside: is price inside any OB?
-    return orderBlocks.any { close >= it.low && close <= it.high }
+    return orderBlocks.any { ob ->
+      val inside = close >= ob.low && close <= ob.high
+      val near = close < ob.low && ((ob.low - close) / close) * 100.0 <= proximityPercent
+      inside || near
+    }
   }
 
   /**
@@ -116,7 +129,7 @@ class AboveBearishOrderBlockCondition(
       val historicalOBs = getRelevantOrderBlocks(stock, prevQuote)
 
       if (isOrderBlockBlocked(historicalOBs, prevQuote)) {
-        return count
+        return count + 1
       }
 
       count++
@@ -127,7 +140,7 @@ class AboveBearishOrderBlockCondition(
     return Int.MAX_VALUE
   }
 
-  override fun description(): String = "Price above bearish order block for $consecutiveDays consecutive days (age >= ${ageInDays}d)"
+  override fun description(): String = "Price above bearish order block for $consecutiveDays consecutive days (age >= ${ageInDays}d, proximity $proximityPercent%)"
 
   override fun getMetadata() =
     ConditionMetadata(
@@ -152,6 +165,14 @@ class AboveBearishOrderBlockCondition(
             defaultValue = 30,
             min = 1,
             max = 365,
+          ),
+          ParameterMetadata(
+            name = "proximityPercent",
+            displayName = "Proximity (%)",
+            type = "number",
+            defaultValue = 2.0,
+            min = 0.0,
+            max = 10.0,
           ),
         ),
       category = "OrderBlock",
@@ -178,15 +199,25 @@ class AboveBearishOrderBlockCondition(
     val highestBlock = relevantOrderBlocks.maxByOrNull { it.high }!!
     val blockAge = stock.countTradingDaysBetween(highestBlock.startDate, quote.date!!).toLong()
 
-    // If current bar is inside an OB, always block
+    // If current bar is inside or near an OB, always block
     if (isOrderBlockBlocked(relevantOrderBlocks, quote)) {
+      val isInside = relevantOrderBlocks.any { close >= it.low && close <= it.high }
+      val blockingOb =
+        if (isInside) {
+          relevantOrderBlocks.first { close >= it.low && close <= it.high }
+        } else {
+          relevantOrderBlocks.filter { close < it.low }.minByOrNull { it.low - close }!!
+        }
+      val obAge = stock.countTradingDaysBetween(blockingOb.startDate, quote.date).toLong()
+      val statusStr = if (isInside) "inside" else "near"
+      val nearPct = if (!isInside) " (${"%.1f".format(((blockingOb.low - close) / close) * 100.0)}% below)" else ""
       return ConditionEvaluationResult(
         conditionType = "AboveBearishOrderBlockCondition",
         description = description(),
         passed = false,
-        actualValue = "Currently inside",
+        actualValue = if (isInside) "Currently inside" else "Currently near (within $proximityPercent%)",
         threshold = ">= $consecutiveDays bars",
-        message = "Currently inside OB [${"%.2f".format(highestBlock.low)}-${"%.2f".format(highestBlock.high)}] at ${"%.2f".format(close)} (${blockAge}d old) ✗",
+        message = "Currently $statusStr OB [${"%.2f".format(blockingOb.low)}-${"%.2f".format(blockingOb.high)}] at ${"%.2f".format(close)}$nearPct (${obAge}d old) ✗",
       )
     }
 
@@ -198,20 +229,20 @@ class AboveBearishOrderBlockCondition(
     val message =
       if (passed) {
         if (barsSinceBlocked == Int.MAX_VALUE) {
-          "Never inside OB [${"%.2f".format(highestBlock.low)}-${
+          "Never inside/near OB [${"%.2f".format(highestBlock.low)}-${
             "%.2f".format(
               highestBlock.high,
             )
           }] - cooldown not applicable (${blockAge}d old) ✓"
         } else {
-          "Cooldown OK: $barsSinceBlocked bars since last inside OB [${"%.2f".format(highestBlock.low)}-${
+          "Cooldown OK: $barsSinceBlocked bars since last inside/near OB [${"%.2f".format(highestBlock.low)}-${
             "%.2f".format(
               highestBlock.high,
             )
           }] (${blockAge}d old) ✓"
         }
       } else {
-        "Cooldown insufficient: only $barsSinceBlocked bars since last inside OB [${"%.2f".format(highestBlock.low)}-${
+        "Cooldown insufficient: only $barsSinceBlocked bars since last inside/near OB [${"%.2f".format(highestBlock.low)}-${
           "%.2f".format(
             highestBlock.high,
           )
@@ -220,9 +251,9 @@ class AboveBearishOrderBlockCondition(
 
     val actualValue =
       if (barsSinceBlocked == Int.MAX_VALUE) {
-        "Never inside"
+        "Never inside/near"
       } else {
-        "$barsSinceBlocked bars since inside"
+        "$barsSinceBlocked bars since inside/near"
       }
 
     return ConditionEvaluationResult(

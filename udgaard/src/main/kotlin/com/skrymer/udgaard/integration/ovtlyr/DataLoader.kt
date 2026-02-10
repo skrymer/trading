@@ -2,9 +2,9 @@ package com.skrymer.udgaard.integration.ovtlyr
 
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.model.SectorSymbol
-import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.BreadthService
 import com.skrymer.udgaard.service.StockService
+import com.skrymer.udgaard.service.SymbolService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component
 class DataLoader(
   private val breadthService: BreadthService,
   private val stockService: StockService,
+  private val symbolService: SymbolService,
 ) {
   fun loadData() {
     runBlocking { loadBreadthForAll() }
@@ -28,9 +29,7 @@ class DataLoader(
 
   fun loadStocks(forceFetch: Boolean = false): List<StockDomain> =
     stockService.getStocksBySymbols(
-      StockSymbol.entries.map {
-        it.symbol
-      },
+      symbolService.getAll().map { it.symbol },
       forceFetch,
     )
 

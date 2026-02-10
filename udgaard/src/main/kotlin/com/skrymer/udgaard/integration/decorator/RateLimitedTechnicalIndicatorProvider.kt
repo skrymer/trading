@@ -23,17 +23,19 @@ class RateLimitedTechnicalIndicatorProvider(
     symbol: String,
     interval: String,
     timePeriod: Int,
+    minDate: LocalDate,
   ): Map<LocalDate, Double>? {
     rateLimiter.acquirePermit(providerId)
-    return delegate.getATR(symbol, interval, timePeriod)
+    return delegate.getATR(symbol, interval, timePeriod, minDate)
   }
 
   override suspend fun getADX(
     symbol: String,
     interval: String,
     timePeriod: Int,
+    minDate: LocalDate,
   ): Map<LocalDate, Double>? {
     rateLimiter.acquirePermit(providerId)
-    return delegate.getADX(symbol, interval, timePeriod)
+    return delegate.getADX(symbol, interval, timePeriod, minDate)
   }
 }

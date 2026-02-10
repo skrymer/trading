@@ -78,6 +78,7 @@ open class AlphaVantageClient(
   override suspend fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String,
+    minDate: LocalDate,
   ): List<StockQuoteDomain>? {
     return withContext(Dispatchers.IO) {
       runCatching {
@@ -114,7 +115,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        response.toStockQuotes()
+        response.toStockQuotes(minDate)
       }.onFailure { e ->
         logger.error("Failed to fetch adjusted data from Alpha Vantage for $symbol: ${e.message}", e)
       }.getOrNull()
@@ -136,6 +137,7 @@ open class AlphaVantageClient(
     symbol: String,
     interval: String,
     timePeriod: Int,
+    minDate: LocalDate,
   ): Map<LocalDate, Double>? {
     return withContext(Dispatchers.IO) {
       runCatching {
@@ -173,7 +175,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        response.toATRMap()
+        response.toATRMap(minDate)
       }.onFailure { e ->
         logger.error("Failed to fetch ATR from Alpha Vantage for $symbol: ${e.message}", e)
         logger.error("Stack trace:", e)
@@ -203,6 +205,7 @@ open class AlphaVantageClient(
     symbol: String,
     interval: String,
     timePeriod: Int,
+    minDate: LocalDate,
   ): Map<LocalDate, Double>? {
     return withContext(Dispatchers.IO) {
       runCatching {
@@ -240,7 +243,7 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        response.toADXMap()
+        response.toADXMap(minDate)
       }.onFailure { e ->
         logger.error("Failed to fetch ADX from Alpha Vantage for $symbol: ${e.message}", e)
         logger.error("Stack trace:", e)

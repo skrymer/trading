@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.model.strategy
 
+import com.skrymer.udgaard.controller.dto.ExitSignalDetails
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.strategy.condition.LogicalOperator
@@ -69,6 +70,32 @@ class CompositeExitStrategy(
     } else {
       quote.closePrice
     }
+
+  /**
+   * Evaluates all exit conditions and returns detailed results.
+   * Useful for understanding why an exit signal triggered or failed.
+   */
+  fun testWithDetails(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): ExitSignalDetails {
+    val conditionResults = exitConditions.map { it.evaluateWithDetails(stock, entryQuote, quote) }
+
+    val anyConditionMet =
+      when (operator) {
+        LogicalOperator.AND -> conditionResults.all { it.passed }
+        LogicalOperator.OR -> conditionResults.any { it.passed }
+        LogicalOperator.NOT -> !conditionResults.first().passed
+      }
+
+    return ExitSignalDetails(
+      strategyName = this::class.simpleName ?: "CompositeExitStrategy",
+      strategyDescription = description(),
+      conditions = conditionResults,
+      anyConditionMet = anyConditionMet,
+    )
+  }
 
   /**
    * Returns all exit conditions in this composite strategy.

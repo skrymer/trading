@@ -107,18 +107,21 @@ class OrderBlockCalculator {
         }
 
       if (blockType != null) {
-        // Record the crossing
-        recentCrossings.add(Crossing(i, blockType))
-
-        // Check if this crossing is too close to a previous one
+        // Check if this crossing is too close to a previous one.
+        // All crossings (skipped or not) are recorded in recentCrossings to match
+        // TradingView's cross_index tracking, which updates on every crossing event.
+        // Only non-skipped crossings produce OBs.
         var skip = false
-        for (crossing in recentCrossings.dropLast(1).reversed()) {
+        for (crossing in recentCrossings.reversed()) {
           val spacing = if (crossing.type == blockType) sameTypeSpacing else crossTypeSpacing
           if (i - crossing.index <= spacing) {
             skip = true
             break
           }
         }
+
+        // Record ALL crossings for spacing checks (matches TV's cross_index behavior)
+        recentCrossings.add(Crossing(i, blockType))
 
         if (!skip) {
           // Find the origin candle and create order block
@@ -130,7 +133,12 @@ class OrderBlockCalculator {
             sensitivityLevel,
           )?.let { block ->
             OrderBlockDomains.add(block)
-            activeBlocks.add(block)
+            // Only track blocks that weren't already mitigated by findMitigationDate.
+            // If endDate is already set, the correct mitigation date was found during
+            // forward scanning — adding to activeBlocks would let mitigateBlocks overwrite it.
+            if (block.endDate == null) {
+              activeBlocks.add(block)
+            }
           }
         }
       }
@@ -230,8 +238,9 @@ class OrderBlockCalculator {
    * TradingView uses close[1] (previous bar's close) for mitigation.
    * This means we check if the PREVIOUS bar closed through the OB boundary.
    *
-   * IMPORTANT: We start from the origin candle (startIndex), not the trigger,
-   * because the OB could be mitigated BEFORE we detect the crossing.
+   * We start from the triggerIndex (the crossing bar) to match TradingView's behavior:
+   * TV creates the box on the trigger bar, so mitigation can only happen from that bar onward.
+   * On the trigger bar itself, TV checks close[1] (previous bar's close).
    */
   private fun findMitigationDate(
     quotes: List<StockQuoteDomain>,
@@ -240,10 +249,9 @@ class OrderBlockCalculator {
     type: OrderBlockType,
     originQuote: StockQuoteDomain,
   ): LocalDate? {
-    // Look forward from startIndex (origin candle) to find mitigation
-    // The OB exists from the moment the origin candle forms, so mitigation
-    // can happen before the crossing is detected
-    for (k in (startIndex + 1) until quotes.size) {
+    // Start from triggerIndex to match TV: the box doesn't exist before the trigger,
+    // so mitigation events between origin and trigger are ignored
+    for (k in triggerIndex until quotes.size) {
       // Check if PREVIOUS bar's close mitigated the OB (matches TradingView's close[1] logic)
       if (k > 0) {
         val previousQuote = quotes[k - 1]

@@ -743,6 +743,250 @@ class BacktestServiceTest {
     Assertions.assertEquals(LocalDate.of(2025, 1, 8), report.trades[1].entryQuote.date)
   }
 
+  // ===== POSITION LIMIT (OPEN POSITIONS) TESTS =====
+
+  @Test
+  fun `should limit total simultaneous open positions across multiple stocks`() {
+    // Test that maxPositions counts currently open positions, not just per-day entries
+    // With maxPositions=1, if Stock A is still open, Stock B cannot enter
+
+    // Stock A: long-running trade (Jan 1 entry, Jan 10 exit)
+    val stockAQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuoteDomain(closePrice = 103.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockAQuote4 = StockQuoteDomain(closePrice = 104.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val stockAQuote5 = StockQuoteDomain(closePrice = 105.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
+    val stockAQuote6 = StockQuoteDomain(closePrice = 106.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8))
+    val stockAQuote7 = StockQuoteDomain(closePrice = 107.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 9))
+    val stockAQuote8 = StockQuoteDomain(closePrice = 108.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 10)) // Exit
+
+    // Stock B: tries to enter on Jan 3 while Stock A is still open
+    val stockBQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6))
+
+    val stockA =
+      StockDomain(
+        "STOCK_A",
+        "XLK",
+        quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6, stockAQuote7, stockAQuote8),
+      )
+    val stockB = StockDomain("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
+
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 1,
+      )
+
+    // Only Stock A should trade - Stock B is blocked because Stock A is still open on Jan 3
+    Assertions.assertEquals(1, report.totalTrades, "Should only allow 1 simultaneous position")
+    Assertions.assertEquals("STOCK_A", report.trades[0].stockSymbol)
+  }
+
+  @Test
+  fun `should allow new entry after open position exits when using maxPositions`() {
+    // Test that when an open position exits, the slot becomes available
+
+    // Stock A: short trade (Jan 1 entry, Jan 2 exit)
+    val stockAQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2)) // Exit
+
+    // Stock B: enters on Jan 3 after Stock A has exited
+    val stockBQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6))
+
+    val stockA = StockDomain("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2))
+    val stockB = StockDomain("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
+
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 1,
+      )
+
+    // Both trades should execute - Stock A exits before Stock B enters
+    Assertions.assertEquals(2, report.totalTrades, "Should allow new entry after previous position exits")
+    Assertions.assertEquals("STOCK_A", report.trades[0].stockSymbol)
+    Assertions.assertEquals("STOCK_B", report.trades[1].stockSymbol)
+  }
+
+  @Test
+  fun `should allow multiple simultaneous positions up to maxPositions limit`() {
+    // Test maxPositions=2: two stocks can be open simultaneously, third is blocked
+    // Note: closePrice < 100 on holding days prevents re-triggering entry (avoids wasting ranking slots)
+
+    // Stock A: Jan 1 entry, Jan 8 exit (long trade)
+    val stockAQuote1 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 3))
+    val stockAQuote4 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 6))
+    val stockAQuote5 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 7))
+    val stockAQuote6 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 99.0, openPrice = 99.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 8)) // Exit
+
+    // Stock B: Jan 2 entry, Jan 7 exit (long trade)
+    val stockBQuote1 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote2 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote3 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6))
+    val stockBQuote4 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)) // Exit
+
+    // Stock C: Jan 3 entry - should be BLOCKED because A and B are both open (2 positions filled)
+    val stockCQuote1 = StockQuoteDomain(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 3))
+    val stockCQuote2 = StockQuoteDomain(symbol = "STOCK_C", closePrice = 99.0, openPrice = 99.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 6))
+
+    val stockA =
+      StockDomain(
+        "STOCK_A",
+        "XLK",
+        quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4, stockAQuote5, stockAQuote6),
+      )
+    val stockB =
+      StockDomain("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4))
+    val stockC =
+      StockDomain("STOCK_C", "XLE", quotes = listOf(stockCQuote1, stockCQuote2))
+
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB, stockC),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 2,
+      )
+
+    // Stock A and B should trade, Stock C should be blocked on Jan 3 (2 positions already open)
+    Assertions.assertEquals(2, report.totalTrades, "Should allow exactly maxPositions=2 simultaneous positions")
+    val tradeSymbols = report.trades.map { it.stockSymbol }.toSet()
+    Assertions.assertTrue(tradeSymbols.contains("STOCK_A"), "Stock A should have a trade")
+    Assertions.assertTrue(tradeSymbols.contains("STOCK_B"), "Stock B should have a trade")
+  }
+
+  @Test
+  fun `should have unlimited positions when maxPositions is null`() {
+    // Test that maxPositions=null allows any number of simultaneous positions
+    // Note: each stock's quotes must have unique `symbol` field to avoid false containsQuote matches
+
+    // Three stocks all entering on Jan 1
+    val stockAQuote1 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+
+    val stockBQuote1 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockBQuote2 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+
+    val stockCQuote1 = StockQuoteDomain(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockCQuote2 = StockQuoteDomain(symbol = "STOCK_C", closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+
+    val stockA = StockDomain("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2))
+    val stockB = StockDomain("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
+    val stockC = StockDomain("STOCK_C", "XLE", quotes = listOf(stockCQuote1, stockCQuote2))
+
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB, stockC),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = null, // Unlimited
+      )
+
+    // All 3 stocks should trade simultaneously
+    Assertions.assertEquals(3, report.totalTrades, "Should allow unlimited positions when maxPositions is null")
+  }
+
+  @Test
+  fun `should fill freed slot when position exits mid-backtest with maxPositions`() {
+    // Test that after a position exits, the freed slot is available for new entries
+    // Note: closePrice < 100 on holding days prevents re-triggering entry
+
+    // Stock A: short trade (Jan 1 entry, Jan 2 exit)
+    val stockAQuote1 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(symbol = "STOCK_A", closePrice = 99.0, openPrice = 99.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 2)) // Exit
+
+    // Stock B: long trade (Jan 1 entry, Jan 8 exit)
+    val stockBQuote1 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1))
+    val stockBQuote2 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote3 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote4 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6))
+    val stockBQuote5 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7))
+    val stockBQuote6 = StockQuoteDomain(symbol = "STOCK_B", closePrice = 99.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)) // Exit
+
+    // Stock C: enters on Jan 3 after Stock A exits on Jan 2, filling the freed slot
+    val stockCQuote1 = StockQuoteDomain(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 3))
+    val stockCQuote2 = StockQuoteDomain(symbol = "STOCK_C", closePrice = 99.0, openPrice = 99.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 6))
+
+    val stockA = StockDomain("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2))
+    val stockB =
+      StockDomain(
+        "STOCK_B",
+        "XLF",
+        quotes = listOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4, stockBQuote5, stockBQuote6),
+      )
+    val stockC = StockDomain("STOCK_C", "XLE", quotes = listOf(stockCQuote1, stockCQuote2))
+
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB, stockC),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 2,
+      )
+
+    // All 3 stocks should trade:
+    // Jan 1: A and B enter (2 positions)
+    // Jan 2: A exits (1 position open: B)
+    // Jan 3: C enters in freed slot (2 positions: B + C)
+    Assertions.assertEquals(3, report.totalTrades, "Should fill freed slot after position exits")
+    val tradeSymbols = report.trades.map { it.stockSymbol }.toSet()
+    Assertions.assertTrue(tradeSymbols.contains("STOCK_A"), "Stock A should have traded")
+    Assertions.assertTrue(tradeSymbols.contains("STOCK_B"), "Stock B should have traded")
+    Assertions.assertTrue(tradeSymbols.contains("STOCK_C"), "Stock C should have entered in freed slot")
+  }
+
+  @Test
+  fun `should track missed trades when blocked by open position limit`() {
+    // Test that entries blocked by position limit are tracked as missed trades
+
+    // Stock A: long trade (Jan 1 entry, Jan 6 exit) - wins ranking due to lower heatmap
+    val stockAQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuoteDomain(closePrice = 102.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuoteDomain(closePrice = 103.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 3))
+    val stockAQuote4 = StockQuoteDomain(closePrice = 104.0, openPrice = 99.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 6)) // Exit
+
+    // Stock B: triggers on Jan 2, but blocked because A is open and maxPositions=1
+    val stockBQuote1 = StockQuoteDomain(closePrice = 100.0, openPrice = 100.0, heatmap = 50.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote2 = StockQuoteDomain(closePrice = 101.0, openPrice = 99.0, heatmap = 50.0, date = LocalDate.of(2025, 1, 3))
+
+    val stockA =
+      StockDomain("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4))
+    val stockB = StockDomain("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
+
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        mutableListOf(stockA, stockB),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 1,
+      )
+
+    // Stock A trades, Stock B is missed
+    Assertions.assertEquals(1, report.totalTrades, "Only 1 active trade due to position limit")
+    Assertions.assertEquals("STOCK_A", report.trades[0].stockSymbol)
+    Assertions.assertTrue(report.missedOpportunitiesCount > 0, "Should track missed trades due to position limit")
+  }
+
   @Test
   fun `should not apply cooldown to first entry of a stock`() {
     // Test that cooldown only applies after an exit has occurred

@@ -43,9 +43,9 @@ async function loadData() {
 }
 
 // Refresh all stocks
-async function handleRefreshStocks(skipOvtlyr: boolean) {
+async function handleRefreshStocks(skipOvtlyr: boolean, minDate: string) {
   try {
-    await $fetch(`/udgaard/api/data-management/refresh/all-stocks?skipOvtlyr=${skipOvtlyr}`, {
+    await $fetch(`/udgaard/api/data-management/refresh/all-stocks?skipOvtlyr=${skipOvtlyr}&minDate=${minDate}`, {
       method: 'POST'
     })
     const message = skipOvtlyr

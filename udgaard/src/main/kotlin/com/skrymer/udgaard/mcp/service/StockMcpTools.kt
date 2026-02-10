@@ -2,10 +2,10 @@ package com.skrymer.udgaard.mcp.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.skrymer.udgaard.controller.dto.AvailableConditionsResponse
-import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.repository.jooq.StockJooqRepository
 import com.skrymer.udgaard.service.ConditionRegistry
 import com.skrymer.udgaard.service.StrategyRegistry
+import com.skrymer.udgaard.service.SymbolService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.ai.tool.annotation.Tool
@@ -25,6 +25,7 @@ class StockMcpTools(
   private val stockRepository: StockJooqRepository,
   private val cacheManager: CacheManager,
   private val objectMapper: ObjectMapper,
+  private val symbolService: SymbolService,
 ) {
   companion object {
     private val logger: Logger = LoggerFactory.getLogger("MCP tools")
@@ -36,7 +37,7 @@ class StockMcpTools(
       Use this to discover which stocks are available.""",
   )
   fun getStockSymbols(): String {
-    val symbols = StockSymbol.entries.map { it.symbol }.sorted()
+    val symbols = symbolService.getAll().map { it.symbol }.sorted()
     return objectMapper
       .writerWithDefaultPrettyPrinter()
       .writeValueAsString(

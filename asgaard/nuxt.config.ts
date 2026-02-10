@@ -18,6 +18,11 @@ export default defineNuxtConfig({
       proxy: {
         to: 'http://localhost:8080/udgaard/api/**'
       }
+    },
+    '/udgaard/actuator/**': {
+      proxy: {
+        to: 'http://localhost:8080/udgaard/actuator/**'
+      }
     }
   },
 

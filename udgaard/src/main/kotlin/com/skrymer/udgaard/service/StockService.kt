@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Service
 open class StockService(
@@ -33,79 +34,17 @@ open class StockService(
   val technicalIndicatorProvider: TechnicalIndicatorProvider,
   val fundamentalDataProvider: FundamentalDataProvider,
   val stockFactory: StockFactory,
+  val symbolService: SymbolService,
 ) {
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
-
-    // List of known indexes and ETFs that don't have earnings
-    val INDEX_AND_ETF_SYMBOLS = setOf(
-      // Major market indexes
-      "SPY",
-      "QQQ",
-      "IWM",
-      "DIA",
-      "VTI",
-      "VOO",
-      "VEA",
-      "VWO",
-      // Sector ETFs
-      "XLK",
-      "XLF",
-      "XLV",
-      "XLE",
-      "XLI",
-      "XLY",
-      "XLP",
-      "XLB",
-      "XLRE",
-      "XLU",
-      "XLC",
-      // Leveraged ETFs
-      "TQQQ",
-      "SQQQ",
-      "UPRO",
-      "SPXU",
-      "SOXL",
-      "SOXS",
-      "TNA",
-      "TZA",
-      "TECL",
-      "TECS",
-      "FAS",
-      "FAZ",
-      "ERX",
-      "ERY",
-      "UDOW",
-      "SDOW",
-      // Bond ETFs
-      "TLT",
-      "IEF",
-      "SHY",
-      "AGG",
-      "BND",
-      "LQD",
-      "HYG",
-      "JNK",
-      // Commodity ETFs
-      "GLD",
-      "SLV",
-      "USO",
-      "UNG",
-      "DBA",
-      // International ETFs
-      "EEM",
-      "EFA",
-      "FXI",
-      "EWJ",
-      "EWZ",
-    )
   }
 
   /**
-   * Check if a symbol is a known index or ETF.
-   * Indexes and ETFs don't have earnings data.
+   * Check if a symbol is a non-stock asset (ETF, index, leveraged ETF, etc.).
+   * Non-stock assets don't have earnings data or individual sector assignments.
    */
-  private fun isIndexOrETF(symbol: String): Boolean = INDEX_AND_ETF_SYMBOLS.contains(symbol.uppercase())
+  private fun isNonStock(symbol: String): Boolean = symbolService.isNonStock(symbol)
 
   /**
    * Loads the stock from DB if exists, else load it from Ovtlyr and save it.
@@ -117,20 +56,21 @@ open class StockService(
     symbol: String,
     forceFetch: Boolean = false,
     skipOvtlyrEnrichment: Boolean = false,
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ): StockDomain? {
-    logger.info("Getting stock $symbol with forceFetch=$forceFetch, skipOvtlyrEnrichment=$skipOvtlyrEnrichment")
+    logger.info("Getting stock $symbol with forceFetch=$forceFetch, skipOvtlyrEnrichment=$skipOvtlyrEnrichment, minDate=$minDate")
 
     val stock = if (forceFetch) {
       // Create single-stock context for individual fetch
       val spy = if (skipOvtlyrEnrichment) null else getSpy()
       val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-      val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment)
+      val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment, minDate = minDate)
       fetchStock(symbol, refreshContext, saveToDb = true)
     } else {
       stockRepository.findBySymbol(symbol) ?: run {
         val spy = if (skipOvtlyrEnrichment) null else getSpy()
         val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-        val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment)
+        val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment, minDate = minDate)
         fetchStock(symbol, refreshContext, saveToDb = true)
       }
     }
@@ -214,6 +154,7 @@ open class StockService(
     symbols: List<String>,
     forceFetch: Boolean = false,
     skipOvtlyrEnrichment: Boolean = false,
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ): List<StockDomain> =
     runBlocking {
       // Sort symbols to ensure consistent cache keys (since symbols may come from a Set with no guaranteed order)
@@ -228,7 +169,7 @@ open class StockService(
         // Create RefreshContext with SPY and market breadth (fetched once for entire batch)
         val spy = if (skipOvtlyrEnrichment) null else getSpy()
         val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-        val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment)
+        val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment, minDate = minDate)
 
         // Batch delete existing stocks before fetching (reduces DB operations)
         stockRepository.batchDelete(sortedSymbols)
@@ -295,6 +236,7 @@ open class StockService(
   open fun refreshStocksWithDetails(
     symbols: List<String>,
     skipOvtlyrEnrichment: Boolean = false,
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ): StockRefreshResult =
     runBlocking {
       val sortedSymbols = symbols.sorted()
@@ -304,7 +246,7 @@ open class StockService(
       // Create RefreshContext with SPY and market breadth (fetched once for entire batch)
       val spy = if (skipOvtlyrEnrichment) null else getSpy()
       val marketBreadth = breadthRepository.findBySymbol(BreadthSymbol.Market().toIdentifier())
-      val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment)
+      val refreshContext = RefreshContext(spy = spy, marketBreadth = marketBreadth, skipOvtlyrEnrichment = skipOvtlyrEnrichment, minDate = minDate)
 
       // Batch delete existing stocks before fetching (reduces DB operations)
       stockRepository.batchDelete(sortedSymbols)
@@ -417,23 +359,24 @@ open class StockService(
       }
 
       // Step 2: Fetch adjusted daily data from StockProvider (PRIMARY data source - REQUIRED)
-      val stockQuotes = stockProvider.getDailyAdjustedTimeSeries(symbol)
+      val minDate = refreshContext?.minDate ?: LocalDate.of(2020, 1, 1)
+      val stockQuotes = stockProvider.getDailyAdjustedTimeSeries(symbol, minDate = minDate)
       if (stockQuotes == null) {
         throw IllegalStateException("Could not fetch data from StockProvider")
       }
 
       // Step 3: Fetch ATR data (REQUIRED for strategies)
-      val atrMap = technicalIndicatorProvider.getATR(symbol)
+      val atrMap = technicalIndicatorProvider.getATR(symbol, minDate = minDate)
         ?: throw IllegalStateException("Could not fetch ATR data")
 
       // Step 3.1: Fetch ADX data (REQUIRED for trend strength conditions and backtesting)
-      val adxMap = technicalIndicatorProvider.getADX(symbol)
+      val adxMap = technicalIndicatorProvider.getADX(symbol, minDate = minDate)
         ?: throw IllegalStateException("Could not fetch ADX data")
 
       // Step 3.5: Fetch earnings history (OPTIONAL for indexes/ETFs, REQUIRED for individual stocks)
       // Indexes and ETFs don't have earnings, so we skip fetching for them
-      val earnings = if (isIndexOrETF(symbol)) {
-        logger.info("$symbol is an index/ETF - skipping earnings fetch")
+      val earnings = if (isNonStock(symbol)) {
+        logger.info("$symbol is a non-stock asset - skipping earnings fetch")
         emptyList()
       } else {
         fundamentalDataProvider.getEarnings(symbol)
@@ -446,8 +389,8 @@ open class StockService(
         refreshContext?.getSectorSymbol(symbol)?.let { cachedSectorName ->
           SectorSymbol.fromString(cachedSectorName)
         } ?: run {
-          if (isIndexOrETF(symbol)) {
-            logger.info("$symbol is an index/ETF - skipping sector fetch")
+          if (isNonStock(symbol)) {
+            logger.info("$symbol is a non-stock asset - skipping sector fetch")
             null
           } else {
             val sector = fundamentalDataProvider.getSectorSymbol(symbol)

@@ -1,7 +1,10 @@
 package com.skrymer.udgaard.model.strategy.condition.exit
 
+import com.skrymer.udgaard.controller.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.controller.dto.ConditionMetadata
 import com.skrymer.udgaard.controller.dto.ParameterMetadata
+import com.skrymer.udgaard.domain.OrderBlockSensitivity
+import com.skrymer.udgaard.domain.OrderBlockType
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 import org.springframework.stereotype.Component
@@ -13,17 +16,67 @@ import org.springframework.stereotype.Component
  *
  * @param orderBlockAgeInDays Minimum age of order block in days (default 120)
  * @param useHighPrice If true, checks if high touches order block; if false, checks close price (default: false)
+ * @param sensitivity If set, only consider order blocks with this sensitivity level
  */
 @Component
 class BearishOrderBlockExit(
   private val orderBlockAgeInDays: Int = 120,
   private val useHighPrice: Boolean = false,
+  private val sensitivity: OrderBlockSensitivity? = null,
 ) : ExitCondition {
   override fun shouldExit(
     stock: StockDomain,
     entryQuote: StockQuoteDomain?,
     quote: StockQuoteDomain,
-  ): Boolean = stock.withinOrderBlock(quote, orderBlockAgeInDays, useHighPrice)
+  ): Boolean = stock.withinOrderBlock(quote, orderBlockAgeInDays, useHighPrice, sensitivity)
+
+  override fun evaluateWithDetails(
+    stock: StockDomain,
+    entryQuote: StockQuoteDomain?,
+    quote: StockQuoteDomain,
+  ): ConditionEvaluationResult {
+    val candleTop = if (useHighPrice) quote.high else maxOf(quote.openPrice, quote.closePrice)
+    val candleBottom = minOf(quote.openPrice, quote.closePrice)
+    val passed = stock.withinOrderBlock(quote, orderBlockAgeInDays, useHighPrice, sensitivity)
+
+    val matchingBlocks =
+      stock.orderBlocks
+        .filter { it.orderBlockType == OrderBlockType.BEARISH }
+        .filter { sensitivity == null || it.sensitivity == sensitivity }
+        .filter { it.startsBefore(quote.date) }
+        .filter { it.endsAfter(quote.date) }
+        .filter { stock.countTradingDaysBetween(it.startDate, quote.date) >= orderBlockAgeInDays }
+        .filter { candleTop >= it.low && candleBottom <= it.high }
+
+    val topLabel = if (useHighPrice) "high" else "bodyTop"
+    val message =
+      if (matchingBlocks.isNotEmpty()) {
+        val ob = matchingBlocks.first()
+        val age = stock.countTradingDaysBetween(ob.startDate, quote.date)
+        "Candle ($topLabel=${"%.2f".format(candleTop)}, bodyBottom=${"%.2f".format(candleBottom)}) overlaps bearish OB [${"%.2f".format(ob.low)}-${"%.2f".format(ob.high)}] (age $age days) ✓"
+      } else {
+        val allBearish =
+          stock.orderBlocks
+            .filter { it.orderBlockType == OrderBlockType.BEARISH }
+            .filter { sensitivity == null || it.sensitivity == sensitivity }
+            .filter { it.startsBefore(quote.date) }
+            .filter { it.endsAfter(quote.date) }
+        if (allBearish.isEmpty()) {
+          "No active bearish order blocks on ${quote.date} ✗"
+        } else {
+          "Candle ($topLabel=${"%.2f".format(candleTop)}, bodyBottom=${"%.2f".format(candleBottom)}) not within any qualifying bearish OB ✗"
+        }
+      }
+
+    return ConditionEvaluationResult(
+      conditionType = "BearishOrderBlockExit",
+      description = description(),
+      passed = passed,
+      actualValue = "$topLabel=${"%.2f".format(candleTop)}, bodyBottom=${"%.2f".format(candleBottom)}, withinOB=$passed",
+      threshold = "Price within bearish OB (age >= $orderBlockAgeInDays days)",
+      message = message,
+    )
+  }
 
   override fun exitReason(): String = "Price entered bearish order block (age > $orderBlockAgeInDays days)"
 

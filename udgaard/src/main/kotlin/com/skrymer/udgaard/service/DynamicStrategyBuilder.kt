@@ -169,6 +169,7 @@ class DynamicStrategyBuilder(
         AboveBearishOrderBlockCondition(
           consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3,
           ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30,
+          proximityPercent = (config.parameters["proximityPercent"] as? Number)?.toDouble() ?: 2.0,
         )
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }

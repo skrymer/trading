@@ -3,6 +3,7 @@ package com.skrymer.udgaard.integration.decorator
 import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.integration.StockProvider
 import com.skrymer.udgaard.service.RateLimiterService
+import java.time.LocalDate
 
 /**
  * Rate-limited decorator for StockProvider.
@@ -22,8 +23,9 @@ class RateLimitedStockProvider(
   override suspend fun getDailyAdjustedTimeSeries(
     symbol: String,
     outputSize: String,
+    minDate: LocalDate,
   ): List<StockQuoteDomain>? {
     rateLimiter.acquirePermit(providerId)
-    return delegate.getDailyAdjustedTimeSeries(symbol, outputSize)
+    return delegate.getDailyAdjustedTimeSeries(symbol, outputSize, minDate)
   }
 }

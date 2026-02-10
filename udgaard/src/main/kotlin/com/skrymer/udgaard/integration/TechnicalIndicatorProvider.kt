@@ -26,6 +26,7 @@ interface TechnicalIndicatorProvider {
     symbol: String,
     interval: String = "daily",
     timePeriod: Int = 14,
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ): Map<LocalDate, Double>?
 
   /**
@@ -50,5 +51,6 @@ interface TechnicalIndicatorProvider {
     symbol: String,
     interval: String = "daily",
     timePeriod: Int = 14,
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ): Map<LocalDate, Double>?
 }

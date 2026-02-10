@@ -56,3 +56,26 @@ data class EntrySignalDetails(
    */
   val allConditionsMet: Boolean,
 )
+
+/**
+ * Detailed breakdown of an exit signal evaluation.
+ * Contains all condition results for a specific exit strategy.
+ */
+data class ExitSignalDetails(
+  /**
+   * Name of the exit strategy (e.g., "ProjectXExitStrategy")
+   */
+  val strategyName: String,
+  /**
+   * Human-readable description of the strategy
+   */
+  val strategyDescription: String,
+  /**
+   * Results for each condition in the strategy
+   */
+  val conditions: List<ConditionEvaluationResult>,
+  /**
+   * Whether any condition was met (true = exit triggered, uses OR logic)
+   */
+  val anyConditionMet: Boolean,
+)

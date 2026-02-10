@@ -2,6 +2,7 @@ package com.skrymer.udgaard.service
 
 import com.skrymer.udgaard.domain.BreadthDomain
 import com.skrymer.udgaard.integration.ovtlyr.dto.OvtlyrStockInformation
+import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -34,6 +35,11 @@ data class RefreshContext(
    * This significantly speeds up the refresh process when Ovtlyr data is not needed.
    */
   val skipOvtlyrEnrichment: Boolean = false,
+  /**
+   * Minimum date for data filtering. Only data from this date onwards is included.
+   * Defaults to 2020-01-01 to reduce memory usage and focus on recent market conditions.
+   */
+  val minDate: LocalDate = LocalDate.of(2020, 1, 1),
   /**
    * Cache of sector breadth data by sector symbol.
    * Fetched lazily - only when a stock from that sector is processed.

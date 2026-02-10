@@ -105,15 +105,19 @@ data class StockDomain(
     quote: StockQuoteDomain,
     tradingDaysOld: Int,
     useHighPrice: Boolean = false,
+    sensitivity: OrderBlockSensitivity? = null,
   ): Boolean {
-    val priceToCheck = if (useHighPrice) quote.high else quote.closePrice
+    // Check if candle overlaps with OB zone using high or body
+    val candleTop = if (useHighPrice) quote.high else maxOf(quote.openPrice, quote.closePrice)
+    val candleBottom = minOf(quote.openPrice, quote.closePrice)
 
     return orderBlocks
       .filter { it.orderBlockType == OrderBlockType.BEARISH }
+      .filter { sensitivity == null || it.sensitivity == sensitivity }
       .filter { it.startsBefore(quote.date) }
       .filter { it.endsAfter(quote.date) }
       .filter { countTradingDaysBetween(it.startDate, quote.date) >= tradingDaysOld }
-      .any { priceToCheck > it.low && priceToCheck < it.high }
+      .any { candleTop >= it.low && candleBottom <= it.high }
   }
 
   /**

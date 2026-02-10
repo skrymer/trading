@@ -6,11 +6,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'refresh-stocks': [skipOvtlyr: boolean]
+  'refresh-stocks': [skipOvtlyr: boolean, minDate: string]
   'refresh-breadth': []
 }>()
 
 const skipOvtlyr = ref(false)
+const minDate = ref('2020-01-01')
 
 const progressPercentage = computed(() => {
   if (props.progress.total === 0) return 0
@@ -29,7 +30,7 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
     </template>
 
     <!-- Refresh Options -->
-    <div class="mb-4">
+    <div class="mb-4 space-y-3">
       <UCheckbox
         v-model="skipOvtlyr"
         label="Skip Ovtlyr enrichment (faster refresh)"
@@ -39,6 +40,18 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
         When enabled, stocks will be refreshed with AlphaVantage data only (OHLCV, EMAs, ATR, ADX).
         Ovtlyr signals and heatmaps will be set to default values.
       </p>
+
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          Data start date:
+        </label>
+        <UInput
+          v-model="minDate"
+          type="date"
+          :disabled="isActive"
+          class="w-44"
+        />
+      </div>
     </div>
 
     <!-- Refresh Buttons -->
@@ -47,7 +60,7 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
         label="Refresh All Stocks"
         icon="i-lucide-refresh-cw"
         :disabled="isActive"
-        @click="emit('refresh-stocks', skipOvtlyr)"
+        @click="emit('refresh-stocks', skipOvtlyr, minDate)"
       />
       <UButton
         label="Refresh Breadth"

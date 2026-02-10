@@ -1,13 +1,14 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.EntrySignalDetails
+import com.skrymer.udgaard.controller.dto.ExitSignalDetails
 import com.skrymer.udgaard.controller.dto.SimpleStockInfo
 import com.skrymer.udgaard.controller.dto.StockRefreshResult
 import com.skrymer.udgaard.controller.dto.StockWithSignals
 import com.skrymer.udgaard.domain.StockDomain
-import com.skrymer.udgaard.model.StockSymbol
 import com.skrymer.udgaard.service.StockService
 import com.skrymer.udgaard.service.StrategySignalService
+import com.skrymer.udgaard.service.SymbolService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 
 /**
  * REST controller for stock data operations.
@@ -35,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController
 class StockController(
   private val stockService: StockService,
   private val strategySignalService: StrategySignalService,
+  private val symbolService: SymbolService,
 ) {
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(StockController::class.java)
@@ -57,20 +60,35 @@ class StockController(
   }
 
   /**
-   * Get all available stock symbols from StockSymbol enum.
-   * This returns ALL possible symbols (1,433), not just stocks with data loaded.
+   * Get all available stock symbols from the symbols table.
+   * This returns ALL possible symbols, not just stocks with data loaded.
    *
    * Example: GET /api/stocks/symbols
    *
-   * @return List of all stock symbols defined in StockSymbol enum
+   * @return List of all stock symbols
    */
   @GetMapping("/symbols")
   fun getAllStockSymbols(): ResponseEntity<List<String>> {
-    logger.info("Retrieving all stock symbols from enum")
-    val symbols = StockSymbol.entries.map { it.symbol }
-    logger.info("Returning ${symbols.size} stock symbols from enum")
+    logger.info("Retrieving all stock symbols")
+    val symbols = symbolService.getAll().map { it.symbol }
+    logger.info("Returning ${symbols.size} stock symbols")
     return ResponseEntity.ok(symbols)
   }
+
+  /**
+   * Search stock symbols by prefix.
+   *
+   * Example: GET /api/stocks/symbols/search?query=AA&limit=5
+   *
+   * @param query Search prefix (minimum 2 characters)
+   * @param limit Maximum number of results (default 20)
+   * @return List of matching stock symbols
+   */
+  @GetMapping("/symbols/search")
+  fun searchSymbols(
+    @RequestParam query: String,
+    @RequestParam(defaultValue = "20") limit: Int,
+  ): List<String> = symbolService.search(query, limit)
 
   /**
    * Get stock data for a specific symbol.
@@ -88,9 +106,11 @@ class StockController(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
     @RequestParam(defaultValue = "false") skipOvtlyr: Boolean,
+    @RequestParam(defaultValue = "2020-01-01") minDate: String,
   ): ResponseEntity<StockDomain> {
-    logger.info("Getting stock data for: $symbol (refresh=$refresh, skipOvtlyr=$skipOvtlyr)")
-    val stock = stockService.getStock(symbol, refresh, skipOvtlyr)
+    val parsedMinDate = LocalDate.parse(minDate)
+    logger.info("Getting stock data for: $symbol (refresh=$refresh, skipOvtlyr=$skipOvtlyr, minDate=$parsedMinDate)")
+    val stock = stockService.getStock(symbol, refresh, skipOvtlyr, parsedMinDate)
     logger.info("Stock data retrieved successfully for: $symbol")
     return ResponseEntity.ok(stock)
   }
@@ -196,6 +216,45 @@ class StockController(
         }
 
     logger.info("Evaluated conditions for $symbol on $date: allConditionsMet=${details.allConditionsMet}")
+    return ResponseEntity.ok(details)
+  }
+
+  /**
+   * Evaluate exit strategy conditions for a specific date.
+   * Returns condition details showing why a strategy did or did not trigger an exit.
+   *
+   * Example: GET /api/stocks/AAPL/evaluate-exit/2024-01-15?exitStrategy=ProjectXExitStrategy&entryDate=2024-01-10
+   *
+   * @param symbol Stock symbol (e.g., AAPL, TQQQ)
+   * @param date Date to evaluate exit conditions on (format: YYYY-MM-DD)
+   * @param exitStrategy Exit strategy name (e.g., ProjectXExitStrategy)
+   * @param entryDate The entry date for the trade (format: YYYY-MM-DD)
+   * @return Exit signal details with all condition evaluations
+   */
+  @GetMapping("/{symbol}/evaluate-exit/{date}")
+  @Transactional(readOnly = true)
+  suspend fun evaluateExitConditionsForDate(
+    @PathVariable symbol: String,
+    @PathVariable date: String,
+    @RequestParam exitStrategy: String,
+    @RequestParam entryDate: String,
+  ): ResponseEntity<ExitSignalDetails> {
+    logger.info("Evaluating exit conditions for $symbol on date=$date (entry=$entryDate) with strategy=$exitStrategy")
+
+    val stock =
+      stockService.getStock(symbol, false) ?: run {
+        logger.error("Stock not found: $symbol")
+        return ResponseEntity.notFound().build()
+      }
+
+    val details =
+      strategySignalService.evaluateExitConditionsForDate(stock, date, entryDate, exitStrategy)
+        ?: run {
+          logger.error("Failed to evaluate exit conditions for $symbol on $date with strategy=$exitStrategy")
+          return ResponseEntity.badRequest().build()
+        }
+
+    logger.info("Evaluated exit conditions for $symbol on $date: anyConditionMet=${details.anyConditionMet}")
     return ResponseEntity.ok(details)
   }
 }

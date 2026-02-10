@@ -7,6 +7,7 @@ import com.skrymer.udgaard.model.BreadthSymbol
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 import java.util.concurrent.ConcurrentLinkedQueue
 
 @Service
@@ -27,14 +28,20 @@ class DataRefreshService(
   @Volatile
   private var skipOvtlyrEnrichment = false
 
+  // Minimum date for data filtering (shared across the current refresh session)
+  @Volatile
+  private var minDate: LocalDate = LocalDate.of(2020, 1, 1)
+
   /**
    * Queue stock symbols for refresh
    */
   fun queueStockRefresh(
     symbols: List<String>,
     skipOvtlyrEnrichment: Boolean = false,
+    minDate: LocalDate = LocalDate.of(2020, 1, 1),
   ) {
     this.skipOvtlyrEnrichment = skipOvtlyrEnrichment
+    this.minDate = minDate
     symbols.forEach { symbol ->
       refreshQueue.add(
         RefreshTask(
@@ -106,7 +113,7 @@ class DataRefreshService(
               logger.info("Starting batch: ${symbols.size} stocks (skipOvtlyr=$skipOvtlyrEnrichment)")
 
               // This method fetches SPY ONCE for the entire batch and processes in parallel
-              val stocks = stockService.getStocksBySymbols(symbols, forceFetch = true, skipOvtlyrEnrichment = skipOvtlyrEnrichment)
+              val stocks = stockService.getStocksBySymbols(symbols, forceFetch = true, skipOvtlyrEnrichment = skipOvtlyrEnrichment, minDate = minDate)
 
               // Update progress for successful stocks
               val successfulSymbols = stocks.map { it.symbol }.toSet()
