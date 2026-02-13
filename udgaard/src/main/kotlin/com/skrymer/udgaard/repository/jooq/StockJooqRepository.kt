@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.repository.jooq
 
+import com.skrymer.udgaard.controller.dto.SimpleStockInfo
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
@@ -11,7 +12,10 @@ import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
 import com.skrymer.udgaard.mapper.StockMapper
 import org.jooq.DSLContext
+import org.slf4j.LoggerFactory
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
 
 /**
  * jOOQ-based repository for Stock operations
@@ -71,10 +75,57 @@ class StockJooqRepository(
       .filterNotNull()
 
   /**
+   * Get simple stock info for all stocks using a lightweight aggregate query.
+   * No quote/order block/earnings data is loaded into memory.
+   */
+  fun findAllSimpleInfo(): List<SimpleStockInfo> {
+    val quoteCount =
+      DSL
+        .selectCount()
+        .from(STOCK_QUOTES)
+        .where(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
+        .asField<Int>("quote_count")
+
+    val lastQuoteDate =
+      DSL
+        .select(DSL.max(STOCK_QUOTES.QUOTE_DATE))
+        .from(STOCK_QUOTES)
+        .where(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
+        .asField<LocalDate>("last_quote_date")
+
+    val obCount =
+      DSL
+        .selectCount()
+        .from(ORDER_BLOCKS)
+        .where(ORDER_BLOCKS.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
+        .asField<Int>("order_block_count")
+
+    return dsl
+      .select(STOCKS.SYMBOL, STOCKS.SECTOR_SYMBOL, quoteCount, lastQuoteDate, obCount)
+      .from(STOCKS)
+      .orderBy(STOCKS.SYMBOL)
+      .fetch { record ->
+        val qc = record.get(quoteCount) ?: 0
+        SimpleStockInfo(
+          symbol = record[STOCKS.SYMBOL]!!,
+          sector = record[STOCKS.SECTOR_SYMBOL] ?: "UNKNOWN",
+          quoteCount = qc,
+          orderBlockCount = record.get(obCount) ?: 0,
+          lastQuoteDate = record.get(lastQuoteDate),
+          hasData = qc > 0,
+        )
+      }
+  }
+
+  /**
    * Find stocks by list of symbols
    */
   fun findBySymbols(symbols: List<String>): List<StockDomain> {
     if (symbols.isEmpty()) return emptyList()
+
+    val logger = LoggerFactory.getLogger("StockLoader")
+    val startTime = System.currentTimeMillis()
+    logger.info("Loading ${symbols.size} stocks from database...")
 
     // Load all stocks
     val stocks =
@@ -92,6 +143,7 @@ class StockJooqRepository(
         .where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols))
         .orderBy(STOCK_QUOTES.STOCK_SYMBOL, STOCK_QUOTES.QUOTE_DATE.asc())
         .fetchInto(StockQuotes::class.java)
+    logger.info("Loaded ${quotes.size} quotes in ${System.currentTimeMillis() - startTime}ms")
 
     // Load all order blocks for these stocks
     val orderBlocks =
@@ -108,6 +160,7 @@ class StockJooqRepository(
         .where(EARNINGS.STOCK_SYMBOL.`in`(symbols))
         .orderBy(EARNINGS.STOCK_SYMBOL, EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
+    logger.info("Loaded ${stocks.size} stocks, ${orderBlocks.size} order blocks, ${earnings.size} earnings in ${System.currentTimeMillis() - startTime}ms")
 
     // Group by symbol
     val quotesBySymbol = quotes.groupBy { it.stockSymbol }

@@ -122,17 +122,7 @@ open class StockService(
   @Transactional(readOnly = true)
   open fun getAllStocksSimple(): List<SimpleStockInfo> {
     logger.info("Getting simple info for all stocks")
-    val stocks = stockRepository.findAll()
-    return stocks.map { stock ->
-      SimpleStockInfo(
-        symbol = stock.symbol,
-        sector = stock.sectorSymbol ?: "UNKNOWN",
-        quoteCount = stock.quotes.size,
-        orderBlockCount = stock.orderBlocks.size,
-        lastQuoteDate = stock.quotes.maxOfOrNull { it.date },
-        hasData = stock.quotes.isNotEmpty()
-      )
-    }
+    return stockRepository.findAllSimpleInfo()
   }
 
   /**

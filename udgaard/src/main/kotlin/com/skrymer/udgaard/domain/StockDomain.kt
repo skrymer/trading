@@ -6,7 +6,10 @@ import java.time.LocalDate
 
 /**
  * Domain model for Stock (Hibernate-independent)
- * Contains all business logic from the original Stock entity
+ * Contains all business logic from the original Stock entity.
+ *
+ * INVARIANT: [quotes] must be sorted by date ascending. This is guaranteed by
+ * the repository layer (ORDER BY QUOTE_DATE ASC) and preserved through mappers.
  */
 data class StockDomain(
   val symbol: String = "",
@@ -42,7 +45,6 @@ data class StockDomain(
   ): ExitReport {
     val quotesToTest =
       this.quotes
-        .sortedBy { it.date }
         .filter { it.date.isAfter(entryQuote.date) }
 
     val quotes = ArrayList<StockQuoteDomain>()
@@ -73,12 +75,12 @@ data class StockDomain(
    * @param quote
    * @return the next quote after the given [quote]
    */
-  fun getNextQuote(quote: StockQuoteDomain) = quotes.sortedBy { it.date }.firstOrNull { it.date.isAfter(quote.date) }
+  fun getNextQuote(quote: StockQuoteDomain) = quotes.firstOrNull { it.date.isAfter(quote.date) }
 
   /**
    * Get the quote previous to the given [quote]
    */
-  fun getPreviousQuote(quote: StockQuoteDomain) = quotes.sortedByDescending { it.date }.firstOrNull { it.date.isBefore(quote.date) }
+  fun getPreviousQuote(quote: StockQuoteDomain) = quotes.lastOrNull { it.date.isBefore(quote.date) }
 
   /**
    * get the quote for the given [date]

@@ -1,6 +1,6 @@
 package com.skrymer.udgaard.service
 
-import com.skrymer.udgaard.domain.BreadthDomain
+import com.skrymer.udgaard.domain.BreadthQuoteDomain
 import com.skrymer.udgaard.domain.StockDomain
 import com.skrymer.udgaard.domain.StockQuoteDomain
 import com.skrymer.udgaard.model.ATRDrawdownStats
@@ -25,7 +25,13 @@ import com.skrymer.udgaard.model.strategy.HeatmapRanker
 import com.skrymer.udgaard.model.strategy.StockRanker
 import com.skrymer.udgaard.repository.jooq.BreadthJooqRepository
 import com.skrymer.udgaard.repository.jooq.StockJooqRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import java.util.concurrent.atomic.AtomicInteger
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -43,6 +49,7 @@ import java.time.LocalDate
  * - StockJooqRepository: Fetches SPY stock and underlying assets as needed
  * - BreadthJooqRepository: Fetches market breadth data (FULLSTOCK) as needed
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @Service
 class BacktestService(
   private val stockRepository: StockJooqRepository,
@@ -305,9 +312,6 @@ class BacktestService(
     // Validate that all underlying assets exist in the loaded stocks
     validateUnderlyingAssets(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
 
-    // Track most recent exit date for global cooldown enforcement
-    var lastExitDate: LocalDate? = null
-
     // Create stock pairs: trading stock + strategy stock (might be the same)
     val stockPairs = createStockPairs(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
 
@@ -315,165 +319,69 @@ class BacktestService(
     val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
     val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
 
-    val trades = mutableListOf<Trade>()
-    val missedTrades = mutableListOf<Trade>()
-
     // Step 1: Build date range - collect all unique trading dates from all stocks
     val allTradingDates = buildTradingDateRange(stocks, after, before)
 
     val positionInfo = maxPositions?.let { "max $it positions" } ?: "unlimited positions"
     val cooldownInfo = if (cooldownDays > 0) ", ${cooldownDays}d cooldown" else ""
     logger.info("Backtest: ${allTradingDates.size} trading days, $positionInfo$cooldownInfo")
-    logger.info("Sequential processing: ${stockPairs.size} stocks evaluated per date")
 
-    // Step 2: Process each date chronologically
-    val totalDays = allTradingDates.size
-    var lastLoggedPercent = 0
-
-    allTradingDates.forEachIndexed { index, currentDate ->
-      // Log progress at 5% intervals
-      val currentPercent = ((index + 1) * 100) / totalDays
-      if (currentPercent >= lastLoggedPercent + 5 && currentPercent < 100) {
-        logger.info("Backtest progress: $currentPercent% (${index + 1}/$totalDays days, ${trades.size} trades)")
-        lastLoggedPercent = currentPercent
+    // Step 2: Choose parallel or sequential processing path
+    val (trades, missedTrades) =
+      if (maxPositions == null && cooldownDays == 0) {
+        backtestParallel(entryStrategy, exitStrategy, stockPairs, quoteIndexes, allTradingDates, logger)
+      } else {
+        backtestSequential(
+          entryStrategy,
+          exitStrategy,
+          stockPairs,
+          quoteIndexes,
+          allTradingDates,
+          maxPositions,
+          effectiveMaxPositions,
+          ranker,
+          cooldownDays,
+          logger,
+        )
       }
-      // Step 2a: For each stock pair, check if entry strategy matches on this date (SEQUENTIAL)
-      val entriesForThisDate =
-        stockPairs
-          .mapNotNull { stockPair ->
-            // Get quote for this specific date from STRATEGY stock (for entry evaluation)
-            val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
-
-            // Also get quote from TRADING stock (for actual price/P&L)
-            val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
-
-            if (strategyQuote != null && tradingQuote != null) {
-              // Check global cooldown first if enabled (counting trading days, not calendar days)
-              val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
-
-              if (inCooldown) {
-                // Skip this entry due to global cooldown
-                null
-              } else {
-                // Convert to domain models for strategy testing
-                val strategyStockDomain = stockPair.strategyStock
-                if (entryStrategy.test(strategyStockDomain, strategyQuote)) {
-                  // Test strategy against the underlying/strategy stock
-                  PotentialEntry(stockPair, strategyQuote, tradingQuote)
-                } else {
-                  null
-                }
-              }
-            } else {
-              null
-            }
-          }
-
-      if (entriesForThisDate.isNotEmpty()) {
-        // Log potential entries found
-        val symbolsMatchingEntry = entriesForThisDate.map { it.stockPair.tradingStock.symbol }.distinct()
-        logger.debug("Date $currentDate: ${entriesForThisDate.size} potential entries from ${symbolsMatchingEntry.size} stocks: ${symbolsMatchingEntry.joinToString(", ")}")
-
-        // Step 2b: Rank entries by score (using strategy stock for ranking)
-        val rankedEntries =
-          entriesForThisDate
-            .map { entry ->
-              // Convert to domain models for ranking
-              val strategyStockDomain = entry.stockPair.strategyStock
-              val strategyQuoteDomain = entry.strategyEntryQuote
-              val score = ranker.score(strategyStockDomain, strategyQuoteDomain)
-              RankedEntry(entry, score)
-            }.sortedByDescending { it.score } // Higher score = better
-
-        // Step 2c: Take top N based on position limit minus currently open positions (or all if unlimited)
-        val openPositionCount = if (maxPositions != null) {
-          trades.count { trade ->
-            trade.entryQuote.date!! <= currentDate &&
-              (trade.quotes.lastOrNull()?.date ?: currentDate) >= currentDate
-          }
-        } else {
-          0
-        }
-        val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
-        val selectedEntries = rankedEntries.take(availableSlots)
-        val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(availableSlots) else emptyList()
-
-        // Log selected entries
-        if (selectedEntries.isNotEmpty()) {
-          val selectedSymbols = selectedEntries.map { it.entry.stockPair.tradingStock.symbol }
-          logger.debug("Date $currentDate: Selected ${selectedSymbols.size} stocks for entry: ${selectedSymbols.joinToString(", ")}")
-        }
-
-        // Step 2d: Create trades for selected stocks
-        selectedEntries.forEach { rankedEntry ->
-          val entry = rankedEntry.entry
-
-          // Check if we're not already in this trade (using trading quote) - thread-safe
-          if (trades.none { it.containsQuote(entry.tradingEntryQuote) }) {
-            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
-
-            if (trade != null) {
-              trades.add(trade)
-              logger.debug("Date $currentDate: Created trade for ${entry.stockPair.tradingStock.symbol}, exit on ${trade.quotes.lastOrNull()?.date}, profit: ${String.format("%.2f", trade.profitPercentage)}%")
-
-              // Record exit date for global cooldown tracking
-              if (cooldownDays > 0) {
-                lastExitDate = trade.quotes.lastOrNull()?.date
-              }
-            } else {
-              logger.debug("Date $currentDate: No valid exit found for ${entry.stockPair.tradingStock.symbol}")
-            }
-          } else {
-            logger.debug("Date $currentDate: Skipping ${entry.stockPair.tradingStock.symbol} - already in position")
-          }
-        }
-
-        // Step 2e: Track missed trades (not selected due to position limit)
-        notSelectedEntries.forEach { rankedEntry ->
-          val entry = rankedEntry.entry
-
-          // Check if we're not already tracking this trade - thread-safe
-          if (missedTrades.none { it.containsQuote(entry.tradingEntryQuote) } &&
-            trades.none { it.containsQuote(entry.tradingEntryQuote) }
-          ) {
-            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
-
-            if (trade != null) {
-              missedTrades.add(trade)
-            }
-          }
-        }
-      }
-    }
 
     val mainLoopDuration = System.currentTimeMillis() - backtestStartTime
     logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed in ${mainLoopDuration}ms")
 
     logger.info("Calculating trade excursion metrics and market conditions...")
 
-    // Enrich each trade with excursion metrics and market conditions
-    trades.forEach { trade ->
-      trade.excursionMetrics = calculateExcursionMetrics(trade, trade.entryQuote)
-      trade.entryQuote.date.let { entryDate ->
-        trade.marketConditionAtEntry =
-          captureMarketCondition(
-            entryDate,
-            spyStock,
-            marketBreadth,
-          )
-      }
+    // Build indexed lookups for SPY and breadth to avoid O(n) scans per trade
+    val spyQuotesByDate = spyStock?.quotes?.associateBy { it.date }
+    val breadthQuotesByDate = marketBreadth?.quotes?.associateBy { it.quoteDate }
+
+    // Enrich each trade with excursion metrics and market conditions (parallel)
+    runBlocking {
+      val dispatcher = Dispatchers.Default.limitedParallelism(Runtime.getRuntime().availableProcessors().coerceAtMost(16))
+      trades
+        .map { trade ->
+          async(dispatcher) {
+            trade.excursionMetrics = calculateExcursionMetrics(trade, trade.entryQuote)
+            trade.marketConditionAtEntry =
+              captureMarketConditionIndexed(trade.entryQuote.date, spyQuotesByDate, breadthQuotesByDate)
+          }
+        }.awaitAll()
     }
 
     logger.info("Calculating aggregate diagnostic statistics...")
 
     val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
 
-    // Calculate aggregate diagnostic statistics
-    val timeStats = calculateTimeBasedStats(trades)
-    val exitAnalysis = calculateExitReasonAnalysis(trades)
-    val sectorPerf = calculateSectorPerformance(trades)
-    val stockPerf = calculateStockPerformance(trades)
-    val atrDrawdown = calculateATRDrawdownStats(winningTrades, losingTrades)
+    // Calculate aggregate diagnostic statistics (parallel)
+    val (timeStats, exitAnalysis, sectorPerf, stockPerf, atrDrawdown) =
+      runBlocking {
+        val d = Dispatchers.Default
+        val t1 = async(d) { calculateTimeBasedStats(trades) }
+        val t2 = async(d) { calculateExitReasonAnalysis(trades) }
+        val t3 = async(d) { calculateSectorPerformance(trades) }
+        val t4 = async(d) { calculateStockPerformance(trades) }
+        val t5 = async(d) { calculateATRDrawdownStats(winningTrades, losingTrades) }
+        AnalyticsResult(t1.await(), t2.await(), t3.await(), t4.await(), t5.await())
+      }
 
     // Calculate market condition averages
     val marketAvgs =
@@ -505,6 +413,193 @@ class BacktestService(
       atrDrawdownStats = atrDrawdown,
       marketConditionAverages = marketAvgs,
     )
+  }
+
+  /**
+   * Parallel backtest path: processes each stock independently using coroutines.
+   * Used when there are no position limits or cooldown (each stock is independent).
+   */
+  private fun backtestParallel(
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    stockPairs: List<StockPair>,
+    quoteIndexes: Map<StockDomain, StockQuoteIndex>,
+    allTradingDates: List<LocalDate>,
+    logger: org.slf4j.Logger,
+  ): Pair<List<Trade>, List<Trade>> {
+    val parallelism = Runtime.getRuntime().availableProcessors().coerceAtMost(16)
+    val totalStocks = stockPairs.size
+    logger.info("Parallel processing: $totalStocks stocks across $parallelism threads")
+
+    val completed = AtomicInteger(0)
+    val lastLoggedPercent = AtomicInteger(0)
+
+    val trades =
+      runBlocking {
+        val dispatcher = Dispatchers.Default.limitedParallelism(parallelism)
+        stockPairs
+          .map { stockPair ->
+            async(dispatcher) {
+              val result = processStockTrades(stockPair, entryStrategy, exitStrategy, quoteIndexes, allTradingDates)
+              val done = completed.incrementAndGet()
+              val pct = (done * 100) / totalStocks
+              val lastPct = lastLoggedPercent.get()
+              if (pct >= lastPct + 10 && pct < 100 && lastLoggedPercent.compareAndSet(lastPct, pct)) {
+                logger.info("Backtest progress: $pct% ($done/$totalStocks stocks)")
+              }
+              result
+            }
+          }.awaitAll()
+          .flatten()
+      }
+
+    return Pair(trades, emptyList())
+  }
+
+  /**
+   * Process trades for a single stock pair. Each stock is independent — no shared mutable state.
+   */
+  private fun processStockTrades(
+    stockPair: StockPair,
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    quoteIndexes: Map<StockDomain, StockQuoteIndex>,
+    allTradingDates: List<LocalDate>,
+  ): List<Trade> {
+    val trades = mutableListOf<Trade>()
+    val usedTradeQuotes = HashSet<StockQuoteDomain>()
+
+    for (currentDate in allTradingDates) {
+      val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate) ?: continue
+      val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate) ?: continue
+
+      if (!entryStrategy.test(stockPair.strategyStock, strategyQuote)) continue
+      if (tradingQuote in usedTradeQuotes) continue
+
+      val entry = PotentialEntry(stockPair, strategyQuote, tradingQuote)
+      val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes) ?: continue
+
+      trades.add(trade)
+      usedTradeQuotes.addAll(trade.quotes)
+    }
+
+    return trades
+  }
+
+  /**
+   * Sequential backtest path: date-by-date processing with position limits and cooldown.
+   * Required when cross-stock dependencies exist (maxPositions or cooldown).
+   */
+  private fun backtestSequential(
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    stockPairs: List<StockPair>,
+    quoteIndexes: Map<StockDomain, StockQuoteIndex>,
+    allTradingDates: List<LocalDate>,
+    maxPositions: Int?,
+    effectiveMaxPositions: Int,
+    ranker: StockRanker,
+    cooldownDays: Int,
+    logger: org.slf4j.Logger,
+  ): Pair<List<Trade>, List<Trade>> {
+    val trades = mutableListOf<Trade>()
+    val missedTrades = mutableListOf<Trade>()
+    val usedTradeQuotes = HashSet<StockQuoteDomain>()
+    val usedMissedQuotes = HashSet<StockQuoteDomain>()
+    var lastExitDate: LocalDate? = null
+
+    logger.info("Sequential processing: ${stockPairs.size} stocks evaluated per date")
+
+    val totalDays = allTradingDates.size
+    var lastLoggedPercent = 0
+
+    allTradingDates.forEachIndexed { index, currentDate ->
+      // Log progress at 5% intervals
+      val currentPercent = ((index + 1) * 100) / totalDays
+      if (currentPercent >= lastLoggedPercent + 5 && currentPercent < 100) {
+        logger.info("Backtest progress: $currentPercent% (${index + 1}/$totalDays days, ${trades.size} trades)")
+        lastLoggedPercent = currentPercent
+      }
+
+      val entriesForThisDate =
+        stockPairs
+          .mapNotNull { stockPair ->
+            val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
+            val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
+
+            if (strategyQuote != null && tradingQuote != null) {
+              val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
+
+              if (inCooldown) {
+                null
+              } else {
+                if (entryStrategy.test(stockPair.strategyStock, strategyQuote)) {
+                  PotentialEntry(stockPair, strategyQuote, tradingQuote)
+                } else {
+                  null
+                }
+              }
+            } else {
+              null
+            }
+          }
+
+      if (entriesForThisDate.isNotEmpty()) {
+        val rankedEntries =
+          entriesForThisDate
+            .map { entry ->
+              val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote)
+              RankedEntry(entry, score)
+            }.sortedByDescending { it.score }
+
+        val openPositionCount =
+          if (maxPositions != null) {
+            trades.count { trade ->
+              trade.entryQuote.date <= currentDate &&
+                (trade.quotes.lastOrNull()?.date ?: currentDate) >= currentDate
+            }
+          } else {
+            0
+          }
+        val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
+        val selectedEntries = rankedEntries.take(availableSlots)
+        val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(availableSlots) else emptyList()
+
+        selectedEntries.forEach { rankedEntry ->
+          val entry = rankedEntry.entry
+
+          if (entry.tradingEntryQuote !in usedTradeQuotes) {
+            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
+
+            if (trade != null) {
+              trades.add(trade)
+              usedTradeQuotes.addAll(trade.quotes)
+
+              if (cooldownDays > 0) {
+                lastExitDate = trade.quotes.lastOrNull()?.date
+              }
+            }
+          }
+        }
+
+        notSelectedEntries.forEach { rankedEntry ->
+          val entry = rankedEntry.entry
+
+          if (entry.tradingEntryQuote !in usedMissedQuotes &&
+            entry.tradingEntryQuote !in usedTradeQuotes
+          ) {
+            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
+
+            if (trade != null) {
+              missedTrades.add(trade)
+              usedMissedQuotes.addAll(trade.quotes)
+            }
+          }
+        }
+      }
+    }
+
+    return Pair(trades, missedTrades)
   }
 
   /**
@@ -734,27 +829,21 @@ class BacktestService(
   }
 
   /**
-   * Capture market conditions at trade entry date.
-   * Requires SPY stock data and optionally market breadth.
+   * Capture market conditions at trade entry date using pre-indexed lookups for O(1) access.
    */
-  private fun captureMarketCondition(
+  private fun captureMarketConditionIndexed(
     date: LocalDate,
-    spyStock: StockDomain?,
-    marketBreadth: BreadthDomain?,
+    spyQuotesByDate: Map<LocalDate, StockQuoteDomain>?,
+    breadthQuotesByDate: Map<LocalDate, BreadthQuoteDomain>?,
   ): MarketConditionSnapshot? {
-    if (spyStock == null) return null
-
-    val spyQuote =
-      spyStock.quotes.firstOrNull { it.date == date }
-        ?: return null
-
-    val breadthQuote = marketBreadth?.quotes?.firstOrNull { it.quoteDate == date }
+    val spyQuote = spyQuotesByDate?.get(date) ?: return null
+    val breadthQuote = breadthQuotesByDate?.get(date)
 
     return MarketConditionSnapshot(
       spyClose = spyQuote.closePrice,
       spyHeatmap = spyQuote.heatmap,
       spyInUptrend = spyQuote.spyInUptrend,
-      marketBreadthBullPercent = breadthQuote?.ema_10, // Use EMA as proxy for bull percentage
+      marketBreadthBullPercent = breadthQuote?.ema_10,
       entryDate = date,
     )
   }
@@ -932,4 +1021,15 @@ class BacktestService(
 
     return maxDrawdown
   }
+
+  /**
+   * Container for parallel analytics results to enable destructuring.
+   */
+  private data class AnalyticsResult(
+    val timeStats: TimeBasedStats,
+    val exitAnalysis: ExitReasonAnalysis,
+    val sectorPerf: List<SectorPerformance>,
+    val stockPerf: List<StockPerformance>,
+    val atrDrawdown: ATRDrawdownStats?,
+  )
 }
