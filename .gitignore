@@ -36,6 +36,9 @@ asgaard/.nuxt/
 asgaard/.output/
 asgaard/node_modules/
 
+# Reports
+reports/
+
 # IDE
 .idea/
 .vscode/
