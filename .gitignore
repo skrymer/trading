@@ -36,8 +36,9 @@ asgaard/.nuxt/
 asgaard/.output/
 asgaard/node_modules/
 
-# Reports
+# Reports and Claude working notes
 reports/
+claude_thoughts/
 
 # IDE
 .idea/
