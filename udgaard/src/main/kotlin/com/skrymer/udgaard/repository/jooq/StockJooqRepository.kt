@@ -12,8 +12,8 @@ import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
 import com.skrymer.udgaard.mapper.StockMapper
 import org.jooq.DSLContext
-import org.slf4j.LoggerFactory
 import org.jooq.impl.DSL
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
 import java.time.LocalDate
 

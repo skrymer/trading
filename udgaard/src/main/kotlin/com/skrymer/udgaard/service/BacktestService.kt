@@ -31,9 +31,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import java.util.concurrent.atomic.AtomicInteger
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Service for running backtests on trading strategies.
