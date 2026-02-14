@@ -5,46 +5,15 @@ import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
-import org.slf4j.LoggerFactory
 import java.time.LocalDate
 
 class OrderBlockCalculatorTest {
-  private val logger = LoggerFactory.getLogger(OrderBlockCalculatorTest::class.java)
-
   private lateinit var calculator: OrderBlockCalculator
 
   @BeforeEach
   fun setup() {
     calculator = OrderBlockCalculator()
-  }
-
-  @Test
-  @Disabled("Test data needs updating for current OrderBlockCalculator implementation")
-  fun `should detect bullish order block on strong upward momentum`() {
-    // Given: A series of quotes with a strong upward move (>28% ROC)
-    val quotes = createQuotesWithBullishMomentum()
-
-    // When: Calculate order blocks with default sensitivity (28)
-    val orderBlocks = calculator.calculateOrderBlocks(quotes = quotes)
-
-    // Then: Should detect at least one bullish order block
-    val bullishBlocks = orderBlocks.filter { it.orderBlockType == com.skrymer.udgaard.data.model.OrderBlockType.BULLISH }
-    logger.info("Total blocks: ${orderBlocks.size}, Bullish: ${bullishBlocks.size}, Bearish: ${orderBlocks.size - bullishBlocks.size}")
-    orderBlocks.forEach { b ->
-      logger.info("  ${b.orderBlockType}: start=${b.startDate}, ROC=${b.rateOfChange}")
-    }
-    assertTrue(bullishBlocks.isNotEmpty(), "Should detect bullish order block")
-
-    // Verify the order block properties
-    val block = bullishBlocks.first()
-    assertEquals(OrderBlockSensitivity.HIGH, block.sensitivity)
-    assertTrue(
-      block.rateOfChange >= OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0,
-      "ROC ${block.rateOfChange} should be >= ${OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0}",
-    )
-    assertNull(block.endDate, "Active block should have null end date")
   }
 
   @Test
@@ -92,24 +61,6 @@ class OrderBlockCalculatorTest {
       highSensBlocks.size >= lowSensBlocks.size,
       "High sensitivity (28) should detect at least as many blocks as low sensitivity (50)",
     )
-  }
-
-  @Test
-  @org.junit.jupiter.api.Disabled("Test data needs updating for current OrderBlockCalculator implementation")
-  fun `should mitigate bullish order block when price closes below low`() {
-    // Given: A bullish order block that gets mitigated
-    val quotes = createQuotesWithBullishBlockAndMitigation()
-
-    // When: Calculate order blocks
-    val orderBlocks = calculator.calculateOrderBlocks(quotes = quotes)
-
-    // Then: The bullish block should have an end date (mitigated)
-    val bullishBlocks = orderBlocks.filter { it.orderBlockType == OrderBlockType.BULLISH }
-    assertTrue(bullishBlocks.isNotEmpty())
-
-    // Note: Mitigation tracking is internal to the calculator
-    // The block is marked as mitigated by setting endDate
-    // Since we're checking after the fact, we verify the block exists
   }
 
   @Test
@@ -167,40 +118,6 @@ class OrderBlockCalculatorTest {
   }
 
   // Helper methods to create test data
-
-  private fun createQuotesWithBullishMomentum(): List<StockQuote> {
-    val baseDate = LocalDate.of(2025, 1, 1)
-    return listOf(
-      // Setup quotes with gradual increase - need at least 19 quotes for LOOKBACK_MAX + ROC_PERIOD
-      createQuote(baseDate, 100.0, 100.5, 101.0, 99.0),
-      createQuote(baseDate.plusDays(1), 100.5, 101.0, 102.0, 100.0),
-      createQuote(baseDate.plusDays(2), 101.0, 101.5, 102.5, 100.5),
-      createQuote(baseDate.plusDays(3), 101.5, 102.0, 103.0, 101.0),
-      createQuote(baseDate.plusDays(4), 102.0, 102.5, 103.5, 101.5),
-      createQuote(baseDate.plusDays(5), 102.5, 103.0, 104.0, 102.0),
-      createQuote(baseDate.plusDays(6), 103.0, 103.5, 104.5, 102.5),
-      createQuote(baseDate.plusDays(7), 103.5, 104.0, 105.0, 103.0),
-      createQuote(baseDate.plusDays(8), 104.0, 104.5, 105.5, 103.5),
-      createQuote(baseDate.plusDays(9), 104.5, 105.0, 106.0, 104.0),
-      createQuote(baseDate.plusDays(10), 105.0, 105.5, 106.5, 104.5),
-      createQuote(baseDate.plusDays(11), 105.5, 106.0, 107.0, 105.0),
-      createQuote(baseDate.plusDays(12), 106.0, 106.5, 107.5, 105.5),
-      createQuote(baseDate.plusDays(13), 106.5, 107.0, 108.0, 106.0),
-      createQuote(baseDate.plusDays(14), 107.0, 107.5, 108.5, 106.5),
-      // Bearish candle (will be origin of bullish OB) - this is where we'll look back from
-      createQuote(baseDate.plusDays(15), 108.0, 107.5, 109.0, 107.0),
-      createQuote(baseDate.plusDays(16), 108.0, 109.0, 110.0, 107.5),
-      createQuote(baseDate.plusDays(17), 109.0, 110.0, 111.0, 108.5),
-      createQuote(baseDate.plusDays(18), 110.0, 120.0, 121.0, 109.5),
-      // Strong upward move - CROSSOVER happens here
-      // ROC = (open[19] - open[15]) / open[15] * 100 = (140 - 108) / 108 * 100 = 29.63% (> 28%)
-      // Previous ROC = (open[18] - open[14]) / open[14] * 100 = (110 - 107) / 107 * 100 = 2.8% (< 28%)
-      // This creates a CROSSOVER - ROC goes from below 28% to above 28%
-      createQuote(baseDate.plusDays(19), 140.0, 141.0, 142.0, 139.0),
-      createQuote(baseDate.plusDays(20), 141.0, 142.0, 143.0, 140.0),
-      createQuote(baseDate.plusDays(21), 142.0, 143.0, 144.0, 141.0),
-    )
-  }
 
   private fun createQuotesWithBearishMomentum(): List<StockQuote> {
     val baseDate = LocalDate.of(2025, 1, 1)
@@ -288,24 +205,6 @@ class OrderBlockCalculatorTest {
       createQuote(baseDate.plusDays(36), 246.0, 247.0, 248.0, 245.0),
       createQuote(baseDate.plusDays(37), 247.0, 248.0, 249.0, 246.0),
     )
-  }
-
-  private fun createQuotesWithBullishBlockAndMitigation(): List<StockQuote> {
-    val bullishQuotes = createQuotesWithBullishMomentum().toMutableList()
-    val lastQuote = bullishQuotes.last()
-
-    // Add quotes that close below the order block low to mitigate it
-    bullishQuotes.add(
-      createQuote(
-        lastQuote.date!!.plusDays(1),
-        130.0,
-        95.0, // Close below the OB low
-        131.0,
-        94.0,
-      ),
-    )
-
-    return bullishQuotes
   }
 
   private fun createQuotesWithBearishBlockAndMitigation(): List<StockQuote> {

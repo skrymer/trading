@@ -14,7 +14,7 @@ This file provides comprehensive context for the Trading Platform project.
 
 ## Project Overview
 
-This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (Udgaard), a Nuxt.js frontend (Asgaard), and an Electron desktop wrapper. The platform enables users to backtest trading strategies using historical stock data with advanced technical indicators and market sentiment analysis.
+This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (Udgaard) and a Nuxt.js frontend (Asgaard). The platform enables users to backtest trading strategies using historical stock data with advanced technical indicators and market sentiment analysis.
 
 **Key Capabilities:**
 - Historical stock data analysis with technical indicators (EMA, ATR, Donchian channels)
@@ -25,38 +25,10 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Monte Carlo simulations for strategy validation
 - MCP (Model Context Protocol) server for Claude AI integration
 - Real-time backtesting with comprehensive performance metrics
-- Desktop application packaging via Electron
 
 ---
 
 ## Architecture
-
-### Desktop App: Electron Wrapper
-
-**Tech Stack:** Electron 28.0.0, electron-builder 24.9.1, tree-kill 1.2.2, Node.js
-
-**Architecture:**
-Three-process architecture:
-1. **Main Process** (`electron/main.js`) - App lifecycle, spawns backend subprocess
-2. **Backend Subprocess** - Spring Boot JAR on port 8080
-3. **Renderer Process** - Nuxt UI in BrowserWindow
-
-**Key Features:**
-- **Development Mode** (`--dev`): Loads from `http://localhost:3000`, opens DevTools, uses JAR from `udgaard/build/libs/`
-- **Production Mode**: Loads from `asgaard/.output/`, uses bundled JAR, no DevTools
-
-**Security:**
-- `nodeIntegration: false`, `contextIsolation: true`, `enableRemoteModule: false`
-- Preload script exposes only necessary APIs via contextBridge
-
-**Scripts:**
-- `npm run dev` - Development mode with Nuxt dev server
-- `npm start` - Production mode with built assets
-- `npm run build:all` - Build backend + frontend
-- `npm run dist` - Create distributable for current platform
-- `npm run dist:win/mac/linux` - Platform-specific builds
-
-**Build Output:** Windows (NSIS .exe), macOS (DMG), Linux (AppImage/.deb) in `dist-electron/`
 
 ### Backend: Udgaard (Kotlin/Spring Boot)
 
@@ -130,7 +102,6 @@ trading/
 ├── CLAUDE.md                         # Project-wide context
 ├── .claude/                          # Claude configuration (commands, skills, settings)
 ├── claude_thoughts/                  # Documentation created by Claude
-├── electron/                         # Desktop app wrapper
 ├── udgaard/                          # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── controller/               # REST controllers (Backtest, Stock, Portfolio, Breadth, MonteCarl, Cache, Data)
@@ -213,38 +184,6 @@ npm install
 npm run dev  # Runs on http://localhost:3000
 ```
 
-### Running the Desktop App (Electron)
-
-**Prerequisites:** Node.js 18+, backend JAR built, Linux system libraries installed
-
-**Development Mode:**
-```bash
-# Terminal 1: Start Nuxt dev server
-cd asgaard && npm run dev
-
-# Terminal 2: Start Electron
-cd .. && npm run dev
-```
-
-**Production Mode:**
-```bash
-npm run build:all  # Build everything
-npm start          # Start Electron
-```
-
-**Building Distributable:**
-```bash
-npm run dist           # Current platform
-npm run dist:linux     # Linux AppImage + .deb
-npm run dist:win       # Windows installer
-npm run dist:mac       # macOS DMG
-```
-
-**Linux System Dependencies:**
-```bash
-sudo apt install libatk1.0-0 libatk-bridge2.0-0 libgdk-pixbuf2.0-0 libgtk-3-0 libgbm-dev libnss3-dev libxss-dev libasound2t64 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libdrm2 libcups2
-```
-
 ### Running Tests
 
 **Backend:** `cd udgaard && ./gradlew test`
@@ -258,14 +197,7 @@ sudo apt install libatk1.0-0 libatk-bridge2.0-0 libgdk-pixbuf2.0-0 libgtk-3-0 li
 - Jobs: Backend tests, Frontend tests, Integration build, Code quality
 - Runtime: ~5-8 minutes
 
-**Continuous Deployment (`.github/workflows/release.yml`):**
-- Triggers: Version tags (e.g., `v1.0.0`)
-- Builds: Windows, macOS, Linux installers
-- Release: Automatic GitHub Release
-
-**Quick Release:** `git tag v1.0.0 && git push origin v1.0.0`
-
-See `release/CI_WORKFLOW.md` and `release/DEPLOYMENT.md` for details.
+See `release/CI_WORKFLOW.md` for details.
 
 ---
 
@@ -347,7 +279,6 @@ Results include:
 - `udgaard/claude.md` - Backend development guide
 - `asgaard/claude.md` - Frontend development guide
 - `release/CI_WORKFLOW.md` - CI/CD pipeline
-- `electron/README.md` - Electron desktop app
 
 ### Configuration
 - `udgaard/src/main/resources/application.properties` - Backend config
@@ -419,12 +350,6 @@ Access via `useRuntimeConfig()`. Prefix with `NUXT_PUBLIC_` for client-side acce
 - **Claude can't connect**: Verify JAR path in MCP settings
 - **No data**: Check H2 database has stock data
 - **Tool not found**: Rebuild backend JAR
-
-### Electron Issues
-- **"Backend JAR not found"**: Build with `cd udgaard && ./gradlew bootJar`
-- **"Backend failed to start"**: Check port 8080, increase timeout in `electron/main.js`
-- **Frontend not loading**: Ensure Nuxt dev server running (dev) or built (production)
-- **Shared library errors (Linux)**: Install system dependencies (see above)
 
 ---
 

@@ -1,67 +1,11 @@
 {
-  "name": "trading-desktop",
+  "name": "trading",
   "version": "1.0.8",
-  "description": "Trading Backtesting Desktop Application",
-  "main": "electron/main.js",
+  "description": "Trading Backtesting Platform",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
     "build:backend": "cd udgaard && ./gradlew bootJar",
-    "build:backend:win": "cd udgaard && .\\gradlew.bat bootJar",
     "build:frontend": "cd asgaard && pnpm run build",
-    "build:all": "pnpm run build:backend && pnpm run build:frontend",
-    "build:all:win": "pnpm run build:backend:win && pnpm run build:frontend",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
-  },
-  "build": {
-    "appId": "com.skrymer.trading",
-    "productName": "Trading Backtester",
-    "directories": {
-      "output": "dist-electron"
-    },
-    "files": [
-      "electron/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "udgaard/build/libs/",
-        "to": "backend",
-        "filter": ["*.jar"]
-      },
-      {
-        "from": "jre/",
-        "to": "jre",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "asgaard/.output/public/",
-        "to": "frontend",
-        "filter": ["**/*"]
-      }
-    ],
-    "publish": {
-      "provider": "github",
-      "releaseType": "release"
-    },
-    "win": {
-      "target": ["nsis"],
-      "icon": "electron/icon.png",
-      "publisherName": "Trading Backtester"
-    },
-    "mac": {
-      "target": ["dmg"],
-      "icon": "electron/icon.png",
-      "category": "public.app-category.finance"
-    },
-    "linux": {
-      "target": ["AppImage", "deb"],
-      "icon": "electron/icon.png",
-      "category": "Office"
-    }
+    "build:all": "pnpm run build:backend && pnpm run build:frontend"
   },
   "keywords": [
     "trading",
@@ -71,13 +15,6 @@
   ],
   "author": "skrymer",
   "license": "MIT",
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
-  },
-  "dependencies": {
-    "tree-kill": "^1.2.2"
-  },
   "pnpm": {
     "overrides": {
       "unimport": "4.1.1"

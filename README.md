@@ -1,6 +1,6 @@
 # Trading Platform - Backtesting System
 
-A comprehensive stock trading backtesting platform with Kotlin/Spring Boot backend (Udgaard), Nuxt.js frontend (Asgaard), and Electron desktop wrapper.
+A comprehensive stock trading backtesting platform with Kotlin/Spring Boot backend (Udgaard) and Nuxt.js frontend (Asgaard).
 
 ---
 
@@ -36,7 +36,6 @@ The backtesting system allows you to test trading strategies against historical 
 - Dynamic strategy system with DSL-based strategy creation
 - Market and sector breadth analysis
 - Real-time backtesting with comprehensive performance metrics
-- Desktop application packaging via Electron
 
 ---
 
@@ -113,9 +112,6 @@ curl -X POST http://localhost:8080/api/backtest \
 **Frontend:**
 - Nuxt 4.1.2, TypeScript 5.9.3, Vue 3 Composition API
 - NuxtUI 4.0.1, ApexCharts 5.3.5, Unovis 1.6.1
-
-**Desktop:**
-- Electron 28.0.0, electron-builder 24.9.1
 
 ---
 
@@ -501,33 +497,6 @@ npm run dev
 
 **Frontend runs on:** http://localhost:3000
 
-### Desktop App (Electron)
-
-**Development Mode:**
-```bash
-# Terminal 1: Start Nuxt dev server
-cd asgaard
-npm run dev
-
-# Terminal 2: Start Electron
-cd ..
-npm run dev
-```
-
-**Production Build:**
-```bash
-npm run build:all
-npm start
-```
-
-**Create Distributable:**
-```bash
-npm run dist          # Current platform
-npm run dist:linux    # Linux AppImage + .deb
-npm run dist:win      # Windows installer
-npm run dist:mac      # macOS DMG
-```
-
 ### Running Tests
 
 **Backend:**
@@ -712,11 +681,6 @@ trading/
 │   ├── context.md
 │   ├── commands/
 │   └── skills/
-│
-├── electron/                   # Desktop app
-│   ├── main.js
-│   ├── preload.js
-│   └── README.md
 │
 ├── udgaard/                    # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/

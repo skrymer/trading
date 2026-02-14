@@ -13,7 +13,6 @@ class MonteCarloServiceTest {
   private val service = MonteCarloService()
 
   @Test
-  @org.junit.jupiter.api.Disabled("Test needs updating for current MonteCarloService implementation")
   fun `should run trade shuffling simulation successfully`() {
     val backtest = createBacktest()
     val request =
