@@ -40,6 +40,13 @@ asgaard/node_modules/
 reports/
 claude_thoughts/
 
+# Data/analysis files in project root
+/Plan X*.csv
+/TV - *.csv
+/ProjectX*.txt
+/TSLA_*.md
+/.mcp.json
+
 # IDE
 .idea/
 .vscode/

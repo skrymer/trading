@@ -21,21 +21,17 @@ When the user asks to run a backtest, Claude should:
 
 ## Getting Available Resources
 
-Use MCP tools to discover what's available:
+Use the MCP tools from the `stock-backtesting` server to discover what's available:
 
-```bash
-# Get available strategies (entry and exit)
-curl -s http://localhost:8080/udgaard/api/backtest/strategies | python3 -m json.tool
+- **`getAvailableStrategies`** - Lists all entry and exit strategy names
+- **`getAvailableRankers`** - Lists rankers for position-limited backtests
+- **`getAvailableSymbols`** - Lists stocks with data: symbol, sector, assetType, quoteCount, lastQuoteDate
+- **`getAvailableConditions`** - Lists conditions for building custom strategies (with parameter metadata)
+- **`getStrategyDetails(strategyName, strategyType)`** - Get detailed info about a specific strategy (description, use case, conditions)
+- **`getSystemStatus`** - Health check: database connectivity, stock count, cache status, readiness
+- **`explainBacktestMetrics(metrics)`** - Explains what backtest metrics mean (definitions, benchmarks, interpretation)
 
-# Get available rankers (for position-limited backtests)
-curl -s http://localhost:8080/udgaard/api/backtest/rankers | python3 -m json.tool
-
-# Get available stock symbols
-curl -s http://localhost:8080/udgaard/api/stocks | python3 -m json.tool
-
-# Get available conditions (for custom strategies)
-curl -s http://localhost:8080/udgaard/api/backtest/conditions | python3 -m json.tool
-```
+Always use these MCP tools for discovery instead of curl. The actual backtest execution and Monte Carlo simulation still use the REST API (see sections below).
 
 ## Running Backtests
 
@@ -1192,10 +1188,20 @@ Use diagnostic metrics to identify why a strategy underperforms:
 
 ## MCP Integration
 
-Use MCP tools to:
-- Get available strategies dynamically
-- Fetch strategy details and descriptions
-- Discover stock symbols
-- Understand available conditions for custom strategies
+Use the `stock-backtesting` MCP server tools for all discovery and informational queries:
 
-Never hardcode strategy lists - always fetch from API.
+| MCP Tool | Use For |
+|----------|---------|
+| `getAvailableStrategies` | List entry/exit strategy names before running a backtest |
+| `getAvailableRankers` | List rankers for position-limited backtests |
+| `getAvailableSymbols` | Discover stocks with data (symbol, sector, assetType, quoteCount, lastQuoteDate) |
+| `getAvailableConditions` | Get condition metadata (types, parameters, defaults) for custom strategies |
+| `getStrategyDetails` | Understand what a specific strategy does before using it |
+| `getSystemStatus` | Verify system is ready before running a backtest |
+| `explainBacktestMetrics` | Help interpret backtest results for the user |
+
+Never hardcode strategy lists - always use MCP tools to fetch them dynamically.
+
+**What still requires REST API (curl):**
+- `POST /api/backtest` - Running backtests
+- `POST /api/monte-carlo/simulate` - Running Monte Carlo simulations

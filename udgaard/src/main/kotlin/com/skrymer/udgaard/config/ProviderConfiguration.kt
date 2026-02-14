@@ -1,13 +1,13 @@
 package com.skrymer.udgaard.config
 
-import com.skrymer.udgaard.integration.FundamentalDataProvider
-import com.skrymer.udgaard.integration.StockProvider
-import com.skrymer.udgaard.integration.TechnicalIndicatorProvider
-import com.skrymer.udgaard.integration.alphavantage.AlphaVantageClient
-import com.skrymer.udgaard.integration.decorator.RateLimitedFundamentalDataProvider
-import com.skrymer.udgaard.integration.decorator.RateLimitedStockProvider
-import com.skrymer.udgaard.integration.decorator.RateLimitedTechnicalIndicatorProvider
-import com.skrymer.udgaard.service.RateLimiterService
+import com.skrymer.udgaard.data.integration.FundamentalDataProvider
+import com.skrymer.udgaard.data.integration.StockProvider
+import com.skrymer.udgaard.data.integration.TechnicalIndicatorProvider
+import com.skrymer.udgaard.data.integration.alphavantage.AlphaVantageClient
+import com.skrymer.udgaard.data.integration.decorator.RateLimitedFundamentalDataProvider
+import com.skrymer.udgaard.data.integration.decorator.RateLimitedStockProvider
+import com.skrymer.udgaard.data.integration.decorator.RateLimitedTechnicalIndicatorProvider
+import com.skrymer.udgaard.data.service.RateLimiterService
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value

@@ -1,11 +1,12 @@
 package com.skrymer.udgaard.mcp.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.skrymer.udgaard.controller.dto.AvailableConditionsResponse
-import com.skrymer.udgaard.repository.jooq.StockJooqRepository
-import com.skrymer.udgaard.service.ConditionRegistry
-import com.skrymer.udgaard.service.StrategyRegistry
-import com.skrymer.udgaard.service.SymbolService
+import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
+import com.skrymer.udgaard.backtesting.service.ConditionRegistry
+import com.skrymer.udgaard.backtesting.service.StrategyRegistry
+import com.skrymer.udgaard.data.repository.StockJooqRepository
+import com.skrymer.udgaard.data.service.StockService
+import com.skrymer.udgaard.data.service.SymbolService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.ai.tool.annotation.Tool
@@ -23,6 +24,7 @@ class StockMcpTools(
   private val strategyRegistry: StrategyRegistry,
   private val conditionRegistry: ConditionRegistry,
   private val stockRepository: StockJooqRepository,
+  private val stockService: StockService,
   private val cacheManager: CacheManager,
   private val objectMapper: ObjectMapper,
   private val symbolService: SymbolService,
@@ -33,17 +35,33 @@ class StockMcpTools(
 
   @Tool(
     description = """Get list of all available stock symbols that have historical data in the system.
-      Returns an array of stock symbols that can be used for backtesting via the REST API.
-      Use this to discover which stocks are available.""",
+      Returns an array of stock info objects with symbol, sector, assetType, quoteCount,
+      lastQuoteDate, and hasData fields. Use this to discover which stocks are available
+      for backtesting and what data coverage they have.
+
+      Returns:
+      - count: Total number of stocks with data
+      - symbols: Array of stock info objects sorted by symbol""",
   )
-  fun getStockSymbols(): String {
-    val symbols = symbolService.getAll().map { it.symbol }.sorted()
+  fun getAvailableSymbols(): String {
+    val stocks = stockService.getAllStocksSimple()
+    val symbolRecords = symbolService.getAll().associateBy { it.symbol }
     return objectMapper
       .writerWithDefaultPrettyPrinter()
       .writeValueAsString(
         mapOf(
-          "symbols" to symbols,
-          "count" to symbols.size,
+          "count" to stocks.size,
+          "symbols" to
+            stocks.map { stock ->
+              mapOf(
+                "symbol" to stock.symbol,
+                "sector" to stock.sector,
+                "assetType" to (symbolRecords[stock.symbol]?.assetType?.name ?: "UNKNOWN"),
+                "quoteCount" to stock.quoteCount,
+                "lastQuoteDate" to stock.lastQuoteDate?.toString(),
+                "hasData" to stock.hasData,
+              )
+            },
         ),
       )
   }
@@ -135,7 +153,7 @@ class StockMcpTools(
 
   @Tool(
     description = """Get detailed information about a specific trading strategy.
-      Provides comprehensive details about what a strategy does, its conditions, and use cases.
+      Provides the strategy description from its implementation.
 
       Parameters:
       - strategyName: Name of the strategy (e.g., 'PlanAlpha', 'PlanMoney')
@@ -144,12 +162,10 @@ class StockMcpTools(
       Returns:
       - name: Strategy name
       - type: Entry or exit strategy
-      - description: What the strategy does
+      - description: What the strategy does and its conditions
       - available: Whether the strategy exists in the system
-      - category: Strategy category (if applicable)
-      - typicalUseCase: When to use this strategy
 
-      Use this to understand what a strategy does before using it in a backtest.""",
+      Use getAvailableStrategies first to discover valid strategy names.""",
   )
   fun getStrategyDetails(
     strategyName: String,
@@ -204,83 +220,13 @@ class StockMcpTools(
         null
       } ?: "No description available"
 
-    // Build detailed response based on known strategies
-    val details =
-      when (strategyName) {
-        "PlanAlpha" ->
-          if (isEntry) {
-            mapOf(
-              "category" to "Momentum",
-              "riskLevel" to "Medium",
-              "typicalUseCase" to "Trending markets with strong momentum",
-              "bestMarketConditions" to "Bull markets, strong uptrends",
-              "keyConditions" to
-                mutableListOf(
-                  "Buy signal present",
-                  "Price above EMAs",
-                  "Market in uptrend",
-                  "Sector in uptrend",
-                  "Positive sentiment (heatmap)",
-                ),
-            )
-          } else {
-            mapOf(
-              "category" to "Risk Management",
-              "riskLevel" to "Medium",
-              "typicalUseCase" to "Momentum-based exits",
-              "exitTriggers" to
-                mutableListOf(
-                  "Stop loss hit",
-                  "Trend reversal",
-                  "Sentiment deterioration",
-                ),
-            )
-          }
-        "PlanMoney" ->
-          mapOf(
-            "category" to "Money Management",
-            "riskLevel" to "Conservative",
-            "typicalUseCase" to "Risk-controlled exits with profit protection",
-            "exitTriggers" to
-              mutableListOf(
-                "ATR-based stop loss",
-                "Profit target hit",
-                "Market regime change",
-              ),
-          )
-        "PlanEtf" ->
-          mapOf(
-            "category" to "ETF Trading",
-            "riskLevel" to "Low-Medium",
-            "typicalUseCase" to "Lower volatility ETF trading",
-            "bestFor" to "Conservative traders, ETF portfolios",
-          )
-        "PlanBeta" ->
-          mapOf(
-            "category" to "Beta Strategy",
-            "riskLevel" to "Medium",
-            "typicalUseCase" to "Variant of PlanAlpha with adjusted parameters",
-          )
-        "SimpleBuySignal" ->
-          mapOf(
-            "category" to "Simple",
-            "riskLevel" to "High",
-            "typicalUseCase" to "Basic buy signal following, minimal filters",
-          )
-        else ->
-          mapOf(
-            "category" to "Custom",
-            "typicalUseCase" to "See description for details",
-          )
-      }
-
     val result =
       mapOf(
         "name" to strategyName,
         "type" to strategyType,
         "available" to true,
         "description" to description,
-      ) + details
+      )
 
     return objectMapper
       .writerWithDefaultPrettyPrinter()

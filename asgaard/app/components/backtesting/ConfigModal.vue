@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { BacktestRequest, StrategyConfig, AvailableConditions } from '~/types'
+import { AssetTypeOptions } from '~/types/enums'
 
 defineProps<{
   open: boolean
@@ -17,6 +18,7 @@ const form = ref<{ submit: () => void } | null>(null)
 const state = reactive<{
   stockSelection: 'all' | 'specific'
   specificStocks: string[]
+  assetTypes: string[]
   entryStrategy: StrategyConfig
   exitStrategy: StrategyConfig
   startDate: string
@@ -32,6 +34,7 @@ const state = reactive<{
 }>({
   stockSelection: 'all',
   specificStocks: [],
+  assetTypes: [],
   entryStrategy: { type: 'predefined', name: 'PlanAlpha' },
   exitStrategy: { type: 'predefined', name: 'PlanMoney' },
   startDate: '',
@@ -174,6 +177,7 @@ function onSubmit() {
     entryStrategy: state.entryStrategy,
     exitStrategy: state.exitStrategy,
     stockSymbols: state.stockSelection === 'all' ? undefined : state.specificStocks,
+    assetTypes: state.stockSelection === 'all' && state.assetTypes.length > 0 ? state.assetTypes : undefined,
     startDate: state.startDate || undefined,
     endDate: state.endDate || undefined,
     maxPositions: state.positionLimitEnabled ? state.maxPositions : undefined,
@@ -245,6 +249,23 @@ function cancel() {
                   />
                 </UFormField>
               </div>
+
+              <UFormField
+                v-if="state.stockSelection === 'all'"
+                label="Asset Types"
+                name="assetTypes"
+                help="Filter by asset type (empty = all)"
+              >
+                <USelectMenu
+                  v-model="state.assetTypes"
+                  :items="AssetTypeOptions"
+                  value-key="value"
+                  multiple
+                  placeholder="All asset types"
+                  class="w-64"
+                  :search-input="false"
+                />
+              </UFormField>
 
               <SymbolSearch
                 v-if="state.stockSelection === 'specific'"

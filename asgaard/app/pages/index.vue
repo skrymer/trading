@@ -44,7 +44,7 @@
                 <li><strong>Performance Metrics:</strong> Track CAGR, win rate, max drawdown, edge, and other critical metrics</li>
                 <li><strong>Equity Curve Visualization:</strong> Real-time equity curve charts showing portfolio growth over time</li>
                 <li><strong>Trade Analysis:</strong> Detailed trade-by-trade breakdown with entry/exit dates, profit/loss, and exit reasons</li>
-                <li><strong>Market Context:</strong> Incorporates market breadth, heatmaps, EMAs, ATR, and order blocks</li>
+                <li><strong>Market Context:</strong> Incorporates heatmaps, EMAs, ATR, and order blocks</li>
               </ul>
 
               <h3 class="text-lg font-semibold mt-6 mb-3">

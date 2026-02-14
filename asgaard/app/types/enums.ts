@@ -112,6 +112,15 @@ export const MonteCarloTechniqueDescriptions: Record<MonteCarloTechnique, { name
   }
 }
 
+export const AssetTypeOptions = [
+  { label: 'Stock', value: 'STOCK' },
+  { label: 'ETF', value: 'ETF' },
+  { label: 'Leveraged ETF', value: 'LEVERAGED_ETF' },
+  { label: 'Index', value: 'INDEX' },
+  { label: 'Bond ETF', value: 'BOND_ETF' },
+  { label: 'Commodity ETF', value: 'COMMODITY_ETF' }
+]
+
 export enum BrokerType {
   MANUAL = 'MANUAL',
   IBKR = 'IBKR'

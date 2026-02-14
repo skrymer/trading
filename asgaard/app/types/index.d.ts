@@ -178,7 +178,6 @@ export interface ExcursionMetrics {
  */
 export interface MarketConditionSnapshot {
   spyClose: number
-  spyHeatmap: number | null
   spyInUptrend: boolean
   marketBreadthBullPercent: number | null
   entryDate: string
@@ -379,6 +378,7 @@ export type StrategyConfig = PredefinedStrategyConfig | CustomStrategyConfig
 
 export interface BacktestRequest {
   stockSymbols?: string[]
+  assetTypes?: string[]
   entryStrategy: StrategyConfig
   exitStrategy: StrategyConfig
   startDate?: string

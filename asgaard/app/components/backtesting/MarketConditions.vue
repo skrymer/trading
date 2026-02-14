@@ -17,17 +17,6 @@ const tradesWithMarketData = computed(() => {
   return props.report.trades.filter(t => t.marketConditionAtEntry != null)
 })
 
-// Scatter plot data: Trade Profit vs SPY Heatmap
-const heatmapScatterData = computed(() => {
-  return tradesWithMarketData.value
-    .filter(t => t.marketConditionAtEntry?.spyHeatmap != null)
-    .map(t => ({
-      x: t.marketConditionAtEntry!.spyHeatmap!,
-      y: t.profitPercentage,
-      isWinner: t.profit > 0
-    }))
-})
-
 // Scatter plot data: Trade Profit vs Market Breadth
 const breadthScatterData = computed(() => {
   return tradesWithMarketData.value
@@ -37,23 +26,6 @@ const breadthScatterData = computed(() => {
       y: t.profitPercentage,
       isWinner: t.profit > 0
     }))
-})
-
-// ApexCharts series for SPY Heatmap scatter
-const heatmapSeries = computed(() => {
-  const winners = heatmapScatterData.value.filter(d => d.isWinner)
-  const losers = heatmapScatterData.value.filter(d => !d.isWinner)
-
-  return [
-    {
-      name: 'Winning Trades',
-      data: winners.map(d => [d.x, d.y])
-    },
-    {
-      name: 'Losing Trades',
-      data: losers.map(d => [d.x, d.y])
-    }
-  ]
 })
 
 // ApexCharts series for Market Breadth scatter
@@ -90,7 +62,6 @@ function calculateCorrelation(data: Array<{ x: number, y: number }>): number {
   return denominator === 0 ? 0 : numerator / denominator
 }
 
-const heatmapCorrelation = computed(() => calculateCorrelation(heatmapScatterData.value))
 const breadthCorrelation = computed(() => calculateCorrelation(breadthScatterData.value))
 
 // Performance during SPY uptrend vs downtrend
@@ -116,13 +87,6 @@ const uptrendStats = computed(() => {
 // Insights
 const insights = computed(() => {
   const results: string[] = []
-
-  // Heatmap insights
-  if (Math.abs(heatmapCorrelation.value) > 0.3) {
-    const direction = heatmapCorrelation.value > 0 ? 'positive' : 'negative'
-    const strength = Math.abs(heatmapCorrelation.value) > 0.5 ? 'strong' : 'moderate'
-    results.push(`${strength} ${direction} correlation between SPY heatmap and trade performance (r=${heatmapCorrelation.value.toFixed(2)})`)
-  }
 
   // Breadth insights
   if (Math.abs(breadthCorrelation.value) > 0.3) {
@@ -179,19 +143,7 @@ const insights = computed(() => {
         <h4 class="text-sm font-medium mb-3">
           Market Conditions at Entry (Averages)
         </h4>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <UCard :ui="{ body: 'p-3' }">
-            <div class="text-xs text-muted mb-1">
-              Avg SPY Heatmap
-            </div>
-            <div class="font-semibold text-lg">
-              {{ typeof marketAvgs.avgSpyHeatmap === 'number' && !isNaN(marketAvgs.avgSpyHeatmap) ? marketAvgs.avgSpyHeatmap.toFixed(1) : 'N/A' }}
-            </div>
-            <div class="text-xs text-muted">
-              0-100 scale
-            </div>
-          </UCard>
-
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <UCard :ui="{ body: 'p-3' }">
             <div class="text-xs text-muted mb-1">
               Avg Market Breadth
@@ -200,7 +152,7 @@ const insights = computed(() => {
               {{ typeof marketAvgs.avgMarketBreadth === 'number' && !isNaN(marketAvgs.avgMarketBreadth) ? marketAvgs.avgMarketBreadth.toFixed(1) : 'N/A' }}
             </div>
             <div class="text-xs text-muted">
-              % bullish
+              % in uptrend
             </div>
           </UCard>
 
@@ -252,46 +204,23 @@ const insights = computed(() => {
         </div>
       </div>
 
-      <!-- Scatter Plots -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- SPY Heatmap Scatter -->
-        <div v-if="heatmapScatterData.length > 0">
-          <h4 class="text-sm font-medium mb-3">
-            Trade Profit vs SPY Heatmap at Entry
-          </h4>
-          <ChartsScatterChart
-            :series="heatmapSeries"
-            x-axis-label="SPY Heatmap (0-100)"
-            y-axis-label="Trade Profit %"
-            :height="350"
-            :colors="['#10b981', '#ef4444']"
-          />
-          <div class="text-xs text-muted mt-2 text-center">
-            Correlation: {{ heatmapCorrelation.toFixed(2) }}
-            <span v-if="Math.abs(heatmapCorrelation) < 0.3" class="text-warning">(weak)</span>
-            <span v-else-if="Math.abs(heatmapCorrelation) < 0.5" class="text-primary">(moderate)</span>
-            <span v-else class="text-success">(strong)</span>
-          </div>
-        </div>
-
-        <!-- Market Breadth Scatter -->
-        <div v-if="breadthScatterData.length > 0">
-          <h4 class="text-sm font-medium mb-3">
-            Trade Profit vs Market Breadth at Entry
-          </h4>
-          <ChartsScatterChart
-            :series="breadthSeries"
-            x-axis-label="Market Breadth (% bullish)"
-            y-axis-label="Trade Profit %"
-            :height="350"
-            :colors="['#10b981', '#ef4444']"
-          />
-          <div class="text-xs text-muted mt-2 text-center">
-            Correlation: {{ breadthCorrelation.toFixed(2) }}
-            <span v-if="Math.abs(breadthCorrelation) < 0.3" class="text-warning">(weak)</span>
-            <span v-else-if="Math.abs(breadthCorrelation) < 0.5" class="text-primary">(moderate)</span>
-            <span v-else class="text-success">(strong)</span>
-          </div>
+      <!-- Scatter Plot -->
+      <div v-if="breadthScatterData.length > 0">
+        <h4 class="text-sm font-medium mb-3">
+          Trade Profit vs Market Breadth at Entry
+        </h4>
+        <ChartsScatterChart
+          :series="breadthSeries"
+          x-axis-label="Market Breadth (% in uptrend)"
+          y-axis-label="Trade Profit %"
+          :height="350"
+          :colors="['#10b981', '#ef4444']"
+        />
+        <div class="text-xs text-muted mt-2 text-center">
+          Correlation: {{ breadthCorrelation.toFixed(2) }}
+          <span v-if="Math.abs(breadthCorrelation) < 0.3" class="text-warning">(weak)</span>
+          <span v-else-if="Math.abs(breadthCorrelation) < 0.5" class="text-primary">(moderate)</span>
+          <span v-else class="text-success">(strong)</span>
         </div>
       </div>
 

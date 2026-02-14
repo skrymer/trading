@@ -1,382 +1,178 @@
 # Stock Backtesting MCP Server
 
-A Model Context Protocol (MCP) server built with Spring AI that provides strategy and configuration metadata for Claude to help configure backtesting strategies via the REST API.
+A Model Context Protocol (MCP) server built with Spring AI that provides strategy discovery, stock metadata, and backtesting guidance for Claude Code integration.
 
 ## Overview
 
-This MCP server exposes **metadata only** through four focused tools:
-1. **getStockSymbols** - List all available stock symbols
-2. **getAvailableStrategies** - List all entry and exit strategies
-3. **getAvailableRankers** - List all available stock rankers
-4. **getAvailableConditions** - Get metadata about conditions for custom strategy building
+This MCP server exposes **7 metadata/discovery tools** via SSE transport:
 
-**Important**: This MCP server provides discovery/metadata only. To execute backtests or retrieve stock data, use the REST API endpoints at `http://localhost:8080/api/`.
+1. **getAvailableSymbols** - List stocks with data (symbol, sector, assetType, quoteCount, lastQuoteDate)
+2. **getAvailableStrategies** - List all entry and exit strategy names
+3. **getAvailableRankers** - List all available stock rankers
+4. **getAvailableConditions** - Get condition metadata for custom strategy building
+5. **getStrategyDetails** - Get description for a specific strategy
+6. **getSystemStatus** - Health check: database, strategies, cache readiness
+7. **explainBacktestMetrics** - Explain backtest metrics (definitions, benchmarks)
+
+**Important**: This MCP server provides discovery/metadata only. To execute backtests or Monte Carlo simulations, use the REST API endpoints.
 
 ## Prerequisites
 
 - Java 21+
-- MongoDB running on localhost:27017
-- Stock data populated in MongoDB database
+- H2 database with stock data populated
+- Backend running on localhost:8080
 
 ## Setup
 
-### 1. Build the Project
+### 1. Configure Claude Code MCP Settings
 
-```bash
-./gradlew build
-```
-
-### 2. Configure Claude Code MCP Settings
-
-Add the following to your Claude Code MCP configuration file (`~/.claude/mcp_settings.json` or equivalent):
+The project `.mcp.json` configures the SSE connection:
 
 ```json
 {
   "mcpServers": {
     "stock-backtesting": {
-      "command": "java",
-      "args": [
-        "-jar",
-        "/home/sonni/development/git/trading/udgaard/build/libs/udgaard-0.0.1-SNAPSHOT.jar"
-      ]
+      "type": "sse",
+      "url": "http://localhost:8080/udgaard/sse"
     }
   }
 }
 ```
 
-### 3. Start the MCP Server
-
-The Spring AI MCP server will automatically start when you run the Spring Boot application. It uses stdio transport to communicate with Claude.
+### 2. Start the Backend
 
 ```bash
+cd udgaard
 ./gradlew bootRun
 ```
 
-Or using the JAR:
+The MCP SSE endpoint is automatically available at `http://localhost:8080/udgaard/sse`.
 
-```bash
-java -jar build/libs/udgaard-0.0.1-SNAPSHOT.jar
-```
+**Note**: The `spring.ai.mcp.server.base-url=/udgaard` property is required because the servlet context path is `/udgaard`. Without it, the SSE transport advertises message endpoints without the context path prefix, causing 404 errors.
 
 ## Available Tools
 
-### getStockSymbols
+### getAvailableSymbols
 
-Lists all available stock symbols in the system.
-
-**Parameters:** None
-
-**Returns:**
-```json
-{
-  "symbols": ["AAPL", "MSFT", "GOOGL", ...],
-  "count": 1286
-}
-```
-
-**Example Usage:**
-```
-Show me all available stock symbols
-```
-
-### getAvailableStrategies
-
-Lists all registered entry and exit strategies.
+Lists all stocks with historical data in the database, including metadata.
 
 **Parameters:** None
 
 **Returns:**
 ```json
 {
-  "entryStrategies": ["PlanAlpha", "PlanBeta", "PlanEtf", "SimpleBuySignal"],
-  "exitStrategies": ["PlanMoney", "PlanAlpha", "PlanEtf"]
-}
-```
-
-**Example Usage:**
-```
-What entry and exit strategies are available?
-```
-
-**Use Case:** Use this to discover what predefined strategies exist before configuring a backtest.
-
-### getAvailableRankers
-
-Lists all available stock rankers for position-limited backtests.
-
-**Parameters:** None
-
-**Returns:**
-```json
-{
-  "rankers": [
-    "Heatmap",
-    "RelativeStrength",
-    "Volatility",
-    "DistanceFrom10Ema",
-    "Composite",
-    "SectorStrength",
-    "Random",
-    "Adaptive"
-  ],
-  "count": 8
-}
-```
-
-**Ranker Descriptions:**
-- **Heatmap**: Ranks stocks by sentiment/heatmap values (higher = more greedy/bullish)
-- **RelativeStrength**: Ranks by relative strength indicators
-- **Volatility**: Ranks by ATR-based volatility
-- **DistanceFrom10Ema**: Ranks by distance from 10-period EMA
-- **Composite**: Combined ranking using multiple factors
-- **SectorStrength**: Ranks by sector performance
-- **Random**: Random selection (for baseline comparison)
-- **Adaptive**: Dynamically adapts ranking based on market conditions
-
-**Example Usage:**
-```
-What rankers can I use for position-limited backtests?
-```
-
-**Use Case:** When setting `maxPositions` in a backtest, you need a ranker to prioritize which stocks to enter when multiple stocks trigger on the same day.
-
-### getAvailableConditions
-
-Gets detailed metadata about all available trading conditions for custom strategy building.
-
-**Parameters:** None
-
-**Returns:**
-```json
-{
-  "entryConditions": [
+  "count": 1438,
+  "symbols": [
     {
-      "type": "buySignal",
-      "displayName": "Buy Signal",
-      "description": "Stock has a buy signal",
-      "parameters": [],
-      "category": "Stock"
-    },
-    {
-      "type": "priceAboveEma",
-      "displayName": "Price Above EMA",
-      "description": "Stock price is above specified EMA period",
-      "parameters": [
-        {
-          "name": "period",
-          "displayName": "EMA Period",
-          "type": "number",
-          "defaultValue": 20,
-          "min": 1,
-          "max": 200
-        }
-      ],
-      "category": "Stock"
+      "symbol": "AAPL",
+      "sector": "XLK",
+      "assetType": "STOCK",
+      "quoteCount": 2341,
+      "lastQuoteDate": "2026-02-10",
+      "hasData": true
     }
-    // ... more conditions
-  ],
-  "exitConditions": [
-    {
-      "type": "stopLoss",
-      "displayName": "Stop Loss",
-      "description": "Exit when price drops by specified ATR multiple from entry",
-      "parameters": [
-        {
-          "name": "atrMultiple",
-          "displayName": "ATR Multiple",
-          "type": "number",
-          "defaultValue": 0.5,
-          "min": 0.1,
-          "max": 5.0
-        }
-      ],
-      "category": "Risk Management"
-    }
-    // ... more conditions
   ]
 }
 ```
 
-**Example Usage:**
-```
-What conditions can I use to build a custom entry strategy?
-```
+### getAvailableStrategies
 
-**Use Case:** Use this to understand what building blocks are available for creating custom strategies via the REST API.
+Lists all registered entry and exit strategy names.
 
-## Using the MCP Server with REST API
+**Parameters:** None
 
-The MCP server provides **metadata only**. To execute backtests or retrieve data, use the REST API:
-
-### Running a Backtest
-
-Once you know available strategies, symbols, and rankers, run backtests via the REST API:
-
-```bash
-curl -X POST http://localhost:8080/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "entryStrategy": {
-      "type": "predefined",
-      "name": "PlanAlpha"
-    },
-    "exitStrategy": {
-      "type": "predefined",
-      "name": "PlanMoney"
-    },
-    "stockSymbols": ["AAPL", "MSFT", "GOOGL"],
-    "startDate": "2024-01-01",
-    "endDate": "2024-12-31",
-    "maxPositions": 10,
-    "ranker": "Adaptive"
-  }'
+**Returns:**
+```json
+{
+  "entryStrategies": ["OvtlyrPlanEtf", "PlanAlpha", "PlanQEntryStrategy", "ProjectXEntryStrategy"],
+  "exitStrategies": ["OvtlyrPlanEtf", "PlanAlpha", "PlanMoney", "PlanQExitStrategy", "ProjectXExitStrategy"]
+}
 ```
 
-### Creating a Custom Strategy
+### getAvailableRankers
 
-Use conditions from `getAvailableConditions()` to build custom strategies:
+Lists rankers for position-limited backtests.
 
-```bash
-curl -X POST http://localhost:8080/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "entryStrategy": {
-      "type": "custom",
-      "conditions": [
-        {"type": "buySignal", "parameters": {}},
-        {"type": "priceAboveEma", "parameters": {"period": 20}},
-        {"type": "marketInUptrend", "parameters": {}}
-      ],
-      "operator": "AND"
-    },
-    "exitStrategy": {
-      "type": "custom",
-      "conditions": [
-        {"type": "stopLoss", "parameters": {"atrMultiple": 0.5}},
-        {"type": "priceBelowEma", "parameters": {"period": 10}}
-      ],
-      "operator": "OR"
-    },
-    "stockSymbols": ["AAPL"],
-    "startDate": "2024-01-01",
-    "endDate": "2024-12-31"
-  }'
+**Parameters:** None
+
+**Returns:**
+```json
+{
+  "rankers": ["Heatmap", "RelativeStrength", "Volatility", "DistanceFrom10Ema", "Composite", "SectorStrength", "Random", "Adaptive"],
+  "count": 8
+}
 ```
 
-## REST API Endpoints
+### getAvailableConditions
+
+Gets metadata about all conditions for custom strategy building, including parameter types, defaults, and descriptions.
+
+**Parameters:** None
+
+**Returns:** Entry and exit condition arrays with type, displayName, description, parameters, and category.
+
+### getStrategyDetails
+
+Gets the description for a specific strategy.
+
+**Parameters:**
+- `strategyName`: Strategy name (e.g., "PlanAlpha")
+- `strategyType`: "entry" or "exit"
+
+**Returns:**
+```json
+{
+  "name": "PlanAlpha",
+  "type": "entry",
+  "available": true,
+  "description": "Entry strategy description from implementation..."
+}
+```
+
+### getSystemStatus
+
+Health check for backtesting readiness.
+
+**Parameters:** None
+
+**Returns:** Status, database connectivity, stock count, strategy count, cache status, warnings.
+
+### explainBacktestMetrics
+
+Explains backtest metrics with definitions, benchmarks, and interpretation guidance.
+
+**Parameters:**
+- `metrics`: Optional comma-separated list (e.g., "edge,winRate"). Omit for all metrics.
+
+## REST API (for execution)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/backtest` | POST | Execute a backtest with strategies |
-| `/api/strategies` | GET | Get available strategies (same as MCP tool) |
-| `/api/rankers` | GET | Get available rankers (same as MCP tool) |
-| `/api/conditions` | GET | Get available conditions (same as MCP tool) |
-| `/api/stocks` | GET | Get stock symbols (same as MCP tool) |
-
-## Workflow Example
-
-1. **Discovery Phase** (via MCP):
-   ```
-   Claude: What strategies are available?
-   Tool: getAvailableStrategies()
-
-   Claude: What stocks can I backtest?
-   Tool: getStockSymbols()
-
-   Claude: What rankers exist?
-   Tool: getAvailableRankers()
-   ```
-
-2. **Configuration Phase** (via REST API):
-   ```
-   Claude: Run a backtest on AAPL, MSFT with PlanAlpha entry and PlanMoney exit
-   Action: POST to /api/backtest with configuration
-   ```
-
-3. **Analysis Phase**:
-   ```
-   Claude: Analyze the results and suggest improvements
-   Action: Examine backtest report, compare win rates, suggest parameter tweaks
-   ```
+| `/api/backtest` | POST | Execute a backtest |
+| `/api/backtest/strategies` | GET | Get strategies (same as MCP) |
+| `/api/backtest/rankers` | GET | Get rankers (same as MCP) |
+| `/api/backtest/conditions` | GET | Get conditions (same as MCP) |
+| `/api/stocks` | GET | Get stocks with metadata (same as MCP) |
+| `/api/monte-carlo/simulate` | POST | Run Monte Carlo simulation |
 
 ## Architecture
 
-### Components
-
-**MCP Tools Service** (`StockMcpTools.kt`):
-- Metadata-only tools
-- No data retrieval or processing
-- Lightweight and fast
-
-**REST API Controller** (`UdgaardController.kt`):
-- Backtest execution
-- Stock data retrieval
-- Heavy computation
-
-**Strategy Registry** (`StrategyRegistry.kt`):
-- Dynamic strategy discovery
-- Strategy instantiation
-
-**Dynamic Strategy Builder** (`DynamicStrategyBuilder.kt`):
-- Builds strategies from condition configurations
-- Validates custom strategies
-
-### Benefits of This Design
-
-✅ **Separation of Concerns**: MCP for discovery, REST API for execution
-✅ **Lightweight MCP**: Fast metadata queries, no timeouts
-✅ **Flexible Integration**: Claude can use both MCP tools and REST API
-✅ **Clear Boundaries**: Metadata vs computation cleanly separated
+- **Transport**: SSE via `spring-ai-starter-mcp-server-webmvc` (MCP SDK 0.10.0)
+- **Configuration**: `McpConfiguration.kt` registers `StockMcpTools` via `MethodToolCallbackProvider`
+- **Tools**: `StockMcpTools.kt` - all `@Tool` annotated methods returning JSON strings
+- **Properties**: `application.properties` - `spring.ai.mcp.server.*` settings
 
 ## Troubleshooting
 
 ### MCP Server Not Connecting
 
-1. Verify the JAR path in MCP settings is correct
-2. Ensure MongoDB is running
-3. Check that the application builds successfully
-4. Review Claude Code logs for MCP connection errors
+1. Ensure backend is running: `curl http://localhost:8080/udgaard/actuator/health`
+2. Check `.mcp.json` URL matches: `http://localhost:8080/udgaard/sse`
+3. Verify `spring.ai.mcp.server.base-url=/udgaard` is set in `application.properties`
+4. Run `/mcp` in Claude Code to reconnect
 
-### Tools Not Appearing
+### Tools Not Returning Data
 
-1. Ensure Spring Boot application is running
-2. Check logs for MCP server initialization messages
-3. Verify `@Tool` annotations are present in `StockMcpTools.kt`
-
-### Build Issues
-
-```bash
-# Clean and rebuild
-./gradlew clean build
-
-# Check dependencies
-./gradlew dependencies
-```
-
-## Development
-
-### Adding New MCP Tools
-
-To add a new metadata tool:
-
-1. Add a method to `StockMcpTools.kt`
-2. Annotate it with `@Tool` and provide a description
-3. Return JSON string response using `ObjectMapper`
-4. Rebuild the application
-
-Example:
-
-```kotlin
-@Tool(description = "Get available sectors")
-fun getAvailableSectors(): String {
-  val sectors = listOf("Technology", "Healthcare", "Finance", ...)
-  return objectMapper.writerWithDefaultPrettyPrinter()
-    .writeValueAsString(mapOf("sectors" to sectors))
-}
-```
-
-**Important**: Keep MCP tools focused on metadata only. Heavy computation should go in REST API endpoints.
-
-## License
-
-Part of the Udgaard trading system project.
+1. Check H2 database has stock data
+2. Verify strategies are registered: `curl http://localhost:8080/udgaard/api/backtest/strategies`
+3. Check backend logs for errors

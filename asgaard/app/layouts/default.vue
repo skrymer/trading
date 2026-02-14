@@ -31,14 +31,6 @@ const links = [[{
   }
 },
 {
-  label: 'Market Breadth',
-  icon: 'i-lucide-activity',
-  to: '/market-breadth',
-  onSelect: () => {
-    open.value = false
-  }
-},
-{
   label: 'Stock Data',
   icon: 'i-lucide-database',
   to: '/stock-data',
