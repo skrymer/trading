@@ -33,39 +33,48 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 ### Backend: Udgaard (Kotlin/Spring Boot)
 
 **Tech Stack:**
-- Kotlin 2.1.21, Spring Boot 3.5.0
-- H2 2.2.224 Database (file-based)
+- Kotlin 2.3.0, Spring Boot 3.5.0
+- H2 2.2.224 Database (server mode via TCP)
 - jOOQ 3.19.23 for type-safe SQL queries
 - Flyway for database migrations (via net.ltgt.flyway plugin)
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
+- ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
 - **AlphaVantage API as PRIMARY data source** (adjusted OHLCV, volume, ATR)
-- Ovtlyr API for enrichment (signals, heatmaps, sector sentiment)
+- Ovtlyr API for enrichment (sector sentiment, market breadth)
 
-**Key Components:**
-1. **Strategy System** (`model/strategy/`)
-   - Dynamic strategy discovery via `@RegisteredStrategy` annotation
+**Key Components (modularized into `backtesting/`, `data/`, `portfolio/` packages):**
+
+1. **Backtesting** (`backtesting/`)
+   - `BacktestService.kt`: Core backtesting engine
+   - `StrategyRegistry.kt`: Dynamic strategy discovery via `@RegisteredStrategy`
+   - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
+   - `StrategySignalService.kt`: Signal evaluation for individual stocks
+   - `MonteCarloService.kt`: Monte Carlo simulations
+   - Strategies: PlanAlpha, PlanMV, PlanQ, OvtlyrPlanEtf, ProjectX
    - DSL-based strategy builder (`StrategyDsl.kt`)
-   - Entry strategies: PlanAlpha, PlanEtf, PlanBeta, SimpleBuySignal
-   - Exit strategies: PlanMoney, PlanAlpha, PlanEtf
-   - Market regime filters
+   - 22 entry conditions, 12 exit conditions
 
-2. **Services** (`service/`)
-   - `StockService.kt`: Stock data management and backtesting
-   - `TechnicalIndicatorService.kt`: EMAs, Donchian channels, trend determination
-   - `OvtlyrEnrichmentService.kt`: Enrich AlphaVantage data with Ovtlyr signals
-   - `BreadthService.kt`: Market breadth (SPY, QQQ, IWM)
-   - `PortfolioService.kt`: Portfolio and trade management
-   - `StrategyRegistry.kt`: Dynamic strategy registration
-   - `DynamicStrategyBuilder.kt`: Runtime strategy creation
+2. **Data** (`data/`)
+   - `StockService.kt`: Stock data management
+   - `StockIngestionService.kt`: Bulk stock data ingestion from AlphaVantage
+   - `TechnicalIndicatorService.kt`: EMAs, Donchian channels, ATR, trend determination
+   - `MarketBreadthService.kt` / `SectorBreadthService.kt`: Market & sector breadth
+   - `OrderBlockCalculator.kt`: Order block detection via ROC momentum
+   - `SymbolService.kt`: Stock symbol management (DB-backed with caching)
 
-3. **MCP Server** (`mcp/`)
+3. **Portfolio** (`portfolio/`)
+   - `PortfolioService.kt`: Portfolio and position management
+   - IBKR integration for broker sync
+   - Options data via AlphaVantage
+
+4. **MCP Server** (`mcp/`)
    - `StockMcpTools.kt`: Tools for Claude AI integration
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
-4. **Integration** (`integration/`)
+5. **Integration** (`data/integration/`)
    - **AlphaVantage**: PRIMARY data source - Adjusted daily OHLCV, ATR
-   - **Ovtlyr**: Enrichment - Buy/sell signals, heatmaps, sector sentiment, breadth
+   - **Ovtlyr**: Enrichment - Sector sentiment, market breadth
 
 **API Endpoints:**
 
@@ -81,13 +90,15 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 ### Frontend: Asgaard (Nuxt.js)
 
-**Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, date-fns 4.1.0, Zod 4.1.11
+**Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components:**
-- **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve, SectorAnalysis, TradeChart, TradeDetailsModal
-- **Portfolio** (`components/portfolio/`): CreateModal, OpenTradeModal, EditTradeModal, CloseTradeModal, DeleteTradeModal, DeleteModal, EquityCurve, OpenTradeChart
-- **Strategy** (`components/strategy/`): Strategy builder components
-- **Pages**: index, backtesting, portfolio, market-breadth, stock-data, test-chart
+**Key Components (50 Vue components):**
+- **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, TradeChart, TradeDetailsModal
+- **Portfolio** (`components/portfolio/`): CreateModal, PositionDetailsModal, ClosePositionModal, DeleteModal, EquityCurve, OpenTradeChart, OptionTradeChart, SyncPortfolioModal, RollChainModal
+- **Charts** (`components/charts/`): BarChart, DonutChart, HistogramChart, LineChart, ScatterChart, StockChart, StrategySignalsTable
+- **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
+- **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
+- **Pages**: index, backtesting, portfolio, stock-data, data-manager, app-metrics, settings, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -104,22 +115,36 @@ trading/
 ├── claude_thoughts/                  # Documentation created by Claude
 ├── udgaard/                          # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/
-│   │   ├── controller/               # REST controllers (Backtest, Stock, Portfolio, Breadth, MonteCarl, Cache, Data)
-│   │   ├── integration/              # External integrations (ovtlyr, alphavantage)
+│   │   ├── backtesting/              # Backtesting domain
+│   │   │   ├── controller/           # BacktestController, MonteCarloController
+│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext
+│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService
+│   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
+│   │   ├── data/                     # Data domain
+│   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
+│   │   │   ├── integration/          # AlphaVantage, Ovtlyr clients
+│   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadth
+│   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository
+│   │   │   └── service/              # StockService, TechnicalIndicatorService, OrderBlockCalculator
+│   │   ├── portfolio/                # Portfolio domain
+│   │   │   ├── controller/           # PortfolioController
+│   │   │   ├── integration/          # IBKR, AlphaVantage options
+│   │   │   ├── model/                # Portfolio, Position, Execution
+│   │   │   ├── repository/           # PositionJooqRepository
+│   │   │   └── service/              # PortfolioService
+│   │   ├── controller/               # Shared controllers (Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
-│   │   ├── model/                    # Domain models (Stock, StockQuote, Portfolio, PortfolioTrade, Breadth, strategy/)
-│   │   ├── service/                  # Business logic
-│   │   ├── repository/               # JPA repositories
-│   │   ├── config/                   # Configuration
-│   │   └── UdgaardApplication.kt     # Main application
+│   │   └── config/                   # Configuration classes
 │   ├── src/main/resources/           # Config (application.properties, secure.properties)
-│   ├── src/test/kotlin/              # Unit tests
-│   └── build.gradle                  # Gradle build config
+│   ├── src/test/kotlin/              # Unit tests (mirrors main structure)
+│   ├── build.gradle                  # Gradle build config
+│   ├── detekt.yml                    # Detekt configuration
+│   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── asgaard/                          # Frontend (Nuxt.js)
 │   ├── app/
-│   │   ├── components/               # Vue components (backtesting, portfolio, charts, strategy)
+│   │   ├── components/               # Vue components (backtesting, portfolio, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing
+│   │   ├── pages/                    # File-based routing (8 pages)
 │   │   ├── plugins/                  # Nuxt plugins
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
@@ -147,10 +172,10 @@ trading/
 - AlphaVantage API key in `application.properties` (free key: https://www.alphavantage.co/support/#api-key)
 
 **Database:**
-- H2 2.2.224 Database (file-based, no Docker required)
+- H2 2.2.224 Database (server mode via TCP, no Docker required)
 - Location: `~/.trading-app/database/trading`
 - H2 Console: http://localhost:8080/udgaard/h2-console
-- JDBC URL: `jdbc:h2:file:~/.trading-app/database/trading;AUTO_SERVER=TRUE`, Username: `sa`, Password: (empty)
+- JDBC URL: `jdbc:h2:tcp://localhost:9092/trading`, Username: `sa`, Password: (empty)
 
 **First-Time Setup:**
 ```bash
@@ -180,15 +205,17 @@ cd udgaard
 
 ```bash
 cd asgaard
-npm install
-npm run dev  # Runs on http://localhost:3000
+pnpm install
+pnpm dev  # Runs on http://localhost:3000
 ```
 
 ### Running Tests
 
 **Backend:** `cd udgaard && ./gradlew test`
 
-**Frontend:** `cd asgaard && npm run typecheck && npm run lint`
+**Code Quality:** `cd udgaard && ./gradlew ktlintCheck && ./gradlew detekt`
+
+**Frontend:** `cd asgaard && pnpm typecheck && pnpm lint`
 
 ### CI/CD Pipeline
 
@@ -209,17 +236,19 @@ Build trading strategies declaratively:
 
 ```kotlin
 val myEntryStrategy = entryStrategy {
-    buySignal()
-    marketInUptrend()
-    sectorInUptrend()
-    priceAboveEma(20)
-    marketHeatmapAbove(50)
+    uptrend()
+    priceAbove(20)
+    marketUptrend()
+    sectorUptrend()
+    volumeAboveAverage(1.3, 20)
+    minimumPrice(10.0)
 }
 
 val myExitStrategy = exitStrategy {
-    stopLoss(0.5)  // 0.5 ATR
+    stopLoss(2.0)          // 2.0 ATR
+    trailingStopLoss(2.7)  // 2.7 ATR trailing
     priceBelowEma(10)
-    heatmapThreshold()
+    marketAndSectorDowntrend()
 }
 ```
 
@@ -239,11 +268,10 @@ class MyEntryStrategy: EntryStrategy {
 
 Each quote includes:
 - **Price data**: open, close, high, low, volume (AlphaVantage adjusted daily)
-- **Technical indicators**: EMA (5/10/20/50/200 calculated), ATR (AlphaVantage), Donchian bands
+- **Technical indicators**: EMA (5/10/20/50/100/200 calculated), ATR (AlphaVantage), Donchian bands, ADX
 - **Trend determination**: Uptrend when (EMA5 > EMA10 > EMA20) AND (Price > EMA50)
-- **Sentiment**: Stock/sector/market heatmaps (0-100 scale from Ovtlyr)
-- **Signals**: Buy/sell signals from Ovtlyr
-- **Context**: SPY data, market/sector breadth, uptrend status
+- **Order blocks**: Bullish/bearish order blocks via ROC momentum detection
+- **Context**: Market/sector breadth, uptrend status, earnings dates
 
 ### Backtest Report
 
@@ -278,16 +306,17 @@ Results include:
 - `claude_thoughts/MCP_SERVER_README.md` - MCP server setup
 - `udgaard/claude.md` - Backend development guide
 - `asgaard/claude.md` - Frontend development guide
-- `release/CI_WORKFLOW.md` - CI/CD pipeline
 
 ### Configuration
 - `udgaard/src/main/resources/application.properties` - Backend config
+- `udgaard/detekt.yml` - Detekt static analysis config
 - `asgaard/nuxt.config.ts` - Frontend config
 
 ### Core Code
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/service/StrategyRegistry.kt` - Strategy management
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/model/strategy/StrategyDsl.kt` - Strategy DSL
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/service/StockService.kt` - Backtesting logic
+- `udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/service/StrategyRegistry.kt` - Strategy management
+- `udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/strategy/StrategyDsl.kt` - Strategy DSL
+- `udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/service/BacktestService.kt` - Backtesting engine
+- `udgaard/src/main/kotlin/com/skrymer/udgaard/data/service/StockService.kt` - Stock data management
 - `asgaard/app/pages/backtesting.vue` - Main backtesting UI
 
 ---
@@ -318,11 +347,10 @@ Claude can use `getStockData` or `getMultipleStocksData` to retrieve historical 
 
 ### Backend Environment Variables
 Configured in `application.properties`:
-- `spring.datasource.url`: H2 database location
-- `spring.jpa.hibernate.ddl-auto`: Schema management (set to `update`)
+- `spring.datasource.url`: H2 database location (server mode: `jdbc:h2:tcp://localhost:9092/trading`)
 - `spring.h2.console.enabled`: H2 web console (set to `true` for dev)
-- `alphavantage.api.key`: AlphaVantage API key
-- `ovtlyr.cookies.token/userid`: Ovtlyr credentials (in secure.properties)
+- `alphavantage.api.key`: AlphaVantage API key (configured via Settings UI or secure.properties)
+- `ovtlyr.cookies.token/userid`: Ovtlyr credentials (configured via Settings UI or secure.properties)
 - `spring.cache.type`: Cache provider (set to `caffeine`)
 - `spring.mvc.async.request-timeout`: Async timeout (1800000ms for long backtests)
 
@@ -342,8 +370,8 @@ Access via `useRuntimeConfig()`. Prefix with `NUXT_PUBLIC_` for client-side acce
 - **AlphaVantage API errors**: Check API key, rate limits (5/min, 500/day)
 
 ### Frontend Issues
-- **Type errors**: Run `npm run typecheck`
-- **ESLint errors**: Run `npm run lint`
+- **Type errors**: Run `pnpm typecheck`
+- **ESLint errors**: Run `pnpm lint`
 - **API connection**: Verify backend on port 8080
 
 ### MCP Issues
@@ -359,7 +387,7 @@ Access via `useRuntimeConfig()`. Prefix with `NUXT_PUBLIC_` for client-side acce
 Strategy versioning, parameter optimization, live trading integration, enhanced visualization, portfolio backtesting, machine learning, alert system, strategy sharing
 
 **Known Limitations:**
-Perfect fills assumed, no slippage/commission modeling, daily timeframe only, manual Ovtlyr data refresh
+Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
@@ -381,9 +409,7 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only, ma
 
 ### Pre-Commit Checklist
 
-**ALWAYS run `/pre-commit` before committing.** This skill runs all 4 required checks (backend tests, ktlint, frontend lint, frontend typecheck) and reports results. All checks must pass before committing.
-
-Also update relevant documentation as needed (CLAUDE.md, udgaard/claude.md, asgaard/claude.md, README.md). Do NOT modify `claude_thoughts/`.
+**ALWAYS run `/pre-commit` before committing.** This skill runs all 5 code quality checks (backend tests, ktlint, detekt, frontend lint, frontend typecheck) and verifies CLAUDE.md files are up to date. All checks must pass before committing. Do NOT modify `claude_thoughts/`.
 
 ### Testing
 - Write unit tests for strategy logic
@@ -403,7 +429,7 @@ Also update relevant documentation as needed (CLAUDE.md, udgaard/claude.md, asga
 
 See `claude_thoughts/SESSIONS_HISTORY.md` for detailed session history.
 
-**Latest:** AlphaVantage Primary Architecture (2025-12-03) - Refactored to use AlphaVantage as primary data source with Ovtlyr enrichment. Provides adjusted prices, volume data, and calculated technical indicators.
+**Latest:** Ovtlyr dependency removal & code quality (2026-02) - Removed direct Ovtlyr data dependencies (buy/sell signals, heatmaps). Added Detekt 2.0.0-alpha.2 static analysis. Modularized backend into backtesting/data/portfolio packages. Consolidated DB migrations. Added market/sector breadth from dedicated tables.
 
 ---
 
@@ -417,5 +443,5 @@ This project uses a three-level documentation approach:
 
 ---
 
-_Last Updated: 2025-12-23_
+_Last Updated: 2026-02-17_
 _This file helps Claude understand the project structure, architecture, recent work, and key decisions across conversations._

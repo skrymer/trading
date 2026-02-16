@@ -1,63 +1,142 @@
-# Claude.md - Nuxt with NuxtUI Project Guide
+# Claude.md - Asgaard Frontend (Nuxt/Vue)
 
 ## Project Overview
 
-This is a Nuxt 4 application using NuxtUI components, designed as a dashboard/admin interface. The project uses TypeScript, ESLint for code quality, and follows Vue 3 composition API patterns.
+Nuxt 4 frontend for the stock trading backtesting platform. Provides dashboard interfaces for backtesting, portfolio management, stock data visualization, and market breadth analysis.
 
-For complete tech stack details, see the main CLAUDE.md file in the project root.
+For complete project capabilities and overview, see the main CLAUDE.md file in the project root.
+
+## Tech Stack
+
+**Key Technologies:**
+- **Framework**: Nuxt 4.1.2
+- **UI Library**: NuxtUI 4.0.1
+- **Language**: TypeScript 5.9.3
+- **Charts**: ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9
+- **Utilities**: date-fns 4.1.0, Zod 4.1.11, VueUse 13.9.0
+- **Package Manager**: pnpm 10.24.0
+- **Node.js**: 24.2.0 (via Volta)
+- **Code Quality**: ESLint 9.37.0
 
 ## Project Structure
 
 ```
 asgaard/
-├── app/                      # Nuxt app directory
-│   ├── layouts/              # Layout components
-│   │   └── default.vue       # Main layout with sidebar
-│   ├── pages/                # File-based routing
-│   │   ├── index.vue         # Home page
-│   │   └── settings/         # Settings pages
-│   ├── components/           # Vue components
-│   │   ├── home/            # Home-related components
-│   │   └── settings/        # Settings-related components
-│   ├── app.vue              # Root component
-│   └── error.vue            # Error page
-├── assets/
-│   └── css/
-│       └── main.css         # Global styles
-├── nuxt.config.ts           # Nuxt configuration
-├── package.json             # Dependencies
-└── tsconfig.json            # TypeScript config
+├── app/
+│   ├── layouts/
+│   │   └── default.vue           # Main layout with sidebar navigation
+│   ├── pages/                    # File-based routing
+│   │   ├── index.vue             # Home/dashboard
+│   │   ├── backtesting.vue       # Backtesting UI with strategy builder
+│   │   ├── portfolio.vue         # Portfolio management
+│   │   ├── stock-data.vue        # Stock data explorer with charts
+│   │   ├── data-manager.vue      # Data ingestion & refresh controls
+│   │   ├── app-metrics.vue       # Application metrics dashboard
+│   │   ├── settings.vue          # API credentials & settings
+│   │   └── test-chart.vue        # Chart component testing
+│   ├── components/
+│   │   ├── backtesting/          # Backtesting components (17)
+│   │   │   ├── Cards.vue         # Summary stat cards
+│   │   │   ├── ConfigModal.vue   # Strategy configuration modal
+│   │   │   ├── EquityCurve.vue   # Equity curve visualization
+│   │   │   ├── SectorAnalysis.vue
+│   │   │   ├── StockPerformance.vue
+│   │   │   ├── ATRDrawdownStats.vue
+│   │   │   ├── ExcursionAnalysis.vue
+│   │   │   ├── ExitReasonAnalysis.vue
+│   │   │   ├── MonteCarloResults.vue / MonteCarloEquityCurve.client.vue / MonteCarloMetrics.vue
+│   │   │   ├── TimeBasedStats.vue
+│   │   │   ├── MarketConditions.vue
+│   │   │   ├── TradeChart.client.vue
+│   │   │   ├── TradeDetailsModal.vue
+│   │   │   └── DataCard.vue
+│   │   ├── charts/               # Reusable chart components (8)
+│   │   │   ├── BarChart.client.vue
+│   │   │   ├── DonutChart.client.vue
+│   │   │   ├── HistogramChart.client.vue
+│   │   │   ├── LineChart.client.vue
+│   │   │   ├── ScatterChart.client.vue
+│   │   │   ├── StockChart.client.vue    # Lightweight Charts candlestick
+│   │   │   ├── SignalDetailsModal.vue
+│   │   │   └── StrategySignalsTable.vue
+│   │   ├── data-management/      # Data management components (4)
+│   │   │   ├── DatabaseStatsCards.vue
+│   │   │   ├── RefreshControlsCard.vue
+│   │   │   ├── BreadthRefreshCard.vue
+│   │   │   └── RateLimitCard.vue
+│   │   ├── portfolio/            # Portfolio components (13)
+│   │   │   ├── CreateModal.vue
+│   │   │   ├── PositionDetailsModal.vue
+│   │   │   ├── ClosePositionModal.vue
+│   │   │   ├── DeleteModal.vue / DeletePositionModal.vue
+│   │   │   ├── EditPositionMetadataModal.vue
+│   │   │   ├── AddExecutionModal.vue
+│   │   │   ├── EquityCurve.client.vue
+│   │   │   ├── OpenTradeChart.client.vue
+│   │   │   ├── OptionTradeChart.client.vue
+│   │   │   ├── SyncPortfolioModal.vue
+│   │   │   ├── RollChainModal.vue
+│   │   │   └── CreateFromBrokerModal.vue
+│   │   ├── strategy/             # Strategy builder components (3)
+│   │   │   ├── StrategyBuilder.vue
+│   │   │   ├── StrategySelector.vue
+│   │   │   └── ConditionCard.vue
+│   │   ├── StockPriceChart.client.vue  # Standalone stock chart
+│   │   ├── SymbolSearch.vue      # Symbol search autocomplete
+│   │   └── UserMenu.vue          # User menu dropdown
+│   ├── types/
+│   │   ├── index.d.ts            # Main type definitions
+│   │   └── enums.ts              # Enum types
+│   ├── app.vue                   # Root component
+│   └── error.vue                 # Error page
+├── assets/css/main.css           # Global styles
+├── nuxt.config.ts                # Nuxt configuration
+├── package.json                  # Dependencies
+├── pnpm-lock.yaml                # Lock file
+└── claude.md                     # This file
 ```
 
 ## Development Commands
 
-- `pnpm dev` - Start development server on http://localhost:3000
-- `pnpm build` - Build for production
-- `pnpm preview` - Preview production build locally
-- `pnpm lint` - Run ESLint
-- `pnpm typecheck` - Run TypeScript type checking
+```bash
+pnpm dev          # Start development server on http://localhost:3000
+pnpm build        # Build for production
+pnpm preview      # Preview production build locally
+pnpm lint         # Run ESLint
+pnpm typecheck    # Run TypeScript type checking
+```
 
-## Key Features & Patterns
+## Key Patterns
 
 ### 1. NuxtUI Components
 
-This project uses NuxtUI components extensively. Common components include:
+This project uses NuxtUI 4 extensively:
 
-- **Layout**: `UContainer`, `UDashboardLayout`, `UDashboardPanel`, `UDashboardSidebar`
+- **Layout**: `UDashboardLayout`, `UDashboardPanel`, `UDashboardSidebar`, `UContainer`
 - **Navigation**: `UVerticalNavigation`, `UBreadcrumb`, `UCommandPalette`
-- **Forms**: `UInput`, `UButton`, `USelect`, `UCheckbox`, `URadio`, `UTextarea`
-- **Data**: `UTable`, `UCard`, `UBadge`, `UAvatarGroup`
+- **Forms**: `UInput`, `UButton`, `USelect`, `UCheckbox`, `URadio`, `UTextarea`, `UForm`, `UFormGroup`
+- **Data**: `UTable`, `UCard`, `UBadge`
 - **Feedback**: `UNotification`, `UAlert`, `UProgress`, `UModal`, `USlideover`
 - **Icons**: Access via `<UIcon name="i-lucide-{icon-name}" />`
 
-### 2. File-Based Routing
+### 2. Chart Libraries
+
+Three chart libraries serve different purposes:
+
+- **ApexCharts** (via `vue3-apexcharts`): Interactive line, bar, donut, histogram, scatter charts. Used for backtesting metrics, equity curves, sector analysis.
+- **Lightweight Charts** (TradingView): Candlestick/OHLC stock charts in `StockChart.client.vue`.
+- **Unovis**: Specialized visualizations.
+
+Chart components use `.client.vue` suffix for client-side-only rendering.
+
+### 3. File-Based Routing
 
 Pages are automatically routed based on file structure:
 - `pages/index.vue` → `/`
-- `pages/settings.vue` → `/settings`
-- `pages/settings/members.vue` → `/settings/members`
+- `pages/backtesting.vue` → `/backtesting`
+- `pages/stock-data.vue` → `/stock-data`
 
-### 3. Auto-Imports
+### 4. Auto-Imports
 
 Nuxt auto-imports:
 - Vue APIs (`ref`, `computed`, `watch`, etc.)
@@ -66,16 +145,12 @@ Nuxt auto-imports:
 - Components from `components/` directory
 - NuxtUI composables (`useToast`, `useModal`, `useSlideover`, etc.)
 
-### 4. TypeScript
+### 5. TypeScript
 
 - Full TypeScript support with strict type checking
-- Use `nuxt typecheck` to validate types
+- Use `pnpm typecheck` to validate types
 - Vue SFC `<script setup lang="ts">` syntax preferred
-
-### 5. API Routes
-
-- Create API endpoints in `server/api/` directory
-- Supports CORS via route rules in `nuxt.config.ts`
+- Type definitions in `app/types/index.d.ts` and `app/types/enums.ts`
 
 ### 6. Styling
 
@@ -101,41 +176,36 @@ Nuxt auto-imports:
 
 ```vue
 <script setup lang="ts">
-// 1. Imports
-import { ref } from 'vue'
+// 1. Imports (if needed - most are auto-imported)
+import type { BacktestReport } from '~/types'
 
 // 2. Props & Emits
 const props = defineProps<{
-  title: string
+  report: BacktestReport
 }>()
 
 const emit = defineEmits<{
-  update: [value: string]
+  refresh: []
 }>()
 
 // 3. Composables
-const route = useRoute()
 const toast = useToast()
 
 // 4. Reactive state
-const isOpen = ref(false)
+const isLoading = ref(false)
 
 // 5. Computed values
-const displayTitle = computed(() => props.title.toUpperCase())
+const winRate = computed(() => props.report.winRate * 100)
 
 // 6. Methods
-function handleClick() {
-  // implementation
+function handleRefresh() {
+  emit('refresh')
 }
 </script>
 
 <template>
   <!-- Template here -->
 </template>
-
-<style scoped>
-/* Scoped styles if needed */
-</style>
 ```
 
 ## Common Patterns
@@ -143,11 +213,19 @@ function handleClick() {
 ### Data Fetching
 
 ```typescript
-// Using useFetch (auto-imports)
-const { data, pending, error } = await useFetch('/api/data')
+// Using useFetch for API calls to backend
+const { data, pending, error } = await useFetch('/api/stocks', {
+  baseURL: 'http://localhost:8080/udgaard'
+})
 
 // Using useAsyncData with custom logic
-const { data } = await useAsyncData('key', () => $fetch('/api/data'))
+const { data } = await useAsyncData('backtest', () =>
+  $fetch('/api/backtest', {
+    baseURL: 'http://localhost:8080/udgaard',
+    method: 'POST',
+    body: request
+  })
+)
 ```
 
 ### Forms with Validation
@@ -157,33 +235,30 @@ const { data } = await useAsyncData('key', () => $fetch('/api/data'))
 import { z } from 'zod'
 
 const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8)
+  symbol: z.string().min(1),
+  startDate: z.string()
 })
 
 type Schema = z.output<typeof schema>
 
 const state = reactive<Partial<Schema>>({
-  email: undefined,
-  password: undefined
+  symbol: undefined,
+  startDate: undefined
 })
 
 async function onSubmit() {
   const result = schema.safeParse(state)
-  if (!result.success) {
-    // Handle validation errors
-    return
-  }
+  if (!result.success) return
   // Submit form
 }
 </script>
 
 <template>
   <UForm :state="state" :schema="schema" @submit="onSubmit">
-    <UFormGroup label="Email" name="email">
-      <UInput v-model="state.email" />
+    <UFormGroup label="Symbol" name="symbol">
+      <UInput v-model="state.symbol" />
     </UFormGroup>
-    <UButton type="submit">Submit</UButton>
+    <UButton type="submit">Run</UButton>
   </UForm>
 </template>
 ```
@@ -195,7 +270,7 @@ const toast = useToast()
 
 toast.add({
   title: 'Success',
-  description: 'Operation completed successfully',
+  description: 'Backtest completed',
   color: 'green',
   icon: 'i-lucide-check-circle'
 })
@@ -205,16 +280,10 @@ toast.add({
 
 ```typescript
 const modal = useModal()
-const slideover = useSlideover()
 
-// Open modal
-modal.open(ComponentName, {
+modal.open(ConfigModal, {
   // props
-})
-
-// Open slideover
-slideover.open(ComponentName, {
-  // props
+  onSubmit: (config) => runBacktest(config)
 })
 ```
 
@@ -222,38 +291,27 @@ slideover.open(ComponentName, {
 
 ```typescript
 const colorMode = useColorMode()
-
-// Toggle
 colorMode.preference = colorMode.preference === 'dark' ? 'light' : 'dark'
-
-// Check current mode
-const isDark = computed(() => colorMode.value === 'dark')
 ```
 
 ## Important Notes
 
-### When Adding New Features:
+### When Adding New Features
 
 1. **Check auto-imports**: Many APIs don't need explicit imports
 2. **Use NuxtUI components**: Prefer `UButton` over custom buttons for consistency
 3. **Follow file conventions**: Place files in correct directories for auto-discovery
 4. **Type everything**: Leverage TypeScript for better DX and fewer bugs
-5. **Use composables**: Extract reusable logic into composables in `composables/` directory
+5. **Client-only charts**: Use `.client.vue` suffix for chart components (they depend on browser APIs)
 
-### API Development:
-
-- Place API routes in `server/api/`
-- Use Nitro's `defineEventHandler` for type-safe handlers
-- Return JSON directly (auto-serialized)
-
-### Performance:
+### Performance
 
 - Use `useFetch` with proper keys for caching
 - Lazy-load components: `const Component = defineAsyncComponent(() => import('./Component.vue'))`
 - Consider `<ClientOnly>` for client-side only components
 - Use `.client.vue` or `.server.vue` suffixes for specific rendering
 
-### Testing:
+### Testing
 
 - Run `pnpm typecheck` before committing
 - Run `pnpm lint` to catch style issues
@@ -263,44 +321,11 @@ const isDark = computed(() => colorMode.value === 'dark')
 
 - [Nuxt Documentation](https://nuxt.com/docs)
 - [NuxtUI Documentation](https://ui.nuxt.com)
-- [NuxtUI Pro Components](https://ui.nuxt.com/pro/getting-started)
 - [Tailwind CSS](https://tailwindcss.com/docs)
+- [ApexCharts](https://apexcharts.com/)
+- [Lightweight Charts](https://tradingview.github.io/lightweight-charts/)
+- [Unovis](https://unovis.dev/)
 - [VueUse Composables](https://vueuse.org/)
+- [date-fns](https://date-fns.org/)
+- [Zod](https://zod.dev/)
 - [Iconify Icons](https://icon-sets.iconify.design/)
-
-## Quick Reference
-
-### Common Composables
-
-```typescript
-// Navigation
-const route = useRoute()
-const router = useRouter()
-
-// Head management
-useHead({ title: 'Page Title' })
-useSeoMeta({ description: 'Page description' })
-
-// NuxtUI
-const toast = useToast()
-const modal = useModal()
-const slideover = useSlideover()
-const colorMode = useColorMode()
-
-// VueUse
-const isDark = useDark()
-const { copy } = useClipboard()
-const { isSupported, vibrate } = useVibrate()
-```
-
-### Environment Variables
-
-- Create `.env` file for local development
-- Access via `useRuntimeConfig()` for public vars
-- Prefix with `NUXT_PUBLIC_` for client-side access
-
-### Build & Deployment
-
-- Production builds go to `.output/` directory
-- Supports multiple deployment platforms (Vercel, Netlify, etc.)
-- See [Nuxt deployment docs](https://nuxt.com/docs/getting-started/deployment)
