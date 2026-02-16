@@ -63,7 +63,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
     "startDate": "2020-01-01",
     "endDate": "2025-12-13",
     "maxPositions": 10,
-    "ranker": "Heatmap",
+    "ranker": "Adaptive",
     "refresh": false
   }' > /tmp/backtest_all_stocks.json
 ```
@@ -79,8 +79,8 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
       "type": "custom",
       "conditions": [
         {"type": "uptrend"},
-        {"type": "buySignal", "parameters": {"currentOnly": false}},
-        {"type": "heatmap", "parameters": {"threshold": 70}},
+        {"type": "marketUptrend"},
+        {"type": "priceAboveEma", "parameters": {"period": 20}},
         {"type": "valueZone", "parameters": {"atrMultiplier": 2.0}}
       ]
     },
@@ -93,8 +93,8 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 ```
 
 **IMPORTANT:** Custom strategy conditions require parameters to be nested in a `"parameters"` object:
-- **Correct**: `{"type": "heatmap", "parameters": {"threshold": 70}}`
-- **Incorrect**: `{"type": "heatmap", "threshold": 70}` (parameters will be ignored!)
+- **Correct**: `{"type": "priceAboveEma", "parameters": {"period": 20}}`
+- **Incorrect**: `{"type": "priceAboveEma", "period": 20}` (parameters will be ignored!)
 
 ### Advanced Features
 
@@ -157,11 +157,11 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 
 **Available rankers:**
 - Adaptive (recommended)
-- Heatmap
 - Composite
-- RelativeStrength
+- Volatility
 - DistanceFrom10Ema
-- And more...
+- SectorStrength
+- Random
 
 ## Strategy Optimization Goals
 
@@ -247,15 +247,15 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
       "type": "custom",
       "conditions": [
         {"type": "uptrend"},
-        {"type": "buySignal", "parameters": {"currentOnly": false}},
-        {"type": "heatmap", "parameters": {"threshold": 65}},
+        {"type": "marketUptrend"},
+        {"type": "priceAboveEma", "parameters": {"period": 20}},
         {"type": "valueZone", "parameters": {"atrMultiplier": 2.5}}
       ]
     },
     "exitStrategy": {
       "type": "custom",
       "conditions": [
-        {"type": "sellSignal"},
+        {"type": "emaCross"},
         {"type": "profitTarget", "parameters": {"atrMultiplier": 3.5, "emaPeriod": 20}},
         {"type": "trailingStopLoss", "parameters": {"atrMultiplier": 2.5}}
       ]
@@ -511,7 +511,6 @@ for range_name, bucket in atr_stats['distribution'].items():
 
 Each trade captures market state at entry:
 - **SPY Close**: Price level
-- **SPY Heatmap**: Fear & Greed indicator (0-100)
 - **SPY In Uptrend**: Boolean trend status
 - **Market Breadth**: Bull percentage
 
@@ -521,9 +520,10 @@ Each trade captures market state at entry:
 # Example: Analyze losing trades vs market conditions
 losing_trades = [t for t in result['trades'] if t['profit'] < 0]
 if losing_trades:
-    avg_heatmap_losses = sum(t['marketConditionAtEntry']['spyHeatmap']
-                             for t in losing_trades if t.get('marketConditionAtEntry')) / len(losing_trades)
-    print(f"Average SPY heatmap on losing trades: {avg_heatmap_losses:.1f}")
+    avg_breadth_losses = sum(t['marketConditionAtEntry']['marketBreadthBullPercent']
+                             for t in losing_trades if t.get('marketConditionAtEntry')
+                             and t['marketConditionAtEntry'].get('marketBreadthBullPercent')) / len(losing_trades)
+    print(f"Average market breadth on losing trades: {avg_breadth_losses:.1f}%")
 ```
 
 **4. Excursion Metrics (per trade)**
@@ -576,10 +576,33 @@ for sector in sorted_sectors[:5]:
     print(f"{sector['sector']}: {sector['avgProfit']:.2f}% avg profit, {sector['winRate']*100:.1f}% win rate")
 ```
 
-**7. Market Condition Averages (`marketConditionAverages`)**
+**7. Edge Consistency Score (`edgeConsistencyScore`)**
+
+Measures how consistent a strategy's edge is across yearly periods (0–100 score):
+- **score**: Composite score (0–100)
+- **profitablePeriodsScore**: % of years with positive edge (weight: 40%)
+- **stabilityScore**: How consistent the edge magnitude is across years, based on coefficient of variation (weight: 40%)
+- **downsideScore**: How bad the worst year is — 100 if worst year is positive, scales down linearly to 0 at -10% edge (weight: 20%)
+- **yearsAnalyzed**: Number of years with trades included in the calculation
+- **yearlyEdges**: Map of year → edge value for each year
+- **interpretation**: "Excellent" (80+), "Good" (60–79), "Moderate" (40–59), "Poor" (20–39), "Very Poor" (<20)
+
+Returns null when fewer than 2 years have trades.
+
+**Use Case:** Quickly assess whether a strategy's edge is reliable or driven by one or two outlier years.
+
+```python
+# Example: Check edge consistency
+ecs = result.get('edgeConsistencyScore')
+if ecs:
+    print(f"Edge Consistency: {ecs['score']:.0f}/100 ({ecs['interpretation']})")
+    for year, edge in sorted(ecs['yearlyEdges'].items()):
+        print(f"  {year}: {edge:.2f}%")
+```
+
+**8. Market Condition Averages (`marketConditionAverages`)**
 
 Average market conditions across all trades:
-- `avgSpyHeatmap`: Average fear/greed level
 - `avgMarketBreadth`: Average bull percentage
 - `spyUptrendPercent`: % of trades entered during SPY uptrend
 
@@ -676,6 +699,7 @@ print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
    - Positive returns in most years
    - Similar performance across different market conditions
    - No single year dominating all returns
+   - Edge Consistency Score > 60 (Good) indicates reliable strategy
 
 4. **Exit Reason Analysis**
    - Which exit conditions trigger most often?
@@ -703,6 +727,7 @@ print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
 - Returns concentrated in one or two years (luck, not skill)
 - Too many trades (overtrading, death by 1000 cuts)
 - **Return/Drawdown ratio < 3.0 (poor risk-adjusted performance)**
+- **Edge Consistency Score < 40 (Moderate/Poor — unreliable strategy)**
 
 ### Green Flags
 
@@ -722,6 +747,8 @@ print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
 - Positive returns in 75%+ of years
 - Consistent performance across market cycles
 - Similar win rate across different years
+- Edge Consistency Score > 80 (Excellent)
+- Edge Consistency Score > 60 (Good)
 
 ## Saving Results and Reports
 

@@ -6,7 +6,7 @@ package com.skrymer.udgaard.backtesting.dto
  */
 data class ConditionEvaluationResult(
   /**
-   * Type of condition (e.g., "UptrendCondition", "HeatmapCondition")
+   * Type of condition (e.g., "UptrendCondition", "PriceAboveEmaCondition")
    */
   val conditionType: String,
   /**
@@ -18,12 +18,12 @@ data class ConditionEvaluationResult(
    */
   val passed: Boolean,
   /**
-   * The actual value observed (e.g., "65.5" for heatmap)
+   * The actual value observed (e.g., "56.15" for price)
    * Null if not applicable to this condition type
    */
   val actualValue: String? = null,
   /**
-   * The threshold or requirement (e.g., "< 70" for heatmap)
+   * The threshold or requirement (e.g., "> 50.00" for EMA)
    * Null if not applicable to this condition type
    */
   val threshold: String? = null,

@@ -59,6 +59,7 @@ const columns = [
   { accessorKey: 'trades', header: 'Trades' },
   { accessorKey: 'winRate', header: 'Win Rate' },
   { accessorKey: 'avgProfit', header: 'Avg Profit' },
+  { accessorKey: 'edge', header: 'Edge' },
   { accessorKey: 'avgHoldingDays', header: 'Avg Days' }
 ]
 
@@ -69,6 +70,7 @@ const tableData = computed(() => {
     trades: stat.trades,
     winRate: formatWinRate(stat.winRate),
     avgProfit: formatProfit(stat.avgProfit),
+    edge: formatProfit(stat.edge),
     avgHoldingDays: formatDays(stat.avgHoldingDays),
     raw: stat
   }))
@@ -196,10 +198,35 @@ const formatDays = (value: number) => value.toFixed(1)
               {{ row.original.avgProfit }}
             </span>
           </template>
+          <template #edge-data="{ row }">
+            <span
+              :class="{
+                'text-success': row.original.raw.edge > 0,
+                'text-error': row.original.raw.edge < 0,
+                'text-muted': row.original.raw.edge === 0
+              }"
+            >
+              {{ row.original.edge }}
+            </span>
+          </template>
           <template #avgHoldingDays-data="{ row }">
             <span class="text-muted">{{ row.original.avgHoldingDays }}</span>
           </template>
         </UTable>
+
+        <!-- Edge Consistency Score Banner (year view only) -->
+        <div
+          v-if="selectedPeriod === 'year' && report?.edgeConsistencyScore"
+          class="mt-3 flex items-center gap-2 text-sm"
+        >
+          <UBadge
+            :color="report.edgeConsistencyScore.score >= 60 ? 'success' : report.edgeConsistencyScore.score >= 40 ? 'warning' : 'error'"
+            variant="subtle"
+          >
+            Edge Consistency: {{ report.edgeConsistencyScore.score.toFixed(0) }}/100 ({{ report.edgeConsistencyScore.interpretation }})
+          </UBadge>
+          <span class="text-muted">{{ report.edgeConsistencyScore.yearsAnalyzed }} years analyzed</span>
+        </div>
       </div>
 
       <!-- Win Rate Trend Chart -->

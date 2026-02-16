@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy
 
+import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -8,26 +10,17 @@ import com.skrymer.udgaard.data.model.StockQuote
  *
  * Entry when ALL of the following conditions are met:
  *
- * MARKET (SPY):
- * - SPY has a buy signal
- * - SPY is in uptrend (10 > 20, price > 50)
- * - Market stocks bull % over 10 EMA
- * - Market breadth above 35% (absolute threshold)
- * - SPY heatmap < 70
- * - SPY heatmap is rising
+ * MARKET:
+ * - Market in uptrend (breadth EMA alignment)
+ * - Market breadth above 50%
  *
  * SECTOR:
  * - Sector bull % is over 10 EMA (in uptrend)
- * - Sector heatmap is rising
- * - Sector heatmap < 70
- * - Donkey channel AS1 or AS2
- * - Sector heatmap > SPY heatmap
+ * - Sector breadth > Market breadth
  *
  * STOCK:
- * - Has current buy signal
  * - Close price > 10 EMA
  * - Stock is in uptrend
- * - Stock heatmap is rising
  * - Price above previous low
  * - NOT within order block older than 120 days
  */
@@ -35,24 +28,16 @@ import com.skrymer.udgaard.data.model.StockQuote
 class PlanAlphaEntryStrategy : DetailedEntryStrategy {
   private val compositeStrategy =
     entryStrategy {
-      // MARKET (SPY)
-      spyBuySignal()
-      spyUptrend()
+      // MARKET
       marketUptrend()
-      spyHeatmap(70)
-      spyHeatmapRising()
+      marketBreadthAbove(50.0)
 
       // SECTOR
       sectorUptrend()
-      sectorHeatmapRising()
-      sectorHeatmap(70)
-      donkeyChannel()
-      sectorHeatmapGreaterThanSpy()
+      sectorBreadthGreaterThanSpy()
 
       // STOCK
       uptrend()
-      buySignal(daysOld = 5) // Buy signal must be ≤ 5 day old
-      stockHeatmapRising()
       belowOrderBlock(percentBelow = 2.0, ageInDays = 0)
       priceAbove(10)
     }
@@ -64,8 +49,20 @@ class PlanAlphaEntryStrategy : DetailedEntryStrategy {
     quote: StockQuote,
   ): Boolean = compositeStrategy.test(stock, quote)
 
+  override fun test(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean = compositeStrategy.test(stock, quote, context)
+
   override fun testWithDetails(
     stock: Stock,
     quote: StockQuote,
-  ) = compositeStrategy.testWithDetails(stock, quote)
+  ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote)
+
+  override fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote, context)
 }

@@ -43,17 +43,6 @@ open class AlphaVantageClient(
 ) : StockProvider,
   TechnicalIndicatorProvider,
   FundamentalDataProvider {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(AlphaVantageClient::class.java)
-    private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
-    private const val FUNCTION_ATR = "ATR"
-    private const val FUNCTION_ADX = "ADX"
-    private const val FUNCTION_EARNINGS = "EARNINGS"
-    private const val FUNCTION_OVERVIEW = "OVERVIEW"
-    private const val OUTPUT_SIZE_FULL = "full"
-    private const val OUTPUT_SIZE_COMPACT = "compact" // Last 100 data points
-  }
-
   private val restClient: RestClient =
     RestClient
       .builder()
@@ -358,8 +347,7 @@ open class AlphaVantageClient(
         }
 
         val sectorSymbol = response.toSectorSymbol()
-        if (sectorSymbol != null) {
-        } else {
+        if (sectorSymbol == null) {
           logger.warn("Could not map sector '${response.sector}' to SectorSymbol for $symbol")
         }
 
@@ -368,5 +356,16 @@ open class AlphaVantageClient(
         logger.error("Failed to fetch company overview from Alpha Vantage for $symbol: ${e.message}", e)
       }.getOrNull()
     }
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(AlphaVantageClient::class.java)
+    private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
+    private const val FUNCTION_ATR = "ATR"
+    private const val FUNCTION_ADX = "ADX"
+    private const val FUNCTION_EARNINGS = "EARNINGS"
+    private const val FUNCTION_OVERVIEW = "OVERVIEW"
+    private const val OUTPUT_SIZE_FULL = "full"
+    private const val OUTPUT_SIZE_COMPACT = "compact" // Last 100 data points
   }
 }

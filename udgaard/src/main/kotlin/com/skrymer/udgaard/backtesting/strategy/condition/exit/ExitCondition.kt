@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -18,6 +19,17 @@ interface ExitCondition {
     entryQuote: StockQuote?,
     quote: StockQuote,
   ): Boolean
+
+  /**
+   * Determines if exit condition is met, with backtest context.
+   * Default delegates to the context-free method. Override for breadth-dependent conditions.
+   */
+  fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean = shouldExit(stock, entryQuote, quote)
 
   /**
    * Returns the reason for exiting.
@@ -61,4 +73,15 @@ interface ExitCondition {
       description = description(),
       passed = shouldExit(stock, entryQuote, quote),
     )
+
+  /**
+   * Evaluates with details and backtest context.
+   * Default delegates to the context-free method.
+   */
+  fun evaluateWithDetails(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): ConditionEvaluationResult = evaluateWithDetails(stock, entryQuote, quote)
 }

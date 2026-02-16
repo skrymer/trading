@@ -1,12 +1,9 @@
 package com.skrymer.udgaard.data.factory
 
-import com.skrymer.udgaard.data.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.data.model.Breadth
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
-import com.skrymer.udgaard.data.service.OvtlyrEnrichmentService
 import com.skrymer.udgaard.data.service.TechnicalIndicatorService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -14,17 +11,15 @@ import java.time.LocalDate
 
 /**
  * Default implementation of StockFactory.
- * Creates Stock entities from AlphaVantage data enriched with Ovtlyr indicators.
+ * Creates Stock entities from AlphaVantage data with calculated technical indicators.
  *
- * NEW ARCHITECTURE:
- * - AlphaVantage is the PRIMARY data source (OHLCV + volume + ATR)
+ * Pipeline:
+ * - AlphaVantage is the PRIMARY data source (OHLCV + volume + ATR + ADX)
  * - We calculate technical indicators (EMAs, Donchian, trend)
- * - Ovtlyr enriches with signals and heatmaps
  */
 @Component
 class DefaultStockFactory(
   private val technicalIndicatorService: TechnicalIndicatorService,
-  private val ovtlyrEnrichmentService: OvtlyrEnrichmentService,
 ) : StockFactory {
   private val logger = LoggerFactory.getLogger(DefaultStockFactory::class.java)
 
@@ -33,10 +28,6 @@ class DefaultStockFactory(
     stockQuotes: List<StockQuote>,
     atrMap: Map<LocalDate, Double>?,
     adxMap: Map<LocalDate, Double>?,
-    marketBreadth: Breadth?,
-    sectorBreadth: Breadth?,
-    spy: OvtlyrStockInformation?,
-    skipOvtlyrEnrichment: Boolean,
   ): List<StockQuote>? {
     if (stockQuotes.isEmpty()) {
       logger.warn("No AlphaVantage quotes provided for $symbol")
@@ -50,38 +41,7 @@ class DefaultStockFactory(
     val quotesWithATR = enrichWithATR(quotesWithIndicators, atrMap, symbol)
 
     // Step 3: Enrich with ADX data from AlphaVantage
-    val quotesWithADX = enrichWithADX(quotesWithATR, adxMap, symbol)
-
-    // Step 4: Enrich with Ovtlyr signals, heatmaps, and sector data (if not skipped)
-    val enrichedQuotes =
-      if (skipOvtlyrEnrichment) {
-        // Skip Ovtlyr enrichment - use default values
-        ovtlyrEnrichmentService.enrichWithOvtlyr(
-          quotesWithADX,
-          symbol,
-          marketBreadth,
-          sectorBreadth,
-          spy,
-          skipOvtlyrEnrichment = true,
-        )
-      } else {
-        // Perform full Ovtlyr enrichment
-        ovtlyrEnrichmentService.enrichWithOvtlyr(
-          quotesWithADX,
-          symbol,
-          marketBreadth,
-          sectorBreadth,
-          spy,
-          skipOvtlyrEnrichment = false,
-        )
-      }
-
-    if (enrichedQuotes == null) {
-      logger.error("Failed to enrich $symbol - enrichment returned null")
-      return null
-    }
-
-    return enrichedQuotes
+    return enrichWithADX(quotesWithATR, adxMap, symbol)
   }
 
   override fun createStock(
@@ -98,7 +58,6 @@ class DefaultStockFactory(
         quotes = enrichedQuotes.toMutableList(),
         orderBlocks = orderBlocks.toMutableList(),
         earnings = earnings.toMutableList(),
-        ovtlyrPerformance = 0.0,
       )
 
     return stock

@@ -1,6 +1,10 @@
 package com.skrymer.udgaard.portfolio.integration.ibkr
 
-import com.skrymer.udgaard.portfolio.integration.broker.*
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerAccountInfo
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapter
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerCredentials
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerDataResult
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -14,10 +18,6 @@ class IBKRAdapter(
   private val flexQueryClient: IBKRFlexQueryClient,
   private val tradeMapper: IBKRTradeMapper,
 ) : BrokerAdapter {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(IBKRAdapter::class.java)
-  }
-
   override fun fetchTrades(
     credentials: BrokerCredentials,
     accountId: String,
@@ -65,7 +65,10 @@ class IBKRAdapter(
       val filteredTrades = ibkrTrades.filter { it.assetCategory != "CASH" }
       val standardizedTrades = filteredTrades.map { tradeMapper.toStandardizedTrade(it) }
 
-      logger.info("Fetched ${standardizedTrades.size} trades from IBKR Activity Flex Query (${ibkrTrades.size - filteredTrades.size} CASH transactions filtered out)")
+      logger.info(
+        "Fetched ${standardizedTrades.size} trades from IBKR Activity Flex Query " +
+          "(${ibkrTrades.size - filteredTrades.size} CASH transactions filtered out)",
+      )
       return BrokerDataResult(trades = standardizedTrades, accountInfo = accountInfo)
     } catch (e: IBKRApiException) {
       logger.error("Failed to fetch IBKR data", e)
@@ -144,4 +147,8 @@ class IBKRAdapter(
   }
 
   override fun getBrokerType(): BrokerType = BrokerType.IBKR
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(IBKRAdapter::class.java)
+  }
 }

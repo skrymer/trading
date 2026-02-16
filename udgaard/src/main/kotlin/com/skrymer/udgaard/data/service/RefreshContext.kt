@@ -1,7 +1,5 @@
 package com.skrymer.udgaard.data.service
 
-import com.skrymer.udgaard.data.integration.ovtlyr.dto.OvtlyrStockInformation
-import com.skrymer.udgaard.data.model.Breadth
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
@@ -11,41 +9,16 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * This context is created once per refresh session and reused across all stocks
  * in that session, significantly reducing:
- * - SPY API calls (1 instead of N)
- * - Market breadth DB queries (1 instead of N)
- * - Sector breadth DB queries (M instead of N, where M = unique sectors)
+ * - Sector symbol API calls (M instead of N, where M = unique sectors)
  *
  * Thread-safe for concurrent stock processing.
  */
 data class RefreshContext(
   /**
-   * SPY reference data from Ovtlyr, fetched once per session.
-   * Used to enrich all stocks with SPY context (heatmap, signals, trend).
-   * Null when skipOvtlyrEnrichment is true.
-   */
-  val spy: OvtlyrStockInformation?,
-  /**
-   * Market breadth data, fetched once per session.
-   * Provides overall market context for all stocks.
-   */
-  val marketBreadth: Breadth?,
-  /**
-   * Whether to skip Ovtlyr enrichment (signals, heatmaps, sector data).
-   * When true, stocks are enriched with AlphaVantage data only (OHLCV, EMAs, ATR, ADX).
-   * This significantly speeds up the refresh process when Ovtlyr data is not needed.
-   */
-  val skipOvtlyrEnrichment: Boolean = false,
-  /**
    * Minimum date for data filtering. Only data from this date onwards is included.
    * Defaults to 2020-01-01 to reduce memory usage and focus on recent market conditions.
    */
   val minDate: LocalDate = LocalDate.of(2020, 1, 1),
-  /**
-   * Cache of sector breadth data by sector symbol.
-   * Fetched lazily - only when a stock from that sector is processed.
-   * Thread-safe concurrent map for parallel stock processing.
-   */
-  val sectorBreadthCache: ConcurrentHashMap<String, Breadth?> = ConcurrentHashMap(),
   /**
    * Cache of sector symbols by stock symbol.
    * Fetched lazily to avoid redundant API calls for sector lookup.
@@ -53,22 +26,6 @@ data class RefreshContext(
    */
   val sectorSymbolCache: ConcurrentHashMap<String, String?> = ConcurrentHashMap(),
 ) {
-  /**
-   * Get sector breadth for a given sector symbol.
-   * Returns cached value if available, otherwise null (caller should fetch and cache).
-   */
-  fun getSectorBreadth(sectorSymbol: String): Breadth? = sectorBreadthCache[sectorSymbol]
-
-  /**
-   * Cache sector breadth data for a given sector symbol.
-   */
-  fun cacheSectorBreadth(
-    sectorSymbol: String,
-    breadth: Breadth?,
-  ) {
-    sectorBreadthCache[sectorSymbol] = breadth
-  }
-
   /**
    * Get cached sector symbol for a stock.
    * Returns null if not cached (caller should fetch and cache).
@@ -90,6 +47,5 @@ data class RefreshContext(
    */
   fun getStats(): String =
     "RefreshContext stats: " +
-      "sectorBreadthCache=${sectorBreadthCache.size} entries, " +
       "sectorSymbolCache=${sectorSymbolCache.size} entries"
 }

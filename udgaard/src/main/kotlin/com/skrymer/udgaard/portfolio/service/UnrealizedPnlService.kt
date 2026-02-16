@@ -26,24 +26,6 @@ class UnrealizedPnlService(
   private val stockProvider: StockProvider,
   private val optionsDataProvider: OptionsDataProvider,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(UnrealizedPnlService::class.java)
-
-    /**
-     * Get the last completed trading day
-     * AlphaVantage only has data for completed trading days, not the current day
-     */
-    private fun getLastTradingDay(): LocalDate {
-      val today = LocalDate.now()
-      return when (today.dayOfWeek) {
-        DayOfWeek.MONDAY -> today.minusDays(3) // Go back to Friday
-        DayOfWeek.SUNDAY -> today.minusDays(2) // Go back to Friday
-        DayOfWeek.SATURDAY -> today.minusDays(1) // Go back to Friday
-        else -> today.minusDays(1) // Tuesday-Friday: use yesterday
-      }
-    }
-  }
-
   /**
    * Calculate rolled credits from execution history and determine the correct entry price
    * Looks for SELL/BUY pairs within 2 days with matching quantities
@@ -222,4 +204,22 @@ class UnrealizedPnlService(
           }
         }.awaitAll()
     }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(UnrealizedPnlService::class.java)
+
+    /**
+     * Get the last completed trading day
+     * AlphaVantage only has data for completed trading days, not the current day
+     */
+    private fun getLastTradingDay(): LocalDate {
+      val today = LocalDate.now()
+      return when (today.dayOfWeek) {
+        DayOfWeek.MONDAY -> today.minusDays(3) // Go back to Friday
+        DayOfWeek.SUNDAY -> today.minusDays(2) // Go back to Friday
+        DayOfWeek.SATURDAY -> today.minusDays(1) // Go back to Friday
+        else -> today.minusDays(1) // Tuesday-Friday: use yesterday
+      }
+    }
+  }
 }

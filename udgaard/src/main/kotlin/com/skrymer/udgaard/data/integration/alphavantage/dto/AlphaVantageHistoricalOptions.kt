@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.skrymer.udgaard.portfolio.integration.options.OptionContract
 import com.skrymer.udgaard.portfolio.model.OptionType
+import org.slf4j.LoggerFactory
 import java.time.LocalDate
 
 /**
@@ -83,6 +84,7 @@ data class AlphaVantageOptionContract(
     try {
       LocalDate.parse(dateStr)
     } catch (e: Exception) {
+      logger.warn("Failed to parse date '$dateStr', defaulting to today: ${e.message}", e)
       LocalDate.now()
     }
 
@@ -92,4 +94,8 @@ data class AlphaVantageOptionContract(
       "put" -> OptionType.PUT
       else -> OptionType.CALL
     }
+
+  companion object {
+    private val logger = LoggerFactory.getLogger(AlphaVantageOptionContract::class.java)
+  }
 }

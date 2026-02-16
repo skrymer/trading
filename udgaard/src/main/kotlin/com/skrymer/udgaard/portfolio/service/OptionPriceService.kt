@@ -18,10 +18,6 @@ import java.time.LocalDate
 class OptionPriceService(
   private val optionsDataProvider: OptionsDataProvider,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(OptionPriceService::class.java)
-  }
-
   /**
    * Get historical option prices for a date range.
    * Used for visualization - displays option premium movement over time.
@@ -121,6 +117,10 @@ class OptionPriceService(
       optionType = position.optionType!!,
       date = date,
     )
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(OptionPriceService::class.java)
   }
 }
 

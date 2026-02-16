@@ -7,6 +7,7 @@ import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
 import com.skrymer.udgaard.data.dto.StockRefreshResult
 import com.skrymer.udgaard.data.model.Stock
+import com.skrymer.udgaard.data.service.StockIngestionService
 import com.skrymer.udgaard.data.service.StockService
 import com.skrymer.udgaard.data.service.SymbolService
 import org.slf4j.Logger
@@ -36,13 +37,10 @@ import java.time.LocalDate
 @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
 class StockController(
   private val stockService: StockService,
+  private val stockIngestionService: StockIngestionService,
   private val strategySignalService: StrategySignalService,
   private val symbolService: SymbolService,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(StockController::class.java)
-  }
-
   /**
    * Get all stocks that have been loaded into the database.
    * Returns simple stock information without loading full quote/order block data.
@@ -92,12 +90,13 @@ class StockController(
 
   /**
    * Get stock data for a specific symbol.
+   * If refresh=true, refreshes from API first. If the stock is not in the DB,
+   * auto-populates it via the ingestion service.
    *
-   * Example: GET /api/stocks/AAPL?refresh=true&skipOvtlyr=true
+   * Example: GET /api/stocks/AAPL?refresh=true
    *
    * @param symbol Stock symbol (e.g., AAPL, GOOGL)
    * @param refresh Force refresh from external source
-   * @param skipOvtlyr Skip Ovtlyr enrichment when refreshing
    * @return Stock data including quotes and order blocks
    */
   @GetMapping("/{symbol}")
@@ -105,12 +104,27 @@ class StockController(
   suspend fun getStock(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
-    @RequestParam(defaultValue = "false") skipOvtlyr: Boolean,
     @RequestParam(defaultValue = "2020-01-01") minDate: String,
   ): ResponseEntity<Stock> {
     val parsedMinDate = LocalDate.parse(minDate)
-    logger.info("Getting stock data for: $symbol (refresh=$refresh, skipOvtlyr=$skipOvtlyr, minDate=$parsedMinDate)")
-    val stock = stockService.getStock(symbol, refresh, skipOvtlyr, parsedMinDate)
+    logger.info("Getting stock data for: $symbol (refresh=$refresh, minDate=$parsedMinDate)")
+
+    if (refresh) {
+      stockIngestionService.refreshStock(symbol, parsedMinDate)
+    }
+
+    var stock = stockService.getStock(symbol)
+
+    // Auto-populate if not found and no refresh was requested
+    if (stock == null && !refresh) {
+      stockIngestionService.refreshStock(symbol, parsedMinDate)
+      stock = stockService.getStock(symbol)
+    }
+
+    if (stock == null) {
+      return ResponseEntity.notFound().build()
+    }
+
     logger.info("Stock data retrieved successfully for: $symbol")
     return ResponseEntity.ok(stock)
   }
@@ -140,9 +154,13 @@ class StockController(
       "Getting stock $symbol with signals for entry=$entryStrategy, exit=$exitStrategy, cooldown=$cooldownDays (refresh=$refresh)",
     )
 
+    if (refresh) {
+      stockIngestionService.refreshStock(symbol)
+    }
+
     // Get stock data
     val stock =
-      stockService.getStock(symbol, refresh) ?: run {
+      stockService.getStock(symbol) ?: run {
         logger.error("Stock not found: $symbol")
         return ResponseEntity.notFound().build()
       }
@@ -173,7 +191,7 @@ class StockController(
     @RequestBody symbols: List<String>,
   ): ResponseEntity<StockRefreshResult> {
     logger.info("Refreshing ${symbols.size} stocks: ${symbols.joinToString(", ")}")
-    val result = stockService.refreshStocksWithDetails(symbols.map { it.uppercase() })
+    val result = stockIngestionService.refreshStocks(symbols.map { it.uppercase() })
     logger.info(
       "Stock refresh complete: ${result.succeeded}/${result.total} succeeded, ${result.failed} failed (${result.status})",
     )
@@ -193,7 +211,7 @@ class StockController(
    */
   @GetMapping("/{symbol}/evaluate-date/{date}")
   @Transactional(readOnly = true)
-  suspend fun evaluateConditionsForDate(
+  fun evaluateConditionsForDate(
     @PathVariable symbol: String,
     @PathVariable date: String,
     @RequestParam entryStrategy: String,
@@ -202,7 +220,7 @@ class StockController(
 
     // Get stock data
     val stock =
-      stockService.getStock(symbol, false) ?: run {
+      stockService.getStock(symbol) ?: run {
         logger.error("Stock not found: $symbol")
         return ResponseEntity.notFound().build()
       }
@@ -233,7 +251,7 @@ class StockController(
    */
   @GetMapping("/{symbol}/evaluate-exit/{date}")
   @Transactional(readOnly = true)
-  suspend fun evaluateExitConditionsForDate(
+  fun evaluateExitConditionsForDate(
     @PathVariable symbol: String,
     @PathVariable date: String,
     @RequestParam exitStrategy: String,
@@ -242,7 +260,7 @@ class StockController(
     logger.info("Evaluating exit conditions for $symbol on date=$date (entry=$entryDate) with strategy=$exitStrategy")
 
     val stock =
-      stockService.getStock(symbol, false) ?: run {
+      stockService.getStock(symbol) ?: run {
         logger.error("Stock not found: $symbol")
         return ResponseEntity.notFound().build()
       }
@@ -256,5 +274,9 @@ class StockController(
 
     logger.info("Evaluated exit conditions for $symbol on $date: anyConditionMet=${details.anyConditionMet}")
     return ResponseEntity.ok(details)
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(StockController::class.java)
   }
 }

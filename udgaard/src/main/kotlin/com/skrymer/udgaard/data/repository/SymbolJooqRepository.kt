@@ -7,7 +7,6 @@ import org.springframework.stereotype.Repository
 
 data class SymbolRecord(
   val symbol: String,
-  val sectorSymbol: String?,
   val assetType: AssetType,
 )
 
@@ -22,7 +21,6 @@ class SymbolJooqRepository(
       .fetch { record ->
         SymbolRecord(
           symbol = record.get(SYMBOLS.SYMBOL)!!,
-          sectorSymbol = record.get(SYMBOLS.SECTOR_SYMBOL),
           assetType = AssetType.valueOf(record.get(SYMBOLS.ASSET_TYPE)!!),
         )
       }
@@ -34,7 +32,6 @@ class SymbolJooqRepository(
       .fetchOne { record ->
         SymbolRecord(
           symbol = record.get(SYMBOLS.SYMBOL)!!,
-          sectorSymbol = record.get(SYMBOLS.SECTOR_SYMBOL),
           assetType = AssetType.valueOf(record.get(SYMBOLS.ASSET_TYPE)!!),
         )
       }
@@ -47,7 +44,6 @@ class SymbolJooqRepository(
       .fetch { record ->
         SymbolRecord(
           symbol = record.get(SYMBOLS.SYMBOL)!!,
-          sectorSymbol = record.get(SYMBOLS.SECTOR_SYMBOL),
           assetType = AssetType.valueOf(record.get(SYMBOLS.ASSET_TYPE)!!),
         )
       }

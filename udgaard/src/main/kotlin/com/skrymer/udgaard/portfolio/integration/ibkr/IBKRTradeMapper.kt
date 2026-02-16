@@ -1,6 +1,10 @@
 package com.skrymer.udgaard.portfolio.integration.ibkr
 
-import com.skrymer.udgaard.portfolio.integration.broker.*
+import com.skrymer.udgaard.portfolio.integration.broker.AssetType
+import com.skrymer.udgaard.portfolio.integration.broker.OpenCloseIndicator
+import com.skrymer.udgaard.portfolio.integration.broker.OptionDetails
+import com.skrymer.udgaard.portfolio.integration.broker.StandardizedTrade
+import com.skrymer.udgaard.portfolio.integration.broker.TradeDirection
 import com.skrymer.udgaard.portfolio.integration.ibkr.dto.IBKRTrade
 import com.skrymer.udgaard.portfolio.model.OptionType
 import org.slf4j.Logger
@@ -15,10 +19,6 @@ import java.time.format.DateTimeFormatter
  */
 @Component
 class IBKRTradeMapper {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(IBKRTradeMapper::class.java)
-  }
-
   /**
    * Convert IBKR Trade to StandardizedTrade
    */
@@ -152,5 +152,9 @@ class IBKRTradeMapper {
       expiry = parseDate(ibkrTrade.expiry),
       multiplier = ibkrTrade.multiplier?.let { parseIntSafe(it) } ?: 100,
     )
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(IBKRTradeMapper::class.java)
   }
 }

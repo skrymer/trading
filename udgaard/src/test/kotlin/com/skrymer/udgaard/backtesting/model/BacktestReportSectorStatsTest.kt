@@ -1,7 +1,9 @@
 package com.skrymer.udgaard.backtesting.model
 
 import com.skrymer.udgaard.data.model.StockQuote
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import kotlin.math.abs

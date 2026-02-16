@@ -72,7 +72,7 @@ class OrderBlockCalculator {
     }
 
     val sortedQuotes = quotes.sortedBy { it.date }
-    val OrderBlockDomains = mutableListOf<OrderBlock>()
+    val orderBlockDomains = mutableListOf<OrderBlock>()
     val recentCrossings = mutableListOf<Crossing>()
 
     // ROC returns percentage (e.g., 0.69 for 0.69% move)
@@ -132,7 +132,7 @@ class OrderBlockCalculator {
             roc,
             sensitivityLevel,
           )?.let { block ->
-            OrderBlockDomains.add(block)
+            orderBlockDomains.add(block)
             // Only track blocks that weren't already mitigated by findMitigationDate.
             // If endDate is already set, the correct mitigation date was found during
             // forward scanning — adding to activeBlocks would let mitigateBlocks overwrite it.
@@ -147,7 +147,7 @@ class OrderBlockCalculator {
       mitigateBlocks(activeBlocks, sortedQuotes[i], sortedQuotes.getOrNull(i - 1))
     }
 
-    return OrderBlockDomains
+    return orderBlockDomains
   }
 
   /**
@@ -242,6 +242,7 @@ class OrderBlockCalculator {
    * TV creates the box on the trigger bar, so mitigation can only happen from that bar onward.
    * On the trigger bar itself, TV checks close[1] (previous bar's close).
    */
+  @Suppress("UnusedParameter")
   private fun findMitigationDate(
     quotes: List<StockQuote>,
     startIndex: Int,

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.skrymer.udgaard.jooq.tables.pojos.Portfolios
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
 import com.skrymer.udgaard.portfolio.model.Portfolio
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
@@ -73,6 +74,7 @@ class PortfolioMapper {
       try {
         objectMapper.readValue(json)
       } catch (e: Exception) {
+        logger.warn("Failed to parse broker config JSON: ${e.message}", e)
         emptyMap()
       }
     }
@@ -87,7 +89,12 @@ class PortfolioMapper {
       try {
         objectMapper.writeValueAsString(config)
       } catch (e: Exception) {
+        logger.warn("Failed to serialize broker config to JSON: ${e.message}", e)
         null
       }
     }
+
+  companion object {
+    private val logger = LoggerFactory.getLogger(PortfolioMapper::class.java)
+  }
 }

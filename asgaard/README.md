@@ -1,64 +1,107 @@
-# Nuxt Dashboard Template
+# Asgaard Frontend
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+Trading platform frontend built with Nuxt.js, providing a modern UI for backtesting, portfolio management, and market analysis.
 
-Get started with the Nuxt dashboard template with multiple pages, collapsible sidebar, keyboard shortcuts, light & dark more, command palette and more, powered by [Nuxt UI](https://ui.nuxt.com).
+## Tech Stack
 
-- [Live demo](https://dashboard-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
+- **Nuxt 4.1.2** - Vue.js meta-framework
+- **TypeScript 5.9.3** - Type-safe JavaScript
+- **NuxtUI 4.0.1** - UI component library
+- **Vue 3** - Composition API with `<script setup>`
+- **Tailwind CSS** - Utility-first styling
+- **ApexCharts 5.3.5** - Interactive charts
+- **Unovis 1.6.1** - Data visualization
+- **date-fns 4.1.0** - Date utilities
+- **Zod 4.1.11** - Schema validation
 
-<a href="https://dashboard-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/dashboard-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/dashboard-light.png">
-    <img alt="Nuxt Dashboard Template" src="https://ui.nuxt.com/assets/templates/nuxt/dashboard-light.png">
-  </picture>
-</a>
+## Prerequisites
 
-> The dashboard template for Vue is on https://github.com/nuxt-ui-templates/dashboard-vue.
-
-## Quick Start
-
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/dashboard
-```
-
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=dashboard&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fdashboard&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fdashboard-dark.png&demo-url=https%3A%2F%2Fdashboard-template.nuxt.dev%2F&demo-title=Nuxt%20Dashboard%20Template&demo-description=A%20dashboard%20template%20with%20multi-column%20layout%20for%20building%20sophisticated%20admin%20interfaces.)
+- Node.js 18+
+- npm
 
 ## Setup
 
-Make sure to install the dependencies:
-
 ```bash
-pnpm install
+npm install
 ```
 
-## Development Server
+## Development
 
-Start the development server on `http://localhost:3000`:
-
-```bash
-pnpm dev
-```
-
-## Production
-
-Build the application for production:
+Start the development server on http://localhost:3000:
 
 ```bash
-pnpm build
+npm run dev
 ```
 
-Locally preview production build:
+The backend (Udgaard) must be running on http://localhost:8080 for API calls to work.
+
+## Code Quality
 
 ```bash
-pnpm preview
+# TypeScript validation (zero errors required)
+npm run typecheck
+
+# ESLint check
+npm run lint
+
+# ESLint auto-fix
+npm run lint -- --fix
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+## Production Build
 
-## Renovate integration
+```bash
+npm run build
+npm run preview  # Preview production build locally
+```
 
-Install [Renovate GitHub app](https://github.com/apps/renovate/installations/select_target) on your repository and you are good to go.
+## Pages
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Dashboard | `/` | Overview and navigation |
+| Backtesting | `/backtesting` | Configure and run backtests, view results |
+| Portfolio | `/portfolio` | Manage portfolios and trades |
+| Stock Data | `/stock-data` | View stock data and charts |
+| Data Manager | `/data-manager` | Refresh stock data, view database stats |
+| Settings | `/settings` | Application configuration (API keys, etc.) |
+| App Metrics | `/app-metrics` | Application performance metrics |
+
+## Project Structure
+
+```
+asgaard/
+├── app/
+│   ├── components/
+│   │   ├── backtesting/        # Backtest config, results, charts
+│   │   ├── portfolio/          # Portfolio and trade management
+│   │   ├── charts/             # Reusable chart components
+│   │   ├── data-management/    # Data refresh controls and stats
+│   │   └── strategy/           # Strategy builder components
+│   ├── layouts/
+│   │   └── default.vue         # Main layout with sidebar
+│   ├── pages/                  # File-based routing
+│   ├── plugins/                # Nuxt plugins
+│   ├── types/
+│   │   ├── index.d.ts          # API type definitions
+│   │   └── enums.ts            # Shared enums
+│   ├── app.vue                 # Root component
+│   └── error.vue               # Error page
+├── nuxt.config.ts              # Nuxt configuration
+├── package.json
+└── claude.md                   # Frontend development guide for Claude
+```
+
+## Conventions
+
+- **Composition API**: All components use `<script setup lang="ts">`
+- **Auto-imports**: Nuxt auto-imports Vue composables and components
+- **File-based routing**: Pages directory maps to routes
+- **TypeScript strict mode**: All code must pass `typecheck`
+- **ESLint**: No trailing commas, 1TBS brace style
+
+## Related Documentation
+
+- [Main Project README](../README.md)
+- [Backend README](../udgaard/README.MD)
+- [Frontend Development Guide](claude.md)

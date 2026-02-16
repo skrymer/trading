@@ -1,0 +1,34 @@
+
+# Detekt configuration for Trading Platform
+# Complements ktlint (which handles all formatting)
+
+complexity:
+  LongMethod:
+    active: true
+    allowedLines: 60
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 20
+  TooManyFunctions:
+    active: true
+    allowedFunctionsPerFile: 25
+  LongParameterList:
+    active: true
+    allowedFunctionParameters: 10
+    allowedConstructorParameters: 12
+
+style:
+  ClassOrdering:
+    active: true
+  MagicNumber:
+    active: false
+  ReturnCount:
+    active: true
+    max: 4
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false

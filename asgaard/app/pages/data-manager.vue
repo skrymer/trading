@@ -43,17 +43,14 @@ async function loadData() {
 }
 
 // Refresh all stocks
-async function handleRefreshStocks(skipOvtlyr: boolean, minDate: string) {
+async function handleRefreshStocks(minDate: string) {
   try {
-    await $fetch(`/udgaard/api/data-management/refresh/all-stocks?skipOvtlyr=${skipOvtlyr}&minDate=${minDate}`, {
+    await $fetch(`/udgaard/api/data-management/refresh/all-stocks?minDate=${minDate}`, {
       method: 'POST'
     })
-    const message = skipOvtlyr
-      ? 'Stock data refresh has been queued (Ovtlyr enrichment skipped)'
-      : 'Stock data refresh has been queued'
     toast.add({
       title: 'Refresh Started',
-      description: message,
+      description: 'Stock data refresh has been queued',
       color: 'success'
     })
     startPolling()
@@ -62,28 +59,6 @@ async function handleRefreshStocks(skipOvtlyr: boolean, minDate: string) {
     toast.add({
       title: 'Error',
       description: 'Failed to start stock refresh',
-      color: 'error'
-    })
-  }
-}
-
-// Refresh breadth data
-async function handleRefreshBreadth() {
-  try {
-    await $fetch('/udgaard/api/data-management/refresh/breadth', {
-      method: 'POST'
-    })
-    toast.add({
-      title: 'Refresh Started',
-      description: 'Breadth data refresh has been queued',
-      color: 'success'
-    })
-    startPolling()
-  } catch (error) {
-    console.error('Failed to start breadth refresh:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to start breadth refresh',
       color: 'error'
     })
   }
@@ -170,8 +145,10 @@ onUnmounted(() => {
       <DataManagementRefreshControlsCard
         :progress="refreshProgress"
         @refresh-stocks="handleRefreshStocks"
-        @refresh-breadth="handleRefreshBreadth"
       />
+
+      <!-- Section 4: Breadth Data -->
+      <DataManagementBreadthRefreshCard />
     </div>
   </UDashboardPanel>
 </template>

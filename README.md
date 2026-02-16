@@ -26,33 +26,31 @@ The backtesting system allows you to test trading strategies against historical 
 - **Position limits** with intelligent stock ranking
 - **Underlying asset support** (e.g., trade TQQQ using QQQ signals)
 - **Global cooldown periods** to prevent overtrading
-- **Comprehensive performance metrics** (win rate, edge, profit/loss)
+- **Comprehensive performance metrics** (win rate, edge, profit factor, drawdown)
 - **Monte Carlo simulation** for statistical validation
-- **Sector analysis** and trade visualization
+- **Sector and stock performance analysis**
+- **Time-based performance breakdown** (yearly, quarterly, monthly)
+- **Exit reason analysis**
+- **Edge consistency scoring**
 
 ### Key Capabilities
 
 - Historical stock data analysis with technical indicators (EMA, ATR, Donchian channels)
 - Dynamic strategy system with DSL-based strategy creation
 - Market and sector breadth analysis
-- Real-time backtesting with comprehensive performance metrics
+- Portfolio management with live trade tracking (stocks and options)
+- MCP (Model Context Protocol) server for Claude AI integration
 
 ---
 
 ## Quick Start
 
-### Running a Simple Backtest
+### Running a Backtest
 
-**Option 1: Via API (GET)**
-
-```bash
-curl "http://localhost:8080/api/backtest?stockSymbols=AAPL,GOOGL&entryStrategy=PlanAlpha&exitStrategy=PlanMoney"
-```
-
-**Option 2: Via API (POST)**
+**Option 1: Via API (POST)**
 
 ```bash
-curl -X POST http://localhost:8080/api/backtest \
+curl -X POST http://localhost:8080/udgaard/api/backtest \
   -H "Content-Type: application/json" \
   -d '{
     "stockSymbols": ["AAPL", "GOOGL"],
@@ -65,12 +63,12 @@ curl -X POST http://localhost:8080/api/backtest \
   }'
 ```
 
-**Option 3: Via UI**
+**Option 2: Via UI**
 
-1. Start the backend: `cd udgaard && ./gradlew bootRun`
+1. Start the backend: `cd udgaard && ./gradlew startH2Server` (Terminal 1), then `./gradlew bootRun` (Terminal 2)
 2. Start the frontend: `cd asgaard && npm run dev`
 3. Open http://localhost:3000
-4. Click "New Backtest" and configure options
+4. Navigate to Backtesting page and configure options
 5. View results with charts and metrics
 
 ---
@@ -83,31 +81,33 @@ curl -X POST http://localhost:8080/api/backtest \
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (Asgaard)                        │
 │  - Nuxt 4.1.2 + TypeScript + Vue 3                          │
-│  - NuxtUI components + ApexCharts                           │
+│  - NuxtUI 4.0.1 + ApexCharts + Unovis                      │
 │  - Config modal, results display, Monte Carlo UI            │
 └────────────────────────┬────────────────────────────────────┘
                          ↓ HTTP POST
 ┌─────────────────────────────────────────────────────────────┐
 │                   Backend (Udgaard)                          │
-│  - Kotlin 1.9.25 + Spring Boot 3.5.0                        │
-│  - MongoDB for data storage                                 │
-│  - BacktestController → StockService → Strategy System      │
+│  - Kotlin 2.3.0 + Spring Boot 3.5.0                         │
+│  - H2 Database + jOOQ + Flyway                              │
+│  - BacktestController → BacktestService → Strategy System   │
 └─────────────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    Data Layer                                │
-│  - MongoDB: Stock quotes, market breadth                    │
-│  - Ovtlyr: Primary data provider                            │
-│  - Alpha Vantage: Volume enrichment                         │
+│  - H2 Database: Stock quotes, symbols, market breadth       │
+│  - AlphaVantage: Primary data source (adjusted OHLCV, ATR)  │
+│  - Technical indicators calculated locally (EMA, Donchian)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Technology Stack
 
 **Backend:**
-- Kotlin 1.9.25, Spring Boot 3.5.0, MongoDB
-- Coroutines (parallel processing), Caffeine (caching)
-- Spring AI MCP Server (Claude integration)
+- Kotlin 2.3.0, Spring Boot 3.5.0
+- H2 2.2.224 Database (file-based, no Docker required)
+- jOOQ 3.19.23 (type-safe SQL), Flyway (migrations)
+- Caffeine (caching), Spring AI MCP Server (Claude integration)
+- detekt 2.0.0-alpha.2 (static analysis), ktlint (code style)
 
 **Frontend:**
 - Nuxt 4.1.2, TypeScript 5.9.3, Vue 3 Composition API
@@ -125,13 +125,12 @@ Simulate real-world capital constraints:
 - Track missed opportunities
 
 **Rankers Available:**
-- `Heatmap`: Momentum-based ranking
-- `RelativeStrength`: Relative strength vs market
+- `Adaptive`: Market condition-based ranking (default)
+- `Composite`: Multi-factor combination
 - `Volatility`: ATR-based volatility ranking
 - `DistanceFrom10Ema`: Value zone proximity
-- `Composite`: Multi-factor combination
 - `SectorStrength`: Sector strength ranking
-- `Adaptive`: Market condition-based
+- `Random`: Random selection
 
 ### 2. Underlying Asset Support
 
@@ -140,7 +139,6 @@ Trade leveraged ETFs with cleaner signals:
 **Example:** Trade TQQQ (3x leveraged QQQ) using QQQ signals
 - Entry/exit signals from QQQ (less noise, cleaner trends)
 - Actual P&L from TQQQ prices
-- Best of both worlds
 
 **Configuration:**
 ```json
@@ -153,33 +151,29 @@ Trade leveraged ETFs with cleaner signals:
 }
 ```
 
-**Auto-detection** also available:
-- TQQQ → QQQ
-- SOXL → SMH
-- UPRO → SPY
+**Auto-detection** also available (TQQQ → QQQ, SOXL → SMH, UPRO → SPY).
 
 ### 3. Global Cooldown
 
 Prevent overtrading by enforcing waiting periods:
 - Measured in **trading days** (not calendar days)
 - Applies after ANY exit (global, not per-stock)
-- Forces patience between trades
-
-**Example:**
-```
-Exit trade on Jan 5th
-Cooldown: 10 trading days
-Next entry: ~Jan 19 (2 weeks later)
-```
 
 ### 4. Comprehensive Metrics
 
 **BacktestReport includes:**
-- Win/loss statistics (count, rate, amounts)
+- Win/loss statistics (count, rate, amounts, percentages)
 - Edge (expected % gain per trade)
-- Complete trade list with entry/exit details
-- Exit reason analysis
+- Profit factor (gross profit / gross loss)
+- Maximum drawdown
+- Edge consistency score (how stable the edge is across years)
+- Time-based stats (yearly, quarterly, monthly breakdown)
+- Exit reason analysis with per-reason and per-year stats
 - Sector performance breakdown
+- Stock-level performance breakdown
+- ATR drawdown statistics for winning trades
+- Market condition averages at trade entry
+- Complete trade list with entry/exit details
 - Missed opportunity tracking
 
 **Edge Calculation:**
@@ -193,12 +187,6 @@ Validate strategy edge statistically:
 - **Trade Shuffling**: Same trades, different order
 - **Bootstrap Resampling**: Random sampling with replacement
 
-**Use Case:**
-1. Run backtest → 47 trades generated
-2. Run Monte Carlo → 10,000 scenarios
-3. Analyze: Is profit consistent or just lucky?
-4. Result: 100% probability of profit = validated edge
-
 ---
 
 ## How Backtesting Works
@@ -207,38 +195,15 @@ Validate strategy edge statistically:
 
 The backtest simulates trading decisions **chronologically** to prevent look-ahead bias:
 
-```kotlin
-// Step 1: Build date range
-val allTradingDates = stocks.flatMap { it.quotes }
-    .filter { it.date in startDate..endDate }
-    .map { it.date }
-    .distinct()
-    .sorted()
-
-// Step 2: Process each date
-allTradingDates.forEach { currentDate ->
-    // 2a. Find all stocks meeting entry criteria
-    val potentialEntries = stocks.filter { stock ->
-        entryStrategy.test(stock, stock.getQuote(currentDate))
-    }
-
-    // 2b. Rank candidates
-    val rankedEntries = potentialEntries
-        .map { stock -> stock to ranker.score(stock, currentDate) }
-        .sortedByDescending { it.second }
-
-    // 2c. Apply position limit
-    val selectedStocks = rankedEntries.take(maxPositions)
-
-    // 2d. Create trades
-    selectedStocks.forEach { stock ->
-        val exitReport = stock.testExitStrategy(entryQuote, exitStrategy)
-        if (exitReport.matched) {
-            trades.add(Trade(...))
-        }
-    }
-}
-```
+1. Build a sorted list of all trading dates in the range
+2. For each date:
+   - Check exits for open positions
+   - Find all stocks meeting entry criteria
+   - Rank candidates using selected ranker
+   - Apply position limit (take top N)
+   - Track missed trades (qualified but couldn't enter)
+   - Apply cooldown after exits
+3. Compile results into BacktestReport
 
 ### Key Algorithm Details
 
@@ -252,36 +217,18 @@ allTradingDates.forEach { currentDate ->
 
 ## API Reference
 
-### GET /api/backtest
-
-Simple query parameter interface.
-
-**Parameters:**
-- `stockSymbols` (optional): Comma-separated symbols
-- `entryStrategy` (optional): Entry strategy name (default: "PlanAlpha")
-- `exitStrategy` (optional): Exit strategy name (default: "PlanMoney")
-- `startDate` (optional): ISO date (default: "2020-01-01")
-- `endDate` (optional): ISO date (default: today)
-- `maxPositions` (optional): Max positions per day
-- `ranker` (optional): Ranking method (default: "Heatmap")
-- `cooldownDays` (optional): Global cooldown in trading days (default: 0)
-
-**Example:**
-```bash
-GET /api/backtest?stockSymbols=AAPL,GOOGL&maxPositions=2&cooldownDays=5
-```
-
 ### POST /api/backtest
 
-Advanced interface with custom strategy support.
+Run a backtest with full configuration.
 
 **Request:**
 ```json
 {
-  "stockSymbols": ["TQQQ"],
+  "stockSymbols": ["AAPL", "GOOGL"],
+  "assetTypes": ["STOCK"],
   "entryStrategy": {
     "type": "predefined",
-    "name": "PlanEtf"
+    "name": "PlanAlpha"
   },
   "exitStrategy": {
     "type": "custom",
@@ -292,11 +239,24 @@ Advanced interface with custom strategy support.
   },
   "startDate": "2021-01-01",
   "endDate": "2025-11-22",
-  "maxPositions": 2,
+  "maxPositions": 3,
+  "ranker": "Adaptive",
   "useUnderlyingAssets": true,
+  "customUnderlyingMap": {"TQQQ": "QQQ"},
   "cooldownDays": 10
 }
 ```
+
+**Parameters:**
+- `stockSymbols` (optional): List of symbols to test
+- `assetTypes` (optional): Filter by asset type (STOCK, ETF, LEVERAGED_ETF, INDEX, BOND_ETF, COMMODITY_ETF)
+- `entryStrategy`: Predefined name or custom conditions
+- `exitStrategy`: Predefined name or custom conditions
+- `startDate` / `endDate` (optional): Date range
+- `maxPositions` (optional): Max concurrent positions
+- `ranker` (optional): Ranking method (default: "Adaptive")
+- `useUnderlyingAssets` (optional): Use underlying for signals (default: true)
+- `cooldownDays` (optional): Global cooldown in trading days (default: 0)
 
 **Response:**
 ```json
@@ -305,37 +265,22 @@ Advanced interface with custom strategy support.
   "losingTrades": [...],
   "missedTrades": [...],
   "winRate": 0.68,
+  "edge": 7.16,
+  "profitFactor": 2.1,
   "averageWinPercent": 12.5,
   "averageLossPercent": 4.2,
-  "edge": 7.16,
-  "numberOfWinningTrades": 34,
-  "numberOfLosingTrades": 16,
-  "trades": [
-    {
-      "stockSymbol": "TQQQ",
-      "underlyingSymbol": "QQQ",
-      "entryQuote": {...},
-      "exitReason": "Price is 2.9 ATR above 20 EMA",
-      "profit": 12.50,
-      "profitPercentage": 15.2,
-      "startDate": "2021-03-15",
-      "tradingDays": 23
-    }
-  ]
+  "totalTrades": 50,
+  "timeBasedStats": {...},
+  "exitReasonAnalysis": {...},
+  "sectorPerformance": [...],
+  "stockPerformance": [...],
+  "edgeConsistencyScore": {...}
 }
 ```
 
 ### GET /api/backtest/strategies
 
-Get available strategies.
-
-**Response:**
-```json
-{
-  "entryStrategies": ["PlanAlpha", "PlanEtf", "PlanBeta", "OvtlyrPlanEtf", "VegardPlanEtf"],
-  "exitStrategies": ["PlanMoney", "PlanAlpha", "PlanEtf", "OvtlyrPlanEtf", "VegardPlanEtf"]
-}
-```
+Get available predefined strategies.
 
 ### GET /api/backtest/rankers
 
@@ -343,41 +288,24 @@ Get available rankers.
 
 **Response:**
 ```json
-["Heatmap", "RelativeStrength", "Volatility", "DistanceFrom10Ema", "Composite", "SectorStrength", "Random", "Adaptive"]
+["Adaptive", "Volatility", "DistanceFrom10Ema", "Composite", "SectorStrength", "Random"]
 ```
 
 ### GET /api/backtest/conditions
 
-Get available conditions for custom strategies.
+Get available conditions for custom strategies, including parameter metadata.
 
-**Response:**
-```json
-{
-  "entryConditions": [
-    {
-      "type": "uptrend",
-      "displayName": "Stock in Uptrend",
-      "description": "10 EMA > 20 EMA and price > 50 EMA",
-      "category": "Stock",
-      "parameters": []
-    },
-    {
-      "type": "buySignal",
-      "displayName": "Buy Signal",
-      "description": "Stock has a buy signal",
-      "category": "Stock",
-      "parameters": [
-        {
-          "name": "currentOnly",
-          "type": "boolean",
-          "defaultValue": false
-        }
-      ]
-    }
-  ],
-  "exitConditions": [...]
-}
-```
+### Other Endpoints
+
+**Stocks:** `GET /api/stocks`, `GET /api/stocks/{symbol}`, `POST /api/stocks/refresh`
+
+**Market Breadth:** `GET /api/breadth`, `GET /api/breadth/{symbol}`, `POST /api/breadth/refresh`
+
+**Portfolio:** `GET/POST /api/portfolio`, `GET/DELETE /api/portfolio/{id}`, trade management endpoints
+
+**Monte Carlo:** `POST /api/monte-carlo/run`
+
+**Data Management:** `POST /api/data/import`, `POST /api/cache/evict`, `POST /api/cache/evict-all`
 
 ---
 
@@ -385,26 +313,16 @@ Get available conditions for custom strategies.
 
 ### Strategy Registration
 
-Strategies are auto-discovered using annotations:
+Strategies are auto-discovered using the `@RegisteredStrategy` annotation:
 
 ```kotlin
 @RegisteredStrategy(name = "PlanAlpha", type = StrategyType.ENTRY)
-class PlanAlphaEntryStrategy: EntryStrategy {
+class PlanAlphaEntryStrategy : DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
-    // MARKET (SPY)
-    spyBuySignal()
-    spyUptrend()
-    spyHeatmap(70)
-
-    // SECTOR
-    sectorUptrend()
-    sectorHeatmapRising()
-
-    // STOCK
-    buySignal(currentOnly = true)
+    marketInUptrend()
+    sectorInUptrend()
     uptrend()
-    priceAbove(10)
-    stockHeatmapRising()
+    priceAboveEma(20)
   }
 
   override fun test(stock: Stock, quote: StockQuote): Boolean {
@@ -420,10 +338,11 @@ Build strategies declaratively:
 ```kotlin
 // Entry Strategy
 val myEntry = entryStrategy {
-    buySignal()
+    marketInUptrend()
+    sectorInUptrend()
     uptrend()
-    priceAbove(20)
-    heatmap(70)
+    priceAboveEma(20)
+    marketBreadthAbove(50.0)
 }
 
 // Exit Strategy
@@ -431,25 +350,42 @@ val myExit = exitStrategy {
     stopLoss(0.5)        // 0.5 ATR
     profitTarget(3.0)    // 3.0 ATR
     priceBelowEma(10)
+    emaCross()
 }
 ```
 
 ### Available Strategies
 
 **Entry Strategies:**
-- `PlanAlpha`: Comprehensive multi-factor entry
-- `PlanEtf`: ETF-focused entry strategy
-- `PlanBeta`: Beta variant entry strategy
-- `OvtlyrPlanEtf`: Ovtlyr's ETF strategy
-- `VegardPlanEtf`: Vegard's ETF strategy with tighter value zone
-- `SimpleBuySignal`: Basic buy signal entry
+- `PlanAlpha`: Multi-factor entry with market, sector, and stock conditions
+- `PlanQ`: Focused entry strategy variant
+- `PlanMV`: Minimum volatility entry strategy
+- `OvtlyrPlanEtf`: ETF-focused entry strategy
+- `ProjectX`: Experimental entry strategy
 
 **Exit Strategies:**
-- `PlanMoney`: Money management exit rules
+- `PlanMoney`: Money management exit rules (ATR-based stops and targets)
 - `PlanAlpha`: Plan Alpha exit rules
-- `PlanEtf`: ETF-focused exit strategy
-- `OvtlyrPlanEtf`: Ovtlyr's ETF exit with sell signals
-- `VegardPlanEtf`: Vegard's ETF exit with trailing stop
+- `PlanQ`: Focused exit strategy variant
+- `OvtlyrPlanEtf`: ETF-focused exit strategy
+- `ProjectX`: Experimental exit strategy
+
+### Available Conditions
+
+**Entry Conditions (22):**
+- **Market**: MarketUptrend, MarketBreadthAbove
+- **Sector**: SectorUptrend, SectorBreadthGreaterThanSpy
+- **Stock Trend**: Uptrend, EmaAlignment, EmaBullishCross, PriceAboveEma
+- **Value Zone**: ValueZone, ConsecutiveHigherHighsInValueZone, BelowOrderBlock, AboveBearishOrderBlock
+- **Order Block**: NotInOrderBlock, OrderBlockRejection
+- **Risk**: ADXRange, ATRExpanding, MinimumPrice, VolumeAboveAverage, PriceAbovePreviousLow
+- **Earnings**: DaysSinceEarnings, NoEarningsWithinDays
+
+**Exit Conditions (11):**
+- StopLoss, ProfitTarget, ATRTrailingStopLoss
+- PriceBelowEma, PriceBelowEmaForDays, PriceBelowEmaMinusAtr
+- EmaCross, BelowPreviousDayLow
+- MarketAndSectorDowntrend, BearishOrderBlock, BeforeEarnings
 
 ---
 
@@ -458,40 +394,44 @@ val myExit = exitStrategy {
 ### Backend Setup
 
 **Prerequisites:**
-- Docker (for MongoDB)
 - Java 21+
-- Create `udgaard/src/main/resources/secure.properties`:
-  ```properties
-  ovtlyr.cookies.token=XXX
-  ovtlyr.cookies.userid=XXX
-  ```
+- Gradle (included via wrapper)
 
-**Start MongoDB:**
+**First-Time Setup:**
 ```bash
 cd udgaard
-docker compose up -d
-```
 
-**Run Backend:**
-```bash
+# Create secure.properties for API credentials
+touch src/main/resources/secure.properties
+# Add your AlphaVantage API key (optional, can also be set via Settings UI)
+
+# Terminal 1: Start H2 database server
+./gradlew startH2Server
+
+# Terminal 2: Initialize database and build
+./gradlew initDatabase  # Creates schema via Flyway migrations
+./gradlew build         # Generates jOOQ code, runs tests, builds JAR
+
+# Start the application
 ./gradlew bootRun
-# or
-./gradlew build
-java -jar build/libs/udgaard-0.0.1-SNAPSHOT.jar
 ```
 
-**Backend runs on:** http://localhost:8080
+**Regular Development:**
+```bash
+# Terminal 1: Start H2 server (if not already running)
+./gradlew startH2Server
+
+# Terminal 2: Run application
+./gradlew bootRun
+```
+
+**Backend runs on:** http://localhost:8080/udgaard
 
 ### Frontend Setup
 
-**Install dependencies:**
 ```bash
 cd asgaard
 npm install
-```
-
-**Run dev server:**
-```bash
 npm run dev
 ```
 
@@ -512,164 +452,89 @@ npm run typecheck
 npm run lint
 ```
 
+### Code Quality
+
+**Kotlin code style (ktlint):**
+```bash
+cd udgaard
+./gradlew ktlintCheck       # Check
+./gradlew ktlintFormat      # Auto-fix
+```
+
+**Static analysis (detekt):**
+```bash
+cd udgaard
+./gradlew detekt            # Run analysis
+./gradlew detektBaseline    # Regenerate baseline
+```
+
 ---
 
 ## Troubleshooting
 
 ### Issue: "Backtest timeout"
 
-**Symptoms:** Request times out after 2 minutes
+**Symptoms:** Request times out
 
 **Solutions:**
-1. Reduce stock count
-2. Use cached data (`refresh: false`)
-3. Reduce date range
-4. Frontend timeout already set to 10 minutes
-
-**Check:**
-```typescript
-// asgaard/app/pages/backtesting.vue
-const report = await $fetch('/udgaard/api/backtest', {
-  timeout: 600000 // 10 minutes
-})
-```
+1. Reduce stock count or date range
+2. The backend timeout is 30 minutes (`spring.mvc.async.request-timeout=1800000`)
+3. The frontend timeout is 10 minutes
 
 ### Issue: "Missing underlying asset"
 
 **Error:** `Missing underlying asset data for: QQQ`
 
-**Solution:** Load underlying asset first
-```bash
-curl -X POST http://localhost:8080/api/stock/load \
-  -H "Content-Type: application/json" \
-  -d '{"symbols": ["QQQ"]}'
-```
+**Solution:** Load the underlying asset data first via the Data Manager page or API.
 
 ### Issue: "No trades generated"
 
 **Possible Causes:**
-1. **Strategy too strict**: No stocks meet criteria
-   - Solution: Relax conditions or use different strategy
-2. **Date range mismatch**: No data in range
-   - Solution: Check stock data availability
+1. **Strategy too strict**: No stocks meet all entry conditions
+2. **Date range mismatch**: No data in the specified range
 3. **All in cooldown**: Global cooldown too long
-   - Solution: Reduce cooldown days
 
-**Debug:**
+### Issue: Database connection errors
+
+**Solution:**
 ```bash
-# Check available strategies
-curl http://localhost:8080/api/backtest/strategies
+# Ensure H2 server is running
+cd udgaard
+./gradlew startH2Server
 
-# Test with known-good strategy
-curl "http://localhost:8080/api/backtest?stockSymbols=AAPL&entryStrategy=SimpleBuySignal&exitStrategy=PlanMoney"
+# If locked, stop and restart
+./gradlew stopH2Server
+./gradlew startH2Server
 ```
 
-### Issue: "MongoDB connection failed"
+### Issue: Build fails
 
 **Solution:**
 ```bash
 cd udgaard
-docker compose up -d
-docker ps  # Verify MongoDB is running
+
+# Ensure H2 server is running (required for jOOQ code generation)
+./gradlew startH2Server
+
+# Clean rebuild
+./gradlew clean build
 ```
 
 ---
 
-## Performance Optimizations
+## Performance
 
 ### Caching
 
 Stock data is cached using Caffeine:
 - **TTL:** 30 minutes
 - **Max entries:** 1,000 per cache
-- **Performance gain:** 43.7% faster on warm cache
 
-**Cache warming:**
-```bash
-# Pre-load stocks into cache
-curl -X POST http://localhost:8080/api/stock/load \
-  -d '{"symbols": ["AAPL", "GOOGL", "MSFT", "NVDA"]}'
-```
+### Scaling Notes
 
-### Parallel Stock Fetching
-
-Backend uses Kotlin coroutines for parallel fetching:
-- Up to 10 concurrent fetches
-- Graceful failure handling
-- Significantly faster for multiple stocks
-
-### Frontend Optimizations
-
-- Long timeout for large backtests (10 min)
-- Loading states with progress indicators
-- Keep-alive connections for API calls
-- Efficient chart rendering with ApexCharts
-
----
-
-## Common Use Cases
-
-### 1. Simple Backtest
-
-Test default strategy on a few stocks:
-```bash
-GET /api/backtest?stockSymbols=AAPL,GOOGL,MSFT
-```
-
-### 2. Position-Limited Backtest
-
-Simulate limited capital (max 3 positions):
-```bash
-GET /api/backtest?stockSymbols=AAPL,GOOGL,MSFT,NVDA,TSLA&maxPositions=3&ranker=Heatmap
-```
-
-### 3. Leveraged ETF with Underlying Signals
-
-Trade TQQQ using QQQ signals:
-```json
-{
-  "stockSymbols": ["TQQQ"],
-  "entryStrategy": {"type": "predefined", "name": "VegardPlanEtf"},
-  "exitStrategy": {"type": "predefined", "name": "VegardPlanEtf"},
-  "useUnderlyingAssets": true,
-  "cooldownDays": 10
-}
-```
-
-### 4. Custom Strategy
-
-Build from individual conditions:
-```json
-{
-  "stockSymbols": ["AAPL"],
-  "entryStrategy": {
-    "type": "custom",
-    "conditions": [
-      {"type": "uptrend"},
-      {"type": "priceAbove", "parameters": {"ema": 20}},
-      {"type": "heatmap", "parameters": {"threshold": 50}}
-    ]
-  },
-  "exitStrategy": {
-    "type": "custom",
-    "conditions": [
-      {"type": "stopLoss", "parameters": {"atrMultiplier": 0.5}},
-      {"type": "profitTarget", "parameters": {"atrMultiplier": 3.0}}
-    ]
-  }
-}
-```
-
-### 5. Cooldown Analysis
-
-Compare results with/without cooldown:
-```bash
-# Without cooldown
-GET /api/backtest?stockSymbols=TQQQ&cooldownDays=0
-
-# With 10-day cooldown
-GET /api/backtest?stockSymbols=TQQQ&cooldownDays=10
-```
+- 500 stocks: ~2GB heap, ~29 min runtime
+- ~4MB per stock in memory
+- HTTP timeout: 30 minutes (main bottleneck for large batches)
 
 ---
 
@@ -677,46 +542,49 @@ GET /api/backtest?stockSymbols=TQQQ&cooldownDays=10
 
 ```
 trading/
-├── .claude/                    # Claude context and skills
-│   ├── context.md
-│   ├── commands/
-│   └── skills/
-│
 ├── udgaard/                    # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/
-│   │   ├── controller/         # REST controllers
-│   │   │   ├── BacktestController.kt
-│   │   │   ├── MonteCarloController.kt
-│   │   │   ├── StockController.kt
-│   │   │   └── dto/
-│   │   ├── model/              # Domain models
-│   │   │   ├── BacktestReport.kt
-│   │   │   ├── Trade.kt
-│   │   │   ├── Stock.kt
-│   │   │   └── strategy/       # Trading strategies
-│   │   ├── service/            # Business logic
-│   │   │   ├── StockService.kt
-│   │   │   ├── MonteCarloService.kt
-│   │   │   └── StrategyRegistry.kt
-│   │   └── integration/        # External APIs
-│   ├── src/test/kotlin/
-│   └── build.gradle
+│   │   ├── backtesting/        # Backtesting engine
+│   │   │   ├── controller/     # REST controllers
+│   │   │   ├── dto/            # Request/response DTOs
+│   │   │   ├── model/          # BacktestReport, Trade, metrics
+│   │   │   ├── service/        # BacktestService, DynamicStrategyBuilder
+│   │   │   └── strategy/       # Entry/exit strategies and conditions
+│   │   ├── data/               # Data layer
+│   │   │   ├── controller/     # Stock, Breadth, DataManagement controllers
+│   │   │   ├── integration/    # AlphaVantage client
+│   │   │   ├── model/          # Stock, StockQuote, MarketBreadth
+│   │   │   ├── repository/     # jOOQ repositories
+│   │   │   └── service/        # StockService, BreadthService, etc.
+│   │   └── mcp/                # MCP server for Claude AI
+│   ├── src/main/resources/
+│   │   ├── db/migration/       # Flyway SQL migrations
+│   │   └── application.properties
+│   ├── build.gradle
+│   ├── detekt.yml              # Static analysis config
+│   └── detekt-baseline.xml     # Baseline for existing violations
 │
-├── asgaard/              # Frontend (Nuxt.js)
+├── asgaard/                    # Frontend (Nuxt.js)
 │   ├── app/
-│   │   ├── components/
-│   │   │   ├── backtesting/
-│   │   │   ├── charts/
-│   │   │   └── strategy/
-│   │   ├── pages/
-│   │   │   ├── backtesting.vue
-│   │   │   ├── portfolio.vue
-│   │   │   └── market-breadth.vue
-│   │   ├── types/
-│   │   └── utils/
+│   │   ├── components/         # Vue components
+│   │   │   ├── backtesting/    # Backtest config, results, charts
+│   │   │   ├── portfolio/      # Portfolio management
+│   │   │   ├── charts/         # Chart components
+│   │   │   ├── data-management/ # Data refresh and stats
+│   │   │   └── strategy/       # Strategy builder
+│   │   ├── pages/              # File-based routing
+│   │   │   ├── index.vue       # Dashboard
+│   │   │   ├── backtesting.vue # Backtesting UI
+│   │   │   ├── portfolio.vue   # Portfolio management
+│   │   │   ├── stock-data.vue  # Stock data viewer
+│   │   │   ├── data-manager.vue # Data management
+│   │   │   ├── settings.vue    # Application settings
+│   │   │   └── app-metrics.vue # App metrics
+│   │   └── types/              # TypeScript definitions
 │   ├── nuxt.config.ts
 │   └── package.json
 │
+├── CLAUDE.md                   # Claude AI context
 └── README.md                   # This file
 ```
 
@@ -724,12 +592,11 @@ trading/
 
 ## Documentation
 
-- **DYNAMIC_STRATEGY_SYSTEM.md**: How the strategy system works
-- **MCP_SERVER_README.md**: MCP server setup and usage
-- **MONTE_CARLO_BUG_FIX_REPORT.md**: Critical compounding bug fix
-- **TQQQ_BACKTEST_COMPARISON_REPORT.md**: Strategy comparison analysis
-- **DATA_COMPARISON_REPORT.md**: Ovtlyr vs Yahoo Finance validation
-- **udgaard/claude_thoughts/**: Implementation notes and summaries
+- [Backend README](udgaard/README.MD)
+- [Frontend README](asgaard/README.md)
+- [Dynamic Strategy System](claude_thoughts/DYNAMIC_STRATEGY_SYSTEM.md)
+- [MCP Server Setup](claude_thoughts/MCP_SERVER_README.md)
+- [AlphaVantage Architecture](claude_thoughts/ALPHAVANTAGE_REFACTORING_SUMMARY.md)
 
 ---
 
@@ -740,12 +607,6 @@ trading/
 - [Spring Boot Documentation](https://spring.io/projects/spring-boot)
 - [Kotlin Documentation](https://kotlinlang.org/docs/home.html)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
-
----
-
-## License
-
-[Add your license information here]
 
 ---
 

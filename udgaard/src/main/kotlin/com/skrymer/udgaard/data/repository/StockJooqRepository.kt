@@ -8,10 +8,10 @@ import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
 import com.skrymer.udgaard.jooq.tables.pojos.Stocks
 import com.skrymer.udgaard.jooq.tables.references.EARNINGS
-import com.skrymer.udgaard.jooq.tables.references.MARKET_BREADTH_DAILY
 import com.skrymer.udgaard.jooq.tables.references.ORDER_BLOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
+import com.skrymer.udgaard.jooq.tables.references.SYMBOLS
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
@@ -161,7 +161,10 @@ class StockJooqRepository(
         .where(EARNINGS.STOCK_SYMBOL.`in`(symbols))
         .orderBy(EARNINGS.STOCK_SYMBOL, EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
-    logger.info("Loaded ${stocks.size} stocks, ${orderBlocks.size} order blocks, ${earnings.size} earnings in ${System.currentTimeMillis() - startTime}ms")
+    logger.info(
+      "Loaded ${stocks.size} stocks, ${orderBlocks.size} order blocks, " +
+        "${earnings.size} earnings in ${System.currentTimeMillis() - startTime}ms",
+    )
 
     // Group by symbol
     val quotesBySymbol = quotes.groupBy { it.stockSymbol }
@@ -230,13 +233,6 @@ class StockJooqRepository(
               .set(STOCK_QUOTES.OPEN_PRICE, pojo.openPrice)
               .set(STOCK_QUOTES.HIGH_PRICE, pojo.highPrice)
               .set(STOCK_QUOTES.LOW_PRICE, pojo.lowPrice)
-              .set(STOCK_QUOTES.HEATMAP, pojo.heatmap)
-              .set(STOCK_QUOTES.PREVIOUS_HEATMAP, pojo.previousHeatmap)
-              .set(STOCK_QUOTES.SECTOR_HEATMAP, pojo.sectorHeatmap)
-              .set(STOCK_QUOTES.PREVIOUS_SECTOR_HEATMAP, pojo.previousSectorHeatmap)
-              .set(STOCK_QUOTES.SECTOR_IS_IN_UPTREND, pojo.sectorIsInUptrend)
-              .set(STOCK_QUOTES.SECTOR_DONKEY_CHANNEL_SCORE, pojo.sectorDonkeyChannelScore)
-              .set(STOCK_QUOTES.SIGNAL, pojo.signal)
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA10, pojo.closePriceEma10)
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA20, pojo.closePriceEma20)
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
@@ -244,34 +240,10 @@ class StockJooqRepository(
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
               .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
               .set(STOCK_QUOTES.TREND, pojo.trend)
-              .set(STOCK_QUOTES.LAST_BUY_SIGNAL, pojo.lastBuySignal)
-              .set(STOCK_QUOTES.LAST_SELL_SIGNAL, pojo.lastSellSignal)
-              .set(STOCK_QUOTES.SPY_SIGNAL, pojo.spySignal)
-              .set(STOCK_QUOTES.SPY_IN_UPTREND, pojo.spyInUptrend)
-              .set(STOCK_QUOTES.SPY_HEATMAP, pojo.spyHeatmap)
-              .set(STOCK_QUOTES.SPY_PREVIOUS_HEATMAP, pojo.spyPreviousHeatmap)
-              .set(STOCK_QUOTES.SPY_EMA200, pojo.spyEma200)
-              .set(STOCK_QUOTES.SPY_SMA200, pojo.spySma200)
-              .set(STOCK_QUOTES.SPY_EMA50, pojo.spyEma50)
-              .set(STOCK_QUOTES.SPY_DAYS_ABOVE_200SMA, pojo.spyDaysAbove_200sma)
-              .set(STOCK_QUOTES.MARKET_ADVANCING_PERCENT, pojo.marketAdvancingPercent)
-              .set(STOCK_QUOTES.MARKET_IS_IN_UPTREND, pojo.marketIsInUptrend)
-              .set(STOCK_QUOTES.MARKET_DONKEY_CHANNEL_SCORE, pojo.marketDonkeyChannelScore)
-              .set(STOCK_QUOTES.MARKET_BULL_PERCENTAGE, pojo.marketBullPercentage)
-              .set(STOCK_QUOTES.MARKET_BULL_PERCENTAGE_10EMA, pojo.marketBullPercentage_10ema)
-              .set(STOCK_QUOTES.PREVIOUS_QUOTE_DATE, pojo.previousQuoteDate)
-              .set(STOCK_QUOTES.SECTOR_BREADTH, pojo.sectorBreadth)
-              .set(STOCK_QUOTES.SECTOR_STOCKS_IN_DOWNTREND, pojo.sectorStocksInDowntrend)
-              .set(STOCK_QUOTES.SECTOR_STOCKS_IN_UPTREND, pojo.sectorStocksInUptrend)
-              .set(STOCK_QUOTES.SECTOR_BULL_PERCENTAGE, pojo.sectorBullPercentage)
               .set(STOCK_QUOTES.ATR, pojo.atr)
               .set(STOCK_QUOTES.ADX, pojo.adx)
               .set(STOCK_QUOTES.VOLUME, pojo.volume)
               .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND, pojo.donchianUpperBand)
-              .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND_MARKET, pojo.donchianUpperBandMarket)
-              .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND_SECTOR, pojo.donchianUpperBandSector)
-              .set(STOCK_QUOTES.DONCHIAN_LOWER_BAND_MARKET, pojo.donchianLowerBandMarket)
-              .set(STOCK_QUOTES.DONCHIAN_LOWER_BAND_SECTOR, pojo.donchianLowerBandSector)
           },
         )
         quoteBatch.execute()
@@ -363,52 +335,14 @@ class StockJooqRepository(
       .from(STOCKS)
       .fetchOne(0, Long::class.java) ?: 0L
 
-  /**
-   * Read pre-calculated market breadth from the market_breadth_daily table.
-   * Data is populated during Flyway migration and refreshed after stock data updates.
-   */
-  fun calculateBreadthByDate(): Map<LocalDate, Double> =
+  fun countDistinctStocksWithQuotes(): Int =
     dsl
-      .select(MARKET_BREADTH_DAILY.QUOTE_DATE, MARKET_BREADTH_DAILY.BREADTH_PERCENT)
-      .from(MARKET_BREADTH_DAILY)
-      .fetch { record ->
-        val date = record[MARKET_BREADTH_DAILY.QUOTE_DATE]!!
-        val breadth = record[MARKET_BREADTH_DAILY.BREADTH_PERCENT]?.toDouble() ?: 0.0
-        date to breadth
-      }.toMap()
-
-  /**
-   * Recalculate market_breadth_daily from stock_quotes.
-   * Called after stock data refresh to keep breadth values current.
-   */
-  fun refreshBreadthDaily() {
-    val logger = LoggerFactory.getLogger("BreadthRefresh")
-    val start = System.currentTimeMillis()
-
-    dsl.transaction { config ->
-      val ctx = config.dsl()
-      ctx.deleteFrom(MARKET_BREADTH_DAILY).execute()
-      ctx
-        .insertInto(
-          MARKET_BREADTH_DAILY,
-          MARKET_BREADTH_DAILY.QUOTE_DATE,
-          MARKET_BREADTH_DAILY.BREADTH_PERCENT,
-        ).select(
-          dsl
-            .select(
-              STOCK_QUOTES.QUOTE_DATE,
-              DSL
-                .count(DSL.`when`(STOCK_QUOTES.TREND.eq("Uptrend"), 1))
-                .cast(java.math.BigDecimal::class.java)
-                .mul(java.math.BigDecimal("100.0"))
-                .div(DSL.count().cast(java.math.BigDecimal::class.java)),
-            ).from(STOCK_QUOTES)
-            .groupBy(STOCK_QUOTES.QUOTE_DATE),
-        ).execute()
-    }
-
-    logger.info("Refreshed market breadth daily in ${System.currentTimeMillis() - start}ms")
-  }
+      .select(DSL.countDistinct(STOCK_QUOTES.STOCK_SYMBOL))
+      .from(STOCK_QUOTES)
+      .join(SYMBOLS)
+      .on(STOCK_QUOTES.STOCK_SYMBOL.eq(SYMBOLS.SYMBOL))
+      .where(SYMBOLS.ASSET_TYPE.eq("STOCK"))
+      .fetchOne(0, Int::class.java) ?: 0
 
   /**
    * Delete multiple stocks by symbols in a single transaction
@@ -478,13 +412,6 @@ class StockJooqRepository(
                 .set(STOCK_QUOTES.OPEN_PRICE, pojo.openPrice)
                 .set(STOCK_QUOTES.HIGH_PRICE, pojo.highPrice)
                 .set(STOCK_QUOTES.LOW_PRICE, pojo.lowPrice)
-                .set(STOCK_QUOTES.HEATMAP, pojo.heatmap)
-                .set(STOCK_QUOTES.PREVIOUS_HEATMAP, pojo.previousHeatmap)
-                .set(STOCK_QUOTES.SECTOR_HEATMAP, pojo.sectorHeatmap)
-                .set(STOCK_QUOTES.PREVIOUS_SECTOR_HEATMAP, pojo.previousSectorHeatmap)
-                .set(STOCK_QUOTES.SECTOR_IS_IN_UPTREND, pojo.sectorIsInUptrend)
-                .set(STOCK_QUOTES.SECTOR_DONKEY_CHANNEL_SCORE, pojo.sectorDonkeyChannelScore)
-                .set(STOCK_QUOTES.SIGNAL, pojo.signal)
                 .set(STOCK_QUOTES.CLOSE_PRICE_EMA10, pojo.closePriceEma10)
                 .set(STOCK_QUOTES.CLOSE_PRICE_EMA20, pojo.closePriceEma20)
                 .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
@@ -492,34 +419,10 @@ class StockJooqRepository(
                 .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
                 .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
                 .set(STOCK_QUOTES.TREND, pojo.trend)
-                .set(STOCK_QUOTES.LAST_BUY_SIGNAL, pojo.lastBuySignal)
-                .set(STOCK_QUOTES.LAST_SELL_SIGNAL, pojo.lastSellSignal)
-                .set(STOCK_QUOTES.SPY_SIGNAL, pojo.spySignal)
-                .set(STOCK_QUOTES.SPY_IN_UPTREND, pojo.spyInUptrend)
-                .set(STOCK_QUOTES.SPY_HEATMAP, pojo.spyHeatmap)
-                .set(STOCK_QUOTES.SPY_PREVIOUS_HEATMAP, pojo.spyPreviousHeatmap)
-                .set(STOCK_QUOTES.SPY_EMA200, pojo.spyEma200)
-                .set(STOCK_QUOTES.SPY_SMA200, pojo.spySma200)
-                .set(STOCK_QUOTES.SPY_EMA50, pojo.spyEma50)
-                .set(STOCK_QUOTES.SPY_DAYS_ABOVE_200SMA, pojo.spyDaysAbove_200sma)
-                .set(STOCK_QUOTES.MARKET_ADVANCING_PERCENT, pojo.marketAdvancingPercent)
-                .set(STOCK_QUOTES.MARKET_IS_IN_UPTREND, pojo.marketIsInUptrend)
-                .set(STOCK_QUOTES.MARKET_DONKEY_CHANNEL_SCORE, pojo.marketDonkeyChannelScore)
-                .set(STOCK_QUOTES.MARKET_BULL_PERCENTAGE, pojo.marketBullPercentage)
-                .set(STOCK_QUOTES.MARKET_BULL_PERCENTAGE_10EMA, pojo.marketBullPercentage_10ema)
-                .set(STOCK_QUOTES.PREVIOUS_QUOTE_DATE, pojo.previousQuoteDate)
-                .set(STOCK_QUOTES.SECTOR_BREADTH, pojo.sectorBreadth)
-                .set(STOCK_QUOTES.SECTOR_STOCKS_IN_DOWNTREND, pojo.sectorStocksInDowntrend)
-                .set(STOCK_QUOTES.SECTOR_STOCKS_IN_UPTREND, pojo.sectorStocksInUptrend)
-                .set(STOCK_QUOTES.SECTOR_BULL_PERCENTAGE, pojo.sectorBullPercentage)
                 .set(STOCK_QUOTES.ATR, pojo.atr)
                 .set(STOCK_QUOTES.ADX, pojo.adx)
                 .set(STOCK_QUOTES.VOLUME, pojo.volume)
                 .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND, pojo.donchianUpperBand)
-                .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND_MARKET, pojo.donchianUpperBandMarket)
-                .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND_SECTOR, pojo.donchianUpperBandSector)
-                .set(STOCK_QUOTES.DONCHIAN_LOWER_BAND_MARKET, pojo.donchianLowerBandMarket)
-                .set(STOCK_QUOTES.DONCHIAN_LOWER_BAND_SECTOR, pojo.donchianLowerBandSector)
             },
           )
         quoteBatch.execute()

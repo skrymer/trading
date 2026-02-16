@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -19,6 +20,13 @@ interface ExitStrategy {
     quote: StockQuote,
   ): Boolean
 
+  fun match(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean = match(stock, entryQuote, quote)
+
   /**
    * @return a ExitStrategyReport.
    */
@@ -33,6 +41,18 @@ interface ExitStrategy {
       ExitStrategyReport(false)
     }
 
+  fun test(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): ExitStrategyReport =
+    if (match(stock, entryQuote, quote, context)) {
+      ExitStrategyReport(true, reason(stock, entryQuote, quote, context), exitPrice(stock, entryQuote, quote))
+    } else {
+      ExitStrategyReport(false)
+    }
+
   /**
    * @return the exit reason.
    */
@@ -41,6 +61,13 @@ interface ExitStrategy {
     entryQuote: StockQuote?,
     quote: StockQuote,
   ): String?
+
+  fun reason(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): String? = reason(stock, entryQuote, quote)
 
   /**
    * A description of this exit strategy.

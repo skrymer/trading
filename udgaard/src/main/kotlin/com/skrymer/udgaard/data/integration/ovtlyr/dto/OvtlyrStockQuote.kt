@@ -1,7 +1,6 @@
 package com.skrymer.udgaard.data.integration.ovtlyr.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.skrymer.udgaard.data.model.Breadth
 import java.time.LocalDate
 
 /**
@@ -189,12 +188,12 @@ class OvtlyrStockQuote {
 
   fun getClosePriceEMA50(): Double? = closePriceEMA50
 
+  val isInUptrend: Boolean
+    get() = "Uptrend" == trend
+
   fun hasBuySignal(): Boolean = "Buy" == signal
 
   fun hasSellSignal(): Boolean = "Sell" == signal
-
-  val isInUptrend: Boolean
-    get() = "Uptrend" == trend
 
   override fun toString() = "Symbol: $symbol Signal: $signal Trend: $trend Date: $date"
 
@@ -247,26 +246,6 @@ class OvtlyrStockQuote {
   ) = stock
     .getPreviousQuotes(this, periods)
     .maxOfOrNull { it.closePrice } ?: 0.0
-
-  /**
-   * Calculate the donchian upper band for the number of stocks in an uptrend.
-   */
-  fun calculateDonchianUpperBandMarket(
-    market: Breadth?,
-    periods: Int = 4,
-  ) = market
-    ?.getPreviousQuotes(this.date, periods)
-    ?.maxOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
-
-  /**
-   * Calculate the donchian lower band for the number of stocks in an uptrend.
-   */
-  fun calculateDonchianLowerBandMarket(
-    market: Breadth?,
-    periods: Int = 4,
-  ) = market
-    ?.getPreviousQuotes(this.date, periods)
-    ?.minOfOrNull { it.numberOfStocksInUptrend.toDouble() } ?: 0.0
 
   /**
    * Calculate EMA for the stock's close price
@@ -393,22 +372,6 @@ class OvtlyrStockQuote {
     }
 
     return count
-  }
-
-  /**
-   * Calculate market breadth - percentage of stocks advancing (above their uptrend status)
-   * Uses the existing market breadth data
-   */
-  fun calculateMarketAdvancingPercent(marketBreadth: Breadth?): Double {
-    if (marketBreadth == null) return 0.0
-
-    val breadthQuote = marketBreadth.getQuoteForDate(date) ?: return 0.0
-
-    val total = breadthQuote.numberOfStocksInUptrend + breadthQuote.numberOfStocksInDowntrend
-
-    if (total == 0) return 0.0
-
-    return (breadthQuote.numberOfStocksInUptrend.toDouble() / total) * 100.0
   }
 
   override fun equals(other: Any?): Boolean =

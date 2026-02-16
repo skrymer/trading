@@ -381,19 +381,13 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only, ma
 
 ### Pre-Commit Checklist
 
-**ALWAYS verify before committing:**
+**ALWAYS run `/pre-commit` before committing.** This skill runs all 4 required checks (backend tests, ktlint, frontend lint, frontend typecheck) and reports results. All checks must pass before committing.
 
-1. **All Backend Tests Must Pass**: `cd udgaard && ./gradlew test`
-2. **Backend Code Linting**: `cd udgaard && ./gradlew ktlintCheck` (auto-fix with `ktlintFormat`)
-3. **Frontend Code Linting**: `cd asgaard && npm run lint` (auto-fix with `npm run lint -- --fix`)
-4. **Frontend TypeScript Validation**: `cd asgaard && npm run typecheck` (ZERO errors required)
-5. **Update Relevant Documentation**: Update CLAUDE.md, udgaard/claude.md, asgaard/claude.md, README.md as needed (do NOT modify `claude_thoughts/`)
+Also update relevant documentation as needed (CLAUDE.md, udgaard/claude.md, asgaard/claude.md, README.md). Do NOT modify `claude_thoughts/`.
 
 ### Testing
 - Write unit tests for strategy logic
 - Test backtesting results against known values
-- Always run `npm run typecheck` before completing frontend changes
-- ESLint validation before commits
 
 ---
 

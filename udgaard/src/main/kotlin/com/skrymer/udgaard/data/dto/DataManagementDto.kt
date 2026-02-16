@@ -24,7 +24,6 @@ data class RateLimitConfigDto(
 // Database Statistics DTOs
 data class DatabaseStats(
   val stockStats: StockDataStats,
-  val breadthStats: BreadthDataStats,
   val totalDataPoints: Long,
   val estimatedSizeKB: Long,
   val generatedAt: LocalDateTime,
@@ -67,17 +66,15 @@ data class SimpleStockInfo(
   val hasData: Boolean,
 )
 
-data class BreadthDataStats(
-  val totalBreadthSymbols: Int,
-  val totalBreadthQuotes: Long,
-  val breadthSymbols: List<BreadthSymbolInfo>,
-  val dateRange: DateRange?,
+// Breadth Coverage DTOs
+data class BreadthCoverageStats(
+  val totalStocks: Int,
+  val sectors: List<SectorStockCount>,
 )
 
-data class BreadthSymbolInfo(
-  val symbol: String,
-  val quoteCount: Int,
-  val lastQuoteDate: LocalDate,
+data class SectorStockCount(
+  val sectorSymbol: String,
+  val totalStocks: Int,
 )
 
 // Refresh DTOs
@@ -111,7 +108,6 @@ data class FailedStock(
 
 enum class RefreshType {
   STOCK,
-  BREADTH,
 }
 
 data class RefreshTask(

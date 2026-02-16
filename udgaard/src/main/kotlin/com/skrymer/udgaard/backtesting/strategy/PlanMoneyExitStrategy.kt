@@ -10,9 +10,8 @@ import com.skrymer.udgaard.data.model.StockQuote
 class PlanMoneyExitStrategy : ExitStrategy {
   private val compositeStrategy =
     exitStrategy {
-      sellSignal()
       emaCross(10, 20)
-      orderBlock(120)
+      bearishOrderBlock(120)
       stopLoss(2.0)
       // Gap and crap
       exitBeforeEarnings(1)

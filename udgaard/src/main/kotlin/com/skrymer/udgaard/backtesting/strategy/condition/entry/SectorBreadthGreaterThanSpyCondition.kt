@@ -2,26 +2,32 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
 
 /**
- * Entry condition that checks if sector breadth is greater than market (SPY) breadth.
+ * Entry condition that checks if sector breadth is greater than market breadth.
  *
- * This condition identifies stocks in sectors that are outperforming the overall market
- * in terms of breadth/participation. When sector breadth > market breadth, it suggests
- * stronger participation and momentum within that sector compared to the broader market.
- *
- * Use case: Enter positions when the stock's sector shows stronger breadth than the market,
- * indicating relative sector strength and better odds of sustained moves.
+ * Compares sector bull percentage against market breadth percentage from context.
  */
 @Component
 class SectorBreadthGreaterThanSpyCondition : EntryCondition {
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = quote.sectorBreadth > quote.marketAdvancingPercent
+  ): Boolean = evaluate(stock, quote, BacktestContext.EMPTY)
+
+  override fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean {
+    val sectorBullPct = context.getSectorBreadth(stock.sectorSymbol, quote.date)?.bullPercentage ?: return false
+    val marketBreadthPct = context.getMarketBreadth(quote.date)?.breadthPercent ?: return false
+    return sectorBullPct > marketBreadthPct
+  }
 
   override fun description(): String = "Sector breadth > Market breadth"
 
@@ -29,7 +35,7 @@ class SectorBreadthGreaterThanSpyCondition : EntryCondition {
     ConditionMetadata(
       type = "sectorBreadthGreaterThanSpy",
       displayName = "Sector Breadth > Market Breadth",
-      description = "Sector breadth is greater than market (SPY) breadth",
+      description = "Sector breadth is greater than market breadth",
       parameters = emptyList(),
       category = "Sector",
     )
@@ -37,10 +43,16 @@ class SectorBreadthGreaterThanSpyCondition : EntryCondition {
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
+
+  override fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
-    val sectorBreadth = quote.sectorBreadth
-    val marketBreadth = quote.marketAdvancingPercent
-    val passed = sectorBreadth > marketBreadth
+    val sectorBreadth = context.getSectorBreadth(stock.sectorSymbol, quote.date)?.bullPercentage ?: 0.0
+    val marketBreadth = context.getMarketBreadth(quote.date)?.breadthPercent ?: 0.0
+    val passed = evaluate(stock, quote, context)
     val difference = sectorBreadth - marketBreadth
 
     val message =

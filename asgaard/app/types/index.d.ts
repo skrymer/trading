@@ -99,6 +99,7 @@ export interface BacktestReport {
   stockPerformance: StockPerformance[]
   atrDrawdownStats?: ATRDrawdownStats
   marketConditionAverages?: Record<string, number>
+  edgeConsistencyScore?: EdgeConsistencyScore
 }
 
 export interface Stock {
@@ -111,20 +112,16 @@ export interface Stock {
 export interface StockQuote {
   atr: number
   adx?: number | null
-  signal?: string | null
-  lastBuySignal: string
-  lastSellSignal: string
   date: string
   closePrice: number
   closePriceEMA5: number
   closePriceEMA10: number
   closePriceEMA20: number
   closePriceEMA50: number
+  ema200: number
   openPrice: number
   high: number
   low: number
-  heatmap: number
-  sectorHeatmap: number
   trend?: string
   volume?: number
 }
@@ -201,6 +198,7 @@ export interface PeriodStats {
   avgProfit: number
   avgHoldingDays: number
   exitReasons: Record<string, number>
+  edge: number
 }
 
 /**
@@ -230,6 +228,20 @@ export interface SectorPerformance {
   winRate: number
   avgProfit: number
   avgHoldingDays: number
+}
+
+/**
+ * Edge consistency score - measures how consistent a strategy's edge is across years
+ * Score 0-100: 80+ Excellent, 60-79 Good, 40-59 Moderate, 20-39 Poor, <20 Very Poor
+ */
+export interface EdgeConsistencyScore {
+  score: number
+  profitablePeriodsScore: number
+  stabilityScore: number
+  downsideScore: number
+  yearsAnalyzed: number
+  yearlyEdges: Record<number, number>
+  interpretation: string
 }
 
 /**
@@ -290,46 +302,28 @@ export interface DrawdownBucket {
   cumulativePercentage: number // Running total
 }
 
-/**
- * Breadth data for either market (all stocks) or sector (specific sector).
- * The symbol field will be either "FULLSTOCK" for market or a sector code like "XLK".
- */
-export interface Breadth {
-  id: string
-  symbol: BreadthSymbol
-  name: string
-  quotes: BreadthQuote[]
-  inUptrend: boolean
-  heatmap: number
-  previousHeatmap: number
-  donkeyChannelScore: number
-}
-
-export interface BreadthQuote {
-  symbol: string
+export interface MarketBreadthDaily {
   quoteDate: string
-  numberOfStocksWithABuySignal: number
-  numberOfStocksWithASellSignal: number
-  numberOfStocksInUptrend: number
-  numberOfStocksInNeutral: number
-  numberOfStocksInDowntrend: number
-  bullStocksPercentage: number
-  ema_5: number
-  ema_10: number
-  ema_20: number
-  ema_50: number
-  heatmap: number
-  previousHeatmap: number
+  breadthPercent: number
+  ema5: number
+  ema10: number
+  ema20: number
+  ema50: number
   donchianUpperBand: number
-  previousDonchianUpperBand: number
   donchianLowerBand: number
-  previousDonchianLowerBand: number
-  donkeyChannelScore: number
 }
 
-// Backward compatibility aliases (deprecated - use Breadth and BreadthQuote)
-export type MarketBreadth = Breadth
-export type MarketBreadthQuote = BreadthQuote
+export interface SectorBreadthDaily {
+  sectorSymbol: string
+  quoteDate: string
+  bullPercentage: number
+  ema5: number
+  ema10: number
+  ema20: number
+  ema50: number
+  donchianUpperBand: number
+  donchianLowerBand: number
+}
 
 // Dynamic Strategy Types
 export type StrategyType = 'predefined' | 'custom'
@@ -795,8 +789,6 @@ export interface RateLimitConfig {
 
 export interface DatabaseStats {
   stockStats: StockDataStats
-  breadthStats: BreadthDataStats
-  etfStats: EtfDataStats
   totalDataPoints: number
   estimatedSizeKB: number
   generatedAt: string
@@ -830,19 +822,6 @@ export interface StockUpdateInfo {
   orderBlockCount: number
 }
 
-export interface BreadthDataStats {
-  totalBreadthSymbols: number
-  totalBreadthQuotes: number
-  breadthSymbols: BreadthSymbolInfo[]
-  dateRange: DateRange | null
-}
-
-export interface BreadthSymbolInfo {
-  symbol: string
-  quoteCount: number
-  lastQuoteDate: string
-}
-
 export interface EtfDataStats {
   totalEtfs: number
   totalEtfQuotes: number
@@ -850,6 +829,16 @@ export interface EtfDataStats {
   dateRange: DateRange | null
   etfsWithHoldings: number
   averageHoldingsPerEtf: number
+}
+
+export interface BreadthCoverageStats {
+  totalStocks: number
+  sectors: SectorStockCount[]
+}
+
+export interface SectorStockCount {
+  sectorSymbol: string
+  totalStocks: number
 }
 
 export interface RefreshProgress {

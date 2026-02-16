@@ -31,14 +31,13 @@ class ProviderConfiguration(
 ) {
   private val logger = LoggerFactory.getLogger(ProviderConfiguration::class.java)
 
-  companion object {
-    const val PROVIDER_ALPHAVANTAGE = "alphavantage"
-  }
-
   @PostConstruct
   fun init() {
     // Register AlphaVantage provider with rate limits
-    logger.info("Registering AlphaVantage provider with rate limits: $avRequestsPerSecond/sec, $avRequestsPerMinute/min, $avRequestsPerDay/day")
+    logger.info(
+      "Registering AlphaVantage provider with rate limits: " +
+        "$avRequestsPerSecond/sec, $avRequestsPerMinute/min, $avRequestsPerDay/day",
+    )
     rateLimiter.registerProvider(
       providerId = PROVIDER_ALPHAVANTAGE,
       requestsPerSecond = avRequestsPerSecond,
@@ -82,4 +81,8 @@ class ProviderConfiguration(
     providerId = PROVIDER_ALPHAVANTAGE,
     rateLimiter = rateLimiter,
   )
+
+  companion object {
+    const val PROVIDER_ALPHAVANTAGE = "alphavantage"
+  }
 }

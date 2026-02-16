@@ -1,11 +1,48 @@
 package com.skrymer.udgaard.backtesting.service
 
-import com.skrymer.udgaard.backtesting.dto.*
-import com.skrymer.udgaard.backtesting.strategy.*
+import com.skrymer.udgaard.backtesting.dto.ConditionConfig
+import com.skrymer.udgaard.backtesting.dto.CustomStrategyConfig
+import com.skrymer.udgaard.backtesting.dto.PredefinedStrategyConfig
+import com.skrymer.udgaard.backtesting.dto.StrategyConfig
+import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.*
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ADXRangeCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ATRExpandingCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.AboveBearishOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.BelowOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ConsecutiveHigherHighsInValueZoneCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.DaysSinceEarningsCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaBullishCrossCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
-import com.skrymer.udgaard.backtesting.strategy.condition.exit.*
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthAboveCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockRejectionCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanSpyCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolumeAboveAverageCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ATRTrailingStopLoss
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.BearishOrderBlockExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.BeforeEarningsExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.BelowPreviousDayLowExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.StopLossExit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -71,14 +108,6 @@ class DynamicStrategyBuilder(
   private fun buildEntryCondition(config: ConditionConfig): EntryCondition =
     when (config.type.lowercase()) {
       "uptrend" -> UptrendCondition()
-      "buysignal" ->
-        BuySignalCondition(
-          daysOld = (config.parameters["daysOld"] as? Number)?.toInt() ?: -1,
-        )
-      "heatmap" ->
-        HeatmapCondition(
-          threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 70.0,
-        )
       "priceaboveema" ->
         PriceAboveEmaCondition(
           emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10,
@@ -87,23 +116,8 @@ class DynamicStrategyBuilder(
         ValueZoneCondition(
           atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.0,
         )
-      "spybuysignal" -> SpyBuySignalCondition()
-      "spyuptrend" -> SpyUptrendCondition()
       "marketuptrend" -> MarketUptrendCondition()
-      "spyheatmap" ->
-        SpyHeatmapThresholdCondition(
-          threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 70.0,
-        )
-      "spyheatmaprising" -> SpyHeatmapRisingCondition()
       "sectoruptrend" -> SectorUptrendCondition()
-      "sectorheatmaprising" -> SectorHeatmapRisingCondition()
-      "sectorheatmap" ->
-        SectorHeatmapThresholdCondition(
-          threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 70.0,
-        )
-      "donkeychannel" -> DonkeyChannelCondition()
-      "sectorheatmapgreaterthanspy" -> SectorHeatmapGreaterThanSpyCondition()
-      "stockheatmaprising" -> StockHeatmapRisingCondition()
       "priceabovepreviouslow" -> PriceAbovePreviousLowCondition()
       "notinorderblock" ->
         NotInOrderBlockCondition(
@@ -159,6 +173,10 @@ class DynamicStrategyBuilder(
         NoEarningsWithinDaysCondition(
           days = (config.parameters["days"] as? Number)?.toInt() ?: 7,
         )
+      "dayssinceearnings" ->
+        DaysSinceEarningsCondition(
+          days = (config.parameters["days"] as? Number)?.toInt() ?: 5,
+        )
       "consecutivehigherhighsinvaluezone" ->
         ConsecutiveHigherHighsInValueZoneCondition(
           consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3,
@@ -178,7 +196,6 @@ class DynamicStrategyBuilder(
     logger.info("Building exit condition: type=${config.type}, params=${config.parameters}")
     val condition =
       when (config.type.lowercase()) {
-        "sellsignal" -> SellSignalExit()
         "emacross" -> {
           val fastEma = (config.parameters["fastEma"] as? Number)?.toInt() ?: 10
           val slowEma = (config.parameters["slowEma"] as? Number)?.toInt() ?: 20
@@ -227,8 +244,6 @@ class DynamicStrategyBuilder(
           PriceBelowEmaForDaysExit(emaPeriod, consecutiveDays)
         }
         "belowpreviousdaylow" -> BelowPreviousDayLowExit()
-        "heatmapthreshold" -> HeatmapThresholdExit()
-        "heatmapdeclining" -> HeatmapDecliningExit()
         "marketandsectordowntrend" -> MarketAndSectorDowntrendExit()
         "beforeearnings" -> {
           val daysBeforeEarnings = (config.parameters["daysBeforeEarnings"] as? Number)?.toInt() ?: 1

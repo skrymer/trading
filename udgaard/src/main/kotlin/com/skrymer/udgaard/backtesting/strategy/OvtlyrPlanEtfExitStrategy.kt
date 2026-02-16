@@ -7,7 +7,6 @@ import com.skrymer.udgaard.data.model.StockQuote
  * Plan ETF exit strategy using composition - OPTIMIZED VERSION.
  *
  * Exits when any of the following conditions are met:
- * - Sell signal (from Ovtlyr)
  * - 10 EMA crosses under 20 EMA
  * - Price extends 3.0 ATR above 20 EMA (profit target) - OPTIMIZED from 3.5
  * - Trailing stop loss at 2.7 ATR below highest high since entry - ADDED
@@ -24,7 +23,6 @@ import com.skrymer.udgaard.data.model.StockQuote
 class OvtlyrPlanEtfExitStrategy : ExitStrategy {
   private val compositeStrategy =
     exitStrategy {
-      sellSignal()
       emaCross(10, 20)
       profitTarget(3.0, 20) // Optimized: 3.0 ATR (was 3.5)
       trailingStopLoss(2.7) // Added: 2.7 ATR trailing stop for downside protection

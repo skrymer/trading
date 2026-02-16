@@ -81,7 +81,9 @@ class ConsecutiveHigherHighsInValueZoneCondition(
       else -> quote.closePriceEMA20 // Default to 20 EMA
     }
 
-  override fun description(): String = "$consecutiveDays consecutive higher closes in value zone (${emaPeriod}EMA to ${emaPeriod}EMA + ${atrMultiplier}ATR)"
+  override fun description(): String =
+    "$consecutiveDays consecutive higher closes in value zone " +
+      "(${emaPeriod}EMA to ${emaPeriod}EMA + ${atrMultiplier}ATR)"
 
   override fun getMetadata() =
     ConditionMetadata(

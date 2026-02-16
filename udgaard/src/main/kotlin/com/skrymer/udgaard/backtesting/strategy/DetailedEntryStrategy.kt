@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy
 
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -22,4 +23,10 @@ interface DetailedEntryStrategy : EntryStrategy {
     stock: Stock,
     quote: StockQuote,
   ): EntrySignalDetails
+
+  fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): EntrySignalDetails = testWithDetails(stock, quote)
 }

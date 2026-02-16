@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
+import com.skrymer.udgaard.data.repository.MarketBreadthRepository
+import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
@@ -18,13 +20,44 @@ class BacktestServiceTest {
 
   private lateinit var backtestService: BacktestService
   private lateinit var stockRepository: StockJooqRepository
+  private lateinit var sectorBreadthRepository: SectorBreadthRepository
+  private lateinit var marketBreadthRepository: MarketBreadthRepository
+
+  val closePriceIsGreaterThanOrEqualTo100 =
+    object : EntryStrategy {
+      override fun description() = "Test entry strategy"
+
+      override fun test(
+        stock: Stock,
+        quote: StockQuote,
+      ) = quote.closePrice >= 100.0
+    }
+
+  val openPriceIsLessThan100 =
+    object : ExitStrategy {
+      override fun match(
+        stock: Stock,
+        entryQuote: StockQuote?,
+        quote: StockQuote,
+      ) = quote.openPrice < 100.0
+
+      override fun reason(
+        stock: Stock,
+        entryQuote: StockQuote?,
+        quote: StockQuote,
+      ) = "Because stone cold said so!"
+
+      override fun description() = ""
+    }
 
   @BeforeEach
   fun setup() {
     stockRepository = mock(StockJooqRepository::class.java)
-    `when`(stockRepository.calculateBreadthByDate()).thenReturn(emptyMap())
+    sectorBreadthRepository = mock(SectorBreadthRepository::class.java)
+    marketBreadthRepository = mock(MarketBreadthRepository::class.java)
+    `when`(marketBreadthRepository.calculateBreadthByDate()).thenReturn(emptyMap())
 
-    backtestService = BacktestService(stockRepository)
+    backtestService = BacktestService(stockRepository, sectorBreadthRepository, marketBreadthRepository)
   }
 
   @Test
@@ -228,33 +261,6 @@ class BacktestServiceTest {
     // Should NOT enter on quote2 because still in trade from quote1
     Assertions.assertEquals(1, report.totalTrades)
   }
-
-  val closePriceIsGreaterThanOrEqualTo100 =
-    object : EntryStrategy {
-      override fun description() = "Test entry strategy"
-
-      override fun test(
-        stock: Stock,
-        quote: StockQuote,
-      ) = quote.closePrice >= 100.0
-    }
-
-  val openPriceIsLessThan100 =
-    object : ExitStrategy {
-      override fun match(
-        stock: Stock,
-        entryQuote: StockQuote?,
-        quote: StockQuote,
-      ) = quote.openPrice < 100.0
-
-      override fun reason(
-        stock: Stock,
-        entryQuote: StockQuote?,
-        quote: StockQuote,
-      ) = "Because stone cold said so!"
-
-      override fun description() = ""
-    }
 
   // ===== UNDERLYING ASSET TESTS =====
 
@@ -690,30 +696,29 @@ class BacktestServiceTest {
     // Test that global cooldown works correctly with position limiting
 
     // Two stocks with 5 TRADING day cooldown (not inclusive) and max 1 position:
-    // Note: Lower heatmap = better score (HeatmapRanker uses 100 - heatmap)
-    // Trading day 0 (Jan 1): Both trigger, Stock A wins (heatmap 20 beats 60), Stock B blocked by position limit
+    // Trading day 0 (Jan 1): Both trigger, Stock A wins (first in list, equal rank), Stock B blocked by position limit
     // Trading day 1 (Jan 2): Stock A exits (global cooldown starts)
     // Trading days 2-6 (Jan 3-7): Both BLOCKED by cooldown (only 1-5 trading days since exit, not inclusive)
-    // Trading day 7 (Jan 8): Both can enter (6 trading days passed, more than 5), Stock A wins again (better heatmap)
+    // Trading day 7 (Jan 8): Both can enter (6 trading days passed, more than 5), Stock A wins again (first in list)
     // Trading day 8 (Jan 9): Stock A exits
 
     val stockAQuotes =
       mutableListOf(
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1)),
-        StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 4)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 5)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)),
-        StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 9)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8)),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 9)),
       )
 
     val stockBQuotes =
       mutableListOf(
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 1)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 60.0, date = LocalDate.of(2025, 1, 8)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8)),
       )
 
     val stockA = Stock("STOCK_A", "XLK", quotes = stockAQuotes.toMutableList())
@@ -730,7 +735,7 @@ class BacktestServiceTest {
         cooldownDays = 5,
       )
 
-    // Should have 2 trades (both Stock A due to better heatmap):
+    // Should have 2 trades (both Stock A — first in list with equal ranking scores):
     // Trade 1: Stock A (Jan 1-2) - wins position limit on trading day 0
     // Trade 2: Stock A (Jan 8-9) - wins position limit on trading day 7 (6 trading days after exit, more than 5)
     Assertions.assertEquals(2, report.totalTrades)
@@ -821,22 +826,22 @@ class BacktestServiceTest {
     // Note: closePrice < 100 on holding days prevents re-triggering entry (avoids wasting ranking slots)
 
     // Stock A: Jan 1 entry, Jan 8 exit (long trade)
-    val stockAQuote1 = StockQuote(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 1))
-    val stockAQuote2 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 2))
-    val stockAQuote3 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 3))
-    val stockAQuote4 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 6))
-    val stockAQuote5 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 7))
-    val stockAQuote6 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 99.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 8)) // Exit
+    val stockAQuote1 = StockQuote(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockAQuote4 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val stockAQuote5 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
+    val stockAQuote6 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 8)) // Exit
 
     // Stock B: Jan 2 entry, Jan 7 exit (long trade)
-    val stockBQuote1 = StockQuote(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2))
-    val stockBQuote2 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3))
-    val stockBQuote3 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6))
-    val stockBQuote4 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7)) // Exit
+    val stockBQuote1 = StockQuote(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote2 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote3 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val stockBQuote4 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 7)) // Exit
 
     // Stock C: Jan 3 entry - should be BLOCKED because A and B are both open (2 positions filled)
-    val stockCQuote1 = StockQuote(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 3))
-    val stockCQuote2 = StockQuote(symbol = "STOCK_C", closePrice = 99.0, openPrice = 99.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 6))
+    val stockCQuote1 = StockQuote(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockCQuote2 = StockQuote(symbol = "STOCK_C", closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6))
 
     val stockA =
       Stock(
@@ -905,20 +910,20 @@ class BacktestServiceTest {
     // Note: closePrice < 100 on holding days prevents re-triggering entry
 
     // Stock A: short trade (Jan 1 entry, Jan 2 exit)
-    val stockAQuote1 = StockQuote(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 1))
-    val stockAQuote2 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 99.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 2)) // Exit
+    val stockAQuote1 = StockQuote(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuote(symbol = "STOCK_A", closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2)) // Exit
 
     // Stock B: long trade (Jan 1 entry, Jan 8 exit)
-    val stockBQuote1 = StockQuote(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 1))
-    val stockBQuote2 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 2))
-    val stockBQuote3 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 3))
-    val stockBQuote4 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 6))
-    val stockBQuote5 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 7))
-    val stockBQuote6 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 99.0, heatmap = 20.0, date = LocalDate.of(2025, 1, 8)) // Exit
+    val stockBQuote1 = StockQuote(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockBQuote2 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote3 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote4 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6))
+    val stockBQuote5 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7))
+    val stockBQuote6 = StockQuote(symbol = "STOCK_B", closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 8)) // Exit
 
     // Stock C: enters on Jan 3 after Stock A exits on Jan 2, filling the freed slot
-    val stockCQuote1 = StockQuote(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 3))
-    val stockCQuote2 = StockQuote(symbol = "STOCK_C", closePrice = 99.0, openPrice = 99.0, heatmap = 30.0, date = LocalDate.of(2025, 1, 6))
+    val stockCQuote1 = StockQuote(symbol = "STOCK_C", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockCQuote2 = StockQuote(symbol = "STOCK_C", closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6))
 
     val stockA = Stock("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2))
     val stockB =
@@ -954,15 +959,15 @@ class BacktestServiceTest {
   fun `should track missed trades when blocked by open position limit`() {
     // Test that entries blocked by position limit are tracked as missed trades
 
-    // Stock A: long trade (Jan 1 entry, Jan 6 exit) - wins ranking due to lower heatmap
-    val stockAQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 1))
-    val stockAQuote2 = StockQuote(closePrice = 102.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 2))
-    val stockAQuote3 = StockQuote(closePrice = 103.0, openPrice = 100.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 3))
-    val stockAQuote4 = StockQuote(closePrice = 104.0, openPrice = 99.0, heatmap = 10.0, date = LocalDate.of(2025, 1, 6)) // Exit
+    // Stock A: long trade (Jan 1 entry, Jan 6 exit) - wins ranking (first in list with equal scores)
+    val stockAQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuote(closePrice = 103.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3))
+    val stockAQuote4 = StockQuote(closePrice = 104.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 6)) // Exit
 
     // Stock B: triggers on Jan 2, but blocked because A is open and maxPositions=1
-    val stockBQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, heatmap = 50.0, date = LocalDate.of(2025, 1, 2))
-    val stockBQuote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, heatmap = 50.0, date = LocalDate.of(2025, 1, 3))
+    val stockBQuote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote2 = StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 3))
 
     val stockA =
       Stock("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4))
@@ -1077,14 +1082,12 @@ class BacktestServiceTest {
 
   @Test
   fun `should capture market conditions using EMA-based SPY uptrend`() {
-    // SPY has trend = "Uptrend" (EMA-based) but spyInUptrend = false (Ovtlyr field)
-    // This proves we use isInUptrend() not the spyInUptrend field
+    // SPY has trend = "Uptrend" (EMA-based), isInUptrend() checks the trend field
     val spyQuote1 = StockQuote(
       symbol = "SPY",
       closePrice = 500.0,
       openPrice = 500.0,
       trend = "Uptrend",
-      spyInUptrend = false, // Ovtlyr field — should be ignored
       date = LocalDate.of(2025, 1, 1),
     )
     val spyQuote2 = StockQuote(
@@ -1092,7 +1095,6 @@ class BacktestServiceTest {
       closePrice = 505.0,
       openPrice = 505.0,
       trend = "Uptrend",
-      spyInUptrend = false,
       date = LocalDate.of(2025, 1, 2),
     )
     val spy = Stock("SPY", "SPY", quotes = listOf(spyQuote1, spyQuote2))
@@ -1124,7 +1126,7 @@ class BacktestServiceTest {
       LocalDate.of(2025, 1, 1) to 65.0,
       LocalDate.of(2025, 1, 2) to 70.0,
     )
-    `when`(stockRepository.calculateBreadthByDate()).thenReturn(breadthData)
+    `when`(marketBreadthRepository.calculateBreadthByDate()).thenReturn(breadthData)
 
     // Set up SPY
     val spyQuote1 = StockQuote(symbol = "SPY", closePrice = 500.0, trend = "Uptrend", date = LocalDate.of(2025, 1, 1))
@@ -1160,7 +1162,7 @@ class BacktestServiceTest {
       LocalDate.of(2025, 1, 3) to 70.0,
       LocalDate.of(2025, 1, 4) to 75.0,
     )
-    `when`(stockRepository.calculateBreadthByDate()).thenReturn(breadthData)
+    `when`(marketBreadthRepository.calculateBreadthByDate()).thenReturn(breadthData)
 
     // SPY: uptrend on day 1, downtrend on day 3
     val spyQuotes = listOf(

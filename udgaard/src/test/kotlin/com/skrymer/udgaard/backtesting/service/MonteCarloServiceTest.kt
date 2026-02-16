@@ -5,7 +5,10 @@ import com.skrymer.udgaard.backtesting.model.MonteCarloRequest
 import com.skrymer.udgaard.backtesting.model.MonteCarloTechniqueType
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.data.model.StockQuote
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 

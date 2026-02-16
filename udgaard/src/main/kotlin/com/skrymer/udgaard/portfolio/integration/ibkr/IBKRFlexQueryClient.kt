@@ -20,11 +20,6 @@ class IBKRFlexQueryClient(
   private val restTemplate: RestTemplate = RestTemplate(),
   private val xmlMapper: XmlMapper = XmlMapper(),
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(IBKRFlexQueryClient::class.java)
-    private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
-  }
-
   /**
    * Send Flex Query request to IBKR
    *
@@ -205,6 +200,11 @@ class IBKRFlexQueryClient(
    */
   private fun buildQueryString(params: Map<String, String>): String =
     params.entries.joinToString("&", "?") { "${it.key}=${it.value}" }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(IBKRFlexQueryClient::class.java)
+    private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
+  }
 }
 
 /**

@@ -17,6 +17,7 @@ export interface LineChartProps {
   xAxisLabel?: string
   lineColors?: string[]
   smooth?: boolean
+  percentMode?: boolean
 }
 
 const props = withDefaults(defineProps<LineChartProps>(), {
@@ -24,7 +25,8 @@ const props = withDefaults(defineProps<LineChartProps>(), {
   height: 350,
   showLegend: true,
   showDataLabels: false,
-  smooth: true
+  smooth: true,
+  percentMode: false
 })
 
 const colorMode = useColorMode()
@@ -69,6 +71,9 @@ const chartOptions = computed<ApexOptions>(() => {
           colors: isDark ? '#9ca3af' : '#6b7280'
         },
         formatter: (val: number) => {
+          if (props.percentMode) {
+            return val.toFixed(0) + '%'
+          }
           if (val >= 1000000) {
             return (val / 1000000).toFixed(1) + 'M'
           } else if (val >= 1000) {
@@ -76,7 +81,8 @@ const chartOptions = computed<ApexOptions>(() => {
           }
           return val.toFixed(0)
         }
-      }
+      },
+      ...(props.percentMode ? { min: 0, max: 100 } : {})
     },
     grid: {
       borderColor: isDark ? '#374151' : '#e5e7eb'
@@ -85,6 +91,9 @@ const chartOptions = computed<ApexOptions>(() => {
       theme: isDark ? 'dark' : 'light',
       y: {
         formatter: (val: number) => {
+          if (props.percentMode) {
+            return val.toFixed(1) + '%'
+          }
           return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',

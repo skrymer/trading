@@ -1,9 +1,39 @@
 package com.skrymer.udgaard.backtesting.strategy
 
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.*
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ADXRangeCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ATRExpandingCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.AboveBearishOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.BelowOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ConsecutiveHigherHighsInValueZoneCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.DaysSinceEarningsCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaBullishCrossCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
-import com.skrymer.udgaard.backtesting.strategy.condition.exit.*
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthAboveCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanSpyCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolumeAboveAverageCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ATRTrailingStopLoss
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.BearishOrderBlockExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.BeforeEarningsExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.BelowPreviousDayLowExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.StopLossExit
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 
 /**
@@ -17,16 +47,6 @@ class EntryStrategyBuilder {
   fun uptrend() =
     apply {
       conditions.add(UptrendCondition())
-    }
-
-  fun buySignal(daysOld: Int = -1) =
-    apply {
-      conditions.add(BuySignalCondition(daysOld))
-    }
-
-  fun heatmap(threshold: Int = 70) =
-    apply {
-      conditions.add(HeatmapCondition(threshold.toDouble()))
     }
 
   fun priceAbove(emaPeriod: Int) =
@@ -51,17 +71,7 @@ class EntryStrategyBuilder {
       conditions.add(MinimumPriceCondition(dollars))
     }
 
-  // Market/SPY conditions
-  fun spyBuySignal() =
-    apply {
-      conditions.add(SpyBuySignalCondition())
-    }
-
-  fun spyUptrend() =
-    apply {
-      conditions.add(SpyUptrendCondition())
-    }
-
+  // Market conditions
   fun marketUptrend() =
     apply {
       conditions.add(MarketUptrendCondition())
@@ -72,40 +82,10 @@ class EntryStrategyBuilder {
       conditions.add(MarketBreadthAboveCondition(threshold))
     }
 
-  fun spyHeatmap(threshold: Int = 70) =
-    apply {
-      conditions.add(SpyHeatmapThresholdCondition(threshold.toDouble()))
-    }
-
-  fun spyHeatmapRising() =
-    apply {
-      conditions.add(SpyHeatmapRisingCondition())
-    }
-
   // Sector conditions
   fun sectorUptrend() =
     apply {
       conditions.add(SectorUptrendCondition())
-    }
-
-  fun sectorHeatmapRising() =
-    apply {
-      conditions.add(SectorHeatmapRisingCondition())
-    }
-
-  fun sectorHeatmap(threshold: Int = 70) =
-    apply {
-      conditions.add(SectorHeatmapThresholdCondition(threshold.toDouble()))
-    }
-
-  fun donkeyChannel() =
-    apply {
-      conditions.add(DonkeyChannelCondition())
-    }
-
-  fun sectorHeatmapGreaterThanSpy() =
-    apply {
-      conditions.add(SectorHeatmapGreaterThanSpyCondition())
     }
 
   fun sectorBreadthGreaterThanSpy() =
@@ -114,11 +94,6 @@ class EntryStrategyBuilder {
     }
 
   // Stock conditions
-  fun stockHeatmapRising() =
-    apply {
-      conditions.add(StockHeatmapRisingCondition())
-    }
-
   fun priceAbovePreviousLow() =
     apply {
       conditions.add(PriceAbovePreviousLowCondition())
@@ -170,6 +145,11 @@ class EntryStrategyBuilder {
       conditions.add(NoEarningsWithinDaysCondition(days))
     }
 
+  fun daysSinceEarnings(days: Int = 5) =
+    apply {
+      conditions.add(DaysSinceEarningsCondition(days))
+    }
+
   fun consecutiveHigherHighsInValueZone(
     consecutiveDays: Int = 3,
     atrMultiplier: Double = 2.0,
@@ -207,11 +187,6 @@ class ExitStrategyBuilder {
   private val conditions = mutableListOf<ExitCondition>()
   private var operator: LogicalOperator = LogicalOperator.OR
   private var description: String? = null
-
-  fun sellSignal() =
-    apply {
-      conditions.add(SellSignalExit())
-    }
 
   fun emaCross(
     fastEma: Int = 10,
@@ -270,16 +245,6 @@ class ExitStrategyBuilder {
   fun belowPreviousDayLow() =
     apply {
       conditions.add(BelowPreviousDayLowExit())
-    }
-
-  fun heatmapThreshold() =
-    apply {
-      conditions.add(HeatmapThresholdExit())
-    }
-
-  fun heatmapDeclining() =
-    apply {
-      conditions.add(HeatmapDecliningExit())
     }
 
   fun marketAndSectorDowntrend() =

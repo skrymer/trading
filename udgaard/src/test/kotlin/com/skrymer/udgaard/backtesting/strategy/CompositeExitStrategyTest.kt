@@ -1,11 +1,14 @@
 package com.skrymer.udgaard.backtesting.strategy
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
-import com.skrymer.udgaard.backtesting.strategy.condition.exit.SellSignalExit
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
@@ -29,7 +32,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
             ProfitTargetExit(3.0, 20),
           ),
@@ -39,10 +42,9 @@ class CompositeExitStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        signal = "Sell",
+        closePrice = 90.0, // Below EMA10 — triggers PriceBelowEmaExit
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
-        closePrice = 100.0,
         atr = 2.0,
       )
 
@@ -58,7 +60,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
             ProfitTargetExit(3.0, 20),
           ),
@@ -70,7 +72,7 @@ class CompositeExitStrategyTest {
         date = LocalDate.of(2024, 1, 15),
         closePriceEMA10 = 105.0, // Above 20 EMA (no cross)
         closePriceEMA20 = 100.0,
-        closePrice = 104.0, // Below profit target
+        closePrice = 106.0, // Above EMA10, below profit target
         atr = 2.0,
       )
 
@@ -86,7 +88,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
           ),
         operator = LogicalOperator.AND,
@@ -95,7 +97,7 @@ class CompositeExitStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        signal = "Sell",
+        closePrice = 90.0, // Below EMA10
         closePriceEMA10 = 95.0, // Below 20 EMA (crossed under)
         closePriceEMA20 = 100.0,
       )
@@ -112,7 +114,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
           ),
         operator = LogicalOperator.AND,
@@ -121,7 +123,7 @@ class CompositeExitStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        signal = "Sell",
+        closePrice = 110.0, // Above EMA10 — PriceBelowEmaExit fails
         closePriceEMA10 = 105.0, // Above 20 EMA (not crossed)
         closePriceEMA20 = 100.0,
       )
@@ -138,7 +140,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
             ProfitTargetExit(3.0, 20),
           ),
@@ -148,9 +150,9 @@ class CompositeExitStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        closePriceEMA10 = 95.0, // This triggers exit
+        closePriceEMA10 = 95.0, // This triggers EMA cross exit
         closePriceEMA20 = 100.0,
-        closePrice = 100.0,
+        closePrice = 96.0, // Above EMA10, so PriceBelowEma doesn't trigger
         atr = 2.0,
       )
 
@@ -164,7 +166,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
           ),
         operator = LogicalOperator.OR,
@@ -173,6 +175,7 @@ class CompositeExitStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
+        closePrice = 110.0, // Above EMA10
         closePriceEMA10 = 105.0,
         closePriceEMA20 = 100.0,
       )
@@ -185,7 +188,7 @@ class CompositeExitStrategyTest {
   fun `should work with DSL builder`() {
     val strategy =
       exitStrategy {
-        sellSignal()
+        priceBelowEma(10)
         emaCross(10, 20)
         profitTarget(3.0, 20)
       }
@@ -209,7 +212,7 @@ class CompositeExitStrategyTest {
   fun `should provide custom description when specified`() {
     val strategy =
       CompositeExitStrategy(
-        exitConditions = listOf(SellSignalExit()),
+        exitConditions = listOf(PriceBelowEmaExit(10)),
         operator = LogicalOperator.OR,
         strategyDescription = "Custom exit strategy",
       )
@@ -223,7 +226,7 @@ class CompositeExitStrategyTest {
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            SellSignalExit(),
+            PriceBelowEmaExit(10),
             EmaCrossExit(10, 20),
           ),
         operator = LogicalOperator.OR,
@@ -231,7 +234,7 @@ class CompositeExitStrategyTest {
 
     val description = strategy.description()
     assertTrue(
-      description.contains("Sell signal"),
+      description.contains("Price below 10 EMA"),
       "Description should include first condition",
     )
     assertTrue(

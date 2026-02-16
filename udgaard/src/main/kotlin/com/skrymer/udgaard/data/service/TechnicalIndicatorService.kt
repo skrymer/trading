@@ -20,10 +20,6 @@ import org.springframework.stereotype.Service
  */
 @Service
 class TechnicalIndicatorService {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(TechnicalIndicatorService::class.java)
-  }
-
   /**
    * Enrich stock quotes with all technical indicators.
    *
@@ -66,7 +62,7 @@ class TechnicalIndicatorService {
         closePriceEMA20 = ema20Values.getOrNull(index) ?: 0.0
         closePriceEMA50 = ema50Values.getOrNull(index) ?: 0.0
         closePriceEMA100 = ema100Values.getOrNull(index) ?: 0.0
-        closePriceEMA200 = ema200Values.getOrNull(index) ?: 0.0
+        ema200 = ema200Values.getOrNull(index) ?: 0.0
         donchianUpperBand = calculateDonchianUpperBand(quotes, index, 5)
         trend = determineTrend(quote)
       }
@@ -181,5 +177,9 @@ class TechnicalIndicatorService {
     val aboveEma50 = quote.closePrice > quote.closePriceEMA50
 
     return if (emaAligned && aboveEma50) "Uptrend" else "Downtrend"
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(TechnicalIndicatorService::class.java)
   }
 }

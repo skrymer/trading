@@ -73,9 +73,14 @@ class BacktestReport(
   val atrDrawdownStats: ATRDrawdownStats? = null,
   /**
    * Average market conditions at trade entry.
-   * Keys: "avgSpyHeatmap", "avgMarketBreadth", "spyUptrendPercent"
+   * Keys: "avgMarketBreadth", "spyUptrendPercent"
    */
   val marketConditionAverages: Map<String, Double>? = null,
+  /**
+   * Edge consistency score (0–100) measuring how consistent the strategy's
+   * edge is across yearly periods. Null when fewer than 2 years of data.
+   */
+  val edgeConsistencyScore: EdgeConsistencyScore? = null,
 ) {
   /**
    * Calculated as (number of winning trades / total trades)

@@ -140,7 +140,9 @@ class AboveBearishOrderBlockCondition(
     return Int.MAX_VALUE
   }
 
-  override fun description(): String = "Price above bearish order block for $consecutiveDays consecutive days (age >= ${ageInDays}d, proximity $proximityPercent%)"
+  override fun description(): String =
+    "Price above bearish order block for $consecutiveDays consecutive days " +
+      "(age >= ${ageInDays}d, proximity $proximityPercent%)"
 
   override fun getMetadata() =
     ConditionMetadata(
@@ -215,9 +217,15 @@ class AboveBearishOrderBlockCondition(
         conditionType = "AboveBearishOrderBlockCondition",
         description = description(),
         passed = false,
-        actualValue = if (isInside) "Currently inside" else "Currently near (within $proximityPercent%)",
+        actualValue = if (isInside) {
+          "Currently inside"
+        } else {
+          "Currently near (within $proximityPercent%)"
+        },
         threshold = ">= $consecutiveDays bars",
-        message = "Currently $statusStr OB [${"%.2f".format(blockingOb.low)}-${"%.2f".format(blockingOb.high)}] at ${"%.2f".format(close)}$nearPct (${obAge}d old) ✗",
+        message = "Currently $statusStr OB " +
+          "[${"%.2f".format(blockingOb.low)}-${"%.2f".format(blockingOb.high)}] " +
+          "at ${"%.2f".format(close)}$nearPct (${obAge}d old) ✗",
       )
     }
 

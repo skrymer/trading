@@ -16,10 +16,6 @@ import javax.net.ssl.X509TrustManager
 
 @Component
 class IBKRClient {
-  companion object {
-    const val BASE_URL = "https://localhost:5000/v1/api/iserver"
-  }
-
   /**
    *
    */
@@ -39,6 +35,7 @@ class IBKRClient {
    *  Value Format: {3 character month}{2 character year}
    *  Example: AUG23
    */
+  @Suppress("UnusedParameter")
   fun optionsChain(
     conid: String,
     sectionType: SectionType,
@@ -113,6 +110,10 @@ class IBKRClient {
     return RestClient
       .builder()
       .requestFactory(requestFactory)
+  }
+
+  companion object {
+    const val BASE_URL = "https://localhost:5000/v1/api/iserver"
   }
 }
 

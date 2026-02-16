@@ -14,7 +14,7 @@ data class BacktestRequest(
   val startDate: String? = null,
   val endDate: String? = null,
   val maxPositions: Int? = null,
-  val ranker: String = "Heatmap",
+  val ranker: String = "Adaptive",
   val useUnderlyingAssets: Boolean = true, // Enable automatic underlying asset detection
   val customUnderlyingMap: Map<String, String>? = null, // Custom symbol → underlying mappings
   val cooldownDays: Int = 0, // Global cooldown period in trading days after exit (0 = disabled)
@@ -51,7 +51,7 @@ data class CustomStrategyConfig(
  * Configuration for a single trading condition
  */
 data class ConditionConfig(
-  val type: String, // e.g., "uptrend", "buySignal", "stopLoss"
+  val type: String, // e.g., "uptrend", "priceAboveEma", "stopLoss"
   val parameters: Map<String, Any> = emptyMap(), // Condition-specific params
 )
 

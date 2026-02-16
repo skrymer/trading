@@ -630,7 +630,7 @@ class PositionService(
         EquityDataPoint(
           date = closedDate,
           balance = runningProfit,
-          returnPercentage = 0.0, // TODO: Calculate from initial balance
+          returnPercentage = 0.0, // Initial balance calculation not yet implemented
         ),
       )
     }

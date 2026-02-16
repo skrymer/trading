@@ -27,10 +27,6 @@ import org.springframework.web.bind.annotation.RestController
 class MonteCarloController(
   private val monteCarloService: MonteCarloService,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(MonteCarloController::class.java)
-  }
-
   /**
    * Run Monte Carlo simulation on a backtest result.
    *
@@ -105,5 +101,9 @@ class MonteCarloController(
       logger.error("Unexpected error during Monte Carlo simulation: ${e.message}", e)
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
     }
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(MonteCarloController::class.java)
   }
 }

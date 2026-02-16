@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.ATRDrawdownStats
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.DrawdownBucket
 import com.skrymer.udgaard.backtesting.model.ExcursionMetrics
@@ -16,12 +17,15 @@ import com.skrymer.udgaard.backtesting.model.StockPair
 import com.skrymer.udgaard.backtesting.model.StockPerformance
 import com.skrymer.udgaard.backtesting.model.TimeBasedStats
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.model.calculateEdgeConsistency
+import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
-import com.skrymer.udgaard.backtesting.strategy.HeatmapRanker
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
+import com.skrymer.udgaard.data.repository.MarketBreadthRepository
+import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,6 +54,8 @@ import java.util.concurrent.atomic.AtomicInteger
 @Service
 class BacktestService(
   private val stockRepository: StockJooqRepository,
+  private val sectorBreadthRepository: SectorBreadthRepository,
+  private val marketBreadthRepository: MarketBreadthRepository,
 ) {
   /**
    * Holds indexed quotes for fast O(1) date lookups.
@@ -181,11 +187,12 @@ class BacktestService(
     entry: PotentialEntry,
     exitStrategy: ExitStrategy,
     quoteIndexes: Map<Stock, StockQuoteIndex>,
+    context: BacktestContext = BacktestContext.EMPTY,
   ): Trade? {
     // Test exit strategy on STRATEGY stock - convert to domain models
     val strategyStockDomain = entry.stockPair.strategyStock
     val strategyEntryQuoteDomain = entry.strategyEntryQuote
-    val exitReport = strategyStockDomain.testExitStrategy(strategyEntryQuoteDomain, exitStrategy)
+    val exitReport = strategyStockDomain.testExitStrategy(strategyEntryQuoteDomain, exitStrategy, context)
 
     if (exitReport.exitReason.isNotBlank()) {
       // Get the exit quote from the strategy stock's exit report
@@ -243,7 +250,7 @@ class BacktestService(
    * @param after - start date for backtest
    * @param before - end date for backtest
    * @param maxPositions - maximum number of positions to enter per day. Null means unlimited (default: null)
-   * @param ranker - the stock ranker to use for selecting best stocks when position limit is reached (default: HeatmapRanker)
+   * @param ranker - the stock ranker to use for selecting best stocks when position limit is reached (default: CompositeRanker)
    * @param useUnderlyingAssets - enable automatic underlying asset detection for strategy evaluation (default: true)
    * @param customUnderlyingMap - custom symbol → underlying mappings (overrides AssetMapper)
    * @param cooldownDays - global cooldown period in trading days after exit before allowing new entries (default: 0)
@@ -256,7 +263,7 @@ class BacktestService(
     after: LocalDate,
     before: LocalDate,
     maxPositions: Int? = null,
-    ranker: StockRanker = HeatmapRanker(),
+    ranker: StockRanker = CompositeRanker(),
     useUnderlyingAssets: Boolean = true,
     customUnderlyingMap: Map<String, String>? = null,
     cooldownDays: Int = 0,
@@ -272,8 +279,14 @@ class BacktestService(
     }
 
     // Calculate market breadth from all stocks in DB (% in uptrend per date)
-    val breadthByDate = stockRepository.calculateBreadthByDate()
+    val breadthByDate = marketBreadthRepository.calculateBreadthByDate()
     logger.info("Calculated market breadth for ${breadthByDate.size} trading days")
+
+    // Load breadth data for BacktestContext
+    val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
+    val marketBreadthMap = marketBreadthRepository.findAllAsMap()
+    val backtestContext = BacktestContext(sectorBreadthMap, marketBreadthMap)
+    logger.info("Loaded backtest context: ${sectorBreadthMap.size} sectors, ${marketBreadthMap.size} market breadth days")
 
     // Fetch underlying assets if needed
     val underlyingAssets = mutableListOf<Stock>()
@@ -292,7 +305,10 @@ class BacktestService(
           underlyingAssets.add(underlying)
         } else {
           logger.error("Underlying asset $symbol not found in database")
-          throw IllegalArgumentException("Underlying asset $symbol not found in database. Please load this data before running the backtest.")
+          throw IllegalArgumentException(
+            "Underlying asset $symbol not found in database. " +
+              "Please load this data before running the backtest.",
+          )
         }
       }
     }
@@ -323,7 +339,7 @@ class BacktestService(
     // Step 2: Choose parallel or sequential processing path
     val (trades, missedTrades) =
       if (maxPositions == null && cooldownDays == 0) {
-        backtestParallel(entryStrategy, exitStrategy, stockPairs, quoteIndexes, allTradingDates, logger)
+        backtestParallel(entryStrategy, exitStrategy, stockPairs, quoteIndexes, allTradingDates, backtestContext, logger)
       } else {
         backtestSequential(
           entryStrategy,
@@ -335,6 +351,7 @@ class BacktestService(
           effectiveMaxPositions,
           ranker,
           cooldownDays,
+          backtestContext,
           logger,
         )
       }
@@ -376,6 +393,9 @@ class BacktestService(
         AnalyticsResult(t1.await(), t2.await(), t3.await(), t4.await(), t5.await())
       }
 
+    // Calculate edge consistency score from yearly stats
+    val edgeConsistency = calculateEdgeConsistency(timeStats.byYear)
+
     // Calculate market condition averages
     val marketAvgs =
       trades
@@ -404,6 +424,7 @@ class BacktestService(
       stockPerformance = stockPerf,
       atrDrawdownStats = atrDrawdown,
       marketConditionAverages = marketAvgs,
+      edgeConsistencyScore = edgeConsistency,
     )
   }
 
@@ -417,6 +438,7 @@ class BacktestService(
     stockPairs: List<StockPair>,
     quoteIndexes: Map<Stock, StockQuoteIndex>,
     allTradingDates: List<LocalDate>,
+    context: BacktestContext,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
     val parallelism = Runtime.getRuntime().availableProcessors().coerceAtMost(16)
@@ -432,7 +454,7 @@ class BacktestService(
         stockPairs
           .map { stockPair ->
             async(dispatcher) {
-              val result = processStockTrades(stockPair, entryStrategy, exitStrategy, quoteIndexes, allTradingDates)
+              val result = processStockTrades(stockPair, entryStrategy, exitStrategy, quoteIndexes, allTradingDates, context)
               val done = completed.incrementAndGet()
               val pct = (done * 100) / totalStocks
               val lastPct = lastLoggedPercent.get()
@@ -457,6 +479,7 @@ class BacktestService(
     exitStrategy: ExitStrategy,
     quoteIndexes: Map<Stock, StockQuoteIndex>,
     allTradingDates: List<LocalDate>,
+    context: BacktestContext,
   ): List<Trade> {
     val trades = mutableListOf<Trade>()
     val usedTradeQuotes = HashSet<StockQuote>()
@@ -465,11 +488,11 @@ class BacktestService(
       val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate) ?: continue
       val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate) ?: continue
 
-      if (!entryStrategy.test(stockPair.strategyStock, strategyQuote)) continue
+      if (!entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) continue
       if (tradingQuote in usedTradeQuotes) continue
 
       val entry = PotentialEntry(stockPair, strategyQuote, tradingQuote)
-      val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes) ?: continue
+      val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes, context) ?: continue
 
       trades.add(trade)
       usedTradeQuotes.addAll(trade.quotes)
@@ -492,6 +515,7 @@ class BacktestService(
     effectiveMaxPositions: Int,
     ranker: StockRanker,
     cooldownDays: Int,
+    context: BacktestContext,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
     val trades = mutableListOf<Trade>()
@@ -525,7 +549,7 @@ class BacktestService(
               if (inCooldown) {
                 null
               } else {
-                if (entryStrategy.test(stockPair.strategyStock, strategyQuote)) {
+                if (entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) {
                   PotentialEntry(stockPair, strategyQuote, tradingQuote)
                 } else {
                   null
@@ -540,7 +564,7 @@ class BacktestService(
         val rankedEntries =
           entriesForThisDate
             .map { entry ->
-              val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote)
+              val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote, context)
               RankedEntry(entry, score)
             }.sortedByDescending { it.score }
 
@@ -561,7 +585,7 @@ class BacktestService(
           val entry = rankedEntry.entry
 
           if (entry.tradingEntryQuote !in usedTradeQuotes) {
-            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
+            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes, context)
 
             if (trade != null) {
               trades.add(trade)
@@ -580,7 +604,7 @@ class BacktestService(
           if (entry.tradingEntryQuote !in usedMissedQuotes &&
             entry.tradingEntryQuote !in usedTradeQuotes
           ) {
-            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes)
+            val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes, context)
 
             if (trade != null) {
               missedTrades.add(trade)
@@ -874,15 +898,22 @@ class BacktestService(
    * Calculate statistics for a specific time period.
    */
   private fun calculatePeriodStats(trades: List<Trade>): PeriodStats {
-    val winners = trades.count { it.profit > 0 }
+    val winners = trades.filter { it.profit > 0 }
+    val losers = trades.filter { it.profit <= 0 }
     val exitReasons = trades.groupingBy { it.exitReason }.eachCount()
+
+    val winRate = if (trades.isNotEmpty()) winners.size.toDouble() / trades.size else 0.0
+    val avgWinPercent = if (winners.isNotEmpty()) winners.map { it.profitPercentage }.average() else 0.0
+    val avgLossPercent = if (losers.isNotEmpty()) kotlin.math.abs(losers.map { it.profitPercentage }.average()) else 0.0
+    val edge = (avgWinPercent * winRate) - ((1.0 - winRate) * avgLossPercent)
 
     return PeriodStats(
       trades = trades.size,
-      winRate = if (trades.isNotEmpty()) (winners.toDouble() / trades.size) * 100 else 0.0,
+      winRate = if (trades.isNotEmpty()) winRate * 100 else 0.0,
       avgProfit = if (trades.isNotEmpty()) trades.map { it.profitPercentage }.average() else 0.0,
       avgHoldingDays = if (trades.isNotEmpty()) trades.map { it.tradingDays }.average() else 0.0,
       exitReasons = exitReasons,
+      edge = edge,
     )
   }
 

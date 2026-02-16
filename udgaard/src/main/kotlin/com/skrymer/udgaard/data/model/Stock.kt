@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.data.model
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import java.time.LocalDate
@@ -14,7 +15,6 @@ import java.time.LocalDate
 data class Stock(
   val symbol: String = "",
   val sectorSymbol: String? = null,
-  val ovtlyrPerformance: Double? = 0.0,
   val quotes: List<StockQuote> = emptyList(),
   val orderBlocks: List<OrderBlock> = emptyList(),
   val earnings: List<Earning> = emptyList(),
@@ -72,11 +72,13 @@ data class Stock(
   /**
    * @param entryQuote - the entry quote to start the simulation from.
    * @param exitStrategy - the exit strategy being used.
+   * @param context - backtest context with breadth data
    * @return an ExitReport.
    */
   fun testExitStrategy(
     entryQuote: StockQuote,
     exitStrategy: ExitStrategy,
+    context: BacktestContext = BacktestContext.EMPTY,
   ): ExitReport {
     val startIdx = indexAfter(entryQuote.date)
     val resultQuotes = ArrayList<StockQuote>()
@@ -90,6 +92,7 @@ data class Stock(
           stock = this,
           entryQuote = entryQuote,
           quote = quote,
+          context = context,
         )
 
       resultQuotes.add(quote)

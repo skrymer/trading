@@ -1,11 +1,13 @@
 package com.skrymer.udgaard.backtesting.strategy
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.BuySignalCondition
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.HeatmapCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
@@ -19,8 +21,8 @@ class CompositeEntryStrategyTest {
         conditions =
           listOf(
             UptrendCondition(),
-            BuySignalCondition(daysOld = -1),
-            HeatmapCondition(70.0),
+            PriceAboveEmaCondition(10),
+            EmaAlignmentCondition(10, 20),
           ),
         operator = LogicalOperator.AND,
       )
@@ -29,12 +31,10 @@ class CompositeEntryStrategyTest {
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
-        lastBuySignal = LocalDate.of(2024, 1, 10),
-        heatmap = 65.0,
         closePrice = 100.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 90.0,
-        closePriceEMA50 = 85.0, // closePrice > EMA50 and EMA10 > EMA20 = uptrend
+        closePriceEMA50 = 85.0,
       )
 
     assertTrue(
@@ -50,8 +50,8 @@ class CompositeEntryStrategyTest {
         conditions =
           listOf(
             UptrendCondition(),
-            BuySignalCondition(daysOld = -1),
-            HeatmapCondition(70.0),
+            PriceAboveEmaCondition(10),
+            EmaAlignmentCondition(10, 20),
           ),
         operator = LogicalOperator.AND,
       )
@@ -60,11 +60,10 @@ class CompositeEntryStrategyTest {
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
-        heatmap = 65.0,
         closePrice = 100.0,
         closePriceEMA10 = 95.0,
-        closePriceEMA20 = 90.0,
-        closePriceEMA50 = 85.0, // Missing lastBuySignal, so BuySignalCondition fails
+        closePriceEMA20 = 96.0, // EMA10 < EMA20, so EmaAlignment fails
+        closePriceEMA50 = 85.0,
       )
 
     assertFalse(
@@ -80,7 +79,7 @@ class CompositeEntryStrategyTest {
         conditions =
           listOf(
             UptrendCondition(),
-            BuySignalCondition(daysOld = -1),
+            PriceAboveEmaCondition(10),
           ),
         operator = LogicalOperator.OR,
       )
@@ -89,11 +88,10 @@ class CompositeEntryStrategyTest {
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
         trend = "Downtrend",
-        lastBuySignal = LocalDate.of(2024, 1, 10),
         closePrice = 100.0,
-        closePriceEMA10 = 90.0,
-        closePriceEMA20 = 95.0, // EMA10 < EMA20, so NOT in uptrend
-        closePriceEMA50 = 85.0, // But has buy signal, so OR passes
+        closePriceEMA10 = 95.0, // Price > EMA10, so PriceAboveEma passes
+        closePriceEMA20 = 105.0,
+        closePriceEMA50 = 85.0,
       )
 
     assertTrue(
@@ -109,7 +107,7 @@ class CompositeEntryStrategyTest {
         conditions =
           listOf(
             UptrendCondition(),
-            BuySignalCondition(daysOld = -1),
+            PriceAboveEmaCondition(10),
           ),
         operator = LogicalOperator.OR,
       )
@@ -118,10 +116,10 @@ class CompositeEntryStrategyTest {
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
         trend = "Downtrend",
-        closePrice = 100.0,
-        closePriceEMA10 = 90.0,
-        closePriceEMA20 = 95.0, // EMA10 < EMA20, so NOT in uptrend
-        closePriceEMA50 = 85.0, // No buy signal either, so OR fails
+        closePrice = 90.0, // Below EMA10
+        closePriceEMA10 = 95.0,
+        closePriceEMA20 = 100.0,
+        closePriceEMA50 = 85.0,
       )
 
     assertFalse(
@@ -178,20 +176,18 @@ class CompositeEntryStrategyTest {
     val strategy =
       entryStrategy {
         uptrend()
-        buySignal(daysOld = -1)
-        heatmap(70)
+        priceAbove(10)
+        emaAlignment(10, 20)
       }
 
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
         trend = "Uptrend",
-        lastBuySignal = LocalDate.of(2024, 1, 10),
-        heatmap = 65.0,
         closePrice = 100.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 90.0,
-        closePriceEMA50 = 85.0, // All conditions met: uptrend, buy signal, heatmap < 70
+        closePriceEMA50 = 85.0,
       )
 
     assertTrue(
@@ -219,7 +215,7 @@ class CompositeEntryStrategyTest {
         conditions =
           listOf(
             UptrendCondition(),
-            BuySignalCondition(daysOld = -1),
+            PriceAboveEmaCondition(10),
           ),
         operator = LogicalOperator.AND,
       )
@@ -230,7 +226,7 @@ class CompositeEntryStrategyTest {
       "Description should include first condition",
     )
     assertTrue(
-      description.contains("Has buy signal"),
+      description.contains("Price > 10EMA"),
       "Description should include second condition",
     )
   }

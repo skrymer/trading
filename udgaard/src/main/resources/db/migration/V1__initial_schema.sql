@@ -18,76 +18,30 @@ CREATE TABLE stock_quotes (
   high_price DECIMAL(19, 4),
   low_price DECIMAL(19, 4),
   volume BIGINT,
-  adjusted_close DECIMAL(19, 4),
   atr DECIMAL(19, 4),
   adx DECIMAL(19, 4),
-  ema5 DECIMAL(19, 4),
-  ema10 DECIMAL(19, 4),
-  ema20 DECIMAL(19, 4),
-  ema50 DECIMAL(19, 4),
-  ema200 DECIMAL(19, 4),
   donchian_high DECIMAL(19, 4),
   donchian_mid DECIMAL(19, 4),
   donchian_low DECIMAL(19, 4),
   donchian_upper_band DECIMAL(19, 4),
-  donchian_upper_band_market DECIMAL(19, 4),
-  donchian_upper_band_sector DECIMAL(19, 4),
-  donchian_lower_band_market DECIMAL(19, 4),
-  donchian_lower_band_sector DECIMAL(19, 4),
   donchian_channel_score INT,
   in_uptrend BOOLEAN,
   buy_signal BOOLEAN,
   sell_signal BOOLEAN,
-  heatmap DECIMAL(19, 4),
-  previous_heatmap DECIMAL(19, 4),
-  stock_heatmap DECIMAL(19, 4),
-  previous_stock_heatmap DECIMAL(19, 4),
-  sector_heatmap DECIMAL(19, 4),
-  previous_sector_heatmap DECIMAL(19, 4),
-  sector_is_in_uptrend BOOLEAN,
-  sector_donkey_channel_score INT,
-  signal VARCHAR(20),
   close_price_ema5 DECIMAL(19, 4),
   close_price_ema10 DECIMAL(19, 4),
   close_price_ema20 DECIMAL(19, 4),
   close_price_ema50 DECIMAL(19, 4),
+  close_price_ema100 DECIMAL(19, 4),
+  close_price_ema200 DECIMAL(19, 4),
   trend VARCHAR(20),
-  last_buy_signal DATE,
-  last_sell_signal DATE,
-  spy_signal VARCHAR(20),
-  spy_in_uptrend BOOLEAN,
-  spy_heatmap DECIMAL(19, 4),
-  spy_previous_heatmap DECIMAL(19, 4),
-  spy_ema200 DECIMAL(19, 4),
-  spy_sma200 DECIMAL(19, 4),
-  spy_ema50 DECIMAL(19, 4),
-  spy_days_above_200sma INT,
-  spy_buy_signal BOOLEAN,
-  spy_sell_signal BOOLEAN,
-  market_heatmap DECIMAL(19, 4),
-  previous_market_heatmap DECIMAL(19, 4),
-  market_advancing_percent DECIMAL(19, 4),
-  market_is_in_uptrend BOOLEAN,
-  market_donkey_channel_score INT,
-  market_in_uptrend BOOLEAN,
-  sector_in_uptrend BOOLEAN,
-  market_donchey_channel_score INT,
-  sector_donchey_channel_score INT,
-  previous_quote_date DATE,
-  sector_breadth DECIMAL(19, 4),
-  sector_stocks_in_downtrend INT,
-  sector_stocks_in_uptrend INT,
-  sector_bull_percentage DECIMAL(19, 4),
-  sector_stocks_above_ema INT,
-  sector_stocks_count INT,
-  market_stocks_above_ema INT,
-  market_stocks_count INT,
   FOREIGN KEY (stock_symbol) REFERENCES stocks(symbol) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_stock_quotes_symbol ON stock_quotes(stock_symbol);
 CREATE INDEX idx_stock_quotes_date ON stock_quotes(quote_date);
 CREATE INDEX idx_stock_quotes_symbol_date ON stock_quotes(stock_symbol, quote_date);
+CREATE INDEX idx_stock_quotes_date_trend ON stock_quotes(quote_date, trend);
 
 CREATE TABLE order_blocks (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -130,43 +84,38 @@ CREATE INDEX idx_earnings_symbol ON earnings(stock_symbol);
 CREATE INDEX idx_earnings_date ON earnings(fiscal_date_ending);
 
 -- ========================================
--- BREADTH TABLES
+-- BREADTH TABLES (self-computed from stock data)
 -- ========================================
 
-CREATE TABLE breadth (
-  symbol_type VARCHAR(50) NOT NULL,
-  symbol_value VARCHAR(50) NOT NULL,
-  PRIMARY KEY (symbol_type, symbol_value)
+CREATE TABLE market_breadth_daily (
+  quote_date DATE PRIMARY KEY,
+  breadth_percent DECIMAL(19, 4) NOT NULL,
+  ema_5 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  ema_10 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  ema_20 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  ema_50 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  donchian_upper_band DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  donchian_lower_band DECIMAL(19, 4) NOT NULL DEFAULT 0
 );
 
-CREATE TABLE breadth_quotes (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  symbol_type VARCHAR(50) NOT NULL,
-  symbol_value VARCHAR(50) NOT NULL,
-  symbol VARCHAR(50),
+CREATE TABLE sector_breadth_daily (
+  sector_symbol VARCHAR(10) NOT NULL,
   quote_date DATE NOT NULL,
-  stocks_with_buy_signal INT,
-  stocks_with_sell_signal INT,
-  stocks_in_uptrend INT,
-  stocks_in_neutral INT,
-  stocks_in_downtrend INT,
-  bull_stocks_percentage DECIMAL(19, 4),
-  ema_5 DECIMAL(19, 4),
-  ema_10 DECIMAL(19, 4),
-  ema_20 DECIMAL(19, 4),
-  ema_50 DECIMAL(19, 4),
-  heatmap DECIMAL(19, 4),
-  previous_heatmap DECIMAL(19, 4),
-  donchian_upper_band DECIMAL(19, 4),
-  previous_donchian_upper_band DECIMAL(19, 4),
-  donchian_lower_band DECIMAL(19, 4),
-  previous_donchian_lower_band DECIMAL(19, 4),
-  donkey_channel_score INT,
-  FOREIGN KEY (symbol_type, symbol_value) REFERENCES breadth(symbol_type, symbol_value) ON DELETE CASCADE
+  stocks_in_uptrend INT NOT NULL,
+  stocks_in_downtrend INT NOT NULL,
+  total_stocks INT NOT NULL,
+  bull_percentage DECIMAL(19, 4) NOT NULL,
+  ema_5 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  ema_10 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  ema_20 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  ema_50 DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  donchian_upper_band DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  donchian_lower_band DECIMAL(19, 4) NOT NULL DEFAULT 0,
+  PRIMARY KEY (sector_symbol, quote_date)
 );
 
-CREATE INDEX idx_breadth_quotes_symbol ON breadth_quotes(symbol_type, symbol_value);
-CREATE INDEX idx_breadth_quotes_date ON breadth_quotes(quote_date);
+CREATE INDEX idx_sector_breadth_sector ON sector_breadth_daily(sector_symbol);
+CREATE INDEX idx_sector_breadth_date ON sector_breadth_daily(quote_date);
 
 -- ========================================
 -- PORTFOLIO TABLES
@@ -179,51 +128,76 @@ CREATE TABLE portfolios (
   current_balance DECIMAL(19, 2) NOT NULL,
   currency VARCHAR(10) NOT NULL,
   user_id VARCHAR(255),
+  broker VARCHAR(20),
+  broker_config TEXT,
+  last_sync_date TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_portfolios_user_id ON portfolios(user_id);
 
-CREATE TABLE portfolio_trades (
+CREATE TABLE positions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   portfolio_id BIGINT NOT NULL,
   symbol VARCHAR(50) NOT NULL,
-  instrument_type VARCHAR(20) NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  entry_date DATE NOT NULL,
-  exit_date DATE,
-  entry_price DECIMAL(19, 4) NOT NULL,
-  exit_price DECIMAL(19, 4),
-  quantity INT NOT NULL,
-  entry_strategy VARCHAR(255),
-  exit_strategy VARCHAR(255),
-  exit_reason VARCHAR(255),
-  option_type VARCHAR(10),
-  strike_price DECIMAL(19, 4),
-  expiration_date DATE,
-  contracts INT,
-  multiplier INT,
-  entry_intrinsic_value DECIMAL(19, 4),
-  entry_extrinsic_value DECIMAL(19, 4),
-  exit_intrinsic_value DECIMAL(19, 4),
-  exit_extrinsic_value DECIMAL(19, 4),
-  underlying_entry_price DECIMAL(19, 4),
   underlying_symbol VARCHAR(50),
-  currency VARCHAR(10),
-  parent_trade_id BIGINT,
-  rolled_to_trade_id BIGINT,
-  roll_number INT,
-  original_entry_date DATE,
-  original_cost_basis DECIMAL(19, 4),
-  cumulative_realized_profit DECIMAL(19, 4),
-  total_roll_cost DECIMAL(19, 4),
+  instrument_type VARCHAR(20) NOT NULL,
+  option_type VARCHAR(10),
+  strike_price DECIMAL(10, 2),
+  expiration_date DATE,
+  multiplier INT DEFAULT 100,
+  current_quantity INT NOT NULL,
+  current_contracts INT,
+  average_entry_price DECIMAL(10, 2) NOT NULL,
+  total_cost DECIMAL(15, 2) NOT NULL,
+  status VARCHAR(10) NOT NULL,
+  opened_date DATE NOT NULL,
+  closed_date DATE,
+  realized_pnl DECIMAL(15, 2),
+  rolled_to_position_id BIGINT,
+  parent_position_id BIGINT,
+  roll_number INT DEFAULT 0,
+  entry_strategy VARCHAR(50),
+  exit_strategy VARCHAR(50),
   notes TEXT,
+  currency VARCHAR(10) DEFAULT 'USD',
+  source VARCHAR(20) DEFAULT 'MANUAL',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
+  FOREIGN KEY (rolled_to_position_id) REFERENCES positions(id),
+  FOREIGN KEY (parent_position_id) REFERENCES positions(id)
 );
 
-CREATE INDEX idx_portfolio_trades_portfolio_id ON portfolio_trades(portfolio_id);
-CREATE INDEX idx_portfolio_trades_status ON portfolio_trades(status);
-CREATE INDEX idx_portfolio_trades_entry_date ON portfolio_trades(entry_date);
+CREATE INDEX idx_portfolio_status ON positions(portfolio_id, status);
+CREATE INDEX idx_symbol ON positions(symbol);
+CREATE INDEX idx_source ON positions(source);
+
+CREATE TABLE executions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  position_id BIGINT NOT NULL,
+  broker_trade_id VARCHAR(100),
+  linked_broker_trade_id VARCHAR(100),
+  quantity INT NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  execution_date DATE NOT NULL,
+  execution_time TIME,
+  commission DECIMAL(10, 2),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX idx_broker_trade_id ON executions(broker_trade_id);
+CREATE INDEX idx_position ON executions(position_id);
+CREATE INDEX idx_execution_date ON executions(execution_date);
+
+-- ========================================
+-- REFERENCE DATA
+-- ========================================
+
+CREATE TABLE symbols (
+  symbol VARCHAR(50) PRIMARY KEY,
+  asset_type VARCHAR(20) NOT NULL
+);

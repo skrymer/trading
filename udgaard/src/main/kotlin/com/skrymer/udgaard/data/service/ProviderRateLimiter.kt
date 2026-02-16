@@ -28,10 +28,6 @@ class ProviderRateLimiter(
   val requestsPerMinute: Int,
   val requestsPerDay: Int,
 ) {
-  companion object {
-    private val logger = LoggerFactory.getLogger(ProviderRateLimiter::class.java)
-  }
-
   private val requestQueue = ConcurrentLinkedQueue<Instant>()
   private val mutex = Mutex()
 
@@ -174,6 +170,10 @@ class ProviderRateLimiter(
       minuteLimit = requestsPerMinute,
       dailyLimit = requestsPerDay,
     )
+  }
+
+  companion object {
+    private val logger = LoggerFactory.getLogger(ProviderRateLimiter::class.java)
   }
 }
 

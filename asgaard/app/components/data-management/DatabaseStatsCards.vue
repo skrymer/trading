@@ -1,9 +1,23 @@
 <script setup lang="ts">
-import type { DatabaseStats } from '~/types'
+import type { BreadthCoverageStats, DatabaseStats } from '~/types'
 
 defineProps<{
   stats: DatabaseStats
 }>()
+
+const coverage = ref<BreadthCoverageStats | null>(null)
+
+async function loadCoverage() {
+  try {
+    coverage.value = await $fetch<BreadthCoverageStats>('/udgaard/api/data-management/breadth-coverage')
+  } catch (error) {
+    console.error('Failed to load breadth coverage:', error)
+  }
+}
+
+onMounted(() => {
+  loadCoverage()
+})
 </script>
 
 <template>
@@ -28,18 +42,31 @@ defineProps<{
         </div>
       </UCard>
 
-      <!-- Breadth Symbols -->
-      <UCard>
+      <!-- Breadth Coverage -->
+      <UCard v-if="coverage">
         <div>
           <p class="text-sm text-muted">
-            Market Breadth Symbols
+            Market Breadth
           </p>
           <p class="text-3xl font-bold">
-            {{ stats.breadthStats.totalBreadthSymbols }}
+            {{ coverage.totalStocks }} stocks
           </p>
-          <p class="text-xs text-muted mt-1">
-            Market and Sector Breadth
-          </p>
+          <div v-if="coverage.sectors.length > 0" class="mt-2">
+            <p class="text-xs text-muted mb-1">
+              Sector Breadth
+            </p>
+            <div class="flex flex-wrap gap-1">
+              <UBadge
+                v-for="sector in coverage.sectors"
+                :key="sector.sectorSymbol"
+                variant="subtle"
+                color="neutral"
+                size="lg"
+              >
+                {{ sector.sectorSymbol }}: {{ sector.totalStocks }}
+              </UBadge>
+            </div>
+          </div>
         </div>
       </UCard>
     </div>

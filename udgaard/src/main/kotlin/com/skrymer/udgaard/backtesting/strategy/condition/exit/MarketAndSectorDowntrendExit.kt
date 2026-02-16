@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -15,7 +16,18 @@ class MarketAndSectorDowntrendExit : ExitCondition {
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote,
-  ): Boolean = !quote.sectorIsInUptrend && !quote.marketIsInUptrend
+  ): Boolean = shouldExit(stock, entryQuote, quote, BacktestContext.EMPTY)
+
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean {
+    val sectorInUptrend = context.getSectorBreadth(stock.sectorSymbol, quote.date)?.isInUptrend() ?: false
+    val marketInUptrend = context.getMarketBreadth(quote.date)?.isInUptrend() ?: false
+    return !sectorInUptrend && !marketInUptrend
+  }
 
   override fun exitReason(): String = "Market and sector breadth turned bearish"
 

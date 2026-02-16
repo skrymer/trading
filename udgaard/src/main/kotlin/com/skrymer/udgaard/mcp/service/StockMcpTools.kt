@@ -29,10 +29,6 @@ class StockMcpTools(
   private val objectMapper: ObjectMapper,
   private val symbolService: SymbolService,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger("MCP tools")
-  }
-
   @Tool(
     description = """Get list of all available stock symbols that have historical data in the system.
       Returns an array of stock info objects with symbol, sector, assetType, quoteCount,
@@ -217,6 +213,7 @@ class StockMcpTools(
           strategyRegistry.createExitStrategy(strategyName)?.description()
         }
       } catch (e: Exception) {
+        logger.warn("Failed to get description for strategy $strategyName: ${e.message}", e)
         null
       } ?: "No description available"
 
@@ -528,5 +525,9 @@ class StockMcpTools(
     return objectMapper
       .writerWithDefaultPrettyPrinter()
       .writeValueAsString(result)
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger("MCP tools")
   }
 }

@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy
 
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
@@ -25,6 +26,20 @@ class CompositeEntryStrategy(
       LogicalOperator.AND -> conditions.all { it.evaluate(stock, quote) }
       LogicalOperator.OR -> conditions.any { it.evaluate(stock, quote) }
       LogicalOperator.NOT -> !conditions.first().evaluate(stock, quote)
+    }
+  }
+
+  override fun test(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean {
+    if (conditions.isEmpty()) return false
+
+    return when (operator) {
+      LogicalOperator.AND -> conditions.all { it.evaluate(stock, quote, context) }
+      LogicalOperator.OR -> conditions.any { it.evaluate(stock, quote, context) }
+      LogicalOperator.NOT -> !conditions.first().evaluate(stock, quote, context)
     }
   }
 
@@ -60,6 +75,28 @@ class CompositeEntryStrategy(
     quote: StockQuote,
   ): EntrySignalDetails {
     val conditionResults = conditions.map { it.evaluateWithDetails(stock, quote) }
+
+    val allConditionsMet =
+      when (operator) {
+        LogicalOperator.AND -> conditionResults.all { it.passed }
+        LogicalOperator.OR -> conditionResults.any { it.passed }
+        LogicalOperator.NOT -> !conditionResults.first().passed
+      }
+
+    return EntrySignalDetails(
+      strategyName = this::class.simpleName ?: "CompositeEntryStrategy",
+      strategyDescription = description(),
+      conditions = conditionResults,
+      allConditionsMet = allConditionsMet,
+    )
+  }
+
+  override fun testWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): EntrySignalDetails {
+    val conditionResults = conditions.map { it.evaluateWithDetails(stock, quote, context) }
 
     val allConditionsMet =
       when (operator) {

@@ -7,5 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest
 internal class UdgaardApplicationTests {
   @Test
   fun contextLoads() {
+    // Verifies that the Spring application context loads successfully
   }
 }

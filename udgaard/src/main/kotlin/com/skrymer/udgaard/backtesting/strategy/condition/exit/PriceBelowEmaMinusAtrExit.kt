@@ -111,7 +111,8 @@ class PriceBelowEmaMinusAtrExit(
       description = description(),
       passed = passed,
       actualValue = "low=${"%.2f".format(quote.low)}, close=${"%.2f".format(quote.closePrice)}, open=${"%.2f".format(quote.openPrice)}",
-      threshold = "low < EMA$emaPeriod(${"%.2f".format(emaValue)}) - ${atrMultiplier}xATR(${"%.2f".format(quote.atr)}) = ${"%.2f".format(exitThreshold)}",
+      threshold = "low < EMA$emaPeriod(${"%.2f".format(emaValue)}) - " +
+        "${atrMultiplier}xATR(${"%.2f".format(quote.atr)}) = ${"%.2f".format(exitThreshold)}",
       message = "$redCandleStr, $thresholdStr",
     )
   }

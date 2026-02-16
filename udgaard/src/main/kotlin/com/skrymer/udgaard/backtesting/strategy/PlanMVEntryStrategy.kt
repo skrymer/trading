@@ -8,9 +8,7 @@ class PlanMVEntryStrategy : EntryStrategy {
   private val compositeStrategy =
     entryStrategy {
       // MARKET
-      // in uptrend 10 > 20 and price over 50
-      spyUptrend()
-      // more than 50 precent of the stocks in the market are in a uptrend
+      marketUptrend()
       marketBreadthAbove(50.0)
 
       // SECTOR

@@ -27,11 +27,6 @@ class AlphaVantageOptionsProvider(
   @Value("\${alphavantage.api.key:}") private val apiKey: String,
   @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
 ) : OptionsDataProvider {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(AlphaVantageOptionsProvider::class.java)
-    private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
-  }
-
   private val restClient: RestClient =
     RestClient
       .builder()
@@ -108,7 +103,10 @@ class AlphaVantageOptionsProvider(
       if (contracts.isNotEmpty()) {
         val sampleContract = contracts.first()
         logger.debug(
-          "Sample contract: ${sampleContract.contractId}, strike=${sampleContract.strike}, type=${sampleContract.optionType}, price=${sampleContract.price}",
+          "Sample contract: ${sampleContract.contractId}, " +
+            "strike=${sampleContract.strike}, " +
+            "type=${sampleContract.optionType}, " +
+            "price=${sampleContract.price}",
         )
       }
 
@@ -149,5 +147,10 @@ class AlphaVantageOptionsProvider(
           logger.debug("No matching contract found for $symbol $strike $optionType exp=$expiration on $date")
         }
       }
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(AlphaVantageOptionsProvider::class.java)
+    private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
   }
 }

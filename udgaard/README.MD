@@ -18,15 +18,9 @@ The application uses H2 database (file-based, no Docker required).
    cd udgaard/src/main/resources
    touch secure.properties
    ```
+   Add any API credentials here (e.g., AlphaVantage API key). This file is git-ignored.
 
-2. **Add Ovtlyr credentials to `secure.properties`:**
-   ```properties
-   ovtlyr.cookies.token=XXX
-   ovtlyr.cookies.userid=XXX
-   ```
-   (Check network tab on ovtlyr.com website for values)
-
-3. **Initialize the database:**
+2. **Initialize the database:**
    ```bash
    ./gradlew initDatabase
    ```
@@ -67,9 +61,10 @@ This will:
 1. Run Flyway migrations (creates/updates database schema)
 2. Generate jOOQ code from the database schema
 3. Run ktlint code style checks
-4. Compile Kotlin code
-5. Run unit tests
-6. Build the JAR file
+4. Run detekt static analysis
+5. Compile Kotlin code
+6. Run unit tests
+7. Build the JAR file
 
 ### Run
 
@@ -168,6 +163,18 @@ Once the database is initialized:
 ./gradlew ktlintFormat
 ```
 
+### Static Analysis (detekt)
+
+```bash
+# Run detekt analysis
+./gradlew detekt
+
+# Regenerate baseline (suppress existing violations)
+./gradlew detektBaseline
+```
+
+Configuration: `detekt.yml` | Baseline: `detekt-baseline.xml`
+
 ### Testing
 
 ```bash
@@ -193,7 +200,7 @@ build/generated-src/jooq/main/com/skrymer/udgaard/jooq/
 udgaard/
 ├── src/main/kotlin/com/skrymer/udgaard/
 │   ├── controller/         # REST API endpoints
-│   ├── integration/        # External API integrations (AlphaVantage, Ovtlyr)
+│   ├── integration/        # External API integrations (AlphaVantage)
 │   ├── mcp/               # MCP server for Claude AI integration
 │   ├── model/             # Domain models and strategies
 │   ├── service/           # Business logic
@@ -219,8 +226,7 @@ udgaard/
 ### Secure Configuration (`secure.properties`)
 
 Contains sensitive credentials (not committed to git):
-- Ovtlyr API credentials
-- AlphaVantage API key (optional, can be configured via Settings UI)
+- AlphaVantage API key (can also be configured via Settings UI)
 
 ## API Documentation
 
@@ -301,18 +307,18 @@ See the full API documentation at http://localhost:8080/udgaard/actuator after s
 ## Libraries
 
 - **Spring Boot 3.5.0** - Application framework
-- **Kotlin 2.1.21** - Programming language
+- **Kotlin 2.3.0** - Programming language
 - **H2 Database 2.2.224** - Embedded database
 - **JOOQ 3.19.23** - Type-safe SQL queries
 - **Flyway** - Database migrations
 - **Caffeine** - High-performance caching
 - **Spring AI MCP Server** - Claude AI integration
 - **ktlint** - Kotlin code style checker
+- **detekt 2.0.0-alpha.2** - Static code analysis
 
 ## Related Documentation
 
 - [Frontend (Asgaard) README](../asgaard/README.md)
-- [Electron Desktop App](../electron/README.md)
 - [Main Project README](../README.md)
 - [AlphaVantage Integration](../claude_thoughts/ALPHAVANTAGE_REFACTORING_SUMMARY.md)
 - [Strategy System](../claude_thoughts/DYNAMIC_STRATEGY_SYSTEM.md)

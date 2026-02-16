@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -20,6 +21,16 @@ interface EntryCondition {
     stock: Stock,
     quote: StockQuote,
   ): Boolean
+
+  /**
+   * Evaluates the condition with backtest context (breadth data).
+   * Default delegates to the context-free method. Override for breadth-dependent conditions.
+   */
+  fun evaluate(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean = evaluate(stock, quote)
 
   /**
    * Returns a human-readable description of the condition.
@@ -53,4 +64,14 @@ interface EntryCondition {
     stock: Stock,
     quote: StockQuote,
   ): ConditionEvaluationResult
+
+  /**
+   * Evaluates with details and backtest context.
+   * Default delegates to the context-free method. Override for breadth-dependent conditions.
+   */
+  fun evaluateWithDetails(
+    stock: Stock,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote)
 }

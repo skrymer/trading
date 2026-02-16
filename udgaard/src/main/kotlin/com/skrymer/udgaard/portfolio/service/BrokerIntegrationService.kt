@@ -1,6 +1,13 @@
 package com.skrymer.udgaard.portfolio.service
 
-import com.skrymer.udgaard.portfolio.integration.broker.*
+import com.skrymer.udgaard.portfolio.integration.broker.AssetType
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapterFactory
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerCredentials
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
+import com.skrymer.udgaard.portfolio.integration.broker.RollChain
+import com.skrymer.udgaard.portfolio.integration.broker.RollPair
+import com.skrymer.udgaard.portfolio.integration.broker.TradeLot
+import com.skrymer.udgaard.portfolio.integration.broker.TradeProcessor
 import com.skrymer.udgaard.portfolio.model.ImportResult
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.repository.ExecutionJooqRepository
@@ -23,10 +30,6 @@ class BrokerIntegrationService(
   private val positionService: PositionService,
   private val executionRepository: ExecutionJooqRepository,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(BrokerIntegrationService::class.java)
-  }
-
   /**
    * Create portfolio from broker data
    */
@@ -621,6 +624,10 @@ class BrokerIntegrationService(
     val strike: Double?,
     val expiry: java.time.LocalDate?,
   )
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(BrokerIntegrationService::class.java)
+  }
 }
 
 /**

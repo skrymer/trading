@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -19,45 +20,16 @@ interface StockRanker {
     entryQuote: StockQuote,
   ): Double
 
+  fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
+  ): Double = score(stock, entryQuote)
+
   /**
    * Description of this ranking strategy
    */
   fun description(): String
-}
-
-/**
- * Ranks stocks by heatmap value (lower = better, more fearful = better entry)
- * Theory: Buy fear, sell greed. Lower heatmap = better entry point.
- */
-class HeatmapRanker : StockRanker {
-  override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
-  ): Double {
-    // Lower heatmap is better, so return negative (will sort descending)
-    // Stock with heatmap 10 scores 90, stock with heatmap 60 scores 40
-    return 100.0 - entryQuote.heatmap
-  }
-
-  override fun description() = "Heatmap ranking (lower heatmap = better)"
-}
-
-/**
- * Ranks stocks by relative strength vs sector.
- * Theory: Buy the strongest stocks in strong sectors.
- */
-class RelativeStrengthRanker : StockRanker {
-  override fun score(
-    stock: Stock,
-    entryQuote: StockQuote,
-  ): Double {
-    // Compare stock heatmap to sector heatmap
-    // Higher stock heatmap relative to sector = stronger stock
-    val relativeStrength = entryQuote.heatmap - entryQuote.sectorHeatmap
-    return relativeStrength
-  }
-
-  override fun description() = "Relative strength (stock heatmap - sector heatmap)"
 }
 
 /**
@@ -98,33 +70,39 @@ class DistanceFrom10EmaRanker : StockRanker {
 
 /**
  * Composite ranker that combines multiple ranking factors.
- * Default: Heatmap (40%) + Relative Strength (30%) + Volatility (30%)
+ * Default: Volatility (40%) + DistanceFrom10Ema (30%) + SectorStrength (30%)
  */
 class CompositeRanker(
-  private val heatmapWeight: Double = 0.4,
-  private val relativeStrengthWeight: Double = 0.3,
-  private val volatilityWeight: Double = 0.3,
+  private val volatilityWeight: Double = 0.4,
+  private val distanceWeight: Double = 0.3,
+  private val sectorWeight: Double = 0.3,
 ) : StockRanker {
-  private val heatmapRanker = HeatmapRanker()
-  private val rsRanker = RelativeStrengthRanker()
   private val volatilityRanker = VolatilityRanker()
+  private val distanceRanker = DistanceFrom10EmaRanker()
+  private val sectorRanker = SectorStrengthRanker()
 
   override fun score(
     stock: Stock,
     entryQuote: StockQuote,
+  ): Double = score(stock, entryQuote, BacktestContext.EMPTY)
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
   ): Double {
-    val heatmapScore = heatmapRanker.score(stock, entryQuote)
-    val rsScore = rsRanker.score(stock, entryQuote)
-    val volatilityScore = volatilityRanker.score(stock, entryQuote)
+    val volatilityScore = volatilityRanker.score(stock, entryQuote, context)
+    val distanceScore = distanceRanker.score(stock, entryQuote, context)
+    val sectorScore = sectorRanker.score(stock, entryQuote, context)
 
     // Normalize scores to 0-100 range
-    val normalizedHeatmap = normalize(heatmapScore, 0.0, 100.0)
-    val normalizedRS = normalize(rsScore, -50.0, 50.0)
     val normalizedVolatility = normalize(volatilityScore, 0.0, 10.0)
+    val normalizedDistance = normalize(distanceScore, -10.0, 0.0)
+    val normalizedSector = normalize(sectorScore, 0.0, 100.0)
 
-    return (normalizedHeatmap * heatmapWeight) +
-      (normalizedRS * relativeStrengthWeight) +
-      (normalizedVolatility * volatilityWeight)
+    return (normalizedVolatility * volatilityWeight) +
+      (normalizedDistance * distanceWeight) +
+      (normalizedSector * sectorWeight)
   }
 
   private fun normalize(
@@ -137,23 +115,26 @@ class CompositeRanker(
   }
 
   override fun description() =
-    "Composite (Heatmap ${heatmapWeight * 100}%, RS ${relativeStrengthWeight * 100}%, Vol ${volatilityWeight * 100}%)"
+    "Composite (Vol ${volatilityWeight * 100}%, Dist10EMA ${distanceWeight * 100}%, Sector ${sectorWeight * 100}%)"
 }
 
 /**
- * Ranks stocks by sector strength.
+ * Ranks stocks by sector strength (bull percentage from context).
  * Theory: Trade stocks in the strongest sectors.
  */
 class SectorStrengthRanker : StockRanker {
   override fun score(
     stock: Stock,
     entryQuote: StockQuote,
-  ): Double {
-    // Sector heatmap + sector bull percentage
-    return entryQuote.sectorHeatmap + entryQuote.sectorBullPercentage
-  }
+  ): Double = score(stock, entryQuote, BacktestContext.EMPTY)
 
-  override fun description() = "Sector strength (sector heatmap + bull %)"
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
+  ): Double = context.getSectorBreadth(stock.sectorSymbol, entryQuote.date)?.bullPercentage ?: 0.0
+
+  override fun description() = "Sector strength (bull %)"
 }
 
 /**
@@ -173,7 +154,7 @@ class RandomRanker : StockRanker {
  * Theory: Use Volatility ranker in trending markets, DistanceFrom10Ema in choppy markets.
  *
  * Market Regime Detection:
- * - Trending: SPY above 200 SMA for 20+ days AND 50 EMA > 200 EMA
+ * - Trending: Market breadth above 60% (majority of stocks in uptrend)
  * - Choppy: Otherwise
  */
 class AdaptiveRanker : StockRanker {
@@ -183,23 +164,25 @@ class AdaptiveRanker : StockRanker {
   override fun score(
     stock: Stock,
     entryQuote: StockQuote,
+  ): Double = score(stock, entryQuote, BacktestContext.EMPTY)
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
   ): Double =
-    if (isMarketTrending(entryQuote)) {
-      // Use Volatility ranker in trending markets (favors big movers)
+    if (isMarketTrending(entryQuote, context)) {
       volatilityRanker.score(stock, entryQuote)
     } else {
-      // Use DistanceFrom10Ema ranker in choppy markets (favors pullbacks)
       distanceRanker.score(stock, entryQuote)
     }
 
-  private fun isMarketTrending(quote: StockQuote): Boolean {
-    // Market is trending if:
-    // 1. SPY sustained above 200 SMA for at least 20 days
-    // 2. Golden cross maintained (50 EMA > 200 EMA)
-    val sustainedAbove200 = quote.spyDaysAbove200SMA >= 20
-    val goldenCross = quote.spyEMA50 > quote.spyEMA200
-
-    return sustainedAbove200 && goldenCross
+  private fun isMarketTrending(
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean {
+    val marketBreadth = context.getMarketBreadth(quote.date)
+    return marketBreadth != null && marketBreadth.breadthPercent > 60.0
   }
 
   override fun description() = "Adaptive (Volatility in trends, DistanceFrom10Ema in chop)"

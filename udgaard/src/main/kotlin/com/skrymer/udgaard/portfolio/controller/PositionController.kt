@@ -12,10 +12,21 @@ import com.skrymer.udgaard.portfolio.model.PositionStats
 import com.skrymer.udgaard.portfolio.model.PositionStatus
 import com.skrymer.udgaard.portfolio.service.PositionService
 import com.skrymer.udgaard.portfolio.service.UnrealizedPnlService
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 
 /**
  * REST controller for position management
@@ -46,6 +57,7 @@ class PositionController(
    */
   @GetMapping("/{portfolioId}/{positionId}")
   @Transactional(readOnly = true)
+  @Suppress("detekt:UnusedParameter")
   fun getPosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
@@ -53,6 +65,7 @@ class PositionController(
     val positionWithExecutions = positionService.getPositionWithExecutions(positionId)
     ResponseEntity.ok(PositionWithExecutionsResponse.from(positionWithExecutions))
   } catch (e: IllegalArgumentException) {
+    logger.debug("Position not found: $positionId", e)
     ResponseEntity.notFound().build()
   }
 
@@ -88,6 +101,7 @@ class PositionController(
    * Close a position
    */
   @PutMapping("/{portfolioId}/{positionId}/close")
+  @Suppress("detekt:UnusedParameter")
   fun closePosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
@@ -101,6 +115,7 @@ class PositionController(
       )
     ResponseEntity.ok(position)
   } catch (e: IllegalArgumentException) {
+    logger.warn("Failed to close position $positionId: ${e.message}", e)
     ResponseEntity.badRequest().build()
   }
 
@@ -108,6 +123,7 @@ class PositionController(
    * Update position metadata (strategies, notes)
    */
   @PutMapping("/{portfolioId}/{positionId}/metadata")
+  @Suppress("detekt:UnusedParameter")
   fun updatePositionMetadata(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
@@ -122,6 +138,7 @@ class PositionController(
       )
     ResponseEntity.ok(position)
   } catch (e: IllegalArgumentException) {
+    logger.debug("Position not found for metadata update: $positionId", e)
     ResponseEntity.notFound().build()
   }
 
@@ -129,6 +146,7 @@ class PositionController(
    * Delete a position
    */
   @DeleteMapping("/{portfolioId}/{positionId}")
+  @Suppress("detekt:UnusedParameter")
   fun deletePosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
@@ -191,6 +209,7 @@ class PositionController(
    */
   @GetMapping("/{portfolioId}/{positionId}/roll-chain")
   @Transactional(readOnly = true)
+  @Suppress("detekt:UnusedParameter")
   fun getRollChain(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
@@ -198,6 +217,11 @@ class PositionController(
     val chain = positionService.getRollChain(positionId)
     ResponseEntity.ok(chain)
   } catch (e: IllegalArgumentException) {
+    logger.debug("Position not found for roll chain: $positionId", e)
     ResponseEntity.notFound().build()
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(PositionController::class.java)
   }
 }

@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy
 
 import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.data.model.Stock
@@ -34,16 +35,42 @@ class CompositeExitStrategy(
     }
   }
 
+  override fun match(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean {
+    if (exitConditions.isEmpty()) {
+      logger.warn("No exit conditions configured")
+      return false
+    }
+
+    return when (operator) {
+      LogicalOperator.AND -> exitConditions.all { it.shouldExit(stock, entryQuote, quote, context) }
+      LogicalOperator.OR -> exitConditions.any { it.shouldExit(stock, entryQuote, quote, context) }
+      LogicalOperator.NOT -> !exitConditions.first().shouldExit(stock, entryQuote, quote, context)
+    }
+  }
+
   override fun reason(
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote,
-  ): String? {
-    // Return the reason from the first matching exit condition
-    return exitConditions
+  ): String? =
+    exitConditions
       .firstOrNull { it.shouldExit(stock, entryQuote, quote) }
       ?.exitReason()
-  }
+
+  override fun reason(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): String? =
+    exitConditions
+      .firstOrNull { it.shouldExit(stock, entryQuote, quote, context) }
+      ?.exitReason()
 
   override fun description(): String {
     if (strategyDescription != null) {

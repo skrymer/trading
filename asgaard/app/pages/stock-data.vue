@@ -18,12 +18,6 @@
             :disabled="loading"
             class="w-40"
           />
-          <UCheckbox
-            v-if="selectedStock"
-            v-model="skipOvtlyr"
-            label="Skip Ovtlyr"
-            :disabled="loading"
-          />
           <UButton
             v-if="selectedStock"
             icon="i-heroicons-arrow-path"
@@ -112,68 +106,58 @@
           :exit-strategy="selectedExitStrategy"
         />
 
-        <!-- Heatmap Charts -->
-        <div v-if="selectedStock" class="space-y-4">
-          <!-- Time Range Selector (shared by both charts) -->
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold">
-              Heatmap Analysis
-            </h3>
-            <div class="flex items-center gap-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Time Range:
-              </label>
-              <USelectMenu
-                v-model="heatmapMonths"
-                :items="[
-                  { label: '3 Months', value: 3 },
-                  { label: '6 Months', value: 6 },
-                  { label: '1 Year', value: 12 },
-                  { label: '2 Years', value: 24 },
-                  { label: 'All Time', value: 1000 }
-                ]"
-                value-attribute="value"
-                class="w-36"
-              />
-            </div>
+        <!-- Time Range Selector -->
+        <div v-if="selectedStock" class="flex items-center justify-end">
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Time Range:
+            </label>
+            <USelectMenu
+              v-model="heatmapMonths"
+              :items="[
+                { label: '3 Months', value: 3 },
+                { label: '6 Months', value: 6 },
+                { label: '1 Year', value: 12 },
+                { label: '2 Years', value: 24 },
+                { label: 'All Time', value: 1000 }
+              ]"
+              value-attribute="value"
+              class="w-36"
+            />
           </div>
+        </div>
 
-          <!-- Stock Heatmap Chart -->
-          <div>
+        <!-- Breadth Analysis Charts -->
+        <div v-if="marketBreadthSeries.length > 0 || sectorBreadthSeries.length > 0" class="space-y-4">
+          <h3 class="text-lg font-semibold">
+            Breadth Analysis
+          </h3>
+
+          <!-- Market Breadth Chart -->
+          <div v-if="marketBreadthSeries.length > 0">
             <h4 class="text-md font-medium mb-2">
-              Stock Heatmap (Fear & Greed)
+              Market Breadth
             </h4>
-            <ChartsBarChart
-              v-if="heatmapChartSeries.length > 0"
-              :series="heatmapChartSeries"
-              :categories="heatmapChartCategories"
-              :bar-colors="heatmapBarColors"
-              :distributed="true"
-              y-axis-label="Stock Heatmap"
+            <ChartsLineChart
+              :series="marketBreadthSeries"
+              :categories="marketBreadthCategories"
+              :line-colors="['#10b981', '#9ca3af', '#f59e0b']"
               :height="300"
-              :show-legend="false"
-              :show-data-labels="false"
-              :y-axis-max="100"
+              :percent-mode="true"
             />
           </div>
 
-          <!-- Sector Heatmap Chart -->
-          <div>
+          <!-- Sector Breadth Chart -->
+          <div v-if="sectorBreadthSeries.length > 0 && selectedStock?.sectorSymbol">
             <h4 class="text-md font-medium mb-2">
-              Sector Heatmap (Fear & Greed)
-              <span v-if="selectedStock.sectorSymbol" class="text-muted"> - {{ getSectorName(selectedStock.sectorSymbol) }}</span>
+              {{ selectedStock.sectorSymbol }} Sector Breadth
             </h4>
-            <ChartsBarChart
-              v-if="sectorHeatmapChartSeries.length > 0"
-              :series="sectorHeatmapChartSeries"
-              :categories="heatmapChartCategories"
-              :bar-colors="sectorHeatmapBarColors"
-              :distributed="true"
-              y-axis-label="Sector Heatmap"
+            <ChartsLineChart
+              :series="sectorBreadthSeries"
+              :categories="sectorBreadthCategories"
+              :line-colors="['#3b82f6', '#9ca3af', '#f59e0b']"
               :height="300"
-              :show-legend="false"
-              :show-data-labels="false"
-              :y-axis-max="100"
+              :percent-mode="true"
             />
           </div>
         </div>
@@ -194,8 +178,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Stock } from '~/types'
-import { getSectorName } from '~/types/enums'
+import type { Stock, MarketBreadthDaily, SectorBreadthDaily } from '~/types'
 
 // Page meta
 definePageMeta({
@@ -215,77 +198,88 @@ const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
-const skipOvtlyr = ref<boolean>(false)
 const minDate = ref('2020-01-01')
+const marketBreadthData = ref<MarketBreadthDaily[]>([])
+const sectorBreadthData = ref<SectorBreadthDaily[]>([])
 
-// Computed properties for heatmap charts (shared time range)
-const filteredHeatmapQuotes = computed(() => {
-  if (!selectedStock.value?.quotes) return []
-
-  const quotes = selectedStock.value.quotes
+// Breadth chart computed properties
+const filteredMarketBreadth = computed(() => {
   const today = new Date()
   const monthsAgo = new Date()
   monthsAgo.setMonth(today.getMonth() - heatmapMonths.value.value)
 
-  return quotes.filter((q) => {
-    if (!q.date) return false
-    const quoteDate = new Date(q.date)
+  return marketBreadthData.value.filter((d) => {
+    const quoteDate = new Date(d.quoteDate)
     return quoteDate >= monthsAgo
   })
 })
 
-// Stock Heatmap
-const heatmapChartSeries = computed(() => {
-  if (filteredHeatmapQuotes.value.length === 0) return []
+const filteredSectorBreadth = computed(() => {
+  const today = new Date()
+  const monthsAgo = new Date()
+  monthsAgo.setMonth(today.getMonth() - heatmapMonths.value.value)
 
-  return [{
-    name: 'Stock Heatmap',
-    data: filteredHeatmapQuotes.value.map(q => q.heatmap || 0)
-  }]
+  return sectorBreadthData.value.filter((d) => {
+    const quoteDate = new Date(d.quoteDate)
+    return quoteDate >= monthsAgo
+  })
 })
 
-const heatmapChartCategories = computed(() => {
-  if (filteredHeatmapQuotes.value.length === 0) return []
+const marketBreadthSeries = computed(() => {
+  if (filteredMarketBreadth.value.length === 0) return []
+  return [
+    { name: 'Breadth %', data: filteredMarketBreadth.value.map(d => d.breadthPercent) },
+    { name: 'EMA 10', data: filteredMarketBreadth.value.map(d => d.ema10) },
+    { name: 'EMA 20', data: filteredMarketBreadth.value.map(d => d.ema20) }
+  ]
+})
 
-  return filteredHeatmapQuotes.value.map((q) => {
-    const date = new Date(q.date)
+const marketBreadthCategories = computed(() => {
+  return filteredMarketBreadth.value.map((d) => {
+    const date = new Date(d.quoteDate)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   })
 })
 
-const heatmapBarColors = computed(() => {
-  if (filteredHeatmapQuotes.value.length === 0) return []
-
-  // Color bars based on heatmap value (0-100 scale)
-  // Green if > 50, Red if <= 50
-  return filteredHeatmapQuotes.value.map((q) => {
-    const heatmap = q.heatmap || 0
-    return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
-  })
+const sectorBreadthSeries = computed(() => {
+  if (filteredSectorBreadth.value.length === 0) return []
+  return [
+    { name: 'Bull %', data: filteredSectorBreadth.value.map(d => d.bullPercentage) },
+    { name: 'EMA 10', data: filteredSectorBreadth.value.map(d => d.ema10) },
+    { name: 'EMA 20', data: filteredSectorBreadth.value.map(d => d.ema20) }
+  ]
 })
 
-// Sector Heatmap
-const sectorHeatmapChartSeries = computed(() => {
-  if (filteredHeatmapQuotes.value.length === 0) return []
-
-  return [{
-    name: 'Sector Heatmap',
-    data: filteredHeatmapQuotes.value.map(q => q.sectorHeatmap || 0)
-  }]
-})
-
-const sectorHeatmapBarColors = computed(() => {
-  if (filteredHeatmapQuotes.value.length === 0) return []
-
-  // Color bars based on sector heatmap value (0-100 scale)
-  // Green if > 50, Red if <= 50
-  return filteredHeatmapQuotes.value.map((q) => {
-    const heatmap = q.sectorHeatmap || 0
-    return heatmap > 50 ? '#10b981' : '#ef4444' // Green : Red
+const sectorBreadthCategories = computed(() => {
+  return filteredSectorBreadth.value.map((d) => {
+    const date = new Date(d.quoteDate)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   })
 })
 
 // Methods
+const fetchBreadthData = async () => {
+  try {
+    marketBreadthData.value = await $fetch<MarketBreadthDaily[]>('/udgaard/api/breadth/market-daily')
+  } catch (error) {
+    console.error('Failed to fetch market breadth:', error)
+    marketBreadthData.value = []
+  }
+
+  if (selectedStock.value?.sectorSymbol) {
+    try {
+      sectorBreadthData.value = await $fetch<SectorBreadthDaily[]>(
+        `/udgaard/api/breadth/sector-daily/${selectedStock.value.sectorSymbol}`
+      )
+    } catch (error) {
+      console.error('Failed to fetch sector breadth:', error)
+      sectorBreadthData.value = []
+    }
+  } else {
+    sectorBreadthData.value = []
+  }
+}
+
 const fetchStrategies = async () => {
   loadingStrategies.value = true
   try {
@@ -343,15 +337,12 @@ const fetchSignals = async () => {
   }
 }
 
-const fetchStockData = async (symbol: string, refresh = false, skipOvtlyrParam = false) => {
+const fetchStockData = async (symbol: string, refresh = false) => {
   loading.value = true
   try {
     const params = new URLSearchParams()
     if (refresh) {
       params.append('refresh', 'true')
-    }
-    if (skipOvtlyrParam) {
-      params.append('skipOvtlyr', 'true')
     }
     params.append('minDate', minDate.value)
     const url = `/udgaard/api/stocks/${symbol}${params.toString() ? `?${params.toString()}` : ''}`
@@ -378,17 +369,19 @@ const fetchStockData = async (symbol: string, refresh = false, skipOvtlyrParam =
 
 const refreshStock = async () => {
   if (selectedSymbol.value) {
-    // Force fetch the selected stock (refresh=true), optionally skipping Ovtlyr enrichment
-    await fetchStockData(selectedSymbol.value, true, skipOvtlyr.value)
+    await fetchStockData(selectedSymbol.value, true)
   }
 }
 
 // Watchers
-watch(selectedSymbol, (newSymbol) => {
+watch(selectedSymbol, async (newSymbol) => {
   if (newSymbol) {
-    fetchStockData(newSymbol)
+    await fetchStockData(newSymbol)
+    fetchBreadthData()
   } else {
     selectedStock.value = null
+    marketBreadthData.value = []
+    sectorBreadthData.value = []
   }
 })
 

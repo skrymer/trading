@@ -3,6 +3,7 @@ package com.skrymer.udgaard.data.integration.alphavantage.dto
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.skrymer.udgaard.data.model.Earning
+import org.slf4j.LoggerFactory
 import java.time.LocalDate
 
 /**
@@ -94,10 +95,14 @@ data class AlphaVantageEarnings(
             reportTime = quarterly.reportTime,
           )
         } catch (e: Exception) {
-          // Skip invalid earnings entries
+          logger.warn("Skipping invalid earnings entry for $symbolValue: ${e.message}", e)
           null
         }
       }?.sortedBy { it.fiscalDateEnding } ?: emptyList()
+  }
+
+  companion object {
+    private val logger = LoggerFactory.getLogger(AlphaVantageEarnings::class.java)
   }
 }
 

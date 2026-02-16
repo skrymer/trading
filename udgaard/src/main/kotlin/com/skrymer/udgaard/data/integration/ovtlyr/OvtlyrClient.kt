@@ -1,6 +1,5 @@
 package com.skrymer.udgaard.data.integration.ovtlyr
 
-import com.skrymer.udgaard.data.integration.ovtlyr.dto.OvtlyrBreadth
 import com.skrymer.udgaard.data.integration.ovtlyr.dto.OvtlyrStockInformation
 import com.skrymer.udgaard.data.integration.ovtlyr.dto.ScreenerResult
 import com.skrymer.udgaard.data.integration.ovtlyr.dto.StockPerformance
@@ -21,10 +20,6 @@ class OvtlyrClient(
   @Value("\${ovtlyr.marketbreadth.baseUrl}") val marketBreadthBaseUrl: String,
   @Value("\${ovtlyr.screener.baseUrl}") val screenerBaseUrl: String,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger("Ovtlyr client")
-  }
-
   /**
    * @param symbol
    */
@@ -57,36 +52,6 @@ class OvtlyrClient(
       return response
     }.onFailure { e ->
       logger.error("Exception occurred fetching stock: $symbol message: ${e.message} skipping", e)
-    }.getOrNull()
-  }
-
-  /**
-   * Get breadth data for a symbol (can be market or sector).
-   * @param symbol - symbol identifier (e.g., "FULLSTOCK" for market, "XLE" for energy sector)
-   * @return Breadth data from Ovtlyr
-   */
-  fun getBreadth(symbol: String): OvtlyrBreadth? {
-    return runCatching {
-      val restClient: RestClient =
-        RestClient
-          .builder()
-          .baseUrl(marketBreadthBaseUrl)
-          .build()
-
-      val requestBody =
-        "{\"page_size\":2000,\"page_index\":0,\"period\":\"All\",\"stockSymbol\":\"${symbol}\"}"
-
-      return restClient
-        .post()
-        .cookie("UserId", cookieUserId)
-        .cookie("Token", cookieToken)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(requestBody)
-        .retrieve()
-        .toEntity(OvtlyrBreadth::class.java)
-        .getBody()
-    }.onFailure { e ->
-      logger.error("Exception occurred fetching breadth data: $symbol message: ${e.message} skipping", e)
     }.getOrNull()
   }
 
@@ -139,5 +104,10 @@ class OvtlyrClient(
   }
 
   fun logResponse(response: ClientHttpResponse) {
+    // Intentionally empty - hook for subclasses to override for response logging
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger("Ovtlyr client")
   }
 }

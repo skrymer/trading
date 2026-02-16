@@ -1,0 +1,61 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ClassOrdering:OrderBlockCalculator.kt:OrderBlockCalculator$Companion</ID>
+    <ID>ClassOrdering:OvtlyrStockQuote.kt:OvtlyrStockQuote$val isInUptrend: Boolean get() = "Uptrend" == trend</ID>
+    <ID>ComplexCondition:UnrealizedPnlService.kt:UnrealizedPnlService$position.strikePrice == null || position.expirationDate == null || position.optionType == null || position.underlyingSymbol == null</ID>
+    <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildEntryCondition: EntryCondition</ID>
+    <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildExitCondition: ExitCondition</ID>
+    <ID>CyclomaticComplexMethod:PositionMapper.kt:PositionMapper$fun toDomain: Position</ID>
+    <ID>CyclomaticComplexMethod:PositionService.kt:PositionService$fun calculateStats: PositionStats</ID>
+    <ID>CyclomaticComplexMethod:StockIngestionService.kt:StockIngestionService$private suspend fun fetchStock: Stock?</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:BacktestService.kt:BacktestService$val (timeStats, exitAnalysis, sectorPerf, stockPerf, atrDrawdown) = runBlocking { val d = Dispatchers.Default val t1 = async(d) { calculateTimeBasedStats(trades) } val t2 = async(d) { calculateExitReasonAnalysis(trades) } val t3 = async(d) { calculateSectorPerformance(trades) } val t4 = async(d) { calculateStockPerformance(trades) } val t5 = async(d) { calculateATRDrawdownStats(winningTrades, losingTrades) } AnalyticsResult(t1.await(), t2.await(), t3.await(), t4.await(), t5.await()) }</ID>
+    <ID>LargeClass:AboveBearishOrderBlockConditionTest.kt:AboveBearishOrderBlockConditionTest</ID>
+    <ID>LargeClass:BacktestService.kt:BacktestService</ID>
+    <ID>LargeClass:BacktestServiceTest.kt:BacktestServiceTest</ID>
+    <ID>LongMethod:AboveBearishOrderBlockCondition.kt:AboveBearishOrderBlockCondition$override fun evaluateWithDetails: ConditionEvaluationResult</ID>
+    <ID>LongMethod:AlphaVantageOptionsProvider.kt:AlphaVantageOptionsProvider$override fun getHistoricalOptions: List&lt;OptionContract&gt;?</ID>
+    <ID>LongMethod:BacktestController.kt:BacktestController$@PostMapping fun runBacktestWithConfig: ResponseEntity&lt;BacktestReport&gt;</ID>
+    <ID>LongMethod:BacktestService.kt:BacktestService$fun backtest: BacktestReport</ID>
+    <ID>LongMethod:BacktestService.kt:BacktestService$private fun backtestSequential: Pair&lt;List&lt;Trade&gt;, List&lt;Trade&gt;&gt;</ID>
+    <ID>LongMethod:BacktestService.kt:BacktestService$private fun calculateATRDrawdownStats: ATRDrawdownStats?</ID>
+    <ID>LongMethod:BelowOrderBlockCondition.kt:BelowOrderBlockCondition$override fun evaluateWithDetails: ConditionEvaluationResult</ID>
+    <ID>LongMethod:BrokerIntegrationService.kt:BrokerIntegrationService$private fun importLotGroup: RegularLotImportResult</ID>
+    <ID>LongMethod:BrokerIntegrationService.kt:BrokerIntegrationService$private fun importRegularLot: RegularLotImportResult</ID>
+    <ID>LongMethod:BrokerIntegrationService.kt:BrokerIntegrationService$private fun importRollChain: ChainImportResult</ID>
+    <ID>LongMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildEntryCondition: EntryCondition</ID>
+    <ID>LongMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildExitCondition: ExitCondition</ID>
+    <ID>LongMethod:PositionJooqRepository.kt:PositionJooqRepository$fun save: Position</ID>
+    <ID>LongMethod:PositionService.kt:PositionService$fun calculateStats: PositionStats</ID>
+    <ID>LongMethod:StockIngestionService.kt:StockIngestionService$@Synchronized private fun startProcessing</ID>
+    <ID>LongMethod:StockIngestionService.kt:StockIngestionService$private suspend fun fetchStock: Stock?</ID>
+    <ID>LongMethod:StockJooqRepository.kt:StockJooqRepository$fun batchSave: List&lt;Stock&gt;</ID>
+    <ID>LongMethod:StockJooqRepository.kt:StockJooqRepository$fun save: Stock</ID>
+    <ID>LongMethod:StockMcpTools.kt:StockMcpTools$@Tool( description = """Explain what backtest performance metrics mean and how to interpret them. Helps understand backtest results by providing definitions, interpretations, and benchmarks. Parameters: - metrics: Optional comma-separated list of specific metrics to explain. If not provided, explains all common metrics. Examples: 'winRate', 'edge', 'averageWin' Returns detailed explanations including: - Definition: What the metric measures - Interpretation: How to read the value - Benchmark: What's considered good/bad - Context: When the metric matters most Use this to understand backtest results and make informed decisions.""", ) fun explainBacktestMetrics: String</ID>
+    <ID>LongMethod:StockMcpTools.kt:StockMcpTools$@Tool( description = """Get system status and readiness for backtesting. Provides a health check of the backtesting system including database connectivity, data availability, cache status, and overall readiness. Returns: - status: Overall system status ('ready', 'degraded', 'error') - stockCount: Number of stocks with data available - strategyCount: Number of available strategies - cacheStatus: Whether cache is warm or cold - readyForBacktest: Boolean indicating if system is ready - warnings: Any warnings or issues Use this to verify the system is ready before running backtests.""", ) fun getSystemStatus: String</ID>
+    <ID>LongMethod:UnrealizedPnlService.kt:UnrealizedPnlService$fun calculateUnrealizedPnl: List&lt;PositionUnrealizedPnlResponse&gt;</ID>
+    <ID>LoopWithTooManyJumpStatements:BacktestService.kt:BacktestService$for</ID>
+    <ID>LoopWithTooManyJumpStatements:OvtlyrStockQuote.kt:OvtlyrStockQuote$for</ID>
+    <ID>LoopWithTooManyJumpStatements:UnrealizedPnlService.kt:UnrealizedPnlService$for</ID>
+    <ID>NestedBlockDepth:OrderBlockCalculator.kt:OrderBlockCalculator$fun calculateOrderBlocks: List&lt;OrderBlock&gt;</ID>
+    <ID>ReturnCount:BacktestController.kt:BacktestController$@PostMapping fun runBacktestWithConfig: ResponseEntity&lt;BacktestReport&gt;</ID>
+    <ID>ReturnCount:MonteCarloController.kt:MonteCarloController$@PostMapping("/simulate") fun runSimulation: ResponseEntity&lt;MonteCarloResult&gt;</ID>
+    <ID>ReturnCount:OptionController.kt:OptionController$@GetMapping("/historical-prices") fun getHistoricalPrices: ResponseEntity&lt;List&lt;OptionPricePoint&gt;&gt;</ID>
+    <ID>ReturnCount:PriceBelowEmaForDaysExit.kt:PriceBelowEmaForDaysExit$override fun shouldExit: Boolean</ID>
+    <ID>ReturnCount:StrategySignalService.kt:StrategySignalService$fun evaluateConditionsForDate: EntrySignalDetails?</ID>
+    <ID>ReturnCount:StrategySignalService.kt:StrategySignalService$fun evaluateExitConditionsForDate: ExitSignalDetails?</ID>
+    <ID>ThrowsCount:BrokerIntegrationService.kt:BrokerIntegrationService$@Transactional fun syncPortfolio: PortfolioSyncResult</ID>
+    <ID>ThrowsCount:IBKRFlexQueryClient.kt:IBKRFlexQueryClient$fun getStatement: String</ID>
+    <ID>ThrowsCount:StockIngestionService.kt:StockIngestionService$private suspend fun fetchStock: Stock?</ID>
+    <ID>TooManyFunctions:BacktestService.kt:BacktestService</ID>
+    <ID>TooManyFunctions:OvtlyrStockQuote.kt:OvtlyrStockQuote</ID>
+    <ID>TooManyFunctions:PositionService.kt:PositionService</ID>
+    <ID>TooManyFunctions:Stock.kt:Stock</ID>
+    <ID>TooManyFunctions:StockJooqRepository.kt:StockJooqRepository</ID>
+    <ID>TooManyFunctions:StrategyDsl.kt:EntryStrategyBuilder</ID>
+    <ID>TooManyFunctions:StrategyDsl.kt:ExitStrategyBuilder</ID>
+    <ID>UnusedParameter:AboveBearishOrderBlockCondition.kt:AboveBearishOrderBlockCondition$relevantOrderBlocks: List&lt;OrderBlock&gt;</ID>
+    <ID>UnusedParameter:OvtlyrClient.kt:OvtlyrClient$response: ClientHttpResponse</ID>
+  </CurrentIssues>
+</SmellBaseline>

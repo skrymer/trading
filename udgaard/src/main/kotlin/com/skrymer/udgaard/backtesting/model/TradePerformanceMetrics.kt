@@ -1,6 +1,8 @@
 package com.skrymer.udgaard.backtesting.model
 
 import java.time.LocalDate
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 /**
  * Performance statistics grouped by time periods (year, quarter, month).
@@ -21,6 +23,7 @@ data class PeriodStats(
   val avgProfit: Double,
   val avgHoldingDays: Double,
   val exitReasons: Map<String, Int>,
+  val edge: Double = 0.0,
 )
 
 /**
@@ -125,3 +128,86 @@ data class SectorPerformance(
   val avgProfit: Double,
   val avgHoldingDays: Double,
 )
+
+/**
+ * Measures how consistent a strategy's edge is across yearly periods.
+ * Score 0–100: 80+ Excellent, 60–79 Good, 40–59 Moderate, 20–39 Poor, <20 Very Poor.
+ * Null when fewer than 2 years of data.
+ */
+data class EdgeConsistencyScore(
+  val score: Double,
+  val profitablePeriodsScore: Double,
+  val stabilityScore: Double,
+  val downsideScore: Double,
+  val yearsAnalyzed: Int,
+  val yearlyEdges: Map<Int, Double>,
+  val interpretation: String,
+)
+
+/**
+ * Calculate edge consistency across yearly periods.
+ * Returns null when fewer than 2 years have trades.
+ *
+ * Formula: score = profitablePeriods × 0.4 + stability × 0.4 + downside × 0.2
+ *
+ * - Profitable Periods (0–100): % of years with edge > 0
+ * - Stability (0–100): max(0, 100 × (1 − CV)) where CV = stdDev / |mean|
+ * - Downside (0–100): 100 if worst ≥ 0, else 100 × (1 + worstEdge/10) clamped to 0
+ */
+fun calculateEdgeConsistency(yearlyStats: Map<Int, PeriodStats>): EdgeConsistencyScore? {
+  // Filter out years with zero trades
+  val validYears = yearlyStats.filter { it.value.trades > 0 }
+  if (validYears.size < 2) return null
+
+  val yearlyEdges = validYears.mapValues { it.value.edge }
+  val edges = yearlyEdges.values.toList()
+
+  // 1. Profitable Periods Score
+  val profitableCount = edges.count { it > 0 }
+  val profitablePeriodsScore = (profitableCount.toDouble() / edges.size) * 100
+
+  // 2. Stability Score (based on Coefficient of Variation)
+  val mean = edges.average()
+  val variance = edges.map { (it - mean) * (it - mean) }.average()
+  val stdDev = sqrt(variance)
+
+  val stabilityScore =
+    if (abs(mean) < 0.001) {
+      // Near-zero mean edge
+      if (stdDev < 0.001) 50.0 else 0.0
+    } else {
+      val cv = stdDev / abs(mean)
+      (100.0 * (1.0 - cv)).coerceAtLeast(0.0)
+    }
+
+  // 3. Downside Score
+  val worstEdge = edges.min()
+  val downsideScore =
+    if (worstEdge >= 0) {
+      100.0
+    } else {
+      (100.0 * (1.0 + worstEdge / 10.0)).coerceAtLeast(0.0)
+    }
+
+  // Final score
+  val score = profitablePeriodsScore * 0.4 + stabilityScore * 0.4 + downsideScore * 0.2
+
+  val interpretation =
+    when {
+      score >= 80 -> "Excellent"
+      score >= 60 -> "Good"
+      score >= 40 -> "Moderate"
+      score >= 20 -> "Poor"
+      else -> "Very Poor"
+    }
+
+  return EdgeConsistencyScore(
+    score = score,
+    profitablePeriodsScore = profitablePeriodsScore,
+    stabilityScore = stabilityScore,
+    downsideScore = downsideScore,
+    yearsAnalyzed = edges.size,
+    yearlyEdges = yearlyEdges,
+    interpretation = interpretation,
+  )
+}

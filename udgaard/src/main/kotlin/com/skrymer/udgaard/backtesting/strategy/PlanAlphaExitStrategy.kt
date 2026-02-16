@@ -8,16 +8,16 @@ import com.skrymer.udgaard.data.model.StockQuote
  *
  * Exit when ANY of the following conditions are met:
  * - Price closes below 10 EMA
- * - Sell signal occurs
  * - Within order block older than 120 days
+ * - Market and sector in downtrend
  */
 @RegisteredStrategy(name = "PlanAlpha", type = StrategyType.EXIT)
 class PlanAlphaExitStrategy : ExitStrategy {
   private val compositeStrategy =
     exitStrategy {
       priceBelowEma(10)
-      sellSignal()
-      orderBlock(120)
+      bearishOrderBlock(120)
+      marketAndSectorDowntrend()
     }
 
   override fun match(

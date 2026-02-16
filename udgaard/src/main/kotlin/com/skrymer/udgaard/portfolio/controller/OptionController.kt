@@ -6,7 +6,11 @@ import com.skrymer.udgaard.portfolio.service.OptionPriceService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 
 /**
@@ -19,14 +23,12 @@ import java.time.LocalDate
 class OptionController(
   private val optionPriceService: OptionPriceService,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(OptionController::class.java)
-  }
-
   /**
    * Fetch historical option prices for a date range (for chart display).
    *
-   * Example: GET /api/options/historical-prices?symbol=SPY&strike=600&expiration=2025-12-19&type=CALL&startDate=2025-11-01&endDate=2025-12-04
+   * Example:
+   * GET /api/options/historical-prices?symbol=SPY&strike=600
+   *     &expiration=2025-12-19&type=CALL&startDate=2025-11-01&endDate=2025-12-04
    *
    * @param symbol Underlying stock symbol (e.g., "SPY")
    * @param strike Strike price
@@ -54,7 +56,7 @@ class OptionController(
       try {
         OptionType.valueOf(type.uppercase())
       } catch (e: IllegalArgumentException) {
-        logger.error("Invalid option type: $type")
+        logger.warn("Invalid option type: $type", e)
         return ResponseEntity.badRequest().build()
       }
 
@@ -62,7 +64,7 @@ class OptionController(
       try {
         LocalDate.parse(expiration)
       } catch (e: Exception) {
-        logger.error("Invalid expiration date: $expiration")
+        logger.warn("Invalid expiration date: $expiration", e)
         return ResponseEntity.badRequest().build()
       }
 
@@ -70,7 +72,7 @@ class OptionController(
       try {
         LocalDate.parse(startDate)
       } catch (e: Exception) {
-        logger.error("Invalid start date: $startDate")
+        logger.warn("Invalid start date: $startDate", e)
         return ResponseEntity.badRequest().build()
       }
 
@@ -78,7 +80,7 @@ class OptionController(
       try {
         LocalDate.parse(endDate)
       } catch (e: Exception) {
-        logger.error("Invalid end date: $endDate")
+        logger.warn("Invalid end date: $endDate", e)
         return ResponseEntity.badRequest().build()
       }
 
@@ -94,5 +96,9 @@ class OptionController(
 
     logger.info("Returning ${prices.size} price points")
     return ResponseEntity.ok(prices)
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(OptionController::class.java)
   }
 }

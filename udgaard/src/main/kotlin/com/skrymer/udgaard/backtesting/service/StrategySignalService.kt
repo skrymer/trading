@@ -38,7 +38,8 @@ class StrategySignalService(
     cooldownDays: Int = 0,
   ): StockWithSignals? {
     logger.info(
-      "Evaluating strategies entry=$entryStrategyName, exit=$exitStrategyName, cooldown=$cooldownDays on stock ${stock.symbol}",
+      "Evaluating strategies entry=$entryStrategyName, exit=$exitStrategyName, " +
+        "cooldown=$cooldownDays on stock ${stock.symbol}",
     )
 
     val entryStrategy = strategyRegistry.createEntryStrategy(entryStrategyName)
@@ -57,7 +58,8 @@ class StrategySignalService(
     val quotesWithSignals = evaluateQuotes(stock, entryStrategy, entryStrategyName, exitStrategy, cooldownDays)
 
     logger.info(
-      "Evaluated ${quotesWithSignals.size} quotes for ${stock.symbol} with entry=$entryStrategyName, exit=$exitStrategyName, cooldown=$cooldownDays",
+      "Evaluated ${quotesWithSignals.size} quotes for ${stock.symbol} " +
+        "with entry=$entryStrategyName, exit=$exitStrategyName, cooldown=$cooldownDays",
     )
     return StockWithSignals(
       stock = stock,
@@ -170,7 +172,7 @@ class StrategySignalService(
       try {
         java.time.LocalDate.parse(quoteDate)
       } catch (e: Exception) {
-        logger.error("Invalid date format: $quoteDate")
+        logger.error("Invalid date format: $quoteDate", e)
         return null
       }
 
@@ -203,7 +205,8 @@ class StrategySignalService(
     exitStrategyName: String,
   ): ExitSignalDetails? {
     logger.info(
-      "Evaluating exit conditions for ${stock.symbol} on date=$quoteDate (entry=$entryDate) with strategy=$exitStrategyName",
+      "Evaluating exit conditions for ${stock.symbol} on date=$quoteDate " +
+        "(entry=$entryDate) with strategy=$exitStrategyName",
     )
 
     val exitStrategy = strategyRegistry.createExitStrategy(exitStrategyName)
@@ -216,7 +219,7 @@ class StrategySignalService(
       try {
         java.time.LocalDate.parse(quoteDate)
       } catch (e: Exception) {
-        logger.error("Invalid date format: $quoteDate")
+        logger.error("Invalid date format: $quoteDate", e)
         return null
       }
 
@@ -224,7 +227,7 @@ class StrategySignalService(
       try {
         java.time.LocalDate.parse(entryDate)
       } catch (e: Exception) {
-        logger.error("Invalid entry date format: $entryDate")
+        logger.error("Invalid entry date format: $entryDate", e)
         return null
       }
 
@@ -251,7 +254,10 @@ class StrategySignalService(
     return if (compositeStrategy != null) {
       val details = compositeStrategy.testWithDetails(stock, entryQuote, quote)
       details.copy(strategyName = exitStrategyName).also {
-        logger.info("Evaluated exit conditions for ${stock.symbol} on $quoteDate: anyConditionMet=${it.anyConditionMet}")
+        logger.info(
+          "Evaluated exit conditions for ${stock.symbol} on $quoteDate: " +
+            "anyConditionMet=${it.anyConditionMet}",
+        )
       }
     } else {
       // Fallback for non-composite strategies

@@ -1,9 +1,10 @@
 plugins {
-	id 'org.jetbrains.kotlin.jvm' version '2.1.21'
-	id 'org.jetbrains.kotlin.plugin.spring' version '2.1.21'
+	id 'org.jetbrains.kotlin.jvm' version '2.3.0'
+	id 'org.jetbrains.kotlin.plugin.spring' version '2.3.0'
 	id 'org.springframework.boot' version '3.5.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.jlleitschuh.gradle.ktlint' version '12.1.2'
+	id 'dev.detekt' version '2.0.0-alpha.2'
 	id 'nu.studer.jooq' version '9.0'
 	id 'net.ltgt.flyway' version '0.2.0'
 }
@@ -109,8 +110,17 @@ ktlint {
 	}
 }
 
+detekt {
+	toolVersion = "2.0.0-alpha.2"
+	config.setFrom("${projectDir}/detekt.yml")
+	buildUponDefaultConfig = true
+	parallel = true
+	baseline = file("detekt-baseline.xml")
+	source.setFrom("src/main/kotlin", "src/test/kotlin")
+}
+
 flyway {
-	url = 'jdbc:h2:file:~/.trading-app/database/trading'
+	url = 'jdbc:h2:tcp://localhost:9092/trading'
 	user = 'sa'
 	password = ''
 	migrationLocations = files('src/main/resources/db/migration')
@@ -129,7 +139,7 @@ jooq {
 			generationTool {
 				jdbc {
 					driver = 'org.h2.Driver'
-					url = 'jdbc:h2:file:~/.trading-app/database/trading'
+					url = 'jdbc:h2:tcp://localhost:9092/trading'
 					user = 'sa'
 					password = ''
 				}
@@ -184,6 +194,7 @@ tasks.register('startH2Server', JavaExec) {
 	args = [
 		'-tcp', '-tcpAllowOthers', '-tcpPort', '9092',
 		'-web', '-webAllowOthers', '-webPort', '8082',
+		'-ifNotExists',
 		'-baseDir', System.getProperty('user.home') + '/.trading-app/database'
 	]
 

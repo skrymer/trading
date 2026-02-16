@@ -1,12 +1,19 @@
 package com.skrymer.udgaard.backtesting.controller
 
-import com.skrymer.udgaard.backtesting.dto.*
+import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
+import com.skrymer.udgaard.backtesting.dto.BacktestRequest
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.service.BacktestService
 import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
-import com.skrymer.udgaard.backtesting.strategy.*
+import com.skrymer.udgaard.backtesting.strategy.AdaptiveRanker
+import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
+import com.skrymer.udgaard.backtesting.strategy.DistanceFrom10EmaRanker
+import com.skrymer.udgaard.backtesting.strategy.RandomRanker
+import com.skrymer.udgaard.backtesting.strategy.SectorStrengthRanker
+import com.skrymer.udgaard.backtesting.strategy.StockRanker
+import com.skrymer.udgaard.backtesting.strategy.VolatilityRanker
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.service.StockService
 import com.skrymer.udgaard.data.service.SymbolService
@@ -41,10 +48,6 @@ class BacktestController(
   private val dynamicStrategyBuilder: DynamicStrategyBuilder,
   private val conditionRegistry: ConditionRegistry,
 ) {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)
-  }
-
   /**
    * Run backtest with request body.
    * Supports both predefined and custom strategies.
@@ -83,7 +86,7 @@ class BacktestController(
     val stocks =
       if (!request.stockSymbols.isNullOrEmpty()) {
         // Specific symbols provided - filter from DB
-        stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() }, forceFetch = false)
+        stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() })
       } else if (!request.assetTypes.isNullOrEmpty()) {
         // Filter by asset type
         val assetTypeEnums = request.assetTypes.map { AssetType.valueOf(it) }
@@ -93,7 +96,7 @@ class BacktestController(
             .filter { it.assetType in assetTypeEnums }
             .map { it.symbol }
         logger.info("Filtered to ${symbols.size} symbols matching asset types: ${request.assetTypes.joinToString(", ")}")
-        stockService.getStocksBySymbols(symbols, forceFetch = false)
+        stockService.getStocksBySymbols(symbols)
       } else {
         // "All stocks" selected - use all stocks in DB
         stockService.getAllStocks()
@@ -188,14 +191,12 @@ class BacktestController(
     logger.info("Retrieving available rankers")
     val rankers =
       mutableListOf(
-        "Heatmap",
-        "RelativeStrength",
+        "Adaptive",
         "Volatility",
         "DistanceFrom10Ema",
         "Composite",
         "SectorStrength",
         "Random",
-        "Adaptive",
       )
     logger.info("Returning ${rankers.size} rankers")
     return ResponseEntity.ok(rankers)
@@ -223,8 +224,6 @@ class BacktestController(
    */
   private fun getRankerInstance(rankerName: String): StockRanker? =
     when (rankerName.lowercase()) {
-      "heatmap" -> HeatmapRanker()
-      "relativestrength" -> RelativeStrengthRanker()
       "volatility" -> VolatilityRanker()
       "distancefrom10ema" -> DistanceFrom10EmaRanker()
       "composite" -> CompositeRanker()
@@ -236,4 +235,8 @@ class BacktestController(
         null
       }
     }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)
+  }
 }

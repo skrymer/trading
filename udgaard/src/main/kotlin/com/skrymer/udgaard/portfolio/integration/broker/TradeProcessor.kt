@@ -11,10 +11,6 @@ import java.time.temporal.ChronoUnit
  */
 @Service
 class TradeProcessor {
-  companion object {
-    private val logger: Logger = LoggerFactory.getLogger(TradeProcessor::class.java)
-  }
-
   /**
    * Aggregate multiple executions of the same trade into single trades.
    * IBKR often splits trades into multiple executions that should be treated as one.
@@ -301,6 +297,10 @@ class TradeProcessor {
 
     logger.info("Built ${chains.size} roll chains from ${rollPairs.size} roll pairs")
     return chains
+  }
+
+  companion object {
+    private val logger: Logger = LoggerFactory.getLogger(TradeProcessor::class.java)
   }
 }
 
