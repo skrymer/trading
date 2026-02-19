@@ -70,13 +70,66 @@ export interface SectorStats {
   averageLossPercent: number
   totalProfitPercentage: number
   maxDrawdown: number
-  trades: Trade[]
+}
+
+export interface EquityCurvePoint {
+  date: string
+  profitPercentage: number
+}
+
+export interface ExcursionPoint {
+  mfe: number
+  mae: number
+  mfeATR: number
+  maeATR: number
+  mfeReached: boolean
+  profitPercentage: number
+  isWinner: boolean
+}
+
+export interface ExcursionSummary {
+  totalTrades: number
+  avgMFE: number
+  avgMAE: number
+  avgMFEATR: number
+  avgMAEATR: number
+  profitReachRate: number
+  avgMFEEfficiency: number
+  winnerCount: number
+  winnerAvgMFE: number
+  winnerAvgMAE: number
+  winnerAvgFinalProfit: number
+  loserCount: number
+  loserAvgMFE: number
+  loserAvgMAE: number
+  loserAvgFinalLoss: number
+  loserMissedWinRate: number
+}
+
+export interface DailyProfitSummary {
+  date: string
+  profitPercentage: number
+  tradeCount: number
+}
+
+export interface MarketConditionPoint {
+  breadth: number
+  profitPercentage: number
+  isWinner: boolean
+  spyInUptrend: boolean
+}
+
+export interface MarketConditionStats {
+  scatterPoints: MarketConditionPoint[]
+  uptrendWinRate: number
+  downtrendWinRate: number
+  uptrendCount: number
+  downtrendCount: number
 }
 
 export interface BacktestReport {
-  winningTrades: Trade[]
-  losingTrades: Trade[]
-  trades: Trade[]
+  backtestId: string
+  // Scalar metrics
   numberOfLosingTrades: number
   numberOfWinningTrades: number
   winRate: number
@@ -88,11 +141,12 @@ export interface BacktestReport {
   totalTrades: number
   edge: number
   profitFactor: number | null
-  mostProfitable: any
-  stockProfits: any
-  tradesGroupedByDate: { date: string, profitPercentage: number, trades: Trade[] }[]
-  sectorStats: SectorStats[]
-  // New diagnostic metrics
+  stockProfits: [string, number][]
+  // Missed trades
+  missedOpportunitiesCount: number
+  missedProfitPercentage: number
+  missedAverageProfitPercentage: number
+  // Analytics
   timeBasedStats?: TimeBasedStats
   exitReasonAnalysis?: ExitReasonAnalysis
   sectorPerformance: SectorPerformance[]
@@ -100,6 +154,14 @@ export interface BacktestReport {
   atrDrawdownStats?: ATRDrawdownStats
   marketConditionAverages?: Record<string, number>
   edgeConsistencyScore?: EdgeConsistencyScore
+  sectorStats: SectorStats[]
+  // Pre-computed chart data
+  equityCurveData: EquityCurvePoint[]
+  excursionPoints: ExcursionPoint[]
+  excursionSummary: ExcursionSummary | null
+  dailyProfitSummary: DailyProfitSummary[]
+  marketConditionStats: MarketConditionStats | null
+  underlyingAssetTradeCount: number
 }
 
 export interface Stock {
@@ -373,6 +435,8 @@ export type StrategyConfig = PredefinedStrategyConfig | CustomStrategyConfig
 export interface BacktestRequest {
   stockSymbols?: string[]
   assetTypes?: string[]
+  includeSectors?: string[]
+  excludeSectors?: string[]
   entryStrategy: StrategyConfig
   exitStrategy: StrategyConfig
   startDate?: string
@@ -389,7 +453,7 @@ export interface BacktestRequest {
 export type MonteCarloTechniqueType = 'TRADE_SHUFFLING' | 'BOOTSTRAP_RESAMPLING' | 'PRICE_PATH_RANDOMIZATION'
 
 export interface MonteCarloRequest {
-  trades: Trade[]
+  backtestId: string
   technique: MonteCarloTechniqueType
   iterations: number
   seed?: number

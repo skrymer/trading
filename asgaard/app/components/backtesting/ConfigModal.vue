@@ -216,7 +216,7 @@ function cancel() {
               </h3>
             </template>
             <div class="space-y-4">
-              <div class="grid grid-cols-3 gap-4">
+              <div class="grid grid-cols-4 gap-4">
                 <UFormField label="Stock Selection" name="stockSelection">
                   <URadioGroup
                     v-model="state.stockSelection"
@@ -226,6 +226,23 @@ function cancel() {
                     ]"
                   />
                 </UFormField>
+
+                <UFormField
+                  v-if="state.stockSelection === 'all'"
+                  label="Asset Types"
+                  name="assetTypes"
+                  help="Filter by asset type (empty = all)"
+                >
+                  <USelectMenu
+                    v-model="state.assetTypes"
+                    :items="AssetTypeOptions"
+                    value-key="value"
+                    multiple
+                    placeholder="All asset types"
+                    :search-input="false"
+                  />
+                </UFormField>
+                <div v-else />
 
                 <UFormField name="startDate">
                   <template #label>
@@ -249,23 +266,6 @@ function cancel() {
                   />
                 </UFormField>
               </div>
-
-              <UFormField
-                v-if="state.stockSelection === 'all'"
-                label="Asset Types"
-                name="assetTypes"
-                help="Filter by asset type (empty = all)"
-              >
-                <USelectMenu
-                  v-model="state.assetTypes"
-                  :items="AssetTypeOptions"
-                  value-key="value"
-                  multiple
-                  placeholder="All asset types"
-                  class="w-64"
-                  :search-input="false"
-                />
-              </UFormField>
 
               <SymbolSearch
                 v-if="state.stockSelection === 'specific'"

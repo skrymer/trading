@@ -41,7 +41,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
 - **AlphaVantage API as PRIMARY data source** (adjusted OHLCV, volume, ATR)
-- Ovtlyr API for enrichment (sector sentiment, market breadth)
+- Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/` packages):**
 
@@ -51,9 +51,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
    - `MonteCarloService.kt`: Monte Carlo simulations
-   - Strategies: PlanAlpha, PlanMV, PlanQ, OvtlyrPlanEtf, ProjectX
    - DSL-based strategy builder (`StrategyDsl.kt`)
-   - 22 entry conditions, 12 exit conditions
+   - Strategies and conditions are discoverable via MCP tools (`getAvailableStrategies`, `getAvailableConditions`)
 
 2. **Data** (`data/`)
    - `StockService.kt`: Stock data management
@@ -74,7 +73,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 5. **Integration** (`data/integration/`)
    - **AlphaVantage**: PRIMARY data source - Adjusted daily OHLCV, ATR
-   - **Ovtlyr**: Enrichment - Sector sentiment, market breadth
+   - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
 
 **API Endpoints:**
 
@@ -92,10 +91,10 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (50 Vue components):**
-- **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, TradeChart, TradeDetailsModal
-- **Portfolio** (`components/portfolio/`): CreateModal, PositionDetailsModal, ClosePositionModal, DeleteModal, EquityCurve, OpenTradeChart, OptionTradeChart, SyncPortfolioModal, RollChainModal
-- **Charts** (`components/charts/`): BarChart, DonutChart, HistogramChart, LineChart, ScatterChart, StockChart, StrategySignalsTable
+**Key Components (48 Vue components):**
+- **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
+- **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
+- **Charts** (`components/charts/`): BarChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
 - **Pages**: index, backtesting, portfolio, stock-data, data-manager, app-metrics, settings, test-chart
@@ -135,7 +134,7 @@ trading/
 │   │   ├── controller/               # Shared controllers (Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes
-│   ├── src/main/resources/           # Config (application.properties, secure.properties)
+│   ├── src/main/resources/           # Config, migrations (V1-V3)
 │   ├── src/test/kotlin/              # Unit tests (mirrors main structure)
 │   ├── build.gradle                  # Gradle build config
 │   ├── detekt.yml                    # Detekt configuration
@@ -429,7 +428,7 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 See `claude_thoughts/SESSIONS_HISTORY.md` for detailed session history.
 
-**Latest:** Ovtlyr dependency removal & code quality (2026-02) - Removed direct Ovtlyr data dependencies (buy/sell signals, heatmaps). Added Detekt 2.0.0-alpha.2 static analysis. Modularized backend into backtesting/data/portfolio packages. Consolidated DB migrations. Added market/sector breadth from dedicated tables.
+**Latest:** Ovtlyr dependency removal, Mjolnir strategy, breadth conditions (2026-02) - Removed direct Ovtlyr data dependencies. Added Detekt 2.0.0-alpha.2 static analysis. Modularized backend into backtesting/data/portfolio packages. Consolidated DB migrations. Added market/sector breadth from dedicated tables. Developed Mjolnir strategy with market breadth trending filter and EMA spread condition. Added new entry/exit conditions for breadth analysis.
 
 ---
 
@@ -443,5 +442,5 @@ This project uses a three-level documentation approach:
 
 ---
 
-_Last Updated: 2026-02-17_
+_Last Updated: 2026-02-20_
 _This file helps Claude understand the project structure, architecture, recent work, and key decisions across conversations._

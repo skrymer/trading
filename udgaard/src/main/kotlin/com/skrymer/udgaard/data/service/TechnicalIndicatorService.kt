@@ -159,6 +159,31 @@ class TechnicalIndicatorService {
   }
 
   /**
+   * Calculate Donchian bands (upper and lower) for a generic series of values.
+   * Upper = highest value over lookback, Lower = lowest value over lookback.
+   *
+   * @param values - List of values (oldest first)
+   * @param periods - Lookback period (default 20)
+   * @return Pair of lists: (upperBands, lowerBands), same length as input
+   */
+  fun calculateDonchianBands(
+    values: List<Double>,
+    periods: Int = 20,
+  ): Pair<List<Double>, List<Double>> {
+    val upper = mutableListOf<Double>()
+    val lower = mutableListOf<Double>()
+
+    for (i in values.indices) {
+      val start = maxOf(0, i - periods + 1)
+      val window = values.subList(start, i + 1)
+      upper.add(window.max())
+      lower.add(window.min())
+    }
+
+    return upper to lower
+  }
+
+  /**
    * Determine trend based on EMA alignment.
    *
    * Uptrend criteria:

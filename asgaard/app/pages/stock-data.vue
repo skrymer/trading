@@ -141,8 +141,8 @@
             <ChartsLineChart
               :series="marketBreadthSeries"
               :categories="marketBreadthCategories"
-              :line-colors="['#10b981', '#9ca3af', '#f59e0b']"
-              :height="300"
+              :line-colors="['#eab308', '#10b981', '#ef4444']"
+              :height="400"
               :percent-mode="true"
             />
           </div>
@@ -155,8 +155,8 @@
             <ChartsLineChart
               :series="sectorBreadthSeries"
               :categories="sectorBreadthCategories"
-              :line-colors="['#3b82f6', '#9ca3af', '#f59e0b']"
-              :height="300"
+              :line-colors="['#eab308', '#10b981', '#ef4444']"
+              :height="400"
               :percent-mode="true"
             />
           </div>
@@ -198,7 +198,7 @@ const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
-const minDate = ref('2020-01-01')
+const minDate = ref('2016-01-01')
 const marketBreadthData = ref<MarketBreadthDaily[]>([])
 const sectorBreadthData = ref<SectorBreadthDaily[]>([])
 
@@ -228,7 +228,7 @@ const filteredSectorBreadth = computed(() => {
 const marketBreadthSeries = computed(() => {
   if (filteredMarketBreadth.value.length === 0) return []
   return [
-    { name: 'Breadth %', data: filteredMarketBreadth.value.map(d => d.breadthPercent) },
+    { name: 'Uptrend %', data: filteredMarketBreadth.value.map(d => d.breadthPercent) },
     { name: 'EMA 10', data: filteredMarketBreadth.value.map(d => d.ema10) },
     { name: 'EMA 20', data: filteredMarketBreadth.value.map(d => d.ema20) }
   ]
@@ -244,7 +244,7 @@ const marketBreadthCategories = computed(() => {
 const sectorBreadthSeries = computed(() => {
   if (filteredSectorBreadth.value.length === 0) return []
   return [
-    { name: 'Bull %', data: filteredSectorBreadth.value.map(d => d.bullPercentage) },
+    { name: 'Uptrend %', data: filteredSectorBreadth.value.map(d => d.bullPercentage) },
     { name: 'EMA 10', data: filteredSectorBreadth.value.map(d => d.ema10) },
     { name: 'EMA 20', data: filteredSectorBreadth.value.map(d => d.ema20) }
   ]

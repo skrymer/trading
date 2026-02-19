@@ -1,16 +1,17 @@
 package com.skrymer.udgaard.backtesting.dto
 
 import com.skrymer.udgaard.backtesting.model.MonteCarloTechniqueType
-import com.skrymer.udgaard.backtesting.model.Trade
 
 /**
- * Request DTO for Monte Carlo simulation
+ * Request DTO for Monte Carlo simulation.
+ * Uses backtestId to retrieve trades from the result store instead of
+ * sending the full trade list over the wire.
  */
 data class MonteCarloRequestDto(
   /**
-   * The trades from the backtest to run simulation on
+   * ID of the cached backtest result to run simulation on
    */
-  val trades: List<Trade>,
+  val backtestId: String,
   /**
    * Type of Monte Carlo technique to use
    */

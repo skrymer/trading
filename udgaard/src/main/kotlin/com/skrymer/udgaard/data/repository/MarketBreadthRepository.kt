@@ -36,6 +36,8 @@ class MarketBreadthRepository(
             MARKET_BREADTH_DAILY.EMA_10,
             MARKET_BREADTH_DAILY.EMA_20,
             MARKET_BREADTH_DAILY.EMA_50,
+            MARKET_BREADTH_DAILY.DONCHIAN_UPPER_BAND,
+            MARKET_BREADTH_DAILY.DONCHIAN_LOWER_BAND,
           )
 
           chunk.forEach { row ->
@@ -46,6 +48,8 @@ class MarketBreadthRepository(
               BigDecimal.valueOf(row.ema10),
               BigDecimal.valueOf(row.ema20),
               BigDecimal.valueOf(row.ema50),
+              BigDecimal.valueOf(row.donchianUpperBand),
+              BigDecimal.valueOf(row.donchianLowerBand),
             )
           }
 
@@ -69,6 +73,8 @@ class MarketBreadthRepository(
           ema10 = record[MARKET_BREADTH_DAILY.EMA_10]?.toDouble() ?: 0.0,
           ema20 = record[MARKET_BREADTH_DAILY.EMA_20]?.toDouble() ?: 0.0,
           ema50 = record[MARKET_BREADTH_DAILY.EMA_50]?.toDouble() ?: 0.0,
+          donchianUpperBand = record[MARKET_BREADTH_DAILY.DONCHIAN_UPPER_BAND]?.toDouble() ?: 0.0,
+          donchianLowerBand = record[MARKET_BREADTH_DAILY.DONCHIAN_LOWER_BAND]?.toDouble() ?: 0.0,
         )
       }.associateBy { it.quoteDate }
 

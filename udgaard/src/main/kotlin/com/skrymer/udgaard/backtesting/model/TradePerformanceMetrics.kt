@@ -1,8 +1,6 @@
 package com.skrymer.udgaard.backtesting.model
 
 import java.time.LocalDate
-import kotlin.math.abs
-import kotlin.math.sqrt
 
 /**
  * Performance statistics grouped by time periods (year, quarter, month).
@@ -148,10 +146,10 @@ data class EdgeConsistencyScore(
  * Calculate edge consistency across yearly periods.
  * Returns null when fewer than 2 years have trades.
  *
- * Formula: score = profitablePeriods × 0.4 + stability × 0.4 + downside × 0.2
+ * Formula: score = profitablePeriods × 0.4 + tradeableEdge × 0.4 + downside × 0.2
  *
  * - Profitable Periods (0–100): % of years with edge > 0
- * - Stability (0–100): max(0, 100 × (1 − CV)) where CV = stdDev / |mean|
+ * - Tradeable Edge (0–100): % of years with edge ≥ 1.5% (minimum tradeable threshold)
  * - Downside (0–100): 100 if worst ≥ 0, else 100 × (1 + worstEdge/10) clamped to 0
  */
 fun calculateEdgeConsistency(yearlyStats: Map<Int, PeriodStats>): EdgeConsistencyScore? {
@@ -162,23 +160,13 @@ fun calculateEdgeConsistency(yearlyStats: Map<Int, PeriodStats>): EdgeConsistenc
   val yearlyEdges = validYears.mapValues { it.value.edge }
   val edges = yearlyEdges.values.toList()
 
-  // 1. Profitable Periods Score
+  // 1. Profitable Periods Score (% of years with positive edge)
   val profitableCount = edges.count { it > 0 }
   val profitablePeriodsScore = (profitableCount.toDouble() / edges.size) * 100
 
-  // 2. Stability Score (based on Coefficient of Variation)
-  val mean = edges.average()
-  val variance = edges.map { (it - mean) * (it - mean) }.average()
-  val stdDev = sqrt(variance)
-
-  val stabilityScore =
-    if (abs(mean) < 0.001) {
-      // Near-zero mean edge
-      if (stdDev < 0.001) 50.0 else 0.0
-    } else {
-      val cv = stdDev / abs(mean)
-      (100.0 * (1.0 - cv)).coerceAtLeast(0.0)
-    }
+  // 2. Tradeable Edge Score (% of years with edge >= minimum tradeable threshold)
+  val tradeableCount = edges.count { it >= TRADEABLE_EDGE_THRESHOLD }
+  val stabilityScore = (tradeableCount.toDouble() / edges.size) * 100
 
   // 3. Downside Score
   val worstEdge = edges.min()
@@ -211,3 +199,5 @@ fun calculateEdgeConsistency(yearlyStats: Map<Int, PeriodStats>): EdgeConsistenc
     interpretation = interpretation,
   )
 }
+
+private const val TRADEABLE_EDGE_THRESHOLD = 1.5

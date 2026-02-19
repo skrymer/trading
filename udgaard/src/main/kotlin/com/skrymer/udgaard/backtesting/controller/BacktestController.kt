@@ -2,7 +2,10 @@ package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
-import com.skrymer.udgaard.backtesting.model.BacktestReport
+import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
+import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.model.toResponseDto
+import com.skrymer.udgaard.backtesting.service.BacktestResultStore
 import com.skrymer.udgaard.backtesting.service.BacktestService
 import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
@@ -10,11 +13,14 @@ import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.AdaptiveRanker
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.DistanceFrom10EmaRanker
+import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.RandomRanker
 import com.skrymer.udgaard.backtesting.strategy.SectorStrengthRanker
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.backtesting.strategy.VolatilityRanker
 import com.skrymer.udgaard.data.model.AssetType
+import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.service.StockService
 import com.skrymer.udgaard.data.service.SymbolService
 import org.slf4j.Logger
@@ -23,9 +29,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 
@@ -47,6 +55,7 @@ class BacktestController(
   private val strategyRegistry: StrategyRegistry,
   private val dynamicStrategyBuilder: DynamicStrategyBuilder,
   private val conditionRegistry: ConditionRegistry,
+  private val backtestResultStore: BacktestResultStore,
 ) {
   /**
    * Run backtest with request body.
@@ -57,111 +66,68 @@ class BacktestController(
   @PostMapping
   fun runBacktestWithConfig(
     @RequestBody request: BacktestRequest,
-  ): ResponseEntity<BacktestReport> {
+  ): ResponseEntity<BacktestResponseDto> {
     logger.info(
       "Running backtest with config: entry=${request.entryStrategy}, exit=${request.exitStrategy}, " +
         "symbols=${request.stockSymbols?.joinToString(",") ?: "all"}, " +
-        "assetTypes=${request.assetTypes?.joinToString(",") ?: "all"}, startDate=${request.startDate}, " +
+        "assetTypes=${request.assetTypes?.joinToString(",") ?: "all"}, " +
+        "includeSectors=${request.includeSectors?.joinToString(",") ?: "all"}, " +
+        "excludeSectors=${request.excludeSectors?.joinToString(",") ?: "none"}, " +
+        "startDate=${request.startDate}, " +
         "endDate=${request.endDate}, maxPositions=${request.maxPositions}, ranker=${request.ranker}, " +
         "useUnderlyingAssets=${request.useUnderlyingAssets}, cooldownDays=${request.cooldownDays}",
     )
 
-    // Build entry strategy
     val entryStrategy =
       dynamicStrategyBuilder.buildEntryStrategy(request.entryStrategy)
-        ?: run {
-          logger.error("Failed to build entry strategy from config: ${request.entryStrategy}")
-          return ResponseEntity.badRequest().build()
-        }
+        ?: return logAndBadRequest("Failed to build entry strategy from config: ${request.entryStrategy}")
 
-    // Build exit strategy
     val exitStrategy =
       dynamicStrategyBuilder.buildExitStrategy(request.exitStrategy)
-        ?: run {
-          logger.error("Failed to build exit strategy from config: ${request.exitStrategy}")
-          return ResponseEntity.badRequest().build()
-        }
+        ?: return logAndBadRequest("Failed to build exit strategy from config: ${request.exitStrategy}")
 
-    // Get stocks from database (use Data Manager to refresh stocks before running backtest)
-    val stocks =
-      if (!request.stockSymbols.isNullOrEmpty()) {
-        // Specific symbols provided - filter from DB
-        stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() })
-      } else if (!request.assetTypes.isNullOrEmpty()) {
-        // Filter by asset type
-        val assetTypeEnums = request.assetTypes.map { AssetType.valueOf(it) }
-        val symbols =
-          symbolService
-            .getAll()
-            .filter { it.assetType in assetTypeEnums }
-            .map { it.symbol }
-        logger.info("Filtered to ${symbols.size} symbols matching asset types: ${request.assetTypes.joinToString(", ")}")
-        stockService.getStocksBySymbols(symbols)
-      } else {
-        // "All stocks" selected - use all stocks in DB
-        stockService.getAllStocks()
-      }
-
-    if (stocks.isEmpty()) {
-      logger.warn("No stocks found in database. Use Data Manager to refresh stocks first.")
+    val stocks = resolveStocks(request)
+    val rankerInstance = getRankerInstance(request.ranker)
+    if (stocks == null || rankerInstance == null) {
       return ResponseEntity.badRequest().build()
     }
 
-    // Warn if some requested symbols were not found in database
-    if (!request.stockSymbols.isNullOrEmpty() && stocks.size < request.stockSymbols.size) {
-      val missingCount = request.stockSymbols.size - stocks.size
-      val foundSymbols = stocks.map { it.symbol }.toSet()
-      val missingSymbols = request.stockSymbols.filter { !foundSymbols.contains(it.uppercase()) }
-      logger.warn(
-        "WARNING: ${request.stockSymbols.size} symbols requested but only ${stocks.size} found in database. " +
-          "$missingCount missing: ${missingSymbols.joinToString(", ")}. Use Data Manager to refresh missing stocks.",
-      )
-    }
-
-    logger.info("${stocks.size} stocks fetched")
-
-    // Parse dates or use defaults
-    val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2020-01-01")
+    val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
     val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
     logger.info("Date range: $start to $end")
 
-    // Run backtest
-    val rankerInstance =
-      getRankerInstance(request.ranker) ?: run {
-        logger.error("Failed to get ranker instance: ${request.ranker}")
-        return ResponseEntity.badRequest().build()
+    return executeBacktest(entryStrategy, exitStrategy, stocks, start, end, request, rankerInstance)
+  }
+
+  /**
+   * Fetch trades for a specific entry date (or date range) from a cached backtest result.
+   * Used for on-demand drill-down from the overview bar chart.
+   *
+   * Example: GET /api/backtest/{backtestId}/trades?startDate=2024-01-15&endDate=2024-01-19
+   */
+  @GetMapping("/{backtestId}/trades")
+  fun getTradesForDate(
+    @PathVariable backtestId: String,
+    @RequestParam startDate: String,
+    @RequestParam(required = false) endDate: String?,
+  ): ResponseEntity<List<Trade>> {
+    val report = backtestResultStore.get(backtestId)
+    if (report == null) {
+      logger.warn("Backtest result not found: $backtestId")
+      return ResponseEntity.notFound().build()
+    }
+
+    val start = LocalDate.parse(startDate)
+    val end = endDate?.let { LocalDate.parse(it) } ?: start
+
+    val matchingTrades =
+      report.trades.filter { trade ->
+        val entryDate = trade.entryQuote.date
+        entryDate != null && !entryDate.isBefore(start) && !entryDate.isAfter(end)
       }
 
-    try {
-      logger.info("Starting backtest execution...")
-      val backtestReport =
-        backtestService.backtest(
-          entryStrategy,
-          exitStrategy,
-          stocks,
-          start,
-          end,
-          request.maxPositions,
-          rankerInstance,
-          request.useUnderlyingAssets,
-          request.customUnderlyingMap,
-          request.cooldownDays,
-        )
-
-      logger.info(
-        "Backtest complete: ${backtestReport.trades.size} trades, " +
-          "Win rate: ${String.format("%.2f", backtestReport.winRate * 100)}%, " +
-          "Wins: ${backtestReport.numberOfWinningTrades}, Losses: ${backtestReport.numberOfLosingTrades}, " +
-          "Edge: ${String.format("%.2f", backtestReport.edge)}%",
-      )
-      return ResponseEntity.ok(backtestReport)
-    } catch (e: IllegalArgumentException) {
-      logger.error("Backtest validation failed: ${e.message}", e)
-      return ResponseEntity.badRequest().build()
-    } catch (e: Exception) {
-      logger.error("Unexpected error during backtest: ${e.message}", e)
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-    }
+    logger.info("Returning ${matchingTrades.size} trades for backtest $backtestId, dates $start to $end")
+    return ResponseEntity.ok(matchingTrades)
   }
 
   /**
@@ -219,9 +185,101 @@ class BacktestController(
     return ResponseEntity.ok(conditions)
   }
 
-  /**
-   * Helper method to create ranker instance from name.
-   */
+  private fun resolveStocks(request: BacktestRequest): List<Stock>? {
+    var stocks =
+      if (!request.stockSymbols.isNullOrEmpty()) {
+        stockService.getStocksBySymbols(request.stockSymbols.map { it.uppercase() })
+      } else if (!request.assetTypes.isNullOrEmpty()) {
+        val assetTypeEnums = request.assetTypes.map { AssetType.valueOf(it) }
+        val symbols =
+          symbolService
+            .getAll()
+            .filter { it.assetType in assetTypeEnums }
+            .map { it.symbol }
+        logger.info("Filtered to ${symbols.size} symbols matching asset types: ${request.assetTypes.joinToString(", ")}")
+        stockService.getStocksBySymbols(symbols)
+      } else {
+        stockService.getAllStocks()
+      }
+
+    if (!request.includeSectors.isNullOrEmpty()) {
+      val sectors = request.includeSectors.map { it.uppercase() }.toSet()
+      val before = stocks.size
+      stocks = stocks.filter { it.sectorSymbol?.uppercase() in sectors }
+      logger.info("Sector include filter: $before → ${stocks.size} stocks (sectors: ${sectors.joinToString(", ")})")
+    }
+
+    if (!request.excludeSectors.isNullOrEmpty()) {
+      val sectors = request.excludeSectors.map { it.uppercase() }.toSet()
+      val before = stocks.size
+      stocks = stocks.filter { it.sectorSymbol?.uppercase() !in sectors }
+      logger.info("Sector exclude filter: $before → ${stocks.size} stocks (excluded: ${sectors.joinToString(", ")})")
+    }
+
+    if (stocks.isEmpty()) {
+      logger.warn("No stocks found in database. Use Data Manager to refresh stocks first.")
+      return null
+    }
+
+    if (!request.stockSymbols.isNullOrEmpty() && stocks.size < request.stockSymbols.size) {
+      val foundSymbols = stocks.map { it.symbol }.toSet()
+      val missingSymbols = request.stockSymbols.filter { !foundSymbols.contains(it.uppercase()) }
+      logger.warn(
+        "${request.stockSymbols.size} symbols requested but only ${stocks.size} found. " +
+          "Missing: ${missingSymbols.joinToString(", ")}.",
+      )
+    }
+
+    logger.info("${stocks.size} stocks fetched")
+    return stocks
+  }
+
+  private fun executeBacktest(
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    stocks: List<Stock>,
+    start: LocalDate,
+    end: LocalDate,
+    request: BacktestRequest,
+    ranker: StockRanker,
+  ): ResponseEntity<BacktestResponseDto> =
+    try {
+      logger.info("Starting backtest execution...")
+      val backtestReport =
+        backtestService.backtest(
+          entryStrategy,
+          exitStrategy,
+          stocks,
+          start,
+          end,
+          request.maxPositions,
+          ranker,
+          request.useUnderlyingAssets,
+          request.customUnderlyingMap,
+          request.cooldownDays,
+        )
+
+      logger.info(
+        "Backtest complete: ${backtestReport.trades.size} trades, " +
+          "Win rate: ${String.format("%.2f", backtestReport.winRate * 100)}%, " +
+          "Edge: ${String.format("%.2f", backtestReport.edge)}%",
+      )
+
+      val backtestId = backtestResultStore.store(backtestReport)
+      ResponseEntity.ok(backtestReport.toResponseDto(backtestId))
+    } catch (e: IllegalArgumentException) {
+      logger.error("Backtest validation failed: ${e.message}", e)
+      ResponseEntity.badRequest().build()
+    } catch (e: Exception) {
+      logger.error("Unexpected error during backtest: ${e.message}", e)
+      ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+    }
+
+  private fun <T> logAndBadRequest(message: String): ResponseEntity<T> {
+    logger.error(message)
+    return ResponseEntity.badRequest().build()
+  }
+
   private fun getRankerInstance(rankerName: String): StockRanker? =
     when (rankerName.lowercase()) {
       "volatility" -> VolatilityRanker()

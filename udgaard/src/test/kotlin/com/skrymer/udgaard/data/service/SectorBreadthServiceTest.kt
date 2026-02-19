@@ -62,6 +62,16 @@ class SectorBreadthServiceTest {
     // 10th row should have ema10 = SMA of first 10 bull percentages
     // bull percentages: 51..60 → SMA = 55.5
     assertEquals(55.5, enriched[9].ema10)
+
+    // Donchian bands (20-period lookback)
+    // First row: only 1 value (51.0), upper=lower=51.0
+    assertEquals(51.0, enriched[0].donchianUpperBand)
+    assertEquals(51.0, enriched[0].donchianLowerBand)
+
+    // Last row (index 19): bull percentages 51..70, all 20 values available
+    // Upper = max(51..70) = 70, Lower = min(51..70) = 51
+    assertEquals(70.0, enriched[19].donchianUpperBand)
+    assertEquals(51.0, enriched[19].donchianLowerBand)
   }
 
   @Test
@@ -105,6 +115,12 @@ class SectorBreadthServiceTest {
     assertEquals(60.0, xlk[4].ema5)
     // EMA5 for constant 40% → SMA of first 5 = 40.0
     assertEquals(40.0, xlf[4].ema5)
+
+    // Donchian bands for constant values: upper=lower=value
+    assertEquals(60.0, xlk[9].donchianUpperBand)
+    assertEquals(60.0, xlk[9].donchianLowerBand)
+    assertEquals(40.0, xlf[9].donchianUpperBand)
+    assertEquals(40.0, xlf[9].donchianLowerBand)
   }
 
   @Test

@@ -34,7 +34,7 @@ class PlanAlphaEntryStrategy : DetailedEntryStrategy {
 
       // SECTOR
       sectorUptrend()
-      sectorBreadthGreaterThanSpy()
+      sectorBreadthGreaterThanMarket()
 
       // STOCK
       uptrend()

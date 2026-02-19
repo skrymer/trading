@@ -28,6 +28,8 @@ class MarketBreadthService(
     val ema10Values = technicalIndicatorService.calculateEMA(breadthValues, 10)
     val ema20Values = technicalIndicatorService.calculateEMA(breadthValues, 20)
     val ema50Values = technicalIndicatorService.calculateEMA(breadthValues, 50)
+    val (donchianUpper, donchianLower) =
+      technicalIndicatorService.calculateDonchianBands(breadthValues, 20)
 
     val enrichedRows = rawRows.mapIndexed { i, row ->
       row.copy(
@@ -35,6 +37,8 @@ class MarketBreadthService(
         ema10 = ema10Values[i],
         ema20 = ema20Values[i],
         ema50 = ema50Values[i],
+        donchianUpperBand = donchianUpper[i],
+        donchianLowerBand = donchianLower[i],
       )
     }
 

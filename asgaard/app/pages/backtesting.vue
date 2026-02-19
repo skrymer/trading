@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { format } from 'date-fns'
+import { format, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { Trade, BacktestRequest, MonteCarloResult, BacktestReport } from '~/types'
 import { MonteCarloTechnique, MonteCarloTechniqueDescriptions } from '~/types/enums'
 
-const allTrades = ref<Trade[]>([])
 const backtestReport = ref<BacktestReport | null>(null)
 const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const isConfigModalOpen = ref(false)
@@ -60,7 +59,6 @@ const toast = useToast()
 
 async function runBacktest(config: BacktestRequest) {
   status.value = 'pending'
-  allTrades.value = []
   backtestReport.value = null
   monteCarloResult.value = null
   monteCarloStatus.value = 'idle'
@@ -75,18 +73,13 @@ async function runBacktest(config: BacktestRequest) {
     color: 'primary'
   })
 
-  const _startTime = Date.now()
-
   try {
-    // Use POST endpoint for dynamic strategy support
-    // Increased timeout for large backtests (30 minutes)
     const report = await $fetch<BacktestReport>('/udgaard/api/backtest', {
       method: 'POST',
       body: config,
-      timeout: 1800000 // 30 minutes in milliseconds
+      timeout: 1800000
     })
     backtestReport.value = report
-    allTrades.value = report.trades
     status.value = 'success'
   } catch (error) {
     console.error('Error fetching trades:', error)
@@ -102,7 +95,7 @@ async function runBacktest(config: BacktestRequest) {
 }
 
 async function runMonteCarloSimulation() {
-  if (!allTrades.value || allTrades.value.length === 0) {
+  if (!backtestReport.value?.backtestId) {
     toast.add({
       title: 'No Backtest Data',
       description: 'Please run a backtest first before running Monte Carlo simulation',
@@ -122,19 +115,16 @@ async function runMonteCarloSimulation() {
     color: 'primary'
   })
 
-  const _startTime = Date.now()
-
   try {
-    // Send only trades - backend will construct BacktestReport
     const result = await $fetch<MonteCarloResult>('/udgaard/api/monte-carlo/simulate', {
       method: 'POST',
       body: {
-        trades: allTrades.value,
+        backtestId: backtestReport.value.backtestId,
         technique: selectedTechnique.value,
         iterations: 10000,
         includeAllEquityCurves: false
       },
-      timeout: 1800000 // 30 minutes in milliseconds
+      timeout: 1800000
     })
 
     monteCarloResult.value = result
@@ -158,30 +148,88 @@ const items = [[{
   onSelect: openConfigModal
 }]] satisfies DropdownMenuItem[][]
 
-// Modal state
-const isModalOpen = ref(false)
-const selectedDateTrades = ref<{ date: string, trades: Trade[] } | null>(null)
+// Period aggregation for overview bar chart
+type AggregationPeriod = 'day' | 'week' | 'month' | 'quarter'
 
-function handleBarClick(dataPointIndex: number) {
-  const dateGroup = tradesGroupedByDate.value[dataPointIndex]
-  if (dateGroup) {
-    selectedDateTrades.value = {
-      date: format(new Date(dateGroup.date), 'MMM dd, yyyy'),
-      trades: dateGroup.trades
-    }
-    isModalOpen.value = true
+const selectedPeriod = ref<AggregationPeriod>('day')
+
+// Auto-select period based on data size
+const autoSelectedPeriod = computed<AggregationPeriod>(() => {
+  const count = backtestReport.value?.dailyProfitSummary?.length ?? 0
+  if (count > 2000) return 'quarter'
+  if (count > 500) return 'month'
+  if (count > 200) return 'week'
+  return 'day'
+})
+
+// Reset period on new backtest
+watch(backtestReport, () => {
+  selectedPeriod.value = autoSelectedPeriod.value
+})
+
+const periodOptions = [
+  { value: 'day' as const, label: 'Day' },
+  { value: 'week' as const, label: 'Week' },
+  { value: 'month' as const, label: 'Month' },
+  { value: 'quarter' as const, label: 'Quarter' }
+]
+
+// Aggregate daily profit summary by selected period
+const aggregatedProfitSummary = computed(() => {
+  const daily = backtestReport.value?.dailyProfitSummary
+  if (!daily || daily.length === 0) return []
+
+  if (selectedPeriod.value === 'day') {
+    return daily.map(d => ({
+      date: d.date,
+      profitPercentage: d.profitPercentage,
+      tradeCount: d.tradeCount
+    }))
   }
-}
 
-// Use grouped trades from backend report
-const tradesGroupedByDate = computed(() => {
-  if (!backtestReport.value?.tradesGroupedByDate) return []
+  // Group by period
+  const grouped = new Map<string, { profitPercentage: number, tradeCount: number, startDate: string, endDate: string }>()
 
-  return backtestReport.value.tradesGroupedByDate.map(entry => ({
-    date: entry.date,
-    count: entry.trades.length,
-    totalProfit: entry.profitPercentage,
-    trades: entry.trades
+  daily.forEach((d) => {
+    const dateObj = new Date(d.date)
+    let key: string
+
+    switch (selectedPeriod.value) {
+      case 'week':
+        key = format(startOfWeek(dateObj, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        break
+      case 'month':
+        key = format(startOfMonth(dateObj), 'yyyy-MM')
+        break
+      case 'quarter':
+        key = format(startOfQuarter(dateObj), 'yyyy-QQQ')
+        break
+      default:
+        key = d.date
+    }
+
+    const existing = grouped.get(key)
+    if (existing) {
+      existing.profitPercentage += d.profitPercentage
+      existing.tradeCount += d.tradeCount
+      if (d.date > existing.endDate) existing.endDate = d.date
+      if (d.date < existing.startDate) existing.startDate = d.date
+    } else {
+      grouped.set(key, {
+        profitPercentage: d.profitPercentage,
+        tradeCount: d.tradeCount,
+        startDate: d.date,
+        endDate: d.date
+      })
+    }
+  })
+
+  return Array.from(grouped.entries()).map(([key, val]) => ({
+    date: val.startDate,
+    endDate: val.endDate,
+    label: key,
+    profitPercentage: val.profitPercentage,
+    tradeCount: val.tradeCount
   }))
 })
 
@@ -189,22 +237,66 @@ const tradesGroupedByDate = computed(() => {
 const chartSeries = computed(() => {
   return [{
     name: 'Total Profit %',
-    data: tradesGroupedByDate.value.map(item => item.totalProfit)
+    data: aggregatedProfitSummary.value.map(item => item.profitPercentage)
   }]
 })
 
 const chartCategories = computed(() => {
-  return tradesGroupedByDate.value.map(item =>
-    format(new Date(item.date), 'MMM dd, yyyy')
-  )
+  if (selectedPeriod.value === 'day') {
+    return aggregatedProfitSummary.value.map(item =>
+      format(new Date(item.date), 'MMM dd, yyyy')
+    )
+  }
+  return aggregatedProfitSummary.value.map(item => (item as any).label || item.date)
 })
 
 // Generate colors based on profit (red for negative, green for positive)
 const chartColors = computed(() => {
-  return tradesGroupedByDate.value.map(item =>
-    item.totalProfit < 0 ? '#ef4444' : '#10b981'
+  return aggregatedProfitSummary.value.map(item =>
+    item.profitPercentage < 0 ? '#ef4444' : '#10b981'
   )
 })
+
+// Trade details modal - on-demand trade fetching
+const isModalOpen = ref(false)
+const selectedDateTrades = ref<{ date: string, trades: Trade[] } | null>(null)
+const tradesFetchStatus = ref<'idle' | 'pending' | 'error'>('idle')
+
+async function handleBarClick(dataPointIndex: number) {
+  const entry = aggregatedProfitSummary.value[dataPointIndex]
+  if (!entry || !backtestReport.value?.backtestId) return
+
+  tradesFetchStatus.value = 'pending'
+  isModalOpen.value = true
+
+  const startDate = entry.date
+  const endDate = (entry as any).endDate || startDate
+
+  const dateLabel = selectedPeriod.value === 'day'
+    ? format(new Date(startDate), 'MMM dd, yyyy')
+    : (entry as any).label || format(new Date(startDate), 'MMM dd, yyyy')
+
+  try {
+    const trades = await $fetch<Trade[]>(`/udgaard/api/backtest/${backtestReport.value.backtestId}/trades`, {
+      params: { startDate, endDate }
+    })
+
+    selectedDateTrades.value = {
+      date: dateLabel,
+      trades
+    }
+    tradesFetchStatus.value = 'idle'
+  } catch (error) {
+    console.error('Error fetching trades:', error)
+    tradesFetchStatus.value = 'error'
+    selectedDateTrades.value = {
+      date: dateLabel,
+      trades: []
+    }
+  }
+}
+
+const hasTrades = computed(() => (backtestReport.value?.totalTrades ?? 0) > 0)
 </script>
 
 <template>
@@ -282,19 +374,34 @@ const chartColors = computed(() => {
           <template #overview>
             <div class="grid gap-4 mt-4">
               <BacktestingCards :report="backtestReport" :loading="false" />
-              <ChartsBarChart
-                v-if="allTrades && allTrades.length > 0"
-                :series="chartSeries"
-                :categories="chartCategories"
-                :bar-colors="chartColors"
-                :distributed="true"
-                title="Trades Profit by Start Date"
-                y-axis-label="Total Profit %"
-                :height="400"
-                :show-data-labels="false"
-                :show-legend="false"
-                @bar-click="handleBarClick"
-              />
+              <div v-if="hasTrades">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-semibold">
+                    Trades Profit by Start Date
+                  </h3>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-muted">Period:</span>
+                    <USelect
+                      v-model="selectedPeriod"
+                      :items="periodOptions"
+                      value-key="value"
+                      size="xs"
+                      class="w-28"
+                    />
+                  </div>
+                </div>
+                <ChartsBarChart
+                  :series="chartSeries"
+                  :categories="chartCategories"
+                  :bar-colors="chartColors"
+                  :distributed="true"
+                  y-axis-label="Total Profit %"
+                  :height="400"
+                  :show-data-labels="false"
+                  :show-legend="false"
+                  @bar-click="handleBarClick"
+                />
+              </div>
             </div>
           </template>
 
@@ -302,8 +409,8 @@ const chartColors = computed(() => {
           <template #equity-curve>
             <div class="grid gap-4 mt-4">
               <BacktestingEquityCurve
-                v-if="allTrades && allTrades.length > 0"
-                :trades="allTrades"
+                v-if="hasTrades"
+                :equity-curve-data="backtestReport!.equityCurveData"
                 :loading="false"
               />
             </div>
@@ -345,7 +452,9 @@ const chartColors = computed(() => {
                 :loading="false"
               />
               <BacktestingExcursionAnalysis
-                :report="backtestReport"
+                v-if="backtestReport"
+                :excursion-points="backtestReport.excursionPoints"
+                :excursion-summary="backtestReport.excursionSummary"
                 :loading="false"
               />
             </div>
@@ -354,7 +463,7 @@ const chartColors = computed(() => {
           <!-- Monte Carlo Tab -->
           <template #monte-carlo>
             <div class="grid gap-4 mt-4">
-              <UCard v-if="status === 'success' && allTrades && allTrades.length > 0">
+              <UCard v-if="status === 'success' && hasTrades">
                 <template #header>
                   <div class="flex items-center gap-2">
                     <UIcon name="i-lucide-chart-scatter" class="w-5 h-5" />
@@ -420,7 +529,7 @@ const chartColors = computed(() => {
         </UTabs>
 
         <!-- No results message -->
-        <UCard v-if="status === 'success' && (!allTrades || allTrades.length === 0)" class="mt-4">
+        <UCard v-if="status === 'success' && !hasTrades" class="mt-4">
           <div class="text-center py-8">
             <p class="text-muted">
               No trades found for the selected criteria

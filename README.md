@@ -374,7 +374,7 @@ val myExit = exitStrategy {
 
 **Entry Conditions (22):**
 - **Market**: MarketUptrend, MarketBreadthAbove
-- **Sector**: SectorUptrend, SectorBreadthGreaterThanSpy
+- **Sector**: SectorUptrend, SectorBreadthGreaterThanMarket
 - **Stock Trend**: Uptrend, EmaAlignment, EmaBullishCross, PriceAboveEma
 - **Value Zone**: ValueZone, ConsecutiveHigherHighsInValueZone, BelowOrderBlock, AboveBearishOrderBlock
 - **Order Block**: NotInOrderBlock, OrderBlockRejection

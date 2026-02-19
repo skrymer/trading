@@ -16,9 +16,9 @@ import java.util.concurrent.ConcurrentHashMap
 data class RefreshContext(
   /**
    * Minimum date for data filtering. Only data from this date onwards is included.
-   * Defaults to 2020-01-01 to reduce memory usage and focus on recent market conditions.
+   * Defaults to 2016-01-01 to provide 10 years of history for backtesting.
    */
-  val minDate: LocalDate = LocalDate.of(2020, 1, 1),
+  val minDate: LocalDate = LocalDate.of(2016, 1, 1),
   /**
    * Cache of sector symbols by stock symbol.
    * Fetched lazily to avoid redundant API calls for sector lookup.

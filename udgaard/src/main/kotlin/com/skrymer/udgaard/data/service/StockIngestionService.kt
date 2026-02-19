@@ -51,7 +51,7 @@ class StockIngestionService(
 
   // Minimum date for data filtering (shared across the current refresh session)
   @Volatile
-  private var minDate: LocalDate = LocalDate.of(2020, 1, 1)
+  private var minDate: LocalDate = LocalDate.of(2016, 1, 1)
 
   /**
    * Check if a symbol is a non-stock asset (ETF, index, leveraged ETF, etc.).
@@ -65,12 +65,12 @@ class StockIngestionService(
    * Refresh a single stock: delete existing data, fetch from APIs, save to DB.
    *
    * @param symbol stock symbol to refresh
-   * @param minDate earliest date for data (default 2020-01-01)
+   * @param minDate earliest date for data (default 2016-01-01)
    * @return the refreshed Stock, or null if fetch failed
    */
   suspend fun refreshStock(
     symbol: String,
-    minDate: LocalDate = LocalDate.of(2020, 1, 1),
+    minDate: LocalDate = LocalDate.of(2016, 1, 1),
   ): Stock? {
     val refreshContext = RefreshContext(minDate = minDate)
     return fetchStock(symbol, refreshContext, saveToDb = true)
@@ -83,13 +83,13 @@ class StockIngestionService(
    * Returns a comprehensive result including counts, successful stocks, and failed stocks with error messages.
    *
    * @param symbols list of stock symbols to refresh
-   * @param minDate earliest date for data (default 2020-01-01)
+   * @param minDate earliest date for data (default 2016-01-01)
    * @return detailed refresh result with status, counts, and error information
    */
   @OptIn(ExperimentalCoroutinesApi::class)
   fun refreshStocks(
     symbols: List<String>,
-    minDate: LocalDate = LocalDate.of(2020, 1, 1),
+    minDate: LocalDate = LocalDate.of(2016, 1, 1),
   ): StockRefreshResult =
     runBlocking {
       val sortedSymbols = symbols.sorted()
@@ -247,7 +247,7 @@ class StockIngestionService(
    */
   fun queueStockRefresh(
     symbols: List<String>,
-    minDate: LocalDate = LocalDate.of(2020, 1, 1),
+    minDate: LocalDate = LocalDate.of(2016, 1, 1),
   ) {
     this.minDate = minDate
     symbols.forEach { symbol ->
@@ -451,7 +451,7 @@ class StockIngestionService(
     // Fetch and process stock data
     val stock = runCatching {
       // Step 1: Fetch adjusted daily data from StockProvider (PRIMARY data source - REQUIRED)
-      val minDate = refreshContext?.minDate ?: LocalDate.of(2020, 1, 1)
+      val minDate = refreshContext?.minDate ?: LocalDate.of(2016, 1, 1)
       val stockQuotes = stockProvider.getDailyAdjustedTimeSeries(symbol, minDate = minDate)
         ?: throw IllegalStateException("Could not fetch data from StockProvider")
 

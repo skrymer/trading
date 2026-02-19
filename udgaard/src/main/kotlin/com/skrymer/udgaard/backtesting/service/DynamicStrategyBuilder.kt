@@ -13,12 +13,18 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.ADXRangeConditio
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ATRExpandingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.AboveBearishOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.BelowOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.BullishCandleCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ConsecutiveHigherHighsInValueZoneCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.DaysSinceEarningsCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaBullishCrossCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaSpreadCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthAboveCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthEmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthNearDonchianLowCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthRecoveringCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthTrendingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
@@ -26,7 +32,11 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockC
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockRejectionCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanSpyCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAboveCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAcceleratingCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanMarketCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
@@ -38,10 +48,12 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.BelowPreviousDayL
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.SectorBreadthBelowExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.StopLossExit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -163,7 +175,30 @@ class DynamicStrategyBuilder(
           ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30,
           rejectionThreshold = (config.parameters["rejectionThreshold"] as? Number)?.toDouble() ?: 2.0,
         )
-      "sectorbreadthgreaterthanspy" -> SectorBreadthGreaterThanSpyCondition()
+      "marketbreadthemaalignment" -> {
+        val periodsStr = config.parameters["emaPeriods"] as? String
+        val periods = periodsStr?.split(",")?.map { it.trim().toInt() } ?: listOf(5, 10, 20)
+        MarketBreadthEmaAlignmentCondition(periods)
+      }
+      "marketbreadthrecovering" -> MarketBreadthRecoveringCondition()
+      "marketbreadthneardonchianlow" ->
+        MarketBreadthNearDonchianLowCondition(
+          percentile = (config.parameters["percentile"] as? Number)?.toDouble() ?: 0.10,
+        )
+      "marketbreadthtrending" ->
+        MarketBreadthTrendingCondition(
+          minWidth = (config.parameters["minWidth"] as? Number)?.toDouble() ?: 20.0,
+        )
+      "sectorbreadthabove" ->
+        SectorBreadthAboveCondition(
+          threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 50.0,
+        )
+      "sectorbreadthemaalignment" -> SectorBreadthEmaAlignmentCondition()
+      "sectorbreadthaccelerating" ->
+        SectorBreadthAcceleratingCondition(
+          threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 5.0,
+        )
+      "sectorbreadthgreaterthanmarket" -> SectorBreadthGreaterThanMarketCondition()
       "volumeaboveaverage" ->
         VolumeAboveAverageCondition(
           multiplier = (config.parameters["multiplier"] as? Number)?.toDouble() ?: 1.3,
@@ -188,6 +223,20 @@ class DynamicStrategyBuilder(
           consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3,
           ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30,
           proximityPercent = (config.parameters["proximityPercent"] as? Number)?.toDouble() ?: 2.0,
+        )
+      "bullishcandle" ->
+        BullishCandleCondition(
+          minPercent = (config.parameters["minPercent"] as? Number)?.toDouble() ?: 0.5,
+        )
+      "emaspread" ->
+        EmaSpreadCondition(
+          fastEmaPeriod = (config.parameters["fastEmaPeriod"] as? Number)?.toInt() ?: 10,
+          slowEmaPeriod = (config.parameters["slowEmaPeriod"] as? Number)?.toInt() ?: 20,
+          minSpreadPercent = (config.parameters["minSpreadPercent"] as? Number)?.toDouble() ?: 1.0,
+        )
+      "priceneardonchianhigh" ->
+        PriceNearDonchianHighCondition(
+          maxDistancePercent = (config.parameters["maxDistancePercent"] as? Number)?.toDouble() ?: 1.5,
         )
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }
@@ -237,7 +286,7 @@ class DynamicStrategyBuilder(
             emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 5,
             atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 0.5,
           )
-        "priceBelowEmaForDays" -> {
+        "pricebelowemafordays" -> {
           val emaPeriod = (config.parameters["emaPeriod"] as? Number)?.toInt() ?: 10
           val consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 3
           logger.info("  -> PriceBelowEmaForDaysExit(emaPeriod=$emaPeriod, consecutiveDays=$consecutiveDays)")
@@ -245,6 +294,11 @@ class DynamicStrategyBuilder(
         }
         "belowpreviousdaylow" -> BelowPreviousDayLowExit()
         "marketandsectordowntrend" -> MarketAndSectorDowntrendExit()
+        "marketbreadthdeteriorating" -> MarketBreadthDeterioratingExit()
+        "sectorbreadthbelow" ->
+          SectorBreadthBelowExit(
+            threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 30.0,
+          )
         "beforeearnings" -> {
           val daysBeforeEarnings = (config.parameters["daysBeforeEarnings"] as? Number)?.toInt() ?: 1
           logger.info("  -> BeforeEarningsExit(daysBeforeEarnings=$daysBeforeEarnings)")

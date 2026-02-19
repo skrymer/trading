@@ -69,6 +69,8 @@ class SectorBreadthRepository(
             SECTOR_BREADTH_DAILY.EMA_10,
             SECTOR_BREADTH_DAILY.EMA_20,
             SECTOR_BREADTH_DAILY.EMA_50,
+            SECTOR_BREADTH_DAILY.DONCHIAN_UPPER_BAND,
+            SECTOR_BREADTH_DAILY.DONCHIAN_LOWER_BAND,
           )
 
           chunk.forEach { row ->
@@ -83,6 +85,8 @@ class SectorBreadthRepository(
               BigDecimal.valueOf(row.ema10),
               BigDecimal.valueOf(row.ema20),
               BigDecimal.valueOf(row.ema50),
+              BigDecimal.valueOf(row.donchianUpperBand),
+              BigDecimal.valueOf(row.donchianLowerBand),
             )
           }
 
@@ -116,18 +120,7 @@ class SectorBreadthRepository(
       .where(SECTOR_BREADTH_DAILY.SECTOR_SYMBOL.eq(sectorSymbol))
       .orderBy(SECTOR_BREADTH_DAILY.QUOTE_DATE.asc())
       .fetch { record ->
-        SectorBreadthDaily(
-          sectorSymbol = record[SECTOR_BREADTH_DAILY.SECTOR_SYMBOL]!!,
-          quoteDate = record[SECTOR_BREADTH_DAILY.QUOTE_DATE]!!,
-          stocksInUptrend = record[SECTOR_BREADTH_DAILY.STOCKS_IN_UPTREND]!!,
-          stocksInDowntrend = record[SECTOR_BREADTH_DAILY.STOCKS_IN_DOWNTREND]!!,
-          totalStocks = record[SECTOR_BREADTH_DAILY.TOTAL_STOCKS]!!,
-          bullPercentage = record[SECTOR_BREADTH_DAILY.BULL_PERCENTAGE]?.toDouble() ?: 0.0,
-          ema5 = record[SECTOR_BREADTH_DAILY.EMA_5]?.toDouble() ?: 0.0,
-          ema10 = record[SECTOR_BREADTH_DAILY.EMA_10]?.toDouble() ?: 0.0,
-          ema20 = record[SECTOR_BREADTH_DAILY.EMA_20]?.toDouble() ?: 0.0,
-          ema50 = record[SECTOR_BREADTH_DAILY.EMA_50]?.toDouble() ?: 0.0,
-        )
+        mapSectorBreadthRecord(record)
       }
 
   fun findAllAsMap(): Map<String, Map<java.time.LocalDate, SectorBreadthDaily>> =
@@ -135,18 +128,23 @@ class SectorBreadthRepository(
       .selectFrom(SECTOR_BREADTH_DAILY)
       .orderBy(SECTOR_BREADTH_DAILY.SECTOR_SYMBOL, SECTOR_BREADTH_DAILY.QUOTE_DATE)
       .fetch { record ->
-        SectorBreadthDaily(
-          sectorSymbol = record[SECTOR_BREADTH_DAILY.SECTOR_SYMBOL]!!,
-          quoteDate = record[SECTOR_BREADTH_DAILY.QUOTE_DATE]!!,
-          stocksInUptrend = record[SECTOR_BREADTH_DAILY.STOCKS_IN_UPTREND]!!,
-          stocksInDowntrend = record[SECTOR_BREADTH_DAILY.STOCKS_IN_DOWNTREND]!!,
-          totalStocks = record[SECTOR_BREADTH_DAILY.TOTAL_STOCKS]!!,
-          bullPercentage = record[SECTOR_BREADTH_DAILY.BULL_PERCENTAGE]?.toDouble() ?: 0.0,
-          ema5 = record[SECTOR_BREADTH_DAILY.EMA_5]?.toDouble() ?: 0.0,
-          ema10 = record[SECTOR_BREADTH_DAILY.EMA_10]?.toDouble() ?: 0.0,
-          ema20 = record[SECTOR_BREADTH_DAILY.EMA_20]?.toDouble() ?: 0.0,
-          ema50 = record[SECTOR_BREADTH_DAILY.EMA_50]?.toDouble() ?: 0.0,
-        )
+        mapSectorBreadthRecord(record)
       }.groupBy { it.sectorSymbol }
       .mapValues { (_, rows) -> rows.associateBy { it.quoteDate } }
+
+  private fun mapSectorBreadthRecord(record: org.jooq.Record): SectorBreadthDaily =
+    SectorBreadthDaily(
+      sectorSymbol = record[SECTOR_BREADTH_DAILY.SECTOR_SYMBOL]!!,
+      quoteDate = record[SECTOR_BREADTH_DAILY.QUOTE_DATE]!!,
+      stocksInUptrend = record[SECTOR_BREADTH_DAILY.STOCKS_IN_UPTREND]!!,
+      stocksInDowntrend = record[SECTOR_BREADTH_DAILY.STOCKS_IN_DOWNTREND]!!,
+      totalStocks = record[SECTOR_BREADTH_DAILY.TOTAL_STOCKS]!!,
+      bullPercentage = record[SECTOR_BREADTH_DAILY.BULL_PERCENTAGE]?.toDouble() ?: 0.0,
+      ema5 = record[SECTOR_BREADTH_DAILY.EMA_5]?.toDouble() ?: 0.0,
+      ema10 = record[SECTOR_BREADTH_DAILY.EMA_10]?.toDouble() ?: 0.0,
+      ema20 = record[SECTOR_BREADTH_DAILY.EMA_20]?.toDouble() ?: 0.0,
+      ema50 = record[SECTOR_BREADTH_DAILY.EMA_50]?.toDouble() ?: 0.0,
+      donchianUpperBand = record[SECTOR_BREADTH_DAILY.DONCHIAN_UPPER_BAND]?.toDouble() ?: 0.0,
+      donchianLowerBand = record[SECTOR_BREADTH_DAILY.DONCHIAN_LOWER_BAND]?.toDouble() ?: 0.0,
+    )
 }

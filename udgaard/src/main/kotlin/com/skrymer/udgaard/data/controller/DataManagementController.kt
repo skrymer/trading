@@ -122,7 +122,7 @@ class DataManagementController(
   @PostMapping("/refresh/stocks")
   fun refreshStocks(
     @RequestBody symbols: List<String>,
-    @RequestParam(required = false, defaultValue = "2020-01-01") minDate: String,
+    @RequestParam(required = false, defaultValue = "2016-01-01") minDate: String,
   ): RefreshResponse {
     val parsedMinDate = LocalDate.parse(minDate)
     logger.info("Queueing ${symbols.size} stocks for refresh (minDate=$parsedMinDate)")
@@ -138,7 +138,7 @@ class DataManagementController(
    */
   @PostMapping("/refresh/all-stocks")
   fun refreshAllStocks(
-    @RequestParam(required = false, defaultValue = "2020-01-01") minDate: String,
+    @RequestParam(required = false, defaultValue = "2016-01-01") minDate: String,
   ): RefreshResponse {
     val parsedMinDate = LocalDate.parse(minDate)
     logger.info("Queueing all stocks for refresh (minDate=$parsedMinDate)")
@@ -147,6 +147,25 @@ class DataManagementController(
     return RefreshResponse(
       queued = allSymbols.size,
       message = "Queued ${allSymbols.size} stocks for refresh",
+    )
+  }
+
+  /**
+   * Queue only new stocks (symbols with no existing quote data) for refresh
+   */
+  @PostMapping("/refresh/new-stocks")
+  fun refreshNewStocks(
+    @RequestParam(required = false, defaultValue = "2016-01-01") minDate: String,
+  ): RefreshResponse {
+    val parsedMinDate = LocalDate.parse(minDate)
+    val allSymbols = symbolService.getAll().map { it.symbol }
+    val existingSymbols = stockRepository.findAllSymbols().toSet()
+    val newSymbols = allSymbols.filter { it !in existingSymbols }
+    logger.info("Queueing ${newSymbols.size} new stocks for refresh (minDate=$parsedMinDate, ${existingSymbols.size} already exist)")
+    stockIngestionService.queueStockRefresh(newSymbols, minDate = parsedMinDate)
+    return RefreshResponse(
+      queued = newSymbols.size,
+      message = "Queued ${newSymbols.size} new stocks for refresh (${existingSymbols.size} already have data)",
     )
   }
 

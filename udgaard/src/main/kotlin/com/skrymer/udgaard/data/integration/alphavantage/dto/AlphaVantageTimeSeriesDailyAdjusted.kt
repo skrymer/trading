@@ -89,20 +89,20 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
    * - Order block calculations work correctly
    * - Historical backtesting is accurate
    *
-   * Only data from 2020-01-01 onwards is included to reduce memory usage
+   * Only data from 2016-01-01 onwards is included to reduce memory usage
    * and focus on recent market conditions.
    *
-   * @param minDate Only include data from this date onwards (default: 2020-01-01)
+   * @param minDate Only include data from this date onwards (default: 2016-01-01)
    * @return List of StockQuote with ALL ADJUSTED PRICES from minDate onwards, sorted by date (oldest first)
    */
-  fun toStockQuotes(minDate: LocalDate = LocalDate.of(2020, 1, 1)): List<StockQuote> {
+  fun toStockQuotes(minDate: LocalDate = LocalDate.of(2016, 1, 1)): List<StockQuote> {
     val symbol = metaData?.symbol ?: ""
 
     return timeSeriesDaily
       ?.mapNotNull { (dateString, data) ->
         val date = LocalDate.parse(dateString)
 
-        // Only include data from 2020-01-01 onwards
+        // Only include data from 2016-01-01 onwards
         if (date.isBefore(minDate)) {
           return@mapNotNull null
         }

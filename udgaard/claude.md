@@ -49,14 +49,11 @@ udgaard/
 │   │       ├── StrategyDsl.kt        # DSL builder
 │   │       ├── StockRanker.kt        # Ranking implementations
 │   │       ├── RegisteredStrategy.kt # Auto-discovery annotation
-│   │       ├── PlanAlpha*Strategy.kt # Strategy implementations
-│   │       ├── PlanMV*Strategy.kt
-│   │       ├── PlanQ*Strategy.kt
-│   │       ├── OvtlyrPlanEtf*Strategy.kt
-│   │       ├── ProjectX*Strategy.kt
+│   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
+│   │       ├── *ExitStrategy.kt
 │   │       └── condition/            # Entry/exit conditions
-│   │           ├── entry/            # 22 entry conditions
-│   │           └── exit/             # 12 exit conditions
+│   │           ├── entry/            # Entry conditions (discoverable via getAvailableConditions MCP tool)
+│   │           └── exit/             # Exit conditions
 │   ├── data/                         # Data domain
 │   │   ├── controller/
 │   │   │   ├── StockController.kt
@@ -66,7 +63,7 @@ udgaard/
 │   │   │   ├── alphavantage/         # PRIMARY data source
 │   │   │   │   ├── AlphaVantageClient.kt
 │   │   │   │   └── dto/
-│   │   │   └── ovtlyr/              # Enrichment (breadth, sentiment)
+│   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
 │   │   ├── model/                    # Domain models
@@ -113,7 +110,8 @@ udgaard/
 │   ├── secure.properties             # Credentials (not in git)
 │   └── db/migration/                 # Flyway migrations
 │       ├── V1__initial_schema.sql
-│       └── V2__Populate_symbols.sql
+│       ├── V2__Populate_symbols.sql
+│       └── V3__Add_sector_symbols.sql
 ├── src/test/kotlin/                  # Unit tests (mirrors main structure)
 ├── build.gradle                      # Dependencies & build config
 ├── detekt.yml                        # Detekt static analysis config
@@ -193,22 +191,7 @@ val exitStrategy = exitStrategy {
 }
 ```
 
-**Available Entry Conditions** (see `StrategyDsl.kt`):
-- Trend: `uptrend()`, `emaAlignment()`, `emaBullishCross()`
-- Price: `priceAbove(emaPeriod)`, `minimumPrice()`, `priceAbovePreviousLow()`
-- Market: `marketUptrend()`, `marketBreadthAbove()`, `sectorUptrend()`, `sectorBreadthGreaterThanSpy()`
-- Volume/Volatility: `volumeAboveAverage()`, `atrExpanding()`, `adxRange()`
-- Order blocks: `notInOrderBlock()`, `belowOrderBlock()`, `aboveBearishOrderBlock()`
-- Value: `inValueZone()`, `consecutiveHigherHighsInValueZone()`
-- Earnings: `noEarningsWithinDays()`, `daysSinceEarnings()`
-
-**Available Exit Conditions:**
-- Stop: `stopLoss()`, `trailingStopLoss()`
-- Price: `priceBelowEma()`, `priceBelowEmaForDays()`, `priceBelowEmaMinusAtr()`, `belowPreviousDayLow()`
-- Trend: `emaCross()`, `marketAndSectorDowntrend()`
-- Target: `profitTarget()`
-- Order blocks: `bearishOrderBlock()`
-- Earnings: `exitBeforeEarnings()`
+**Available Conditions:** Use the `getAvailableConditions` MCP tool to discover all entry/exit conditions with their parameters. Conditions are defined in `strategy/condition/entry/` and `strategy/condition/exit/`, and added to the DSL in `StrategyDsl.kt`.
 
 ### 3. Backtesting Engine
 
@@ -473,7 +456,7 @@ class MyEntryStrategy: DetailedEntryStrategy {
 - **Cache aggressively**: Stock data rarely changes, cache with 30min TTL
 - **Batch queries**: Use jOOQ batch operations for bulk saves
 - **Parallel processing**: Use Kotlin coroutines for independent operations
-- **H2 server mode**: Required for concurrent access from Flyway/jOOQ codegen and application
+- **Database server mode**: Required for concurrent access from Flyway/jOOQ codegen and application
 
 ### Strategy Development Workflow
 

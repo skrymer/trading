@@ -33,6 +33,40 @@ Use the MCP tools from the `stock-backtesting` server to discover what's availab
 
 Always use these MCP tools for discovery instead of curl. The actual backtest execution and Monte Carlo simulation still use the REST API (see sections below).
 
+## Backtest Response Format
+
+**IMPORTANT:** The backtest API returns a lean `BacktestResponseDto` with pre-computed analytics. It does **NOT** include raw trade data. Key fields:
+
+**Scalar metrics** (directly in response):
+- `backtestId` - UUID for on-demand trade fetching and Monte Carlo
+- `totalTrades`, `numberOfWinningTrades`, `numberOfLosingTrades`
+- `winRate`, `lossRate`, `edge`, `profitFactor`
+- `averageWinPercent`, `averageLossPercent`
+- `stockProfits` - Array of [symbol, totalProfit] pairs
+- `underlyingAssetTradeCount` - Trades using underlying asset signals
+
+**Pre-computed analytics** (directly in response):
+- `timeBasedStats` - Year/quarter/month performance breakdown
+- `exitReasonAnalysis` - Exit reason stats with win rates
+- `sectorPerformance` - Per-sector performance breakdown
+- `stockPerformance` - Per-stock performance breakdown
+- `atrDrawdownStats` - ATR drawdown percentiles and distribution
+- `marketConditionAverages` - Avg market breadth, SPY uptrend %
+- `edgeConsistencyScore` - Edge consistency across years (0-100)
+
+**Pre-computed chart data** (directly in response):
+- `equityCurveData` - `[{date, profitPercentage}]` sorted by exit date
+- `excursionPoints` - `[{mfe, mae, mfeATR, maeATR, mfeReached, profitPercentage, isWinner}]` (max 5000)
+- `excursionSummary` - Pre-computed MFE/MAE averages for winners/losers
+- `dailyProfitSummary` - `[{date, profitPercentage, tradeCount}]` grouped by entry date
+- `marketConditionStats` - Scatter points + uptrend/downtrend win rates
+- `sectorStats` - Sector stats without nested trade lists
+
+**On-demand trade data** (separate endpoint):
+- `GET /api/backtest/{backtestId}/trades?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`
+- Returns full `Trade` objects for a specific date range
+- Use for drill-down analysis when individual trade details are needed
+
 ## Running Backtests
 
 ### Basic Backtest
@@ -98,13 +132,13 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 
 ### Advanced Features
 
-#### 1. Cooldown Period (NEW)
+#### 1. Cooldown Period
 
 **Global cooldown** blocks ALL entries for X trading days after ANY exit:
 
 ```json
 {
-  "cooldownDays": 10  // Wait 10 trading days after exit before allowing new entries
+  "cooldownDays": 10
 }
 ```
 
@@ -120,7 +154,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 - Improves win rate and edge per trade
 - Can double returns while reducing drawdown
 
-#### 2. Underlying Asset Mapping (NEW)
+#### 2. Underlying Asset Mapping
 
 **Use underlying assets for signals while trading leveraged ETFs:**
 
@@ -129,7 +163,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
   "stockSymbols": ["TQQQ"],
   "useUnderlyingAssets": true,
   "customUnderlyingMap": {
-    "TQQQ": "QQQ"  // Use QQQ signals to trade TQQQ
+    "TQQQ": "QQQ"
   }
 }
 ```
@@ -140,18 +174,49 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 - **Options strategies** - use underlying stock signals
 
 **Built-in mappings** (automatically detected):
-- TQQQ/SQQQ → QQQ
-- UPRO/SPXU → SPY
-- SOXL/SOXS → SOXX
-- TNA/TZA → IWM
+- TQQQ/SQQQ -> QQQ
+- UPRO/SPXU -> SPY
+- SOXL/SOXS -> SOXX
+- TNA/TZA -> IWM
 - And many more (see ConfigModal.vue for full list)
 
-#### 3. Position Limiting
+#### 3. Sector Filtering
+
+**Include only specific sectors:**
 
 ```json
 {
-  "maxPositions": 10,  // Max concurrent positions
-  "ranker": "Adaptive" // How to rank stocks when multiple trigger
+  "includeSectors": ["XLK", "XLF", "XLV"]
+}
+```
+
+**Exclude specific sectors:**
+
+```json
+{
+  "excludeSectors": ["XLE", "XLP", "XLC", "XLB"]
+}
+```
+
+**Both can be combined** (include narrows first, then exclude removes from the result):
+
+```json
+{
+  "includeSectors": ["XLK", "XLF", "XLV", "XLI"],
+  "excludeSectors": ["XLI"]
+}
+```
+
+**Available sector symbols:** XLK (Technology), XLF (Financials), XLV (Health Care), XLI (Industrials), XLY (Consumer Discretionary), XLRE (Real Estate), XLU (Utilities), XLP (Consumer Staples), XLC (Communication Services), XLB (Materials), XLE (Energy)
+
+**Use Case:** Test strategy performance on specific sectors to identify which sectors work best, or exclude consistently poor-performing sectors.
+
+#### 4. Position Limiting
+
+```json
+{
+  "maxPositions": 10,
+  "ranker": "Adaptive"
 }
 ```
 
@@ -235,68 +300,26 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
   }' > /tmp/strategy_b.json
 ```
 
-**Example: Comparing Custom vs Predefined**
-
-```bash
-# Custom strategy with different parameters
-curl -s -X POST http://localhost:8080/udgaard/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "stockSymbols": ["TQQQ"],
-    "entryStrategy": {
-      "type": "custom",
-      "conditions": [
-        {"type": "uptrend"},
-        {"type": "marketUptrend"},
-        {"type": "priceAboveEma", "parameters": {"period": 20}},
-        {"type": "valueZone", "parameters": {"atrMultiplier": 2.5}}
-      ]
-    },
-    "exitStrategy": {
-      "type": "custom",
-      "conditions": [
-        {"type": "emaCross"},
-        {"type": "profitTarget", "parameters": {"atrMultiplier": 3.5, "emaPeriod": 20}},
-        {"type": "trailingStopLoss", "parameters": {"atrMultiplier": 2.5}}
-      ]
-    },
-    "startDate": "2020-01-01",
-    "endDate": "2025-11-13",
-    "useUnderlyingAssets": true,
-    "customUnderlyingMap": {"TQQQ": "QQQ"}
-  }' > /tmp/custom_strategy.json
-
-# Predefined strategy
-curl -s -X POST http://localhost:8080/udgaard/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "stockSymbols": ["TQQQ"],
-    "entryStrategy": {"type": "predefined", "name": "OvtlyrPlanEtf"},
-    "exitStrategy": {"type": "predefined", "name": "OvtlyrPlanEtf"},
-    "startDate": "2020-01-01",
-    "endDate": "2025-11-13",
-    "useUnderlyingAssets": true,
-    "customUnderlyingMap": {"TQQQ": "QQQ"}
-  }' > /tmp/predefined_strategy.json
-```
-
 ### 2. Calculate Comprehensive Metrics
 
-Use Python to calculate:
+Use Python to calculate equity curve metrics from the pre-computed `equityCurveData`:
 
 ```python
 import json
 from datetime import datetime
-from collections import defaultdict
 
-def calculate_drawdown(trades, starting_capital=100000):
-    """Calculate max drawdown and equity curve"""
+def calculate_equity_metrics(result, starting_capital=100000):
+    """Calculate drawdown, returns, and CAGR from equityCurveData"""
+    equity_data = result['equityCurveData']
+    if not equity_data:
+        return {'final_balance': starting_capital, 'max_drawdown_pct': 0, 'peak': starting_capital}
+
     balance = starting_capital
     peak = balance
     max_dd_pct = 0
 
-    for trade in trades:
-        profit_pct = trade['profitPercentage']
+    for point in equity_data:
+        profit_pct = point['profitPercentage']
         balance += balance * (profit_pct / 100)
 
         if balance > peak:
@@ -312,37 +335,6 @@ def calculate_drawdown(trades, starting_capital=100000):
         'peak': peak
     }
 
-def calculate_yearly_performance(trades, starting_capital=100000):
-    """Calculate year-by-year returns"""
-    yearly_stats = defaultdict(lambda: {
-        'starting_balance': 0,
-        'ending_balance': 0,
-        'wins': 0,
-        'losses': 0,
-        'total_trades': 0
-    })
-
-    balance = starting_capital
-
-    for trade in trades:
-        year = trade['entryQuote']['date'][:4]
-
-        if yearly_stats[year]['starting_balance'] == 0:
-            yearly_stats[year]['starting_balance'] = balance
-
-        profit_pct = trade['profitPercentage']
-        balance += balance * (profit_pct / 100)
-
-        yearly_stats[year]['total_trades'] += 1
-        yearly_stats[year]['ending_balance'] = balance
-
-        if profit_pct > 0:
-            yearly_stats[year]['wins'] += 1
-        else:
-            yearly_stats[year]['losses'] += 1
-
-    return yearly_stats
-
 def calculate_cagr(final_balance, starting_capital, years):
     """Calculate Compound Annual Growth Rate"""
     return (((final_balance / starting_capital) ** (1 / years)) - 1) * 100
@@ -350,51 +342,7 @@ def calculate_cagr(final_balance, starting_capital, years):
 
 ### 3. Compare and Present Results
 
-Create comparison tables showing:
-
-**Key Metrics:**
-- Total trades (fewer can be better)
-- Win rate (%)
-- Average win/loss (%)
-- Edge per trade (%)
-
-**Returns:**
-- Final balance
-- Total return (%)
-- CAGR (%)
-
-**Risk Metrics:**
-- Max drawdown (%)
-- Return/Drawdown ratio (higher is better)
-- Peak balance
-
-**Year-by-Year:**
-- Trades per year
-- Win rate per year
-- Return per year
-- Which strategy won each year
-
-**Exit Reasons:**
-- Breakdown of exit triggers
-- Identify most profitable exits
-
-### 4. Provide Recommendations
-
-Based on analysis, recommend:
-- **Which strategy performed better (using Return/Drawdown ratio as primary metric)**
-- **Why it performed better:**
-  - Higher edge per trade (consistent profitability)
-  - Lower drawdown (better risk management)
-  - Better Return/Drawdown ratio (optimal balance)
-  - Fewer trades but higher quality
-  - More consistent year-over-year performance
-- **Optimal parameters** (cooldown, position limits, etc.)
-- **Which market conditions** favor each strategy
-- **Risk-adjusted performance** - ALWAYS prioritize this over raw returns
-
-**REMEMBER:** A strategy that makes 150% with 15% drawdown (10.0 ratio) is SUPERIOR to one that makes 300% with 50% drawdown (6.0 ratio). Emphasize risk-adjusted metrics in all recommendations.
-
-## Complete Comparison Example
+**Use pre-computed fields directly from the response:**
 
 ```python
 import json
@@ -406,24 +354,20 @@ with open('/tmp/strategy_a.json', 'r') as f:
 with open('/tmp/strategy_b.json', 'r') as f:
     strategy_b = json.load(f)
 
-# Calculate metrics
-a_metrics = calculate_drawdown(strategy_a['trades'])
-b_metrics = calculate_drawdown(strategy_b['trades'])
-
-a_yearly = calculate_yearly_performance(strategy_a['trades'])
-b_yearly = calculate_yearly_performance(strategy_b['trades'])
+# Calculate equity metrics from equityCurveData
+a_metrics = calculate_equity_metrics(strategy_a)
+b_metrics = calculate_equity_metrics(strategy_b)
 
 # Calculate CAGR
 years = 5.87  # 2020-01-01 to 2025-11-13
 a_cagr = calculate_cagr(a_metrics['final_balance'], 100000, years)
 b_cagr = calculate_cagr(b_metrics['final_balance'], 100000, years)
 
-# Print comparison
+# Print comparison using pre-computed scalar metrics
 print("=" * 90)
 print("STRATEGY COMPARISON")
 print("=" * 90)
 
-# Performance comparison
 print(f"{'Metric':<35} {'Strategy A':<22} {'Strategy B':<22} {'Difference'}")
 print("-" * 90)
 print(f"{'Total Trades':<35} {strategy_a['totalTrades']:<22} {strategy_b['totalTrades']:<22} {strategy_b['totalTrades'] - strategy_a['totalTrades']:+d}")
@@ -448,20 +392,38 @@ a_ratio = a_return / a_metrics['max_drawdown_pct'] if a_metrics['max_drawdown_pc
 b_ratio = b_return / b_metrics['max_drawdown_pct'] if b_metrics['max_drawdown_pct'] > 0 else 0
 print(f"{'Return/Drawdown Ratio':<35} {a_ratio:>21.2f} {b_ratio:>21.2f} {b_ratio - a_ratio:+.2f}")
 
-# Year-by-year comparison
+# Year-by-year comparison using timeBasedStats
 print()
 print("YEAR-BY-YEAR COMPARISON")
 print("-" * 90)
+a_yearly = strategy_a.get('timeBasedStats', {}).get('byYear', {})
+b_yearly = strategy_b.get('timeBasedStats', {}).get('byYear', {})
 all_years = sorted(set(list(a_yearly.keys()) + list(b_yearly.keys())))
 for year in all_years:
-    a_year_return = ((a_yearly[year]['ending_balance'] - a_yearly[year]['starting_balance']) / a_yearly[year]['starting_balance'] * 100) if year in a_yearly else 0
-    b_year_return = ((b_yearly[year]['ending_balance'] - b_yearly[year]['starting_balance']) / b_yearly[year]['starting_balance'] * 100) if year in b_yearly else 0
-
-    winner = "Strategy B" if b_year_return > a_year_return else "Strategy A"
-    winner_symbol = "🏆" if b_year_return > a_year_return else "  "
-
-    print(f"{year:<8} {a_year_return:>14.2f}% {b_year_return:>14.2f}% {winner_symbol} {winner}")
+    a_stats = a_yearly.get(year, {})
+    b_stats = b_yearly.get(year, {})
+    a_avg = a_stats.get('avgProfit', 0) * a_stats.get('trades', 0)
+    b_avg = b_stats.get('avgProfit', 0) * b_stats.get('trades', 0)
+    a_wr = a_stats.get('winRate', 0) * 100
+    b_wr = b_stats.get('winRate', 0) * 100
+    print(f"{year}  A: {a_stats.get('trades', 0):>3} trades, {a_wr:>5.1f}% WR  |  B: {b_stats.get('trades', 0):>3} trades, {b_wr:>5.1f}% WR")
 ```
+
+### 4. Provide Recommendations
+
+Based on analysis, recommend:
+- **Which strategy performed better (using Return/Drawdown ratio as primary metric)**
+- **Why it performed better:**
+  - Higher edge per trade (consistent profitability)
+  - Lower drawdown (better risk management)
+  - Better Return/Drawdown ratio (optimal balance)
+  - Fewer trades but higher quality
+  - More consistent year-over-year performance
+- **Optimal parameters** (cooldown, position limits, etc.)
+- **Which market conditions** favor each strategy
+- **Risk-adjusted performance** - ALWAYS prioritize this over raw returns
+
+**REMEMBER:** A strategy that makes 150% with 15% drawdown (10.0 ratio) is SUPERIOR to one that makes 300% with 50% drawdown (6.0 ratio). Emphasize risk-adjusted metrics in all recommendations.
 
 ## Backtest Diagnostic Metrics
 
@@ -507,43 +469,55 @@ for range_name, bucket in atr_stats['distribution'].items():
     print(f"{bucket['range']}: {bucket['count']} trades ({bucket['cumulativePercentage']:.1f}% cumulative)")
 ```
 
-**3. Market Condition Snapshots (per trade)**
+**3. Market Condition Stats (`marketConditionStats`)**
 
-Each trade captures market state at entry:
-- **SPY Close**: Price level
-- **SPY In Uptrend**: Boolean trend status
-- **Market Breadth**: Bull percentage
+Pre-computed market condition analysis:
+- `scatterPoints` - Array of `{breadth, profitPercentage, isWinner, spyInUptrend}` for each trade
+- `uptrendWinRate` / `downtrendWinRate` - Win rates during SPY uptrend vs downtrend
+- `uptrendCount` / `downtrendCount` - Trade counts per regime
 
-**Use Case:** Identify if poor performance correlates with specific market conditions (e.g., low breadth, downtrend).
+**Use Case:** Identify if poor performance correlates with specific market conditions.
 
 ```python
-# Example: Analyze losing trades vs market conditions
-losing_trades = [t for t in result['trades'] if t['profit'] < 0]
-if losing_trades:
-    avg_breadth_losses = sum(t['marketConditionAtEntry']['marketBreadthBullPercent']
-                             for t in losing_trades if t.get('marketConditionAtEntry')
-                             and t['marketConditionAtEntry'].get('marketBreadthBullPercent')) / len(losing_trades)
-    print(f"Average market breadth on losing trades: {avg_breadth_losses:.1f}%")
+# Example: Analyze market regime performance
+mc_stats = result.get('marketConditionStats')
+if mc_stats:
+    print(f"SPY Uptrend: {mc_stats['uptrendWinRate']:.1f}% win rate ({mc_stats['uptrendCount']} trades)")
+    print(f"SPY Downtrend: {mc_stats['downtrendWinRate']:.1f}% win rate ({mc_stats['downtrendCount']} trades)")
+
+    # Analyze breadth correlation from scatter points
+    points = mc_stats['scatterPoints']
+    low_breadth = [p for p in points if p['breadth'] < 50]
+    high_breadth = [p for p in points if p['breadth'] >= 50]
+    if low_breadth:
+        low_wr = sum(1 for p in low_breadth if p['isWinner']) / len(low_breadth) * 100
+        print(f"Low breadth (<50%): {low_wr:.1f}% win rate ({len(low_breadth)} trades)")
+    if high_breadth:
+        high_wr = sum(1 for p in high_breadth if p['isWinner']) / len(high_breadth) * 100
+        print(f"High breadth (>=50%): {high_wr:.1f}% win rate ({len(high_breadth)} trades)")
 ```
 
-**4. Excursion Metrics (per trade)**
+**4. Excursion Summary (`excursionSummary` + `excursionPoints`)**
 
-Per-trade metrics showing maximum favorable/adverse movement:
-- **MFE (Max Favorable Excursion)**: Highest % profit reached (and in ATR)
-- **MAE (Max Adverse Excursion)**: Deepest % drawdown (and in ATR)
-- **MFE Reached**: Did trade reach positive territory?
+Pre-computed MFE/MAE statistics:
+- `excursionSummary` - Averages for all trades, winners, and losers:
+  - `totalTrades`, `avgMFE`, `avgMAE`, `avgMFEATR`, `avgMAEATR`
+  - `profitReachRate` - % of trades that reached positive territory
+  - `avgMFEEfficiency` - How much of MFE was captured (winners only)
+  - `winnerAvgMFE`, `winnerAvgMAE`, `winnerAvgFinalProfit`
+  - `loserAvgMFE`, `loserAvgMAE`, `loserAvgFinalLoss`, `loserMissedWinRate`
+- `excursionPoints` - Per-trade `{mfe, mae, mfeATR, maeATR, mfeReached, profitPercentage, isWinner}` (max 5000)
 
-**Use Case:** Identify if exits are too early (high MFE but small final profit) or stops are too tight (large MAE on winners).
+**Use Case:** Identify if exits are too early or stops are too tight.
 
 ```python
-# Example: Analyze if exits are premature
-winning_trades = [t for t in result['trades'] if t['profit'] > 0]
-for trade in winning_trades:
-    if trade.get('excursionMetrics'):
-        mfe = trade['excursionMetrics']['maxFavorableExcursion']
-        final_profit = trade['profitPercentage']
-        if mfe > final_profit * 2:
-            print(f"{trade['stockSymbol']}: Left {mfe - final_profit:.2f}% on table")
+# Example: Analyze exit efficiency
+exc = result.get('excursionSummary')
+if exc:
+    print(f"MFE Efficiency: {exc['avgMFEEfficiency']:.1f}% of max profit captured")
+    print(f"Winners avg MFE: {exc['winnerAvgMFE']:.2f}%, avg final: {exc['winnerAvgFinalProfit']:.2f}%")
+    if exc['loserMissedWinRate'] > 50:
+        print(f"WARNING: {exc['loserMissedWinRate']:.1f}% of losers reached profit before losing - exits may be too slow")
 ```
 
 **5. Exit Reason Analysis (`exitReasonAnalysis`)**
@@ -578,14 +552,14 @@ for sector in sorted_sectors[:5]:
 
 **7. Edge Consistency Score (`edgeConsistencyScore`)**
 
-Measures how consistent a strategy's edge is across yearly periods (0–100 score):
-- **score**: Composite score (0–100)
+Measures how consistent a strategy's edge is across yearly periods (0-100 score):
+- **score**: Composite score (0-100)
 - **profitablePeriodsScore**: % of years with positive edge (weight: 40%)
-- **stabilityScore**: How consistent the edge magnitude is across years, based on coefficient of variation (weight: 40%)
-- **downsideScore**: How bad the worst year is — 100 if worst year is positive, scales down linearly to 0 at -10% edge (weight: 20%)
+- **stabilityScore**: % of years with edge >= 1.5% (minimum tradeable threshold). Measures what fraction of years produce an edge large enough to overcome transaction costs and slippage (weight: 40%)
+- **downsideScore**: How bad the worst year is -- 100 if worst year is positive, scales down linearly to 0 at -10% edge (weight: 20%)
 - **yearsAnalyzed**: Number of years with trades included in the calculation
-- **yearlyEdges**: Map of year → edge value for each year
-- **interpretation**: "Excellent" (80+), "Good" (60–79), "Moderate" (40–59), "Poor" (20–39), "Very Poor" (<20)
+- **yearlyEdges**: Map of year -> edge value for each year
+- **interpretation**: "Excellent" (80+), "Good" (60-79), "Moderate" (40-59), "Poor" (20-39), "Very Poor" (<20)
 
 Returns null when fewer than 2 years have trades.
 
@@ -616,18 +590,12 @@ Average market conditions across all trades:
 ```python
 # Why did strategy underperform in a specific year?
 time_stats = result['timeBasedStats']
-stats_2025 = time_stats['byYear']['2025']
+stats_2025 = time_stats['byYear'].get('2025', {})
+print(f"2025: {stats_2025.get('trades', 0)} trades, {stats_2025.get('winRate', 0)*100:.1f}% win rate")
 
-# Check market conditions in that year's trades
-trades_2025 = [t for t in result['trades'] if t['entryQuote']['date'].startswith('2025')]
-if trades_2025:
-    avg_breadth_2025 = sum(t['marketConditionAtEntry']['marketBreadthBullPercent']
-                           for t in trades_2025 if t.get('marketConditionAtEntry')) / len(trades_2025)
-
-    # Compare with overall averages
-    overall_avg_breadth = result['marketConditionAverages']['avgMarketBreadth']
-
-    print(f"2025 avg breadth: {avg_breadth_2025:.1f}% vs overall: {overall_avg_breadth:.1f}%")
+# Compare with overall averages
+overall_avg_breadth = result.get('marketConditionAverages', {}).get('avgMarketBreadth', 0)
+print(f"Overall avg market breadth: {overall_avg_breadth:.1f}%")
 ```
 
 **Stop Loss Optimization**
@@ -653,25 +621,39 @@ print(f"{pct_above_2atr:.1f}% of winners required enduring >2 ATR drawdown")
 exit_analysis = result['exitReasonAnalysis']
 for reason, stats in exit_analysis['byReason'].items():
     if stats['winRate'] < 0.3:  # Less than 30% win rate
-        print(f"⚠ {reason}: Only {stats['winRate']*100:.1f}% win rate with {stats['avgProfit']:.2f}% avg")
+        print(f"WARNING: {reason}: Only {stats['winRate']*100:.1f}% win rate with {stats['avgProfit']:.2f}% avg")
 ```
 
 **Market Regime Filtering**
 ```python
-# Should we filter out low breadth entries?
-low_breadth_trades = [t for t in result['trades']
-                     if t.get('marketConditionAtEntry') and
-                        t['marketConditionAtEntry']['marketBreadthBullPercent'] < 50]
-low_breadth_winrate = sum(1 for t in low_breadth_trades if t['profit'] > 0) / len(low_breadth_trades)
+# Should we filter out low breadth entries? Use pre-computed marketConditionStats
+mc_stats = result.get('marketConditionStats')
+if mc_stats:
+    points = mc_stats['scatterPoints']
+    low_breadth = [p for p in points if p['breadth'] < 50]
+    high_breadth = [p for p in points if p['breadth'] >= 50]
 
-high_breadth_trades = [t for t in result['trades']
-                      if t.get('marketConditionAtEntry') and
-                         t['marketConditionAtEntry']['marketBreadthBullPercent'] >= 50]
-high_breadth_winrate = sum(1 for t in high_breadth_trades if t['profit'] > 0) / len(high_breadth_trades)
-
-print(f"Low breadth (<50%): {low_breadth_winrate*100:.1f}% win rate")
-print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
+    if low_breadth:
+        low_wr = sum(1 for p in low_breadth if p['isWinner']) / len(low_breadth) * 100
+        print(f"Low breadth (<50%): {low_wr:.1f}% win rate")
+    if high_breadth:
+        high_wr = sum(1 for p in high_breadth if p['isWinner']) / len(high_breadth) * 100
+        print(f"High breadth (>=50%): {high_wr:.1f}% win rate")
 ```
+
+### Fetching Individual Trades On-Demand
+
+When you need individual trade details (e.g., for drill-down analysis), use the on-demand endpoint:
+
+```bash
+# Fetch trades for a specific date range
+curl -s "http://localhost:8080/udgaard/api/backtest/${BACKTEST_ID}/trades?startDate=2024-01-15&endDate=2024-01-19"
+
+# Fetch trades for a single date
+curl -s "http://localhost:8080/udgaard/api/backtest/${BACKTEST_ID}/trades?startDate=2024-01-15"
+```
+
+The `backtestId` comes from the backtest response. Trade data is cached server-side for 1 hour.
 
 ## Analysis Guidelines
 
@@ -685,8 +667,8 @@ print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
    - Lower drawdown with similar returns = BETTER strategy
    - High returns with high drawdown = POOR strategy (psychological torture, capital at risk)
    - Example comparison:
-     - Strategy A: 200% return, 40% drawdown → Ratio: 5.0
-     - Strategy B: 120% return, 15% drawdown → Ratio: 8.0 ← **WINNER**
+     - Strategy A: 200% return, 40% drawdown -> Ratio: 5.0
+     - Strategy B: 120% return, 15% drawdown -> Ratio: 8.0 <- **WINNER**
 
 2. **Trade Quality (Edge Per Trade)**
    - **Target: 2%+ edge per trade minimum**
@@ -727,7 +709,7 @@ print(f"High breadth (≥50%): {high_breadth_winrate*100:.1f}% win rate")
 - Returns concentrated in one or two years (luck, not skill)
 - Too many trades (overtrading, death by 1000 cuts)
 - **Return/Drawdown ratio < 3.0 (poor risk-adjusted performance)**
-- **Edge Consistency Score < 40 (Moderate/Poor — unreliable strategy)**
+- **Edge Consistency Score < 40 (Moderate/Poor -- unreliable strategy)**
 
 ### Green Flags
 
@@ -796,41 +778,55 @@ After running a backtest, you should ALWAYS validate the strategy edge using Mon
 
 ### Running Monte Carlo Simulation
 
-**Step 1: Run Backtest** (see above sections)
+Monte Carlo uses the `backtestId` from the backtest response -- no need to send trade data.
 
-**Step 2: Run Monte Carlo on Backtest Results**
+**Step 1: Run Backtest**
 
 ```bash
-# Extract trades from backtest and run Monte Carlo simulation
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": ["TQQQ"],
+    "entryStrategy": {"type": "predefined", "name": "PlanEtf"},
+    "exitStrategy": {"type": "predefined", "name": "PlanEtf"},
+    "startDate": "2021-01-01",
+    "endDate": "2025-11-19",
+    "useUnderlyingAssets": true,
+    "customUnderlyingMap": {"TQQQ": "QQQ"}
+  }' > /tmp/tqqq_backtest.json
+```
+
+**Step 2: Run Monte Carlo using backtestId**
+
+```bash
+# Extract backtestId and run Monte Carlo
 python3 << 'EOF'
 import json
 
-# Read backtest results
-with open('/tmp/backtest_results.json', 'r') as f:
+with open('/tmp/tqqq_backtest.json', 'r') as f:
     backtest = json.load(f)
 
-# Create Monte Carlo request
-monte_carlo_request = {
-    "trades": backtest['trades'],  # Only send trades array
-    "technique": "TRADE_SHUFFLING",  # or "BOOTSTRAP_RESAMPLING"
-    "iterations": 10000,             # 10,000 scenarios
-    "includeAllEquityCurves": False  # Save bandwidth - only get percentile curves
-}
+backtest_id = backtest['backtestId']
+print(f"Backtest ID: {backtest_id}")
 
-# Save request
-with open('/tmp/monte_carlo_request.json', 'w') as f:
-    json.dump(monte_carlo_request, f)
-
-print(f"Monte Carlo request created with {len(backtest['trades'])} trades")
+# Save backtestId for curl
+with open('/tmp/backtest_id.txt', 'w') as f:
+    f.write(backtest_id)
 EOF
 
-# Run simulation
-curl -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
+BACKTEST_ID=$(cat /tmp/backtest_id.txt)
+
+curl -s -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
   -H "Content-Type: application/json" \
-  -d @/tmp/monte_carlo_request.json \
-  -o /tmp/monte_carlo_result.json \
-  --max-time 300
+  -d "{
+    \"backtestId\": \"$BACKTEST_ID\",
+    \"technique\": \"TRADE_SHUFFLING\",
+    \"iterations\": 10000,
+    \"includeAllEquityCurves\": false
+  }" > /tmp/monte_carlo_result.json
 ```
+
+**NOTE:** The Monte Carlo endpoint retrieves trades from the server-side cache using `backtestId`. This avoids sending hundreds of MB of trade data over HTTP. The cache expires after 1 hour, so run Monte Carlo shortly after the backtest.
 
 ### Monte Carlo Techniques
 
@@ -846,10 +842,6 @@ curl -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
 - Creates scenarios with different trade combinations
 - Both return AND drawdown vary
 - **Best for:** Understanding distribution of outcomes
-
-**3. Price Path Randomization** (Future)
-- Randomizes price movements within trades
-- Tests strategy robustness to market noise
 
 ### Analyzing Monte Carlo Results
 
@@ -877,11 +869,11 @@ print()
 
 # Interpretation
 if stats['probabilityOfProfit'] >= 95:
-    print("✓ VALIDATED EDGE: 95%+ scenarios profitable - edge is real!")
+    print("VALIDATED EDGE: 95%+ scenarios profitable - edge is real!")
 elif stats['probabilityOfProfit'] >= 70:
-    print("⚠ MODERATE EDGE: 70-95% scenarios profitable - some risk")
+    print("MODERATE EDGE: 70-95% scenarios profitable - some risk")
 else:
-    print("✗ WEAK EDGE: <70% scenarios profitable - likely curve-fitted")
+    print("WEAK EDGE: <70% scenarios profitable - likely curve-fitted")
 print()
 
 # 2. RETURN DISTRIBUTION
@@ -909,11 +901,9 @@ worst_dd = stats['drawdownPercentiles']['p95']
 best_dd = stats['drawdownPercentiles']['p5']
 dd_spread = worst_dd - best_dd
 
-print(f"⚠ SEQUENCE RISK: Drawdown varies by {dd_spread:.2f}% depending on trade order")
-print(f"  - Same profitable trades can produce very different emotional experiences")
+print(f"SEQUENCE RISK: Drawdown varies by {dd_spread:.2f}% depending on trade order")
 print(f"  - Worst case: {worst_dd:.2f}% drawdown")
 print(f"  - Best case: {best_dd:.2f}% drawdown")
-print(f"  - You must be prepared to handle worst-case path psychologically")
 print()
 
 # 4. EDGE STABILITY
@@ -928,11 +918,13 @@ print()
 print("ORIGINAL vs SIMULATION")
 print("-" * 80)
 print(f"                    Original    Mean (MC)    Within Range?")
-print(f"Return:            {result['originalReturnPercentage']:>8.2f}%   {stats['meanReturnPercentage']:>8.2f}%    {'✓' if stats['returnPercentiles']['p25'] <= result['originalReturnPercentage'] <= stats['returnPercentiles']['p75'] else '✗'}")
-print(f"Edge:              {result['originalEdge']:>8.2f}%   {stats['meanEdge']:>8.2f}%    {'✓' if stats['edgePercentiles']['p25'] <= result['originalEdge'] <= stats['edgePercentiles']['p75'] else '✗'}")
-print(f"Win Rate:          {result['originalWinRate']*100:>8.1f}%   {stats['meanWinRate']*100:>8.1f}%    {'✓' if stats['winRatePercentiles']['p25'] <= result['originalWinRate'] <= stats['winRatePercentiles']['p75'] else '✗'}")
+in_range_ret = 'Y' if stats['returnPercentiles']['p25'] <= result['originalReturnPercentage'] <= stats['returnPercentiles']['p75'] else 'N'
+in_range_edge = 'Y' if stats['edgePercentiles']['p25'] <= result['originalEdge'] <= stats['edgePercentiles']['p75'] else 'N'
+in_range_wr = 'Y' if stats['winRatePercentiles']['p25'] <= result['originalWinRate'] <= stats['winRatePercentiles']['p75'] else 'N'
+print(f"Return:            {result['originalReturnPercentage']:>8.2f}%   {stats['meanReturnPercentage']:>8.2f}%    {in_range_ret}")
+print(f"Edge:              {result['originalEdge']:>8.2f}%   {stats['meanEdge']:>8.2f}%    {in_range_edge}")
+print(f"Win Rate:          {result['originalWinRate']*100:>8.1f}%   {stats['meanWinRate']*100:>8.1f}%    {in_range_wr}")
 print()
-
 print("=" * 80)
 ```
 
@@ -979,10 +971,10 @@ Max Drawdown:    21.25% to 54.30% across scenarios (varies!)
 ```
 
 **What this means:**
-1. ✓ **Edge is REAL** - 100% of scenarios profitable
-2. ✓ **You WILL make money** - if you can stick with it
-3. ⚠ **Journey varies wildly** - same destination, different pain levels
-4. ⚠ **Psychological test** - can you handle 54% drawdown?
+1. **Edge is REAL** - 100% of scenarios profitable
+2. **You WILL make money** - if you can stick with it
+3. **Journey varies wildly** - same destination, different pain levels
+4. **Psychological test** - can you handle 54% drawdown?
 
 **The Discipline Requirement:**
 - You know the strategy works (100% probability)
@@ -1017,57 +1009,13 @@ Max Drawdown:    21.25% to 54.30% across scenarios (varies!)
 - Worst-case drawdown informs position size
 - If 95th percentile DD = 54%, use 50% of capital max
 - Apply Kelly Criterion with Monte Carlo statistics
-- Example: Kelly = (p × b - q) / b where p=winRate, b=avgWin/avgLoss
+- Example: Kelly = (p * b - q) / b where p=winRate, b=avgWin/avgLoss
 
 **6. Document Results**
 - Save Monte Carlo results alongside backtest
 - Include probability of profit
 - Document drawdown range (best/worst case)
 - Use for risk disclosure and position sizing
-
-### Complete Workflow: Backtest + Monte Carlo
-
-```bash
-# 1. Run backtest
-curl -s -X POST http://localhost:8080/udgaard/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "stockSymbols": ["TQQQ"],
-    "entryStrategy": {"type": "predefined", "name": "PlanEtf"},
-    "exitStrategy": {"type": "predefined", "name": "PlanEtf"},
-    "startDate": "2021-01-01",
-    "endDate": "2025-11-19",
-    "useUnderlyingAssets": true,
-    "customUnderlyingMap": {"TQQQ": "QQQ"}
-  }' > /tmp/tqqq_backtest.json
-
-# 2. Extract trades and run Monte Carlo
-python3 << 'EOF'
-import json
-
-with open('/tmp/tqqq_backtest.json', 'r') as f:
-    backtest = json.load(f)
-
-monte_carlo_request = {
-    "trades": backtest['trades'],
-    "technique": "TRADE_SHUFFLING",
-    "iterations": 10000,
-    "includeAllEquityCurves": False
-}
-
-with open('/tmp/monte_carlo_request.json', 'w') as f:
-    json.dump(monte_carlo_request, f)
-EOF
-
-curl -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
-  -H "Content-Type: application/json" \
-  -d @/tmp/monte_carlo_request.json \
-  -o /tmp/monte_carlo_result.json \
-  --max-time 300
-
-# 3. Generate comprehensive report
-python3 analysis_with_monte_carlo.py > TQQQ_VALIDATED_STRATEGY_REPORT.md
-```
 
 ### Red Flags in Monte Carlo Results
 
@@ -1104,61 +1052,6 @@ python3 analysis_with_monte_carlo.py > TQQQ_VALIDATED_STRATEGY_REPORT.md
 - Consistent metrics across techniques
 - Large sample size (30+ trades)
 
-### Example: Interpreting TQQQ Results
-
-```
-Strategy: TQQQ using PlanEtf (QQQ signals)
-Period: 2021-01-01 to 2025-11-19
-Trades: 26
-
-MONTE CARLO RESULTS (10,000 iterations, Trade Shuffling):
-Probability of Profit:     100.00%  ✓ VALIDATED EDGE
-Mean Return:               193.43%  ✓ STRONG RETURNS
-Mean Edge:                   7.44%  ✓ EXCELLENT EDGE
-
-Mean Drawdown:              34.46%  ⚠ MODERATE RISK
-95th Percentile Drawdown:   54.30%  ⚠ HIGH WORST CASE
-Drawdown Range:          21-54.30%  ⚠ HIGH SEQUENCE RISK
-
-INTERPRETATION:
-✓ Edge is REAL and validated (100% probability of profit)
-✓ You WILL make money if you stick with it
-⚠ Worst case requires enduring 54% drawdown
-⚠ Psychological discipline is CRITICAL
-⚠ Position sizing must account for 54% worst case
-
-RECOMMENDATION:
-- Use 50% of capital maximum (if 25% account DD is your tolerance)
-- Understand you're committing to worst-case 54% drawdown path
-- Edge is validated, but risk management is paramount
-- Consider half-Kelly: 11.25% per trade based on statistics
-```
-
-### Saving Monte Carlo Reports
-
-Always save comprehensive reports:
-
-```bash
-# Generate full report with both backtest and Monte Carlo
-python3 << 'EOF'
-import json
-# ... (load both backtest and monte carlo results)
-# ... (calculate all metrics)
-# ... (save to markdown file)
-EOF
-
-# Report should include:
-# - Backtest summary
-# - Monte Carlo validation section
-# - Probability of profit analysis
-# - Drawdown distribution and path risk
-# - Edge consistency verification
-# - Position sizing recommendations
-# - Risk warnings and green flags
-```
-
-See `TQQQ_MONTECARLO_REPORT.md` for example format.
-
 ## Common Use Cases
 
 ### 1. Compare Two Strategies
@@ -1185,29 +1078,30 @@ Break down performance by calendar year to understand strategy behavior in diffe
 
 Use diagnostic metrics to identify why a strategy underperforms:
 - Check time-based stats to isolate problematic periods
-- Analyze market conditions during losing trades
+- Analyze market condition stats for regime-dependent performance
 - Review ATR drawdown distribution to optimize stop losses
 - Examine exit reason analysis to identify ineffective exits
 - Compare sector performance to find weak sectors
+- Check excursion summary for exit timing issues
 
 ## Best Practices
 
 1. **Optimize for BOTH edge AND drawdown** - never optimize for returns alone
 2. **Use Return/Drawdown ratio as primary metric** (target > 5.0)
 3. **Save results to files** before analysis
-4. **Calculate comprehensive metrics** (edge, drawdown, CAGR, win rate)
+4. **Use pre-computed fields** from the response (don't iterate raw trades)
 5. **Leverage diagnostic metrics** to understand performance:
    - Use time-based stats to identify underperforming periods
    - Analyze ATR drawdown distribution for stop loss optimization
-   - Check market conditions on losing trades
+   - Check market condition stats for regime performance
    - Review exit reason analysis to identify problematic exits
-   - Examine excursion metrics to optimize exit timing
+   - Examine excursion summary to optimize exit timing
 6. **Compare risk-adjusted performance** (Return/Drawdown ratio is king)
 7. **Analyze year-by-year** to ensure consistency
 8. **Check exit reasons** to understand strategy behavior
 9. **Consider cooldown periods** especially for leveraged ETFs
 10. **Use underlying assets** for cleaner signals on leveraged instruments
-11. **Validate with Monte Carlo** to confirm edge is real, not luck
+11. **Validate with Monte Carlo** using backtestId (not trades array)
 12. **Present clear recommendations** based on risk-adjusted metrics
 13. **Generate written reports** for future reference
 14. **Reject strategies with drawdown > 25%** regardless of returns
@@ -1230,5 +1124,6 @@ Use the `stock-backtesting` MCP server tools for all discovery and informational
 Never hardcode strategy lists - always use MCP tools to fetch them dynamically.
 
 **What still requires REST API (curl):**
-- `POST /api/backtest` - Running backtests
-- `POST /api/monte-carlo/simulate` - Running Monte Carlo simulations
+- `POST /api/backtest` - Running backtests (returns `BacktestResponseDto` with `backtestId`)
+- `POST /api/monte-carlo/simulate` - Running Monte Carlo simulations (accepts `backtestId`)
+- `GET /api/backtest/{backtestId}/trades?startDate=X&endDate=Y` - Fetching individual trades on-demand

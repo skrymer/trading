@@ -6,15 +6,12 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-// Count trades using underlying assets
-const underlyingAssetTrades = computed(() => {
-  if (!props.report?.trades) return 0
-  return props.report.trades.filter(t => t.underlyingSymbol && t.underlyingSymbol !== t.stockSymbol).length
-})
+// Count trades using underlying assets (pre-computed by backend)
+const underlyingAssetTrades = computed(() => props.report?.underlyingAssetTradeCount ?? 0)
 
 const underlyingAssetPercentage = computed(() => {
-  if (!props.report?.trades || props.report.trades.length === 0) return 0
-  return (underlyingAssetTrades.value / props.report.trades.length) * 100
+  if (!props.report || props.report.totalTrades === 0) return 0
+  return (underlyingAssetTrades.value / props.report.totalTrades) * 100
 })
 
 // Format profit factor, showing ∞ when there are no losing trades
@@ -75,7 +72,7 @@ const formattedEdgeConsistency = computed(() => {
     >
       <template #description>
         <p class="text-sm">
-          <span class="font-semibold">{{ underlyingAssetTrades }}</span> of <span class="font-semibold">{{ report?.trades?.length }}</span> trades
+          <span class="font-semibold">{{ underlyingAssetTrades }}</span> of <span class="font-semibold">{{ report?.totalTrades }}</span> trades
           (<span class="font-semibold">{{ underlyingAssetPercentage.toFixed(1) }}%</span>) used underlying asset signals for strategy evaluation.
         </p>
       </template>

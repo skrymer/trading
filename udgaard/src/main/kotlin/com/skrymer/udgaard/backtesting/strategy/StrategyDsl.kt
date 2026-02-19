@@ -5,19 +5,29 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.ADXRangeConditio
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ATRExpandingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.AboveBearishOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.BelowOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.BullishCandleCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ConsecutiveHigherHighsInValueZoneCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.DaysSinceEarningsCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaBullishCrossCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaSpreadCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthAboveCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthEmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthNearDonchianLowCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthRecoveringCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthTrendingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanSpyCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAboveCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAcceleratingCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanMarketCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
@@ -29,10 +39,12 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.BelowPreviousDayL
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.SectorBreadthBelowExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.StopLossExit
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 
@@ -82,15 +94,51 @@ class EntryStrategyBuilder {
       conditions.add(MarketBreadthAboveCondition(threshold))
     }
 
+  fun marketBreadthEmaAlignment(vararg emaPeriods: Int) =
+    apply {
+      val periods = if (emaPeriods.isEmpty()) listOf(5, 10, 20) else emaPeriods.toList()
+      conditions.add(MarketBreadthEmaAlignmentCondition(periods))
+    }
+
+  fun marketBreadthRecovering() =
+    apply {
+      conditions.add(MarketBreadthRecoveringCondition())
+    }
+
+  fun marketBreadthNearDonchianLow(percentile: Double = 0.10) =
+    apply {
+      conditions.add(MarketBreadthNearDonchianLowCondition(percentile))
+    }
+
+  fun marketBreadthTrending(minWidth: Double = 20.0) =
+    apply {
+      conditions.add(MarketBreadthTrendingCondition(minWidth))
+    }
+
   // Sector conditions
   fun sectorUptrend() =
     apply {
       conditions.add(SectorUptrendCondition())
     }
 
-  fun sectorBreadthGreaterThanSpy() =
+  fun sectorBreadthGreaterThanMarket() =
     apply {
-      conditions.add(SectorBreadthGreaterThanSpyCondition())
+      conditions.add(SectorBreadthGreaterThanMarketCondition())
+    }
+
+  fun sectorBreadthAbove(threshold: Double = 50.0) =
+    apply {
+      conditions.add(SectorBreadthAboveCondition(threshold))
+    }
+
+  fun sectorBreadthEmaAlignment() =
+    apply {
+      conditions.add(SectorBreadthEmaAlignmentCondition())
+    }
+
+  fun sectorBreadthAccelerating(threshold: Double = 5.0) =
+    apply {
+      conditions.add(SectorBreadthAcceleratingCondition(threshold))
     }
 
   // Stock conditions
@@ -167,6 +215,24 @@ class EntryStrategyBuilder {
     conditions.add(AboveBearishOrderBlockCondition(consecutiveDays, ageInDays, proximityPercent, sensitivity))
   }
 
+  fun bullishCandle(minPercent: Double = 0.5) =
+    apply {
+      conditions.add(BullishCandleCondition(minPercent))
+    }
+
+  fun emaSpread(
+    fastEmaPeriod: Int = 10,
+    slowEmaPeriod: Int = 20,
+    minSpreadPercent: Double = 1.0,
+  ) = apply {
+    conditions.add(EmaSpreadCondition(fastEmaPeriod, slowEmaPeriod, minSpreadPercent))
+  }
+
+  fun priceNearDonchianHigh(maxDistancePercent: Double = 1.5) =
+    apply {
+      conditions.add(PriceNearDonchianHighCondition(maxDistancePercent))
+    }
+
   fun withOperator(op: LogicalOperator) =
     apply {
       operator = op
@@ -210,9 +276,6 @@ class ExitStrategyBuilder {
     conditions.add(BearishOrderBlockExit(ageInDays, useHighPrice, sensitivity))
   }
 
-  @Deprecated("Use bearishOrderBlock() instead", ReplaceWith("bearishOrderBlock(ageInDays)"))
-  fun orderBlock(ageInDays: Int = 120) = bearishOrderBlock(ageInDays)
-
   fun stopLoss(atrMultiplier: Double = 2.0) =
     apply {
       conditions.add(StopLossExit(atrMultiplier))
@@ -250,6 +313,16 @@ class ExitStrategyBuilder {
   fun marketAndSectorDowntrend() =
     apply {
       conditions.add(MarketAndSectorDowntrendExit())
+    }
+
+  fun marketBreadthDeteriorating() =
+    apply {
+      conditions.add(MarketBreadthDeterioratingExit())
+    }
+
+  fun sectorBreadthBelow(threshold: Double = 30.0) =
+    apply {
+      conditions.add(SectorBreadthBelowExit(threshold))
     }
 
   fun exitBeforeEarnings(days: Int = 1) =

@@ -9,6 +9,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 data class BacktestRequest(
   val stockSymbols: List<String>? = null,
   val assetTypes: List<String>? = null, // Filter by asset type: STOCK, ETF, LEVERAGED_ETF, INDEX, BOND_ETF, COMMODITY_ETF
+  val includeSectors: List<String>? = null, // Only include stocks in these sectors (e.g., ["XLK", "XLF"])
+  val excludeSectors: List<String>? = null, // Exclude stocks in these sectors (e.g., ["XLE", "XLP"])
   val entryStrategy: StrategyConfig, // Can be predefined or custom
   val exitStrategy: StrategyConfig, // Can be predefined or custom
   val startDate: String? = null,

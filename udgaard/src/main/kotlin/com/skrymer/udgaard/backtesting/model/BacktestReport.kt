@@ -18,6 +18,7 @@ data class SectorStats(
   val totalProfitPercentage: Double,
   val maxDrawdown: Double,
   val trades: List<Trade>,
+  val edgeConsistency: EdgeConsistencyScore?,
 )
 
 /**
@@ -279,6 +280,27 @@ class BacktestReport(
           // Calculate max drawdown for this sector
           val maxDrawdown = calculateMaxDrawdown(sectorTrades)
 
+          // Calculate edge consistency per sector
+          val yearlyStats = sectorTrades
+            .groupBy { it.entryQuote.date.year }
+            .mapValues { (_, yearTrades) ->
+              val yw = yearTrades.filter { it.profit > 0 }
+              val yl = yearTrades.filter { it.profit <= 0 }
+              val ywr = if (yearTrades.isNotEmpty()) yw.size.toDouble() / yearTrades.size else 0.0
+              val yaw = if (yw.isNotEmpty()) yw.sumOf { it.profitPercentage } / yw.size else 0.0
+              val yal = if (yl.isNotEmpty()) abs(yl.sumOf { it.profitPercentage } / yl.size) else 0.0
+              val ye = (yaw * ywr) - ((1.0 - ywr) * yal)
+              PeriodStats(
+                trades = yearTrades.size,
+                winRate = ywr,
+                avgProfit = yearTrades.map { it.profitPercentage }.average(),
+                avgHoldingDays = yearTrades.map { it.quotes.size.toDouble() }.average(),
+                edge = ye,
+                exitReasons = emptyMap(),
+              )
+            }
+          val edgeConsistency = calculateEdgeConsistency(yearlyStats)
+
           SectorStats(
             sector = sector,
             totalTrades = sectorTrades.size,
@@ -291,6 +313,7 @@ class BacktestReport(
             totalProfitPercentage = totalProfitPercentage,
             maxDrawdown = maxDrawdown,
             trades = sectorTrades,
+            edgeConsistency = edgeConsistency,
           )
         }.sortedByDescending { it.edge }
     }
@@ -327,5 +350,189 @@ class BacktestReport(
     val date: LocalDate,
     val profitPercentage: Double,
     val trades: List<Trade>,
+  )
+}
+
+private const val MAX_EXCURSION_POINTS = 5000
+
+fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
+  val allTrades = trades
+
+  return BacktestResponseDto(
+    backtestId = backtestId,
+    totalTrades = totalTrades,
+    numberOfWinningTrades = numberOfWinningTrades,
+    numberOfLosingTrades = numberOfLosingTrades,
+    winRate = winRate,
+    lossRate = lossRate,
+    averageWinAmount = averageWinAmount,
+    averageWinPercent = averageWinPercent,
+    averageLossAmount = averageLossAmount,
+    averageLossPercent = averageLossPercent,
+    edge = edge,
+    profitFactor = profitFactor,
+    stockProfits = stockProfits,
+    missedOpportunitiesCount = missedOpportunitiesCount,
+    missedProfitPercentage = missedProfitPercentage,
+    missedAverageProfitPercentage = missedAverageProfitPercentage,
+    timeBasedStats = timeBasedStats,
+    exitReasonAnalysis = exitReasonAnalysis,
+    sectorPerformance = sectorPerformance,
+    stockPerformance = stockPerformance,
+    atrDrawdownStats = atrDrawdownStats,
+    marketConditionAverages = marketConditionAverages,
+    edgeConsistencyScore = edgeConsistencyScore,
+    sectorStats = buildSectorStatsDto(sectorStats),
+    equityCurveData = buildEquityCurveData(allTrades),
+    excursionPoints = buildExcursionPoints(allTrades),
+    excursionSummary = buildExcursionSummary(allTrades),
+    dailyProfitSummary = buildDailyProfitSummary(allTrades),
+    marketConditionStats = buildMarketConditionStats(allTrades),
+    underlyingAssetTradeCount = allTrades.count { it.underlyingSymbol != null && it.underlyingSymbol != it.stockSymbol },
+  )
+}
+
+private fun buildEquityCurveData(trades: List<Trade>): List<EquityCurvePoint> =
+  trades
+    .filter { it.quotes.isNotEmpty() }
+    .sortedBy { it.quotes.maxByOrNull { q -> q.date }?.date }
+    .map { trade ->
+      val exitDate = trade.quotes.maxByOrNull { it.date }!!.date
+      EquityCurvePoint(date = exitDate, profitPercentage = trade.profitPercentage)
+    }
+
+private fun buildExcursionPoints(trades: List<Trade>): List<ExcursionPoint> {
+  val rawPoints =
+    trades
+      .filter { it.excursionMetrics != null }
+      .map { trade ->
+        val m = trade.excursionMetrics!!
+        ExcursionPoint(
+          mfe = m.maxFavorableExcursion,
+          mae = m.maxAdverseExcursion,
+          mfeATR = m.maxFavorableExcursionATR,
+          maeATR = m.maxAdverseExcursionATR,
+          mfeReached = m.mfeReached,
+          profitPercentage = trade.profitPercentage,
+          isWinner = trade.profitPercentage > 0,
+        )
+      }
+
+  return if (rawPoints.size > MAX_EXCURSION_POINTS) {
+    val step = rawPoints.size.toDouble() / MAX_EXCURSION_POINTS
+    (0 until MAX_EXCURSION_POINTS).map { i -> rawPoints[(i * step).toInt()] }
+  } else {
+    rawPoints
+  }
+}
+
+private fun buildExcursionSummary(trades: List<Trade>): ExcursionSummary? {
+  val tradesWithExcursions = trades.filter { it.excursionMetrics != null }
+  if (tradesWithExcursions.isEmpty()) return null
+
+  val winners = tradesWithExcursions.filter { it.profitPercentage > 0 }
+  val losers = tradesWithExcursions.filter { it.profitPercentage <= 0 }
+
+  val avgMFEEfficiency =
+    if (winners.isNotEmpty()) {
+      winners
+        .map { t ->
+          val mfe = t.excursionMetrics!!.maxFavorableExcursion
+          if (mfe > 0) (t.profitPercentage / mfe) * 100 else 0.0
+        }.average()
+    } else {
+      0.0
+    }
+
+  val profitReachRate =
+    tradesWithExcursions.count { it.excursionMetrics!!.mfeReached }.toDouble() /
+      tradesWithExcursions.size * 100
+
+  return ExcursionSummary(
+    totalTrades = tradesWithExcursions.size,
+    avgMFE = tradesWithExcursions.map { it.excursionMetrics!!.maxFavorableExcursion }.average(),
+    avgMAE = tradesWithExcursions.map { it.excursionMetrics!!.maxAdverseExcursion }.average(),
+    avgMFEATR = tradesWithExcursions.map { it.excursionMetrics!!.maxFavorableExcursionATR }.average(),
+    avgMAEATR = tradesWithExcursions.map { it.excursionMetrics!!.maxAdverseExcursionATR }.average(),
+    profitReachRate = profitReachRate,
+    avgMFEEfficiency = avgMFEEfficiency,
+    winnerCount = winners.size,
+    winnerAvgMFE = winners.avgOrZero { it.excursionMetrics!!.maxFavorableExcursion },
+    winnerAvgMAE = winners.avgOrZero { it.excursionMetrics!!.maxAdverseExcursion },
+    winnerAvgFinalProfit = winners.avgOrZero { it.profitPercentage },
+    loserCount = losers.size,
+    loserAvgMFE = losers.avgOrZero { it.excursionMetrics!!.maxFavorableExcursion },
+    loserAvgMAE = losers.avgOrZero { it.excursionMetrics!!.maxAdverseExcursion },
+    loserAvgFinalLoss = losers.avgOrZero { it.profitPercentage },
+    loserMissedWinRate =
+      if (losers.isNotEmpty()) {
+        (losers.count { it.excursionMetrics!!.mfeReached }.toDouble() / losers.size) * 100
+      } else {
+        0.0
+      },
+  )
+}
+
+private fun List<Trade>.avgOrZero(selector: (Trade) -> Double): Double =
+  if (isNotEmpty()) map(selector).average() else 0.0
+
+private fun buildDailyProfitSummary(trades: List<Trade>): List<DailyProfitSummary> =
+  trades
+    .groupBy { it.entryQuote.date!! }
+    .entries
+    .map { (date, dateTrades) ->
+      DailyProfitSummary(
+        date = date,
+        profitPercentage = dateTrades.sumOf { it.profitPercentage },
+        tradeCount = dateTrades.size,
+      )
+    }.sortedBy { it.date }
+
+private fun buildSectorStatsDto(sectorStats: List<SectorStats>): List<SectorStatsDto> =
+  sectorStats.map {
+    SectorStatsDto(
+      sector = it.sector,
+      totalTrades = it.totalTrades,
+      winningTrades = it.winningTrades,
+      losingTrades = it.losingTrades,
+      winRate = it.winRate,
+      edge = it.edge,
+      averageWinPercent = it.averageWinPercent,
+      averageLossPercent = it.averageLossPercent,
+      totalProfitPercentage = it.totalProfitPercentage,
+      maxDrawdown = it.maxDrawdown,
+      edgeConsistency = it.edgeConsistency,
+    )
+  }
+
+private fun buildMarketConditionStats(trades: List<Trade>): MarketConditionStats? {
+  val tradesWithMarketData = trades.filter { it.marketConditionAtEntry != null }
+  if (tradesWithMarketData.isEmpty()) return null
+
+  val scatterPoints =
+    tradesWithMarketData
+      .filter { it.marketConditionAtEntry?.marketBreadthBullPercent != null }
+      .map { trade ->
+        val mc = trade.marketConditionAtEntry!!
+        MarketConditionPoint(
+          breadth = mc.marketBreadthBullPercent!!,
+          profitPercentage = trade.profitPercentage,
+          isWinner = trade.profit > 0,
+          spyInUptrend = mc.spyInUptrend,
+        )
+      }
+
+  val uptrendTrades = tradesWithMarketData.filter { it.marketConditionAtEntry!!.spyInUptrend }
+  val downtrendTrades = tradesWithMarketData.filter { !it.marketConditionAtEntry!!.spyInUptrend }
+
+  fun calcWinRate(list: List<Trade>): Double =
+    if (list.isEmpty()) 0.0 else (list.count { it.profit > 0 }.toDouble() / list.size) * 100
+
+  return MarketConditionStats(
+    scatterPoints = scatterPoints,
+    uptrendWinRate = calcWinRate(uptrendTrades),
+    downtrendWinRate = calcWinRate(downtrendTrades),
+    uptrendCount = uptrendTrades.size,
+    downtrendCount = downtrendTrades.size,
   )
 }

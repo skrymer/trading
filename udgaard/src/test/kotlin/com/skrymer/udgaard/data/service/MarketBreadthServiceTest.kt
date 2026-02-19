@@ -58,6 +58,16 @@ class MarketBreadthServiceTest {
     // 10th row should have ema10 = SMA of first 10 breadth values
     // breadth: 51..60 → SMA = 55.5
     assertEquals(55.5, enriched[9].ema10)
+
+    // Donchian bands (20-period lookback)
+    // First row: only 1 value (51.0), upper=lower=51.0
+    assertEquals(51.0, enriched[0].donchianUpperBand)
+    assertEquals(51.0, enriched[0].donchianLowerBand)
+
+    // Last row (index 19): breadth values 51..70, all 20 values available
+    // Upper = max(51..70) = 70, Lower = min(51..70) = 51
+    assertEquals(70.0, enriched[19].donchianUpperBand)
+    assertEquals(51.0, enriched[19].donchianLowerBand)
   }
 
   @Test

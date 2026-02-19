@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.MonteCarloRequestDto
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.MonteCarloRequest
 import com.skrymer.udgaard.backtesting.model.MonteCarloResult
+import com.skrymer.udgaard.backtesting.service.BacktestResultStore
 import com.skrymer.udgaard.backtesting.service.MonteCarloService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -26,18 +27,19 @@ import org.springframework.web.bind.annotation.RestController
 @CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
 class MonteCarloController(
   private val monteCarloService: MonteCarloService,
+  private val backtestResultStore: BacktestResultStore,
 ) {
   /**
-   * Run Monte Carlo simulation on a backtest result.
+   * Run Monte Carlo simulation on a cached backtest result.
    *
-   * Example: POST /api/monte-carlo/simulate with JSON body containing backtest result
+   * Example: POST /api/monte-carlo/simulate with JSON body containing backtestId
    */
   @PostMapping("/simulate")
   fun runSimulation(
     @RequestBody requestDto: MonteCarloRequestDto,
   ): ResponseEntity<MonteCarloResult> {
     logger.info(
-      "Running Monte Carlo simulation: technique=${requestDto.technique}, " +
+      "Running Monte Carlo simulation: backtestId=${requestDto.backtestId}, technique=${requestDto.technique}, " +
         "iterations=${requestDto.iterations}, includeAllCurves=${requestDto.includeAllEquityCurves}",
     )
 
@@ -53,19 +55,23 @@ class MonteCarloController(
         return ResponseEntity.badRequest().build()
       }
 
-      if (requestDto.trades.isEmpty()) {
-        logger.warn("No trades provided")
+      // Retrieve cached backtest result
+      val cachedReport = backtestResultStore.get(requestDto.backtestId)
+      if (cachedReport == null) {
+        logger.warn("Backtest result not found: ${requestDto.backtestId}")
+        return ResponseEntity.notFound().build()
+      }
+
+      if (cachedReport.trades.isEmpty()) {
+        logger.warn("No trades in cached backtest result: ${requestDto.backtestId}")
         return ResponseEntity.badRequest().build()
       }
 
-      // Construct BacktestReport from trades
-      val winningTrades = requestDto.trades.filter { it.profitPercentage > 0 }
-      val losingTrades = requestDto.trades.filter { it.profitPercentage <= 0 }
-
+      // Construct BacktestReport for Monte Carlo (use the cached one directly)
       val backtestReport =
         BacktestReport(
-          winningTrades = winningTrades,
-          losingTrades = losingTrades,
+          winningTrades = cachedReport.winningTrades,
+          losingTrades = cachedReport.losingTrades,
         )
 
       // Convert DTO to request

@@ -30,6 +30,8 @@ class SectorBreadthService(
       val ema10Values = technicalIndicatorService.calculateEMA(bullPercentages, 10)
       val ema20Values = technicalIndicatorService.calculateEMA(bullPercentages, 20)
       val ema50Values = technicalIndicatorService.calculateEMA(bullPercentages, 50)
+      val (donchianUpper, donchianLower) =
+        technicalIndicatorService.calculateDonchianBands(bullPercentages, 20)
 
       rows.mapIndexed { i, row ->
         row.copy(
@@ -37,6 +39,8 @@ class SectorBreadthService(
           ema10 = ema10Values[i],
           ema20 = ema20Values[i],
           ema50 = ema50Values[i],
+          donchianUpperBand = donchianUpper[i],
+          donchianLowerBand = donchianLower[i],
         )
       }
     }

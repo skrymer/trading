@@ -64,6 +64,28 @@ async function handleRefreshStocks(minDate: string) {
   }
 }
 
+// Refresh only new stocks (no existing data)
+async function handleRefreshNewStocks(minDate: string) {
+  try {
+    await $fetch(`/udgaard/api/data-management/refresh/new-stocks?minDate=${minDate}`, {
+      method: 'POST'
+    })
+    toast.add({
+      title: 'Refresh Started',
+      description: 'New stock data refresh has been queued',
+      color: 'success'
+    })
+    startPolling()
+  } catch (error) {
+    console.error('Failed to start new stocks refresh:', error)
+    toast.add({
+      title: 'Error',
+      description: 'Failed to start new stocks refresh',
+      color: 'error'
+    })
+  }
+}
+
 // Start polling for progress updates
 function startPolling() {
   if (pollingInterval.value) return
@@ -145,6 +167,7 @@ onUnmounted(() => {
       <DataManagementRefreshControlsCard
         :progress="refreshProgress"
         @refresh-stocks="handleRefreshStocks"
+        @refresh-new-stocks="handleRefreshNewStocks"
       />
 
       <!-- Section 4: Breadth Data -->

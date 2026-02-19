@@ -46,7 +46,7 @@ const chartOptions = computed<ApexOptions>(() => {
     },
     stroke: {
       curve: props.smooth ? 'smooth' : 'straight',
-      width: 2
+      width: 3
     },
     dataLabels: {
       enabled: props.showDataLabels

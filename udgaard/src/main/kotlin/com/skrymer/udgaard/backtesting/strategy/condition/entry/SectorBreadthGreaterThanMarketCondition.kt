@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
  * Compares sector bull percentage against market breadth percentage from context.
  */
 @Component
-class SectorBreadthGreaterThanSpyCondition : EntryCondition {
+class SectorBreadthGreaterThanMarketCondition : EntryCondition {
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
@@ -33,7 +33,7 @@ class SectorBreadthGreaterThanSpyCondition : EntryCondition {
 
   override fun getMetadata() =
     ConditionMetadata(
-      type = "sectorBreadthGreaterThanSpy",
+      type = "sectorBreadthGreaterThanMarket",
       displayName = "Sector Breadth > Market Breadth",
       description = "Sector breadth is greater than market breadth",
       parameters = emptyList(),
@@ -71,7 +71,7 @@ class SectorBreadthGreaterThanSpyCondition : EntryCondition {
       }
 
     return ConditionEvaluationResult(
-      conditionType = "SectorBreadthGreaterThanSpyCondition",
+      conditionType = "SectorBreadthGreaterThanMarketCondition",
       description = description(),
       passed = passed,
       actualValue = "Sector: %.1f%%, Market: %.1f%%".format(sectorBreadth, marketBreadth),

@@ -104,7 +104,7 @@ class StockController(
   suspend fun getStock(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
-    @RequestParam(defaultValue = "2020-01-01") minDate: String,
+    @RequestParam(defaultValue = "2016-01-01") minDate: String,
   ): ResponseEntity<Stock> {
     val parsedMinDate = LocalDate.parse(minDate)
     logger.info("Getting stock data for: $symbol (refresh=$refresh, minDate=$parsedMinDate)")

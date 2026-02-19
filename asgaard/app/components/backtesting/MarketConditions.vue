@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BacktestReport, Trade } from '~/types'
+import type { BacktestReport } from '~/types'
 
 interface Props {
   report: BacktestReport | null
@@ -11,36 +11,24 @@ const props = defineProps<Props>()
 // Market condition averages from report
 const marketAvgs = computed(() => props.report?.marketConditionAverages)
 
-// Filter trades with market condition data
-const tradesWithMarketData = computed(() => {
-  if (!props.report?.trades) return []
-  return props.report.trades.filter(t => t.marketConditionAtEntry != null)
-})
-
-// Scatter plot data: Trade Profit vs Market Breadth
-const breadthScatterData = computed(() => {
-  return tradesWithMarketData.value
-    .filter(t => t.marketConditionAtEntry?.marketBreadthBullPercent != null)
-    .map(t => ({
-      x: t.marketConditionAtEntry!.marketBreadthBullPercent!,
-      y: t.profitPercentage,
-      isWinner: t.profit > 0
-    }))
-})
+// Pre-computed market condition stats from backend
+const mcStats = computed(() => props.report?.marketConditionStats)
 
 // ApexCharts series for Market Breadth scatter
 const breadthSeries = computed(() => {
-  const winners = breadthScatterData.value.filter(d => d.isWinner)
-  const losers = breadthScatterData.value.filter(d => !d.isWinner)
+  if (!mcStats.value) return []
+
+  const winners = mcStats.value.scatterPoints.filter(d => d.isWinner)
+  const losers = mcStats.value.scatterPoints.filter(d => !d.isWinner)
 
   return [
     {
       name: 'Winning Trades',
-      data: winners.map(d => [d.x, d.y])
+      data: winners.map(d => [d.breadth, d.profitPercentage])
     },
     {
       name: 'Losing Trades',
-      data: losers.map(d => [d.x, d.y])
+      data: losers.map(d => [d.breadth, d.profitPercentage])
     }
   ]
 })
@@ -62,26 +50,15 @@ function calculateCorrelation(data: Array<{ x: number, y: number }>): number {
   return denominator === 0 ? 0 : numerator / denominator
 }
 
-const breadthCorrelation = computed(() => calculateCorrelation(breadthScatterData.value))
+const breadthCorrelation = computed(() => {
+  if (!mcStats.value) return 0
+  const data = mcStats.value.scatterPoints.map(p => ({ x: p.breadth, y: p.profitPercentage }))
+  return calculateCorrelation(data)
+})
 
-// Performance during SPY uptrend vs downtrend
-const uptrendStats = computed(() => {
-  if (!tradesWithMarketData.value.length) return null
-
-  const uptrendTrades = tradesWithMarketData.value.filter(t => t.marketConditionAtEntry?.spyInUptrend)
-  const downtrendTrades = tradesWithMarketData.value.filter(t => !t.marketConditionAtEntry?.spyInUptrend)
-
-  const calcWinRate = (trades: Trade[]) => {
-    if (trades.length === 0) return 0
-    return (trades.filter(t => t.profit > 0).length / trades.length) * 100
-  }
-
-  return {
-    uptrendWinRate: calcWinRate(uptrendTrades),
-    downtrendWinRate: calcWinRate(downtrendTrades),
-    uptrendCount: uptrendTrades.length,
-    downtrendCount: downtrendTrades.length
-  }
+const totalTradesWithData = computed(() => {
+  if (!mcStats.value) return 0
+  return mcStats.value.uptrendCount + mcStats.value.downtrendCount
 })
 
 // Insights
@@ -96,8 +73,8 @@ const insights = computed(() => {
   }
 
   // Uptrend insights
-  if (uptrendStats.value) {
-    const diff = uptrendStats.value.uptrendWinRate - uptrendStats.value.downtrendWinRate
+  if (mcStats.value) {
+    const diff = mcStats.value.uptrendWinRate - mcStats.value.downtrendWinRate
     if (Math.abs(diff) > 10) {
       const better = diff > 0 ? 'uptrends' : 'downtrends'
       results.push(`Strategy performs ${Math.abs(diff).toFixed(1)}% better during SPY ${better}`)
@@ -127,7 +104,7 @@ const insights = computed(() => {
       <USkeleton class="h-64 w-full" />
     </div>
 
-    <div v-else-if="!marketAvgs || tradesWithMarketData.length === 0" class="text-center py-8">
+    <div v-else-if="!marketAvgs || !mcStats" class="text-center py-8">
       <UIcon name="i-lucide-globe" class="w-12 h-12 text-muted mx-auto mb-2" />
       <p class="text-muted">
         No market condition data available
@@ -164,14 +141,14 @@ const insights = computed(() => {
               {{ typeof marketAvgs.spyUptrendPercent === 'number' && !isNaN(marketAvgs.spyUptrendPercent) ? marketAvgs.spyUptrendPercent.toFixed(1) : 'N/A' }}%
             </div>
             <div class="text-xs text-muted">
-              {{ uptrendStats?.uptrendCount ?? 0 }} of {{ tradesWithMarketData.length }} trades
+              {{ mcStats.uptrendCount }} of {{ totalTradesWithData }} trades
             </div>
           </UCard>
         </div>
       </div>
 
       <!-- SPY Uptrend Performance Comparison -->
-      <div v-if="uptrendStats && (uptrendStats.uptrendCount > 0 || uptrendStats.downtrendCount > 0)">
+      <div v-if="mcStats.uptrendCount > 0 || mcStats.downtrendCount > 0">
         <h4 class="text-sm font-medium mb-3">
           Performance by Market Regime
         </h4>
@@ -182,10 +159,10 @@ const insights = computed(() => {
               <span class="text-sm font-medium text-success">SPY Uptrend</span>
             </div>
             <div class="font-semibold text-2xl">
-              {{ uptrendStats.uptrendWinRate.toFixed(1) }}%
+              {{ mcStats.uptrendWinRate.toFixed(1) }}%
             </div>
             <div class="text-xs text-muted">
-              Win rate ({{ uptrendStats.uptrendCount }} trades)
+              Win rate ({{ mcStats.uptrendCount }} trades)
             </div>
           </UCard>
 
@@ -195,17 +172,17 @@ const insights = computed(() => {
               <span class="text-sm font-medium text-error">SPY Downtrend</span>
             </div>
             <div class="font-semibold text-2xl">
-              {{ uptrendStats.downtrendWinRate.toFixed(1) }}%
+              {{ mcStats.downtrendWinRate.toFixed(1) }}%
             </div>
             <div class="text-xs text-muted">
-              Win rate ({{ uptrendStats.downtrendCount }} trades)
+              Win rate ({{ mcStats.downtrendCount }} trades)
             </div>
           </UCard>
         </div>
       </div>
 
       <!-- Scatter Plot -->
-      <div v-if="breadthScatterData.length > 0">
+      <div v-if="mcStats.scatterPoints.length > 0">
         <h4 class="text-sm font-medium mb-3">
           Trade Profit vs Market Breadth at Entry
         </h4>
