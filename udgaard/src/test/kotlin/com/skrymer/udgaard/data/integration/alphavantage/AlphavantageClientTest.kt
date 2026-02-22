@@ -1,13 +1,12 @@
 package com.skrymer.udgaard.data.integration.alphavantage
 
+import com.skrymer.udgaard.e2e.AbstractIntegrationTest
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
-internal class AlphavantageClientTest {
+internal class AlphavantageClientTest : AbstractIntegrationTest() {
   @Autowired
   lateinit var alphaVantageClient: AlphaVantageClient
 

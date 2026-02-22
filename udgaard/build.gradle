@@ -30,18 +30,20 @@ ext {
 }
 
 dependencies {
-	// Database - H2 with jOOQ
+	// Database - PostgreSQL with jOOQ
 	implementation 'org.springframework.boot:spring-boot-starter-jooq'
 	implementation 'org.jooq:jooq-kotlin' // Version managed by Spring Boot
-	implementation 'com.h2database:h2:2.2.224'
+	runtimeOnly 'org.postgresql:postgresql'
 
 	// Flyway for database migrations
 	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
 	flyway 'org.flywaydb:flyway-core'
-	flyway 'com.h2database:h2:2.2.224'
+	flyway 'org.flywaydb:flyway-database-postgresql'
+	flyway 'org.postgresql:postgresql'
 
 	// jOOQ code generation dependencies
-	jooqGenerator 'com.h2database:h2:2.2.224'
+	jooqGenerator 'org.postgresql:postgresql'
 
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -66,6 +68,11 @@ dependencies {
 	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
 	testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// TestContainers for E2E tests
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.4')
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:junit-jupiter'
 }
 
 dependencyManagement {
@@ -92,7 +99,7 @@ tasks.named('test') {
 }
 
 tasks.named('bootRun') {
-	jvmArgs = ['-Xmx8192m', '-Xms4096m']
+	jvmArgs = ['-Xmx16384m', '-Xms8192m']
 }
 
 ktlint {
@@ -120,14 +127,15 @@ detekt {
 }
 
 flyway {
-	url = 'jdbc:h2:tcp://localhost:9092/trading'
-	user = 'sa'
-	password = ''
+	url = 'jdbc:postgresql://localhost:5432/trading'
+	user = 'trading'
+	password = 'trading'
 	migrationLocations = files('src/main/resources/db/migration')
 	configuration = [
 		'flyway.baselineOnMigrate': 'true',
 		'flyway.baselineVersion': '1',
-		'flyway.validateOnMigrate': 'true'
+		'flyway.validateOnMigrate': 'true',
+		'flyway.cleanDisabled': 'false'
 	]
 }
 
@@ -138,18 +146,18 @@ jooq {
 			generateSchemaSourceOnCompilation = true
 			generationTool {
 				jdbc {
-					driver = 'org.h2.Driver'
-					url = 'jdbc:h2:tcp://localhost:9092/trading'
-					user = 'sa'
-					password = ''
+					driver = 'org.postgresql.Driver'
+					url = 'jdbc:postgresql://localhost:5432/trading'
+					user = 'trading'
+					password = 'trading'
 				}
 				generator {
 					name = 'org.jooq.codegen.KotlinGenerator'
 					database {
-						name = 'org.jooq.meta.h2.H2Database'
+						name = 'org.jooq.meta.postgres.PostgresDatabase'
 						includes = '.*'
 						excludes = ''
-						inputSchema = 'PUBLIC'
+						inputSchema = 'public'
 					}
 					generate {
 						deprecated = false
@@ -174,77 +182,12 @@ tasks.named('generateJooq') {
 	dependsOn 'flywayMigrate'
 }
 
-// H2 Database Tasks
-// =================
-
-/**
- * Starts H2 database in TCP server mode for development
- * This allows the database to be initialized before Spring Boot starts,
- * reducing application startup time and allowing Flyway migrations to run first.
- *
- * Usage: ./gradlew startH2Server
- * Stop with: ./gradlew stopH2Server or Ctrl+C
- */
-tasks.register('startH2Server', JavaExec) {
-	group = 'database'
-	description = 'Starts H2 database in TCP server mode'
-
-	classpath = configurations.runtimeClasspath
-	mainClass = 'org.h2.tools.Server'
-	args = [
-		'-tcp', '-tcpAllowOthers', '-tcpPort', '9092',
-		'-web', '-webAllowOthers', '-webPort', '8082',
-		'-ifNotExists',
-		'-baseDir', System.getProperty('user.home') + '/.trading-app/database'
-	]
-
-	standardOutput = System.out
-	errorOutput = System.err
-
-	doFirst {
-		println """
-╔═══════════════════════════════════════════════════════╗
-║         Starting H2 Database Server                   ║
-╚═══════════════════════════════════════════════════════╝
-TCP Port:     9092
-Web Console:  http://localhost:8082
-JDBC URL:     jdbc:h2:tcp://localhost:9092/trading
-Base Dir:     ${System.getProperty('user.home')}/.trading-app/database
-
-Next steps:
-  1. Run migrations:  ./gradlew initDatabase
-  2. Start app:       ./gradlew bootRun
-
-Press Ctrl+C to stop the server
-"""
-	}
-}
-
-/**
- * Stops the H2 database TCP server
- *
- * Usage: ./gradlew stopH2Server
- */
-tasks.register('stopH2Server', JavaExec) {
-	group = 'database'
-	description = 'Stops the H2 database TCP server'
-
-	classpath = configurations.runtimeClasspath
-	mainClass = 'org.h2.tools.Server'
-	args = ['-tcpShutdown', 'tcp://localhost:9092']
-
-	doFirst {
-		println 'Stopping H2 Database Server...'
-	}
-	doLast {
-		println 'H2 Database Server stopped.'
-	}
-}
+// Database Tasks
+// ==============
 
 /**
  * Initializes the database by running Flyway migrations
- * Run this after starting the H2 server and before starting the Spring Boot app
- * This ensures the schema exists for JOOQ code generation during app startup
+ * Requires PostgreSQL running (docker compose up -d)
  *
  * Usage: ./gradlew initDatabase
  */
@@ -259,7 +202,7 @@ tasks.register('initDatabase') {
 ╔═══════════════════════════════════════════════════════╗
 ║         Initializing Database                         ║
 ╚═══════════════════════════════════════════════════════╝
-Running Flyway migrations...
+Running Flyway migrations against PostgreSQL...
 """
 	}
 	doLast {
@@ -269,8 +212,6 @@ Running Flyway migrations...
 ╚═══════════════════════════════════════════════════════╝
 You can now start the Spring Boot app:
   ./gradlew bootRun
-
-JOOQ code will be generated automatically during startup.
 """
 	}
 }

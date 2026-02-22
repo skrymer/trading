@@ -233,33 +233,39 @@ class BacktestService(
   }
 
   /**
-   * Run backtest for the given [entryStrategy] and [exitStrategy] using the [stocks] given.
+   * Lightweight entry signal captured during Pass 1 of two-pass processing.
+   */
+  private data class EntrySignal(
+    val date: LocalDate,
+    val tradingSymbol: String,
+    val strategySymbol: String?,
+    val rankerScore: Double,
+  )
+
+  /**
+   * Run backtest for the given [entryStrategy] and [exitStrategy] using the [symbols] given.
    *
-   * This method uses date-by-date processing which ensures proper chronological evaluation
-   * of all trading conditions as the backtest progresses through time.
-   *
-   * NOTE: This method does NOT use @Transactional because:
-   * 1. Backtests can take 5+ minutes with many stocks
-   * 2. Holding a transaction/connection open for that long triggers connection leak detection
-   * 3. All Stock data is already loaded in memory (via getAllStocks) before this method runs
-   * 4. This method only reads data, performs no writes
+   * Stocks are loaded in batches to keep memory bounded. Two processing paths:
+   * - Path 1 (unlimited positions): batched parallel — each batch loaded, processed, released
+   * - Path 2 (position-limited): two-pass — Pass 1 collects entry signals in batches,
+   *   Pass 2 loads only signal stocks and runs sequential processing
    *
    * @param entryStrategy - the entry strategy
    * @param exitStrategy - the exit strategy
-   * @param stocks - the stocks to generate the report for (MUST be fully loaded with quotes/orderBlocks/earnings)
+   * @param symbols - stock symbols to backtest
    * @param after - start date for backtest
    * @param before - end date for backtest
-   * @param maxPositions - maximum number of positions to enter per day. Null means unlimited (default: null)
-   * @param ranker - the stock ranker to use for selecting best stocks when position limit is reached (default: CompositeRanker)
-   * @param useUnderlyingAssets - enable automatic underlying asset detection for strategy evaluation (default: true)
+   * @param maxPositions - maximum simultaneous positions. Null means unlimited (default: null)
+   * @param ranker - stock ranker for selection when position limit is reached (default: CompositeRanker)
+   * @param useUnderlyingAssets - enable automatic underlying asset detection (default: true)
    * @param customUnderlyingMap - custom symbol → underlying mappings (overrides AssetMapper)
-   * @param cooldownDays - global cooldown period in trading days after exit before allowing new entries (default: 0)
+   * @param cooldownDays - global cooldown in trading days after exit (default: 0)
    * @return a backtest report
    */
   fun backtest(
     entryStrategy: EntryStrategy,
     exitStrategy: ExitStrategy,
-    stocks: List<Stock>,
+    symbols: List<String>,
     after: LocalDate,
     before: LocalDate,
     maxPositions: Int? = null,
@@ -270,10 +276,9 @@ class BacktestService(
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
-    val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
 
-    // Fetch SPY stock for market condition tracking
-    val spyStock = stockRepository.findBySymbol("SPY")
+    // Load SPY for market condition tracking (with date filtering)
+    val spyStock = stockRepository.findBySymbol("SPY", quotesAfter = after)
     if (spyStock == null) {
       logger.warn("SPY stock not found in database - market conditions will not be tracked")
     }
@@ -282,74 +287,47 @@ class BacktestService(
     val breadthByDate = marketBreadthRepository.calculateBreadthByDate()
     logger.info("Calculated market breadth for ${breadthByDate.size} trading days")
 
-    // Load breadth data for BacktestContext
+    // Load breadth data and SPY quotes for BacktestContext
     val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
     val marketBreadthMap = marketBreadthRepository.findAllAsMap()
-    val backtestContext = BacktestContext(sectorBreadthMap, marketBreadthMap)
-    logger.info("Loaded backtest context: ${sectorBreadthMap.size} sectors, ${marketBreadthMap.size} market breadth days")
+    val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
+    val backtestContext = BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap)
+    logger.info(
+      "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
+        "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes",
+    )
 
-    // Fetch underlying assets if needed
-    val underlyingAssets = mutableListOf<Stock>()
-    if (useUnderlyingAssets) {
-      val underlyingSymbols =
-        stocks
-          .map { getStrategySymbol(it.symbol, useUnderlyingAssets, customUnderlyingMap) }
-          .filter { it != null && it !in stocks.map { s -> s.symbol } }
-          .distinct()
-
-      logger.info("Fetching ${underlyingSymbols.size} underlying assets: ${underlyingSymbols.joinToString(", ")}")
-
-      underlyingSymbols.forEach { symbol ->
-        val underlying = stockRepository.findBySymbol(symbol)
-        if (underlying != null) {
-          underlyingAssets.add(underlying)
-        } else {
-          logger.error("Underlying asset $symbol not found in database")
-          throw IllegalArgumentException(
-            "Underlying asset $symbol not found in database. " +
-              "Please load this data before running the backtest.",
-          )
-        }
-      }
-    }
-
-    // Combine trading stocks and underlying assets for processing
-    val allStocks = stocks + underlyingAssets
-    val allStocksMap = allStocks.associateBy { it.symbol }
-
-    logger.info("Backtest starting with ${stocks.size} trading stocks and ${underlyingAssets.size} underlying assets")
-
-    // Validate that all underlying assets exist in the loaded stocks
-    validateUnderlyingAssets(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
-
-    // Create stock pairs: trading stock + strategy stock (might be the same)
-    val stockPairs = createStockPairs(stocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
-
-    // Build quote indexes for O(1) date lookups
-    val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
-    val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
-
-    // Step 1: Build date range - collect all unique trading dates from all stocks
-    val allTradingDates = buildTradingDateRange(stocks, after, before)
+    require(symbols.isNotEmpty()) { "No symbols provided for backtest" }
 
     val positionInfo = maxPositions?.let { "max $it positions" } ?: "unlimited positions"
     val cooldownInfo = if (cooldownDays > 0) ", ${cooldownDays}d cooldown" else ""
-    logger.info("Backtest: ${allTradingDates.size} trading days, $positionInfo$cooldownInfo")
+    logger.info("Backtest: ${symbols.size} symbols, $positionInfo$cooldownInfo")
 
-    // Step 2: Choose parallel or sequential processing path
+    // Dispatch to batched-parallel (Path 1) or two-pass (Path 2) based on constraints
     val (trades, missedTrades) =
       if (maxPositions == null && cooldownDays == 0) {
-        backtestParallel(entryStrategy, exitStrategy, stockPairs, quoteIndexes, allTradingDates, backtestContext, logger)
-      } else {
-        backtestSequential(
+        backtestBatchedParallel(
+          symbols,
+          after,
+          before,
           entryStrategy,
           exitStrategy,
-          stockPairs,
-          quoteIndexes,
-          allTradingDates,
+          useUnderlyingAssets,
+          customUnderlyingMap,
+          backtestContext,
+          logger,
+        )
+      } else {
+        backtestTwoPass(
+          symbols,
+          after,
+          before,
+          entryStrategy,
+          exitStrategy,
           maxPositions,
-          effectiveMaxPositions,
           ranker,
+          useUnderlyingAssets,
+          customUnderlyingMap,
           cooldownDays,
           backtestContext,
           logger,
@@ -357,11 +335,249 @@ class BacktestService(
       }
 
     val mainLoopDuration = System.currentTimeMillis() - backtestStartTime
+
+    if (trades.isEmpty() && missedTrades.isEmpty()) {
+      // Check if stocks actually had quote data — if not, the DB is empty
+      val sampleStocks = stockRepository.findBySymbols(symbols.take(5), quotesAfter = after)
+      if (sampleStocks.isEmpty() || sampleStocks.all { it.quotes.isEmpty() }) {
+        throw IllegalArgumentException(
+          "No stock data found in database. Use Data Manager to refresh stocks first.",
+        )
+      }
+    }
+
     logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed in ${mainLoopDuration}ms")
 
+    return buildReport(trades, missedTrades, spyStock, breadthByDate, backtestStartTime, logger)
+  }
+
+  /**
+   * Path 1: Batched parallel processing for unlimited positions (no maxPositions, no cooldown).
+   * Loads stocks in batches, processes each batch independently, then releases memory.
+   */
+  private fun backtestBatchedParallel(
+    symbols: List<String>,
+    after: LocalDate,
+    before: LocalDate,
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    useUnderlyingAssets: Boolean,
+    customUnderlyingMap: Map<String, String>?,
+    context: BacktestContext,
+    logger: org.slf4j.Logger,
+  ): Pair<List<Trade>, List<Trade>> {
+    val allTrades = mutableListOf<Trade>()
+    val batches = symbols.chunked(BATCH_SIZE)
+
+    batches.forEachIndexed { batchIndex, batch ->
+      logger.info("Processing batch ${batchIndex + 1}/${batches.size}: ${batch.size} symbols")
+
+      val (tradingStocks, allStocksMap) = loadBatchWithUnderlying(
+        batch,
+        after,
+        useUnderlyingAssets,
+        customUnderlyingMap,
+      )
+      if (tradingStocks.isEmpty()) return@forEachIndexed
+
+      validateUnderlyingAssets(tradingStocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
+      val stockPairs = createStockPairs(tradingStocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
+
+      val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
+      val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
+      val allTradingDates = buildTradingDateRange(tradingStocks, after, before)
+
+      val (batchTrades, _) = backtestParallel(
+        entryStrategy,
+        exitStrategy,
+        stockPairs,
+        quoteIndexes,
+        allTradingDates,
+        context,
+        logger,
+      )
+      allTrades.addAll(batchTrades)
+    }
+
+    return Pair(allTrades, emptyList())
+  }
+
+  /**
+   * Path 2: Two-pass processing for position-limited backtests.
+   * Pass 1: Batched signal collection (entry conditions only, low memory).
+   * Pass 2: Load only stocks that triggered signals, run sequential backtest.
+   */
+  private fun backtestTwoPass(
+    symbols: List<String>,
+    after: LocalDate,
+    before: LocalDate,
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    maxPositions: Int?,
+    ranker: StockRanker,
+    useUnderlyingAssets: Boolean,
+    customUnderlyingMap: Map<String, String>?,
+    cooldownDays: Int,
+    context: BacktestContext,
+    logger: org.slf4j.Logger,
+  ): Pair<List<Trade>, List<Trade>> {
+    val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
+
+    // --- Pass 1: Collect entry signals (batched, low memory) ---
+    logger.info("Pass 1: Collecting entry signals from ${symbols.size} symbols...")
+    val entrySignals = collectEntrySignals(
+      symbols,
+      after,
+      before,
+      entryStrategy,
+      ranker,
+      useUnderlyingAssets,
+      customUnderlyingMap,
+      context,
+      logger,
+    )
+    val signalStockCount = entrySignals.map { it.tradingSymbol }.distinct().size
+    logger.info("Pass 1 complete: ${entrySignals.size} entry signals from $signalStockCount stocks")
+
+    if (entrySignals.isEmpty()) {
+      return Pair(emptyList(), emptyList())
+    }
+
+    // --- Pass 2: Load signal stocks + run sequential ---
+    val signalTradingSymbols = entrySignals.map { it.tradingSymbol }.distinct()
+    val signalStrategySymbols = entrySignals.mapNotNull { it.strategySymbol }.distinct()
+    val allSignalSymbols = (signalTradingSymbols + signalStrategySymbols).distinct()
+
+    logger.info("Pass 2: Loading ${allSignalSymbols.size} signal stocks...")
+    val stocks = stockRepository.findBySymbols(allSignalSymbols, after)
+    val allStocksMap = stocks.associateBy { it.symbol }
+
+    val tradingStocks = signalTradingSymbols.mapNotNull { allStocksMap[it] }
+    validateUnderlyingAssets(tradingStocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
+    val stockPairs = createStockPairs(tradingStocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
+
+    val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
+    val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
+    val allTradingDates = buildTradingDateRange(tradingStocks, after, before)
+
+    logger.info("Pass 2: Running sequential backtest with ${tradingStocks.size} stocks, ${allTradingDates.size} trading days")
+
+    return backtestSequential(
+      entryStrategy,
+      exitStrategy,
+      stockPairs,
+      quoteIndexes,
+      allTradingDates,
+      maxPositions,
+      effectiveMaxPositions,
+      ranker,
+      cooldownDays,
+      context,
+      logger,
+    )
+  }
+
+  /**
+   * Collects entry signals in batches without keeping full stock data in memory.
+   * Each batch is loaded, scanned for entry conditions, and released.
+   */
+  private fun collectEntrySignals(
+    symbols: List<String>,
+    after: LocalDate,
+    before: LocalDate,
+    entryStrategy: EntryStrategy,
+    ranker: StockRanker,
+    useUnderlyingAssets: Boolean,
+    customUnderlyingMap: Map<String, String>?,
+    context: BacktestContext,
+    logger: org.slf4j.Logger,
+  ): List<EntrySignal> {
+    val allSignals = mutableListOf<EntrySignal>()
+    val batches = symbols.chunked(BATCH_SIZE)
+
+    batches.forEachIndexed { batchIndex, batch ->
+      logger.info("Signal scan batch ${batchIndex + 1}/${batches.size}: ${batch.size} symbols")
+
+      val (tradingStocks, allStocksMap) = loadBatchWithUnderlying(
+        batch,
+        after,
+        useUnderlyingAssets,
+        customUnderlyingMap,
+      )
+      if (tradingStocks.isEmpty()) return@forEachIndexed
+
+      val stockPairs = createStockPairs(tradingStocks, useUnderlyingAssets, customUnderlyingMap, allStocksMap)
+      val stocksForIndexing = stockPairs.flatMap { listOf(it.tradingStock, it.strategyStock) }.distinct()
+      val quoteIndexes = buildQuoteIndexes(stocksForIndexing)
+
+      // Scan each stock pair for entry signals
+      for (stockPair in stockPairs) {
+        val strategyIndex = quoteIndexes[stockPair.strategyStock] ?: continue
+        val tradingIndex = quoteIndexes[stockPair.tradingStock] ?: continue
+
+        for ((date, strategyQuote) in strategyIndex.quotesByDate) {
+          if (date.isBefore(after) || date.isAfter(before)) continue
+          tradingIndex.getQuote(date) ?: continue
+
+          if (entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) {
+            val score = ranker.score(stockPair.strategyStock, strategyQuote, context)
+            allSignals.add(
+              EntrySignal(
+                date = date,
+                tradingSymbol = stockPair.tradingStock.symbol,
+                strategySymbol = stockPair.underlyingSymbol,
+                rankerScore = score,
+              ),
+            )
+          }
+        }
+      }
+    }
+
+    return allSignals
+  }
+
+  /**
+   * Loads a batch of trading stocks plus any needed underlying assets from the DB.
+   * @return pair of (tradingStocks, allStocksMap including underlyings)
+   */
+  private fun loadBatchWithUnderlying(
+    batch: List<String>,
+    quotesAfter: LocalDate,
+    useUnderlyingAssets: Boolean,
+    customUnderlyingMap: Map<String, String>?,
+  ): Pair<List<Stock>, Map<String, Stock>> {
+    val underlyingSymbols = if (useUnderlyingAssets) {
+      batch
+        .map { getStrategySymbol(it, true, customUnderlyingMap) }
+        .filter { it !in batch }
+        .distinct()
+    } else {
+      emptyList()
+    }
+
+    val symbolsToLoad = (batch + underlyingSymbols).distinct()
+    val stocks = stockRepository.findBySymbols(symbolsToLoad, quotesAfter)
+    val allStocksMap = stocks.associateBy { it.symbol }
+    val tradingStocks = batch.mapNotNull { allStocksMap[it] }
+
+    return Pair(tradingStocks, allStocksMap)
+  }
+
+  /**
+   * Builds the backtest report from completed trades. Enriches trades with excursion metrics
+   * and market conditions, then calculates aggregate statistics.
+   */
+  private fun buildReport(
+    trades: List<Trade>,
+    missedTrades: List<Trade>,
+    spyStock: Stock?,
+    breadthByDate: Map<LocalDate, Double>,
+    backtestStartTime: Long,
+    logger: org.slf4j.Logger,
+  ): BacktestReport {
     logger.info("Calculating trade excursion metrics and market conditions...")
 
-    // Build indexed lookup for SPY to avoid O(n) scans per trade
     val spyQuotesByDate = spyStock?.quotes?.associateBy { it.date }
 
     // Enrich each trade with excursion metrics and market conditions (parallel)
@@ -381,7 +597,6 @@ class BacktestService(
 
     val (winningTrades, losingTrades) = trades.partition { it.profit > 0 }
 
-    // Calculate aggregate diagnostic statistics (parallel)
     val (timeStats, exitAnalysis, sectorPerf, stockPerf, atrDrawdown) =
       runBlocking {
         val d = Dispatchers.Default
@@ -393,10 +608,8 @@ class BacktestService(
         AnalyticsResult(t1.await(), t2.await(), t3.await(), t4.await(), t5.await())
       }
 
-    // Calculate edge consistency score from yearly stats
     val edgeConsistency = calculateEdgeConsistency(timeStats.byYear)
 
-    // Calculate market condition averages
     val marketAvgs =
       trades
         .mapNotNull { it.marketConditionAtEntry }
@@ -412,7 +625,7 @@ class BacktestService(
         }
 
     val totalDuration = System.currentTimeMillis() - backtestStartTime
-    logger.info("Backtest analysis complete with enhanced metrics in ${totalDuration}ms total")
+    logger.info("Backtest analysis complete in ${totalDuration}ms total")
 
     return BacktestReport(
       winningTrades,
@@ -1055,4 +1268,8 @@ class BacktestService(
     val stockPerf: List<StockPerformance>,
     val atrDrawdown: ATRDrawdownStats?,
   )
+
+  companion object {
+    private const val BATCH_SIZE = 150
+  }
 }

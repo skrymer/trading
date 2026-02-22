@@ -18,6 +18,8 @@ class MjolnirExitStrategy : ExitStrategy {
 //      priceBelowEmaMinusAtr(emaPeriod = 5, atrMultiplier = 0.5)
       // EMA10 crosses below EMA20
       emaCross(10, 20)
+      // Safeguard against runaway losers
+      stopLoss(atrMultiplier = 2.5)
     }
 
   override fun match(

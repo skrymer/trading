@@ -151,25 +151,6 @@ class DataManagementController(
   }
 
   /**
-   * Queue only new stocks (symbols with no existing quote data) for refresh
-   */
-  @PostMapping("/refresh/new-stocks")
-  fun refreshNewStocks(
-    @RequestParam(required = false, defaultValue = "2016-01-01") minDate: String,
-  ): RefreshResponse {
-    val parsedMinDate = LocalDate.parse(minDate)
-    val allSymbols = symbolService.getAll().map { it.symbol }
-    val existingSymbols = stockRepository.findAllSymbols().toSet()
-    val newSymbols = allSymbols.filter { it !in existingSymbols }
-    logger.info("Queueing ${newSymbols.size} new stocks for refresh (minDate=$parsedMinDate, ${existingSymbols.size} already exist)")
-    stockIngestionService.queueStockRefresh(newSymbols, minDate = parsedMinDate)
-    return RefreshResponse(
-      queued = newSymbols.size,
-      message = "Queued ${newSymbols.size} new stocks for refresh (${existingSymbols.size} already have data)",
-    )
-  }
-
-  /**
    * Recalculate market and sector breadth from stock quotes.
    * This recomputes breadth percentages and EMAs from existing stock data.
    */

@@ -9,6 +9,7 @@ import com.skrymer.udgaard.portfolio.model.PositionStatus
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * jOOQ-based repository for Position operations
@@ -181,6 +182,7 @@ class PositionJooqRepository(
         .set(POSITIONS.NOTES, pojo.notes)
         .set(POSITIONS.CURRENCY, pojo.currency)
         .set(POSITIONS.SOURCE, pojo.source)
+        .set(POSITIONS.UPDATED_AT, LocalDateTime.now())
         .where(POSITIONS.ID.eq(position.id))
         .execute()
 

@@ -44,6 +44,7 @@ interface StockFactory {
    *
    * @param symbol - Stock symbol
    * @param sectorSymbol - Sector symbol
+   * @param marketCap - Market capitalization in dollars
    * @param enrichedQuotes - Fully enriched quotes (from enrichQuotes)
    * @param orderBlocks - Order blocks calculated from volume data
    * @param earnings - Quarterly earnings history (from AlphaVantage)
@@ -52,6 +53,7 @@ interface StockFactory {
   fun createStock(
     symbol: String,
     sectorSymbol: String?,
+    marketCap: Long?,
     enrichedQuotes: List<StockQuote>,
     orderBlocks: List<OrderBlock>,
     earnings: List<Earning>,

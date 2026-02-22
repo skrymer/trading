@@ -38,6 +38,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAcc
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEmaAlignmentCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanMarketCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SpyPriceUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolumeAboveAverageCondition
@@ -129,6 +130,7 @@ class DynamicStrategyBuilder(
           atrMultiplier = (config.parameters["atrMultiplier"] as? Number)?.toDouble() ?: 2.0,
         )
       "marketuptrend" -> MarketUptrendCondition()
+      "spypriceuptrend" -> SpyPriceUptrendCondition()
       "sectoruptrend" -> SectorUptrendCondition()
       "priceabovepreviouslow" -> PriceAbovePreviousLowCondition()
       "notinorderblock" ->

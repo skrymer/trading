@@ -5,9 +5,9 @@ import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Service
 open class StockService(
@@ -48,19 +48,11 @@ open class StockService(
   }
 
   /**
+   * @param quotesAfter if set, only load quotes on or after this date
    * @return all stocks currently stored in DB
-   *
-   * Uses explicit JOIN FETCH queries to load all collections efficiently
-   * and prevent connection leaks. The three-query approach avoids Hibernate's
-   * MultipleBagFetchException while ensuring all data is loaded within the transaction.
-   *
-   * IMPORTANT: Entities are DETACHED from the persistence context after loading
-   * to prevent Hibernate from holding database connections during long-running
-   * operations (like backtesting). This allows the transaction to close immediately
-   * after data is loaded.
    */
-  @Cacheable(value = ["stocks"], key = "'allStocks'")
-  open fun getAllStocks() = stockRepository.findAll()
+  @Transactional(readOnly = true)
+  open fun getAllStocks(quotesAfter: LocalDate? = null) = stockRepository.findAll(quotesAfter)
 
   /**
    * Get simple info for all stocks in the database.
@@ -76,19 +68,17 @@ open class StockService(
 
   /**
    * Get stocks by a list of symbols (efficient repository query).
-   * Returns only stocks that exist in the database.
-   *
    * @param symbols list of stock symbols to fetch
+   * @param quotesAfter if set, only load quotes on or after this date
    * @return list of stocks matching the provided symbols (only those that exist in DB)
    */
-  @Cacheable(
-    value = ["stocks"],
-    key = "'bySymbols:' + #symbols.toString()",
-    unless = "#result.isEmpty()",
-  )
-  open fun getStocksBySymbols(symbols: List<String>): List<Stock> {
+  @Transactional(readOnly = true)
+  open fun getStocksBySymbols(
+    symbols: List<String>,
+    quotesAfter: LocalDate? = null,
+  ): List<Stock> {
     val sortedSymbols = symbols.sorted()
-    return stockRepository.findBySymbols(sortedSymbols)
+    return stockRepository.findBySymbols(sortedSymbols, quotesAfter)
   }
 
   companion object {

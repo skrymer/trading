@@ -2,6 +2,7 @@ package com.skrymer.udgaard.data.integration.alphavantage.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.skrymer.udgaard.data.model.CompanyInfo
 import com.skrymer.udgaard.data.model.SectorSymbol
 
 /**
@@ -99,4 +100,19 @@ data class AlphaVantageCompanyOverview(
       else -> null
     }
   }
+
+  /**
+   * Parse market capitalization string to Long
+   *
+   * @return Market cap as Long, or null if not available or not parseable
+   */
+  fun toMarketCap(): Long? = marketCapitalization?.toLongOrNull()
+
+  /**
+   * Convert to CompanyInfo containing both sector and market cap
+   */
+  fun toCompanyInfo(): CompanyInfo = CompanyInfo(
+    sectorSymbol = toSectorSymbol(),
+    marketCap = toMarketCap(),
+  )
 }

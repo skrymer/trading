@@ -9,8 +9,7 @@ class MjolnirEntryStrategy : EntryStrategy {
   private val compositeStrategy =
     entryStrategy {
       marketBreadthTrending(30.0)
-      emaAlignment(10, 20)
-      adxRange(20.0, 30.0)
+      adxRange(20.0, 40.0)
       atrExpanding(30.0, 60.0)
       volumeAboveAverage(1.3, 10)
       consecutiveHigherHighsInValueZone(2, 2.0, 20)

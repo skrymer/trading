@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { BacktestRequest, StrategyConfig, AvailableConditions } from '~/types'
-import { AssetTypeOptions } from '~/types/enums'
+import { AssetTypeOptions, SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
+
+const SectorOptions = Object.values(SectorSymbol).map(s => ({
+  label: `${s} (${SectorSymbolDescriptions[s]})`,
+  value: s as string
+}))
 
 defineProps<{
   open: boolean
@@ -19,6 +24,7 @@ const state = reactive<{
   stockSelection: 'all' | 'specific'
   specificStocks: string[]
   assetTypes: string[]
+  excludeSectors: string[]
   entryStrategy: StrategyConfig
   exitStrategy: StrategyConfig
   startDate: string
@@ -35,6 +41,7 @@ const state = reactive<{
   stockSelection: 'all',
   specificStocks: [],
   assetTypes: [],
+  excludeSectors: [],
   entryStrategy: { type: 'predefined', name: 'PlanAlpha' },
   exitStrategy: { type: 'predefined', name: 'PlanMoney' },
   startDate: '',
@@ -178,6 +185,7 @@ function onSubmit() {
     exitStrategy: state.exitStrategy,
     stockSymbols: state.stockSelection === 'all' ? undefined : state.specificStocks,
     assetTypes: state.stockSelection === 'all' && state.assetTypes.length > 0 ? state.assetTypes : undefined,
+    excludeSectors: state.excludeSectors.length > 0 ? state.excludeSectors : undefined,
     startDate: state.startDate || undefined,
     endDate: state.endDate || undefined,
     maxPositions: state.positionLimitEnabled ? state.maxPositions : undefined,
@@ -243,6 +251,23 @@ function cancel() {
                   />
                 </UFormField>
                 <div v-else />
+
+                <UFormField
+                  v-if="state.stockSelection === 'all'"
+                  label="Exclude Sectors"
+                  name="excludeSectors"
+                  help="Exclude stocks in these sectors"
+                  class="col-span-2"
+                >
+                  <USelectMenu
+                    v-model="state.excludeSectors"
+                    :items="SectorOptions"
+                    value-key="value"
+                    multiple
+                    placeholder="No exclusions"
+                    :search-input="false"
+                  />
+                </UFormField>
 
                 <UFormField name="startDate">
                   <template #label>

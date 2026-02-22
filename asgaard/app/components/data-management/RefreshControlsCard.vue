@@ -7,7 +7,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'refresh-stocks': [minDate: string]
-  'refresh-new-stocks': [minDate: string]
 }>()
 
 const minDate = ref('2016-01-01')
@@ -46,15 +45,8 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
     <!-- Refresh Buttons -->
     <div class="flex gap-2 mb-4">
       <UButton
-        label="Refresh New Stocks"
-        icon="i-lucide-plus"
-        :disabled="isActive"
-        @click="emit('refresh-new-stocks', minDate)"
-      />
-      <UButton
         label="Refresh All Stocks"
         icon="i-lucide-refresh-cw"
-        variant="soft"
         :disabled="isActive"
         @click="emit('refresh-stocks', minDate)"
       />

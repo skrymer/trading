@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.data.service
 
+import com.skrymer.udgaard.data.model.CompanyInfo
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
@@ -9,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * This context is created once per refresh session and reused across all stocks
  * in that session, significantly reducing:
- * - Sector symbol API calls (M instead of N, where M = unique sectors)
+ * - Company info API calls (sector + market cap from single OVERVIEW endpoint)
  *
  * Thread-safe for concurrent stock processing.
  */
@@ -20,26 +21,26 @@ data class RefreshContext(
    */
   val minDate: LocalDate = LocalDate.of(2016, 1, 1),
   /**
-   * Cache of sector symbols by stock symbol.
-   * Fetched lazily to avoid redundant API calls for sector lookup.
+   * Cache of company info (sector + market cap) by stock symbol.
+   * Fetched lazily to avoid redundant API calls.
    * Thread-safe concurrent map for parallel stock processing.
    */
-  val sectorSymbolCache: ConcurrentHashMap<String, String?> = ConcurrentHashMap(),
+  val companyInfoCache: ConcurrentHashMap<String, CompanyInfo> = ConcurrentHashMap(),
 ) {
   /**
-   * Get cached sector symbol for a stock.
+   * Get cached company info for a stock.
    * Returns null if not cached (caller should fetch and cache).
    */
-  fun getSectorSymbol(stockSymbol: String): String? = sectorSymbolCache[stockSymbol]
+  fun getCachedCompanyInfo(stockSymbol: String): CompanyInfo? = companyInfoCache[stockSymbol]
 
   /**
-   * Cache sector symbol for a stock.
+   * Cache company info for a stock.
    */
-  fun cacheSectorSymbol(
+  fun cacheCompanyInfo(
     stockSymbol: String,
-    sectorSymbol: String?,
+    companyInfo: CompanyInfo,
   ) {
-    sectorSymbolCache[stockSymbol] = sectorSymbol
+    companyInfoCache[stockSymbol] = companyInfo
   }
 
   /**
@@ -47,5 +48,5 @@ data class RefreshContext(
    */
   fun getStats(): String =
     "RefreshContext stats: " +
-      "sectorSymbolCache=${sectorSymbolCache.size} entries"
+      "companyInfoCache=${companyInfoCache.size} entries"
 }

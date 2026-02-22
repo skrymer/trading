@@ -1,13 +1,12 @@
 # Mjolnir Strategy Development
 
-## Current State (2026-02-19)
+## Current State (2026-02-22)
 
 ### Entry Strategy
 ```kotlin
 entryStrategy {
     marketBreadthTrending(minWidth = 30.0)
-    emaAlignment(10, 20)
-    adxRange(20.0, 30.0)
+    adxRange(20.0, 40.0)
     atrExpanding(30.0, 60.0)
     volumeAboveAverage(1.3, 10)
     consecutiveHigherHighsInValueZone(2, 2.0, 20)
@@ -19,54 +18,163 @@ entryStrategy {
 ```kotlin
 exitStrategy {
     emaCross(10, 20)
+    stopLoss(atrMultiplier = 2.5)
 }
 ```
 
 ### Sector Exclusion
-Exclude: XLV (Health Care), XLE (Energy), XLP (Consumer Staples) — all have negative or near-zero edge with this strategy.
+Exclude: XLV (Health Care), XLE (Energy), XLP (Consumer Staples), XLB (Materials) — all have negative or near-zero edge with this strategy.
 
-### Best Configuration (W=30, emaSpread 1.0%, excl XLV/XLE/XLP, 2016–2025, STOCK only)
+### Best Configuration (W=30, ADX 20-40, emaSpread 1.0%, excl XLV/XLE/XLP/XLB, 2016–2025, STOCK only)
+
+*Note: Full universe (~1,438 stocks). Metrics differ from earlier runs with smaller universe.*
 
 | Metric | Value |
 |---|---|
-| Total Trades | 434 |
-| Win Rate | 45.6% |
-| Edge | 4.30% |
-| Profit Factor | 1.90 |
-| Avg Win / Loss | 17.10% / -6.50% |
-| Edge Consistency | **88.0/100 (Excellent)** |
-| Monte Carlo PoP | 100% (validated) |
+| Total Trades | 782 |
+| Win Rate | 45.0% |
+| Edge | 5.81% |
+| Profit Factor | 2.08 |
+| Avg Win / Loss | 21.59% / -7.10% |
+| Edge Consistency | **87.1/100 (Excellent)** |
 
 ### Yearly Edge
-| Year | Edge | Tradeable (>=1.5%)? |
-|---|---|---|
-| 2016 | +4.12% | T |
-| 2017 | +5.47% | T |
-| 2018 | +1.80% | T |
-| 2019 | +0.85% | |
-| 2020 | +14.98% | T |
-| 2021 | +2.88% | T |
-| 2022 | +0.28% | |
-| 2023 | +3.92% | T |
-| 2024 | +0.82% | |
-| 2025 | +2.40% | T |
+| Year | Edge | Trades | Tradeable (>=1.5%)? |
+|---|---|---|---|
+| 2016 | +3.25% | 73 | T |
+| 2017 | +3.06% | 26 | T |
+| 2018 | +1.97% | 17 | T |
+| 2019 | +3.18% | 117 | T |
+| 2020 | +21.82% | 109 | T |
+| 2021 | +2.93% | 61 | T |
+| 2022 | -0.46% | 80 | |
+| 2023 | +4.78% | 147 | T |
+| 2024 | +0.31% | 89 | |
+| 2025 | +12.56% | 63 | T |
 
-**10/10 years profitable** (2022 flipped from -0.99% to +0.28%). 7/10 years have tradeable edge (>=1.5%).
+**9/10 years profitable** (2022 improved from -0.77% to -0.46%), 8/10 years have tradeable edge (>=1.5%). Full universe dilutes edge vs smaller universe due to additional small/mid-cap stocks with weaker trend-following characteristics.
 
 ### EC Score Breakdown
-- Profitable Periods: 100.0 (10/10 years positive, weight 40%)
-- Stability (Tradeable Edge): 70.0 (7/10 years >= 1.5%, weight 40%)
-- Downside: 100.0 (worst year +0.28%, weight 20%)
-- **Total: 88.0 (Excellent)**
+- Profitable Periods: 90.0 (9/10 years positive, weight 40%)
+- Stability (Tradeable Edge): 80.0 (8/10 years >= 1.5%, weight 40%)
+- Downside: 95.4 (worst year -0.46%, weight 20%)
+- **Total: 87.1 (Excellent)**
+
+### ADX Range Optimization (2026-02-22)
+
+Widened ADX from (20,30) to (20,40) after parameter sweep showed nearly identical edge with better EC:
+
+| ADX Range | Trades | Edge | EC | PF | 2023 Edge |
+|---|---|---|---|---|---|
+| No ADX | 1,519 | 5.34% | 77.0 | 1.62 | +5.0% |
+| 15-35 | 1,177 | 5.39% | 78.1 | 1.87 | +5.3% |
+| 20-30 (old) | 591 | 5.82% | 82.4 | 2.27 | +3.2% |
+| **20-40 (new)** | **782** | **5.80%** | **86.5** | **2.10** | **+5.0%** |
+| 20-50 | 826 | 5.51% | 86.1 | 2.05 | +4.6% |
+| 25-35 | 360 | 4.93% | 68.6 | 1.57 | +6.1% |
+
+ADX 20-30 was too tight — blocking profitable trades in the 30-40 ADX range (established trends). ADX 20-40 captures those without admitting noisy >40 ADR trades.
+
+### 2.5 ATR Stop Loss Safeguard (2026-02-22)
+
+Added `stopLoss(atrMultiplier = 2.5)` to exit strategy as a safeguard against runaway losers. Fixed stop at `entryPrice - 2.5 × entryATR`; does not trail. Exit conditions use OR logic — whichever fires first (EMA cross or stop loss) exits the trade.
+
+| Metric | Before (emaCross only) | + stopLoss(2.5) | Delta |
+|---|---|---|---|
+| Total Trades | 782 | 782 | 0 |
+| Win Rate | 45.1% | 45.0% | -0.1% |
+| Edge | 5.80% | 5.81% | +0.01% |
+| Profit Factor | 2.10 | 2.08 | -0.02 |
+| Avg Win / Loss | 21.53% / -7.15% | 21.59% / -7.10% | +0.06 / +0.05 |
+| EC Score | 86.5 | 87.1 | +0.6 |
+| Downside Score | 92.3 | 95.4 | +3.1 |
+
+**Exit reason breakdown:**
+- EMA cross: 690 exits, +8.07% avg, 51.0% WR
+- Stop loss (2.5 ATR): 92 exits, -11.13% avg, 0% WR
+
+**Key year improvements:** 2022 (-0.77% → -0.46%), 2024 (+0.08% → +0.31%), 2021 (+2.71% → +2.93%).
+
+**Conclusion:** Edge essentially unchanged — the stop loss catches 92 runaway losers that the EMA cross would have eventually exited anyway, but caps their damage earlier. EC improves slightly (+0.6) due to better downside score (worst year improves). Added as permanent safeguard.
+
+### XLB Exclusion Impact
+Adding XLB to exclusion list improved all key metrics vs 3-sector exclusion (XLV/XLE/XLP):
+
+| Metric | 3 excl | 4 excl (+ XLB) | Delta |
+|---|---|---|---|
+| Trades | 529 | 489 | -40 |
+| Edge | 6.46% | 7.01% | +0.55% |
+| Profit Factor | 2.64 | 2.84 | +0.20 |
+| EC Score | 78.6 | 83.4 | +4.8 |
+| Stability | 60.0 | 70.0 | +10.0 |
+
+Key year improvements: 2018 (1.08% → 2.05%, now tradeable), 2022 (-0.69% → -0.28%), 2024 (0.59% → 1.49%).
+
+### Entry Condition Ablation Study (2026-02-22, full universe)
+
+Removed one entry condition at a time to measure each condition's contribution to edge. Baseline: 591 trades, 46.2% WR, 5.82% edge, EC 82.4.
+
+| Rank | Condition Removed | Trades | dTrades | WR% | Edge% | dEdge | EC | PF |
+|---|---|---|---|---|---|---|---|---|
+| 1 | atrExpanding | 4,242 | +3,651 | 40.0% | 2.93% | -2.89 | 63.9 | 1.18 |
+| 2 | consHigherHighsVZ | 4,243 | +3,652 | 41.7% | 3.36% | -2.46 | 74.1 | 1.27 |
+| 3 | volumeAboveAverage | 1,571 | +980 | 41.8% | 3.62% | -2.20 | 83.3 | 1.41 |
+| 4 | marketBreadthTrending | 1,811 | +1,220 | 39.9% | 3.77% | -2.05 | 73.9 | 1.43 |
+| 5 | emaSpread | 1,091 | +500 | 41.4% | 3.84% | -1.98 | 80.6 | 1.49 |
+| 6 | adxRange | 1,519 | +928 | 42.3% | 5.34% | -0.48 | 77.0 | 1.62 |
+| 7 | ~~emaAlignment~~ | 591 | 0 | 46.2% | 5.82% | 0.00 | 82.4 | 2.27 |
+
+**Key findings:**
+1. **atrExpanding** and **consHigherHighsVZ** are the two most powerful filters — each blocks ~3,650 bad trades and contributes ~2.5% to edge. These are the strategy's core gatekeepers.
+2. **volumeAboveAverage**, **marketBreadthTrending**, and **emaSpread** form a strong second tier (~2% edge contribution each).
+3. **adxRange** has modest impact (-0.48%) but still filters 928 marginal trades.
+4. **emaAlignment was 100% redundant** — removing it changed nothing (0 trades, 0 edge). `emaSpread(minSpreadPercent=1.0)` already requires EMA10 to be >1% above EMA20, which guarantees `emaAlignment(EMA10 > EMA20)` is always satisfied. **Removed from strategy.**
 
 ### Monte Carlo Validation (10,000 iterations, Trade Shuffling)
 - Probability of Profit: **100%** — edge is real
-- Mean Edge: 4.30% (stable across all scenarios)
-- Median Max Drawdown: 69.2% (compounded sequential, not portfolio-level)
-- Worst Case DD (95th): 84.4%
-- Best Case DD (5th): 56.0%
-- Drawdowns are from sequential compounding of 434 trades — actual portfolio DD with position sizing would be much lower
-- Drawdowns improved vs previous config (69.2% vs 75.2%) due to fewer, higher-quality trades
+- Mean Edge: 7.01% (stable across all scenarios)
+- Median Max Drawdown: 68.67% (compounded sequential, not portfolio-level)
+- Worst Case DD (95th): 83.64%
+- Best Case DD (5th): 56.03%
+- Drawdowns are from sequential compounding of 489 trades — actual portfolio DD with position sizing would be much lower
+
+### Position Limit Testing (maxPositions=15, all rankers)
+
+Tested all 6 rankers with maxPositions=15 to evaluate whether position limiting improves consistency with the current config.
+
+| Ranker | Trades | WR | Edge | PF | Avg Win | Avg Loss | EC | Stability |
+|---|---|---|---|---|---|---|---|---|
+| **Unlimited (baseline)** | **489** | **46.4%** | **7.01%** | **2.84** | **22.57%** | **6.48%** | **83.4** | **70.0** |
+| Random | 383 | 45.2% | 5.81% | 2.66 | 20.73% | 6.48% | 85.8 | 80.0 |
+| Volatility | 382 | 44.8% | 5.78% | 2.62 | 21.04% | 6.58% | 81.8 | 70.0 |
+| DistanceFrom10Ema | 381 | 45.1% | 5.09% | 2.41 | 19.18% | 6.51% | 81.8 | 70.0 |
+| Composite | 383 | 44.9% | 5.07% | 2.39 | 19.24% | 6.48% | 85.8 | 80.0 |
+| Adaptive | 382 | 44.5% | 5.01% | 2.34 | 19.38% | 6.51% | 81.8 | 70.0 |
+| SectorStrength | 383 | 44.6% | 4.99% | 2.23 | 19.24% | 6.51% | 85.8 | 80.0 |
+
+**Yearly edge by ranker (selected):**
+
+| Year | Unlimited | Random | Volatility | Composite | Adaptive |
+|---|---|---|---|---|---|
+| 2016 | +2.55% | +4.55% | +4.55% | +4.55% | +4.55% |
+| 2019 | +0.77% | +1.84% | +1.31% | +1.75% | +1.25% |
+| 2020 | +28.55% | +23.62% | +23.81% | +23.19% | +23.19% |
+| 2022 | -0.28% | -1.12% | -1.12% | -1.12% | -1.12% |
+| 2025 | +11.93% | +13.44% | +13.44% | +6.66% | +6.66% |
+
+**EC breakdown — 3 rankers reached 85.8 (vs 83.4 unlimited):**
+- Composite, SectorStrength, Random all achieved stability=80.0 (8/10 tradeable years vs 7/10)
+- 2019 edge improved from +0.77% to +1.75-1.84% with position cap, pushing it closer to tradeable
+
+**Key findings:**
+1. **Random ranker wins overall** — 5.81% edge + 85.8 EC + 2.66 PF. Best of both metrics.
+2. **No ranker adds stock-picking value** — Random matching or beating smart rankers confirms entry conditions are strong enough that selection within qualifying candidates doesn't matter.
+3. **Position cap improves EC for 3 rankers** (83.4 → 85.8) — stability component jumps from 70→80.
+4. **Edge drops ~1-2% vs unlimited** (5.0-5.8% vs 7.01%) — expected cost of capping at 15 positions.
+5. **2022 worsened across all rankers** (-1.12% vs -0.28%) — position limits concentrate losses during bear markets.
+6. **2025 interesting split**: Volatility and Random hit +13.44% (above unlimited's +11.93%), while Composite/Adaptive stuck at +6.66%.
+
+**Conclusion:** Position limiting with maxPositions=15 is a viable option for realistic portfolio management. EC improves slightly (85.8 vs 83.4) at the cost of ~1-2% edge. Random ranker is recommended since no smart ranker outperforms it — the entry conditions do the heavy lifting.
 
 ---
 
@@ -362,7 +470,7 @@ Tested whether exits could save losing trades. Result: **No.**
 - **Stop losses** (1.5-3.0 ATR): Also destructive. At 2.0 ATR, 34% of eventual winners would be stopped out.
 - **69.2% of losers went green** (avg MFE +4.66%) — tempting to add profit targets, but the same logic would devastate the large winners that make the strategy work.
 
-**Conclusion:** This is a low-WR (33-41%), high-payoff (2.7:1 W/L ratio) strategy. The wide distribution of winner sizes means any exit tightening cuts more winners than it saves losers.
+**Conclusion:** This is a low-WR (33-41%), high-payoff (2.7:1 W/L ratio) strategy. The wide distribution of winner sizes means any exit tightening cuts more winners than it saves losers. **Exception:** A wide 2.5 ATR fixed stop loss works as a safeguard — it only catches runaway losers without affecting winners (see "2.5 ATR Stop Loss Safeguard" section above).
 
 ### Concurrent Position Analysis
 
@@ -459,6 +567,83 @@ Tested 4 new conditions individually (each added to baseline 6 conditions):
 
 ---
 
+## Position Sizing Framework
+
+### Parameters
+- Max positions: 15
+- Target max drawdown: < 25%
+- Instrument: Deep ITM calls (~80 delta)
+- Sizing method: ATR-based (volatility-adjusted)
+
+### Step 1: Risk Budget Per Trade
+
+Worst case = all 15 positions lose simultaneously.
+
+```
+Max risk per trade = Target DD / Max positions = 25% / 15 = 1.67%
+Use 1.5% per trade for safety margin.
+```
+
+### Step 2: ATR-Based Position Sizing
+
+For each entry signal:
+
+```
+Risk$            = Portfolio × 1.5%
+Shares (stock)   = Risk$ / (N_ATR × ATR$)
+```
+
+`N_ATR` = expected max adverse move in ATR units (from backtest ATR drawdown stats — e.g., 75th percentile MAE).
+
+**Example:** Portfolio $100K, stock at $150, ATR = $4.50 (3%), N_ATR = 2.0
+```
+Risk$    = $100,000 × 0.015 = $1,500
+Shares   = $1,500 / (2.0 × $4.50) = 166 shares
+Notional = 166 × $150 = $24,900
+```
+
+### Step 3: Convert to Deep ITM Options (80 Delta)
+
+The option captures 80% of stock movement, so adjust share count:
+
+```
+Delta-adjusted shares = Shares / Delta = 166 / 0.80 = 208
+Contracts             = floor(208 / 100) = 2 contracts
+```
+
+Capital deployed (option premium ~35-45% of stock price):
+```
+Option premium  = $150 × 0.40 = $60/share
+Capital/position = 2 × 100 × $60 = $12,000
+```
+
+vs. stock: 166 × $150 = $24,900 — options use ~48% of capital for equivalent risk.
+
+### Step 4: Portfolio Capacity Check
+
+15 positions × ~$12K avg = ~$180K in options. For $100K portfolio = ~1.8x leverage.
+
+If total capital exceeds portfolio, scale all positions down proportionally.
+
+### Summary
+
+| Parameter | Value |
+|---|---|
+| Risk per trade | 1.5% of portfolio |
+| N_ATR | From ATR drawdown stats (TBD — run backtest) |
+| Delta | 0.80 |
+| Contracts | Risk$ / (N_ATR × ATR$ × Delta × 100) |
+| Capital/position | Contracts × Option Premium × 100 |
+| Leverage | ~1.5-2.5x (stock price / option premium) |
+| Worst-case DD (15 losers) | 15 × 1.5% = 22.5% |
+
+### Next Steps
+- Run Mjolnir backtest to extract ATR drawdown percentiles (determines N_ATR)
+- Validate with Monte Carlo: simulate position-sized returns to confirm DD < 25%
+- Consider scaling N_ATR by 1.2-1.5x for options (gamma risk adds tail exposure)
+
+---
+
 ## Potential Next Steps
 - Smart ranker development (needed before position limits become useful)
 - Combined condition testing (emaSpread + other new conditions)
@@ -474,8 +659,8 @@ Tested 4 new conditions individually (each added to baseline 6 conditions):
 ---
 
 ## Code Changes Made
-- `MjolnirEntryStrategy.kt` — Updated to 7 conditions (added `marketBreadthTrending()` and `emaSpread(10, 20, 1.0)`)
-- `MjolnirExitStrategy.kt` — Removed trailingStopLoss(), kept emaCross(10,20) only
+- `MjolnirEntryStrategy.kt` — Updated to 6 conditions: removed `emaAlignment()` (redundant with `emaSpread`), added `marketBreadthTrending()` and `emaSpread(10, 20, 1.0)`
+- `MjolnirExitStrategy.kt` — emaCross(10,20) + stopLoss(2.5) safeguard against runaway losers
 - `MarketBreadthTrendingCondition.kt` — New entry condition (Donchian width + direction)
 - `MarketBreadthEmaAlignmentCondition.kt` — Parameterized with configurable EMA periods (was hardcoded 5/10/20)
 - `EmaSpreadCondition.kt` — New entry condition (minimum EMA fast-slow spread as % of price)

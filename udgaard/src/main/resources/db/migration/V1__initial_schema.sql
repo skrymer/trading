@@ -6,11 +6,12 @@
 
 CREATE TABLE stocks (
   symbol VARCHAR(50) PRIMARY KEY,
-  sector_symbol VARCHAR(50)
+  sector_symbol VARCHAR(50),
+  market_cap BIGINT
 );
 
 CREATE TABLE stock_quotes (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   stock_symbol VARCHAR(50) NOT NULL,
   quote_date DATE NOT NULL,
   open_price DECIMAL(19, 4),
@@ -44,7 +45,7 @@ CREATE INDEX idx_stock_quotes_symbol_date ON stock_quotes(stock_symbol, quote_da
 CREATE INDEX idx_stock_quotes_date_trend ON stock_quotes(quote_date, trend);
 
 CREATE TABLE order_blocks (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   stock_symbol VARCHAR(50) NOT NULL,
   type VARCHAR(20) NOT NULL,
   sensitivity VARCHAR(20) NOT NULL,
@@ -65,7 +66,7 @@ CREATE INDEX idx_order_blocks_symbol ON order_blocks(stock_symbol);
 CREATE INDEX idx_order_blocks_active ON order_blocks(is_active);
 
 CREATE TABLE earnings (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   stock_symbol VARCHAR(50) NOT NULL,
   symbol VARCHAR(50),
   fiscal_date_ending DATE NOT NULL,
@@ -122,7 +123,7 @@ CREATE INDEX idx_sector_breadth_date ON sector_breadth_daily(quote_date);
 -- ========================================
 
 CREATE TABLE portfolios (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   initial_balance DECIMAL(19, 2) NOT NULL,
   current_balance DECIMAL(19, 2) NOT NULL,
@@ -138,7 +139,7 @@ CREATE TABLE portfolios (
 CREATE INDEX idx_portfolios_user_id ON portfolios(user_id);
 
 CREATE TABLE positions (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   portfolio_id BIGINT NOT NULL,
   symbol VARCHAR(50) NOT NULL,
   underlying_symbol VARCHAR(50),
@@ -164,7 +165,7 @@ CREATE TABLE positions (
   currency VARCHAR(10) DEFAULT 'USD',
   source VARCHAR(20) DEFAULT 'MANUAL',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
   FOREIGN KEY (rolled_to_position_id) REFERENCES positions(id),
   FOREIGN KEY (parent_position_id) REFERENCES positions(id)
@@ -175,7 +176,7 @@ CREATE INDEX idx_symbol ON positions(symbol);
 CREATE INDEX idx_source ON positions(source);
 
 CREATE TABLE executions (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   position_id BIGINT NOT NULL,
   broker_trade_id VARCHAR(100),
   linked_broker_trade_id VARCHAR(100),

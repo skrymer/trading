@@ -8,8 +8,8 @@ import com.skrymer.udgaard.data.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.udgaard.data.integration.alphavantage.dto.AlphaVantageCompanyOverview
 import com.skrymer.udgaard.data.integration.alphavantage.dto.AlphaVantageEarnings
 import com.skrymer.udgaard.data.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
+import com.skrymer.udgaard.data.model.CompanyInfo
 import com.skrymer.udgaard.data.model.Earning
-import com.skrymer.udgaard.data.model.SectorSymbol
 import com.skrymer.udgaard.data.model.StockQuote
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -298,24 +298,17 @@ open class AlphaVantageClient(
   }
 
   /**
-   * Get sector symbol for a stock using Company Overview endpoint
+   * Get company info (sector and market cap) using Company Overview endpoint
    *
-   * Fetches company information and extracts the sector, mapping it to our
-   * internal SectorSymbol enum (based on S&P sector ETFs).
-   *
-   * Example sectors from Alpha Vantage:
-   * - "TECHNOLOGY" -> XLK
-   * - "FINANCIALS" -> XLF
-   * - "HEALTH CARE" -> XLV
+   * Fetches company information and extracts both sector classification and market capitalization.
+   * Both values come from the same OVERVIEW endpoint to avoid extra API calls.
    *
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
-   * @return SectorSymbol enum, or null if sector cannot be determined
+   * @return CompanyInfo with sector and market cap, or null if request fails
    */
-  override suspend fun getSectorSymbol(symbol: String): SectorSymbol? {
+  override suspend fun getCompanyInfo(symbol: String): CompanyInfo? {
     return withContext(Dispatchers.IO) {
       runCatching {
-        val url = "$baseUrl?function=$FUNCTION_OVERVIEW&symbol=$symbol&apikey=$apiKey"
-
         val response =
           restClient
             .get()
@@ -346,12 +339,12 @@ open class AlphaVantageClient(
           return@runCatching null
         }
 
-        val sectorSymbol = response.toSectorSymbol()
-        if (sectorSymbol == null) {
+        val companyInfo = response.toCompanyInfo()
+        if (companyInfo.sectorSymbol == null) {
           logger.warn("Could not map sector '${response.sector}' to SectorSymbol for $symbol")
         }
 
-        sectorSymbol
+        companyInfo
       }.onFailure { e ->
         logger.error("Failed to fetch company overview from Alpha Vantage for $symbol: ${e.message}", e)
       }.getOrNull()

@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.data.integration.decorator
 
 import com.skrymer.udgaard.data.integration.FundamentalDataProvider
+import com.skrymer.udgaard.data.model.CompanyInfo
 import com.skrymer.udgaard.data.model.Earning
-import com.skrymer.udgaard.data.model.SectorSymbol
 import com.skrymer.udgaard.data.service.RateLimiterService
 
 /**
@@ -25,8 +25,8 @@ class RateLimitedFundamentalDataProvider(
     return delegate.getEarnings(symbol)
   }
 
-  override suspend fun getSectorSymbol(symbol: String): SectorSymbol? {
+  override suspend fun getCompanyInfo(symbol: String): CompanyInfo? {
     rateLimiter.acquirePermit(providerId)
-    return delegate.getSectorSymbol(symbol)
+    return delegate.getCompanyInfo(symbol)
   }
 }

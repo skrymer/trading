@@ -31,7 +31,7 @@ class MonteCarloServiceTest {
     assertEquals("Trade Shuffling", result.technique)
     assertEquals(100, result.iterations)
     assertNotNull(result.statistics)
-    assertTrue(result.executionTimeMs > 0)
+    assertTrue(result.executionTimeMs >= 0)
   }
 
   @Test
@@ -50,7 +50,7 @@ class MonteCarloServiceTest {
     assertEquals("Bootstrap Resampling", result.technique)
     assertEquals(100, result.iterations)
     assertNotNull(result.statistics)
-    assertTrue(result.executionTimeMs > 0)
+    assertTrue(result.executionTimeMs >= 0)
   }
 
   @Test

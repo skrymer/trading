@@ -34,7 +34,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:**
 - Kotlin 2.3.0, Spring Boot 3.5.0
-- H2 2.2.224 Database (server mode via TCP)
+- PostgreSQL 17 (Docker Compose for local dev)
 - jOOQ 3.19.23 for type-safe SQL queries
 - Flyway for database migrations (via net.ltgt.flyway plugin)
 - Gradle 9.1.0 build system
@@ -135,7 +135,8 @@ trading/
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes
 │   ├── src/main/resources/           # Config, migrations (V1-V3)
-│   ├── src/test/kotlin/              # Unit tests (mirrors main structure)
+│   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
+│   ├── compose.yaml                  # Docker Compose (PostgreSQL, MongoDB)
 │   ├── build.gradle                  # Gradle build config
 │   ├── detekt.yml                    # Detekt configuration
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
@@ -158,54 +159,18 @@ trading/
 
 ## Development Workflow
 
-### Running the Backend
+### Quick Start
 
-**Prerequisites:**
-- Java 21+
-- Gradle 9.1.0 (included via wrapper)
-- Create `udgaard/src/main/resources/secure.properties`:
-  ```properties
-  ovtlyr.cookies.token=XXX
-  ovtlyr.cookies.userid=XXX
-  ```
-- AlphaVantage API key in `application.properties` (free key: https://www.alphavantage.co/support/#api-key)
-
-**Database:**
-- H2 2.2.224 Database (server mode via TCP, no Docker required)
-- Location: `~/.trading-app/database/trading`
-- H2 Console: http://localhost:8080/udgaard/h2-console
-- JDBC URL: `jdbc:h2:tcp://localhost:9092/trading`, Username: `sa`, Password: (empty)
-
-**First-Time Setup:**
 ```bash
+# Backend (see udgaard/claude.md for full commands)
 cd udgaard
+docker compose up -d postgres   # Start PostgreSQL
+./gradlew initDatabase          # First-time: Flyway migrations + jOOQ codegen
+./gradlew bootRun               # Start application (http://localhost:8080/udgaard/actuator/health)
 
-# Terminal 1: Start H2 database server
-./gradlew startH2Server
-
-# Terminal 2: Initialize database and build
-./gradlew initDatabase  # Runs Flyway migrations
-./gradlew build         # Generates jOOQ code and builds project
-./gradlew bootRun       # Start application
-```
-
-**Regular Development:**
-```bash
-# Terminal 1: Start H2 server (if not already running)
-./gradlew startH2Server
-
-# Terminal 2: Run application
-./gradlew bootRun
-```
-
-**Health Check:** http://localhost:8080/udgaard/actuator/health
-
-### Running the Frontend
-
-```bash
+# Frontend (see asgaard/claude.md for details)
 cd asgaard
-pnpm install
-pnpm dev  # Runs on http://localhost:3000
+pnpm install && pnpm dev        # Runs on http://localhost:3000
 ```
 
 ### Running Tests
@@ -216,71 +181,13 @@ pnpm dev  # Runs on http://localhost:3000
 
 **Frontend:** `cd asgaard && pnpm typecheck && pnpm lint`
 
-### CI/CD Pipeline
-
-**Continuous Integration (`.github/workflows/ci.yml`):**
-- Triggers: Push to main, pull requests
-- Jobs: Backend tests, Frontend tests, Integration build, Code quality
-- Runtime: ~5-8 minutes
-
-See `release/CI_WORKFLOW.md` for details.
-
 ---
 
 ## Key Concepts
 
-### Strategy DSL
+### Strategy System
 
-Build trading strategies declaratively:
-
-```kotlin
-val myEntryStrategy = entryStrategy {
-    uptrend()
-    priceAbove(20)
-    marketUptrend()
-    sectorUptrend()
-    volumeAboveAverage(1.3, 20)
-    minimumPrice(10.0)
-}
-
-val myExitStrategy = exitStrategy {
-    stopLoss(2.0)          // 2.0 ATR
-    trailingStopLoss(2.7)  // 2.7 ATR trailing
-    priceBelowEma(10)
-    marketAndSectorDowntrend()
-}
-```
-
-### Strategy Registration
-
-Strategies are auto-discovered via annotation:
-
-```kotlin
-@RegisteredStrategy(name = "MyStrategy", type = StrategyType.ENTRY)
-class MyEntryStrategy: EntryStrategy {
-    override fun test(stock: Stock, quote: StockQuote): Boolean { /* logic */ }
-    override fun description() = "My custom entry strategy"
-}
-```
-
-### Stock Quote Data Structure
-
-Each quote includes:
-- **Price data**: open, close, high, low, volume (AlphaVantage adjusted daily)
-- **Technical indicators**: EMA (5/10/20/50/100/200 calculated), ATR (AlphaVantage), Donchian bands, ADX
-- **Trend determination**: Uptrend when (EMA5 > EMA10 > EMA20) AND (Price > EMA50)
-- **Order blocks**: Bullish/bearish order blocks via ROC momentum detection
-- **Context**: Market/sector breadth, uptrend status, earnings dates
-
-### Backtest Report
-
-Results include:
-- Win/loss statistics (count, rate, averages)
-- Edge (expected % gain per trade)
-- Trade list with entry/exit dates and prices
-- P/L breakdown by stock
-- Exit reason analysis
-- Daily profit summary
+Strategies use a DSL for declarative composition, auto-discovered via `@RegisteredStrategy` annotation. See `udgaard/claude.md` for DSL examples, registration patterns, and the strategy development workflow.
 
 ### Portfolio Management
 
@@ -290,102 +197,14 @@ Results include:
 
 **Trade Lifecycle:** Open → Edit → Close → Delete
 
-**Statistics:** Total/open/closed trades, win/loss counts/%, average win/loss, proven edge, total profit, largest win/loss, projected metrics
+### MCP Tools
 
-**Equity Curve:** Cumulative balance visualization showing portfolio growth
-
----
-
-## Important Files to Reference
-
-### Documentation
-- `claude_thoughts/SESSIONS_HISTORY.md` - Historical session notes and major changes
-- `claude_thoughts/ALPHAVANTAGE_REFACTORING_SUMMARY.md` - AlphaVantage-primary architecture
-- `claude_thoughts/DYNAMIC_STRATEGY_SYSTEM.md` - Strategy system details
-- `claude_thoughts/MCP_SERVER_README.md` - MCP server setup
-- `udgaard/claude.md` - Backend development guide
-- `asgaard/claude.md` - Frontend development guide
-
-### Configuration
-- `udgaard/src/main/resources/application.properties` - Backend config
-- `udgaard/detekt.yml` - Detekt static analysis config
-- `asgaard/nuxt.config.ts` - Frontend config
-
-### Core Code
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/service/StrategyRegistry.kt` - Strategy management
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/strategy/StrategyDsl.kt` - Strategy DSL
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/service/BacktestService.kt` - Backtesting engine
-- `udgaard/src/main/kotlin/com/skrymer/udgaard/data/service/StockService.kt` - Stock data management
-- `asgaard/app/pages/backtesting.vue` - Main backtesting UI
+Claude can use MCP tools (`runBacktest`, `getStockData`, `getMultipleStocksData`, `getMarketBreadth`, `getStockSymbols`) for programmatic backtesting and analysis. See the `/run-backtest` skill for detailed usage.
 
 ---
 
-## Common Tasks
+## Known Limitations
 
-### Adding a New Entry Strategy
-1. Create class implementing `EntryStrategy` (or `DetailedEntryStrategy` for diagnostics)
-2. Add `@RegisteredStrategy(name = "StrategyName", type = StrategyType.ENTRY)`
-3. Implement `test()` and `description()` methods
-4. Strategy automatically appears in UI
-
-### Adding a New Exit Strategy
-1. Create class implementing `ExitStrategy`
-2. Add `@RegisteredStrategy(name = "StrategyName", type = StrategyType.EXIT)`
-3. Implement `match()`, `reason()`, and `description()` methods
-4. Strategy automatically appears in UI
-
-### Running a Backtest via MCP
-Claude can use the `runBacktest` tool to execute backtests programmatically.
-
-### Querying Stock Data via MCP
-Claude can use `getStockData` or `getMultipleStocksData` to retrieve historical data.
-
----
-
-## Environment & Configuration
-
-### Backend Environment Variables
-Configured in `application.properties`:
-- `spring.datasource.url`: H2 database location (server mode: `jdbc:h2:tcp://localhost:9092/trading`)
-- `spring.h2.console.enabled`: H2 web console (set to `true` for dev)
-- `alphavantage.api.key`: AlphaVantage API key (configured via Settings UI or secure.properties)
-- `ovtlyr.cookies.token/userid`: Ovtlyr credentials (configured via Settings UI or secure.properties)
-- `spring.cache.type`: Cache provider (set to `caffeine`)
-- `spring.mvc.async.request-timeout`: Async timeout (1800000ms for long backtests)
-
-### Frontend Environment Variables
-Access via `useRuntimeConfig()`. Prefix with `NUXT_PUBLIC_` for client-side access.
-
----
-
-## Troubleshooting
-
-### Backend Issues
-- **Strategy not appearing**: Check `@RegisteredStrategy` annotation
-- **Database connection errors**: Ensure H2 server is running (`./gradlew startH2Server`)
-- **jOOQ code generation fails**: H2 server must be running before build
-- **Database issues**: Check H2 console at http://localhost:8080/udgaard/h2-console
-- **Build failures**: Ensure H2 server is running, then try `./gradlew clean build`
-- **AlphaVantage API errors**: Check API key, rate limits (5/min, 500/day)
-
-### Frontend Issues
-- **Type errors**: Run `pnpm typecheck`
-- **ESLint errors**: Run `pnpm lint`
-- **API connection**: Verify backend on port 8080
-
-### MCP Issues
-- **Claude can't connect**: Verify JAR path in MCP settings
-- **No data**: Check H2 database has stock data
-- **Tool not found**: Rebuild backend JAR
-
----
-
-## Next Steps & Future Work
-
-**Potential Improvements:**
-Strategy versioning, parameter optimization, live trading integration, enhanced visualization, portfolio backtesting, machine learning, alert system, strategy sharing
-
-**Known Limitations:**
 Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
@@ -413,34 +232,9 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 ### Testing
 - Write unit tests for strategy logic
 - Test backtesting results against known values
+- E2E tests use TestContainers (PostgreSQL) — requires Docker running
+- `AbstractIntegrationTest` provides shared PostgreSQL container for integration tests
 
 ---
 
-## Resources
-
-**Documentation:** [Nuxt](https://nuxt.com/docs), [NuxtUI](https://ui.nuxt.com), [Spring Boot](https://spring.io/projects/spring-boot), [Kotlin](https://kotlinlang.org/docs/home.html), [Model Context Protocol](https://modelcontextprotocol.io/)
-
-**Libraries:** [ApexCharts](https://apexcharts.com/), [Unovis](https://unovis.dev/), [date-fns](https://date-fns.org/), [Zod](https://zod.dev/), [VueUse](https://vueuse.org/)
-
----
-
-## Recent Work
-
-See `claude_thoughts/SESSIONS_HISTORY.md` for detailed session history.
-
-**Latest:** Ovtlyr dependency removal, Mjolnir strategy, breadth conditions (2026-02) - Removed direct Ovtlyr data dependencies. Added Detekt 2.0.0-alpha.2 static analysis. Modularized backend into backtesting/data/portfolio packages. Consolidated DB migrations. Added market/sector breadth from dedicated tables. Developed Mjolnir strategy with market breadth trending filter and EMA spread condition. Added new entry/exit conditions for breadth analysis.
-
----
-
-## Documentation Structure
-
-This project uses a three-level documentation approach:
-
-1. **CLAUDE.md** (this file) - High-level project context, architecture, and recent work
-2. **asgaard/claude.md** - Frontend-specific patterns, NuxtUI components, and Vue best practices
-3. **udgaard/claude.md** - Backend-specific patterns, Kotlin idioms, and Spring Boot conventions
-
----
-
-_Last Updated: 2026-02-20_
-_This file helps Claude understand the project structure, architecture, recent work, and key decisions across conversations._
+_Last Updated: 2026-02-21_

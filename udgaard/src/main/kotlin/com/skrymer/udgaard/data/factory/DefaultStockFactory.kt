@@ -47,21 +47,19 @@ class DefaultStockFactory(
   override fun createStock(
     symbol: String,
     sectorSymbol: String?,
+    marketCap: Long?,
     enrichedQuotes: List<StockQuote>,
     orderBlocks: List<OrderBlock>,
     earnings: List<Earning>,
-  ): Stock {
-    val stock =
-      Stock(
-        symbol = symbol,
-        sectorSymbol = sectorSymbol,
-        quotes = enrichedQuotes.toMutableList(),
-        orderBlocks = orderBlocks.toMutableList(),
-        earnings = earnings.toMutableList(),
-      )
-
-    return stock
-  }
+  ): Stock =
+    Stock(
+      symbol = symbol,
+      sectorSymbol = sectorSymbol,
+      marketCap = marketCap,
+      quotes = enrichedQuotes.toMutableList(),
+      orderBlocks = orderBlocks.toMutableList(),
+      earnings = earnings.toMutableList(),
+    )
 
   // ===================================================================
   // ATR ENRICHMENT

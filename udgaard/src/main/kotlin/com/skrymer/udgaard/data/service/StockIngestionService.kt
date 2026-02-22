@@ -10,7 +10,6 @@ import com.skrymer.udgaard.data.integration.FundamentalDataProvider
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
-import com.skrymer.udgaard.data.model.SectorSymbol
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
@@ -472,24 +471,24 @@ class StockIngestionService(
           ?: throw IllegalStateException("Could not fetch earnings data")
       }
 
-      // Step 3: Get sector symbol (from cache if available, otherwise fetch)
-      val sectorSymbol =
-        refreshContext?.getSectorSymbol(symbol)?.let { cachedSectorName ->
-          SectorSymbol.fromString(cachedSectorName)
-        } ?: run {
+      // Step 3: Get company info (sector + market cap) from cache or API
+      val companyInfo =
+        refreshContext?.getCachedCompanyInfo(symbol) ?: run {
           if (isNonStock(symbol)) {
-            logger.info("$symbol is a non-stock asset - skipping sector fetch")
+            logger.info("$symbol is a non-stock asset - skipping company info fetch")
             null
           } else {
-            val sector = fundamentalDataProvider.getSectorSymbol(symbol)
-            if (sector == null) {
-              logger.warn("Could not determine sector for $symbol - sector breadth will not be available")
+            val info = fundamentalDataProvider.getCompanyInfo(symbol)
+            if (info == null) {
+              logger.warn("Could not fetch company info for $symbol - sector breadth will not be available")
             } else {
-              refreshContext?.cacheSectorSymbol(symbol, sector.name)
+              refreshContext?.cacheCompanyInfo(symbol, info)
             }
-            sector
+            info
           }
         }
+      val sectorSymbol = companyInfo?.sectorSymbol
+      val marketCap = companyInfo?.marketCap
 
       // Step 4: Create enriched quotes using StockFactory
       val enrichedQuotes =
@@ -521,6 +520,7 @@ class StockIngestionService(
       stockFactory.createStock(
         symbol = symbol,
         sectorSymbol = sectorSymbol?.name,
+        marketCap = marketCap,
         enrichedQuotes = enrichedQuotes,
         orderBlocks = orderBlocks,
         earnings = earnings,

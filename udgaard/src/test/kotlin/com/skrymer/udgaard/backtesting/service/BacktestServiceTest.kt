@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.whenever
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 
@@ -55,9 +57,16 @@ class BacktestServiceTest {
     stockRepository = mock(StockJooqRepository::class.java)
     sectorBreadthRepository = mock(SectorBreadthRepository::class.java)
     marketBreadthRepository = mock(MarketBreadthRepository::class.java)
-    `when`(marketBreadthRepository.calculateBreadthByDate()).thenReturn(emptyMap())
+    whenever(marketBreadthRepository.calculateBreadthByDate()).thenReturn(emptyMap())
 
     backtestService = BacktestService(stockRepository, sectorBreadthRepository, marketBreadthRepository)
+  }
+
+  /**
+   * Mocks stockRepository.findBySymbols to return the given stocks for any arguments.
+   */
+  private fun mockStocksForLoading(vararg stocks: Stock) {
+    whenever(stockRepository.findBySymbols(any(), any())).thenReturn(stocks.toList())
   }
 
   @Test
@@ -109,11 +118,12 @@ class BacktestServiceTest {
         )
       )
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
       )
@@ -140,11 +150,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1), // Should include quote1
         LocalDate.of(2024, 12, 31), // Should include quote3
       )
@@ -178,11 +189,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         alwaysWin,
-        listOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
       )
@@ -221,11 +233,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         alwaysLose,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
       )
@@ -248,11 +261,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2, quote3))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
       )
@@ -286,15 +300,14 @@ class BacktestServiceTest {
     // Custom map: TQQQ -> QQQ
     val customMap = mapOf("TQQQ" to "QQQ")
 
-    // Mock the repository to return QQQ when requested (BacktestService will fetch it)
-    `when`(stockRepository.findBySymbol("QQQ"))
-      .thenReturn(qqq)
+    // Mock the repository to return both stocks when requested
+    mockStocksForLoading(tqqq, qqq)
 
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100, // QQQ triggers at 100
         openPriceIsLessThan100, // QQQ exits when openPrice < 100
-        mutableListOf(tqqq), // Only pass TQQQ as trading stock (QQQ will be fetched as underlying)
+        listOf("TQQQ"), // Only pass TQQQ as trading stock (QQQ will be loaded as underlying)
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         useUnderlyingAssets = true,
@@ -326,11 +339,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TQQQ", "XLK", quotes = listOf(quote1, quote2))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TQQQ"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         useUnderlyingAssets = false, // Disabled
@@ -356,12 +370,15 @@ class BacktestServiceTest {
     // Custom map pointing to non-existent stock
     val customMap = mapOf("TQQQ" to "NONEXISTENT")
 
+    // Mock returns only TQQQ, not NONEXISTENT
+    mockStocksForLoading(stock)
+
     val exception =
       org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
         backtestService.backtest(
           closePriceIsGreaterThanOrEqualTo100,
           openPriceIsLessThan100,
-          mutableListOf(stock),
+          listOf("TQQQ"),
           LocalDate.of(2024, 1, 1),
           LocalDate.now(),
           useUnderlyingAssets = true,
@@ -370,8 +387,8 @@ class BacktestServiceTest {
       }
 
     Assertions.assertTrue(
-      exception.message?.contains("Underlying asset") == true && exception.message?.contains("not found in database") == true,
-      "Should mention missing underlying asset",
+      exception.message?.contains("Missing underlying asset") == true && exception.message?.contains("NONEXISTENT") == true,
+      "Should mention missing underlying asset: ${exception.message}",
     )
   }
 
@@ -396,11 +413,12 @@ class BacktestServiceTest {
 
     val customMap = mapOf("TQQQ" to "QQQ")
 
+    mockStocksForLoading(aapl, tqqq, qqq)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(aapl, tqqq, qqq), // Include all stocks: AAPL, TQQQ, and underlying QQQ
+        listOf("AAPL", "TQQQ", "QQQ"), // Include all stocks
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         useUnderlyingAssets = true,
@@ -435,11 +453,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 0, // Cooldown disabled
@@ -481,11 +500,12 @@ class BacktestServiceTest {
     val stock =
       Stock("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 5, // 5 TRADING day cooldown (not inclusive)
@@ -529,11 +549,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 3,
@@ -589,11 +610,12 @@ class BacktestServiceTest {
     val stockB =
       Stock("STOCK_B", "XLK", quotes = listOf(stockBQuote1, stockBQuote2, stockBQuote3, stockBQuote4, stockBQuote5))
 
+    mockStocksForLoading(stockA, stockB)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB),
+        listOf("STOCK_A", "STOCK_B"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 3,
@@ -641,11 +663,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = quotes.toList())
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 5,
@@ -724,11 +747,12 @@ class BacktestServiceTest {
     val stockA = Stock("STOCK_A", "XLK", quotes = stockAQuotes.toMutableList())
     val stockB = Stock("STOCK_B", "XLK", quotes = stockBQuotes.toMutableList())
 
+    mockStocksForLoading(stockA, stockB)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB),
+        listOf("STOCK_A", "STOCK_B"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1, // Only 1 position at a time
@@ -774,11 +798,12 @@ class BacktestServiceTest {
       )
     val stockB = Stock("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
 
+    mockStocksForLoading(stockA, stockB)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB),
+        listOf("STOCK_A", "STOCK_B"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1,
@@ -804,11 +829,12 @@ class BacktestServiceTest {
     val stockA = Stock("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2))
     val stockB = Stock("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
 
+    mockStocksForLoading(stockA, stockB)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB),
+        listOf("STOCK_A", "STOCK_B"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1,
@@ -854,11 +880,12 @@ class BacktestServiceTest {
     val stockC =
       Stock("STOCK_C", "XLE", quotes = listOf(stockCQuote1, stockCQuote2))
 
+    mockStocksForLoading(stockA, stockB, stockC)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB, stockC),
+        listOf("STOCK_A", "STOCK_B", "STOCK_C"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 2,
@@ -890,11 +917,12 @@ class BacktestServiceTest {
     val stockB = Stock("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
     val stockC = Stock("STOCK_C", "XLE", quotes = listOf(stockCQuote1, stockCQuote2))
 
+    mockStocksForLoading(stockA, stockB, stockC)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB, stockC),
+        listOf("STOCK_A", "STOCK_B", "STOCK_C"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = null, // Unlimited
@@ -934,11 +962,12 @@ class BacktestServiceTest {
       )
     val stockC = Stock("STOCK_C", "XLE", quotes = listOf(stockCQuote1, stockCQuote2))
 
+    mockStocksForLoading(stockA, stockB, stockC)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB, stockC),
+        listOf("STOCK_A", "STOCK_B", "STOCK_C"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 2,
@@ -973,11 +1002,12 @@ class BacktestServiceTest {
       Stock("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3, stockAQuote4))
     val stockB = Stock("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2))
 
+    mockStocksForLoading(stockA, stockB)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stockA, stockB),
+        listOf("STOCK_A", "STOCK_B"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1,
@@ -1004,11 +1034,12 @@ class BacktestServiceTest {
 
     val stock = Stock("TEST", "XLK", quotes = mutableListOf(quote1, quote2, quote3))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 10, // Long cooldown
@@ -1050,11 +1081,12 @@ class BacktestServiceTest {
     val stock =
       Stock("TEST", "XLK", quotes = mutableListOf(quote1, quote2, quote3, quote4, quote5, quote6, quote7, quote8, quote9))
 
+    mockStocksForLoading(stock)
     val report =
       backtestService.backtest(
         closePriceIsGreaterThanOrEqualTo100,
         openPriceIsLessThan100,
-        mutableListOf(stock),
+        listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 5, // 5 TRADING days (not inclusive)
@@ -1098,16 +1130,17 @@ class BacktestServiceTest {
       date = LocalDate.of(2025, 1, 2),
     )
     val spy = Stock("SPY", "SPY", quotes = listOf(spyQuote1, spyQuote2))
-    `when`(stockRepository.findBySymbol("SPY")).thenReturn(spy)
+    whenever(stockRepository.findBySymbol(eq("SPY"), any())).thenReturn(spy)
 
     val quote1 = StockQuote(symbol = "TEST", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
     val quote2 = StockQuote(symbol = "TEST", closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
 
+    mockStocksForLoading(stock)
     val report = backtestService.backtest(
       closePriceIsGreaterThanOrEqualTo100,
       openPriceIsLessThan100,
-      mutableListOf(stock),
+      listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
     )
@@ -1126,22 +1159,23 @@ class BacktestServiceTest {
       LocalDate.of(2025, 1, 1) to 65.0,
       LocalDate.of(2025, 1, 2) to 70.0,
     )
-    `when`(marketBreadthRepository.calculateBreadthByDate()).thenReturn(breadthData)
+    whenever(marketBreadthRepository.calculateBreadthByDate()).thenReturn(breadthData)
 
     // Set up SPY
     val spyQuote1 = StockQuote(symbol = "SPY", closePrice = 500.0, trend = "Uptrend", date = LocalDate.of(2025, 1, 1))
     val spyQuote2 = StockQuote(symbol = "SPY", closePrice = 505.0, trend = "Uptrend", date = LocalDate.of(2025, 1, 2))
     val spy = Stock("SPY", "SPY", quotes = listOf(spyQuote1, spyQuote2))
-    `when`(stockRepository.findBySymbol("SPY")).thenReturn(spy)
+    whenever(stockRepository.findBySymbol(eq("SPY"), any())).thenReturn(spy)
 
     val quote1 = StockQuote(symbol = "TEST", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
     val quote2 = StockQuote(symbol = "TEST", closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
 
+    mockStocksForLoading(stock)
     val report = backtestService.backtest(
       closePriceIsGreaterThanOrEqualTo100,
       openPriceIsLessThan100,
-      mutableListOf(stock),
+      listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
     )
@@ -1162,7 +1196,7 @@ class BacktestServiceTest {
       LocalDate.of(2025, 1, 3) to 70.0,
       LocalDate.of(2025, 1, 4) to 75.0,
     )
-    `when`(marketBreadthRepository.calculateBreadthByDate()).thenReturn(breadthData)
+    whenever(marketBreadthRepository.calculateBreadthByDate()).thenReturn(breadthData)
 
     // SPY: uptrend on day 1, downtrend on day 3
     val spyQuotes = listOf(
@@ -1171,7 +1205,7 @@ class BacktestServiceTest {
       StockQuote(symbol = "SPY", closePrice = 490.0, trend = "Downtrend", date = LocalDate.of(2025, 1, 3)),
       StockQuote(symbol = "SPY", closePrice = 485.0, trend = "Downtrend", date = LocalDate.of(2025, 1, 4)),
     )
-    `when`(stockRepository.findBySymbol("SPY")).thenReturn(Stock("SPY", "SPY", quotes = spyQuotes))
+    whenever(stockRepository.findBySymbol(eq("SPY"), any())).thenReturn(Stock("SPY", "SPY", quotes = spyQuotes))
 
     // Two trades: one in uptrend, one in downtrend
     val quotes = listOf(
@@ -1182,10 +1216,11 @@ class BacktestServiceTest {
     )
     val stock = Stock("TEST", "XLK", quotes = quotes)
 
+    mockStocksForLoading(stock)
     val report = backtestService.backtest(
       closePriceIsGreaterThanOrEqualTo100,
       openPriceIsLessThan100,
-      mutableListOf(stock),
+      listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
     )
@@ -1207,10 +1242,11 @@ class BacktestServiceTest {
     val quote2 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
     val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
 
+    mockStocksForLoading(stock)
     val report = backtestService.backtest(
       closePriceIsGreaterThanOrEqualTo100,
       openPriceIsLessThan100,
-      mutableListOf(stock),
+      listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
     )

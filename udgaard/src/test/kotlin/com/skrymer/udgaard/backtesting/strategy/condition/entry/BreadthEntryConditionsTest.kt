@@ -259,6 +259,40 @@ class BreadthEntryConditionsTest {
     assertFalse(MarketBreadthTrendingCondition(20.0).evaluate(stock, quote, context))
   }
 
+  // --- SpyPriceUptrendCondition ---
+
+  @Test
+  fun `spy price uptrend passes when SPY is in uptrend`() {
+    val spyQuote = StockQuote(symbol = "SPY", date = today, closePrice = 500.0, trend = "Uptrend")
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = emptyMap(),
+      spyQuoteMap = mapOf(today to spyQuote),
+    )
+    assertTrue(SpyPriceUptrendCondition().evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `spy price uptrend fails when SPY is in downtrend`() {
+    val spyQuote = StockQuote(symbol = "SPY", date = today, closePrice = 450.0, trend = "Downtrend")
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = emptyMap(),
+      spyQuoteMap = mapOf(today to spyQuote),
+    )
+    assertFalse(SpyPriceUptrendCondition().evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `spy price uptrend fails when no SPY data`() {
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = emptyMap(),
+      spyQuoteMap = emptyMap(),
+    )
+    assertFalse(SpyPriceUptrendCondition().evaluate(stock, quote, context))
+  }
+
   // --- All conditions return false with empty context ---
 
   @Test
@@ -271,5 +305,6 @@ class BreadthEntryConditionsTest {
     assertFalse(SectorBreadthAboveCondition().evaluate(stock, quote, emptyContext))
     assertFalse(SectorBreadthEmaAlignmentCondition().evaluate(stock, quote, emptyContext))
     assertFalse(SectorBreadthAcceleratingCondition().evaluate(stock, quote, emptyContext))
+    assertFalse(SpyPriceUptrendCondition().evaluate(stock, quote, emptyContext))
   }
 }

@@ -29,8 +29,13 @@ class StockJooqRepository(
 ) {
   /**
    * Find stock by symbol with all related data
+   * @param symbol the stock symbol
+   * @param quotesAfter if set, only load quotes on or after this date
    */
-  fun findBySymbol(symbol: String): Stock? {
+  fun findBySymbol(
+    symbol: String,
+    quotesAfter: LocalDate? = null,
+  ): Stock? {
     // Load stock
     val stock =
       dsl
@@ -38,11 +43,16 @@ class StockJooqRepository(
         .where(STOCKS.SYMBOL.eq(symbol))
         .fetchOneInto(Stocks::class.java) ?: return null
 
-    // Load quotes
-    val quotes =
+    // Load quotes (with optional date filtering)
+    val quotesQuery =
       dsl
         .selectFrom(STOCK_QUOTES)
         .where(STOCK_QUOTES.STOCK_SYMBOL.eq(symbol))
+    if (quotesAfter != null) {
+      quotesQuery.and(STOCK_QUOTES.QUOTE_DATE.ge(quotesAfter))
+    }
+    val quotes =
+      quotesQuery
         .orderBy(STOCK_QUOTES.QUOTE_DATE.asc())
         .fetchInto(StockQuotes::class.java)
 
@@ -102,7 +112,7 @@ class StockJooqRepository(
         .asField<Int>("order_block_count")
 
     return dsl
-      .select(STOCKS.SYMBOL, STOCKS.SECTOR_SYMBOL, quoteCount, lastQuoteDate, obCount)
+      .select(STOCKS.SYMBOL, STOCKS.SECTOR_SYMBOL, STOCKS.MARKET_CAP, quoteCount, lastQuoteDate, obCount)
       .from(STOCKS)
       .orderBy(STOCKS.SYMBOL)
       .fetch { record ->
@@ -110,6 +120,7 @@ class StockJooqRepository(
         SimpleStockInfo(
           symbol = record[STOCKS.SYMBOL]!!,
           sector = record[STOCKS.SECTOR_SYMBOL] ?: "UNKNOWN",
+          marketCap = record[STOCKS.MARKET_CAP],
           quoteCount = qc,
           orderBlockCount = record.get(obCount) ?: 0,
           lastQuoteDate = record.get(lastQuoteDate),
@@ -120,8 +131,13 @@ class StockJooqRepository(
 
   /**
    * Find stocks by list of symbols
+   * @param symbols the stock symbols to load
+   * @param quotesAfter if set, only load quotes on or after this date
    */
-  fun findBySymbols(symbols: List<String>): List<Stock> {
+  fun findBySymbols(
+    symbols: List<String>,
+    quotesAfter: LocalDate? = null,
+  ): List<Stock> {
     if (symbols.isEmpty()) return emptyList()
 
     val logger = LoggerFactory.getLogger("StockLoader")
@@ -137,11 +153,16 @@ class StockJooqRepository(
 
     if (stocks.isEmpty()) return emptyList()
 
-    // Load all quotes for these stocks in one query
-    val quotes =
+    // Load all quotes for these stocks in one query (with optional date filtering)
+    val quotesQuery =
       dsl
         .selectFrom(STOCK_QUOTES)
         .where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols))
+    if (quotesAfter != null) {
+      quotesQuery.and(STOCK_QUOTES.QUOTE_DATE.ge(quotesAfter))
+    }
+    val quotes =
+      quotesQuery
         .orderBy(STOCK_QUOTES.STOCK_SYMBOL, STOCK_QUOTES.QUOTE_DATE.asc())
         .fetchInto(StockQuotes::class.java)
     logger.info("Loaded ${quotes.size} quotes in ${System.currentTimeMillis() - startTime}ms")
@@ -184,12 +205,13 @@ class StockJooqRepository(
 
   /**
    * Find all stocks with all related data
+   * @param quotesAfter if set, only load quotes on or after this date
    */
-  fun findAll(): List<Stock> {
+  fun findAll(quotesAfter: LocalDate? = null): List<Stock> {
     // Get all stock symbols first
     val symbols = findAllSymbols()
     // Then fetch all data for those symbols
-    return findBySymbols(symbols)
+    return findBySymbols(symbols, quotesAfter)
   }
 
   /**
@@ -211,8 +233,11 @@ class StockJooqRepository(
         .insertInto(STOCKS)
         .set(STOCKS.SYMBOL, stock.symbol)
         .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
-        .onDuplicateKeyUpdate()
+        .set(STOCKS.MARKET_CAP, stock.marketCap)
+        .onConflict(STOCKS.SYMBOL)
+        .doUpdate()
         .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
+        .set(STOCKS.MARKET_CAP, stock.marketCap)
         .execute()
 
       // 2. Delete existing quotes, order blocks, and earnings (cascade delete)
@@ -385,8 +410,11 @@ class StockJooqRepository(
               .insertInto(STOCKS)
               .set(STOCKS.SYMBOL, stock.symbol)
               .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
-              .onDuplicateKeyUpdate()
+              .set(STOCKS.MARKET_CAP, stock.marketCap)
+              .onConflict(STOCKS.SYMBOL)
+              .doUpdate()
               .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
+              .set(STOCKS.MARKET_CAP, stock.marketCap)
           },
         )
       stockBatch.execute()

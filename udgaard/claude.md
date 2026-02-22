@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Kotlin/Spring Boot backend for stock backtesting platform with H2 database storage, dynamic strategy system, and MCP server integration for Claude AI.
+Kotlin/Spring Boot backend for stock backtesting platform with PostgreSQL database, dynamic strategy system, and MCP server integration for Claude AI.
 
 For complete project capabilities and overview, see the main CLAUDE.md file in the project root.
 
@@ -11,7 +11,8 @@ For complete project capabilities and overview, see the main CLAUDE.md file in t
 **Key Technologies:**
 - **Language**: Kotlin 2.3.0
 - **Framework**: Spring Boot 3.5.0
-- **Database**: H2 2.2.224 (server mode via TCP)
+- **Database**: PostgreSQL 17 (Docker Compose)
+- **Testing**: TestContainers (PostgreSQL) for E2E tests
 - **Database Access**: jOOQ 3.19.23 (type-safe SQL queries)
 - **Database Migrations**: Flyway (via net.ltgt.flyway plugin)
 - **Build Tool**: Gradle 9.1.0
@@ -112,7 +113,14 @@ udgaard/
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       └── V3__Add_sector_symbols.sql
-├── src/test/kotlin/                  # Unit tests (mirrors main structure)
+├── src/test/kotlin/                  # Unit + E2E tests
+│   └── e2e/                          # E2E tests (TestContainers)
+│       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
+│       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator
+│       └── BacktestApiE2ETest.kt       # Backtest API E2E tests
+├── src/test/resources/
+│   └── application-test.properties   # Test profile config
+├── compose.yaml                      # Docker Compose (PostgreSQL, MongoDB)
 ├── build.gradle                      # Dependencies & build config
 ├── detekt.yml                        # Detekt static analysis config
 └── detekt-baseline.xml               # Detekt baseline for existing issues
@@ -122,7 +130,7 @@ udgaard/
 
 ```bash
 # Database (must be running for build/migrations)
-./gradlew startH2Server         # Start H2 TCP server on port 9092
+docker compose up -d postgres   # Start PostgreSQL on port 5432
 ./gradlew initDatabase          # Run Flyway migrations + jOOQ codegen
 
 # Build & Run
@@ -456,7 +464,7 @@ class MyEntryStrategy: DetailedEntryStrategy {
 - **Cache aggressively**: Stock data rarely changes, cache with 30min TTL
 - **Batch queries**: Use jOOQ batch operations for bulk saves
 - **Parallel processing**: Use Kotlin coroutines for independent operations
-- **Database server mode**: Required for concurrent access from Flyway/jOOQ codegen and application
+- **Docker for tests**: TestContainers requires Docker running for E2E tests
 
 ### Strategy Development Workflow
 
@@ -495,11 +503,11 @@ class MyEntryStrategy: DetailedEntryStrategy {
 spring.application.name=udgaard
 server.servlet.context-path=/udgaard
 
-# H2 Database (server mode)
-spring.datasource.url=jdbc:h2:tcp://localhost:9092/trading
-spring.datasource.driver-class-name=org.h2.Driver
-spring.datasource.username=sa
-spring.datasource.password=
+# PostgreSQL Database
+spring.datasource.url=jdbc:postgresql://localhost:5432/trading
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.username=trading
+spring.datasource.password=trading
 
 # AlphaVantage API (configured via Settings UI or secure.properties)
 alphavantage.api.baseUrl=https://www.alphavantage.co/query

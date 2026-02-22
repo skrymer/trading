@@ -60,6 +60,7 @@ data class StockUpdateInfo(
 data class SimpleStockInfo(
   val symbol: String,
   val sector: String,
+  val marketCap: Long? = null,
   val quoteCount: Int,
   val orderBlockCount: Int,
   val lastQuoteDate: LocalDate?,

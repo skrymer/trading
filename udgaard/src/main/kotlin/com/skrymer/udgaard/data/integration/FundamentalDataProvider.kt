@@ -1,7 +1,7 @@
 package com.skrymer.udgaard.data.integration
 
+import com.skrymer.udgaard.data.model.CompanyInfo
 import com.skrymer.udgaard.data.model.Earning
-import com.skrymer.udgaard.data.model.SectorSymbol
 
 /**
  * Interface for fundamental data providers
@@ -31,13 +31,13 @@ interface FundamentalDataProvider {
   suspend fun getEarnings(symbol: String): List<Earning>?
 
   /**
-   * Get sector symbol for a stock
+   * Get company info (sector and market cap) for a stock
    *
-   * Maps the stock to one of the 11 S&P sector ETFs (XLK, XLF, XLV, etc.)
-   * based on the company's industry classification.
+   * Returns sector classification (mapped to S&P sector ETFs) and market capitalization.
+   * Both come from the same API endpoint (Company Overview) to avoid extra API calls.
    *
    * @param symbol Stock symbol (e.g., "AAPL", "MSFT")
-   * @return SectorSymbol enum, or null if sector cannot be determined
+   * @return CompanyInfo with sector and market cap, or null if unavailable
    */
-  suspend fun getSectorSymbol(symbol: String): SectorSymbol?
+  suspend fun getCompanyInfo(symbol: String): CompanyInfo?
 }

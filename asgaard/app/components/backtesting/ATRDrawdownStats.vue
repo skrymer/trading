@@ -72,21 +72,17 @@ const getPercentileColor = (value: number) => {
 }
 
 // Insights
-const stopLossRecommendation = computed(() => {
+const drawdownInsights = computed(() => {
   if (!stats.value) return null
 
-  // Find what percentage would be cut at different stop levels
-  const at1ATR = distributionData.value.find(d => d.range.startsWith('1'))?.cumulativePercentage || 0
-  const at1_5ATR = distributionData.value.find(d => d.range.startsWith('1.5'))?.cumulativePercentage || 0
   const at2ATR = distributionData.value.find(d => d.range.startsWith('2'))?.cumulativePercentage || 0
 
   return {
-    at1ATR,
-    at1_5ATR,
     at2ATR,
     median: stats.value.medianDrawdown,
     p90: stats.value.percentile90,
-    p95: stats.value.percentile95
+    p95: stats.value.percentile95,
+    max: stats.value.maxDrawdown
   }
 })
 </script>
@@ -229,79 +225,103 @@ const stopLossRecommendation = computed(() => {
         />
       </div>
 
-      <!-- Enhanced Insights with Winner/Loser Comparison -->
-      <UCard v-if="stopLossRecommendation" :ui="{ body: 'p-4' }" class="bg-primary/5">
+      <!-- Entry Quality & Risk Insights -->
+      <UCard v-if="drawdownInsights" :ui="{ body: 'p-4' }" class="bg-primary/5">
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-lightbulb" class="w-5 h-5 text-primary mt-0.5" />
           <div class="flex-1">
             <h4 class="font-semibold mb-2">
-              Stop Loss Optimization Insights
+              Entry Quality & Risk Insights
             </h4>
             <ul class="space-y-2 text-sm">
-              <!-- Winner/Loser Comparison -->
-              <li v-if="loserStats">
-                <span class="text-muted">•</span>
-                <strong class="ml-2">Risk Profile:</strong>
-                Winners require {{ (stats.medianDrawdown / loserStats.medianLoss).toFixed(1) }}x
-                more drawdown tolerance than losers
-                ({{ stats.medianDrawdown.toFixed(2) }} vs {{ loserStats.medianLoss.toFixed(2) }} ATR median).
-                <span v-if="stats.medianDrawdown > loserStats.medianLoss * 1.5" class="text-success">
-                  Good asymmetry - winners need patience.
-                </span>
-                <span v-else class="text-warning">
-                  Consider if stops are cutting winners too early.
-                </span>
-              </li>
-
-              <!-- Optimal Stop Recommendation -->
-              <li v-if="loserStats">
-                <span class="text-muted">•</span>
-                <strong class="ml-2">Optimal Stop Range:</strong>
-                Between {{ loserStats.percentile90.toFixed(2) }} ATR
-                (exits 90% of losers) and {{ stopLossRecommendation.p90.toFixed(2) }} ATR
-                (keeps 90% of winners).
-                <span v-if="stopLossRecommendation.p90 - loserStats.percentile90 > 0.5" class="text-success">
-                  Wide buffer allows flexibility.
-                </span>
-                <span v-else class="text-error">
-                  Narrow buffer - any stop will cut winners or let losers run.
-                </span>
-              </li>
-
-              <!-- Stop Too Tight Warning -->
-              <li v-if="loserStats && loserStats.medianLoss < stats.percentile25">
-                <span class="text-muted">•</span>
-                <strong class="ml-2 text-warning">Stops may be too tight:</strong>
-                Losers exit at {{ loserStats.medianLoss.toFixed(2) }} ATR
-                but 75% of winners need >{{ stats.percentile25.toFixed(2) }} ATR.
-                A {{ loserStats.medianLoss.toFixed(2) }} ATR stop would cut most winners.
-              </li>
-
-              <!-- Stop Too Loose Warning -->
-              <li v-if="loserStats && loserStats.percentile90 > stats.percentile75">
-                <span class="text-muted">•</span>
-                <strong class="ml-2 text-warning">Stops may be too loose:</strong>
-                90% of losers reach {{ loserStats.percentile90.toFixed(2) }} ATR
-                while 75% of winners only need {{ stats.percentile75.toFixed(2) }} ATR.
-                Consider tightening stops.
-              </li>
-
-              <!-- Standard insights -->
+              <!-- Entry Precision -->
               <li>
                 <span class="text-muted">•</span>
-                <strong class="ml-2">{{ (100 - stopLossRecommendation.at2ATR).toFixed(1) }}%</strong>
-                of winning trades stayed within 2.0 ATR drawdown.
+                <strong class="ml-2">Entry Precision:</strong>
+                Median winner drawdown is {{ drawdownInsights.median.toFixed(2) }} ATR.
+                <span v-if="drawdownInsights.median < 0.5" class="text-success">
+                  Excellent entry precision — winners barely drawdown before moving in your favor.
+                </span>
+                <span v-else-if="drawdownInsights.median < 1.0" class="text-success">
+                  Good entry precision — winners experience modest drawdown.
+                </span>
+                <span v-else-if="drawdownInsights.median < 2.0" class="text-warning">
+                  Moderate entry precision — winners require patience through drawdowns.
+                </span>
+                <span v-else class="text-error">
+                  Entries may be early — winners endure significant drawdown before recovering.
+                </span>
               </li>
 
-              <li v-if="stopLossRecommendation.p95 < 2.0">
+              <!-- Winner vs Loser Separation -->
+              <li v-if="loserStats && stats">
                 <span class="text-muted">•</span>
-                <strong class="ml-2 text-success">Excellent risk control:</strong>
-                95% of winners stayed under {{ stopLossRecommendation.p95.toFixed(2) }} ATR.
+                <strong class="ml-2">Winner vs Loser Separation:</strong>
+                <template v-if="stats.medianDrawdown > 0">
+                  {{ (loserStats.medianLoss / stats.medianDrawdown).toFixed(1) }}x ratio
+                  ({{ loserStats.medianLoss.toFixed(2) }} vs {{ stats.medianDrawdown.toFixed(2) }} ATR median).
+                  <span v-if="loserStats.medianLoss / stats.medianDrawdown > 3" class="text-success">
+                    Strong separation — losers drawdown much deeper than winners, making them distinguishable early.
+                  </span>
+                  <span v-else-if="loserStats.medianLoss / stats.medianDrawdown > 1.5" class="text-warning">
+                    Moderate separation — some overlap between winner and loser drawdown profiles.
+                  </span>
+                  <span v-else class="text-error">
+                    Weak separation — winners and losers have similar drawdown profiles, making early identification difficult.
+                  </span>
+                </template>
               </li>
-              <li v-else-if="stopLossRecommendation.p95 > 3.0">
+
+              <!-- Risk Boundary -->
+              <li v-if="loserStats">
                 <span class="text-muted">•</span>
-                <strong class="ml-2 text-warning">Wide drawdowns:</strong>
-                95th percentile is {{ stopLossRecommendation.p95.toFixed(2) }} ATR.
+                <strong class="ml-2">Risk Boundary:</strong>
+                <template v-if="loserStats.percentile90 - drawdownInsights.p90 > 1.0">
+                  <span class="text-success">
+                    Clear risk boundary — {{ (loserStats.percentile90 - drawdownInsights.p90).toFixed(2) }} ATR gap
+                    between the drawdown that 90% of winners tolerate ({{ drawdownInsights.p90.toFixed(2) }} ATR)
+                    and 90% of losers reach ({{ loserStats.percentile90.toFixed(2) }} ATR).
+                  </span>
+                </template>
+                <template v-else-if="loserStats.percentile90 - drawdownInsights.p90 > 0.5">
+                  <span class="text-warning">
+                    Narrow risk boundary — limited gap ({{ (loserStats.percentile90 - drawdownInsights.p90).toFixed(2) }} ATR)
+                    between winner tolerance ({{ drawdownInsights.p90.toFixed(2) }} ATR) and loser depth ({{ loserStats.percentile90.toFixed(2) }} ATR).
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="text-error">
+                    Overlapping risk profiles — winner and loser drawdown ranges overlap significantly.
+                  </span>
+                </template>
+              </li>
+
+              <!-- Drawdown Containment -->
+              <li>
+                <span class="text-muted">•</span>
+                <strong class="ml-2">Drawdown Containment:</strong>
+                <span v-if="drawdownInsights.at2ATR > 95" class="text-success">
+                  Excellent containment — {{ drawdownInsights.at2ATR.toFixed(1) }}% of winners stay within 2.0 ATR drawdown.
+                </span>
+                <span v-else-if="drawdownInsights.at2ATR >= 80" class="text-success">
+                  Good containment — {{ drawdownInsights.at2ATR.toFixed(1) }}% of winners stay within 2.0 ATR drawdown.
+                </span>
+                <span v-else class="text-warning">
+                  Wide drawdowns — only {{ drawdownInsights.at2ATR.toFixed(1) }}% of winners contained within 2.0 ATR.
+                </span>
+              </li>
+
+              <!-- Tail Risk -->
+              <li>
+                <span class="text-muted">•</span>
+                <strong class="ml-2">Tail Risk:</strong>
+                95th percentile at {{ drawdownInsights.p95.toFixed(2) }} ATR, max at {{ drawdownInsights.max.toFixed(2) }} ATR.
+                <span v-if="drawdownInsights.max > drawdownInsights.p95 * 2" class="text-error">
+                  Significant tail risk — worst case is far beyond 95th percentile.
+                </span>
+                <span v-else class="text-success">
+                  Contained tail risk — worst case is within reasonable range of 95th percentile.
+                </span>
               </li>
             </ul>
           </div>

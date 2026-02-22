@@ -30,6 +30,7 @@ class StockMapper {
     Stock(
       symbol = stock.symbol,
       sectorSymbol = stock.sectorSymbol,
+      marketCap = stock.marketCap,
       quotes = quotes.map { toDomain(it) },
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },
@@ -107,6 +108,7 @@ class StockMapper {
     Stocks(
       symbol = stock.symbol,
       sectorSymbol = stock.sectorSymbol,
+      marketCap = stock.marketCap,
     )
 
   /**
