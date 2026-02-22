@@ -1255,4 +1255,128 @@ class BacktestServiceTest {
     Assertions.assertNull(report.trades[0].marketConditionAtEntry, "Should be null when SPY is missing")
     Assertions.assertNull(report.marketConditionAverages, "No averages when no market conditions captured")
   }
+
+  // ===== ENTRY DELAY TESTS =====
+
+  @Test
+  fun `should shift entry to delayed date when entryDelayDays is 1`() {
+    // Signal fires on Day 1 (closePrice >= 100), entry should use Day 2's quotes
+    // Day 1: signal fires (closePrice = 100)
+    // Day 2: actual entry (closePrice = 105)
+    // Day 3: exit (openPrice < 100)
+
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 105.0, openPrice = 105.0, date = LocalDate.of(2025, 1, 2))
+    val quote3 = StockQuote(closePrice = 110.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 3))
+
+    val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2, quote3))
+
+    mockStocksForLoading(stock)
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        listOf("TEST"),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        entryDelayDays = 1,
+      )
+
+    Assertions.assertEquals(1, report.totalTrades, "Should have 1 trade")
+    val trade = report.trades.first()
+
+    // Entry should be on Day 2 (delayed), not Day 1 (signal day)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 2), trade.entryQuote.date, "Entry should be on delayed date")
+    Assertions.assertEquals(105.0, trade.entryQuote.closePrice, 0.01, "Entry price should be Day 2's close")
+
+    // Profit should be based on Day 2's entry price
+    val expectedProfit = 110.0 - 105.0
+    Assertions.assertEquals(expectedProfit, trade.profit, 0.01, "Profit should use delayed entry price")
+  }
+
+  @Test
+  fun `should skip entry when delayed date has no data`() {
+    // Signal fires on last trading day, delay=1 means no data for delayed entry
+    val quote1 = StockQuote(closePrice = 99.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 2)) // Signal, but no Day 3
+
+    val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
+
+    mockStocksForLoading(stock)
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        listOf("TEST"),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        entryDelayDays = 1,
+      )
+
+    Assertions.assertEquals(0, report.totalTrades, "Should have no trades when delayed date is out of bounds")
+  }
+
+  @Test
+  fun `should handle entry delay with position limiting (sequential path)`() {
+    // Two stocks signal on Day 1, maxPositions=1, delay=1
+    // Day 1: both signal
+    // Day 2: delayed entry date - only 1 slot available
+    // Day 3: exit
+
+    val stockAQuote1 = StockQuote(symbol = "STOCK_A", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockAQuote2 = StockQuote(symbol = "STOCK_A", closePrice = 102.0, openPrice = 102.0, date = LocalDate.of(2025, 1, 2))
+    val stockAQuote3 = StockQuote(symbol = "STOCK_A", closePrice = 104.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 3))
+
+    val stockBQuote1 = StockQuote(symbol = "STOCK_B", closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val stockBQuote2 = StockQuote(symbol = "STOCK_B", closePrice = 103.0, openPrice = 103.0, date = LocalDate.of(2025, 1, 2))
+    val stockBQuote3 = StockQuote(symbol = "STOCK_B", closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 3))
+
+    val stockA = Stock("STOCK_A", "XLK", quotes = listOf(stockAQuote1, stockAQuote2, stockAQuote3))
+    val stockB = Stock("STOCK_B", "XLF", quotes = listOf(stockBQuote1, stockBQuote2, stockBQuote3))
+
+    mockStocksForLoading(stockA, stockB)
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        listOf("STOCK_A", "STOCK_B"),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        maxPositions = 1,
+        entryDelayDays = 1,
+      )
+
+    // Only 1 trade due to position limit, entry on Day 2 (delayed)
+    Assertions.assertEquals(1, report.totalTrades, "Should have 1 trade due to position limit")
+    Assertions.assertEquals(
+      LocalDate.of(2025, 1, 2),
+      report.trades[0].entryQuote.date,
+      "Entry should be on delayed date",
+    )
+  }
+
+  @Test
+  fun `should preserve default behavior when entryDelayDays is 0`() {
+    // Same as basic test but explicitly passing entryDelayDays = 0
+    val quote1 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1))
+    val quote2 = StockQuote(closePrice = 105.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2))
+
+    val stock = Stock("TEST", "XLK", quotes = listOf(quote1, quote2))
+
+    mockStocksForLoading(stock)
+    val report =
+      backtestService.backtest(
+        closePriceIsGreaterThanOrEqualTo100,
+        openPriceIsLessThan100,
+        listOf("TEST"),
+        LocalDate.of(2024, 1, 1),
+        LocalDate.now(),
+        entryDelayDays = 0,
+      )
+
+    Assertions.assertEquals(1, report.totalTrades)
+    // Entry should be on Day 1 (signal day, no delay)
+    Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date, "Entry on signal day with delay=0")
+    Assertions.assertEquals(100.0, report.trades[0].entryQuote.closePrice, 0.01)
+  }
 }

@@ -5,6 +5,7 @@ import type { Trade, BacktestRequest, MonteCarloResult, BacktestReport } from '~
 import { MonteCarloTechnique, MonteCarloTechniqueDescriptions } from '~/types/enums'
 
 const backtestReport = ref<BacktestReport | null>(null)
+const lastBacktestConfig = ref<BacktestRequest | null>(null)
 const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const isConfigModalOpen = ref(false)
 
@@ -60,6 +61,7 @@ const toast = useToast()
 async function runBacktest(config: BacktestRequest) {
   status.value = 'pending'
   backtestReport.value = null
+  lastBacktestConfig.value = config
   monteCarloResult.value = null
   monteCarloStatus.value = 'idle'
   showMonteCarloResults.value = false
@@ -122,7 +124,8 @@ async function runMonteCarloSimulation() {
         backtestId: backtestReport.value.backtestId,
         technique: selectedTechnique.value,
         iterations: 10000,
-        includeAllEquityCurves: false
+        includeAllEquityCurves: false,
+        positionSizing: lastBacktestConfig.value?.positionSizing
       },
       timeout: 1800000
     })
@@ -411,6 +414,7 @@ const hasTrades = computed(() => (backtestReport.value?.totalTrades ?? 0) > 0)
               <BacktestingEquityCurve
                 v-if="hasTrades"
                 :equity-curve-data="backtestReport!.equityCurveData"
+                :position-sizing="backtestReport?.positionSizing"
                 :loading="false"
               />
             </div>

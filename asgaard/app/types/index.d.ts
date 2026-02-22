@@ -162,6 +162,7 @@ export interface BacktestReport {
   dailyProfitSummary: DailyProfitSummary[]
   marketConditionStats: MarketConditionStats | null
   underlyingAssetTradeCount: number
+  positionSizing?: PositionSizingResult
 }
 
 export interface Stock {
@@ -447,6 +448,44 @@ export interface BacktestRequest {
   useUnderlyingAssets?: boolean
   customUnderlyingMap?: Record<string, string>
   cooldownDays?: number
+  entryDelayDays?: number
+  positionSizing?: PositionSizingConfig
+}
+
+// Position Sizing Types
+export interface PositionSizingConfig {
+  startingCapital: number
+  riskPercentage: number
+  nAtr: number
+  leverageRatio?: number
+}
+
+export interface PositionSizingResult {
+  startingCapital: number
+  finalCapital: number
+  totalReturnPct: number
+  maxDrawdownPct: number
+  maxDrawdownDollars: number
+  peakCapital: number
+  trades: PositionSizedTrade[]
+  equityCurve: PortfolioEquityPoint[]
+}
+
+export interface PositionSizedTrade {
+  symbol: string
+  entryDate: string
+  exitDate: string
+  shares: number
+  entryPrice: number
+  exitPrice: number
+  dollarProfit: number
+  portfolioValueAtEntry: number
+  portfolioReturnPct: number
+}
+
+export interface PortfolioEquityPoint {
+  date: string
+  portfolioValue: number
 }
 
 // Monte Carlo Simulation Types
@@ -458,6 +497,7 @@ export interface MonteCarloRequest {
   iterations: number
   seed?: number
   includeAllEquityCurves: boolean
+  positionSizing?: PositionSizingConfig
 }
 
 export interface MonteCarloEquityPoint {

@@ -82,6 +82,7 @@ class BacktestReport(
    * edge is across yearly periods. Null when fewer than 2 years of data.
    */
   val edgeConsistencyScore: EdgeConsistencyScore? = null,
+  val positionSizingResult: PositionSizingResult? = null,
 ) {
   /**
    * Calculated as (number of winning trades / total trades)
@@ -389,6 +390,7 @@ fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
     dailyProfitSummary = buildDailyProfitSummary(allTrades),
     marketConditionStats = buildMarketConditionStats(allTrades),
     underlyingAssetTradeCount = allTrades.count { it.underlyingSymbol != null && it.underlyingSymbol != it.stockSymbol },
+    positionSizing = positionSizingResult,
   )
 }
 

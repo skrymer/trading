@@ -26,6 +26,17 @@ const formattedEdgeConsistency = computed(() => {
   if (!ecs) return 'N/A'
   return `${ecs.score.toFixed(0)} (${ecs.interpretation})`
 })
+
+const positionSizing = computed(() => props.report?.positionSizing)
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value)
+}
 </script>
 
 <template>
@@ -61,6 +72,15 @@ const formattedEdgeConsistency = computed(() => {
       <BacktestingDataCard title="Edge" :content="(report?.edge || 0).toFixed(2) + '%'" />
       <BacktestingDataCard title="Profit factor" :content="formattedProfitFactor" />
       <BacktestingDataCard title="Edge Consistency" :content="formattedEdgeConsistency" />
+    </UPageGrid>
+
+    <!-- Position Sizing Summary -->
+    <UPageGrid v-if="positionSizing" class="lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-px w-full">
+      <BacktestingDataCard title="Starting Capital" :content="formatCurrency(positionSizing.startingCapital)" />
+      <BacktestingDataCard title="Final Capital" :content="formatCurrency(positionSizing.finalCapital)" />
+      <BacktestingDataCard title="Total Return" :content="positionSizing.totalReturnPct.toFixed(2) + '%'" />
+      <BacktestingDataCard title="Max Drawdown" :content="positionSizing.maxDrawdownPct.toFixed(2) + '%'" />
+      <BacktestingDataCard title="Peak Capital" :content="formatCurrency(positionSizing.peakCapital)" />
     </UPageGrid>
 
     <!-- Underlying Asset Info -->

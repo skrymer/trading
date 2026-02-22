@@ -273,6 +273,7 @@ class BacktestService(
     useUnderlyingAssets: Boolean = true,
     customUnderlyingMap: Map<String, String>? = null,
     cooldownDays: Int = 0,
+    entryDelayDays: Int = 0,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
@@ -301,7 +302,8 @@ class BacktestService(
 
     val positionInfo = maxPositions?.let { "max $it positions" } ?: "unlimited positions"
     val cooldownInfo = if (cooldownDays > 0) ", ${cooldownDays}d cooldown" else ""
-    logger.info("Backtest: ${symbols.size} symbols, $positionInfo$cooldownInfo")
+    val delayInfo = if (entryDelayDays > 0) ", ${entryDelayDays}d entry delay" else ""
+    logger.info("Backtest: ${symbols.size} symbols, $positionInfo$cooldownInfo$delayInfo")
 
     // Dispatch to batched-parallel (Path 1) or two-pass (Path 2) based on constraints
     val (trades, missedTrades) =
@@ -315,6 +317,7 @@ class BacktestService(
           useUnderlyingAssets,
           customUnderlyingMap,
           backtestContext,
+          entryDelayDays,
           logger,
         )
       } else {
@@ -329,6 +332,7 @@ class BacktestService(
           useUnderlyingAssets,
           customUnderlyingMap,
           cooldownDays,
+          entryDelayDays,
           backtestContext,
           logger,
         )
@@ -364,6 +368,7 @@ class BacktestService(
     useUnderlyingAssets: Boolean,
     customUnderlyingMap: Map<String, String>?,
     context: BacktestContext,
+    entryDelayDays: Int,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
     val allTrades = mutableListOf<Trade>()
@@ -394,6 +399,7 @@ class BacktestService(
         quoteIndexes,
         allTradingDates,
         context,
+        entryDelayDays,
         logger,
       )
       allTrades.addAll(batchTrades)
@@ -418,6 +424,7 @@ class BacktestService(
     useUnderlyingAssets: Boolean,
     customUnderlyingMap: Map<String, String>?,
     cooldownDays: Int,
+    entryDelayDays: Int,
     context: BacktestContext,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
@@ -472,6 +479,7 @@ class BacktestService(
       effectiveMaxPositions,
       ranker,
       cooldownDays,
+      entryDelayDays,
       context,
       logger,
     )
@@ -652,6 +660,7 @@ class BacktestService(
     quoteIndexes: Map<Stock, StockQuoteIndex>,
     allTradingDates: List<LocalDate>,
     context: BacktestContext,
+    entryDelayDays: Int,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
     val parallelism = Runtime.getRuntime().availableProcessors().coerceAtMost(16)
@@ -667,7 +676,15 @@ class BacktestService(
         stockPairs
           .map { stockPair ->
             async(dispatcher) {
-              val result = processStockTrades(stockPair, entryStrategy, exitStrategy, quoteIndexes, allTradingDates, context)
+              val result = processStockTrades(
+                stockPair,
+                entryStrategy,
+                exitStrategy,
+                quoteIndexes,
+                allTradingDates,
+                context,
+                entryDelayDays,
+              )
               val done = completed.incrementAndGet()
               val pct = (done * 100) / totalStocks
               val lastPct = lastLoggedPercent.get()
@@ -693,18 +710,33 @@ class BacktestService(
     quoteIndexes: Map<Stock, StockQuoteIndex>,
     allTradingDates: List<LocalDate>,
     context: BacktestContext,
+    entryDelayDays: Int = 0,
   ): List<Trade> {
     val trades = mutableListOf<Trade>()
     val usedTradeQuotes = HashSet<StockQuote>()
 
-    for (currentDate in allTradingDates) {
+    for ((index, currentDate) in allTradingDates.withIndex()) {
       val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate) ?: continue
       val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate) ?: continue
 
       if (!entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) continue
-      if (tradingQuote in usedTradeQuotes) continue
 
-      val entry = PotentialEntry(stockPair, strategyQuote, tradingQuote)
+      // Resolve entry quotes: use delayed date if entryDelayDays > 0
+      val (entryStrategyQuote, entryTradingQuote) =
+        if (entryDelayDays > 0) {
+          val delayedIndex = index + entryDelayDays
+          if (delayedIndex >= allTradingDates.size) continue
+          val delayedDate = allTradingDates[delayedIndex]
+          val delayedStrategy = quoteIndexes[stockPair.strategyStock]?.getQuote(delayedDate) ?: continue
+          val delayedTrading = quoteIndexes[stockPair.tradingStock]?.getQuote(delayedDate) ?: continue
+          Pair(delayedStrategy, delayedTrading)
+        } else {
+          Pair(strategyQuote, tradingQuote)
+        }
+
+      if (entryTradingQuote in usedTradeQuotes) continue
+
+      val entry = PotentialEntry(stockPair, entryStrategyQuote, entryTradingQuote)
       val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes, context) ?: continue
 
       trades.add(trade)
@@ -728,6 +760,7 @@ class BacktestService(
     effectiveMaxPositions: Int,
     ranker: StockRanker,
     cooldownDays: Int,
+    entryDelayDays: Int,
     context: BacktestContext,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
@@ -774,8 +807,16 @@ class BacktestService(
           }
 
       if (entriesForThisDate.isNotEmpty()) {
+        val resolvedEntries = resolveDelayedEntries(
+          entriesForThisDate,
+          index,
+          entryDelayDays,
+          allTradingDates,
+          quoteIndexes,
+        )
+
         val rankedEntries =
-          entriesForThisDate
+          resolvedEntries
             .map { entry ->
               val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote, context)
               RankedEntry(entry, score)
@@ -829,6 +870,35 @@ class BacktestService(
     }
 
     return Pair(trades, missedTrades)
+  }
+
+  /**
+   * Resolves delayed entry quotes for entries that fired on a given date.
+   * If entryDelayDays > 0, remaps each entry to use quotes from the delayed trading date.
+   * Entries where the delayed date has no data are dropped.
+   */
+  private fun resolveDelayedEntries(
+    entries: List<PotentialEntry>,
+    dateIndex: Int,
+    entryDelayDays: Int,
+    allTradingDates: List<LocalDate>,
+    quoteIndexes: Map<Stock, StockQuoteIndex>,
+  ): List<PotentialEntry> {
+    if (entryDelayDays <= 0) return entries
+
+    val delayedIndex = dateIndex + entryDelayDays
+    if (delayedIndex >= allTradingDates.size) return emptyList()
+
+    val delayedDate = allTradingDates[delayedIndex]
+    return entries.mapNotNull { entry ->
+      val delayedStrategy = quoteIndexes[entry.stockPair.strategyStock]?.getQuote(delayedDate)
+      val delayedTrading = quoteIndexes[entry.stockPair.tradingStock]?.getQuote(delayedDate)
+      if (delayedStrategy != null && delayedTrading != null) {
+        PotentialEntry(entry.stockPair, delayedStrategy, delayedTrading)
+      } else {
+        null
+      }
+    }
   }
 
   /**

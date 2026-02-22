@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BacktestRequest, StrategyConfig, AvailableConditions } from '~/types'
+import type { BacktestRequest, StrategyConfig, AvailableConditions, PositionSizingConfig } from '~/types'
 import { AssetTypeOptions, SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
 
 const SectorOptions = Object.values(SectorSymbol).map(s => ({
@@ -33,10 +33,16 @@ const state = reactive<{
   maxPositions: number
   ranker: string
   cooldownDays: number
+  entryDelayDays: number
   refresh: boolean
   useUnderlyingAssets: boolean
   detectedMappings: Array<{ symbol: string, underlying: string, canRemove: boolean }>
   customOverrides: Array<{ symbol: string, underlying: string }>
+  positionSizingEnabled: boolean
+  positionSizingStartingCapital: number
+  positionSizingRiskPercentage: number
+  positionSizingNAtr: number
+  positionSizingLeverageRatio: number | null
 }>({
   stockSelection: 'all',
   specificStocks: [],
@@ -50,10 +56,16 @@ const state = reactive<{
   maxPositions: 10,
   ranker: 'Adaptive',
   cooldownDays: 0,
+  entryDelayDays: 0,
   refresh: false,
   useUnderlyingAssets: true,
   detectedMappings: [],
-  customOverrides: []
+  customOverrides: [],
+  positionSizingEnabled: false,
+  positionSizingStartingCapital: 100000,
+  positionSizingRiskPercentage: 1.5,
+  positionSizingNAtr: 2.0,
+  positionSizingLeverageRatio: null
 })
 
 // Fetch available strategies from backend
@@ -180,6 +192,15 @@ function onSubmit() {
     })
   }
 
+  const positionSizing: PositionSizingConfig | undefined = state.positionSizingEnabled
+    ? {
+        startingCapital: state.positionSizingStartingCapital,
+        riskPercentage: state.positionSizingRiskPercentage,
+        nAtr: state.positionSizingNAtr,
+        ...(state.positionSizingLeverageRatio != null ? { leverageRatio: state.positionSizingLeverageRatio } : {})
+      }
+    : undefined
+
   const config: BacktestRequest = {
     entryStrategy: state.entryStrategy,
     exitStrategy: state.exitStrategy,
@@ -191,9 +212,11 @@ function onSubmit() {
     maxPositions: state.positionLimitEnabled ? state.maxPositions : undefined,
     ranker: state.positionLimitEnabled ? state.ranker : undefined,
     cooldownDays: state.cooldownDays > 0 ? state.cooldownDays : undefined,
+    entryDelayDays: state.entryDelayDays > 0 ? state.entryDelayDays : undefined,
     refresh: state.refresh,
     useUnderlyingAssets: state.useUnderlyingAssets,
-    customUnderlyingMap: Object.keys(customUnderlyingMap).length > 0 ? customUnderlyingMap : undefined
+    customUnderlyingMap: Object.keys(customUnderlyingMap).length > 0 ? customUnderlyingMap : undefined,
+    positionSizing
   }
 
   emit('run-backtest', config)
@@ -379,34 +402,125 @@ function cancel() {
               </div>
             </UCard>
 
-            <!-- Cooldown Period Section -->
+            <!-- Trade Timing Section -->
             <UCard>
               <template #header>
                 <h3 class="text-base font-semibold">
-                  Cooldown Period
+                  Trade Timing
                 </h3>
               </template>
-              <div class="flex items-center gap-4">
-                <label class="text-sm font-medium whitespace-nowrap">
-                  Cooldown Days:
-                </label>
-                <UInput
-                  v-model.number="state.cooldownDays"
-                  type="number"
-                  min="0"
-                  max="365"
-                  placeholder="0"
-                  class="w-32"
-                />
-              </div>
-              <div v-if="state.cooldownDays > 0" class="text-sm text-muted mt-4">
-                After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
-              </div>
-              <div v-else class="text-sm text-muted mt-4">
-                No cooldown: New positions can be entered immediately after exits if entry conditions are met
+              <div class="grid grid-cols-2 gap-6">
+                <div>
+                  <div class="flex items-center gap-4">
+                    <label class="text-sm font-medium whitespace-nowrap">
+                      Cooldown Days:
+                    </label>
+                    <UInput
+                      v-model.number="state.cooldownDays"
+                      type="number"
+                      min="0"
+                      max="365"
+                      placeholder="0"
+                      class="w-32"
+                    />
+                  </div>
+                  <div v-if="state.cooldownDays > 0" class="text-sm text-muted mt-2">
+                    After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
+                  </div>
+                  <div v-else class="text-sm text-muted mt-2">
+                    No cooldown: Immediate re-entry after exits
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex items-center gap-4">
+                    <label class="text-sm font-medium whitespace-nowrap">
+                      Entry Delay Days:
+                    </label>
+                    <UInput
+                      v-model.number="state.entryDelayDays"
+                      type="number"
+                      min="0"
+                      max="5"
+                      placeholder="0"
+                      class="w-32"
+                    />
+                  </div>
+                  <div v-if="state.entryDelayDays > 0" class="text-sm text-muted mt-2">
+                    Signal fires on Day 0, entry at Day {{ state.entryDelayDays }}'s close price
+                  </div>
+                  <div v-else class="text-sm text-muted mt-2">
+                    No delay: Enter at signal day's close price
+                  </div>
+                </div>
               </div>
             </UCard>
           </div>
+
+          <!-- Position Sizing Section -->
+          <UCard>
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-base font-semibold">
+                    Position Sizing
+                  </h3>
+                  <p class="text-xs text-muted mt-1">
+                    ATR-based position sizing for realistic portfolio simulation
+                  </p>
+                </div>
+                <USwitch v-model="state.positionSizingEnabled" />
+              </div>
+            </template>
+
+            <div v-if="state.positionSizingEnabled" class="grid grid-cols-4 gap-4">
+              <UFormField label="Starting Capital ($)" name="positionSizingStartingCapital">
+                <UInput
+                  v-model.number="state.positionSizingStartingCapital"
+                  type="number"
+                  min="1000"
+                  step="1000"
+                  placeholder="100000"
+                />
+              </UFormField>
+
+              <UFormField label="Risk Per Trade (%)" name="positionSizingRiskPercentage" help="% of portfolio risked per trade">
+                <UInput
+                  v-model.number="state.positionSizingRiskPercentage"
+                  type="number"
+                  min="0.1"
+                  max="10"
+                  step="0.1"
+                  placeholder="1.5"
+                />
+              </UFormField>
+
+              <UFormField label="ATR Multiplier" name="positionSizingNAtr" help="Expected adverse move in ATR units">
+                <UInput
+                  v-model.number="state.positionSizingNAtr"
+                  type="number"
+                  min="0.5"
+                  max="10"
+                  step="0.1"
+                  placeholder="2.0"
+                />
+              </UFormField>
+
+              <UFormField label="Leverage Ratio" name="positionSizingLeverageRatio" help="Max notional as multiple of portfolio (empty = no cap)">
+                <UInput
+                  v-model.number="state.positionSizingLeverageRatio"
+                  type="number"
+                  min="0.1"
+                  max="20"
+                  step="0.1"
+                  placeholder="No cap"
+                />
+              </UFormField>
+            </div>
+            <div v-else class="text-sm text-muted">
+              Disabled: Backtest will report per-trade percentage returns without position sizing
+            </div>
+          </UCard>
 
           <!-- Underlying Assets Configuration -->
           <UCard>

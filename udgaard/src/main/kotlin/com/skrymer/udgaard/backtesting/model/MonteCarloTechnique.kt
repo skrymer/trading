@@ -12,12 +12,14 @@ interface MonteCarloTechnique {
    * @param backtestResult The original backtest result to randomize
    * @param iterations Number of scenarios to generate
    * @param seed Random seed for reproducibility (optional)
+   * @param positionSizing Optional position sizing config for path-dependent sizing
    * @return List of randomized scenarios
    */
   fun generateScenarios(
     backtestResult: BacktestReport,
     iterations: Int,
     seed: Long? = null,
+    positionSizing: PositionSizingConfig? = null,
   ): List<MonteCarloScenario>
 
   /**

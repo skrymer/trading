@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.dto
 
 import com.skrymer.udgaard.backtesting.model.MonteCarloTechniqueType
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 
 /**
  * Request DTO for Monte Carlo simulation.
@@ -29,4 +30,5 @@ data class MonteCarloRequestDto(
    * If false, only percentile curves will be included
    */
   val includeAllEquityCurves: Boolean = false,
+  val positionSizing: PositionSizingConfig? = null,
 )

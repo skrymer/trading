@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.dto
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 
 /**
  * Request DTO for backtesting with either predefined or custom strategies
@@ -20,6 +21,8 @@ data class BacktestRequest(
   val useUnderlyingAssets: Boolean = true, // Enable automatic underlying asset detection
   val customUnderlyingMap: Map<String, String>? = null, // Custom symbol → underlying mappings
   val cooldownDays: Int = 0, // Global cooldown period in trading days after exit (0 = disabled)
+  val entryDelayDays: Int = 0, // Delay entry by N trading days after signal (0 = enter on signal day)
+  val positionSizing: PositionSizingConfig? = null, // Optional ATR-based position sizing
 )
 
 /**

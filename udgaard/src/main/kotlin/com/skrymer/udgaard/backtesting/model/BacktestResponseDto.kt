@@ -106,4 +106,5 @@ data class BacktestResponseDto(
   val dailyProfitSummary: List<DailyProfitSummary>,
   val marketConditionStats: MarketConditionStats?,
   val underlyingAssetTradeCount: Int,
+  val positionSizing: PositionSizingResult? = null,
 )

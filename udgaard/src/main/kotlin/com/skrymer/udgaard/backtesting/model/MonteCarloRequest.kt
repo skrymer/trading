@@ -27,4 +27,5 @@ data class MonteCarloRequest(
    * If false, only percentile curves will be included
    */
   val includeAllEquityCurves: Boolean = false,
+  val positionSizing: PositionSizingConfig? = null,
 )

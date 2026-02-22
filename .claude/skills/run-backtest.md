@@ -53,6 +53,7 @@ Always use these MCP tools for discovery instead of curl. The actual backtest ex
 - `atrDrawdownStats` - ATR drawdown percentiles and distribution
 - `marketConditionAverages` - Avg market breadth, SPY uptrend %
 - `edgeConsistencyScore` - Edge consistency across years (0-100)
+- `positionSizing` - Position sizing results (only present when `positionSizing` config is in request)
 
 **Pre-computed chart data** (directly in response):
 - `equityCurveData` - `[{date, profitPercentage}]` sorted by exit date
@@ -154,7 +155,28 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 - Improves win rate and edge per trade
 - Can double returns while reducing drawdown
 
-#### 2. Underlying Asset Mapping
+#### 2. Entry Delay
+
+**Delay entry by N trading days** to model realistic execution lag (e.g., seeing signal after market close, entering next day):
+
+```json
+{
+  "entryDelayDays": 1
+}
+```
+
+**When to use:**
+- **Realistic backtesting** - signal fires after Day 0 closes, you enter at Day 1's close
+- **Australian timezone** - user sees signal after US market close, enters ~30 min before next close
+- Set to 0 to disable (default, enter at signal day's close)
+
+**How it works:**
+- Entry signal is evaluated on Day 0 using Day 0's quotes
+- Actual entry uses Day 0+N's close price
+- If Day 0+N has no data (e.g., signal on last trading day), the entry is skipped
+- Exit strategy starts evaluating from the delayed entry date
+
+#### 3. Underlying Asset Mapping
 
 **Use underlying assets for signals while trading leveraged ETFs:**
 
@@ -180,7 +202,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 - TNA/TZA -> IWM
 - And many more (see ConfigModal.vue for full list)
 
-#### 3. Sector Filtering
+#### 4. Sector Filtering
 
 **Include only specific sectors:**
 
@@ -211,7 +233,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 
 **Use Case:** Test strategy performance on specific sectors to identify which sectors work best, or exclude consistently poor-performing sectors.
 
-#### 4. Position Limiting
+#### 5. Position Limiting
 
 ```json
 {
@@ -227,6 +249,100 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 - DistanceFrom10Ema
 - SectorStrength
 - Random
+
+#### 6. Position Sizing (ATR-Based)
+
+Position sizing calculates **how many shares to buy** for each trade based on the stock's volatility (ATR) and a risk budget. When enabled, the equity curve tracks actual portfolio dollar value instead of compounding percentage returns.
+
+**Formula:** `shares = floor(portfolioValue × (riskPct / 100) / (nAtr × ATR))`
+
+```json
+{
+  "positionSizing": {
+    "startingCapital": 100000,
+    "riskPercentage": 1.5,
+    "nAtr": 2.0
+  }
+}
+```
+
+**Parameters:**
+- `startingCapital` - Starting portfolio value in dollars (default: 100,000)
+- `riskPercentage` - Percentage of portfolio risked per trade (default: 1.5%)
+- `nAtr` - ATR multiplier for expected adverse move (default: 2.0)
+- `leverageRatio` - Max total open notional as multiple of portfolio value (optional, null = no cap). Examples: `1.0` = cash account (notional ≤ portfolio), `5.0` = deep ITM options (notional ≤ 5× portfolio). When the cap is reached, new positions get fewer shares or 0.
+
+**When to use:**
+- **Realistic portfolio simulation** - see actual dollar P&L, not just percentages
+- **Multi-stock backtests** - concurrent positions are sized independently from portfolio value at each entry
+- **Risk management analysis** - max drawdown in dollars and percentage
+- **Strategy comparison** - compare strategies on absolute dollar returns
+
+**Response fields** (when `positionSizing` is included in request):
+- `positionSizing.startingCapital` / `finalCapital` - Portfolio start and end values
+- `positionSizing.totalReturnPct` - Total return as percentage
+- `positionSizing.maxDrawdownPct` / `maxDrawdownDollars` - Peak-to-trough drawdown
+- `positionSizing.peakCapital` - Highest portfolio value reached
+- `positionSizing.trades[]` - Sized trades with `shares`, `dollarProfit`, `portfolioReturnPct`
+- `positionSizing.equityCurve[]` - `{date, portfolioValue}` points for charting
+
+**Example: Full backtest with position sizing**
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": [],
+    "entryStrategy": {"type": "predefined", "name": "Mjolnir"},
+    "exitStrategy": {"type": "predefined", "name": "Mjolnir"},
+    "startDate": "2020-01-01",
+    "endDate": "2025-12-31",
+    "maxPositions": 15,
+    "ranker": "Adaptive",
+    "positionSizing": {
+      "startingCapital": 100000,
+      "riskPercentage": 1.5,
+      "nAtr": 2.0
+    }
+  }' > /tmp/backtest_sized.json
+```
+
+**Analyzing position sizing results:**
+
+```python
+import json
+
+with open('/tmp/backtest_sized.json', 'r') as f:
+    result = json.load(f)
+
+ps = result['positionSizing']
+print(f"Starting Capital: ${ps['startingCapital']:,.0f}")
+print(f"Final Capital:    ${ps['finalCapital']:,.0f}")
+print(f"Total Return:     {ps['totalReturnPct']:.2f}%")
+print(f"Max Drawdown:     {ps['maxDrawdownPct']:.2f}% (${ps['maxDrawdownDollars']:,.0f})")
+print(f"Peak Capital:     ${ps['peakCapital']:,.0f}")
+```
+
+**Monte Carlo with position sizing:**
+
+When position sizing is passed to Monte Carlo, each shuffled/resampled scenario re-applies sizing sequentially (position sizing is path-dependent — trade order changes portfolio value, which changes subsequent position sizes).
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"backtestId\": \"$BACKTEST_ID\",
+    \"technique\": \"TRADE_SHUFFLING\",
+    \"iterations\": 10000,
+    \"positionSizing\": {
+      \"startingCapital\": 100000,
+      \"riskPercentage\": 1.5,
+      \"nAtr\": 2.0
+    }
+  }" > /tmp/monte_carlo_sized.json
+```
+
+**Note:** Without `positionSizing`, behavior is unchanged — equity curve compounds per-trade percentage returns as before.
 
 ## Strategy Optimization Goals
 

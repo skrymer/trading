@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
+import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.toResponseDto
@@ -9,6 +10,7 @@ import com.skrymer.udgaard.backtesting.service.BacktestResultStore
 import com.skrymer.udgaard.backtesting.service.BacktestService
 import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
+import com.skrymer.udgaard.backtesting.service.PositionSizingService
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.AdaptiveRanker
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
@@ -57,6 +59,7 @@ class BacktestController(
   private val dynamicStrategyBuilder: DynamicStrategyBuilder,
   private val conditionRegistry: ConditionRegistry,
   private val backtestResultStore: BacktestResultStore,
+  private val positionSizingService: PositionSizingService,
 ) {
   /**
    * Run backtest with request body.
@@ -76,7 +79,8 @@ class BacktestController(
         "excludeSectors=${request.excludeSectors?.joinToString(",") ?: "none"}, " +
         "startDate=${request.startDate}, " +
         "endDate=${request.endDate}, maxPositions=${request.maxPositions}, ranker=${request.ranker}, " +
-        "useUnderlyingAssets=${request.useUnderlyingAssets}, cooldownDays=${request.cooldownDays}",
+        "useUnderlyingAssets=${request.useUnderlyingAssets}, cooldownDays=${request.cooldownDays}, " +
+        "entryDelayDays=${request.entryDelayDays}",
     )
 
     val entryStrategy =
@@ -255,6 +259,7 @@ class BacktestController(
           request.useUnderlyingAssets,
           request.customUnderlyingMap,
           request.cooldownDays,
+          request.entryDelayDays,
         )
 
       logger.info(
@@ -263,8 +268,33 @@ class BacktestController(
           "Edge: ${String.format("%.2f", backtestReport.edge)}%",
       )
 
-      val backtestId = backtestResultStore.store(backtestReport)
-      ResponseEntity.ok(backtestReport.toResponseDto(backtestId))
+      val finalReport =
+        if (request.positionSizing != null) {
+          val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
+          logger.info(
+            "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
+              "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
+              "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%",
+          )
+          BacktestReport(
+            winningTrades = backtestReport.winningTrades,
+            losingTrades = backtestReport.losingTrades,
+            missedTrades = backtestReport.missedTrades,
+            timeBasedStats = backtestReport.timeBasedStats,
+            exitReasonAnalysis = backtestReport.exitReasonAnalysis,
+            sectorPerformance = backtestReport.sectorPerformance,
+            stockPerformance = backtestReport.stockPerformance,
+            atrDrawdownStats = backtestReport.atrDrawdownStats,
+            marketConditionAverages = backtestReport.marketConditionAverages,
+            edgeConsistencyScore = backtestReport.edgeConsistencyScore,
+            positionSizingResult = sizingResult,
+          )
+        } else {
+          backtestReport
+        }
+
+      val backtestId = backtestResultStore.store(finalReport)
+      ResponseEntity.ok(finalReport.toResponseDto(backtestId))
     } catch (e: IllegalArgumentException) {
       logger.error("Backtest validation failed: ${e.message}", e)
       @Suppress("UNCHECKED_CAST")

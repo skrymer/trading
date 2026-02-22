@@ -77,6 +77,8 @@ asgaard/
 │   │   │   ├── SyncPortfolioModal.vue
 │   │   │   ├── RollChainModal.vue
 │   │   │   └── CreateFromBrokerModal.vue
+│   │   ├── settings/             # Settings components (1)
+│   │   │   └── MembersList.vue
 │   │   ├── strategy/             # Strategy builder components (3)
 │   │   │   ├── StrategyBuilder.vue
 │   │   │   ├── StrategySelector.vue

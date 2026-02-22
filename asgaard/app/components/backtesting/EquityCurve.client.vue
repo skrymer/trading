@@ -6,10 +6,15 @@
       </div>
       <div v-else class="flex items-center justify-between flex-wrap gap-4">
         <div class="flex items-center gap-4">
-          <h3 class="text-lg font-semibold">
-            Equity Curve
-          </h3>
-          <div class="flex items-center gap-2">
+          <div>
+            <h3 class="text-lg font-semibold">
+              Equity Curve
+            </h3>
+            <p v-if="hasPositionSizing" class="text-xs text-muted">
+              Portfolio Value ({{ formatCurrency(positionSizing!.startingCapital) }} starting capital)
+            </p>
+          </div>
+          <div v-if="!hasPositionSizing" class="flex items-center gap-2">
             <span class="text-sm text-muted">Leverage:</span>
             <USelect
               v-model="leverage"
@@ -107,14 +112,16 @@
 </template>
 
 <script setup lang="ts">
-import type { EquityCurvePoint } from '~/types'
+import type { EquityCurvePoint, PositionSizingResult } from '~/types'
 
 const props = defineProps<{
   equityCurveData: EquityCurvePoint[]
   loading?: boolean
+  positionSizing?: PositionSizingResult | null
 }>()
 
-const startingCapital = 100000
+const hasPositionSizing = computed(() => !!props.positionSizing && props.positionSizing.equityCurve.length > 0)
+const startingCapital = computed(() => props.positionSizing?.startingCapital ?? 100000)
 
 // Leverage selection
 const leverage = ref(1)
@@ -134,11 +141,20 @@ const chartContainer = ref<HTMLElement | null>(null)
 let chart: any = null
 let lineSeries: any = null
 
-// Compute equity curve points from profitPercentage data
+// Compute equity curve points from profitPercentage data or position sizing
 const equityPoints = computed(() => {
+  // When position sizing is active, use the backend-computed equity curve
+  if (hasPositionSizing.value) {
+    const sizingCurve = props.positionSizing!.equityCurve
+    return sizingCurve.map(point => ({
+      time: new Date(point.date).getTime() / 1000,
+      value: point.portfolioValue
+    }))
+  }
+
   if (!props.equityCurveData || props.equityCurveData.length === 0) return []
 
-  let equity = startingCapital
+  let equity = startingCapital.value
   const points: { time: number, value: number }[] = []
 
   // Add starting point using first trade's date
@@ -146,7 +162,7 @@ const equityPoints = computed(() => {
   if (firstDate) {
     const firstTime = new Date(firstDate).getTime() / 1000
     // Start point is 1 day before first trade
-    points.push({ time: firstTime - 86400, value: startingCapital })
+    points.push({ time: firstTime - 86400, value: startingCapital.value })
   }
 
   props.equityCurveData.forEach((point) => {
@@ -163,14 +179,36 @@ const equityPoints = computed(() => {
 
 // Calculate performance metrics
 const performanceMetrics = computed(() => {
+  // When position sizing is active, use backend-computed metrics
+  if (hasPositionSizing.value) {
+    const ps = props.positionSizing!
+    const points = equityPoints.value
+    if (points.length < 2) return null
+
+    const startDate = new Date(points[0]!.time * 1000)
+    const endDate = new Date(points[points.length - 1]!.time * 1000)
+    const years = (endDate.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    const cagr = years > 0 ? (Math.pow(ps.finalCapital / ps.startingCapital, 1 / years) - 1) * 100 : 0
+
+    return {
+      startingCapital: ps.startingCapital,
+      finalEquity: ps.finalCapital,
+      totalReturn: ps.totalReturnPct,
+      totalProfit: ps.finalCapital - ps.startingCapital,
+      maxDrawdown: ps.maxDrawdownPct,
+      cagr
+    }
+  }
+
   if (equityPoints.value.length < 2) return null
 
+  const start = startingCapital.value
   const finalEquity = equityPoints.value[equityPoints.value.length - 1]!.value
-  const totalReturn = ((finalEquity - startingCapital) / startingCapital) * 100
-  const totalProfit = finalEquity - startingCapital
+  const totalReturn = ((finalEquity - start) / start) * 100
+  const totalProfit = finalEquity - start
 
   // Calculate max drawdown
-  let maxEquity = startingCapital
+  let maxEquity = start
   let maxDrawdown = 0
 
   equityPoints.value.forEach((point) => {
@@ -187,10 +225,10 @@ const performanceMetrics = computed(() => {
   const startDate = new Date(equityPoints.value[0]!.time * 1000)
   const endDate = new Date(equityPoints.value[equityPoints.value.length - 1]!.time * 1000)
   const years = (endDate.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-  const cagr = years > 0 ? (Math.pow(finalEquity / startingCapital, 1 / years) - 1) * 100 : 0
+  const cagr = years > 0 ? (Math.pow(finalEquity / start, 1 / years) - 1) * 100 : 0
 
   return {
-    startingCapital,
+    startingCapital: start,
     finalEquity,
     totalReturn,
     totalProfit,

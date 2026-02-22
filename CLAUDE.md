@@ -51,6 +51,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
    - `MonteCarloService.kt`: Monte Carlo simulations
+   - `PositionSizingService.kt`: Position sizing calculations
+   - `BacktestResultStore.kt`: In-memory store for backtest results
    - DSL-based strategy builder (`StrategyDsl.kt`)
    - Strategies and conditions are discoverable via MCP tools (`getAvailableStrategies`, `getAvailableConditions`)
 
@@ -63,8 +65,12 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `SymbolService.kt`: Stock symbol management (DB-backed with caching)
 
 3. **Portfolio** (`portfolio/`)
-   - `PortfolioService.kt`: Portfolio and position management
-   - IBKR integration for broker sync
+   - `PortfolioService.kt`: Portfolio management
+   - `PositionService.kt`: Position lifecycle management
+   - `BrokerIntegrationService.kt`: Broker sync orchestration
+   - `OptionPriceService.kt`: Options pricing data
+   - `UnrealizedPnlService.kt`: Real-time P/L calculations
+   - IBKR integration via broker adapter pattern (`broker/`, `ibkr/`)
    - Options data via AlphaVantage
 
 4. **MCP Server** (`mcp/`)
@@ -91,12 +97,13 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (48 Vue components):**
+**Key Components (49 Vue components):**
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
+- **Settings** (`components/settings/`): MembersList
 - **Pages**: index, backtesting, portfolio, stock-data, data-manager, app-metrics, settings, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
@@ -116,8 +123,8 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext
-│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService
+│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext, PositionSizingConfig
+│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
@@ -126,11 +133,13 @@ trading/
 │   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository
 │   │   │   └── service/              # StockService, TechnicalIndicatorService, OrderBlockCalculator
 │   │   ├── portfolio/                # Portfolio domain
-│   │   │   ├── controller/           # PortfolioController
-│   │   │   ├── integration/          # IBKR, AlphaVantage options
+│   │   │   ├── controller/           # PortfolioController, PositionController, OptionController
+│   │   │   ├── dto/                  # Request/response DTOs
+│   │   │   ├── integration/          # Broker adapters, IBKR, options providers
+│   │   │   ├── mapper/               # Entity/DTO mappers
 │   │   │   ├── model/                # Portfolio, Position, Execution
-│   │   │   ├── repository/           # PositionJooqRepository
-│   │   │   └── service/              # PortfolioService
+│   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository
+│   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService
 │   │   ├── controller/               # Shared controllers (Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes
@@ -144,7 +153,7 @@ trading/
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (8 pages)
+│   │   ├── pages/                    # File-based routing (9 pages)
 │   │   ├── plugins/                  # Nuxt plugins
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
@@ -237,4 +246,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-02-21_
+_Last Updated: 2026-02-23_

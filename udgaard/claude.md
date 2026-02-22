@@ -40,6 +40,8 @@ udgaard/
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
 │   │   │   ├── MonteCarloService.kt
+│   │   │   ├── PositionSizingService.kt  # Position sizing calculations
+│   │   │   ├── BacktestResultStore.kt    # In-memory backtest result store
 │   │   │   └── ConditionRegistry.kt
 │   │   └── strategy/                 # Trading strategies
 │   │       ├── EntryStrategy.kt      # Entry interface
@@ -90,14 +92,26 @@ udgaard/
 │   │       └── RateLimiterService.kt
 │   ├── portfolio/                    # Portfolio domain
 │   │   ├── controller/
-│   │   │   └── PortfolioController.kt
+│   │   │   ├── PortfolioController.kt
+│   │   │   ├── PositionController.kt
+│   │   │   └── OptionController.kt
+│   │   ├── dto/                      # Request/response DTOs
 │   │   ├── integration/
-│   │   │   ├── ibkr/                 # Interactive Brokers
+│   │   │   ├── broker/               # Broker adapter pattern (BrokerAdapter, TradeProcessor)
+│   │   │   ├── ibkr/                 # Interactive Brokers (client, adapter, mapper, dto/)
 │   │   │   └── options/              # Options data (AlphaVantage)
+│   │   ├── mapper/                   # Entity/DTO mappers
 │   │   ├── model/
 │   │   ├── repository/
+│   │   │   ├── PortfolioJooqRepository.kt
+│   │   │   ├── PositionJooqRepository.kt
+│   │   │   └── ExecutionJooqRepository.kt
 │   │   └── service/
-│   │       └── PortfolioService.kt
+│   │       ├── PortfolioService.kt
+│   │       ├── PositionService.kt
+│   │       ├── BrokerIntegrationService.kt
+│   │       ├── OptionPriceService.kt
+│   │       └── UnrealizedPnlService.kt
 │   ├── controller/                   # Shared controllers
 │   │   ├── CacheController.kt
 │   │   └── SettingsController.kt

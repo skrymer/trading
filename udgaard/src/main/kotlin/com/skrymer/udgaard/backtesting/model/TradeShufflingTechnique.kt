@@ -1,8 +1,8 @@
 package com.skrymer.udgaard.backtesting.model
 
-import com.skrymer.udgaard.backtesting.model.BacktestReport
-import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.PositionSizingService
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.random.Random
 
 /**
@@ -16,6 +16,7 @@ class TradeShufflingTechnique : MonteCarloTechnique {
     backtestResult: BacktestReport,
     iterations: Int,
     seed: Long?,
+    positionSizing: PositionSizingConfig?,
   ): List<MonteCarloScenario> {
     val random = seed?.let { Random(it) } ?: Random.Default
     val allTrades = backtestResult.trades
@@ -25,11 +26,13 @@ class TradeShufflingTechnique : MonteCarloTechnique {
     }
 
     return (1..iterations).map { iteration ->
-      // Shuffle trades
       val shuffledTrades = allTrades.shuffled(random)
 
-      // Calculate equity curve and metrics for this scenario
-      createScenario(iteration, shuffledTrades)
+      if (positionSizing != null) {
+        createScenarioWithSizing(iteration, shuffledTrades, positionSizing)
+      } else {
+        createScenario(iteration, shuffledTrades)
+      }
     }
   }
 
@@ -38,10 +41,9 @@ class TradeShufflingTechnique : MonteCarloTechnique {
     trades: List<Trade>,
   ): MonteCarloScenario {
     val equityCurve = mutableListOf<MonteCarloScenario.EquityPoint>()
-    var multiplier = 1.0 // Start with 1.0 for compounding
+    var multiplier = 1.0
 
     trades.forEachIndexed { index, trade ->
-      // Compound the returns properly: (1 + r1) * (1 + r2) * ... - 1
       multiplier *= (1.0 + trade.profitPercentage / 100.0)
       val cumulativeReturn = (multiplier - 1.0) * 100.0
 
@@ -60,6 +62,49 @@ class TradeShufflingTechnique : MonteCarloTechnique {
       )
     }
 
+    return buildScenario(scenarioNumber, trades, equityCurve)
+  }
+
+  private fun createScenarioWithSizing(
+    scenarioNumber: Int,
+    trades: List<Trade>,
+    config: PositionSizingConfig,
+  ): MonteCarloScenario {
+    val equityCurve = mutableListOf<MonteCarloScenario.EquityPoint>()
+    var portfolioValue = config.startingCapital
+    var peakValue = config.startingCapital
+
+    trades.forEachIndexed { index, trade ->
+      val shares = PositionSizingService.calculateShares(portfolioValue, trade.entryQuote.atr, config)
+      val dollarProfit = shares * trade.profit
+      portfolioValue += dollarProfit
+      peakValue = max(peakValue, portfolioValue)
+
+      val cumulativeReturn = ((portfolioValue - config.startingCapital) / config.startingCapital) * 100.0
+
+      val exitDate =
+        trade.quotes
+          .maxByOrNull { it.date ?: throw IllegalStateException("Trade has quote with null date") }
+          ?.date
+          ?: throw IllegalStateException("Trade has no quotes")
+
+      equityCurve.add(
+        MonteCarloScenario.EquityPoint(
+          date = exitDate,
+          cumulativeReturnPercentage = cumulativeReturn,
+          tradeNumber = index + 1,
+        ),
+      )
+    }
+
+    return buildScenario(scenarioNumber, trades, equityCurve)
+  }
+
+  private fun buildScenario(
+    scenarioNumber: Int,
+    trades: List<Trade>,
+    equityCurve: List<MonteCarloScenario.EquityPoint>,
+  ): MonteCarloScenario {
     val winningTrades = trades.filter { it.profitPercentage > 0 }
     val losingTrades = trades.filter { it.profitPercentage <= 0 }
 
@@ -81,7 +126,6 @@ class TradeShufflingTechnique : MonteCarloTechnique {
     val edge = (averageWinPercent * winRate) - ((1.0 - winRate) * averageLossPercent)
     val maxDrawdown = calculateMaxDrawdown(equityCurve)
 
-    // Final cumulative return is the last point in equity curve
     val totalReturn =
       if (equityCurve.isNotEmpty()) {
         equityCurve.last().cumulativeReturnPercentage
@@ -106,7 +150,7 @@ class TradeShufflingTechnique : MonteCarloTechnique {
     if (equityCurve.isEmpty()) return 0.0
 
     var maxDrawdown = 0.0
-    var peakBalance = 1.0 + equityCurve.first().cumulativeReturnPercentage / 100.0 // Convert % to balance multiplier
+    var peakBalance = 1.0 + equityCurve.first().cumulativeReturnPercentage / 100.0
 
     equityCurve.forEach { point ->
       val currentBalance = 1.0 + point.cumulativeReturnPercentage / 100.0
@@ -115,7 +159,6 @@ class TradeShufflingTechnique : MonteCarloTechnique {
         peakBalance = currentBalance
       }
 
-      // Drawdown as percentage: (peak - current) / peak * 100
       val drawdown = ((peakBalance - currentBalance) / peakBalance) * 100.0
       if (drawdown > maxDrawdown) {
         maxDrawdown = drawdown

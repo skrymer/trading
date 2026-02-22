@@ -38,6 +38,7 @@ class MonteCarloService {
         backtestResult = request.backtestResult,
         iterations = request.iterations,
         seed = request.seed,
+        positionSizing = request.positionSizing,
       )
 
     if (scenarios.isEmpty()) {
@@ -51,11 +52,21 @@ class MonteCarloService {
     val percentileEquityCurves = extractPercentileEquityCurves(scenarios)
 
     // Get original backtest metrics for comparison
-    // Calculate compounded return: (1 + r1) * (1 + r2) * ... - 1
     val originalReturn =
-      request.backtestResult.trades
-        .fold(1.0) { multiplier, trade -> multiplier * (1.0 + trade.profitPercentage / 100.0) }
-        .let { (it - 1.0) * 100.0 }
+      if (request.positionSizing != null) {
+        // Use position-sized return when sizing is configured
+        val sizingResult =
+          PositionSizingService().applyPositionSizing(
+            request.backtestResult.trades,
+            request.positionSizing,
+          )
+        sizingResult.totalReturnPct
+      } else {
+        // Calculate compounded return: (1 + r1) * (1 + r2) * ... - 1
+        request.backtestResult.trades
+          .fold(1.0) { multiplier, trade -> multiplier * (1.0 + trade.profitPercentage / 100.0) }
+          .let { (it - 1.0) * 100.0 }
+      }
     val originalEdge = request.backtestResult.edge
     val originalWinRate = request.backtestResult.winRate
 
