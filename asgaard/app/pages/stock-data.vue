@@ -115,6 +115,8 @@
             <USelectMenu
               v-model="heatmapMonths"
               :items="[
+                { label: '1 Week', value: 0.25 },
+                { label: '1 Month', value: 1 },
                 { label: '3 Months', value: 3 },
                 { label: '6 Months', value: 6 },
                 { label: '1 Year', value: 12 },
@@ -203,25 +205,26 @@ const marketBreadthData = ref<MarketBreadthDaily[]>([])
 const sectorBreadthData = ref<SectorBreadthDaily[]>([])
 
 // Breadth chart computed properties
-const filteredMarketBreadth = computed(() => {
+const cutoffDate = computed(() => {
   const today = new Date()
-  const monthsAgo = new Date()
-  monthsAgo.setMonth(today.getMonth() - heatmapMonths.value.value)
+  const cutoff = new Date()
+  const months = heatmapMonths.value.value
+  const days = Math.round(months * 30)
+  cutoff.setDate(today.getDate() - days)
+  return cutoff
+})
 
+const filteredMarketBreadth = computed(() => {
   return marketBreadthData.value.filter((d) => {
     const quoteDate = new Date(d.quoteDate)
-    return quoteDate >= monthsAgo
+    return quoteDate >= cutoffDate.value
   })
 })
 
 const filteredSectorBreadth = computed(() => {
-  const today = new Date()
-  const monthsAgo = new Date()
-  monthsAgo.setMonth(today.getMonth() - heatmapMonths.value.value)
-
   return sectorBreadthData.value.filter((d) => {
     const quoteDate = new Date(d.quoteDate)
-    return quoteDate >= monthsAgo
+    return quoteDate >= cutoffDate.value
   })
 })
 

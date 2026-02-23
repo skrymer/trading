@@ -31,6 +31,14 @@ const links = [[{
   }
 },
 {
+  label: 'Scanner',
+  icon: 'i-lucide-scan-search',
+  to: '/scanner',
+  onSelect: () => {
+    open.value = false
+  }
+},
+{
   label: 'Stock Data',
   icon: 'i-lucide-database',
   to: '/stock-data',

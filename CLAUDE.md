@@ -43,7 +43,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - **AlphaVantage API as PRIMARY data source** (adjusted OHLCV, volume, ATR)
 - Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
 
-**Key Components (modularized into `backtesting/`, `data/`, `portfolio/` packages):**
+**Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
 
 1. **Backtesting** (`backtesting/`)
    - `BacktestService.kt`: Core backtesting engine
@@ -73,11 +73,18 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - IBKR integration via broker adapter pattern (`broker/`, `ibkr/`)
    - Options data via AlphaVantage
 
-4. **MCP Server** (`mcp/`)
+4. **Scanner** (`scanner/`)
+   - `ScannerService.kt`: Scan for entry signals, check exits, CRUD trades, roll trades
+   - `ScannerController.kt`: REST API for scanner operations
+   - `ScannerTradeJooqRepository.kt`: jOOQ persistence for scanner trades
+   - Lightweight trade tracking separate from portfolio positions
+   - Uses `StrategyRegistry` for predefined strategy lookup
+
+5. **MCP Server** (`mcp/`)
    - `StockMcpTools.kt`: Tools for Claude AI integration
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
-5. **Integration** (`data/integration/`)
+6. **Integration** (`data/integration/`)
    - **AlphaVantage**: PRIMARY data source - Adjusted daily OHLCV, ATR
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
 
@@ -89,6 +96,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Portfolio:** `GET/POST /api/portfolio`, `GET/DELETE /api/portfolio/{id}`, `GET /api/portfolio/{id}/stats`, `GET/POST /api/portfolio/{id}/trades`, `PUT/DELETE /api/portfolio/{id}/trades/{tradeId}`, `PUT /api/portfolio/{id}/trades/{tradeId}/close`, `GET /api/portfolio/{id}/equity-curve`
 
+**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `POST /api/scanner/trades/{id}/roll`
+
 **Market Breadth:** `GET /api/breadth`, `GET /api/breadth/{symbol}`, `POST /api/breadth/refresh`
 
 **Other:** `POST /api/monte-carlo/run`, `POST /api/cache/evict`, `POST /api/cache/evict-all`, `POST /api/data/import`
@@ -97,14 +106,15 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (49 Vue components):**
+**Key Components (56 Vue components):**
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
+- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards
 - **Settings** (`components/settings/`): MembersList
-- **Pages**: index, backtesting, portfolio, stock-data, data-manager, app-metrics, settings, test-chart
+- **Pages**: index, backtesting, portfolio, scanner, stock-data, data-manager, app-metrics, settings, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -140,10 +150,17 @@ trading/
 │   │   │   ├── model/                # Portfolio, Position, Execution
 │   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository
 │   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService
+│   │   ├── scanner/                  # Scanner domain
+│   │   │   ├── controller/           # ScannerController
+│   │   │   ├── dto/                  # Request DTOs
+│   │   │   ├── mapper/               # ScannerTradeMapper
+│   │   │   ├── model/                # ScannerTrade, ScanResult, ScanResponse
+│   │   │   ├── repository/           # ScannerTradeJooqRepository
+│   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes
-│   ├── src/main/resources/           # Config, migrations (V1-V3)
+│   ├── src/main/resources/           # Config, migrations (V1-V4)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL, MongoDB)
 │   ├── build.gradle                  # Gradle build config
@@ -151,9 +168,9 @@ trading/
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── asgaard/                          # Frontend (Nuxt.js)
 │   ├── app/
-│   │   ├── components/               # Vue components (backtesting, portfolio, charts, strategy, data-management)
+│   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (9 pages)
+│   │   ├── pages/                    # File-based routing (10 pages)
 │   │   ├── plugins/                  # Nuxt plugins
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component

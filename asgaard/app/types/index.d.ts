@@ -1001,3 +1001,117 @@ export interface PortfolioSyncResult {
   lastSyncDate: string
   errors: string[]
 }
+
+// ========================================
+// Scanner Types
+// ========================================
+
+export interface ScanRequest {
+  entryStrategyName: string
+  exitStrategyName: string
+  stockSymbols?: string[]
+  assetTypes?: string[]
+  includeSectors?: string[]
+  excludeSectors?: string[]
+}
+
+export interface ConditionEvaluationResult {
+  conditionType: string
+  description: string
+  passed: boolean
+  actualValue?: string
+  threshold?: string
+  message?: string
+}
+
+export interface EntrySignalDetails {
+  strategyName: string
+  strategyDescription: string
+  conditions: ConditionEvaluationResult[]
+  allConditionsMet: boolean
+}
+
+export interface ScanResult {
+  symbol: string
+  sectorSymbol?: string
+  closePrice: number
+  date: string
+  entrySignalDetails?: EntrySignalDetails
+  atr: number
+  trend?: string
+}
+
+export interface ScanResponse {
+  scanDate: string
+  entryStrategyName: string
+  exitStrategyName: string
+  results: ScanResult[]
+  totalStocksScanned: number
+  executionTimeMs: number
+}
+
+export interface ExitCheckResult {
+  tradeId: number
+  symbol: string
+  exitTriggered: boolean
+  exitReason?: string
+  currentPrice: number
+  unrealizedPnlPercent: number
+}
+
+export interface ExitCheckResponse {
+  results: ExitCheckResult[]
+  checksPerformed: number
+  exitsTriggered: number
+}
+
+export interface ScannerTrade {
+  id: number
+  symbol: string
+  sectorSymbol?: string
+  instrumentType: InstrumentType
+  entryPrice: number
+  entryDate: string
+  quantity: number
+  optionType?: OptionType
+  strikePrice?: number
+  expirationDate?: string
+  multiplier: number
+  entryStrategyName: string
+  exitStrategyName: string
+  rolledCredits: number
+  rollCount: number
+  notes?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AddScannerTradeRequest {
+  symbol: string
+  sectorSymbol?: string
+  instrumentType: string
+  entryPrice: number
+  entryDate: string
+  quantity: number
+  optionType?: string
+  strikePrice?: number
+  expirationDate?: string
+  multiplier?: number
+  entryStrategyName: string
+  exitStrategyName: string
+  notes?: string
+}
+
+export interface RollScannerTradeRequest {
+  closePrice: number
+  newStrikePrice: number
+  newExpirationDate: string
+  newOptionType?: string
+  newEntryPrice: number
+  newEntryDate: string
+  newQuantity: number
+}
+
+export interface UpdateScannerTradeRequest {
+  notes?: string
+}

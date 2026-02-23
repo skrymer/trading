@@ -112,6 +112,20 @@ udgaard/
 │   │       ├── BrokerIntegrationService.kt
 │   │       ├── OptionPriceService.kt
 │   │       └── UnrealizedPnlService.kt
+│   ├── scanner/                      # Scanner domain
+│   │   ├── controller/
+│   │   │   └── ScannerController.kt
+│   │   ├── dto/
+│   │   │   └── ScannerDtos.kt
+│   │   ├── mapper/
+│   │   │   └── ScannerTradeMapper.kt
+│   │   ├── model/
+│   │   │   ├── ScannerTrade.kt
+│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse, ExitCheckResult, ExitCheckResponse
+│   │   ├── repository/
+│   │   │   └── ScannerTradeJooqRepository.kt
+│   │   └── service/
+│   │       └── ScannerService.kt
 │   ├── controller/                   # Shared controllers
 │   │   ├── CacheController.kt
 │   │   └── SettingsController.kt
@@ -126,7 +140,8 @@ udgaard/
 │   └── db/migration/                 # Flyway migrations
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
-│       └── V3__Add_sector_symbols.sql
+│       ├── V3__Add_sector_symbols.sql
+│       └── V4__Add_scanner_trades.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
