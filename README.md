@@ -65,8 +65,8 @@ curl -X POST http://localhost:8080/udgaard/api/backtest \
 
 **Option 2: Via UI**
 
-1. Start the backend: `cd udgaard && ./gradlew startH2Server` (Terminal 1), then `./gradlew bootRun` (Terminal 2)
-2. Start the frontend: `cd asgaard && npm run dev`
+1. Start the backend: `cd udgaard && docker compose up -d postgres && ./gradlew bootRun`
+2. Start the frontend: `cd asgaard && pnpm dev`
 3. Open http://localhost:3000
 4. Navigate to Backtesting page and configure options
 5. View results with charts and metrics
@@ -88,13 +88,13 @@ curl -X POST http://localhost:8080/udgaard/api/backtest \
 ┌─────────────────────────────────────────────────────────────┐
 │                   Backend (Udgaard)                          │
 │  - Kotlin 2.3.0 + Spring Boot 3.5.0                         │
-│  - H2 Database + jOOQ + Flyway                              │
+│  - PostgreSQL 17 + jOOQ + Flyway                            │
 │  - BacktestController → BacktestService → Strategy System   │
 └─────────────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    Data Layer                                │
-│  - H2 Database: Stock quotes, symbols, market breadth       │
+│  - PostgreSQL 17: Stock quotes, symbols, market breadth     │
 │  - AlphaVantage: Primary data source (adjusted OHLCV, ATR)  │
 │  - Technical indicators calculated locally (EMA, Donchian)  │
 └─────────────────────────────────────────────────────────────┘
@@ -104,10 +104,10 @@ curl -X POST http://localhost:8080/udgaard/api/backtest \
 
 **Backend:**
 - Kotlin 2.3.0, Spring Boot 3.5.0
-- H2 2.2.224 Database (file-based, no Docker required)
+- PostgreSQL 17 (Docker Compose for local dev)
 - jOOQ 3.19.23 (type-safe SQL), Flyway (migrations)
 - Caffeine (caching), Spring AI MCP Server (Claude integration)
-- detekt 2.0.0-alpha.2 (static analysis), ktlint (code style)
+- detekt 2.0.0-alpha.2 (static analysis), ktlint 1.5.0 (code style)
 
 **Frontend:**
 - Nuxt 4.1.2, TypeScript 5.9.3, Vue 3 Composition API
@@ -181,7 +181,38 @@ Prevent overtrading by enforcing waiting periods:
 Edge = (AvgWinPercent × WinRate) - ((1 - WinRate) × AvgLossPercent)
 ```
 
-### 5. Monte Carlo Simulation
+### 5. Position Sizing
+
+Calculate optimal position sizes based on account equity and risk parameters:
+
+- **Fixed Fractional**: Risk a fixed percentage of equity per trade (e.g., 1% risk)
+- **Percent Risk**: Size positions based on ATR-derived stop distance
+
+**Configuration:**
+```json
+{
+  "positionSizing": {
+    "method": "FIXED_FRACTIONAL",
+    "riskPercentage": 1.0,
+    "accountEquity": 100000.0
+  }
+}
+```
+
+### 6. Entry Delay
+
+Model realistic execution lag (e.g., seeing signal after market close, entering next day):
+
+```json
+{
+  "entryDelayDays": 1
+}
+```
+
+- Signal fires on Day 0, actual entry at Day 0+N's close price
+- Skips entry if delayed day has no data
+
+### 7. Monte Carlo Simulation
 
 Validate strategy edge statistically:
 - **Trade Shuffling**: Same trades, different order
@@ -257,6 +288,8 @@ Run a backtest with full configuration.
 - `ranker` (optional): Ranking method (default: "Adaptive")
 - `useUnderlyingAssets` (optional): Use underlying for signals (default: true)
 - `cooldownDays` (optional): Global cooldown in trading days (default: 0)
+- `entryDelayDays` (optional): Delay entry by N trading days (default: 0)
+- `positionSizing` (optional): Position sizing config (`method`, `riskPercentage`, `accountEquity`)
 
 **Response:**
 ```json
@@ -358,34 +391,36 @@ val myExit = exitStrategy {
 
 **Entry Strategies:**
 - `PlanAlpha`: Multi-factor entry with market, sector, and stock conditions
+- `Mjolnir`: Breadth-driven momentum entry with ATR safeguards
 - `PlanQ`: Focused entry strategy variant
-- `PlanMV`: Minimum volatility entry strategy
 - `OvtlyrPlanEtf`: ETF-focused entry strategy
 - `ProjectX`: Experimental entry strategy
 
 **Exit Strategies:**
 - `PlanMoney`: Money management exit rules (ATR-based stops and targets)
 - `PlanAlpha`: Plan Alpha exit rules
+- `Mjolnir`: Breadth-aware exit with ATR trailing stop
 - `PlanQ`: Focused exit strategy variant
 - `OvtlyrPlanEtf`: ETF-focused exit strategy
 - `ProjectX`: Experimental exit strategy
 
 ### Available Conditions
 
-**Entry Conditions (22):**
-- **Market**: MarketUptrend, MarketBreadthAbove
-- **Sector**: SectorUptrend, SectorBreadthGreaterThanMarket
-- **Stock Trend**: Uptrend, EmaAlignment, EmaBullishCross, PriceAboveEma
+**Entry Conditions (32):**
+- **Market**: MarketUptrend, MarketBreadthAbove, MarketBreadthRecovering, MarketBreadthEmaAlignment, MarketBreadthTrending, MarketBreadthNearDonchianLow, SpyPriceUptrend
+- **Sector**: SectorUptrend, SectorBreadthGreaterThanMarket, SectorBreadthAbove, SectorBreadthAccelerating, SectorBreadthEmaAlignment
+- **Stock Trend**: Uptrend, EmaAlignment, EmaBullishCross, PriceAboveEma, EmaSpread, PriceNearDonchianHigh, BullishCandle
 - **Value Zone**: ValueZone, ConsecutiveHigherHighsInValueZone, BelowOrderBlock, AboveBearishOrderBlock
 - **Order Block**: NotInOrderBlock, OrderBlockRejection
 - **Risk**: ADXRange, ATRExpanding, MinimumPrice, VolumeAboveAverage, PriceAbovePreviousLow
 - **Earnings**: DaysSinceEarnings, NoEarningsWithinDays
 
-**Exit Conditions (11):**
+**Exit Conditions (13):**
 - StopLoss, ProfitTarget, ATRTrailingStopLoss
 - PriceBelowEma, PriceBelowEmaForDays, PriceBelowEmaMinusAtr
 - EmaCross, BelowPreviousDayLow
-- MarketAndSectorDowntrend, BearishOrderBlock, BeforeEarnings
+- MarketAndSectorDowntrend, MarketBreadthDeteriorating, SectorBreadthBelow
+- BearishOrderBlock, BeforeEarnings
 
 ---
 
@@ -395,6 +430,7 @@ val myExit = exitStrategy {
 
 **Prerequisites:**
 - Java 21+
+- Docker (for PostgreSQL)
 - Gradle (included via wrapper)
 
 **First-Time Setup:**
@@ -405,10 +441,10 @@ cd udgaard
 touch src/main/resources/secure.properties
 # Add your AlphaVantage API key (optional, can also be set via Settings UI)
 
-# Terminal 1: Start H2 database server
-./gradlew startH2Server
+# Start PostgreSQL
+docker compose up -d postgres
 
-# Terminal 2: Initialize database and build
+# Initialize database and build
 ./gradlew initDatabase  # Creates schema via Flyway migrations
 ./gradlew build         # Generates jOOQ code, runs tests, builds JAR
 
@@ -418,10 +454,10 @@ touch src/main/resources/secure.properties
 
 **Regular Development:**
 ```bash
-# Terminal 1: Start H2 server (if not already running)
-./gradlew startH2Server
+# Start PostgreSQL (if not already running)
+docker compose up -d postgres
 
-# Terminal 2: Run application
+# Run application
 ./gradlew bootRun
 ```
 
@@ -431,8 +467,8 @@ touch src/main/resources/secure.properties
 
 ```bash
 cd asgaard
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 **Frontend runs on:** http://localhost:3000
@@ -448,8 +484,8 @@ cd udgaard
 **Frontend:**
 ```bash
 cd asgaard
-npm run typecheck
-npm run lint
+pnpm typecheck
+pnpm lint
 ```
 
 ### Code Quality
@@ -498,13 +534,15 @@ cd udgaard
 
 **Solution:**
 ```bash
-# Ensure H2 server is running
+# Ensure PostgreSQL is running
 cd udgaard
-./gradlew startH2Server
+docker compose up -d postgres
 
-# If locked, stop and restart
-./gradlew stopH2Server
-./gradlew startH2Server
+# Check container status
+docker compose ps
+
+# If needed, recreate container
+docker compose down && docker compose up -d postgres
 ```
 
 ### Issue: Build fails
@@ -513,8 +551,8 @@ cd udgaard
 ```bash
 cd udgaard
 
-# Ensure H2 server is running (required for jOOQ code generation)
-./gradlew startH2Server
+# Ensure PostgreSQL is running (required for jOOQ code generation)
+docker compose up -d postgres
 
 # Clean rebuild
 ./gradlew clean build
@@ -556,6 +594,11 @@ trading/
 │   │   │   ├── model/          # Stock, StockQuote, MarketBreadth
 │   │   │   ├── repository/     # jOOQ repositories
 │   │   │   └── service/        # StockService, BreadthService, etc.
+│   │   ├── portfolio/          # Portfolio domain
+│   │   │   ├── controller/     # Portfolio, Position, Option controllers
+│   │   │   ├── integration/    # Broker adapters, IBKR, options
+│   │   │   ├── service/        # PortfolioService, PositionService, etc.
+│   │   │   └── mapper/         # Entity/DTO mappers
 │   │   └── mcp/                # MCP server for Claude AI
 │   ├── src/main/resources/
 │   │   ├── db/migration/       # Flyway SQL migrations
