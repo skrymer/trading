@@ -15,7 +15,6 @@ import java.time.LocalDate
 data class Stock(
   val symbol: String = "",
   val sectorSymbol: String? = null,
-  val marketCap: Long? = null,
   val quotes: List<StockQuote> = emptyList(),
   val orderBlocks: List<OrderBlock> = emptyList(),
   val earnings: List<Earning> = emptyList(),

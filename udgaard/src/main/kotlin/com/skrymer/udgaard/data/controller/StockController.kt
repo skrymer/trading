@@ -14,7 +14,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -34,7 +33,6 @@ import java.time.LocalDate
  */
 @RestController
 @RequestMapping("/api/stocks")
-@CrossOrigin(origins = ["http://localhost:3000", "http://localhost:8080"])
 class StockController(
   private val stockService: StockService,
   private val stockIngestionService: StockIngestionService,

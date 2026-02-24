@@ -60,7 +60,6 @@ data class StockUpdateInfo(
 data class SimpleStockInfo(
   val symbol: String,
   val sector: String,
-  val marketCap: Long? = null,
   val quoteCount: Int,
   val orderBlockCount: Int,
   val lastQuoteDate: LocalDate?,
@@ -85,6 +84,8 @@ data class RefreshProgress(
   val failed: Int = 0,
   val lastSuccess: String? = null,
   val lastError: String? = null,
+  val retried: Int? = null,
+  val retriedSucceeded: Int? = null,
 )
 
 data class RefreshResponse(

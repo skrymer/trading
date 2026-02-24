@@ -1,86 +1,68 @@
 <script setup lang="ts">
-import type { RateLimitStats } from '~/types'
+interface ProviderStats {
+  requestsLastSecond: number
+  requestsLastMinute: number
+  requestsLastDay: number
+  remainingSecond: number
+  remainingMinute: number
+  remainingDaily: number
+  secondLimit: number
+  minuteLimit: number
+  dailyLimit: number
+}
 
-const props = defineProps<{
-  rateLimit: RateLimitStats
-}>()
+const providers = ref<Record<string, ProviderStats>>({})
+const loading = ref(true)
 
-const minuteUsagePercentage = computed(() =>
-  (props.rateLimit.requestsLastMinute / props.rateLimit.minuteLimit) * 100
-)
-
-const dailyUsagePercentage = computed(() =>
-  (props.rateLimit.requestsLastDay / props.rateLimit.dailyLimit) * 100
-)
-
-// Determine subscription tier based on limits
-const subscriptionTier = computed(() => {
-  const minuteLimit = props.rateLimit.minuteLimit
-  if (minuteLimit <= 5) return 'FREE'
-  if (minuteLimit <= 75) return 'PREMIUM'
-  return 'ULTIMATE'
-})
-
-const tierColor = computed(() => {
-  switch (subscriptionTier.value) {
-    case 'FREE': return 'neutral'
-    case 'PREMIUM': return 'primary'
-    case 'ULTIMATE': return 'success'
-    default: return 'neutral'
+async function loadProviders() {
+  try {
+    providers.value = await $fetch<Record<string, ProviderStats>>('/udgaard/api/data-management/rate-limit/all')
+  } catch (error) {
+    console.error('Failed to load provider stats:', error)
+  } finally {
+    loading.value = false
   }
-})
+}
+
+function formatProvider(id: string): string {
+  return id.charAt(0).toUpperCase() + id.slice(1)
+}
+
+onMounted(() => loadProviders())
 </script>
 
 <template>
   <UCard>
     <template #header>
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold">
-          AlphaVantage Rate Limits
-        </h3>
-        <UBadge
-          :color="tierColor"
-          size="lg"
-        >
-          {{ subscriptionTier }}
-        </UBadge>
-      </div>
+      <h3 class="text-lg font-semibold">
+        Data Providers
+      </h3>
     </template>
 
-    <div class="grid grid-cols-2 gap-4">
-      <!-- Per Minute Limit -->
-      <div>
-        <div class="flex justify-between mb-2">
-          <span class="text-sm text-muted">Minute Limit</span>
-          <span class="text-sm font-medium">
-            {{ rateLimit.requestsLastMinute }} / {{ rateLimit.minuteLimit }}
-          </span>
+    <div v-if="loading" class="flex items-center justify-center py-4">
+      <UIcon name="i-lucide-loader-2" class="w-5 h-5 animate-spin" />
+    </div>
+
+    <div v-else class="space-y-4">
+      <div v-for="(stats, providerId) in providers" :key="providerId" class="flex items-center justify-between p-3 rounded-lg bg-(--ui-bg-elevated)">
+        <div>
+          <p class="font-medium">
+            {{ formatProvider(providerId as string) }}
+          </p>
+          <p class="text-sm text-(--ui-text-muted)">
+            {{ stats.secondLimit }}/sec &middot; {{ stats.minuteLimit }}/min &middot; {{ stats.dailyLimit.toLocaleString() }}/day
+          </p>
         </div>
-        <UProgress
-          :value="minuteUsagePercentage"
-          :color="minuteUsagePercentage > 80 ? 'error' : 'primary'"
-        />
-        <p class="text-xs text-muted mt-1">
-          Resets in {{ rateLimit.resetMinute }}s
-        </p>
+        <div class="text-right text-sm">
+          <p class="text-(--ui-text-muted)">
+            Today: {{ stats.requestsLastDay.toLocaleString() }} requests
+          </p>
+        </div>
       </div>
 
-      <!-- Daily Limit -->
-      <div>
-        <div class="flex justify-between mb-2">
-          <span class="text-sm text-muted">Daily Limit</span>
-          <span class="text-sm font-medium">
-            {{ rateLimit.requestsLastDay }} / {{ rateLimit.dailyLimit }}
-          </span>
-        </div>
-        <UProgress
-          :value="dailyUsagePercentage"
-          :color="dailyUsagePercentage > 80 ? 'error' : 'primary'"
-        />
-        <p class="text-xs text-muted mt-1">
-          {{ rateLimit.remainingDaily }} requests remaining
-        </p>
-      </div>
+      <p v-if="Object.keys(providers).length === 0" class="text-sm text-(--ui-text-muted)">
+        No providers registered
+      </p>
     </div>
   </UCard>
 </template>

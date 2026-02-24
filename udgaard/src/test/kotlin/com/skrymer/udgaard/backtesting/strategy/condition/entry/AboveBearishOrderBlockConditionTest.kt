@@ -66,7 +66,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -111,7 +110,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -129,7 +127,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes =
           listOf(
             StockQuote(date = LocalDate.of(2024, 2, 18), closePrice = 106.0),
@@ -166,7 +163,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -197,7 +193,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -232,7 +227,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -281,7 +275,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -327,7 +320,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -358,7 +350,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -412,7 +403,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock1, orderBlock2),
       )
@@ -502,7 +492,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -549,7 +538,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -570,7 +558,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes =
           listOf(
             StockQuote(date = LocalDate.of(2024, 2, 18), closePrice = 106.0),
@@ -614,7 +601,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -661,7 +647,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -707,7 +692,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -753,7 +737,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -798,7 +781,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -847,7 +829,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -900,7 +881,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TSLA",
-        sectorSymbol = "XLY",
         quotes = quotes.sortedBy { it.date },
         orderBlocks = listOf(orderBlock),
       )
@@ -946,7 +926,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -981,7 +960,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -1017,7 +995,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -1052,7 +1029,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -1092,7 +1068,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -1132,7 +1107,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -1167,7 +1141,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -1202,7 +1175,6 @@ class AboveBearishOrderBlockConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )

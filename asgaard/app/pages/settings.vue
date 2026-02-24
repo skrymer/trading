@@ -161,6 +161,40 @@
                   </UAlert>
                 </div>
               </div>
+
+              <UDivider />
+
+              <!-- Massive API Section -->
+              <div>
+                <h4 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                  Massive API
+                  <UBadge
+                    v-if="credentialsStatus"
+                    :color="credentialsStatus.massiveConfigured ? 'success' : 'neutral'"
+                    size="xs"
+                  >
+                    {{ credentialsStatus.massiveConfigured ? 'Configured' : 'Not configured' }}
+                  </UBadge>
+                </h4>
+
+                <div class="space-y-4">
+                  <UFormGroup label="API Key" help="Used for company info (sector classification + market cap)">
+                    <UInput
+                      v-model="credentials.massiveApiKey"
+                      type="password"
+                      placeholder="Enter your Massive API key"
+                    />
+                  </UFormGroup>
+
+                  <UAlert
+                    icon="i-lucide-info"
+                    color="info"
+                    variant="subtle"
+                    title="Massive API"
+                    description="Provides company sector classification (SIC codes) and market capitalization data"
+                  />
+                </div>
+              </div>
             </div>
           </UCard>
 
@@ -204,6 +238,7 @@ const credentials = ref({
   ovtlyrToken: '',
   ovtlyrUserId: '',
   alphaVantageApiKey: '',
+  massiveApiKey: '',
   ibkrAccountId: '',
   ibkrFlexQueryId: ''
 })
@@ -211,6 +246,7 @@ const credentials = ref({
 const credentialsStatus = ref<{
   ovtlyrConfigured: boolean
   alphaVantageConfigured: boolean
+  massiveConfigured: boolean
   ibkrConfigured: boolean
   configFileExists: boolean
 } | null>(null)
@@ -218,7 +254,9 @@ const credentialsStatus = ref<{
 const saving = ref(false)
 
 const allConfigured = computed(() => {
-  return credentialsStatus.value?.ovtlyrConfigured && credentialsStatus.value?.alphaVantageConfigured
+  return credentialsStatus.value?.ovtlyrConfigured
+    && credentialsStatus.value?.alphaVantageConfigured
+    && credentialsStatus.value?.massiveConfigured
 })
 
 // Load credentials on mount

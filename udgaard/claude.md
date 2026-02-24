@@ -63,9 +63,17 @@ udgaard/
 │   │   │   ├── BreadthController.kt
 │   │   │   └── DataManagementController.kt
 │   │   ├── integration/              # External API integrations
-│   │   │   ├── alphavantage/         # PRIMARY data source
+│   │   │   ├── StockProvider.kt      # Interface for OHLCV data
+│   │   │   ├── TechnicalIndicatorProvider.kt  # Interface for ATR/ADX
+│   │   │   ├── CompanyInfoProvider.kt # Interface for company info (sector + market cap)
+│   │   │   ├── FundamentalDataProvider.kt  # Interface for earnings
+│   │   │   ├── alphavantage/         # ATR, ADX, earnings, company overview
 │   │   │   │   ├── AlphaVantageClient.kt
 │   │   │   │   └── dto/
+│   │   │   ├── massive/              # OHLCV stock data, company info (SIC codes → sector)
+│   │   │   │   ├── MassiveClient.kt
+│   │   │   │   └── dto/
+│   │   │   ├── decorator/            # Rate-limited provider wrappers
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
@@ -127,12 +135,17 @@ udgaard/
 │   │   └── service/
 │   │       └── ScannerService.kt
 │   ├── controller/                   # Shared controllers
+│   │   ├── AuthController.kt
 │   │   ├── CacheController.kt
 │   │   └── SettingsController.kt
 │   ├── mcp/                          # MCP server tools
 │   │   └── StockMcpTools.kt
 │   ├── config/                       # Configuration classes
-│   │   └── CacheConfig.kt
+│   │   ├── CacheConfig.kt
+│   │   ├── ProviderConfiguration.kt  # API provider beans (Massive, AlphaVantage)
+│   │   ├── SecurityConfig.kt         # Spring Security configuration
+│   │   ├── StockRefreshProperties.kt # Stock refresh scheduling config
+│   │   └── StockRefreshScheduleConfig.kt
 │   └── UdgaardApplication.kt        # Main application
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
@@ -141,7 +154,9 @@ udgaard/
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
-│       └── V4__Add_scanner_trades.sql
+│       ├── V4__Add_scanner_trades.sql
+│       ├── V5__Add_users_table.sql
+│       └── V6__Move_sector_to_symbols.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
@@ -538,8 +553,11 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 spring.datasource.username=trading
 spring.datasource.password=trading
 
-# AlphaVantage API (configured via Settings UI or secure.properties)
+# AlphaVantage API (ATR, ADX, earnings, company overview for sector population)
 alphavantage.api.baseUrl=https://www.alphavantage.co/query
+
+# Massive API (OHLCV stock data + company info via SIC codes)
+massive.api.baseUrl=https://api.polygon.io
 
 # Ovtlyr API (configured via Settings UI or secure.properties)
 ovtlyr.header.projectId=Ovtlyr.com_project1

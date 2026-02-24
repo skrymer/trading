@@ -6,7 +6,6 @@ import com.skrymer.udgaard.portfolio.service.OptionPriceService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -19,7 +18,6 @@ import java.time.LocalDate
  */
 @RestController
 @RequestMapping("/api/options")
-@CrossOrigin
 class OptionController(
   private val optionPriceService: OptionPriceService,
 ) {

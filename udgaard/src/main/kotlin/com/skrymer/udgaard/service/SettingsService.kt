@@ -41,6 +41,7 @@ class SettingsService {
       ovtlyrToken = properties.getProperty("ovtlyr.cookies.token", ""),
       ovtlyrUserId = properties.getProperty("ovtlyr.cookies.userid", ""),
       alphaVantageApiKey = properties.getProperty("alphavantage.api.key", ""),
+      massiveApiKey = properties.getProperty("massive.api.key", ""),
       ibkrAccountId = properties.getProperty("ibkr.account.id", ""),
       ibkrFlexQueryId = properties.getProperty("ibkr.flexquery.id", ""),
     )
@@ -58,6 +59,7 @@ class SettingsService {
     properties.setProperty("ovtlyr.cookies.token", credentials.ovtlyrToken)
     properties.setProperty("ovtlyr.cookies.userid", credentials.ovtlyrUserId)
     properties.setProperty("alphavantage.api.key", credentials.alphaVantageApiKey)
+    properties.setProperty("massive.api.key", credentials.massiveApiKey)
     properties.setProperty("ibkr.account.id", credentials.ibkrAccountId)
     properties.setProperty("ibkr.flexquery.id", credentials.ibkrFlexQueryId)
 
@@ -72,6 +74,7 @@ class SettingsService {
     System.setProperty("ovtlyr.cookies.token", credentials.ovtlyrToken)
     System.setProperty("ovtlyr.cookies.userid", credentials.ovtlyrUserId)
     System.setProperty("alphavantage.api.key", credentials.alphaVantageApiKey)
+    System.setProperty("massive.api.key", credentials.massiveApiKey)
     System.setProperty("ibkr.account.id", credentials.ibkrAccountId)
     System.setProperty("ibkr.flexquery.id", credentials.ibkrFlexQueryId)
   }
@@ -81,6 +84,7 @@ class SettingsService {
     return mapOf(
       "ovtlyrConfigured" to (credentials.ovtlyrToken.isNotBlank() && credentials.ovtlyrUserId.isNotBlank()),
       "alphaVantageConfigured" to credentials.alphaVantageApiKey.isNotBlank(),
+      "massiveConfigured" to credentials.massiveApiKey.isNotBlank(),
       "ibkrConfigured" to (credentials.ibkrAccountId.isNotBlank() && credentials.ibkrFlexQueryId.isNotBlank()),
       "configFileExists" to configFile.exists(),
     )
@@ -100,6 +104,9 @@ class SettingsService {
       # Alpha Vantage API Key
       # Get your free API key at: https://www.alphavantage.co/support/#api-key
       alphavantage.api.key=
+
+      # Massive API Key (company info: sector + market cap)
+      massive.api.key=
 
       # Interactive Brokers Configuration
       # Get Account ID from IBKR portal, Flex Query ID from Flex Query setup

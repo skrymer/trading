@@ -31,7 +31,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = listOf(previousQuote, currentQuote),
         orderBlocks = mutableListOf(),
       )
@@ -65,7 +64,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = listOf(previousQuote, currentQuote),
         orderBlocks = mutableListOf(),
       )
@@ -90,7 +88,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = mutableListOf(currentQuote),
         orderBlocks = mutableListOf(),
       )
@@ -122,7 +119,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = mutableListOf(previousQuote, currentQuote),
         orderBlocks = mutableListOf(),
       )
@@ -156,7 +152,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = mutableListOf(previousQuote, currentQuote),
         orderBlocks = mutableListOf(),
       )
@@ -187,7 +182,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = mutableListOf(currentQuote),
         orderBlocks = mutableListOf(),
       )
@@ -213,7 +207,6 @@ class EmaBullishCrossConditionTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = mutableListOf(currentQuote),
         orderBlocks = mutableListOf(),
       )

@@ -2,8 +2,8 @@ package com.skrymer.udgaard.data.repository
 
 import com.skrymer.udgaard.data.model.SectorBreadthDaily
 import com.skrymer.udgaard.jooq.tables.references.SECTOR_BREADTH_DAILY
-import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
+import com.skrymer.udgaard.jooq.tables.references.SYMBOLS
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
@@ -19,7 +19,7 @@ class SectorBreadthRepository(
   fun calculateRawSectorBreadth(): List<SectorBreadthDaily> =
     dsl
       .select(
-        STOCKS.SECTOR_SYMBOL,
+        SYMBOLS.SECTOR_SYMBOL,
         STOCK_QUOTES.QUOTE_DATE,
         DSL.count(DSL.`when`(STOCK_QUOTES.TREND.eq("Uptrend"), 1)).`as`("stocks_in_uptrend"),
         DSL.count(DSL.`when`(STOCK_QUOTES.TREND.ne("Uptrend"), 1)).`as`("stocks_in_downtrend"),
@@ -31,14 +31,14 @@ class SectorBreadthRepository(
           .div(DSL.count().cast(BigDecimal::class.java))
           .`as`("bull_percentage"),
       ).from(STOCK_QUOTES)
-      .join(STOCKS)
-      .on(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
-      .where(STOCKS.SECTOR_SYMBOL.isNotNull)
-      .groupBy(STOCKS.SECTOR_SYMBOL, STOCK_QUOTES.QUOTE_DATE)
-      .orderBy(STOCKS.SECTOR_SYMBOL, STOCK_QUOTES.QUOTE_DATE)
+      .join(SYMBOLS)
+      .on(STOCK_QUOTES.STOCK_SYMBOL.eq(SYMBOLS.SYMBOL))
+      .where(SYMBOLS.SECTOR_SYMBOL.isNotNull)
+      .groupBy(SYMBOLS.SECTOR_SYMBOL, STOCK_QUOTES.QUOTE_DATE)
+      .orderBy(SYMBOLS.SECTOR_SYMBOL, STOCK_QUOTES.QUOTE_DATE)
       .fetch { record ->
         SectorBreadthDaily(
-          sectorSymbol = record[STOCKS.SECTOR_SYMBOL]!!,
+          sectorSymbol = record[SYMBOLS.SECTOR_SYMBOL]!!,
           quoteDate = record[STOCK_QUOTES.QUOTE_DATE]!!,
           stocksInUptrend = record.get("stocks_in_uptrend", Int::class.java),
           stocksInDowntrend = record.get("stocks_in_downtrend", Int::class.java),

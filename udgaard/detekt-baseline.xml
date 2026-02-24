@@ -52,6 +52,7 @@
     <ID>TooManyFunctions:OvtlyrStockQuote.kt:OvtlyrStockQuote</ID>
     <ID>TooManyFunctions:PositionService.kt:PositionService</ID>
     <ID>TooManyFunctions:Stock.kt:Stock</ID>
+    <ID>TooManyFunctions:StockIngestionService.kt:StockIngestionService</ID>
     <ID>TooManyFunctions:StockJooqRepository.kt:StockJooqRepository</ID>
     <ID>TooManyFunctions:StrategyDsl.kt:EntryStrategyBuilder</ID>
     <ID>TooManyFunctions:StrategyDsl.kt:ExitStrategyBuilder</ID>

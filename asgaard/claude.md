@@ -29,10 +29,12 @@ asgaard/
 │   │   ├── index.vue             # Home/dashboard
 │   │   ├── backtesting.vue       # Backtesting UI with strategy builder
 │   │   ├── portfolio.vue         # Portfolio management
+│   │   ├── scanner.vue           # Stock scanner
 │   │   ├── stock-data.vue        # Stock data explorer with charts
 │   │   ├── data-manager.vue      # Data ingestion & refresh controls
 │   │   ├── app-metrics.vue       # Application metrics dashboard
 │   │   ├── settings.vue          # API credentials & settings
+│   │   ├── login.vue             # Authentication login page
 │   │   └── test-chart.vue        # Chart component testing
 │   ├── components/
 │   │   ├── backtesting/          # Backtesting components (17)
@@ -86,6 +88,11 @@ asgaard/
 │   │   ├── StockPriceChart.client.vue  # Standalone stock chart
 │   │   ├── SymbolSearch.vue      # Symbol search autocomplete
 │   │   └── UserMenu.vue          # User menu dropdown
+│   ├── composables/
+│   │   ├── useAuth.ts            # Authentication composable
+│   │   └── usePositionFormatters.ts  # Position formatting utilities
+│   ├── middleware/
+│   │   └── auth.global.ts        # Global auth middleware
 │   ├── types/
 │   │   ├── index.d.ts            # Main type definitions
 │   │   └── enums.ts              # Enum types

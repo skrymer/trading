@@ -65,26 +65,37 @@ object BacktestTestDataGenerator {
       .toList()
 
   private fun insertSymbols(dsl: DSLContext) {
-    // Symbols may already exist from V2 migration - use ON CONFLICT DO NOTHING
-    (ALL_SYMBOLS + "SPY").forEach { symbol ->
-      val assetType = if (symbol == "SPY") "INDEX" else "STOCK"
-      dsl
-        .insertInto(SYMBOLS)
-        .set(SYMBOLS.SYMBOL, symbol)
-        .set(SYMBOLS.ASSET_TYPE, assetType)
-        .onConflict(SYMBOLS.SYMBOL)
-        .doNothing()
-        .execute()
+    // Symbols may already exist from V2 migration - use ON CONFLICT DO UPDATE to set sector
+    SECTOR_STOCKS.forEach { (sector, symbols) ->
+      symbols.forEach { symbol ->
+        dsl
+          .insertInto(SYMBOLS)
+          .set(SYMBOLS.SYMBOL, symbol)
+          .set(SYMBOLS.ASSET_TYPE, "STOCK")
+          .set(SYMBOLS.SECTOR_SYMBOL, sector)
+          .onConflict(SYMBOLS.SYMBOL)
+          .doUpdate()
+          .set(SYMBOLS.SECTOR_SYMBOL, sector)
+          .execute()
+      }
     }
+    // SPY is an index - no sector
+    dsl
+      .insertInto(SYMBOLS)
+      .set(SYMBOLS.SYMBOL, "SPY")
+      .set(SYMBOLS.ASSET_TYPE, "INDEX")
+      .onConflict(SYMBOLS.SYMBOL)
+      .doNothing()
+      .execute()
   }
 
   private fun insertStocksAndQuotes(dsl: DSLContext, tradingDays: List<LocalDate>) {
-    insertStock(dsl, "SPY", null, tradingDays, basePrice = 470.0, volatility = 0.008)
-    SECTOR_STOCKS.forEach { (sector, symbols) ->
+    insertStock(dsl, "SPY", tradingDays, basePrice = 470.0, volatility = 0.008)
+    SECTOR_STOCKS.forEach { (_, symbols) ->
       symbols.forEach { symbol ->
         val basePrice = 50.0 + random.nextDouble() * 300.0
         val volatility = 0.005 + random.nextDouble() * 0.015
-        insertStock(dsl, symbol, sector, tradingDays, basePrice, volatility)
+        insertStock(dsl, symbol, tradingDays, basePrice, volatility)
       }
     }
   }
@@ -92,7 +103,6 @@ object BacktestTestDataGenerator {
   private fun insertStock(
     dsl: DSLContext,
     symbol: String,
-    sectorSymbol: String?,
     tradingDays: List<LocalDate>,
     basePrice: Double,
     volatility: Double,
@@ -100,7 +110,6 @@ object BacktestTestDataGenerator {
     dsl
       .insertInto(STOCKS)
       .set(STOCKS.SYMBOL, symbol)
-      .set(STOCKS.SECTOR_SYMBOL, sectorSymbol)
       .execute()
 
     val quotes = generateQuotes(symbol, tradingDays, basePrice, volatility)

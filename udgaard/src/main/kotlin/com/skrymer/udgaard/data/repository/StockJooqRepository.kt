@@ -43,6 +43,14 @@ class StockJooqRepository(
         .where(STOCKS.SYMBOL.eq(symbol))
         .fetchOneInto(Stocks::class.java) ?: return null
 
+    // Load sector from symbols table
+    val sectorSymbol =
+      dsl
+        .select(SYMBOLS.SECTOR_SYMBOL)
+        .from(SYMBOLS)
+        .where(SYMBOLS.SYMBOL.eq(symbol))
+        .fetchOne(SYMBOLS.SECTOR_SYMBOL)
+
     // Load quotes (with optional date filtering)
     val quotesQuery =
       dsl
@@ -72,7 +80,7 @@ class StockJooqRepository(
         .orderBy(EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
 
-    return mapper.toDomain(stock, quotes, orderBlocks, earnings)
+    return mapper.toDomain(stock, quotes, orderBlocks, earnings, sectorSymbol)
   }
 
   /**
@@ -87,7 +95,7 @@ class StockJooqRepository(
 
   /**
    * Get simple stock info for all stocks using a lightweight aggregate query.
-   * No quote/order block/earnings data is loaded into memory.
+   * Joins symbols table to get sector data. No quote/order block/earnings data is loaded into memory.
    */
   fun findAllSimpleInfo(): List<SimpleStockInfo> {
     val quoteCount =
@@ -112,15 +120,16 @@ class StockJooqRepository(
         .asField<Int>("order_block_count")
 
     return dsl
-      .select(STOCKS.SYMBOL, STOCKS.SECTOR_SYMBOL, STOCKS.MARKET_CAP, quoteCount, lastQuoteDate, obCount)
+      .select(STOCKS.SYMBOL, SYMBOLS.SECTOR_SYMBOL, quoteCount, lastQuoteDate, obCount)
       .from(STOCKS)
+      .leftJoin(SYMBOLS)
+      .on(STOCKS.SYMBOL.eq(SYMBOLS.SYMBOL))
       .orderBy(STOCKS.SYMBOL)
       .fetch { record ->
         val qc = record.get(quoteCount) ?: 0
         SimpleStockInfo(
           symbol = record[STOCKS.SYMBOL]!!,
-          sector = record[STOCKS.SECTOR_SYMBOL] ?: "UNKNOWN",
-          marketCap = record[STOCKS.MARKET_CAP],
+          sector = record[SYMBOLS.SECTOR_SYMBOL] ?: "UNKNOWN",
           quoteCount = qc,
           orderBlockCount = record.get(obCount) ?: 0,
           lastQuoteDate = record.get(lastQuoteDate),
@@ -152,6 +161,15 @@ class StockJooqRepository(
         .fetchInto(Stocks::class.java)
 
     if (stocks.isEmpty()) return emptyList()
+
+    // Load sectors from symbols table
+    val sectorsBySymbol =
+      dsl
+        .select(SYMBOLS.SYMBOL, SYMBOLS.SECTOR_SYMBOL)
+        .from(SYMBOLS)
+        .where(SYMBOLS.SYMBOL.`in`(symbols))
+        .fetch { record -> record[SYMBOLS.SYMBOL]!! to record[SYMBOLS.SECTOR_SYMBOL] }
+        .toMap()
 
     // Load all quotes for these stocks in one query (with optional date filtering)
     val quotesQuery =
@@ -199,6 +217,7 @@ class StockJooqRepository(
         quotes = quotesBySymbol[stock.symbol] ?: emptyList(),
         orderBlocks = orderBlocksBySymbol[stock.symbol] ?: emptyList(),
         earnings = earningsBySymbol[stock.symbol] ?: emptyList(),
+        sectorSymbol = sectorsBySymbol[stock.symbol],
       )
     }
   }
@@ -232,12 +251,8 @@ class StockJooqRepository(
       ctx
         .insertInto(STOCKS)
         .set(STOCKS.SYMBOL, stock.symbol)
-        .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
-        .set(STOCKS.MARKET_CAP, stock.marketCap)
         .onConflict(STOCKS.SYMBOL)
-        .doUpdate()
-        .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
-        .set(STOCKS.MARKET_CAP, stock.marketCap)
+        .doNothing()
         .execute()
 
       // 2. Delete existing quotes, order blocks, and earnings (cascade delete)
@@ -409,12 +424,8 @@ class StockJooqRepository(
             ctx
               .insertInto(STOCKS)
               .set(STOCKS.SYMBOL, stock.symbol)
-              .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
-              .set(STOCKS.MARKET_CAP, stock.marketCap)
               .onConflict(STOCKS.SYMBOL)
-              .doUpdate()
-              .set(STOCKS.SECTOR_SYMBOL, stock.sectorSymbol)
-              .set(STOCKS.MARKET_CAP, stock.marketCap)
+              .doNothing()
           },
         )
       stockBatch.execute()

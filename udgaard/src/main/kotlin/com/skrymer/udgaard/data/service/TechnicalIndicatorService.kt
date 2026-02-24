@@ -13,10 +13,10 @@ import org.springframework.stereotype.Service
  *
  * Indicators supported:
  * - EMA (Exponential Moving Average) - various periods (5, 10, 20, 50, 200)
+ * - ATR (Average True Range) - Wilder's smoothing method
+ * - ADX (Average Directional Index) - trend strength via Wilder's method
  * - Donchian Channels - support/resistance levels
  * - Trend determination - uptrend/downtrend classification
- *
- * Note: ATR is fetched from AlphaVantage API, not calculated here.
  */
 @Service
 class TechnicalIndicatorService {
@@ -25,10 +25,10 @@ class TechnicalIndicatorService {
    *
    * This is the main method that calculates and adds:
    * - EMAs (5, 10, 20, 50, 100, 200)
+   * - ATR (14-period, Wilder's smoothing)
+   * - ADX (14-period, Wilder's smoothing)
    * - Donchian upper band
    * - Trend classification
-   *
-   * Note: ATR should already be populated from AlphaVantage API data.
    *
    * @param quotes - List of StockQuote sorted by date (oldest first)
    * @param symbol - Stock symbol for logging
@@ -54,6 +54,10 @@ class TechnicalIndicatorService {
     val ema100Values = calculateEMA(closePrices, 100)
     val ema200Values = calculateEMA(closePrices, 200)
 
+    // Calculate ATR and ADX from OHLCV data
+    val atrValues = calculateATR(quotes, 14)
+    val adxValues = calculateADX(quotes, 14)
+
     // Enrich each quote with calculated values
     return quotes.mapIndexed { index, quote ->
       quote.apply {
@@ -63,6 +67,8 @@ class TechnicalIndicatorService {
         closePriceEMA50 = ema50Values.getOrNull(index) ?: 0.0
         closePriceEMA100 = ema100Values.getOrNull(index) ?: 0.0
         ema200 = ema200Values.getOrNull(index) ?: 0.0
+        atr = atrValues[index]
+        adx = if (adxValues[index] > 0.0) adxValues[index] else null
         donchianUpperBand = calculateDonchianUpperBand(quotes, index, 5)
         trend = determineTrend(quote)
       }
@@ -111,6 +117,160 @@ class TechnicalIndicatorService {
     }
 
     return emaValues
+  }
+
+  /**
+   * Calculate ATR (Average True Range) using Wilder's smoothing method.
+   *
+   * Formula:
+   * - True Range = max(high - low, |high - prevClose|, |low - prevClose|)
+   * - First ATR = SMA of first 'period' True Range values
+   * - Subsequent ATR = ((prevATR × (period - 1)) + TR) / period
+   *
+   * Wilder's smoothing differs from standard EMA: it uses multiplier 1/N instead of 2/(N+1).
+   *
+   * @param quotes - List of StockQuote sorted by date (oldest first)
+   * @param period - ATR period (default 14)
+   * @return List of ATR values (same length as quotes, first value is 0.0 since no previous close)
+   */
+  fun calculateATR(
+    quotes: List<StockQuote>,
+    period: Int = 14,
+  ): List<Double> {
+    if (quotes.size < period + 1) {
+      logger.warn("Not enough data points (${quotes.size}) for ATR calculation (need ${period + 1})")
+      return List(quotes.size) { 0.0 }
+    }
+
+    // Calculate True Range for each quote (skip first since we need previous close)
+    val trueRanges = mutableListOf(0.0) // First quote has no previous close
+    for (i in 1 until quotes.size) {
+      val high = quotes[i].high
+      val low = quotes[i].low
+      val prevClose = quotes[i - 1].closePrice
+      val tr = maxOf(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose))
+      trueRanges.add(tr)
+    }
+
+    // Calculate ATR using Wilder's smoothing
+    val atrValues = MutableList(quotes.size) { 0.0 }
+
+    // First ATR = SMA of first 'period' True Range values (indices 1..period)
+    val firstAtr = trueRanges.subList(1, period + 1).average()
+    atrValues[period] = firstAtr
+
+    // Subsequent ATR = ((prevATR × (period - 1)) + TR) / period
+    var atr = firstAtr
+    for (i in period + 1 until quotes.size) {
+      atr = ((atr * (period - 1)) + trueRanges[i]) / period
+      atrValues[i] = atr
+    }
+
+    return atrValues
+  }
+
+  /**
+   * Calculate ADX (Average Directional Index) using Wilder's smoothing method.
+   *
+   * ADX measures trend strength (not direction). Values:
+   * - 0-20: Weak/absent trend
+   * - 20-50: Strong trend
+   * - 50+: Very strong trend
+   *
+   * Calculation steps:
+   * 1. Calculate +DM (positive directional movement) and -DM (negative directional movement)
+   * 2. Calculate True Range (TR)
+   * 3. Smooth TR, +DM, -DM using Wilder's method over 'period' bars
+   * 4. +DI = 100 × smoothed(+DM) / smoothed(TR)
+   * 5. -DI = 100 × smoothed(-DM) / smoothed(TR)
+   * 6. DX = 100 × |+DI - -DI| / (+DI + -DI)
+   * 7. ADX = Wilder-smoothed DX over 'period' bars
+   *
+   * First meaningful ADX appears at index 2×period (needs period bars to smooth DI,
+   * then period more bars to smooth DX into ADX).
+   *
+   * @param quotes - List of StockQuote sorted by date (oldest first)
+   * @param period - ADX period (default 14)
+   * @return List of ADX values (same length as quotes, 0.0 where insufficient data)
+   */
+  fun calculateADX(
+    quotes: List<StockQuote>,
+    period: Int = 14,
+  ): List<Double> {
+    val minRequired = 2 * period + 1
+    if (quotes.size < minRequired) {
+      logger.warn("Not enough data points (${quotes.size}) for ADX calculation (need $minRequired)")
+      return List(quotes.size) { 0.0 }
+    }
+
+    // Step 1: Calculate +DM, -DM, and TR for each bar (starting from index 1)
+    val plusDM = mutableListOf(0.0)
+    val minusDM = mutableListOf(0.0)
+    val trueRanges = mutableListOf(0.0)
+
+    for (i in 1 until quotes.size) {
+      val highDiff = quotes[i].high - quotes[i - 1].high
+      val lowDiff = quotes[i - 1].low - quotes[i].low
+
+      // +DM: upward movement is larger and positive
+      val pdm = if (highDiff > lowDiff && highDiff > 0) highDiff else 0.0
+      // -DM: downward movement is larger and positive
+      val mdm = if (lowDiff > highDiff && lowDiff > 0) lowDiff else 0.0
+
+      plusDM.add(pdm)
+      minusDM.add(mdm)
+
+      val tr = maxOf(
+        quotes[i].high - quotes[i].low,
+        Math.abs(quotes[i].high - quotes[i - 1].closePrice),
+        Math.abs(quotes[i].low - quotes[i - 1].closePrice),
+      )
+      trueRanges.add(tr)
+    }
+
+    // Step 2: Wilder-smooth TR, +DM, -DM (first value = sum of first 'period' values)
+    // First smoothed values at index 'period' (using indices 1..period)
+    var smoothedTR = trueRanges.subList(1, period + 1).sum()
+    var smoothedPlusDM = plusDM.subList(1, period + 1).sum()
+    var smoothedMinusDM = minusDM.subList(1, period + 1).sum()
+
+    // Step 3: Calculate DI and DX starting from index 'period'
+    val dxValues = MutableList(quotes.size) { 0.0 }
+
+    // First DI/DX at index 'period'
+    val firstPlusDI = if (smoothedTR > 0) 100.0 * smoothedPlusDM / smoothedTR else 0.0
+    val firstMinusDI = if (smoothedTR > 0) 100.0 * smoothedMinusDM / smoothedTR else 0.0
+    val diSum = firstPlusDI + firstMinusDI
+    dxValues[period] = if (diSum > 0) 100.0 * Math.abs(firstPlusDI - firstMinusDI) / diSum else 0.0
+
+    // Continue smoothing and calculating DX for subsequent bars
+    for (i in period + 1 until quotes.size) {
+      // Wilder's smoothing: smoothed = prev - (prev / period) + current
+      smoothedTR = smoothedTR - (smoothedTR / period) + trueRanges[i]
+      smoothedPlusDM = smoothedPlusDM - (smoothedPlusDM / period) + plusDM[i]
+      smoothedMinusDM = smoothedMinusDM - (smoothedMinusDM / period) + minusDM[i]
+
+      val pdi = if (smoothedTR > 0) 100.0 * smoothedPlusDM / smoothedTR else 0.0
+      val mdi = if (smoothedTR > 0) 100.0 * smoothedMinusDM / smoothedTR else 0.0
+      val sum = pdi + mdi
+      dxValues[i] = if (sum > 0) 100.0 * Math.abs(pdi - mdi) / sum else 0.0
+    }
+
+    // Step 4: Calculate ADX by Wilder-smoothing the DX values
+    val adxValues = MutableList(quotes.size) { 0.0 }
+
+    // First ADX = average of DX values from index 'period' to '2*period - 1'
+    val firstADX = dxValues.subList(period, 2 * period).average()
+    adxValues[2 * period - 1] = firstADX
+
+    // Subsequent ADX = ((prevADX × (period - 1)) + DX) / period
+    var adx = firstADX
+    for (i in 2 * period until quotes.size) {
+      adx = ((adx * (period - 1)) + dxValues[i]) / period
+      adxValues[i] = adx
+    }
+
+    return adxValues
   }
 
   /**

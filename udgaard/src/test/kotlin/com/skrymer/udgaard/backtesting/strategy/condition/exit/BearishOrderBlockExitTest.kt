@@ -47,7 +47,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = listOf(orderBlock),
       )
@@ -83,7 +82,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -107,7 +105,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = mutableListOf(),
         orderBlocks = mutableListOf(),
       )
@@ -143,7 +140,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -179,7 +175,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -253,7 +248,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -290,7 +284,6 @@ class BearishOrderBlockExitTest {
     val stock10 =
       Stock(
         symbol = "TSLA",
-        sectorSymbol = "XLK",
         quotes = quotes10,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -313,7 +306,6 @@ class BearishOrderBlockExitTest {
     val stock35 =
       Stock(
         symbol = "TSLA",
-        sectorSymbol = "XLK",
         quotes = quotes35,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -350,7 +342,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -373,7 +364,6 @@ class BearishOrderBlockExitTest {
     val stockAfter =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotesAfter,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -409,7 +399,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -446,7 +435,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )
@@ -481,7 +469,6 @@ class BearishOrderBlockExitTest {
     val stock =
       Stock(
         symbol = "TEST",
-        sectorSymbol = "XLK",
         quotes = quotes,
         orderBlocks = mutableListOf(orderBlock),
       )

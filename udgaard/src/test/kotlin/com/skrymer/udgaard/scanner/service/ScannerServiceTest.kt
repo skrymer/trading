@@ -109,8 +109,8 @@ class ScannerServiceTest {
     val today = LocalDate.now()
     val matchingQuote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
     val nonMatchingQuote = StockQuote(symbol = "MSFT", date = today, closePrice = 300.0, atr = 5.0, trend = "Downtrend")
-    val matchingStock = Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(matchingQuote))
-    val nonMatchingStock = Stock(symbol = "MSFT", sectorSymbol = "XLK", quotes = listOf(nonMatchingQuote))
+    val matchingStock = Stock(symbol = "AAPL", quotes = listOf(matchingQuote))
+    val nonMatchingStock = Stock(symbol = "MSFT", quotes = listOf(nonMatchingQuote))
 
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL", "MSFT"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(matchingStock, nonMatchingStock))

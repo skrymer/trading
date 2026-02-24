@@ -7,6 +7,7 @@ import com.skrymer.udgaard.data.dto.RateLimitStats
 import com.skrymer.udgaard.data.dto.RefreshProgress
 import com.skrymer.udgaard.data.dto.RefreshResponse
 import com.skrymer.udgaard.data.dto.SectorStockCount
+import com.skrymer.udgaard.data.integration.alphavantage.AlphaVantageClient
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
@@ -16,6 +17,10 @@ import com.skrymer.udgaard.data.service.RateLimiterService
 import com.skrymer.udgaard.data.service.SectorBreadthService
 import com.skrymer.udgaard.data.service.StockIngestionService
 import com.skrymer.udgaard.data.service.SymbolService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -38,6 +43,7 @@ class DataManagementController(
   private val marketBreadthRepository: MarketBreadthRepository,
   private val stockRepository: StockJooqRepository,
   private val sectorBreadthRepository: SectorBreadthRepository,
+  private val alphaVantageClient: AlphaVantageClient,
 ) {
   private val logger = LoggerFactory.getLogger(DataManagementController::class.java)
 
@@ -194,5 +200,50 @@ class DataManagementController(
     logger.info("Clearing refresh queue")
     stockIngestionService.clearQueue()
     return ResponseEntity.ok("Refresh queue cleared")
+  }
+
+  /**
+   * Populate sector_symbol for STOCK symbols that don't have one yet.
+   * Uses AlphaVantage Company Overview endpoint. Runs async, returns count of symbols to process.
+   */
+  @PostMapping("/populate-sectors")
+  fun populateSectors(): Map<String, Any> {
+    val symbolsWithoutSector = symbolService.findStocksWithoutSector()
+    val count = symbolsWithoutSector.size
+
+    if (count == 0) {
+      return mapOf("status" to "complete", "count" to 0, "message" to "All stocks already have sectors")
+    }
+
+    logger.info("Starting async sector population for $count symbols")
+
+    CoroutineScope(Dispatchers.IO).launch {
+      var populated = 0
+      var failed = 0
+
+      for (record in symbolsWithoutSector) {
+        try {
+          val companyInfo = alphaVantageClient.getCompanyInfo(record.symbol)
+          val sector = companyInfo?.sectorSymbol
+          if (sector != null) {
+            symbolService.updateSectorSymbol(record.symbol, sector.name)
+            populated++
+            logger.info("Sector populated: ${record.symbol} -> ${sector.name}")
+          } else {
+            failed++
+            logger.warn("No sector found for ${record.symbol}")
+          }
+        } catch (e: Exception) {
+          failed++
+          logger.error("Failed to get sector for ${record.symbol}: ${e.message}")
+        }
+
+        delay(200) // 5 req/sec
+      }
+
+      logger.info("Sector population complete: $populated populated, $failed failed out of $count")
+    }
+
+    return mapOf("status" to "started", "count" to count, "message" to "Populating sectors for $count symbols")
   }
 }

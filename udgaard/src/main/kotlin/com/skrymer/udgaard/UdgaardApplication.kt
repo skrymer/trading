@@ -1,8 +1,11 @@
 package com.skrymer.udgaard
 
+import com.skrymer.udgaard.config.SecurityProperties
+import com.skrymer.udgaard.config.StockRefreshProperties
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.PropertySource
 import org.springframework.context.event.EventListener
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Component
 import java.lang.management.ManagementFactory
 
 @SpringBootApplication
+@EnableConfigurationProperties(StockRefreshProperties::class, SecurityProperties::class)
 @PropertySource("classpath:secure.properties", ignoreResourceNotFound = true)
 class UdgaardApplication
 

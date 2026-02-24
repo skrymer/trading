@@ -40,7 +40,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
-- **AlphaVantage API as PRIMARY data source** (adjusted OHLCV, volume, ATR)
+- **Massive API** (Polygon) for OHLCV stock data and company info (sector via SIC codes, market cap)
+- **AlphaVantage API** for ATR, ADX, earnings, and company overview (sector population)
 - Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
@@ -58,7 +59,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 2. **Data** (`data/`)
    - `StockService.kt`: Stock data management
-   - `StockIngestionService.kt`: Bulk stock data ingestion from AlphaVantage
+   - `StockIngestionService.kt`: Bulk stock data ingestion from Massive (Polygon)
    - `TechnicalIndicatorService.kt`: EMAs, Donchian channels, ATR, trend determination
    - `MarketBreadthService.kt` / `SectorBreadthService.kt`: Market & sector breadth
    - `OrderBlockCalculator.kt`: Order block detection via ROC momentum
@@ -85,7 +86,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
 6. **Integration** (`data/integration/`)
-   - **AlphaVantage**: PRIMARY data source - Adjusted daily OHLCV, ATR
+   - **Massive** (Polygon): OHLCV stock data, company info (sector via SIC codes, market cap)
+   - **AlphaVantage**: ATR, ADX, earnings, company overview (sector population)
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
 
 **API Endpoints:**
@@ -99,6 +101,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 **Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `POST /api/scanner/trades/{id}/roll`
 
 **Market Breadth:** `GET /api/breadth`, `GET /api/breadth/{symbol}`, `POST /api/breadth/refresh`
+
+**Data Management:** `POST /api/data-management/populate-sectors`
 
 **Other:** `POST /api/monte-carlo/run`, `POST /api/cache/evict`, `POST /api/cache/evict-all`, `POST /api/data/import`
 
@@ -114,7 +118,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
 - **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards
 - **Settings** (`components/settings/`): MembersList
-- **Pages**: index, backtesting, portfolio, scanner, stock-data, data-manager, app-metrics, settings, test-chart
+- **Pages**: index, backtesting, portfolio, scanner, stock-data, data-manager, app-metrics, settings, login, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -157,10 +161,10 @@ trading/
 │   │   │   ├── model/                # ScannerTrade, ScanResult, ScanResponse
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
-│   │   ├── controller/               # Shared controllers (Cache, Settings)
+│   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
-│   │   └── config/                   # Configuration classes
-│   ├── src/main/resources/           # Config, migrations (V1-V4)
+│   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
+│   ├── src/main/resources/           # Config, migrations (V1-V6)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL, MongoDB)
 │   ├── build.gradle                  # Gradle build config
@@ -170,7 +174,7 @@ trading/
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (10 pages)
+│   │   ├── pages/                    # File-based routing (11 pages)
 │   │   ├── plugins/                  # Nuxt plugins
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
@@ -263,4 +267,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-02-23_
+_Last Updated: 2026-02-24_

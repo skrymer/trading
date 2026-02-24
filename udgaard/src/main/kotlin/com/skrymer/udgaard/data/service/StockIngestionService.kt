@@ -1,14 +1,13 @@
 package com.skrymer.udgaard.data.service
 
+import com.skrymer.udgaard.config.StockRefreshProperties
 import com.skrymer.udgaard.data.dto.FailedStock
 import com.skrymer.udgaard.data.dto.RefreshProgress
 import com.skrymer.udgaard.data.dto.RefreshTask
 import com.skrymer.udgaard.data.dto.RefreshType
 import com.skrymer.udgaard.data.dto.StockRefreshResult
 import com.skrymer.udgaard.data.factory.StockFactory
-import com.skrymer.udgaard.data.integration.FundamentalDataProvider
 import com.skrymer.udgaard.data.integration.StockProvider
-import com.skrymer.udgaard.data.integration.TechnicalIndicatorProvider
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -19,25 +18,27 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.math.min
+import kotlin.math.pow
 
 @Service
 class StockIngestionService(
   private val stockRepository: StockJooqRepository,
   private val stockProvider: StockProvider,
-  private val technicalIndicatorProvider: TechnicalIndicatorProvider,
-  private val fundamentalDataProvider: FundamentalDataProvider,
   private val stockFactory: StockFactory,
   private val orderBlockCalculator: OrderBlockCalculator,
   private val symbolService: SymbolService,
   private val sectorBreadthService: SectorBreadthService,
   private val marketBreadthService: MarketBreadthService,
   private val marketBreadthRepository: MarketBreadthRepository,
+  private val refreshProperties: StockRefreshProperties,
 ) {
   private val logger = LoggerFactory.getLogger(StockIngestionService::class.java)
   private val refreshQueue = ConcurrentLinkedQueue<RefreshTask>()
@@ -51,12 +52,6 @@ class StockIngestionService(
   // Minimum date for data filtering (shared across the current refresh session)
   @Volatile
   private var minDate: LocalDate = LocalDate.of(2016, 1, 1)
-
-  /**
-   * Check if a symbol is a non-stock asset (ETF, index, leveraged ETF, etc.).
-   * Non-stock assets don't have earnings data or individual sector assignments.
-   */
-  private fun isNonStock(symbol: String): Boolean = symbolService.isNonStock(symbol)
 
   // ── Single-stock refresh ───────────────────────────────────────────
 
@@ -72,7 +67,7 @@ class StockIngestionService(
     minDate: LocalDate = LocalDate.of(2016, 1, 1),
   ): Stock? {
     val refreshContext = RefreshContext(minDate = minDate)
-    return fetchStock(symbol, refreshContext, saveToDb = true)
+    return fetchStockWithRetry(symbol, refreshContext, saveToDb = true)
   }
 
   // ── Multi-stock refresh (with detailed results) ────────────────────
@@ -92,7 +87,7 @@ class StockIngestionService(
   ): StockRefreshResult =
     runBlocking {
       val sortedSymbols = symbols.sorted()
-      val limited = Dispatchers.IO.limitedParallelism(10)
+      val limited = Dispatchers.IO.limitedParallelism(30)
 
       val refreshContext = RefreshContext(minDate = minDate)
 
@@ -106,7 +101,7 @@ class StockIngestionService(
             async(limited) {
               val result =
                 runCatching {
-                  fetchStock(symbol, refreshContext, saveToDb = false)
+                  fetchStockWithRetry(symbol, refreshContext, saveToDb = false)
                 }
               val stock = result.getOrNull()
               val error = result.exceptionOrNull()?.message ?: result.exceptionOrNull()?.toString()
@@ -185,7 +180,7 @@ class StockIngestionService(
   ): List<Stock> =
     runBlocking {
       val sortedSymbols = symbols.sorted()
-      val limited = Dispatchers.IO.limitedParallelism(10)
+      val limited = Dispatchers.IO.limitedParallelism(30)
       val refreshContext = RefreshContext(minDate = minDate)
 
       // Batch delete existing stocks before fetching
@@ -198,7 +193,7 @@ class StockIngestionService(
             async(limited) {
               val result =
                 runCatching {
-                  fetchStock(symbol, refreshContext, saveToDb = false)
+                  fetchStockWithRetry(symbol, refreshContext, saveToDb = false)
                 }
               val stock = result.getOrNull()
               val error = result.exceptionOrNull()?.message ?: result.exceptionOrNull()?.toString()
@@ -345,6 +340,9 @@ class StockIngestionService(
           }
         }
 
+        // Re-queue failed stocks for additional retry rounds
+        requeueFailedStocks(errorDetails)
+
         isProcessing = false
 
         // Recalculate market breadth from updated stock data
@@ -414,6 +412,81 @@ class StockIngestionService(
     isProcessing = false
   }
 
+  // ── Internal: re-queue failed stocks ─────────────────────────────
+
+  private fun requeueFailedStocks(errorDetails: List<String>) {
+    val requeue = refreshProperties.requeue
+    if (!requeue.enabled || errorDetails.isEmpty()) return
+
+    val failedSymbols = errorDetails.map { it.substringBefore(":").trim() }.distinct()
+    logger.info("Re-queue: ${failedSymbols.size} failed symbols eligible for retry")
+
+    var totalRetried = 0
+    var totalRecovered = 0
+
+    for (round in 1..requeue.maxRounds) {
+      if (failedSymbols.isEmpty()) break
+      logger.info("Re-queue round $round/${requeue.maxRounds}: retrying ${failedSymbols.size} symbols")
+
+      val recovered = batchRefreshStocks(failedSymbols, minDate)
+      val recoveredSymbols = recovered.map { it.symbol }.toSet()
+      totalRetried += failedSymbols.size
+      totalRecovered += recoveredSymbols.size
+
+      logger.info(
+        "Re-queue round $round complete: ${recoveredSymbols.size}/${failedSymbols.size} recovered",
+      )
+    }
+
+    synchronized(currentProgress) {
+      currentProgress = currentProgress.copy(
+        completed = currentProgress.completed + totalRecovered,
+        failed = currentProgress.failed - totalRecovered,
+        retried = totalRetried,
+        retriedSucceeded = totalRecovered,
+      )
+    }
+  }
+
+  // ── Internal: retry wrapper ──────────────────────────────────────
+
+  /**
+   * Wraps fetchStock() with exponential-backoff retry.
+   * On null return (fetchStock catches exceptions internally via runCatching and returns null),
+   * waits with exponential backoff and retries up to maxAttempts.
+   */
+  internal suspend fun fetchStockWithRetry(
+    symbol: String,
+    refreshContext: RefreshContext? = null,
+    saveToDb: Boolean = true,
+  ): Stock? {
+    val retry = refreshProperties.retry
+    repeat(retry.maxAttempts) { attempt ->
+      val stock = fetchStock(symbol, refreshContext, saveToDb)
+      if (stock != null) return stock
+
+      // Don't sleep after the last attempt
+      if (attempt < retry.maxAttempts - 1) {
+        val backoff = calculateBackoff(attempt, retry)
+        logger.warn("Retry ${attempt + 1}/${retry.maxAttempts} for $symbol — waiting ${backoff}ms")
+        delay(backoff)
+      }
+    }
+    logger.error("All ${retry.maxAttempts} attempts exhausted for $symbol")
+    return null
+  }
+
+  /**
+   * Calculate exponential backoff: initialDelayMs * multiplier^attempt, capped at maxDelayMs.
+   */
+  internal fun calculateBackoff(
+    attempt: Int,
+    retry: StockRefreshProperties.RetryProperties = refreshProperties.retry,
+  ): Long {
+    val uncapped = (retry.initialDelayMs * retry.multiplier.pow(attempt)).toLong()
+    return min(uncapped, retry.maxDelayMs)
+  }
+
   // ── Internal: fetch pipeline ───────────────────────────────────────
 
   /**
@@ -422,14 +495,15 @@ class StockIngestionService(
    *
    * Data Pipeline:
    * - StockProvider: OHLCV (adjusted) + volume (REQUIRED)
-   * - TechnicalIndicatorProvider: ATR, ADX (BOTH REQUIRED for backtesting)
-   * - FundamentalDataProvider: Earnings (REQUIRED for backtesting), sector information (REQUIRED for sector breadth)
-   * - Internal calculation: EMAs, Donchian channels, trend
+   * - Internal calculation: EMAs, ATR, ADX, Donchian channels, trend
+   *
+   * Sector data is stored on the symbols table and populated separately
+   * via the populate-sectors endpoint.
    *
    * Rate limiting is handled transparently by provider decorators.
    *
    * @param symbol the stock symbol to fetch
-   * @param refreshContext optional session context with cached sector data
+   * @param refreshContext optional session context with min date
    * @param saveToDb whether to save to database immediately (default: true)
    * @return the fetched and saved stock, or null if fetch or save failed
    */
@@ -454,52 +528,14 @@ class StockIngestionService(
       val stockQuotes = stockProvider.getDailyAdjustedTimeSeries(symbol, minDate = minDate)
         ?: throw IllegalStateException("Could not fetch data from StockProvider")
 
-      // Step 2: Fetch ATR data (REQUIRED for strategies)
-      val atrMap = technicalIndicatorProvider.getATR(symbol, minDate = minDate)
-        ?: throw IllegalStateException("Could not fetch ATR data")
-
-      // Step 2.1: Fetch ADX data (REQUIRED for trend strength conditions and backtesting)
-      val adxMap = technicalIndicatorProvider.getADX(symbol, minDate = minDate)
-        ?: throw IllegalStateException("Could not fetch ADX data")
-
-      // Step 2.5: Fetch earnings history (OPTIONAL for indexes/ETFs, REQUIRED for individual stocks)
-      val earnings = if (isNonStock(symbol)) {
-        logger.info("$symbol is a non-stock asset - skipping earnings fetch")
-        emptyList()
-      } else {
-        fundamentalDataProvider.getEarnings(symbol)
-          ?: throw IllegalStateException("Could not fetch earnings data")
-      }
-
-      // Step 3: Get company info (sector + market cap) from cache or API
-      val companyInfo =
-        refreshContext?.getCachedCompanyInfo(symbol) ?: run {
-          if (isNonStock(symbol)) {
-            logger.info("$symbol is a non-stock asset - skipping company info fetch")
-            null
-          } else {
-            val info = fundamentalDataProvider.getCompanyInfo(symbol)
-            if (info == null) {
-              logger.warn("Could not fetch company info for $symbol - sector breadth will not be available")
-            } else {
-              refreshContext?.cacheCompanyInfo(symbol, info)
-            }
-            info
-          }
-        }
-      val sectorSymbol = companyInfo?.sectorSymbol
-      val marketCap = companyInfo?.marketCap
-
-      // Step 4: Create enriched quotes using StockFactory
+      // Step 2: Create enriched quotes using StockFactory (ATR/ADX calculated from OHLCV)
       val enrichedQuotes =
         stockFactory.enrichQuotes(
           symbol = symbol,
           stockQuotes = stockQuotes,
-          atrMap = atrMap,
-          adxMap = adxMap,
         ) ?: throw IllegalStateException("Could not create enriched quotes")
 
-      // Step 5: Calculate order blocks with multiple sensitivities
+      // Step 3: Calculate order blocks with multiple sensitivities
       val orderBlocksHigh =
         orderBlockCalculator.calculateOrderBlocks(
           quotes = enrichedQuotes,
@@ -516,20 +552,18 @@ class StockIngestionService(
 
       val orderBlocks = orderBlocksHigh + orderBlocksLow
 
-      // Step 6: Create Stock entity
+      // Step 4: Create Stock entity
       stockFactory.createStock(
         symbol = symbol,
-        sectorSymbol = sectorSymbol?.name,
-        marketCap = marketCap,
         enrichedQuotes = enrichedQuotes,
         orderBlocks = orderBlocks,
-        earnings = earnings,
+        earnings = emptyList(),
       )
     }.onFailure { error ->
       logger.error("✗ $symbol failed: ${error.message ?: error::class.simpleName}", error)
     }.getOrNull()
 
-    // Step 7: Save to database only if stock creation succeeded
+    // Step 5: Save to database only if stock creation succeeded
     if (stock != null && saveToDb) {
       try {
         stockRepository.save(stock)

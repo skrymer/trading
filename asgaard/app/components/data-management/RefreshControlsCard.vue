@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { RefreshProgress } from '~/types'
 
+const toast = useToast()
+
 const props = defineProps<{
   progress: RefreshProgress
 }>()
@@ -10,6 +12,7 @@ const emit = defineEmits<{
 }>()
 
 const minDate = ref('2016-01-01')
+const breadthLoading = ref(false)
 
 const progressPercentage = computed(() => {
   if (props.progress.total === 0) return 0
@@ -17,6 +20,29 @@ const progressPercentage = computed(() => {
 })
 
 const isActive = computed(() => props.progress.total > 0 && props.progress.completed < props.progress.total)
+
+async function refreshBreadth() {
+  breadthLoading.value = true
+  try {
+    await $fetch('/udgaard/api/data-management/refresh/recalculate-breadth', {
+      method: 'POST'
+    })
+    toast.add({
+      title: 'Success',
+      description: 'Market and sector breadth refreshed from stock data',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Failed to refresh breadth:', error)
+    toast.add({
+      title: 'Error',
+      description: 'Failed to refresh breadth data',
+      color: 'error'
+    })
+  } finally {
+    breadthLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -43,13 +69,24 @@ const isActive = computed(() => props.progress.total > 0 && props.progress.compl
     </div>
 
     <!-- Refresh Buttons -->
-    <div class="flex gap-2 mb-4">
+    <div class="flex items-center justify-between mb-4">
       <UButton
         label="Refresh All Stocks"
         icon="i-lucide-refresh-cw"
         :disabled="isActive"
         @click="emit('refresh-stocks', minDate)"
       />
+
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-muted">Recalculate breadth percentages and EMAs from existing stock data</span>
+        <UButton
+          label="Refresh Breadth"
+          icon="i-lucide-activity"
+          variant="soft"
+          :loading="breadthLoading"
+          @click="refreshBreadth"
+        />
+      </div>
     </div>
 
     <!-- Progress Bar -->

@@ -26,11 +26,11 @@ class StockMapper {
     quotes: List<StockQuotes>,
     orderBlocks: List<OrderBlocks>,
     earnings: List<Earnings>,
+    sectorSymbol: String? = null,
   ): Stock =
     Stock(
       symbol = stock.symbol,
-      sectorSymbol = stock.sectorSymbol,
-      marketCap = stock.marketCap,
+      sectorSymbol = sectorSymbol,
       quotes = quotes.map { toDomain(it) },
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },
@@ -107,8 +107,6 @@ class StockMapper {
   fun toPojo(stock: Stock): Stocks =
     Stocks(
       symbol = stock.symbol,
-      sectorSymbol = stock.sectorSymbol,
-      marketCap = stock.marketCap,
     )
 
   /**

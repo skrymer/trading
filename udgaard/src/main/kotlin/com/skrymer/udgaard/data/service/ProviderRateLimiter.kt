@@ -39,9 +39,9 @@ class ProviderRateLimiter(
   private val requestSequence = AtomicLong(0)
 
   // Minimum delay between requests to spread them evenly and avoid burst detection
-  // Using 1000ms (1 second) to ensure strict spacing - 5 req/sec max becomes effectively 1 req/sec
-  // This prevents AlphaVantage burst detection which looks at request distribution across the minute window
-  private val minInterRequestDelayMs = 1000L
+  // Rolling window rate limiting enforces 5 req/sec and 75 req/min limits;
+  // this additional spacing prevents AlphaVantage burst detection
+  private val minInterRequestDelayMs = 400L
 
   /**
    * Acquire a permit to make an API request.

@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { RateLimitStats, DatabaseStats, RefreshProgress } from '~/types'
+import type { DatabaseStats, RefreshProgress } from '~/types'
 
 const toast = useToast()
 
 // Reactive data
-const rateLimitStats = ref<RateLimitStats | null>(null)
 const dbStats = ref<DatabaseStats | null>(null)
 const refreshProgress = ref<RefreshProgress>({
   total: 0,
@@ -21,13 +20,11 @@ const pollingInterval = ref<number | null>(null)
 async function loadData() {
   loading.value = true
   try {
-    const [rateLimitData, statsData, progressData] = await Promise.all([
-      $fetch<RateLimitStats>('/udgaard/api/data-management/rate-limit'),
+    const [statsData, progressData] = await Promise.all([
       $fetch<DatabaseStats>('/udgaard/api/data-management/stats'),
       $fetch<RefreshProgress>('/udgaard/api/data-management/refresh/progress')
     ])
 
-    rateLimitStats.value = rateLimitData
     dbStats.value = statsData
     refreshProgress.value = progressData
   } catch (error) {
@@ -70,13 +67,9 @@ function startPolling() {
 
   pollingInterval.value = setInterval(async () => {
     try {
-      const [progressData, rateLimitData] = await Promise.all([
-        $fetch<RefreshProgress>('/udgaard/api/data-management/refresh/progress'),
-        $fetch<RateLimitStats>('/udgaard/api/data-management/rate-limit')
-      ])
+      const progressData = await $fetch<RefreshProgress>('/udgaard/api/data-management/refresh/progress')
 
       refreshProgress.value = progressData
-      rateLimitStats.value = rateLimitData
 
       // Stop polling if refresh is complete
       if (progressData.total > 0 && progressData.completed >= progressData.total) {
@@ -130,25 +123,22 @@ onUnmounted(() => {
       </UDashboardNavbar>
     </template>
 
-    <div v-if="loading && !rateLimitStats && !dbStats" class="flex items-center justify-center h-96">
+    <div v-if="loading && !dbStats" class="flex items-center justify-center h-96">
       <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin" />
     </div>
 
     <div v-else class="space-y-6 p-6">
-      <!-- Section 1: Rate Limit Status -->
-      <DataManagementRateLimitCard v-if="rateLimitStats" :rate-limit="rateLimitStats" />
+      <!-- Provider Configuration -->
+      <DataManagementRateLimitCard />
 
-      <!-- Section 2: Database Statistics -->
+      <!-- Database Statistics -->
       <DataManagementDatabaseStatsCards v-if="dbStats" :stats="dbStats" />
 
-      <!-- Section 3: Refresh Controls -->
+      <!-- Refresh Controls -->
       <DataManagementRefreshControlsCard
         :progress="refreshProgress"
         @refresh-stocks="handleRefreshStocks"
       />
-
-      <!-- Section 4: Breadth Data -->
-      <DataManagementBreadthRefreshCard />
     </div>
   </UDashboardPanel>
 </template>
