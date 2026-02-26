@@ -37,6 +37,7 @@ class BreadthController(
     if (data.isEmpty()) {
       logger.info("Market breadth daily table empty, calculating from stock data")
       marketBreadthRepository.refreshBreadthDaily()
+      sectorBreadthService.refreshSectorBreadth()
       marketBreadthService.refreshMarketBreadth()
       data = marketBreadthRepository.findAllAsMap().values.sortedBy { it.quoteDate }
     }

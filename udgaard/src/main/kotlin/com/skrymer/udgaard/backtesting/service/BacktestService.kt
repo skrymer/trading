@@ -1129,7 +1129,7 @@ class BacktestService(
 
   /**
    * Capture market conditions at trade entry date using pre-indexed lookups for O(1) access.
-   * SPY uptrend uses EMA-based trend (AlphaVantage-derived), not Ovtlyr's spyInUptrend field.
+   * SPY uptrend uses EMA-based trend, not Ovtlyr's spyInUptrend field.
    * Market breadth is calculated from all stocks in the DB (% in uptrend per date).
    */
   private fun captureMarketConditionIndexed(

@@ -10,10 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 /**
  * REST Controller for cache management
  *
- * Provides endpoints to manage caching for external API integrations
- * like Alpha Vantage to optimize API usage and stay within rate limits.
- *
- * Note: AlphaVantage caching has been disabled to prevent stale data issues.
+ * Provides endpoints to manage caching for the application.
  */
 @RestController
 @RequestMapping("/api/cache")
@@ -28,16 +25,10 @@ class CacheController {
     logger.info("Request for cache status")
     return ResponseEntity.ok(
       mapOf(
-        "alphaVantage" to
+        "dataSource" to
           mapOf(
-            "caching" to "disabled",
-            "note" to "AlphaVantage caching has been disabled to ensure fresh data",
-          ),
-        "rateLimits" to
-          mapOf(
-            "daily" to 25,
-            "perMinute" to 5,
-            "tier" to "free",
+            "provider" to "midgaard",
+            "note" to "Stock data and indicators provided by Midgaard reference data service",
           ),
       ),
     )

@@ -163,30 +163,42 @@ class TechnicalIndicatorServiceTest {
   // ===================================================================
 
   @Test
-  fun `enrichWithIndicators sets ATR and ADX on quotes`() {
-    // Build enough quotes for ATR (15) and ADX (29) to produce values
-    // Using a consistent uptrend for predictable ADX
-    val quotes = (0..35).map { i ->
-      val base = 100.0 + i * 2.0
-      createQuote(i, base, base + 1.5, base - 0.5, base - 0.3)
-    }
+  fun `enrichWithIndicators computes trend from pre-populated indicators`() {
+    // Quotes with pre-populated indicators (as provided by Midgaard)
+    // Uptrend: EMA5 > EMA10 > EMA20 and price > EMA50
+    val uptrendQuote = StockQuote(
+      symbol = "TEST",
+      date = LocalDate.of(2024, 1, 1),
+      closePrice = 150.0,
+      openPrice = 148.0,
+      high = 152.0,
+      low = 147.0,
+      closePriceEMA5 = 149.0,
+      closePriceEMA10 = 147.0,
+      closePriceEMA20 = 145.0,
+      closePriceEMA50 = 140.0,
+      atr = 2.5,
+    )
 
-    val result = service.enrichWithIndicators(quotes, "TEST")
+    // Downtrend: EMA5 < EMA10 < EMA20
+    val downtrendQuote = StockQuote(
+      symbol = "TEST",
+      date = LocalDate.of(2024, 1, 2),
+      closePrice = 130.0,
+      openPrice = 132.0,
+      high = 133.0,
+      low = 129.0,
+      closePriceEMA5 = 131.0,
+      closePriceEMA10 = 133.0,
+      closePriceEMA20 = 135.0,
+      closePriceEMA50 = 140.0,
+      atr = 2.5,
+    )
 
-    // ATR: first meaningful value at index 14 (period=14)
-    assertEquals(0.0, result[0].atr, "ATR at index 0 should be 0.0")
-    assertTrue(result[14].atr > 0.0, "ATR at index 14 should be > 0, got ${result[14].atr}")
-    assertTrue(result[35].atr > 0.0, "ATR at last index should be > 0, got ${result[35].atr}")
+    val result = service.enrichWithIndicators(listOf(uptrendQuote, downtrendQuote), "TEST")
 
-    // ADX: first meaningful value at index 27 (2*14-1), null before that
-    assertEquals(null, result[0].adx, "ADX at index 0 should be null")
-    assertEquals(null, result[26].adx, "ADX at index 26 should be null (0.0 maps to null)")
-    assertTrue(result[27].adx != null && result[27].adx!! > 0.0, "ADX at index 27 should be > 0")
-    assertTrue(result[35].adx != null && result[35].adx!! > 0.0, "ADX at last index should be > 0")
-
-    // EMAs should also be set
-    assertTrue(result[35].closePriceEMA5 > 0.0, "EMA5 should be set")
-    assertTrue(result[35].closePriceEMA20 > 0.0, "EMA20 should be set")
+    assertEquals("Uptrend", result[0].trend)
+    assertEquals("Downtrend", result[1].trend)
   }
 
   @Test

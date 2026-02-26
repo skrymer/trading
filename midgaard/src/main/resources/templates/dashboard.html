@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout('Midgaard - Dashboard', ~{::content})}">
+<body>
+<div th:fragment="content">
+  <h2 class="mb-4">Dashboard</h2>
+
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card stat-card primary">
+        <div class="card-body">
+          <h6 class="card-subtitle text-muted">Total Symbols</h6>
+          <h3 th:text="${totalSymbols}">0</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stat-card success">
+        <div class="card-body">
+          <h6 class="card-subtitle text-muted">Total Quotes</h6>
+          <h3 th:text="${#numbers.formatInteger(totalQuotes, 1, 'COMMA')}">0</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stat-card success">
+        <div class="card-body">
+          <h6 class="card-subtitle text-muted">Complete</h6>
+          <h3 th:text="${completeCount}">0</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stat-card danger">
+        <div class="card-body">
+          <h6 class="card-subtitle text-muted">Failed</h6>
+          <h3 th:text="${failedCount}">0</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">Quick Actions</div>
+        <div class="card-body">
+          <form method="post" action="/ingestion/initial/all" class="d-inline">
+            <button type="submit" class="btn btn-primary me-2">Initial Ingest All</button>
+          </form>
+          <form method="post" action="/ingestion/update/all" class="d-inline">
+            <button type="submit" class="btn btn-outline-primary">Update All</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">Rate Limits</div>
+        <div class="card-body">
+          <div th:each="entry : ${rateLimits}">
+            <strong th:text="${entry.key}">provider</strong>:
+            <span th:text="${entry.value.requestsLastMinute + '/' + entry.value.minuteLimit + ' (min)'}">0/75</span>,
+            <span th:text="${entry.value.requestsLastDay + '/' + entry.value.dailyLimit + ' (day)'}">0/75000</span>
+          </div>
+          <div th:if="${#maps.isEmpty(rateLimits)}">
+            <span class="text-muted">No active providers</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,198 @@
+plugins {
+	id 'org.jetbrains.kotlin.jvm' version '2.3.0'
+	id 'org.jetbrains.kotlin.plugin.spring' version '2.3.0'
+	id 'org.springframework.boot' version '3.5.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.jlleitschuh.gradle.ktlint' version '12.1.2'
+	id 'dev.detekt' version '2.0.0-alpha.2'
+	id 'nu.studer.jooq' version '9.0'
+	id 'net.ltgt.flyway' version '0.2.0'
+}
+
+group = 'com.skrymer'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url "https://jitpack.io" }
+}
+
+dependencies {
+	// Database - PostgreSQL with jOOQ
+	implementation 'org.springframework.boot:spring-boot-starter-jooq'
+	implementation 'org.jooq:jooq-kotlin'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Flyway for database migrations
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	flyway 'org.flywaydb:flyway-core'
+	flyway 'org.flywaydb:flyway-database-postgresql'
+	flyway 'org.postgresql:postgresql'
+
+	// jOOQ code generation dependencies
+	jooqGenerator 'org.postgresql:postgresql'
+
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+	implementation 'org.jetbrains.kotlin:kotlin-reflect'
+	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
+	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0'
+
+	// Massive API (Polygon) client
+	implementation "com.github.polygon-io:client-jvm:v5.1.2"
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+	testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// TestContainers for integration tests
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.4')
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:junit-jupiter'
+}
+
+dependencyManagement {
+	dependencies {
+		// Force jOOQ version consistency
+		dependency 'org.jooq:jooq:3.19.23'
+		dependency 'org.jooq:jooq-kotlin:3.19.23'
+		dependency 'org.jooq:jooq-meta:3.19.23'
+		dependency 'org.jooq:jooq-codegen:3.19.23'
+	}
+}
+
+kotlin {
+	compilerOptions {
+		freeCompilerArgs.addAll '-Xjsr305=strict'
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+tasks.named('bootRun') {
+	jvmArgs = ['-Xmx4096m', '-Xms2048m']
+}
+
+ktlint {
+	version = "1.5.0"
+	verbose = true
+	android = false
+	outputToConsole = true
+	ignoreFailures = false
+	enableExperimentalRules = false
+	filter {
+		exclude("**/generated/**")
+		exclude("**/build/**")
+		exclude { it.file.absolutePath.contains("/build/") }
+		include("**/src/**/*.kt")
+	}
+}
+
+detekt {
+	toolVersion = "2.0.0-alpha.2"
+	config.setFrom("${projectDir}/detekt.yml")
+	buildUponDefaultConfig = true
+	parallel = true
+	source.setFrom("src/main/kotlin", "src/test/kotlin")
+}
+
+flyway {
+	url = 'jdbc:postgresql://localhost:5433/datastore'
+	user = 'trading'
+	password = 'trading'
+	migrationLocations = files('src/main/resources/db/migration')
+	configuration = [
+		'flyway.baselineOnMigrate': 'true',
+		'flyway.baselineVersion': '1',
+		'flyway.validateOnMigrate': 'true',
+		'flyway.cleanDisabled': 'false'
+	]
+}
+
+jooq {
+	version = '3.19.23'
+	configurations {
+		main {
+			generateSchemaSourceOnCompilation = true
+			generationTool {
+				jdbc {
+					driver = 'org.postgresql.Driver'
+					url = 'jdbc:postgresql://localhost:5433/datastore'
+					user = 'trading'
+					password = 'trading'
+				}
+				generator {
+					name = 'org.jooq.codegen.KotlinGenerator'
+					database {
+						name = 'org.jooq.meta.postgres.PostgresDatabase'
+						includes = '.*'
+						excludes = ''
+						inputSchema = 'public'
+					}
+					generate {
+						deprecated = false
+						records = true
+						pojos = true
+						daos = false
+						kotlinNotNullPojoAttributes = true
+						kotlinNotNullRecordAttributes = true
+					}
+					target {
+						packageName = 'com.skrymer.midgaard.jooq'
+						directory = 'build/generated-src/jooq/main'
+					}
+				}
+			}
+		}
+	}
+}
+
+// Ensure Flyway migrations run before jOOQ code generation
+tasks.named('generateJooq') {
+	dependsOn 'flywayMigrate'
+}
+
+/**
+ * Initializes the database by running Flyway migrations
+ * Requires PostgreSQL running with 'datastore' database (docker compose up -d)
+ *
+ * Usage: ./gradlew initDatabase
+ */
+tasks.register('initDatabase') {
+	group = 'database'
+	description = 'Runs Flyway migrations (required before first app startup for JOOQ code generation)'
+
+	dependsOn 'flywayMigrate'
+
+	doFirst {
+		println """
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551         Initializing Midgaard Database                 \u2551
+\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d
+Running Flyway migrations against PostgreSQL datastore database...
+"""
+	}
+	doLast {
+		println """
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551         Midgaard Database Initialized Successfully      \u2551
+\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d
+You can now start the Spring Boot app:
+  ./gradlew bootRun
+"""
+	}
+}

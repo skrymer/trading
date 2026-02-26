@@ -40,9 +40,9 @@ async function loadData() {
 }
 
 // Refresh all stocks
-async function handleRefreshStocks(minDate: string) {
+async function handleRefreshStocks() {
   try {
-    await $fetch(`/udgaard/api/data-management/refresh/all-stocks?minDate=${minDate}`, {
+    await $fetch('/udgaard/api/data-management/refresh/all-stocks', {
       method: 'POST'
     })
     toast.add({
@@ -128,9 +128,6 @@ onUnmounted(() => {
     </div>
 
     <div v-else class="space-y-6 p-6">
-      <!-- Provider Configuration -->
-      <DataManagementRateLimitCard />
-
       <!-- Database Statistics -->
       <DataManagementDatabaseStatsCards v-if="dbStats" :stats="dbStats" />
 

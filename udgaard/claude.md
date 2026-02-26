@@ -70,10 +70,9 @@ udgaard/
 │   │   │   ├── alphavantage/         # ATR, ADX, earnings, company overview
 │   │   │   │   ├── AlphaVantageClient.kt
 │   │   │   │   └── dto/
-│   │   │   ├── massive/              # OHLCV stock data, company info (SIC codes → sector)
-│   │   │   │   ├── MassiveClient.kt
+│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators from Midgaard service
+│   │   │   │   ├── MidgaardClient.kt
 │   │   │   │   └── dto/
-│   │   │   ├── decorator/            # Rate-limited provider wrappers
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
@@ -96,8 +95,7 @@ udgaard/
 │   │       ├── SectorBreadthService.kt
 │   │       ├── OrderBlockCalculator.kt
 │   │       ├── SymbolService.kt
-│   │       ├── DataStatsService.kt
-│   │       └── RateLimiterService.kt
+│   │       └── DataStatsService.kt
 │   ├── portfolio/                    # Portfolio domain
 │   │   ├── controller/
 │   │   │   ├── PortfolioController.kt
@@ -142,7 +140,7 @@ udgaard/
 │   │   └── StockMcpTools.kt
 │   ├── config/                       # Configuration classes
 │   │   ├── CacheConfig.kt
-│   │   ├── ProviderConfiguration.kt  # API provider beans (Massive, AlphaVantage)
+│   │   ├── ProviderConfiguration.kt  # API provider beans (Midgaard)
 │   │   ├── SecurityConfig.kt         # Spring Security configuration
 │   │   ├── StockRefreshProperties.kt # Stock refresh scheduling config
 │   │   └── StockRefreshScheduleConfig.kt
@@ -156,7 +154,8 @@ udgaard/
 │       ├── V3__Add_sector_symbols.sql
 │       ├── V4__Add_scanner_trades.sql
 │       ├── V5__Add_users_table.sql
-│       └── V6__Move_sector_to_symbols.sql
+│       ├── V6__Move_sector_to_symbols.sql
+│       └── V7__Add_sector_to_stocks.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
@@ -164,7 +163,7 @@ udgaard/
 │       └── BacktestApiE2ETest.kt       # Backtest API E2E tests
 ├── src/test/resources/
 │   └── application-test.properties   # Test profile config
-├── compose.yaml                      # Docker Compose (PostgreSQL, MongoDB)
+├── compose.yaml                      # Docker Compose (PostgreSQL)
 ├── build.gradle                      # Dependencies & build config
 ├── detekt.yml                        # Detekt static analysis config
 └── detekt-baseline.xml               # Detekt baseline for existing issues
@@ -553,11 +552,11 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 spring.datasource.username=trading
 spring.datasource.password=trading
 
-# AlphaVantage API (ATR, ADX, earnings, company overview for sector population)
-alphavantage.api.baseUrl=https://www.alphavantage.co/query
+# Midgaard Reference Data Service (OHLCV + pre-computed indicators)
+midgaard.base-url=http://localhost:8081
 
-# Massive API (OHLCV stock data + company info via SIC codes)
-massive.api.baseUrl=https://api.polygon.io
+# AlphaVantage API (earnings, company overview — used by Midgaard for initial load)
+alphavantage.api.baseUrl=https://www.alphavantage.co/query
 
 # Ovtlyr API (configured via Settings UI or secure.properties)
 ovtlyr.header.projectId=Ovtlyr.com_project1

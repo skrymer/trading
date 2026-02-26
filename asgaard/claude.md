@@ -31,6 +31,7 @@ asgaard/
 │   │   ├── portfolio.vue         # Portfolio management
 │   │   ├── scanner.vue           # Stock scanner
 │   │   ├── stock-data.vue        # Stock data explorer with charts
+│   │   ├── breadth.vue           # Market/sector breadth analysis
 │   │   ├── data-manager.vue      # Data ingestion & refresh controls
 │   │   ├── app-metrics.vue       # Application metrics dashboard
 │   │   ├── settings.vue          # API credentials & settings
@@ -61,11 +62,10 @@ asgaard/
 │   │   │   ├── StockChart.client.vue    # Lightweight Charts candlestick
 │   │   │   ├── SignalDetailsModal.vue
 │   │   │   └── StrategySignalsTable.vue
-│   │   ├── data-management/      # Data management components (4)
+│   │   ├── data-management/      # Data management components (3)
 │   │   │   ├── DatabaseStatsCards.vue
 │   │   │   ├── RefreshControlsCard.vue
-│   │   │   ├── BreadthRefreshCard.vue
-│   │   │   └── RateLimitCard.vue
+│   │   │   └── BreadthRefreshCard.vue
 │   │   ├── portfolio/            # Portfolio components (13)
 │   │   │   ├── CreateModal.vue
 │   │   │   ├── PositionDetailsModal.vue

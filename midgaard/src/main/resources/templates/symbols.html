@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout('Midgaard - Symbols', ~{::content})}">
+<body>
+<div th:fragment="content">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Symbols <small class="text-muted" th:text="'(' + ${totalCount} + ' total)'"></small></h2>
+    <div>
+      <a href="/symbols" class="btn btn-sm" th:classappend="${filterStatus == null} ? 'btn-primary' : 'btn-outline-primary'">All</a>
+      <a href="/symbols?status=PENDING" class="btn btn-sm" th:classappend="${filterStatus == 'PENDING'} ? 'btn-warning' : 'btn-outline-warning'">Pending</a>
+      <a href="/symbols?status=COMPLETE" class="btn btn-sm" th:classappend="${filterStatus == 'COMPLETE'} ? 'btn-success' : 'btn-outline-success'">Complete</a>
+      <a href="/symbols?status=FAILED" class="btn btn-sm" th:classappend="${filterStatus == 'FAILED'} ? 'btn-danger' : 'btn-outline-danger'">Failed</a>
+    </div>
+  </div>
+
+  <table class="table table-sm table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>Symbol</th>
+        <th>Type</th>
+        <th>Sector</th>
+        <th>Bars</th>
+        <th>Last Bar</th>
+        <th>Status</th>
+        <th>Last Ingested</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr th:each="sym : ${symbols}">
+        <td><a th:href="'/symbols/' + ${sym.symbol}" th:text="${sym.symbol}">AAPL</a></td>
+        <td th:text="${sym.assetType}">STOCK</td>
+        <td th:text="${sym.sector ?: '-'}">-</td>
+        <td th:text="${#numbers.formatInteger(sym.barCount, 1, 'COMMA')}">0</td>
+        <td th:text="${sym.lastBarDate ?: '-'}">-</td>
+        <td>
+          <span class="badge status-badge"
+                th:classappend="${sym.status == 'COMPLETE'} ? 'bg-success' : (${sym.status == 'FAILED'} ? 'bg-danger' : 'bg-warning')"
+                th:text="${sym.status}">PENDING</span>
+        </td>
+        <td th:text="${sym.lastIngested ?: '-'}">-</td>
+        <td>
+          <form th:action="'/ingestion/initial/' + ${sym.symbol}" method="post" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-primary">Ingest</button>
+          </form>
+          <form th:action="'/ingestion/update/' + ${sym.symbol}" method="post" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Update</button>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>

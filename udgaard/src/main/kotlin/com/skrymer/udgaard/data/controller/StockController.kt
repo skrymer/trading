@@ -5,7 +5,6 @@ import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
-import com.skrymer.udgaard.data.dto.StockRefreshResult
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.service.StockIngestionService
 import com.skrymer.udgaard.data.service.StockService
@@ -16,12 +15,9 @@ import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.LocalDate
 
 /**
  * REST controller for stock data operations.
@@ -98,24 +94,21 @@ class StockController(
    * @return Stock data including quotes and order blocks
    */
   @GetMapping("/{symbol}")
-  @Transactional(readOnly = true)
-  suspend fun getStock(
+  fun getStock(
     @PathVariable symbol: String,
     @RequestParam(defaultValue = "false") refresh: Boolean,
-    @RequestParam(defaultValue = "2016-01-01") minDate: String,
   ): ResponseEntity<Stock> {
-    val parsedMinDate = LocalDate.parse(minDate)
-    logger.info("Getting stock data for: $symbol (refresh=$refresh, minDate=$parsedMinDate)")
+    logger.info("Getting stock data for: $symbol (refresh=$refresh)")
 
     if (refresh) {
-      stockIngestionService.refreshStock(symbol, parsedMinDate)
+      stockIngestionService.refreshStock(symbol)
     }
 
     var stock = stockService.getStock(symbol)
 
     // Auto-populate if not found and no refresh was requested
     if (stock == null && !refresh) {
-      stockIngestionService.refreshStock(symbol, parsedMinDate)
+      stockIngestionService.refreshStock(symbol)
       stock = stockService.getStock(symbol)
     }
 
@@ -140,8 +133,7 @@ class StockController(
    * @return Stock data with entry/exit signals annotated on each quote
    */
   @GetMapping("/{symbol}/signals")
-  @Transactional(readOnly = true)
-  suspend fun getStockWithSignals(
+  fun getStockWithSignals(
     @PathVariable symbol: String,
     @RequestParam entryStrategy: String,
     @RequestParam exitStrategy: String,
@@ -173,27 +165,6 @@ class StockController(
 
     logger.info("Stock data with signals retrieved successfully for: $symbol")
     return ResponseEntity.ok(stockWithSignals)
-  }
-
-  /**
-   * Refresh stock data for multiple symbols.
-   *
-   * Example: POST /api/stocks/refresh
-   * Body: ["AAPL", "GOOGL", "MSFT"]
-   *
-   * @param symbols List of stock symbols to refresh
-   * @return Detailed refresh result with status, counts, successful stocks, and failed stocks with errors
-   */
-  @PostMapping("/refresh")
-  fun refreshStocks(
-    @RequestBody symbols: List<String>,
-  ): ResponseEntity<StockRefreshResult> {
-    logger.info("Refreshing ${symbols.size} stocks: ${symbols.joinToString(", ")}")
-    val result = stockIngestionService.refreshStocks(symbols.map { it.uppercase() })
-    logger.info(
-      "Stock refresh complete: ${result.succeeded}/${result.total} succeeded, ${result.failed} failed (${result.status})",
-    )
-    return ResponseEntity.ok(result)
   }
 
   /**

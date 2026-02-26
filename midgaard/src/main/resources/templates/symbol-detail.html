@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout('Midgaard - ' + ${symbol?.symbol ?: 'Symbol'}, ~{::content})}">
+<body>
+<div th:fragment="content">
+  <div th:if="${symbol == null}">
+    <div class="alert alert-warning">Symbol not found.</div>
+    <a href="/symbols" class="btn btn-outline-primary">Back to Symbols</a>
+  </div>
+
+  <div th:if="${symbol != null}">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 th:text="${symbol.symbol}">AAPL</h2>
+      <div>
+        <form th:action="'/ingestion/initial/' + ${symbol.symbol}" method="post" class="d-inline">
+          <button type="submit" class="btn btn-primary">Re-ingest</button>
+        </form>
+        <form th:action="'/ingestion/update/' + ${symbol.symbol}" method="post" class="d-inline">
+          <button type="submit" class="btn btn-outline-primary">Update</button>
+        </form>
+        <a href="/symbols" class="btn btn-outline-secondary">Back</a>
+      </div>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">Info</div>
+          <div class="card-body">
+            <p><strong>Type:</strong> <span th:text="${symbol.assetType}">STOCK</span></p>
+            <p><strong>Sector:</strong> <span th:text="${symbol.sector ?: 'Unknown'}">-</span></p>
+            <p><strong>Quote Count:</strong> <span th:text="${#numbers.formatInteger(quoteCount, 1, 'COMMA')}">0</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">Ingestion Status</div>
+          <div class="card-body" th:if="${ingestion != null}">
+            <p><strong>Status:</strong>
+              <span class="badge"
+                    th:classappend="${ingestion.status.name() == 'COMPLETE'} ? 'bg-success' : (${ingestion.status.name() == 'FAILED'} ? 'bg-danger' : 'bg-warning')"
+                    th:text="${ingestion.status}">PENDING</span>
+            </p>
+            <p><strong>Bars:</strong> <span th:text="${ingestion.barCount}">0</span></p>
+            <p><strong>Last Bar:</strong> <span th:text="${ingestion.lastBarDate ?: '-'}">-</span></p>
+            <p><strong>Last Ingested:</strong> <span th:text="${ingestion.lastIngested != null ? #temporals.format(ingestion.lastIngested, 'yyyy-MM-dd HH:mm') : '-'}">-</span></p>
+          </div>
+          <div class="card-body" th:if="${ingestion == null}">
+            <p class="text-muted">Not yet ingested</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div th:if="${!lastQuotes.isEmpty()}">
+      <h5>Recent Quotes</h5>
+      <table class="table table-sm">
+        <thead class="table-dark">
+          <tr>
+            <th>Date</th>
+            <th>Open</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Close</th>
+            <th>ATR</th>
+            <th>ADX</th>
+            <th>EMA20</th>
+            <th>EMA50</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="q : ${lastQuotes}">
+            <td th:text="${q.date}">2024-01-01</td>
+            <td th:text="${q.open}">0.00</td>
+            <td th:text="${q.high}">0.00</td>
+            <td th:text="${q.low}">0.00</td>
+            <td th:text="${q.close}">0.00</td>
+            <td th:text="${q.atr ?: '-'}">-</td>
+            <td th:text="${q.adx ?: '-'}">-</td>
+            <td th:text="${q.ema20 ?: '-'}">-</td>
+            <td th:text="${q.ema50 ?: '-'}">-</td>
+            <td th:text="${q.indicatorSource}">CALCULATED</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+
+# Detekt configuration for Midgaard
+# Stricter than Udgaard — fresh codebase with no legacy debt
+
+complexity:
+  LongMethod:
+    active: true
+    allowedLines: 40
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 10
+  TooManyFunctions:
+    active: true
+    allowedFunctionsPerFile: 15
+    allowedFunctionsPerClass: 15
+  LongParameterList:
+    active: true
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 12
+  NestedBlockDepth:
+    active: true
+    allowedDepth: 5
+  ComplexCondition:
+    active: true
+    allowedConditions: 3
+
+style:
+  ClassOrdering:
+    active: true
+  MagicNumber:
+    active: false
+  ReturnCount:
+    active: true
+    max: 3
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+  ThrowsCount:
+    active: true
+    max: 2
+  LoopWithTooManyJumpStatements:
+    active: true
+    maxJumpCount: 1
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false

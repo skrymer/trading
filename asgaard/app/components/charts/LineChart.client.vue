@@ -82,7 +82,7 @@ const chartOptions = computed<ApexOptions>(() => {
           return val.toFixed(0)
         }
       },
-      ...(props.percentMode ? { min: 0, max: 100 } : {})
+      ...(props.percentMode ? { forceNiceScale: true } : {})
     },
     grid: {
       borderColor: isDark ? '#374151' : '#e5e7eb'

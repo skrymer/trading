@@ -40,8 +40,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
-- **Massive API** (Polygon) for OHLCV stock data and company info (sector via SIC codes, market cap)
-- **AlphaVantage API** for ATR, ADX, earnings, and company overview (sector population)
+- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian)
+- **AlphaVantage API** for earnings and company overview (used by Midgaard for initial data load)
 - Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
@@ -59,7 +59,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 2. **Data** (`data/`)
    - `StockService.kt`: Stock data management
-   - `StockIngestionService.kt`: Bulk stock data ingestion from Massive (Polygon)
+   - `StockIngestionService.kt`: Bulk stock data ingestion from Midgaard
    - `TechnicalIndicatorService.kt`: EMAs, Donchian channels, ATR, trend determination
    - `MarketBreadthService.kt` / `SectorBreadthService.kt`: Market & sector breadth
    - `OrderBlockCalculator.kt`: Order block detection via ROC momentum
@@ -86,8 +86,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
 6. **Integration** (`data/integration/`)
-   - **Massive** (Polygon): OHLCV stock data, company info (sector via SIC codes, market cap)
-   - **AlphaVantage**: ATR, ADX, earnings, company overview (sector population)
+   - **Midgaard**: OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client
+   - **AlphaVantage**: Earnings, company overview (used by Midgaard; AlphaVantageClient kept in Udgaard for options data)
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
 
 **API Endpoints:**
@@ -114,11 +114,11 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
-- **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
+- **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
 - **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards
 - **Settings** (`components/settings/`): MembersList
-- **Pages**: index, backtesting, portfolio, scanner, stock-data, data-manager, app-metrics, settings, login, test-chart
+- **Pages**: index, backtesting, portfolio, scanner, stock-data, breadth, data-manager, app-metrics, settings, login, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -142,7 +142,7 @@ trading/
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
-│   │   │   ├── integration/          # AlphaVantage, Ovtlyr clients
+│   │   │   ├── integration/          # Midgaard, AlphaVantage, Ovtlyr clients
 │   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadth
 │   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository
 │   │   │   └── service/              # StockService, TechnicalIndicatorService, OrderBlockCalculator
@@ -164,17 +164,27 @@ trading/
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
-│   ├── src/main/resources/           # Config, migrations (V1-V6)
+│   ├── src/main/resources/           # Config, migrations (V1-V7)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
-│   ├── compose.yaml                  # Docker Compose (PostgreSQL, MongoDB)
+│   ├── compose.yaml                  # Docker Compose (PostgreSQL)
 │   ├── build.gradle                  # Gradle build config
 │   ├── detekt.yml                    # Detekt configuration
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
+├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
+│   ├── src/main/kotlin/com/skrymer/midgaard/
+│   │   ├── provider/                 # Provider abstractions + implementations (AlphaVantage, Massive)
+│   │   ├── indicator/                # Indicator calculator (ATR, ADX, EMAs, Donchian)
+│   │   ├── ingestion/                # Ingestion service (initial load + daily updates)
+│   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status)
+│   │   ├── controller/               # REST API + Thymeleaf UI controllers
+│   │   └── config/                   # Configuration classes
+│   ├── src/main/resources/           # Config, migrations, Thymeleaf templates
+│   └── build.gradle.kts              # Kotlin DSL build config
 ├── asgaard/                          # Frontend (Nuxt.js)
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (11 pages)
+│   │   ├── pages/                    # File-based routing (12 pages)
 │   │   ├── plugins/                  # Nuxt plugins
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
@@ -267,4 +277,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-02-24_
+_Last Updated: 2026-02-26_

@@ -11,13 +11,6 @@
             v-model="selectedSymbol"
             class="w-64"
           />
-          <UInput
-            v-if="selectedStock"
-            v-model="minDate"
-            type="date"
-            :disabled="loading"
-            class="w-40"
-          />
           <UButton
             v-if="selectedStock"
             icon="i-heroicons-arrow-path"
@@ -200,7 +193,6 @@ const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
-const minDate = ref('2016-01-01')
 const marketBreadthData = ref<MarketBreadthDaily[]>([])
 const sectorBreadthData = ref<SectorBreadthDaily[]>([])
 
@@ -347,7 +339,6 @@ const fetchStockData = async (symbol: string, refresh = false) => {
     if (refresh) {
       params.append('refresh', 'true')
     }
-    params.append('minDate', minDate.value)
     const url = `/udgaard/api/stocks/${symbol}${params.toString() ? `?${params.toString()}` : ''}`
     selectedStock.value = await $fetch(url)
     console.log('Fetched stock data for', symbol, ':', {

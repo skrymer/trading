@@ -47,6 +47,14 @@ const links = [[{
   }
 },
 {
+  label: 'Breadth',
+  icon: 'i-lucide-activity',
+  to: '/breadth',
+  onSelect: () => {
+    open.value = false
+  }
+},
+{
   label: 'Data Manager',
   icon: 'i-lucide-hard-drive-download',
   to: '/data-manager',

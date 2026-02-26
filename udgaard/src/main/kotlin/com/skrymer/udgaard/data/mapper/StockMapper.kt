@@ -26,11 +26,10 @@ class StockMapper {
     quotes: List<StockQuotes>,
     orderBlocks: List<OrderBlocks>,
     earnings: List<Earnings>,
-    sectorSymbol: String? = null,
   ): Stock =
     Stock(
       symbol = stock.symbol,
-      sectorSymbol = sectorSymbol,
+      sectorSymbol = stock.sector,
       quotes = quotes.map { toDomain(it) },
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },

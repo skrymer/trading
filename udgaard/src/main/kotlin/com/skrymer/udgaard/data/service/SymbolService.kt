@@ -1,10 +1,8 @@
 package com.skrymer.udgaard.data.service
 
 import com.skrymer.udgaard.data.model.AssetType
-import com.skrymer.udgaard.data.model.SectorSymbol
 import com.skrymer.udgaard.data.repository.SymbolJooqRepository
 import com.skrymer.udgaard.data.repository.SymbolRecord
-import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 
@@ -28,16 +26,4 @@ class SymbolService(
     val record = getAll().firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
     return record != null && record.assetType != AssetType.STOCK
   }
-
-  fun getSectorSymbol(symbol: String): SectorSymbol? {
-    val record = getAll().firstOrNull { it.symbol.equals(symbol, ignoreCase = true) }
-    return record?.sectorSymbol?.let { SectorSymbol.fromString(it) }
-  }
-
-  @CacheEvict(value = ["symbols"], key = "'all'")
-  fun updateSectorSymbol(symbol: String, sectorSymbol: String) {
-    repository.updateSectorSymbol(symbol, sectorSymbol)
-  }
-
-  fun findStocksWithoutSector(): List<SymbolRecord> = repository.findStocksWithoutSector()
 }

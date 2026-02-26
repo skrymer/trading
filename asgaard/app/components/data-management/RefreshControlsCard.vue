@@ -8,10 +8,9 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'refresh-stocks': [minDate: string]
+  'refresh-stocks': []
 }>()
 
-const minDate = ref('2016-01-01')
 const breadthLoading = ref(false)
 
 const progressPercentage = computed(() => {
@@ -53,28 +52,13 @@ async function refreshBreadth() {
       </h3>
     </template>
 
-    <!-- Refresh Options -->
-    <div class="mb-4 space-y-3">
-      <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-          Data start date:
-        </label>
-        <UInput
-          v-model="minDate"
-          type="date"
-          :disabled="isActive"
-          class="w-44"
-        />
-      </div>
-    </div>
-
     <!-- Refresh Buttons -->
     <div class="flex items-center justify-between mb-4">
       <UButton
         label="Refresh All Stocks"
         icon="i-lucide-refresh-cw"
         :disabled="isActive"
-        @click="emit('refresh-stocks', minDate)"
+        @click="emit('refresh-stocks')"
       />
 
       <div class="flex items-center gap-3">

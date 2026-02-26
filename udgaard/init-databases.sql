@@ -1,0 +1,1 @@
+-- No additional databases needed — Midgaard has its own PostgreSQL container

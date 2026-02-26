@@ -1,0 +1,16 @@
+.gradle
+build/classes
+build/generated-src
+build/reports
+build/tmp
+logs
+*.hprof
+.idea
+*.iml
+src
+gradle
+gradlew
+gradlew.bat
+settings.gradle
+build.gradle
+detekt.yml

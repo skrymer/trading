@@ -45,6 +45,14 @@ claude_thoughts/
 /TSLA_*.md
 /.mcp.json
 
+# Gradle
+.gradle/
+build/
+
+# Logs and heap dumps
+logs/
+*.hprof
+
 # IDE
 .idea/
 .vscode/

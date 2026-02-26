@@ -4,8 +4,8 @@ import com.skrymer.udgaard.portfolio.model.OptionType
 import java.time.LocalDate
 
 /**
- * Interface for fetching historical options data from various providers.
- * Allows switching between AlphaVantage, Polygon, or other data sources.
+ * Interface for fetching historical options data.
+ * Currently backed by Midgaard (which delegates to AlphaVantage).
  */
 interface OptionsDataProvider {
   /**

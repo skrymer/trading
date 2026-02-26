@@ -43,33 +43,10 @@ class TechnicalIndicatorService {
       return quotes
     }
 
-    // Extract price data for calculations
-    val closePrices = quotes.map { it.closePrice }
-
-    // Calculate all EMAs
-    val ema5Values = calculateEMA(closePrices, 5)
-    val ema10Values = calculateEMA(closePrices, 10)
-    val ema20Values = calculateEMA(closePrices, 20)
-    val ema50Values = calculateEMA(closePrices, 50)
-    val ema100Values = calculateEMA(closePrices, 100)
-    val ema200Values = calculateEMA(closePrices, 200)
-
-    // Calculate ATR and ADX from OHLCV data
-    val atrValues = calculateATR(quotes, 14)
-    val adxValues = calculateADX(quotes, 14)
-
-    // Enrich each quote with calculated values
-    return quotes.mapIndexed { index, quote ->
+    // Indicators are pre-populated from Midgaard — only compute trend
+    logger.info("Computing trend for $symbol (${quotes.size} quotes)")
+    return quotes.map { quote ->
       quote.apply {
-        closePriceEMA5 = ema5Values.getOrNull(index) ?: 0.0
-        closePriceEMA10 = ema10Values.getOrNull(index) ?: 0.0
-        closePriceEMA20 = ema20Values.getOrNull(index) ?: 0.0
-        closePriceEMA50 = ema50Values.getOrNull(index) ?: 0.0
-        closePriceEMA100 = ema100Values.getOrNull(index) ?: 0.0
-        ema200 = ema200Values.getOrNull(index) ?: 0.0
-        atr = atrValues[index]
-        adx = if (adxValues[index] > 0.0) adxValues[index] else null
-        donchianUpperBand = calculateDonchianUpperBand(quotes, index, 5)
         trend = determineTrend(quote)
       }
     }

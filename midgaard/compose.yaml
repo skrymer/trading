@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: midgaard-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: datastore
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+    ports:
+      - "5433:5432"
+    volumes:
+      - midgaard-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d datastore"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  midgaard:
+    build: .
+    container_name: midgaard-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/datastore
+      SPRING_DATASOURCE_USERNAME: trading
+      SPRING_DATASOURCE_PASSWORD: trading
+      APP_SECURITY_ENABLED: "true"
+      APP_SECURITY_API_KEY_HASH: "${MIDGAARD_API_KEY_HASH}"
+      APP_UI_ENABLED: "false"
+      SPRING_FLYWAY_ENABLED: "true"
+    ports:
+      - "8081:8081"
+
+  adminer:
+    image: adminer
+    container_name: midgaard-adminer
+    depends_on:
+      - postgres
+    ports:
+      - "8084:8080"
+
+volumes:
+  midgaard-data:

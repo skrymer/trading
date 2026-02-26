@@ -47,7 +47,7 @@ class OptionPriceService(
     var currentDate = startDate
 
     while (!currentDate.isAfter(endDate)) {
-      // Format date in YYYY-MM-DD format (ISO 8601) for AlphaVantage API
+      // Format date in YYYY-MM-DD format (ISO 8601)
       val dateString = currentDate.toString() // LocalDate.toString() returns YYYY-MM-DD format
       logger.debug("Fetching option data for $underlyingSymbol on $dateString")
 

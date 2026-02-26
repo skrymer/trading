@@ -168,7 +168,7 @@ class PositionController(
   /**
    * Calculate unrealized P&L for all open positions
    *
-   * Fetches current market prices from AlphaVantage and calculates unrealized gains/losses.
+   * Fetches current market prices and calculates unrealized gains/losses.
    * This operation may be slow due to API calls for each position.
    */
   @GetMapping("/{portfolioId}/unrealized-pnl")

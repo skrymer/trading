@@ -11,7 +11,6 @@ import com.skrymer.udgaard.jooq.tables.references.EARNINGS
 import com.skrymer.udgaard.jooq.tables.references.ORDER_BLOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
-import com.skrymer.udgaard.jooq.tables.references.SYMBOLS
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
@@ -36,20 +35,12 @@ class StockJooqRepository(
     symbol: String,
     quotesAfter: LocalDate? = null,
   ): Stock? {
-    // Load stock
+    // Load stock (sector is now on stocks table)
     val stock =
       dsl
         .selectFrom(STOCKS)
         .where(STOCKS.SYMBOL.eq(symbol))
         .fetchOneInto(Stocks::class.java) ?: return null
-
-    // Load sector from symbols table
-    val sectorSymbol =
-      dsl
-        .select(SYMBOLS.SECTOR_SYMBOL)
-        .from(SYMBOLS)
-        .where(SYMBOLS.SYMBOL.eq(symbol))
-        .fetchOne(SYMBOLS.SECTOR_SYMBOL)
 
     // Load quotes (with optional date filtering)
     val quotesQuery =
@@ -80,7 +71,7 @@ class StockJooqRepository(
         .orderBy(EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
 
-    return mapper.toDomain(stock, quotes, orderBlocks, earnings, sectorSymbol)
+    return mapper.toDomain(stock, quotes, orderBlocks, earnings)
   }
 
   /**
@@ -120,16 +111,14 @@ class StockJooqRepository(
         .asField<Int>("order_block_count")
 
     return dsl
-      .select(STOCKS.SYMBOL, SYMBOLS.SECTOR_SYMBOL, quoteCount, lastQuoteDate, obCount)
+      .select(STOCKS.SYMBOL, STOCKS.SECTOR, quoteCount, lastQuoteDate, obCount)
       .from(STOCKS)
-      .leftJoin(SYMBOLS)
-      .on(STOCKS.SYMBOL.eq(SYMBOLS.SYMBOL))
       .orderBy(STOCKS.SYMBOL)
       .fetch { record ->
         val qc = record.get(quoteCount) ?: 0
         SimpleStockInfo(
           symbol = record[STOCKS.SYMBOL]!!,
-          sector = record[SYMBOLS.SECTOR_SYMBOL] ?: "UNKNOWN",
+          sector = record[STOCKS.SECTOR] ?: "UNKNOWN",
           quoteCount = qc,
           orderBlockCount = record.get(obCount) ?: 0,
           lastQuoteDate = record.get(lastQuoteDate),
@@ -161,15 +150,6 @@ class StockJooqRepository(
         .fetchInto(Stocks::class.java)
 
     if (stocks.isEmpty()) return emptyList()
-
-    // Load sectors from symbols table
-    val sectorsBySymbol =
-      dsl
-        .select(SYMBOLS.SYMBOL, SYMBOLS.SECTOR_SYMBOL)
-        .from(SYMBOLS)
-        .where(SYMBOLS.SYMBOL.`in`(symbols))
-        .fetch { record -> record[SYMBOLS.SYMBOL]!! to record[SYMBOLS.SECTOR_SYMBOL] }
-        .toMap()
 
     // Load all quotes for these stocks in one query (with optional date filtering)
     val quotesQuery =
@@ -217,7 +197,6 @@ class StockJooqRepository(
         quotes = quotesBySymbol[stock.symbol] ?: emptyList(),
         orderBlocks = orderBlocksBySymbol[stock.symbol] ?: emptyList(),
         earnings = earningsBySymbol[stock.symbol] ?: emptyList(),
-        sectorSymbol = sectorsBySymbol[stock.symbol],
       )
     }
   }
@@ -247,12 +226,14 @@ class StockJooqRepository(
     return dsl.transactionResult { configuration ->
       val ctx = configuration.dsl()
 
-      // 1. Upsert Stock
+      // 1. Upsert Stock (including sector)
       ctx
         .insertInto(STOCKS)
         .set(STOCKS.SYMBOL, stock.symbol)
+        .set(STOCKS.SECTOR, stock.sectorSymbol)
         .onConflict(STOCKS.SYMBOL)
-        .doNothing()
+        .doUpdate()
+        .set(STOCKS.SECTOR, stock.sectorSymbol)
         .execute()
 
       // 2. Delete existing quotes, order blocks, and earnings (cascade delete)
@@ -379,9 +360,6 @@ class StockJooqRepository(
     dsl
       .select(DSL.countDistinct(STOCK_QUOTES.STOCK_SYMBOL))
       .from(STOCK_QUOTES)
-      .join(SYMBOLS)
-      .on(STOCK_QUOTES.STOCK_SYMBOL.eq(SYMBOLS.SYMBOL))
-      .where(SYMBOLS.ASSET_TYPE.eq("STOCK"))
       .fetchOne(0, Int::class.java) ?: 0
 
   /**
@@ -417,15 +395,17 @@ class StockJooqRepository(
     return dsl.transactionResult { configuration ->
       val ctx = configuration.dsl()
 
-      // 1. Batch upsert stocks
+      // 1. Batch upsert stocks (including sector)
       val stockBatch =
         ctx.batch(
           stocks.map { stock ->
             ctx
               .insertInto(STOCKS)
               .set(STOCKS.SYMBOL, stock.symbol)
+              .set(STOCKS.SECTOR, stock.sectorSymbol)
               .onConflict(STOCKS.SYMBOL)
-              .doNothing()
+              .doUpdate()
+              .set(STOCKS.SECTOR, stock.sectorSymbol)
           },
         )
       stockBatch.execute()
@@ -436,89 +416,221 @@ class StockJooqRepository(
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.`in`(symbols)).execute()
 
-      // 3. Batch insert all quotes
-      val allQuotes = stocks.flatMap { stock -> stock.quotes.map { quote -> stock.symbol to quote } }
-      if (allQuotes.isNotEmpty()) {
-        val quoteBatch =
-          ctx.batch(
-            allQuotes.map { (symbol, quote) ->
-              val pojo = mapper.toPojo(quote)
-              ctx
-                .insertInto(STOCK_QUOTES)
-                .set(STOCK_QUOTES.STOCK_SYMBOL, symbol)
-                .set(STOCK_QUOTES.QUOTE_DATE, pojo.quoteDate)
-                .set(STOCK_QUOTES.CLOSE_PRICE, pojo.closePrice)
-                .set(STOCK_QUOTES.OPEN_PRICE, pojo.openPrice)
-                .set(STOCK_QUOTES.HIGH_PRICE, pojo.highPrice)
-                .set(STOCK_QUOTES.LOW_PRICE, pojo.lowPrice)
-                .set(STOCK_QUOTES.CLOSE_PRICE_EMA10, pojo.closePriceEma10)
-                .set(STOCK_QUOTES.CLOSE_PRICE_EMA20, pojo.closePriceEma20)
-                .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
-                .set(STOCK_QUOTES.CLOSE_PRICE_EMA50, pojo.closePriceEma50)
-                .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
-                .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
-                .set(STOCK_QUOTES.TREND, pojo.trend)
-                .set(STOCK_QUOTES.ATR, pojo.atr)
-                .set(STOCK_QUOTES.ADX, pojo.adx)
-                .set(STOCK_QUOTES.VOLUME, pojo.volume)
-                .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND, pojo.donchianUpperBand)
-            },
-          )
-        quoteBatch.execute()
-      }
-
-      // 4. Batch insert all order blocks
-      val allOrderBlocks = stocks.flatMap { stock -> stock.orderBlocks.map { orderBlock -> stock.symbol to orderBlock } }
-      if (allOrderBlocks.isNotEmpty()) {
-        val orderBlockBatch =
-          ctx.batch(
-            allOrderBlocks.map { (symbol, orderBlock) ->
-              val pojo = mapper.toPojo(orderBlock)
-              ctx
-                .insertInto(ORDER_BLOCKS)
-                .set(ORDER_BLOCKS.STOCK_SYMBOL, symbol)
-                .set(ORDER_BLOCKS.TYPE, pojo.type)
-                .set(ORDER_BLOCKS.SENSITIVITY, pojo.sensitivity)
-                .set(ORDER_BLOCKS.START_DATE, pojo.startDate)
-                .set(ORDER_BLOCKS.END_DATE, pojo.endDate)
-                .set(ORDER_BLOCKS.START_PRICE, pojo.startPrice)
-                .set(ORDER_BLOCKS.END_PRICE, pojo.endPrice)
-                .set(ORDER_BLOCKS.LOW_PRICE, pojo.lowPrice)
-                .set(ORDER_BLOCKS.HIGH_PRICE, pojo.highPrice)
-                .set(ORDER_BLOCKS.VOLUME, pojo.volume)
-                .set(ORDER_BLOCKS.VOLUME_STRENGTH, pojo.volumeStrength)
-                .set(ORDER_BLOCKS.RATE_OF_CHANGE, pojo.rateOfChange)
-                .set(ORDER_BLOCKS.IS_ACTIVE, pojo.isActive)
-            },
-          )
-        orderBlockBatch.execute()
-      }
-
-      // 5. Batch insert all earnings
-      val allEarnings = stocks.flatMap { stock -> stock.earnings.map { earning -> stock.symbol to earning } }
-      if (allEarnings.isNotEmpty()) {
-        val earningsBatch =
-          ctx.batch(
-            allEarnings.map { (symbol, earning) ->
-              val pojo = mapper.toPojo(earning)
-              ctx
-                .insertInto(EARNINGS)
-                .set(EARNINGS.STOCK_SYMBOL, symbol)
-                .set(EARNINGS.SYMBOL, pojo.symbol)
-                .set(EARNINGS.FISCAL_DATE_ENDING, pojo.fiscalDateEnding)
-                .set(EARNINGS.REPORTED_DATE, pojo.reportedDate)
-                .set(EARNINGS.REPORTEDEPS, pojo.reportedeps)
-                .set(EARNINGS.ESTIMATEDEPS, pojo.estimatedeps)
-                .set(EARNINGS.SURPRISE, pojo.surprise)
-                .set(EARNINGS.SURPRISE_PERCENTAGE, pojo.surprisePercentage)
-                .set(EARNINGS.REPORT_TIME, pojo.reportTime)
-            },
-          )
-        earningsBatch.execute()
-      }
+      // 3. Insert all child records
+      batchInsertChildRecords(ctx, stocks)
 
       // Return the saved stocks
       stocks
     }
+  }
+
+  /**
+   * Insert stocks and all child records using bind-step batching.
+   * Caller is responsible for deleting existing records first.
+   * Uses JDBC prepared-statement batching for optimal performance.
+   */
+  fun batchInsert(stocks: List<Stock>) {
+    if (stocks.isEmpty()) return
+
+    val emptyStocks = stocks.filter { it.quotes.isEmpty() }
+    require(emptyStocks.isEmpty()) {
+      "Cannot save ${emptyStocks.size} stock(s) without quote data: ${emptyStocks.map { it.symbol }.joinToString()}"
+    }
+
+    dsl.transaction { configuration ->
+      val ctx = configuration.dsl()
+
+      // 1. Insert stocks
+      val stockBatch = ctx.batch(
+        ctx
+          .insertInto(STOCKS, STOCKS.SYMBOL, STOCKS.SECTOR)
+          .values(null as String?, null as String?),
+      )
+      stocks.forEach { stock -> stockBatch.bind(stock.symbol, stock.sectorSymbol) }
+      stockBatch.execute()
+
+      // 2. Insert all child records
+      batchInsertChildRecords(ctx, stocks)
+    }
+  }
+
+  private fun batchInsertChildRecords(ctx: DSLContext, stocks: List<Stock>) {
+    batchInsertQuotes(ctx, stocks)
+    batchInsertOrderBlocks(ctx, stocks)
+    batchInsertEarnings(ctx, stocks)
+  }
+
+  private fun batchInsertQuotes(ctx: DSLContext, stocks: List<Stock>) {
+    val allQuotes = stocks.flatMap { stock -> stock.quotes.map { stock.symbol to it } }
+    if (allQuotes.isEmpty()) return
+
+    val batch = ctx.batch(
+      ctx
+        .insertInto(
+          STOCK_QUOTES,
+          STOCK_QUOTES.STOCK_SYMBOL,
+          STOCK_QUOTES.QUOTE_DATE,
+          STOCK_QUOTES.CLOSE_PRICE,
+          STOCK_QUOTES.OPEN_PRICE,
+          STOCK_QUOTES.HIGH_PRICE,
+          STOCK_QUOTES.LOW_PRICE,
+          STOCK_QUOTES.CLOSE_PRICE_EMA10,
+          STOCK_QUOTES.CLOSE_PRICE_EMA20,
+          STOCK_QUOTES.CLOSE_PRICE_EMA5,
+          STOCK_QUOTES.CLOSE_PRICE_EMA50,
+          STOCK_QUOTES.CLOSE_PRICE_EMA100,
+          STOCK_QUOTES.CLOSE_PRICE_EMA200,
+          STOCK_QUOTES.TREND,
+          STOCK_QUOTES.ATR,
+          STOCK_QUOTES.ADX,
+          STOCK_QUOTES.VOLUME,
+          STOCK_QUOTES.DONCHIAN_UPPER_BAND,
+        ).values(
+          null as String?,
+          null as LocalDate?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as String?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as Long?,
+          null as java.math.BigDecimal?,
+        ),
+    )
+    allQuotes.forEach { (symbol, quote) ->
+      val pojo = mapper.toPojo(quote)
+      batch.bind(
+        symbol,
+        pojo.quoteDate,
+        pojo.closePrice,
+        pojo.openPrice,
+        pojo.highPrice,
+        pojo.lowPrice,
+        pojo.closePriceEma10,
+        pojo.closePriceEma20,
+        pojo.closePriceEma5,
+        pojo.closePriceEma50,
+        pojo.closePriceEma100,
+        pojo.closePriceEma200,
+        pojo.trend,
+        pojo.atr,
+        pojo.adx,
+        pojo.volume,
+        pojo.donchianUpperBand,
+      )
+    }
+    batch.execute()
+  }
+
+  private fun batchInsertOrderBlocks(ctx: DSLContext, stocks: List<Stock>) {
+    val allOrderBlocks = stocks.flatMap { stock -> stock.orderBlocks.map { stock.symbol to it } }
+    if (allOrderBlocks.isEmpty()) return
+
+    val batch = ctx.batch(
+      ctx
+        .insertInto(
+          ORDER_BLOCKS,
+          ORDER_BLOCKS.STOCK_SYMBOL,
+          ORDER_BLOCKS.TYPE,
+          ORDER_BLOCKS.SENSITIVITY,
+          ORDER_BLOCKS.START_DATE,
+          ORDER_BLOCKS.END_DATE,
+          ORDER_BLOCKS.START_PRICE,
+          ORDER_BLOCKS.END_PRICE,
+          ORDER_BLOCKS.LOW_PRICE,
+          ORDER_BLOCKS.HIGH_PRICE,
+          ORDER_BLOCKS.VOLUME,
+          ORDER_BLOCKS.VOLUME_STRENGTH,
+          ORDER_BLOCKS.RATE_OF_CHANGE,
+          ORDER_BLOCKS.IS_ACTIVE,
+        ).values(
+          null as String?,
+          null as String?,
+          null as String?,
+          null as LocalDate?,
+          null as LocalDate?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as Long?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as Boolean?,
+        ),
+    )
+    allOrderBlocks.forEach { (symbol, orderBlock) ->
+      val pojo = mapper.toPojo(orderBlock)
+      batch.bind(
+        symbol,
+        pojo.type,
+        pojo.sensitivity,
+        pojo.startDate,
+        pojo.endDate,
+        pojo.startPrice,
+        pojo.endPrice,
+        pojo.lowPrice,
+        pojo.highPrice,
+        pojo.volume,
+        pojo.volumeStrength,
+        pojo.rateOfChange,
+        pojo.isActive,
+      )
+    }
+    batch.execute()
+  }
+
+  private fun batchInsertEarnings(ctx: DSLContext, stocks: List<Stock>) {
+    val allEarnings = stocks.flatMap { stock -> stock.earnings.map { stock.symbol to it } }
+    if (allEarnings.isEmpty()) return
+
+    val batch = ctx.batch(
+      ctx
+        .insertInto(
+          EARNINGS,
+          EARNINGS.STOCK_SYMBOL,
+          EARNINGS.SYMBOL,
+          EARNINGS.FISCAL_DATE_ENDING,
+          EARNINGS.REPORTED_DATE,
+          EARNINGS.REPORTEDEPS,
+          EARNINGS.ESTIMATEDEPS,
+          EARNINGS.SURPRISE,
+          EARNINGS.SURPRISE_PERCENTAGE,
+          EARNINGS.REPORT_TIME,
+        ).values(
+          null as String?,
+          null as String?,
+          null as LocalDate?,
+          null as LocalDate?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as String?,
+        ),
+    )
+    allEarnings.forEach { (symbol, earning) ->
+      val pojo = mapper.toPojo(earning)
+      batch.bind(
+        symbol,
+        pojo.symbol,
+        pojo.fiscalDateEnding,
+        pojo.reportedDate,
+        pojo.reportedeps,
+        pojo.estimatedeps,
+        pojo.surprise,
+        pojo.surprisePercentage,
+        pojo.reportTime,
+      )
+    }
+    batch.execute()
   }
 }

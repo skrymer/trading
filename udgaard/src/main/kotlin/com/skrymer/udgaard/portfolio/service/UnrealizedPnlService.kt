@@ -119,7 +119,7 @@ class UnrealizedPnlService(
               val currentPrice =
                 when (position.instrumentType) {
                   InstrumentType.OPTION -> {
-                    // Fetch current option price from AlphaVantage
+                    // Fetch current option price
                     if (position.strikePrice == null ||
                       position.expirationDate == null ||
                       position.optionType == null ||
@@ -142,8 +142,8 @@ class UnrealizedPnlService(
                     }
                   }
                   InstrumentType.STOCK, InstrumentType.LEVERAGED_ETF -> {
-                    // Fetch latest stock price from AlphaVantage
-                    val quotes = stockProvider.getDailyAdjustedTimeSeries(position.symbol, "compact")
+                    // Fetch latest stock price
+                    val quotes = stockProvider.getDailyAdjustedTimeSeries(position.symbol)
                     quotes?.firstOrNull()?.closePrice
                   }
                 }
@@ -210,7 +210,7 @@ class UnrealizedPnlService(
 
     /**
      * Get the last completed trading day
-     * AlphaVantage only has data for completed trading days, not the current day
+     * Data providers only have data for completed trading days, not the current day
      */
     private fun getLastTradingDay(): LocalDate {
       val today = LocalDate.now()

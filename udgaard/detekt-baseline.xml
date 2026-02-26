@@ -15,7 +15,6 @@
     <ID>LargeClass:BacktestService.kt:BacktestService</ID>
     <ID>LargeClass:BacktestServiceTest.kt:BacktestServiceTest</ID>
     <ID>LongMethod:AboveBearishOrderBlockCondition.kt:AboveBearishOrderBlockCondition$override fun evaluateWithDetails: ConditionEvaluationResult</ID>
-    <ID>LongMethod:AlphaVantageOptionsProvider.kt:AlphaVantageOptionsProvider$override fun getHistoricalOptions: List&lt;OptionContract&gt;?</ID>
     <ID>LongMethod:BacktestController.kt:BacktestController$@PostMapping fun runBacktestWithConfig: ResponseEntity&lt;BacktestReport&gt;</ID>
     <ID>LongMethod:BacktestService.kt:BacktestService$fun backtest: BacktestReport</ID>
     <ID>LongMethod:BacktestService.kt:BacktestService$private fun backtestSequential: Pair&lt;List&lt;Trade&gt;, List&lt;Trade&gt;&gt;</ID>
@@ -31,6 +30,7 @@
     <ID>LongMethod:StockIngestionService.kt:StockIngestionService$@Synchronized private fun startProcessing</ID>
     <ID>LongMethod:StockIngestionService.kt:StockIngestionService$private suspend fun fetchStock: Stock?</ID>
     <ID>LongMethod:StockJooqRepository.kt:StockJooqRepository$fun batchSave: List&lt;Stock&gt;</ID>
+    <ID>LongMethod:StockJooqRepository.kt:StockJooqRepository$private fun batchInsertQuotes</ID>
     <ID>LongMethod:StockJooqRepository.kt:StockJooqRepository$fun save: Stock</ID>
     <ID>LongMethod:StockMcpTools.kt:StockMcpTools$@Tool( description = """Explain what backtest performance metrics mean and how to interpret them. Helps understand backtest results by providing definitions, interpretations, and benchmarks. Parameters: - metrics: Optional comma-separated list of specific metrics to explain. If not provided, explains all common metrics. Examples: 'winRate', 'edge', 'averageWin' Returns detailed explanations including: - Definition: What the metric measures - Interpretation: How to read the value - Benchmark: What's considered good/bad - Context: When the metric matters most Use this to understand backtest results and make informed decisions.""", ) fun explainBacktestMetrics: String</ID>
     <ID>LongMethod:StockMcpTools.kt:StockMcpTools$@Tool( description = """Get system status and readiness for backtesting. Provides a health check of the backtesting system including database connectivity, data availability, cache status, and overall readiness. Returns: - status: Overall system status ('ready', 'degraded', 'error') - stockCount: Number of stocks with data available - strategyCount: Number of available strategies - cacheStatus: Whether cache is warm or cold - readyForBacktest: Boolean indicating if system is ready - warnings: Any warnings or issues Use this to verify the system is ready before running backtests.""", ) fun getSystemStatus: String</ID>

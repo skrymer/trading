@@ -3,24 +3,6 @@ package com.skrymer.udgaard.data.dto
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-// Rate Limiting DTOs
-data class RateLimitStats(
-  val requestsLastMinute: Int,
-  val requestsLastDay: Int,
-  val remainingMinute: Int,
-  val remainingDaily: Int,
-  val minuteLimit: Int,
-  val dailyLimit: Int,
-  val resetMinute: Long, // seconds until reset
-  val resetDaily: Long, // seconds until reset
-)
-
-data class RateLimitConfigDto(
-  val requestsPerMinute: Int,
-  val requestsPerDay: Int,
-  val tier: String, // "FREE", "PREMIUM", or "ULTIMATE"
-)
-
 // Database Statistics DTOs
 data class DatabaseStats(
   val stockStats: StockDataStats,
@@ -84,28 +66,11 @@ data class RefreshProgress(
   val failed: Int = 0,
   val lastSuccess: String? = null,
   val lastError: String? = null,
-  val retried: Int? = null,
-  val retriedSucceeded: Int? = null,
 )
 
 data class RefreshResponse(
   val queued: Int,
   val message: String,
-)
-
-data class StockRefreshResult(
-  val status: String, // "success", "partial_success", "failure"
-  val total: Int,
-  val succeeded: Int,
-  val failed: Int,
-  val successfulStocks: List<String>,
-  val failedStocks: List<FailedStock>,
-  val message: String,
-)
-
-data class FailedStock(
-  val symbol: String,
-  val error: String,
 )
 
 enum class RefreshType {

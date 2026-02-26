@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout('Midgaard - Ingestion', ~{::content})}">
+<body>
+<div th:fragment="content">
+  <h2 class="mb-4">Ingestion Progress</h2>
+
+  <div th:if="${!active}">
+    <div class="alert alert-info">No bulk ingestion currently running.</div>
+    <div>
+      <form method="post" action="/ingestion/initial/all" class="d-inline">
+        <button type="submit" class="btn btn-primary me-2">Start Initial Ingest All</button>
+      </form>
+      <form method="post" action="/ingestion/update/all" class="d-inline">
+        <button type="submit" class="btn btn-outline-primary">Start Update All</button>
+      </form>
+    </div>
+  </div>
+
+  <div th:if="${active}" id="progress-section">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Progress</h5>
+        <div class="progress mb-3" style="height: 25px;">
+          <div class="progress-bar" role="progressbar"
+               th:style="'width: ' + ${progress.total > 0 ? (progress.completed.get() * 100 / progress.total) : 0} + '%'"
+               th:text="${progress.completed.get() + ' / ' + progress.total}">
+            0 / 0
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-4">
+            <strong>Succeeded:</strong> <span class="text-success" th:text="${progress.succeeded.get()}">0</span>
+          </div>
+          <div class="col-md-4">
+            <strong>Failed:</strong> <span class="text-danger" th:text="${progress.failed.get()}">0</span>
+          </div>
+          <div class="col-md-4">
+            <strong>Remaining:</strong> <span th:text="${progress.total - progress.completed.get()}">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div th:if="${!progress.errors.isEmpty()}" class="card">
+      <div class="card-header text-danger">Errors</div>
+      <div class="card-body">
+        <table class="table table-sm">
+          <thead>
+            <tr><th>Symbol</th><th>Error</th></tr>
+          </thead>
+          <tbody>
+            <tr th:each="entry : ${progress.errors}">
+              <td th:text="${entry.key}">AAPL</td>
+              <td th:text="${entry.value}">Error message</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      // Auto-refresh every 5 seconds during active ingestion
+      setTimeout(function() { window.location.reload(); }, 5000);
+    </script>
+  </div>
+</div>
+</body>
+</html>

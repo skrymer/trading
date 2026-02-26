@@ -20,7 +20,6 @@ java {
 
 repositories {
 	mavenCentral()
-	maven { url "https://jitpack.io" }
 	maven { url 'https://repo.spring.io/milestone' }
 	maven { url 'https://repo.spring.io/snapshot' }
 }
@@ -48,7 +47,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
-	implementation 'org.springframework.boot:spring-boot-starter-quartz'
 	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
 	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
@@ -56,7 +54,7 @@ dependencies {
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0'
 	implementation "de.siegmar:fastcsv:4.0.0"
 	implementation "org.apache.httpcomponents.client5:httpclient5-win:5.2.3"
-	implementation "com.github.polygon-io:client-jvm:v5.1.2"
+
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
 
 	// Spring AI MCP dependencies
@@ -104,7 +102,7 @@ tasks.named('test') {
 }
 
 tasks.named('bootRun') {
-	jvmArgs = ['-Xmx16384m', '-Xms8192m']
+	jvmArgs = ['-Xmx8192m', '-Xms4096m']
 }
 
 ktlint {

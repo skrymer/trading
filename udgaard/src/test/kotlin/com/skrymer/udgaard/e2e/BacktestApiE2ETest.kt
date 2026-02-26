@@ -7,6 +7,7 @@ import com.skrymer.udgaard.backtesting.dto.PredefinedStrategyConfig
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
 import org.jooq.DSLContext
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -17,9 +18,12 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import kotlin.test.assertEquals
+import org.springframework.http.ResponseEntity
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private const val DELTA = 1e-6
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BacktestApiE2ETest : AbstractIntegrationTest() {
@@ -33,20 +37,23 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
 
   @Test
   fun `POST backtest with TestEntry and TestExit should return valid response`() {
-    val request = testBacktestRequest()
-
-    val response = postBacktest(request)
-
+    val response = postBacktest(testBacktestRequest())
     assertEquals(HttpStatus.OK, response.statusCode)
     val body = response.body!!
+
     assertNotNull(body.backtestId)
-    assertTrue(body.totalTrades >= 0)
-    assertEquals(body.numberOfWinningTrades + body.numberOfLosingTrades, body.totalTrades)
-    assertTrue(body.winRate in 0.0..1.0)
-    assertTrue(body.lossRate in 0.0..1.0)
-    assertNotNull(body.equityCurveData)
-    assertNotNull(body.excursionPoints)
-    assertNotNull(body.dailyProfitSummary)
+    assertTradeMetrics(body)
+    assertNoMissedOpportunities(body)
+    assertStockProfits(body)
+    assertTimeBasedStats(body)
+    assertExitReasons(body)
+    assertPerformanceBreakdowns(body)
+    assertDrawdownAnalysis(body)
+    assertMarketConditions(body)
+    assertChartData(body)
+    assertEquals(0, body.underlyingAssetTradeCount, "useUnderlyingAssets=false")
+    assertNull(body.edgeConsistencyScore, "requires >= 2 years of data")
+    assertNull(body.positionSizing, "not requested")
   }
 
   @Test
@@ -103,7 +110,39 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     assertEquals(HttpStatus.OK, response.statusCode)
     val body = response.body!!
     assertNotNull(body.backtestId)
-    assertTrue(body.totalTrades >= 0)
+    assertEquals(22, body.totalTrades)
+    assertEquals(206, body.missedOpportunitiesCount)
+
+    // Fetch trades and verify concurrent positions never exceed maxPositions
+    val tradesResponse = restTemplate.exchange(
+      "/api/backtest/${body.backtestId}/trades?startDate=2024-01-02&endDate=2024-03-29",
+      HttpMethod.GET,
+      null,
+      object : ParameterizedTypeReference<List<Trade>>() {},
+    )
+    val trades = tradesResponse.body!!
+    assertEquals(22, trades.size)
+
+    // Build date ranges for each trade and check concurrent positions per day
+    val tradeRanges = trades.map { trade ->
+      val entryDate = trade.entryQuote.date
+      val exitDate = trade.quotes.maxOf { it.date }
+      entryDate to exitDate
+    }
+    val allDates = tradeRanges
+      .flatMap { (entry, exit) ->
+        generateSequence(entry) { it.plusDays(1) }.takeWhile { !it.isAfter(exit) }.toList()
+      }.distinct()
+
+    allDates.forEach { date ->
+      val concurrentCount = tradeRanges.count { (entry, exit) ->
+        !date.isBefore(entry) && !date.isAfter(exit)
+      }
+      assertTrue(
+        concurrentCount <= maxPositions,
+        "Concurrent positions on $date ($concurrentCount) should not exceed maxPositions ($maxPositions)",
+      )
+    }
   }
 
   @Test
@@ -123,6 +162,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
 
     assertEquals(HttpStatus.OK, response.statusCode)
     val body = response.body!!
+    assertEquals(56, body.totalTrades)
 
     val xlkStocks = setOf("AAPL", "MSFT", "NVDA", "AVGO", "CRM")
     val xlfStocks = setOf("JPM", "BAC", "WFC", "GS", "MS")
@@ -131,6 +171,11 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     body.stockProfits.forEach { (symbol, _) ->
       assertTrue(symbol in allowedStocks, "Trade for $symbol should not exist with sector filter $includedSectors")
     }
+
+    // Sector stats should only contain the two included sectors
+    assertEquals(2, body.sectorStats.size)
+    val sectorStatsNames = body.sectorStats.map { it.sector }.toSet()
+    assertEquals(setOf("XLK", "XLF"), sectorStatsNames)
   }
 
   @Test
@@ -150,11 +195,20 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
 
     assertEquals(HttpStatus.OK, response.statusCode)
     val body = response.body!!
+    assertEquals(182, body.totalTrades)
 
     val excludedStocks = setOf("XOM", "CVX", "COP", "SLB", "EOG", "NEE", "DUK", "SO", "D", "AEP")
     body.stockProfits.forEach { (symbol, _) ->
       assertTrue(symbol !in excludedStocks, "Trade for $symbol should not exist with excluded sectors $excludedSectors")
     }
+
+    // Sector stats should not contain excluded sectors
+    assertEquals(9, body.sectorStats.size)
+    val sectorStatsNames = body.sectorStats.map { it.sector }.toSet()
+    assertEquals(
+      setOf("XLY", "XLF", "XLV", "XLRE", "XLI", "XLK", "XLC", "XLB", "XLP"),
+      sectorStatsNames,
+    )
   }
 
   @Test
@@ -173,7 +227,13 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     )
 
     assertEquals(HttpStatus.OK, tradesResponse.statusCode)
-    assertNotNull(tradesResponse.body)
+    val trades = tradesResponse.body!!
+    assertEquals(227, trades.size)
+    trades.forEach { trade ->
+      assertTrue(trade.stockSymbol.isNotBlank(), "Trade stockSymbol should not be blank")
+      assertTrue(trade.exitReason.isNotBlank(), "Trade exitReason should not be blank")
+      assertTrue(trade.profitPercentage.isFinite(), "Trade profitPercentage should be finite")
+    }
   }
 
   @Test
@@ -249,7 +309,9 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     val response = postBacktest(request)
 
     assertEquals(HttpStatus.OK, response.statusCode)
-    assertNotNull(response.body!!.backtestId)
+    val body = response.body!!
+    assertNotNull(body.backtestId)
+    assertEquals(58, body.totalTrades)
   }
 
   @Test
@@ -281,11 +343,122 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     useUnderlyingAssets = false,
   )
 
-  private fun postBacktest(request: BacktestRequest) =
+  private fun postBacktest(request: BacktestRequest): ResponseEntity<BacktestResponseDto> =
     restTemplate.exchange(
       "/api/backtest",
       HttpMethod.POST,
       HttpEntity(request, HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }),
       BacktestResponseDto::class.java,
     )
+
+  // -- Assertion helpers for default backtest (deterministic Random(42) seed) -----------------
+
+  private fun assertTradeMetrics(body: BacktestResponseDto) {
+    assertEquals(227, body.totalTrades)
+    assertEquals(113, body.numberOfWinningTrades)
+    assertEquals(114, body.numberOfLosingTrades)
+    assertEquals(0.4978, body.winRate, 1e-4)
+    assertEquals(0.5022, body.lossRate, 1e-4)
+    assertEquals(1.0, body.winRate + body.lossRate, DELTA)
+    assertEquals(5.2051, body.averageWinAmount, 1e-4)
+    assertEquals(2.5496, body.averageWinPercent, 1e-4)
+    assertEquals(3.4688, body.averageLossAmount, 1e-4)
+    assertEquals(1.5231, body.averageLossPercent, 1e-4)
+    assertEquals(0.5042, body.edge, 1e-4)
+    assertEquals(1.4874, body.profitFactor!!, 1e-4)
+  }
+
+  private fun assertNoMissedOpportunities(body: BacktestResponseDto) {
+    assertEquals(0, body.missedOpportunitiesCount)
+    assertEquals(0.0, body.missedProfitPercentage, DELTA)
+    assertEquals(0.0, body.missedAverageProfitPercentage, DELTA)
+  }
+
+  private fun assertStockProfits(body: BacktestResponseDto) {
+    assertEquals(52, body.stockProfits.size)
+    val validSymbols = BacktestTestDataGenerator.ALL_SYMBOLS.toSet()
+    body.stockProfits.forEach { (symbol, _) ->
+      assertTrue(symbol in validSymbols, "Unexpected symbol $symbol in stockProfits")
+    }
+  }
+
+  private fun assertTimeBasedStats(body: BacktestResponseDto) {
+    val stats = body.timeBasedStats!!
+    // Yearly
+    assertEquals(setOf(2024), stats.byYear.keys)
+    assertEquals(227, stats.byYear[2024]!!.trades)
+    assertEquals(49.78, stats.byYear[2024]!!.winRate, 0.01)
+    assertEquals(0.504, stats.byYear[2024]!!.avgProfit, 0.001)
+    // Monthly
+    assertEquals(3, stats.byMonth.size)
+    assertEquals(40, stats.byMonth["2024-01"]!!.trades)
+    assertEquals(11, stats.byMonth["2024-02"]!!.trades)
+    assertEquals(176, stats.byMonth["2024-03"]!!.trades)
+    // Quarterly
+    assertEquals(setOf("2024-Q1"), stats.byQuarter.keys)
+    assertEquals(227, stats.byQuarter["2024-Q1"]!!.trades)
+  }
+
+  private fun assertExitReasons(body: BacktestResponseDto) {
+    val byReason = body.exitReasonAnalysis!!.byReason
+    assertEquals(3, byReason.size)
+    // Earnings exit — high win rate, profitable
+    val earnings = byReason["Exit before earnings"]!!
+    assertEquals(13, earnings.count)
+    assertEquals(84.62, earnings.winRate, 0.01)
+    assertEquals(5.895, earnings.avgProfit, 0.001)
+    // Breadth deteriorating — bulk of trades
+    val breadth = byReason["Market breadth deteriorating (EMAs inverted)"]!!
+    assertEquals(197, breadth.count)
+    assertEquals(51.78, breadth.winRate, 0.01)
+    // Stop loss — always a loser by definition
+    val stopLoss = byReason["Stop loss triggered (2.0 ATR below entry)"]!!
+    assertEquals(17, stopLoss.count)
+    assertEquals(0.0, stopLoss.winRate, DELTA)
+  }
+
+  private fun assertPerformanceBreakdowns(body: BacktestResponseDto) {
+    // All 11 sectors and 52 stocks represented
+    assertEquals(11, body.sectorPerformance.size)
+    assertEquals(52, body.stockPerformance.size)
+    // Sector stats: wins + losses = total for every sector
+    assertEquals(11, body.sectorStats.size)
+    body.sectorStats.forEach { ss ->
+      assertEquals(ss.winningTrades + ss.losingTrades, ss.totalTrades, "Invariant for ${ss.sector}")
+    }
+    // Spot-check two sectors
+    val xlu = body.sectorStats.first { it.sector == "XLU" }
+    assertEquals(27, xlu.totalTrades)
+    assertEquals(17, xlu.winningTrades)
+    val xlf = body.sectorStats.first { it.sector == "XLF" }
+    assertEquals(34, xlf.totalTrades)
+    assertEquals(19, xlf.winningTrades)
+  }
+
+  private fun assertDrawdownAnalysis(body: BacktestResponseDto) {
+    val stats = body.atrDrawdownStats!!
+    assertEquals(113, stats.totalWinningTrades)
+    assertEquals(0.0, stats.medianDrawdown, DELTA)
+    assertEquals(0.127, stats.meanDrawdown, 0.001)
+  }
+
+  private fun assertMarketConditions(body: BacktestResponseDto) {
+    val stats = body.marketConditionStats!!
+    assertEquals(148, stats.uptrendCount)
+    assertEquals(79, stats.downtrendCount)
+    assertEquals(47.97, stats.uptrendWinRate, 0.01)
+    assertEquals(53.16, stats.downtrendWinRate, 0.01)
+    assertEquals(227, stats.scatterPoints.size)
+  }
+
+  private fun assertChartData(body: BacktestResponseDto) {
+    assertEquals(227, body.equityCurveData.size)
+    assertEquals(227, body.excursionPoints.size)
+    assertEquals(227, body.excursionSummary!!.totalTrades)
+    assertEquals(59.03, body.excursionSummary!!.profitReachRate, 0.01)
+    assertEquals(31, body.dailyProfitSummary.size)
+    body.dailyProfitSummary.forEach { dps ->
+      assertTrue(dps.tradeCount > 0, "No trades on ${dps.date}")
+    }
+  }
 }

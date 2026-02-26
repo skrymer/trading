@@ -65,17 +65,15 @@ object BacktestTestDataGenerator {
       .toList()
 
   private fun insertSymbols(dsl: DSLContext) {
-    // Symbols may already exist from V2 migration - use ON CONFLICT DO UPDATE to set sector
-    SECTOR_STOCKS.forEach { (sector, symbols) ->
+    // Symbols may already exist from V2 migration - sector is on stocks table, not symbols
+    SECTOR_STOCKS.forEach { (_, symbols) ->
       symbols.forEach { symbol ->
         dsl
           .insertInto(SYMBOLS)
           .set(SYMBOLS.SYMBOL, symbol)
           .set(SYMBOLS.ASSET_TYPE, "STOCK")
-          .set(SYMBOLS.SECTOR_SYMBOL, sector)
           .onConflict(SYMBOLS.SYMBOL)
-          .doUpdate()
-          .set(SYMBOLS.SECTOR_SYMBOL, sector)
+          .doNothing()
           .execute()
       }
     }
@@ -90,12 +88,12 @@ object BacktestTestDataGenerator {
   }
 
   private fun insertStocksAndQuotes(dsl: DSLContext, tradingDays: List<LocalDate>) {
-    insertStock(dsl, "SPY", tradingDays, basePrice = 470.0, volatility = 0.008)
-    SECTOR_STOCKS.forEach { (_, symbols) ->
+    insertStock(dsl, "SPY", tradingDays, basePrice = 470.0, volatility = 0.008, sector = null)
+    SECTOR_STOCKS.forEach { (sector, symbols) ->
       symbols.forEach { symbol ->
         val basePrice = 50.0 + random.nextDouble() * 300.0
         val volatility = 0.005 + random.nextDouble() * 0.015
-        insertStock(dsl, symbol, tradingDays, basePrice, volatility)
+        insertStock(dsl, symbol, tradingDays, basePrice, volatility, sector = sector)
       }
     }
   }
@@ -106,10 +104,12 @@ object BacktestTestDataGenerator {
     tradingDays: List<LocalDate>,
     basePrice: Double,
     volatility: Double,
+    sector: String?,
   ) {
     dsl
       .insertInto(STOCKS)
       .set(STOCKS.SYMBOL, symbol)
+      .set(STOCKS.SECTOR, sector)
       .execute()
 
     val quotes = generateQuotes(symbol, tradingDays, basePrice, volatility)
