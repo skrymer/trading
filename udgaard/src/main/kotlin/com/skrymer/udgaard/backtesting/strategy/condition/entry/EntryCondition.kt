@@ -20,17 +20,8 @@ interface EntryCondition {
   fun evaluate(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean
-
-  /**
-   * Evaluates the condition with backtest context (breadth data).
-   * Default delegates to the context-free method. Override for breadth-dependent conditions.
-   */
-  fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
-  ): Boolean = evaluate(stock, quote)
+  ): Boolean
 
   /**
    * Returns a human-readable description of the condition.
@@ -63,15 +54,6 @@ interface EntryCondition {
   fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
-  ): ConditionEvaluationResult
-
-  /**
-   * Evaluates with details and backtest context.
-   * Default delegates to the context-free method. Override for breadth-dependent conditions.
-   */
-  fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
-  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote)
+  ): ConditionEvaluationResult
 }

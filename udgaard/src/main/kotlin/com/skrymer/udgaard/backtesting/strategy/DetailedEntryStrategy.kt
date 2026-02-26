@@ -17,16 +17,12 @@ interface DetailedEntryStrategy : EntryStrategy {
    *
    * @param stock The stock being evaluated
    * @param quote The specific quote being evaluated
+   * @param context The backtest context with market/sector breadth data
    * @return Detailed entry signal information including all condition results
    */
   fun testWithDetails(
     stock: Stock,
     quote: StockQuote,
-  ): EntrySignalDetails
-
-  fun testWithDetails(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
-  ): EntrySignalDetails = testWithDetails(stock, quote)
+  ): EntrySignalDetails
 }

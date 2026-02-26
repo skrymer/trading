@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -31,6 +32,7 @@ class ConsecutiveHigherHighsInValueZoneCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     // Get N+1 quotes: first is entry point, next N must be in value zone
     val quotes = mutableListOf(quote)
@@ -123,6 +125,7 @@ class ConsecutiveHigherHighsInValueZoneCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
     // Get N+1 quotes: first is entry point, next N must be in value zone
     val quotes = mutableListOf(quote)

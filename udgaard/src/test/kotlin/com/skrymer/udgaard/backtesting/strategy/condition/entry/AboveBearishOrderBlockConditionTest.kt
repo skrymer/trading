@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
@@ -71,7 +72,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when price has been above bearish order block for 3 consecutive days",
     )
   }
@@ -115,7 +116,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when price was inside OB only 1 bar ago (need 3 bars cooldown)",
     )
   }
@@ -137,7 +138,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, stock.quotes.last()),
+      condition.evaluate(stock, stock.quotes.last(), BacktestContext.EMPTY),
       "Should return true when no order blocks exist (safe to enter, no resistance)",
     )
   }
@@ -168,7 +169,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when order block is younger than ageInDays threshold (not relevant)",
     )
   }
@@ -198,7 +199,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when order block is bullish (not relevant, only check bearish blocks)",
     )
   }
@@ -232,7 +233,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when only 1 bar since inside OB (need 5 bars cooldown)",
     )
   }
@@ -280,7 +281,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should work with 5 consecutive days parameter",
     )
   }
@@ -325,7 +326,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should work with custom age threshold (60 trading days)",
     )
   }
@@ -355,7 +356,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when order block has ended (not currently active, not relevant)",
     )
   }
@@ -408,7 +409,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when current price is inside a bearish order block",
     )
   }
@@ -496,7 +497,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = listOf(orderBlock),
       )
 
-    val result = condition.evaluateWithDetails(stock, quotes.last())
+    val result = condition.evaluateWithDetails(stock, quotes.last(), BacktestContext.EMPTY)
 
     assertTrue(result.passed)
     assertEquals("AboveBearishOrderBlockCondition", result.conditionType)
@@ -542,7 +543,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = listOf(orderBlock),
       )
 
-    val result = condition.evaluateWithDetails(stock, quotes.last())
+    val result = condition.evaluateWithDetails(stock, quotes.last(), BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertTrue(result.message?.contains("only") ?: false)
@@ -567,7 +568,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = emptyList(),
       )
 
-    val result = condition.evaluateWithDetails(stock, stock.quotes.last())
+    val result = condition.evaluateWithDetails(stock, stock.quotes.last(), BacktestContext.EMPTY)
 
     assertTrue(result.passed)
     assertEquals("No blocks", result.actualValue)
@@ -605,7 +606,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = listOf(orderBlock),
       )
 
-    val result = condition.evaluateWithDetails(stock, quotes.last())
+    val result = condition.evaluateWithDetails(stock, quotes.last(), BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertTrue(result.message?.contains("only") ?: false)
@@ -652,7 +653,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when price was inside OB only 0 bars ago (need 3 bars cooldown)",
     )
   }
@@ -697,7 +698,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when current day is inside order block",
     )
   }
@@ -742,7 +743,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when price was never inside OB (cooldown not applicable)",
     )
   }
@@ -785,7 +786,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = listOf(orderBlock),
       )
 
-    val result = condition.evaluateWithDetails(stock, quotes.last())
+    val result = condition.evaluateWithDetails(stock, quotes.last(), BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertEquals("AboveBearishOrderBlockCondition", result.conditionType)
@@ -833,7 +834,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = listOf(orderBlock),
       )
 
-    val result = condition.evaluateWithDetails(stock, quotes.last())
+    val result = condition.evaluateWithDetails(stock, quotes.last(), BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertEquals("Currently inside", result.actualValue)
@@ -886,12 +887,12 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     // Test the evaluate method
-    val passed = condition.evaluate(stock, quotes.sortedBy { it.date }.last())
+    val passed = condition.evaluate(stock, quotes.sortedBy { it.date }.last(), BacktestContext.EMPTY)
 
     assertFalse(passed, "Entry should be BLOCKED because June 28 was inside OB")
 
     // Test the evaluateWithDetails method
-    val result = condition.evaluateWithDetails(stock, quotes.sortedBy { it.date }.last())
+    val result = condition.evaluateWithDetails(stock, quotes.sortedBy { it.date }.last(), BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertEquals("AboveBearishOrderBlockCondition", result.conditionType)
@@ -931,7 +932,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when price was near OB (within 2%) only 1 bar ago (need 3 bars cooldown)",
     )
   }
@@ -965,7 +966,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when price was 5.26% below OB (beyond 2% proximity threshold)",
     )
   }
@@ -1000,7 +1001,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false when price was within 5% proximity of OB (custom threshold)",
     )
   }
@@ -1034,7 +1035,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return true when proximityPercent=0 and price was below (not inside) OB",
     )
   }
@@ -1073,7 +1074,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should return false because proximity to OB reset the cooldown, only 1 bar since near (need 3)",
     )
   }
@@ -1112,7 +1113,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should allow entry when blocked bar was exactly consecutiveDays (3) bars ago, matching TV's barssince semantics",
     )
   }
@@ -1146,7 +1147,7 @@ class AboveBearishOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quotes.last()),
+      condition.evaluate(stock, quotes.last(), BacktestContext.EMPTY),
       "Should block entry when blocked bar was only 2 bars ago (need 3)",
     )
   }
@@ -1179,7 +1180,7 @@ class AboveBearishOrderBlockConditionTest {
         orderBlocks = listOf(orderBlock),
       )
 
-    val result = condition.evaluateWithDetails(stock, quotes.last())
+    val result = condition.evaluateWithDetails(stock, quotes.last(), BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertTrue(result.actualValue?.contains("near") ?: false)

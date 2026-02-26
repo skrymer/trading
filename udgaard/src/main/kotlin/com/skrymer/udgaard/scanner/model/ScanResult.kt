@@ -26,6 +26,33 @@ data class ScanResponse(
   val results: List<ScanResult>,
   val totalStocksScanned: Int,
   val executionTimeMs: Long,
+  val nearMissCandidates: List<NearMissCandidate> = emptyList(),
+  val conditionFailureSummary: List<ConditionFailureSummary> = emptyList(),
+)
+
+/**
+ * A stock that nearly matched all entry conditions — useful for watchlists.
+ */
+data class NearMissCandidate(
+  val symbol: String,
+  val sectorSymbol: String?,
+  val closePrice: Double,
+  val date: LocalDate,
+  val entrySignalDetails: EntrySignalDetails,
+  val atr: Double,
+  val trend: String?,
+  val conditionsPassed: Int,
+  val conditionsTotal: Int,
+)
+
+/**
+ * Aggregated view of how often a specific condition blocks entry across all evaluated stocks.
+ */
+data class ConditionFailureSummary(
+  val conditionType: String,
+  val description: String,
+  val stocksBlocked: Int,
+  val totalStocksEvaluated: Int,
 )
 
 /**

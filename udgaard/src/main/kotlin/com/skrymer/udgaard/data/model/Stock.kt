@@ -63,10 +63,11 @@ data class Stock(
     entryStrategy: EntryStrategy,
     after: LocalDate?,
     before: LocalDate?,
+    context: BacktestContext = BacktestContext.EMPTY,
   ): List<StockQuote> {
     val startIdx = if (after != null) indexOnOrAfter(after) else 0
     val endIdx = if (before != null) indexAfter(before) else quotes.size
-    return quotes.subList(startIdx, endIdx).filter { entryStrategy.test(this, it) }
+    return quotes.subList(startIdx, endIdx).filter { entryStrategy.test(this, it, context) }
   }
 
   /**

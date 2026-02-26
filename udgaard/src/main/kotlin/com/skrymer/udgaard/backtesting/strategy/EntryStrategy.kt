@@ -10,11 +10,6 @@ interface EntryStrategy {
   fun test(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean
-
-  fun test(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
-  ): Boolean = test(stock, quote)
+  ): Boolean
 }

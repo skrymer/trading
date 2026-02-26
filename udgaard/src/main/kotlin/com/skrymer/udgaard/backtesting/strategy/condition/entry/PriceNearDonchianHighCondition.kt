@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -22,6 +23,7 @@ class PriceNearDonchianHighCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     if (quote.donchianUpperBand <= 0 || quote.closePrice <= 0) return false
     val distance = (quote.donchianUpperBand - quote.closePrice) / quote.closePrice * 100
@@ -53,8 +55,9 @@ class PriceNearDonchianHighCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
-    val passed = evaluate(stock, quote)
+    val passed = evaluate(stock, quote, context)
     val distance =
       if (quote.donchianUpperBand > 0 && quote.closePrice > 0) {
         (quote.donchianUpperBand - quote.closePrice) / quote.closePrice * 100

@@ -110,13 +110,13 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (56 Vue components):**
+**Key Components (58 Vue components):**
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
-- **Charts** (`components/charts/`): BarChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
-- **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard
+- **Charts** (`components/charts/`): BarChart.client, BreadthChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
+- **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
-- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards
+- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
 - **Settings** (`components/settings/`): MembersList
 - **Pages**: index, backtesting, portfolio, scanner, stock-data, breadth, data-manager, app-metrics, settings, login, test-chart
 
@@ -164,7 +164,7 @@ trading/
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
-│   ├── src/main/resources/           # Config, migrations (V1-V7)
+│   ├── src/main/resources/           # Config, migrations (V1-V8)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL)
 │   ├── build.gradle                  # Gradle build config

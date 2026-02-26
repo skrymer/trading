@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -28,6 +29,7 @@ class OrderBlockRejectionCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     // Find bearish order blocks that are old enough
     val relevantOrderBlocks =
@@ -139,6 +141,7 @@ class OrderBlockRejectionCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
     val relevantOrderBlocks =
       stock.orderBlocks

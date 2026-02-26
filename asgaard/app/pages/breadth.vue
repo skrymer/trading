@@ -38,16 +38,13 @@
 
       <div v-else class="space-y-6">
         <!-- Section A: Market Breadth Chart -->
-        <div v-if="marketBreadthSeries.length > 0">
+        <div v-if="filteredMarketBreadth.length > 0">
           <h3 class="text-lg font-semibold mb-2">
             Market Breadth
           </h3>
-          <ChartsLineChart
-            :series="marketBreadthSeries"
-            :categories="marketBreadthCategories"
-            :line-colors="['#eab308', '#10b981', '#ef4444']"
+          <ChartsBreadthChart
+            :data="filteredMarketBreadth"
             :height="400"
-            :percent-mode="true"
           />
         </div>
 
@@ -171,23 +168,6 @@ const cutoffDate = computed(() => {
 const filteredMarketBreadth = computed(() => {
   return marketBreadthData.value.filter((d) => {
     return new Date(d.quoteDate) >= cutoffDate.value
-  })
-})
-
-// Market breadth series/categories
-const marketBreadthSeries = computed(() => {
-  if (filteredMarketBreadth.value.length === 0) return []
-  return [
-    { name: 'Uptrend %', data: filteredMarketBreadth.value.map(d => d.breadthPercent) },
-    { name: 'EMA 10', data: filteredMarketBreadth.value.map(d => d.ema10) },
-    { name: 'EMA 20', data: filteredMarketBreadth.value.map(d => d.ema20) }
-  ]
-})
-
-const marketBreadthCategories = computed(() => {
-  return filteredMarketBreadth.value.map((d) => {
-    const date = new Date(d.quoteDate)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   })
 })
 

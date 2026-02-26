@@ -1013,6 +1013,7 @@ export interface ScanRequest {
   assetTypes?: string[]
   includeSectors?: string[]
   excludeSectors?: string[]
+  nearMissLimit?: number
 }
 
 export interface ConditionEvaluationResult {
@@ -1048,6 +1049,27 @@ export interface ScanResponse {
   results: ScanResult[]
   totalStocksScanned: number
   executionTimeMs: number
+  nearMissCandidates: NearMissCandidate[]
+  conditionFailureSummary: ConditionFailureSummary[]
+}
+
+export interface NearMissCandidate {
+  symbol: string
+  sectorSymbol?: string
+  closePrice: number
+  date: string
+  entrySignalDetails: EntrySignalDetails
+  atr: number
+  trend?: string
+  conditionsPassed: number
+  conditionsTotal: number
+}
+
+export interface ConditionFailureSummary {
+  conditionType: string
+  description: string
+  stocksBlocked: number
+  totalStocksEvaluated: number
 }
 
 export interface ExitCheckResult {

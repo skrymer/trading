@@ -10,6 +10,7 @@ data class ScanRequest(
   val assetTypes: List<String>? = null,
   val includeSectors: List<String>? = null,
   val excludeSectors: List<String>? = null,
+  val nearMissLimit: Int? = null,
 )
 
 /**

@@ -21,11 +21,6 @@ class MarketBreadthAboveCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = evaluate(stock, quote, BacktestContext.EMPTY)
-
-  override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean = (context.getMarketBreadth(quote.date)?.breadthPercent ?: 0.0) >= threshold
 
@@ -49,11 +44,6 @@ class MarketBreadthAboveCondition(
         ),
       category = "Market",
     )
-
-  override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
-  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
   override fun evaluateWithDetails(
     stock: Stock,

@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
@@ -38,7 +39,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertTrue(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "Strategy should pass when all AND conditions are met",
     )
   }
@@ -67,7 +68,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertFalse(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "Strategy should fail when one AND condition is not met",
     )
   }
@@ -95,7 +96,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertTrue(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "Strategy should pass when at least one OR condition is met",
     )
   }
@@ -123,7 +124,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertFalse(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "Strategy should fail when all OR conditions fail",
     )
   }
@@ -147,7 +148,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertFalse(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "Strategy should negate condition with NOT operator",
     )
   }
@@ -166,7 +167,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertFalse(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "Strategy should return false when no conditions provided",
     )
   }
@@ -191,7 +192,7 @@ class CompositeEntryStrategyTest {
       )
 
     assertTrue(
-      strategy.test(stock, quote),
+      strategy.test(stock, quote, BacktestContext.EMPTY),
       "DSL builder should create working strategy",
     )
   }

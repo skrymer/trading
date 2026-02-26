@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -52,7 +53,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3] // Most recent
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when 3 consecutive higher closes are all in value zone",
     )
   }
@@ -99,7 +100,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3]
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when closes are not consecutively increasing",
     )
   }
@@ -146,7 +147,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3]
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when one day's close price is outside value zone",
     )
   }
@@ -193,7 +194,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3]
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when one day's close is below EMA",
     )
   }
@@ -226,7 +227,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[1] // Only 2 quotes, need 4 (N+1)
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when insufficient historical data",
     )
   }
@@ -266,7 +267,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[2]
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should work with 2 consecutive days",
     )
   }
@@ -291,7 +292,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[5]
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should work with 5 consecutive days",
     )
   }
@@ -338,7 +339,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3]
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should work with different ATR multiplier (wider value zone)",
     )
   }
@@ -385,7 +386,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3]
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should work with different EMA period",
     )
   }
@@ -432,7 +433,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     val quote = stock.quotes[3]
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when closes are equal (>= allows consolidation)",
     )
   }
@@ -494,7 +495,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
 
     val quote = stock.quotes[3]
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertTrue(result.passed)
     assertEquals("ConsecutiveHigherHighsInValueZoneCondition", result.conditionType)
@@ -517,7 +518,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
 
     val quote = stock.quotes[0]
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertEquals("ConsecutiveHigherHighsInValueZoneCondition", result.conditionType)
@@ -542,7 +543,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
 
     val quote = stock.quotes[3]
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertTrue(result.message!!.contains("✗"))

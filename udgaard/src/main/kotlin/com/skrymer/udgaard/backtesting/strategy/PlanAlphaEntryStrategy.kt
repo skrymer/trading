@@ -47,18 +47,8 @@ class PlanAlphaEntryStrategy : DetailedEntryStrategy {
   override fun test(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = compositeStrategy.test(stock, quote)
-
-  override fun test(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean = compositeStrategy.test(stock, quote, context)
-
-  override fun testWithDetails(
-    stock: Stock,
-    quote: StockQuote,
-  ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote)
 
   override fun testWithDetails(
     stock: Stock,

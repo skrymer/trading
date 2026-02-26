@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -17,6 +18,7 @@ class PriceAbovePreviousLowCondition : EntryCondition {
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     val previousQuote = stock.getPreviousQuote(quote)
     return quote.closePrice > (previousQuote?.low ?: 0.0)
@@ -36,8 +38,9 @@ class PriceAbovePreviousLowCondition : EntryCondition {
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
-    val passed = evaluate(stock, quote)
+    val passed = evaluate(stock, quote, context)
     val message = if (passed) description() + " ✓" else description() + " ✗"
 
     return ConditionEvaluationResult(

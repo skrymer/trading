@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -26,6 +27,7 @@ class DaysSinceEarningsCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     val quoteDate = quote.date
 
@@ -64,6 +66,7 @@ class DaysSinceEarningsCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
     val quoteDate = quote.date
 
@@ -72,7 +75,7 @@ class DaysSinceEarningsCondition(
         .filter { it.reportedDate != null && !it.reportedDate.isAfter(quoteDate) }
         .maxByOrNull { it.reportedDate!! }
 
-    val passed = evaluate(stock, quote)
+    val passed = evaluate(stock, quote, context)
 
     val message =
       if (mostRecentEarnings != null && mostRecentEarnings.reportedDate != null) {

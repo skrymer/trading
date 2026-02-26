@@ -1,6 +1,6 @@
 # Mjolnir Strategy Development
 
-## Current State (2026-02-22)
+## Current State (2026-02-26)
 
 ### Entry Strategy
 ```kotlin
@@ -27,37 +27,45 @@ Exclude: XLV (Health Care), XLE (Energy), XLP (Consumer Staples), XLB (Materials
 
 ### Best Configuration (W=30, ADX 20-40, emaSpread 1.0%, excl XLV/XLE/XLP/XLB, 2016–2025, STOCK only)
 
-*Note: Full universe (~1,438 stocks). Metrics differ from earlier runs with smaller universe.*
-
 | Metric | Value |
 |---|---|
-| Total Trades | 782 |
-| Win Rate | 45.0% |
-| Edge | 5.81% |
-| Profit Factor | 2.08 |
-| Avg Win / Loss | 21.59% / -7.10% |
-| Edge Consistency | **87.1/100 (Excellent)** |
+| Total Trades | 868 |
+| Win Rate | 44.2% |
+| Edge | 5.60% |
+| Profit Factor | 1.99 |
+| Avg Win / Loss | 21.65% / -7.14% |
+| Win/Loss Ratio | 3.03x |
+| Edge Consistency | **81.3/100 (Excellent)** |
 
 ### Yearly Edge
-| Year | Edge | Trades | Tradeable (>=1.5%)? |
-|---|---|---|---|
-| 2016 | +3.25% | 73 | T |
-| 2017 | +3.06% | 26 | T |
-| 2018 | +1.97% | 17 | T |
-| 2019 | +3.18% | 117 | T |
-| 2020 | +21.82% | 109 | T |
-| 2021 | +2.93% | 61 | T |
-| 2022 | -0.46% | 80 | |
-| 2023 | +4.78% | 147 | T |
-| 2024 | +0.31% | 89 | |
-| 2025 | +12.56% | 63 | T |
+| Year | Edge | Trades | WR | Tradeable (>=1.5%)? |
+|---|---|---|---|---|
+| 2016 | +2.28% | 90 | 40.0% | T |
+| 2017 | +4.21% | 32 | 53.1% | T |
+| 2018 | +1.62% | 18 | 38.9% | T |
+| 2019 | +3.43% | 121 | 47.9% | T |
+| 2020 | +21.19% | 109 | 55.9% | T |
+| 2021 | +2.51% | 65 | 47.7% | T |
+| 2022 | -1.34% | 88 | 20.5% | |
+| 2023 | +4.94% | 171 | 52.0% | T |
+| 2024 | -0.18% | 96 | 32.3% | |
+| 2025 | +11.45% | 78 | 46.2% | T |
 
-**9/10 years profitable** (2022 improved from -0.77% to -0.46%), 8/10 years have tradeable edge (>=1.5%). Full universe dilutes edge vs smaller universe due to additional small/mid-cap stocks with weaker trend-following characteristics.
+**8/10 years profitable**, 8/10 years have tradeable edge (>=1.5%). Universe has grown since earlier runs (~1,483 stocks), increasing trade count and slightly diluting edge.
+
+### Exit Reasons
+- EMA cross (10/20): 763 exits, +7.88% avg, 50.3% WR
+- Stop loss (2.5 ATR): 105 exits, -10.98% avg, 0% WR
+
+### ATR Drawdown (winners)
+- Median: 0.33 ATR
+- 75th percentile: 0.97 ATR
+- 95th percentile: 1.96 ATR
 
 ### EC Score Breakdown
-- Profitable Periods: 90.0 (9/10 years positive, weight 40%)
+- Profitable Periods: 80.0 (8/10 years positive, weight 40%)
 - Stability (Tradeable Edge): 80.0 (8/10 years >= 1.5%, weight 40%)
-- Downside: 95.4 (worst year -0.46%, weight 20%)
+- Downside: 86.6 (worst year -1.34%, weight 20%)
 - **Total: 87.1 (Excellent)**
 
 ### ADX Range Optimization (2026-02-22)
@@ -655,6 +663,32 @@ If total capital exceeds portfolio, scale all positions down proportionally.
 ## Axioms Tested
 1. **"Trading through earnings is not profitable"** — NOT SUPPORTED. Edge difference negligible for trend-following strategies.
 2. **"Exiting day before earnings is more profitable"** — NOT SUPPORTED. 9,803 trades exited before earnings had 84% WR and +5.17% avg profit, but these were already winners being cut short. Mjolnir-specific test: adding `beforeEarnings(1)` exit dropped edge from 2.78% to 1.60% and EC from 74.0 to 61.3 — avg win slashed from 14.41% to 8.54%.
+
+---
+
+## Running the Baseline Test
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stockSymbols": [],
+    "entryStrategy": {"type": "predefined", "name": "MjolnirEntryStrategy"},
+    "exitStrategy": {"type": "predefined", "name": "MjolnirExitStrategy"},
+    "startDate": "2016-01-01",
+    "endDate": "2025-12-31",
+    "assetTypes": ["STOCK"],
+    "excludeSectors": ["XLV", "XLE", "XLP", "XLB"],
+    "useUnderlyingAssets": false,
+    "refresh": false
+  }' > /tmp/mjolnir_baseline.json
+```
+
+**Parameters:**
+- Empty `stockSymbols` = full universe
+- `assetTypes: ["STOCK"]` = exclude ETFs, leveraged ETFs, indices
+- `excludeSectors` = remove sectors with negative or near-zero edge
+- No position sizing, no position limits, no cooldown
 
 ---
 

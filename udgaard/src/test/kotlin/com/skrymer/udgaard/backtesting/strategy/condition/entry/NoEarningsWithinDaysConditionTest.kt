@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -28,7 +29,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when earnings are 15 days away (outside 7-day window)",
     )
   }
@@ -50,7 +51,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when earnings are 5 days away (within 7-day window)",
     )
   }
@@ -72,7 +73,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when earnings are tomorrow",
     )
   }
@@ -94,7 +95,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when earnings are on the same day (within 0 days)",
     )
   }
@@ -116,7 +117,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when earnings are exactly at 7-day boundary",
     )
   }
@@ -138,7 +139,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when earnings are in the past",
     )
   }
@@ -152,7 +153,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when no earnings data is available",
     )
   }
@@ -174,7 +175,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when earnings are within 30-day window",
     )
   }
@@ -202,7 +203,7 @@ class NoEarningsWithinDaysConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should check the next earnings date (Jan 10), which is within 7 days",
     )
   }
@@ -251,7 +252,7 @@ class NoEarningsWithinDaysConditionTest {
 
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertTrue(result.passed)
     assertEquals("NoEarningsWithinDaysCondition", result.conditionType)
@@ -277,7 +278,7 @@ class NoEarningsWithinDaysConditionTest {
 
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertTrue(result.passed)
     assertEquals("NoEarningsWithinDaysCondition", result.conditionType)
@@ -303,7 +304,7 @@ class NoEarningsWithinDaysConditionTest {
 
     val quote = StockQuote(date = LocalDate.of(2024, 1, 5))
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertEquals("NoEarningsWithinDaysCondition", result.conditionType)

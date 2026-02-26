@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
@@ -41,7 +42,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertTrue(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be true when price has been rejected 2 times",
     )
   }
@@ -71,7 +72,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when price has been rejected only once (need 2)",
     )
   }
@@ -101,7 +102,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when price broke through the order block",
     )
   }
@@ -131,7 +132,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when order block is not old enough (14 days < 30 days)",
     )
   }
@@ -159,7 +160,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when order block has already ended",
     )
   }
@@ -189,7 +190,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false for bullish order blocks (only checks bearish)",
     )
   }
@@ -207,7 +208,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when stock has no order blocks",
     )
   }
@@ -241,7 +242,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertTrue(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should work with custom rejection threshold (5%)",
     )
   }
@@ -277,7 +278,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertTrue(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should work with custom minimum rejections (3)",
     )
   }
@@ -321,7 +322,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertTrue(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be true when any order block has enough rejections",
     )
   }
@@ -353,7 +354,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 98.5, high = 99.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when currently in rejection zone (only 1 completed rejection)",
     )
   }
@@ -381,7 +382,7 @@ class OrderBlockRejectionConditionTest {
     val testQuote = StockQuote(date = LocalDate.of(2024, 2, 15), closePrice = 95.0, high = 95.0)
 
     assertFalse(
-      condition.evaluate(stock, testQuote),
+      condition.evaluate(stock, testQuote, BacktestContext.EMPTY),
       "Condition should be false when no quotes available for analysis",
     )
   }

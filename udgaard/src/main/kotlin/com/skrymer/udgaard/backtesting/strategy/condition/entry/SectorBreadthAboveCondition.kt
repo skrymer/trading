@@ -21,11 +21,6 @@ class SectorBreadthAboveCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = evaluate(stock, quote, BacktestContext.EMPTY)
-
-  override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean {
     val bullPct = context.getSectorBreadth(stock.sectorSymbol, quote.date)?.bullPercentage ?: return false
@@ -52,11 +47,6 @@ class SectorBreadthAboveCondition(
         ),
       category = "Sector",
     )
-
-  override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
-  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
   override fun evaluateWithDetails(
     stock: Stock,

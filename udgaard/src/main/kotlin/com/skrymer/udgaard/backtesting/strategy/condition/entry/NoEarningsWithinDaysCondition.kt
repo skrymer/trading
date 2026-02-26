@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -26,6 +27,7 @@ class NoEarningsWithinDaysCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     val quoteDate = quote.date
     return !stock.hasEarningsWithinDays(quoteDate, days)
@@ -61,6 +63,7 @@ class NoEarningsWithinDaysCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
     val quoteDate = quote.date
 

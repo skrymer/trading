@@ -19,19 +19,6 @@ class CompositeEntryStrategy(
   override fun test(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean {
-    if (conditions.isEmpty()) return false
-
-    return when (operator) {
-      LogicalOperator.AND -> conditions.all { it.evaluate(stock, quote) }
-      LogicalOperator.OR -> conditions.any { it.evaluate(stock, quote) }
-      LogicalOperator.NOT -> !conditions.first().evaluate(stock, quote)
-    }
-  }
-
-  override fun test(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean {
     if (conditions.isEmpty()) return false
@@ -70,27 +57,6 @@ class CompositeEntryStrategy(
    *
    * @return Detailed entry signal information including all condition results
    */
-  override fun testWithDetails(
-    stock: Stock,
-    quote: StockQuote,
-  ): EntrySignalDetails {
-    val conditionResults = conditions.map { it.evaluateWithDetails(stock, quote) }
-
-    val allConditionsMet =
-      when (operator) {
-        LogicalOperator.AND -> conditionResults.all { it.passed }
-        LogicalOperator.OR -> conditionResults.any { it.passed }
-        LogicalOperator.NOT -> !conditionResults.first().passed
-      }
-
-    return EntrySignalDetails(
-      strategyName = this::class.simpleName ?: "CompositeEntryStrategy",
-      strategyDescription = description(),
-      conditions = conditionResults,
-      allConditionsMet = allConditionsMet,
-    )
-  }
-
   override fun testWithDetails(
     stock: Stock,
     quote: StockQuote,

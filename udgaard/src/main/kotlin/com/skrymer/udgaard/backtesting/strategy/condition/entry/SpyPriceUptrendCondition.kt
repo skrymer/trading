@@ -17,11 +17,6 @@ class SpyPriceUptrendCondition : EntryCondition {
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = evaluate(stock, quote, BacktestContext.EMPTY)
-
-  override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean = context.getSpyQuote(quote.date)?.isInUptrend() ?: false
 
@@ -35,11 +30,6 @@ class SpyPriceUptrendCondition : EntryCondition {
       parameters = emptyList(),
       category = "Market",
     )
-
-  override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
-  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
   override fun evaluateWithDetails(
     stock: Stock,

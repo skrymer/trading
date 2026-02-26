@@ -23,11 +23,6 @@ class MarketBreadthNearDonchianLowCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = evaluate(stock, quote, BacktestContext.EMPTY)
-
-  override fun evaluate(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean {
     val breadth = context.getMarketBreadth(quote.date) ?: return false
@@ -58,11 +53,6 @@ class MarketBreadthNearDonchianLowCondition(
         ),
       category = "Market",
     )
-
-  override fun evaluateWithDetails(
-    stock: Stock,
-    quote: StockQuote,
-  ): ConditionEvaluationResult = evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
   override fun evaluateWithDetails(
     stock: Stock,

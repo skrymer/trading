@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,7 +22,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is above 5 EMA",
     )
   }
@@ -37,7 +38,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price is below 5 EMA",
     )
   }
@@ -53,7 +54,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is above 10 EMA",
     )
   }
@@ -69,7 +70,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is above 20 EMA",
     )
   }
@@ -85,7 +86,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is above 50 EMA",
     )
   }
@@ -101,7 +102,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price equals EMA",
     )
   }
@@ -117,7 +118,7 @@ class PriceAboveEmaConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false for unsupported EMA period",
     )
   }

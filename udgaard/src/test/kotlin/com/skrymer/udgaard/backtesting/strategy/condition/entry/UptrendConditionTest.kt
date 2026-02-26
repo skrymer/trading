@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -23,7 +24,7 @@ class UptrendConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when 10 EMA > 20 EMA and price > 50 EMA",
     )
   }
@@ -40,7 +41,7 @@ class UptrendConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when 10 EMA < 20 EMA",
     )
   }
@@ -57,7 +58,7 @@ class UptrendConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price < 50 EMA",
     )
   }
@@ -74,7 +75,7 @@ class UptrendConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when both conditions fail",
     )
   }
@@ -91,7 +92,7 @@ class UptrendConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when values are just above thresholds",
     )
   }
@@ -108,7 +109,7 @@ class UptrendConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when values are equal (not greater than)",
     )
   }

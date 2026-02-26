@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -34,6 +35,7 @@ class EmaAlignmentCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     val fastEma = getEma(quote, fastEmaPeriod) ?: return false
     val slowEma = getEma(quote, slowEmaPeriod) ?: return false
@@ -72,6 +74,7 @@ class EmaAlignmentCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
     val fastEma = getEma(quote, fastEmaPeriod)
     val slowEma = getEma(quote, slowEmaPeriod)

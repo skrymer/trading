@@ -4,12 +4,16 @@ import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
 import com.skrymer.udgaard.backtesting.dto.QuoteWithSignal
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.ProjectXExitStrategy
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
+import com.skrymer.udgaard.data.repository.MarketBreadthRepository
+import com.skrymer.udgaard.data.repository.SectorBreadthRepository
+import com.skrymer.udgaard.data.repository.StockJooqRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -18,7 +22,10 @@ import org.springframework.stereotype.Service
  */
 @Service
 class StrategySignalService(
-  private val strategyRegistry: StrategyRegistry
+  private val strategyRegistry: StrategyRegistry,
+  private val marketBreadthRepository: MarketBreadthRepository,
+  private val sectorBreadthRepository: SectorBreadthRepository,
+  private val stockRepository: StockJooqRepository,
 ) {
   private val logger = LoggerFactory.getLogger(StrategySignalService::class.java)
 
@@ -55,7 +62,8 @@ class StrategySignalService(
       return null
     }
 
-    val quotesWithSignals = evaluateQuotes(stock, entryStrategy, entryStrategyName, exitStrategy, cooldownDays)
+    val context = buildContext()
+    val quotesWithSignals = evaluateQuotes(stock, entryStrategy, entryStrategyName, exitStrategy, cooldownDays, context)
 
     logger.info(
       "Evaluated ${quotesWithSignals.size} quotes for ${stock.symbol} " +
@@ -88,6 +96,7 @@ class StrategySignalService(
     entryStrategyName: String,
     exitStrategy: ExitStrategy,
     cooldownDays: Int,
+    context: BacktestContext,
   ): List<QuoteWithSignal> {
     val sortedQuotes = stock.quotes.sortedBy { it.date }
     var entryQuote: StockQuote? = null
@@ -107,11 +116,11 @@ class StrategySignalService(
 
       // Check for entry signal if not currently in a position and not in cooldown
       if (entryQuote == null && cooldownRemaining == 0) {
-        entrySignal = entryStrategy.test(stock, quote)
+        entrySignal = entryStrategy.test(stock, quote, context)
 
         // If entry signal triggered and strategy supports detailed evaluation, get condition details
         if (entrySignal && entryStrategy is com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy) {
-          entryDetails = entryStrategy.testWithDetails(stock, quote).copy(strategyName = entryStrategyName)
+          entryDetails = entryStrategy.testWithDetails(stock, quote, context).copy(strategyName = entryStrategyName)
         }
 
         if (entrySignal) {
@@ -138,6 +147,18 @@ class StrategySignalService(
         exitReason = exitReason,
       )
     }
+  }
+
+  private fun buildContext(): BacktestContext {
+    val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
+    val marketBreadthMap = marketBreadthRepository.findAllAsMap()
+    val spyStock = stockRepository.findBySymbol("SPY")
+    val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
+    logger.info(
+      "Built backtest context: ${sectorBreadthMap.size} sectors, " +
+        "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes",
+    )
+    return BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap)
   }
 
   /**
@@ -183,7 +204,8 @@ class StrategySignalService(
     }
 
     // Evaluate with details
-    val details = entryStrategy.testWithDetails(stock, quote).copy(strategyName = entryStrategyName)
+    val context = buildContext()
+    val details = entryStrategy.testWithDetails(stock, quote, context).copy(strategyName = entryStrategyName)
     logger.info("Evaluated conditions for ${stock.symbol} on $quoteDate: allConditionsMet=${details.allConditionsMet}")
     return details
   }

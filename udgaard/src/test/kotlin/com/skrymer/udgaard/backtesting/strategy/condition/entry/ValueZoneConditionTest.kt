@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -22,7 +23,7 @@ class ValueZoneConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price is above value zone",
     )
   }
@@ -39,7 +40,7 @@ class ValueZoneConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is just below value zone upper bound",
     )
   }
@@ -56,7 +57,7 @@ class ValueZoneConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price equals value zone upper bound",
     )
   }
@@ -73,7 +74,7 @@ class ValueZoneConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price equals EMA (must be above EMA)",
     )
   }
@@ -90,7 +91,7 @@ class ValueZoneConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should work with custom ATR multiplier",
     )
   }
@@ -113,7 +114,7 @@ class ValueZoneConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price is below 20 EMA",
     )
   }

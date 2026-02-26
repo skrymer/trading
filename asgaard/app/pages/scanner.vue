@@ -315,6 +315,9 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
                 <div class="flex items-center justify-between mb-3">
                   <div class="text-sm text-muted">
                     {{ scanResponse.results.length }} matches from {{ scanResponse.totalStocksScanned }} stocks
+                    <template v-if="scanResponse.nearMissCandidates.length > 0">
+                      &middot; {{ scanResponse.nearMissCandidates.length }} near-misses
+                    </template>
                     &mdash; {{ scanResponse.entryStrategyName }} / {{ scanResponse.exitStrategyName }}
                     ({{ (scanResponse.executionTimeMs / 1000).toFixed(1) }}s)
                   </div>
@@ -322,6 +325,14 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
                 <ScannerScanResultsTable
                   :results="scanResponse.results"
                   @add-trade="openAddTrade"
+                />
+                <ScannerNearMissAnalysis
+                  v-if="scanResponse.nearMissCandidates.length > 0 || scanResponse.conditionFailureSummary.length > 0"
+                  :near-miss-candidates="scanResponse.nearMissCandidates"
+                  :condition-failure-summary="scanResponse.conditionFailureSummary"
+                  :total-stocks-scanned="scanResponse.totalStocksScanned"
+                  :match-count="scanResponse.results.length"
+                  class="mt-4"
                 />
               </div>
             </div>

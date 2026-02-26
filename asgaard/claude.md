@@ -38,7 +38,7 @@ asgaard/
 │   │   ├── login.vue             # Authentication login page
 │   │   └── test-chart.vue        # Chart component testing
 │   ├── components/
-│   │   ├── backtesting/          # Backtesting components (17)
+│   │   ├── backtesting/          # Backtesting components (16)
 │   │   │   ├── Cards.vue         # Summary stat cards
 │   │   │   ├── ConfigModal.vue   # Strategy configuration modal
 │   │   │   ├── EquityCurve.vue   # Equity curve visualization
@@ -53,8 +53,9 @@ asgaard/
 │   │   │   ├── TradeChart.client.vue
 │   │   │   ├── TradeDetailsModal.vue
 │   │   │   └── DataCard.vue
-│   │   ├── charts/               # Reusable chart components (8)
+│   │   ├── charts/               # Reusable chart components (9)
 │   │   │   ├── BarChart.client.vue
+│   │   │   ├── BreadthChart.client.vue  # Lightweight Charts breadth with Donchian channel
 │   │   │   ├── DonutChart.client.vue
 │   │   │   ├── HistogramChart.client.vue
 │   │   │   ├── LineChart.client.vue
@@ -62,10 +63,11 @@ asgaard/
 │   │   │   ├── StockChart.client.vue    # Lightweight Charts candlestick
 │   │   │   ├── SignalDetailsModal.vue
 │   │   │   └── StrategySignalsTable.vue
-│   │   ├── data-management/      # Data management components (3)
+│   │   ├── data-management/      # Data management components (4)
 │   │   │   ├── DatabaseStatsCards.vue
 │   │   │   ├── RefreshControlsCard.vue
-│   │   │   └── BreadthRefreshCard.vue
+│   │   │   ├── BreadthRefreshCard.vue
+│   │   │   └── RateLimitCard.vue
 │   │   ├── portfolio/            # Portfolio components (13)
 │   │   │   ├── CreateModal.vue
 │   │   │   ├── PositionDetailsModal.vue
@@ -79,6 +81,16 @@ asgaard/
 │   │   │   ├── SyncPortfolioModal.vue
 │   │   │   ├── RollChainModal.vue
 │   │   │   └── CreateFromBrokerModal.vue
+│   │   ├── scanner/              # Scanner components (9)
+│   │   │   ├── ScanConfigModal.vue
+│   │   │   ├── ScanResultsTable.vue
+│   │   │   ├── AddTradeModal.vue
+│   │   │   ├── DeleteTradeModal.vue
+│   │   │   ├── RollTradeModal.vue
+│   │   │   ├── TradeDetailsModal.vue
+│   │   │   ├── ExitAlerts.vue
+│   │   │   ├── StatsCards.vue
+│   │   │   └── NearMissAnalysis.vue
 │   │   ├── settings/             # Settings components (1)
 │   │   │   └── MembersList.vue
 │   │   ├── strategy/             # Strategy builder components (3)
@@ -133,7 +145,7 @@ This project uses NuxtUI 4 extensively:
 Three chart libraries serve different purposes:
 
 - **ApexCharts** (via `vue3-apexcharts`): Interactive line, bar, donut, histogram, scatter charts. Used for backtesting metrics, equity curves, sector analysis.
-- **Lightweight Charts** (TradingView): Candlestick/OHLC stock charts in `StockChart.client.vue`.
+- **Lightweight Charts** (TradingView): Candlestick/OHLC stock charts in `StockChart.client.vue`, market breadth with Donchian channel fill in `BreadthChart.client.vue`.
 - **Unovis**: Specialized visualizations.
 
 Chart components use `.client.vue` suffix for client-side-only rendering.

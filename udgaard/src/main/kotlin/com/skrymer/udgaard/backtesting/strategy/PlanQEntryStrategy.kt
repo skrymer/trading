@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy
 
+import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -22,10 +24,12 @@ class PlanQEntryStrategy : DetailedEntryStrategy {
   override fun test(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = compositeStrategy.test(stock, quote)
+    context: BacktestContext,
+  ): Boolean = compositeStrategy.test(stock, quote, context)
 
   override fun testWithDetails(
     stock: Stock,
     quote: StockQuote,
-  ) = compositeStrategy.testWithDetails(stock, quote)
+    context: BacktestContext,
+  ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote, context)
 }

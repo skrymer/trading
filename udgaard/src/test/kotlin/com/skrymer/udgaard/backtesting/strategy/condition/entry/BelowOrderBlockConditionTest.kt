@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
@@ -49,7 +50,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is at least 2% below order block",
     )
   }
@@ -79,7 +80,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is more than 2% below order block",
     )
   }
@@ -109,7 +110,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price is less than 2% below order block",
     )
   }
@@ -139,7 +140,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when price is within order block (should block entry)",
     )
   }
@@ -170,7 +171,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when order block is not old enough (no valid OB to filter against)",
     )
   }
@@ -199,7 +200,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true for bullish order blocks (no valid bearish OB to filter against)",
     )
   }
@@ -228,7 +229,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when order block has already ended (no active OB to filter against)",
     )
   }
@@ -267,7 +268,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when price is below any qualifying order block",
     )
   }
@@ -285,7 +286,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when stock has no order blocks (no filter to apply)",
     )
   }
@@ -326,7 +327,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when no valid order blocks exist (all filtered out)",
     )
   }
@@ -356,7 +357,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should work with custom percent below value",
     )
   }
@@ -393,7 +394,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when order block hasn't started yet (same day means no valid blocks)",
     )
 
@@ -409,7 +410,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock2, quote2),
+      condition.evaluate(stock2, quote2, BacktestContext.EMPTY),
       "Condition should consider order blocks that are >= 0 trading days old",
     )
 
@@ -421,7 +422,7 @@ class BelowOrderBlockConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock2, quote3),
+      condition.evaluate(stock2, quote3, BacktestContext.EMPTY),
       "Condition should be false when price is not below enough and not within block",
     )
   }

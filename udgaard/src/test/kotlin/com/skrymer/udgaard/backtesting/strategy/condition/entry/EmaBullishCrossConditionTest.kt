@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -36,7 +37,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should detect bullish crossover when fast EMA crosses above slow EMA",
     )
   }
@@ -69,7 +70,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should not trigger when fast EMA was already above slow EMA",
     )
   }
@@ -93,7 +94,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should not trigger when fast EMA is below slow EMA",
     )
   }
@@ -124,7 +125,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should work with 5 EMA and 10 EMA",
     )
   }
@@ -157,7 +158,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should detect crossover when previous values were equal",
     )
   }
@@ -187,7 +188,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertFalse(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should return false when EMA values are missing (0)",
     )
   }
@@ -212,7 +213,7 @@ class EmaBullishCrossConditionTest {
       )
 
     assertTrue(
-      condition.evaluate(stock, currentQuote),
+      condition.evaluate(stock, currentQuote, BacktestContext.EMPTY),
       "Should return true when no previous quote and currently bullish",
     )
   }

@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -21,6 +22,7 @@ class BullishCandleCondition(
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     if (quote.openPrice <= 0) return false
     val change = (quote.closePrice - quote.openPrice) / quote.openPrice * 100
@@ -52,8 +54,9 @@ class BullishCandleCondition(
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
-    val passed = evaluate(stock, quote)
+    val passed = evaluate(stock, quote, context)
     val change =
       if (quote.openPrice > 0) {
         (quote.closePrice - quote.openPrice) / quote.openPrice * 100

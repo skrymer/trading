@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.service
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.data.model.Stock
@@ -32,6 +33,7 @@ class BacktestServiceTest {
       override fun test(
         stock: Stock,
         quote: StockQuote,
+        context: BacktestContext,
       ) = quote.closePrice >= 100.0
     }
 

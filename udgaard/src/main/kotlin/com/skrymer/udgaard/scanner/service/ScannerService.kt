@@ -1,10 +1,15 @@
 package com.skrymer.udgaard.scanner.service
 
+import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.data.model.AssetType
+import com.skrymer.udgaard.data.model.Stock
+import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
@@ -16,8 +21,10 @@ import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
+import com.skrymer.udgaard.scanner.model.ConditionFailureSummary
 import com.skrymer.udgaard.scanner.model.ExitCheckResponse
 import com.skrymer.udgaard.scanner.model.ExitCheckResult
+import com.skrymer.udgaard.scanner.model.NearMissCandidate
 import com.skrymer.udgaard.scanner.model.ScanResponse
 import com.skrymer.udgaard.scanner.model.ScanResult
 import com.skrymer.udgaard.scanner.model.ScannerTrade
@@ -29,6 +36,43 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+
+private data class EvalResult(
+  val scanResult: ScanResult?,
+  val nearMiss: NearMissCandidate?,
+  val failedConditions: List<ConditionEvaluationResult>?,
+  val evaluated: Boolean = false,
+)
+
+private fun buildConditionFailureSummary(
+  allFailedConditions: List<List<ConditionEvaluationResult>>,
+  totalStocksScanned: Int,
+): List<ConditionFailureSummary> {
+  if (allFailedConditions.isEmpty()) return emptyList()
+
+  val totalEvaluated = totalStocksScanned
+  val failureCountByType = mutableMapOf<String, Int>()
+  val descriptionByType = mutableMapOf<String, String>()
+
+  for (conditions in allFailedConditions) {
+    for (condition in conditions) {
+      descriptionByType.putIfAbsent(condition.conditionType, condition.description)
+      if (!condition.passed) {
+        failureCountByType.merge(condition.conditionType, 1, Int::plus)
+      }
+    }
+  }
+
+  return failureCountByType
+    .map { (conditionType, count) ->
+      ConditionFailureSummary(
+        conditionType = conditionType,
+        description = descriptionByType[conditionType] ?: conditionType,
+        stocksBlocked = count,
+        totalStocksEvaluated = totalEvaluated,
+      )
+    }.sortedByDescending { it.stocksBlocked }
+}
 
 @Service
 class ScannerService(
@@ -55,68 +99,94 @@ class ScannerService(
 
     logger.info("Starting scan with entry=${request.entryStrategyName}, exit=${request.exitStrategyName}")
 
-    // Build backtest context for strategies that need breadth data
     val backtestContext = buildBacktestContext()
+    val currentMarketDate = backtestContext.marketBreadthMap.keys.maxOrNull()
+    logger.info("Current market date: $currentMarketDate")
 
-    // Resolve symbols
     val symbols = resolveSymbols(request)
     logger.info("Scanning ${symbols.size} symbols")
 
-    // Load stocks with recent quotes (60 days) in batches and evaluate
     val quotesAfter = scanDate.minusDays(90)
     val results = mutableListOf<ScanResult>()
+    val nearMisses = mutableListOf<NearMissCandidate>()
+    val failedConditions = mutableListOf<List<ConditionEvaluationResult>>()
+    var stocksEvaluated = 0
 
     symbols.chunked(BATCH_SIZE).forEachIndexed { batchIndex, batch ->
       val stocks = stockRepository.findBySymbols(batch, quotesAfter = quotesAfter)
       logger.info("Processing batch ${batchIndex + 1}: ${stocks.size} stocks loaded")
 
       runBlocking(Dispatchers.Default) {
-        val batchResults =
-          stocks
-            .map { stock ->
-              async {
-                val latestQuote = stock.quotes.lastOrNull() ?: return@async null
-
-                val matches = entryStrategy.test(stock, latestQuote, backtestContext)
-                if (!matches) return@async null
-
-                val details =
-                  if (entryStrategy is DetailedEntryStrategy) {
-                    entryStrategy
-                      .testWithDetails(stock, latestQuote, backtestContext)
-                      .copy(strategyName = request.entryStrategyName)
-                  } else {
-                    null
-                  }
-
-                ScanResult(
-                  symbol = stock.symbol,
-                  sectorSymbol = stock.sectorSymbol,
-                  closePrice = latestQuote.closePrice,
-                  date = latestQuote.date,
-                  entrySignalDetails = details,
-                  atr = latestQuote.atr,
-                  trend = latestQuote.trend,
-                )
-              }
-            }.awaitAll()
-            .filterNotNull()
-
-        results.addAll(batchResults)
+        stocks
+          .map { stock ->
+            async { evaluateStock(stock, entryStrategy, backtestContext, request.entryStrategyName, currentMarketDate) }
+          }.awaitAll()
+          .forEach { eval ->
+            if (eval.evaluated) stocksEvaluated++
+            eval.scanResult?.let { results.add(it) }
+            eval.nearMiss?.let { nearMisses.add(it) }
+            eval.failedConditions?.let { failedConditions.add(it) }
+          }
       }
     }
 
+    val nearMissLimit = request.nearMissLimit ?: DEFAULT_NEAR_MISS_LIMIT
+    val topNearMisses = nearMisses.sortedByDescending { it.conditionsPassed }.take(nearMissLimit)
+    val failureSummary = if (entryStrategy is DetailedEntryStrategy) {
+      buildConditionFailureSummary(failedConditions, stocksEvaluated)
+    } else {
+      emptyList()
+    }
+
+    val skipped = symbols.size - stocksEvaluated
     val executionTime = System.currentTimeMillis() - startTime
-    logger.info("Scan complete: ${results.size} matches from ${symbols.size} stocks in ${executionTime}ms")
+    logger.info(
+      "Scan complete: ${results.size} matches, ${nearMisses.size} near-misses " +
+        "from $stocksEvaluated stocks in ${executionTime}ms ($skipped skipped, no current quotes)",
+    )
 
     return ScanResponse(
       scanDate = scanDate,
       entryStrategyName = request.entryStrategyName,
       exitStrategyName = request.exitStrategyName,
       results = results,
-      totalStocksScanned = symbols.size,
+      totalStocksScanned = stocksEvaluated,
       executionTimeMs = executionTime,
+      nearMissCandidates = topNearMisses,
+      conditionFailureSummary = failureSummary,
     )
+  }
+
+  private fun evaluateStock(
+    stock: Stock,
+    entryStrategy: EntryStrategy,
+    backtestContext: BacktestContext,
+    strategyName: String,
+    currentMarketDate: LocalDate?,
+  ): EvalResult {
+    val quote = stock.quotes.lastOrNull() ?: return EvalResult(null, null, null)
+    if (currentMarketDate != null && quote.date != currentMarketDate) return EvalResult(null, null, null)
+
+    if (entryStrategy is DetailedEntryStrategy) {
+      val details = entryStrategy
+        .testWithDetails(stock, quote, backtestContext)
+        .copy(strategyName = strategyName)
+
+      return if (details.allConditionsMet) {
+        EvalResult(toScanResult(stock, quote, details), null, details.conditions, true)
+      } else {
+        val passed = details.conditions.count { it.passed }
+        val nearMiss = if (passed > 0) toNearMiss(stock, quote, details, passed) else null
+        EvalResult(null, nearMiss, details.conditions, true)
+      }
+    }
+
+    val matches = entryStrategy.test(stock, quote, backtestContext)
+    return if (matches) {
+      EvalResult(toScanResult(stock, quote, null), null, null, true)
+    } else {
+      EvalResult(null, null, null, evaluated = true)
+    }
   }
 
   /**
@@ -299,5 +369,34 @@ class ScannerService(
 
   companion object {
     private const val BATCH_SIZE = 150
+    private const val DEFAULT_NEAR_MISS_LIMIT = 10
+
+    private fun toScanResult(stock: Stock, quote: StockQuote, details: EntrySignalDetails?) =
+      ScanResult(
+        symbol = stock.symbol,
+        sectorSymbol = stock.sectorSymbol,
+        closePrice = quote.closePrice,
+        date = quote.date,
+        entrySignalDetails = details,
+        atr = quote.atr,
+        trend = quote.trend,
+      )
+
+    private fun toNearMiss(
+      stock: Stock,
+      quote: StockQuote,
+      details: EntrySignalDetails,
+      conditionsPassed: Int,
+    ) = NearMissCandidate(
+      symbol = stock.symbol,
+      sectorSymbol = stock.sectorSymbol,
+      closePrice = quote.closePrice,
+      date = quote.date,
+      entrySignalDetails = details,
+      atr = quote.atr,
+      trend = quote.trend,
+      conditionsPassed = conditionsPassed,
+      conditionsTotal = details.conditions.size,
+    )
   }
 }

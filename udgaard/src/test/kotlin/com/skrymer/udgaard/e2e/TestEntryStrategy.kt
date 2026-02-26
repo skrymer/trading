@@ -42,11 +42,6 @@ class TestEntryStrategy : EntryStrategy {
   override fun test(
     stock: Stock,
     quote: StockQuote,
-  ): Boolean = compositeStrategy.test(stock, quote)
-
-  override fun test(
-    stock: Stock,
-    quote: StockQuote,
     context: BacktestContext,
   ): Boolean = compositeStrategy.test(stock, quote, context)
 }

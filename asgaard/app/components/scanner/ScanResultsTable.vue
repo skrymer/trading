@@ -11,17 +11,30 @@ const emit = defineEmits<{
   'add-trade': [result: ScanResult]
 }>()
 
-const expandedRows = ref<Set<string>>(new Set())
+const expanded = ref<Record<number, boolean>>({})
 
-function toggleRow(symbol: string) {
-  if (expandedRows.value.has(symbol)) {
-    expandedRows.value.delete(symbol)
-  } else {
-    expandedRows.value.add(symbol)
-  }
-}
+const UButton = resolveComponent('UButton')
+const UBadge = resolveComponent('UBadge')
 
 const columns: TableColumn<ScanResult>[] = [
+  {
+    id: 'expand',
+    cell: ({ row }) => {
+      if (!row.original.entrySignalDetails) return null
+      return h(UButton, {
+        'color': 'neutral',
+        'variant': 'ghost',
+        'size': 'xs',
+        'icon': 'i-lucide-chevron-down',
+        'square': true,
+        'aria-label': 'Expand',
+        'ui': {
+          leadingIcon: ['transition-transform', row.getIsExpanded() ? 'duration-200 rotate-180' : '']
+        },
+        'onClick': () => row.toggleExpanded()
+      })
+    }
+  },
   {
     id: 'symbol',
     header: 'Symbol',
@@ -48,7 +61,7 @@ const columns: TableColumn<ScanResult>[] = [
     cell: ({ row }) => {
       const trend = row.original.trend ?? 'Unknown'
       const color = trend === 'Uptrend' ? 'success' : trend === 'Downtrend' ? 'error' : 'neutral'
-      return h(resolveComponent('UBadge'), { color, variant: 'subtle', size: 'sm' }, () => trend)
+      return h(UBadge, { color, variant: 'subtle', size: 'sm' }, () => trend)
     }
   },
   {
@@ -59,14 +72,14 @@ const columns: TableColumn<ScanResult>[] = [
       if (!details) return '-'
       return h('button', {
         class: 'text-primary hover:underline text-sm',
-        onClick: () => toggleRow(row.original.symbol)
+        onClick: () => row.toggleExpanded()
       }, `${details.conditions.length} conditions`)
     }
   },
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) => h(resolveComponent('UButton'), {
+    cell: ({ row }) => h(UButton, {
       label: 'Add Trade',
       size: 'xs',
       variant: 'soft',
@@ -78,30 +91,29 @@ const columns: TableColumn<ScanResult>[] = [
 </script>
 
 <template>
-  <div>
-    <UTable :data="results" :columns="columns">
-      <template #empty-state>
-        <div class="flex flex-col items-center justify-center py-8">
-          <UIcon name="i-lucide-search-x" class="w-10 h-10 text-muted mb-2" />
-          <p class="text-muted text-sm">
-            No matching stocks found. Try adjusting your scan parameters.
-          </p>
-        </div>
-      </template>
-    </UTable>
+  <UTable
+    v-model:expanded="expanded"
+    :data="results"
+    :columns="columns"
+    :ui="{ tr: 'data-[expanded=true]:bg-elevated/50' }"
+  >
+    <template #empty-state>
+      <div class="flex flex-col items-center justify-center py-8">
+        <UIcon name="i-lucide-search-x" class="w-10 h-10 text-muted mb-2" />
+        <p class="text-muted text-sm">
+          No matching stocks found. Try adjusting your scan parameters.
+        </p>
+      </div>
+    </template>
 
-    <!-- Expanded condition details -->
-    <div v-for="result in results" :key="result.symbol">
-      <div
-        v-if="expandedRows.has(result.symbol) && result.entrySignalDetails"
-        class="mx-4 mb-2 p-3 bg-muted/50 rounded-lg border border-default text-sm"
-      >
+    <template #expanded="{ row }">
+      <div v-if="row.original.entrySignalDetails" class="p-3 text-sm">
         <div class="font-medium mb-2">
-          {{ result.entrySignalDetails.strategyDescription }}
+          {{ row.original.entrySignalDetails.strategyDescription }}
         </div>
         <div class="space-y-1">
           <div
-            v-for="condition in result.entrySignalDetails.conditions"
+            v-for="condition in row.original.entrySignalDetails.conditions"
             :key="condition.conditionType"
             class="flex items-center gap-2"
           >
@@ -117,6 +129,6 @@ const columns: TableColumn<ScanResult>[] = [
           </div>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </UTable>
 </template>

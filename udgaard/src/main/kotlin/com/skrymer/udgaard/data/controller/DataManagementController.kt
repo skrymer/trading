@@ -118,5 +118,4 @@ class DataManagementController(
     stockIngestionService.clearQueue()
     return ResponseEntity.ok("Refresh queue cleared")
   }
-
 }

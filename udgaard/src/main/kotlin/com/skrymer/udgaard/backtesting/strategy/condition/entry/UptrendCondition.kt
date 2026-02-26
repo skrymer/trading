@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.entry
 
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -19,6 +20,7 @@ class UptrendCondition : EntryCondition {
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): Boolean {
     // Check if 10 EMA > 20 EMA
     val ema10AboveEma20 = quote.closePriceEMA10 > quote.closePriceEMA20
@@ -44,6 +46,7 @@ class UptrendCondition : EntryCondition {
   override fun evaluateWithDetails(
     stock: Stock,
     quote: StockQuote,
+    context: BacktestContext,
   ): ConditionEvaluationResult {
     val ema10 = quote.closePriceEMA10
     val ema20 = quote.closePriceEMA20

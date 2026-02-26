@@ -1,4 +1,5 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.entry
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -35,7 +36,7 @@ class VolumeAboveAverageConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_500_000)
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when volume is 1.5x average (exceeds 1.3x requirement)",
     )
   }
@@ -65,7 +66,7 @@ class VolumeAboveAverageConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_200_000)
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when volume is 1.2x average (below 1.3x requirement)",
     )
   }
@@ -90,7 +91,7 @@ class VolumeAboveAverageConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_500_000)
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be true when volume exactly equals multiplier threshold",
     )
   }
@@ -115,7 +116,7 @@ class VolumeAboveAverageConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 2_000_000)
 
     assertFalse(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should be false when insufficient historical data (need at least 50% of lookback)",
     )
   }
@@ -145,7 +146,7 @@ class VolumeAboveAverageConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 16), volume = 1_400_000)
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should only use recent 5-day average, ignoring older high-volume quotes",
     )
   }
@@ -176,7 +177,7 @@ class VolumeAboveAverageConditionTest {
     val quote = StockQuote(date = LocalDate.of(2024, 1, 11), volume = 1_700_000)
 
     assertTrue(
-      condition.evaluate(stock, quote),
+      condition.evaluate(stock, quote, BacktestContext.EMPTY),
       "Condition should correctly calculate average from varying volume levels",
     )
   }
@@ -236,7 +237,7 @@ class VolumeAboveAverageConditionTest {
 
     val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_500_000)
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertTrue(result.passed)
     assertEquals("VolumeAboveAverageCondition", result.conditionType)
@@ -264,7 +265,7 @@ class VolumeAboveAverageConditionTest {
 
     val quote = StockQuote(date = LocalDate.of(2024, 1, 6), volume = 1_200_000)
 
-    val result = condition.evaluateWithDetails(stock, quote)
+    val result = condition.evaluateWithDetails(stock, quote, BacktestContext.EMPTY)
 
     assertFalse(result.passed)
     assertEquals("VolumeAboveAverageCondition", result.conditionType)
