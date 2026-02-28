@@ -16,6 +16,58 @@
       </p>
     </div>
 
+    <!-- Stats Summary -->
+    <div v-if="tradeStats && tradeStats.totalTrades > 0" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
+      <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div class="text-xs text-muted">
+          Trades
+        </div>
+        <div class="text-lg font-semibold">
+          {{ tradeStats.totalTrades }}
+        </div>
+      </div>
+      <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div class="text-xs text-muted">
+          Win Rate
+        </div>
+        <div class="text-lg font-semibold">
+          {{ (tradeStats.winRate * 100).toFixed(1) }}%
+        </div>
+      </div>
+      <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div class="text-xs text-muted">
+          Edge
+        </div>
+        <div class="text-lg font-semibold" :class="tradeStats.edge >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
+          {{ tradeStats.edge >= 0 ? '+' : '' }}{{ tradeStats.edge.toFixed(2) }}%
+        </div>
+      </div>
+      <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div class="text-xs text-muted">
+          Profit Factor
+        </div>
+        <div class="text-lg font-semibold">
+          {{ tradeStats.profitFactor === Infinity ? '∞' : tradeStats.profitFactor.toFixed(2) }}
+        </div>
+      </div>
+      <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div class="text-xs text-muted">
+          Avg Win
+        </div>
+        <div class="text-lg font-semibold text-green-600 dark:text-green-400">
+          +{{ tradeStats.avgWin.toFixed(2) }}%
+        </div>
+      </div>
+      <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div class="text-xs text-muted">
+          Avg Loss
+        </div>
+        <div class="text-lg font-semibold text-red-600 dark:text-red-400">
+          {{ tradeStats.avgLoss.toFixed(2) }}%
+        </div>
+      </div>
+    </div>
+
     <UCard>
       <UTable
         :data="signalsData"
@@ -177,6 +229,40 @@ const columns: TableColumn<SignalRow>[] = [
     cell: () => ''
   }
 ]
+
+const tradeStats = computed(() => {
+  if (!props.signals?.quotesWithSignals) return null
+
+  const quotes = props.signals.quotesWithSignals as any[]
+  const trades: { entryPrice: number, exitPrice: number }[] = []
+  let entryPrice: number | null = null
+
+  for (const qws of quotes) {
+    if (qws.entrySignal) {
+      entryPrice = qws.quote.closePrice
+    } else if (qws.exitSignal && entryPrice !== null) {
+      trades.push({ entryPrice, exitPrice: qws.quote.closePrice })
+      entryPrice = null
+    }
+  }
+
+  if (trades.length === 0) return null
+
+  const profits = trades.map(t => ((t.exitPrice - t.entryPrice) / t.entryPrice) * 100)
+  const winners = profits.filter(p => p > 0)
+  const losers = profits.filter(p => p <= 0)
+  const grossProfit = winners.reduce((sum, p) => sum + p, 0)
+  const grossLoss = Math.abs(losers.reduce((sum, p) => sum + p, 0))
+
+  return {
+    totalTrades: trades.length,
+    winRate: winners.length / trades.length,
+    edge: profits.reduce((sum, p) => sum + p, 0) / trades.length,
+    profitFactor: grossLoss === 0 ? Infinity : grossProfit / grossLoss,
+    avgWin: winners.length > 0 ? grossProfit / winners.length : 0,
+    avgLoss: losers.length > 0 ? -(grossLoss / losers.length) : 0
+  }
+})
 
 const signalsData = computed(() => {
   if (!props.signals?.quotesWithSignals) {

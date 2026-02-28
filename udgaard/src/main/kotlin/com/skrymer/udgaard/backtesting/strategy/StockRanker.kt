@@ -157,6 +157,28 @@ class RandomRanker : StockRanker {
  * - Trending: Market breadth above 60% (majority of stocks in uptrend)
  * - Choppy: Otherwise
  */
+/**
+ * Ranks stocks by sector edge priority.
+ * Accepts an ordered list of sector symbols — first = highest priority.
+ * Score = listSize - index (e.g., first sector gets 11, second gets 10, etc.)
+ * Stocks not in the ranking list get 0.
+ */
+class SectorEdgeRanker(
+  sectorRanking: List<String>,
+) : StockRanker {
+  private val sectorScores: Map<String, Double> =
+    sectorRanking.mapIndexed { index, sector ->
+      sector to (sectorRanking.size - index).toDouble()
+    }.toMap()
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double = sectorScores[stock.sectorSymbol] ?: 0.0
+
+  override fun description() = "Sector edge priority (ordered list)"
+}
+
 class AdaptiveRanker : StockRanker {
   private val volatilityRanker = VolatilityRanker()
   private val distanceRanker = DistanceFrom10EmaRanker()

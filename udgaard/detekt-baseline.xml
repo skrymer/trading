@@ -5,7 +5,7 @@
     <ID>ClassOrdering:OrderBlockCalculator.kt:OrderBlockCalculator$Companion</ID>
     <ID>ClassOrdering:OvtlyrStockQuote.kt:OvtlyrStockQuote$val isInUptrend: Boolean get() = "Uptrend" == trend</ID>
     <ID>ComplexCondition:UnrealizedPnlService.kt:UnrealizedPnlService$position.strikePrice == null || position.expirationDate == null || position.optionType == null || position.underlyingSymbol == null</ID>
-    <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildEntryCondition: EntryCondition</ID>
+    <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$fun buildEntryCondition: EntryCondition</ID>
     <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildExitCondition: ExitCondition</ID>
     <ID>CyclomaticComplexMethod:PositionMapper.kt:PositionMapper$fun toDomain: Position</ID>
     <ID>CyclomaticComplexMethod:PositionService.kt:PositionService$fun calculateStats: PositionStats</ID>
@@ -23,7 +23,7 @@
     <ID>LongMethod:BrokerIntegrationService.kt:BrokerIntegrationService$private fun importLotGroup: RegularLotImportResult</ID>
     <ID>LongMethod:BrokerIntegrationService.kt:BrokerIntegrationService$private fun importRegularLot: RegularLotImportResult</ID>
     <ID>LongMethod:BrokerIntegrationService.kt:BrokerIntegrationService$private fun importRollChain: ChainImportResult</ID>
-    <ID>LongMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildEntryCondition: EntryCondition</ID>
+    <ID>LongMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$fun buildEntryCondition: EntryCondition</ID>
     <ID>LongMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildExitCondition: ExitCondition</ID>
     <ID>LongMethod:PositionJooqRepository.kt:PositionJooqRepository$fun save: Position</ID>
     <ID>LongMethod:PositionService.kt:PositionService$fun calculateStats: PositionStats</ID>

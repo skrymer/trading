@@ -21,6 +21,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCon
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockBreakoutCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
@@ -32,6 +33,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCon
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SpyPriceUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolatilityContractedCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolumeAboveAverageCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ATRTrailingStopLoss
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.BearishOrderBlockExit
@@ -221,6 +223,14 @@ class EntryStrategyBuilder {
     conditions.add(AboveBearishOrderBlockCondition(consecutiveDays, ageInDays, proximityPercent, sensitivity))
   }
 
+  fun orderBlockBreakout(
+    consecutiveDays: Int = 1,
+    maxDaysSinceBreakout: Int = 3,
+    ageInDays: Int = 0,
+  ) = apply {
+    conditions.add(OrderBlockBreakoutCondition(consecutiveDays, maxDaysSinceBreakout, ageInDays))
+  }
+
   fun bullishCandle(minPercent: Double = 0.5) =
     apply {
       conditions.add(BullishCandleCondition(minPercent))
@@ -232,6 +242,13 @@ class EntryStrategyBuilder {
     minSpreadPercent: Double = 1.0,
   ) = apply {
     conditions.add(EmaSpreadCondition(fastEmaPeriod, slowEmaPeriod, minSpreadPercent))
+  }
+
+  fun volatilityContracted(
+    lookbackDays: Int = 10,
+    maxAtrMultiple: Double = 2.5,
+  ) = apply {
+    conditions.add(VolatilityContractedCondition(lookbackDays, maxAtrMultiple))
   }
 
   fun priceNearDonchianHigh(maxDistancePercent: Double = 1.5) =

@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import type { StockQuote, OrderBlock } from '~/types'
+import type { StockQuote, OrderBlock, StockConditionSignals } from '~/types'
 
 const props = defineProps<{
   quotes: StockQuote[]
@@ -153,6 +153,7 @@ const props = defineProps<{
   symbol: string
   signals?: any
   entryStrategy?: string
+  conditionSignals?: StockConditionSignals | null
 }>()
 
 const chartContainer = ref<HTMLElement | null>(null)
@@ -660,6 +661,35 @@ function updateMarkers() {
     })
   }
 
+  // Add condition signal markers (green circles)
+  if (props.conditionSignals?.quotesWithConditions) {
+    props.conditionSignals.quotesWithConditions.forEach((qwc) => {
+      const time = (new Date(qwc.date).getTime() / 1000) as any
+      const passed = qwc.conditionResults.filter(r => r.passed).length
+      const total = qwc.conditionResults.length
+      markers.push({
+        time,
+        position: 'belowBar',
+        color: '#22c55e',
+        shape: 'circle',
+        text: `${passed}/${total}`
+      })
+
+      if (!signalDataMap.has(time)) {
+        signalDataMap.set(time, {
+          date: qwc.date,
+          price: qwc.closePrice,
+          entryDetails: {
+            strategyName: 'Condition Evaluation',
+            strategyDescription: props.conditionSignals!.conditionDescriptions.join(` ${props.conditionSignals!.operator} `),
+            conditions: qwc.conditionResults,
+            allConditionsMet: qwc.allConditionsMet
+          }
+        })
+      }
+    })
+  }
+
   // Use the plugin's setMarkers method
   seriesMarkersPlugin.setMarkers(markers)
 }
@@ -772,6 +802,11 @@ watch(() => [props.quotes, props.orderBlocks], () => {
 
 // Watch for signals changes
 watch(() => props.signals, () => {
+  updateMarkers()
+}, { deep: true })
+
+// Watch for condition signals changes
+watch(() => props.conditionSignals, () => {
   updateMarkers()
 }, { deep: true })
 

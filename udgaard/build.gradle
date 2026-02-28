@@ -102,7 +102,7 @@ tasks.named('test') {
 }
 
 tasks.named('bootRun') {
-	jvmArgs = ['-Xmx8192m', '-Xms4096m']
+	jvmArgs = ['-Xmx12288m', '-Xms4096m']
 }
 
 ktlint {

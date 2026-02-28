@@ -1,7 +1,9 @@
 package com.skrymer.udgaard.data.controller
 
+import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationRequest
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
+import com.skrymer.udgaard.backtesting.dto.StockConditionSignals
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
@@ -15,6 +17,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -243,6 +247,46 @@ class StockController(
 
     logger.info("Evaluated exit conditions for $symbol on $date: anyConditionMet=${details.anyConditionMet}")
     return ResponseEntity.ok(details)
+  }
+
+  /**
+   * Evaluate entry conditions on a stock's data and return matching quotes.
+   * Unlike the signals endpoint, this does not require an exit strategy and
+   * evaluates conditions independently on every quote.
+   *
+   * Example: POST /api/stocks/TQQQ/condition-signals
+   * Body: { "conditions": [{"type": "uptrend"}, {"type": "priceAboveEma", "parameters": {"emaPeriod": 20}}], "operator": "AND" }
+   *
+   * @param symbol Stock symbol
+   * @param request Condition evaluation request with conditions and operator
+   * @return Quotes where conditions match, with detailed evaluation results
+   */
+  @PostMapping("/{symbol}/condition-signals")
+  @Transactional(readOnly = true)
+  fun evaluateConditions(
+    @PathVariable symbol: String,
+    @RequestBody request: ConditionEvaluationRequest,
+  ): ResponseEntity<StockConditionSignals> {
+    logger.info("Evaluating ${request.conditions.size} conditions on stock $symbol with operator=${request.operator}")
+
+    if (request.conditions.isEmpty()) {
+      return ResponseEntity.badRequest().build()
+    }
+
+    val stock =
+      stockService.getStock(symbol) ?: run {
+        logger.error("Stock not found: $symbol")
+        return ResponseEntity.notFound().build()
+      }
+
+    return try {
+      val result = strategySignalService.evaluateConditions(stock, request.conditions, request.operator)
+      logger.info("Condition evaluation for $symbol: ${result.matchingQuotes}/${result.totalQuotes} quotes matched")
+      ResponseEntity.ok(result)
+    } catch (e: IllegalArgumentException) {
+      logger.error("Invalid condition configuration: ${e.message}", e)
+      ResponseEntity.badRequest().build()
+    }
   }
 
   companion object {

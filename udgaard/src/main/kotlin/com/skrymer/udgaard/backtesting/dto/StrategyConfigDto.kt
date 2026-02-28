@@ -7,6 +7,13 @@ import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 /**
  * Request DTO for backtesting with either predefined or custom strategies
  */
+/**
+ * Optional configuration for ranker-specific parameters.
+ */
+data class RankerConfig(
+  val sectorRanking: List<String>? = null, // Ordered sector symbols (first = highest priority)
+)
+
 data class BacktestRequest(
   val stockSymbols: List<String>? = null,
   val assetTypes: List<String>? = null, // Filter by asset type: STOCK, ETF, LEVERAGED_ETF, INDEX, BOND_ETF, COMMODITY_ETF
@@ -23,6 +30,7 @@ data class BacktestRequest(
   val cooldownDays: Int = 0, // Global cooldown period in trading days after exit (0 = disabled)
   val entryDelayDays: Int = 0, // Delay entry by N trading days after signal (0 = enter on signal day)
   val positionSizing: PositionSizingConfig? = null, // Optional ATR-based position sizing
+  val rankerConfig: RankerConfig? = null, // Optional ranker-specific parameters
 )
 
 /**

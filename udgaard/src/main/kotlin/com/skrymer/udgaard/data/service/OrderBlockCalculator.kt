@@ -212,7 +212,7 @@ class OrderBlockCalculator {
         val volumeStrength = calculateVolumeStrength(quotes, j)
 
         // Find the end date (mitigation point in the future)
-        val endDate = findMitigationDate(quotes, j, triggerIndex, type, quote)
+        val endDate = findMitigationDate(quotes, j, type, quote)
 
         return OrderBlock(
           low = quote.low,
@@ -235,24 +235,19 @@ class OrderBlockCalculator {
    * Find the date when the order block gets mitigated
    * Returns null if block is still active
    *
-   * TradingView uses close[1] (previous bar's close) for mitigation.
-   * This means we check if the PREVIOUS bar closed through the OB boundary.
-   *
-   * We start from the triggerIndex (the crossing bar) to match TradingView's behavior:
-   * TV creates the box on the trigger bar, so mitigation can only happen from that bar onward.
-   * On the trigger bar itself, TV checks close[1] (previous bar's close).
+   * Uses close[1] (previous bar's close) for mitigation checking.
+   * Scans from the bar after the origin candle to catch mitigation that happens
+   * between the origin and the trigger (e.g., during the impulse move).
    */
-  @Suppress("UnusedParameter")
   private fun findMitigationDate(
     quotes: List<StockQuote>,
     startIndex: Int,
-    triggerIndex: Int,
     type: OrderBlockType,
     originQuote: StockQuote,
   ): LocalDate? {
-    // Start from triggerIndex to match TV: the box doesn't exist before the trigger,
-    // so mitigation events between origin and trigger are ignored
-    for (k in triggerIndex until quotes.size) {
+    // Start from bar after origin candle — the OB zone exists from the origin,
+    // so any close through it after that point counts as mitigation
+    for (k in (startIndex + 1) until quotes.size) {
       // Check if PREVIOUS bar's close mitigated the OB (matches TradingView's close[1] logic)
       if (k > 0) {
         val previousQuote = quotes[k - 1]

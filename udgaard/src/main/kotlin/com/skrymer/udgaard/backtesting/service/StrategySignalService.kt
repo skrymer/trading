@@ -1,14 +1,18 @@
 package com.skrymer.udgaard.backtesting.service
 
+import com.skrymer.udgaard.backtesting.dto.ConditionConfig
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
+import com.skrymer.udgaard.backtesting.dto.QuoteWithConditions
 import com.skrymer.udgaard.backtesting.dto.QuoteWithSignal
+import com.skrymer.udgaard.backtesting.dto.StockConditionSignals
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.ProjectXExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -23,6 +27,7 @@ import org.springframework.stereotype.Service
 @Service
 class StrategySignalService(
   private val strategyRegistry: StrategyRegistry,
+  private val dynamicStrategyBuilder: DynamicStrategyBuilder,
   private val marketBreadthRepository: MarketBreadthRepository,
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val stockRepository: StockJooqRepository,
@@ -147,6 +152,51 @@ class StrategySignalService(
         exitReason = exitReason,
       )
     }
+  }
+
+  /**
+   * Evaluate individual entry conditions on a stock's data.
+   * Returns only matching quotes with detailed condition results.
+   */
+  fun evaluateConditions(
+    stock: Stock,
+    conditionConfigs: List<ConditionConfig>,
+    operator: String = "AND",
+  ): StockConditionSignals {
+    val context = buildContext()
+    val conditions = conditionConfigs.map { dynamicStrategyBuilder.buildEntryCondition(it) }
+    val logicalOp = if (operator.uppercase() == "OR") LogicalOperator.OR else LogicalOperator.AND
+
+    val sortedQuotes = stock.quotes.sortedBy { it.date }
+    val matchingQuotes =
+      sortedQuotes.mapNotNull { quote ->
+        val results = conditions.map { it.evaluateWithDetails(stock, quote, context) }
+        val allMet =
+          when (logicalOp) {
+            LogicalOperator.AND -> results.all { it.passed }
+            LogicalOperator.OR -> results.any { it.passed }
+            else -> results.all { it.passed }
+          }
+        if (allMet) {
+          QuoteWithConditions(
+            date = quote.date,
+            closePrice = quote.closePrice,
+            allConditionsMet = true,
+            conditionResults = results,
+          )
+        } else {
+          null
+        }
+      }
+
+    return StockConditionSignals(
+      symbol = stock.symbol,
+      operator = operator,
+      conditionDescriptions = conditions.map { it.description() },
+      totalQuotes = sortedQuotes.size,
+      matchingQuotes = matchingQuotes.size,
+      quotesWithConditions = matchingQuotes,
+    )
   }
 
   private fun buildContext(): BacktestContext {

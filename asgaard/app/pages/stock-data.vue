@@ -81,6 +81,35 @@
           >
             Show Signals
           </UButton>
+
+          <UButton
+            icon="i-heroicons-funnel"
+            color="success"
+            variant="soft"
+            :loading="loadingConditions"
+            @click="showConditionModal = true"
+          >
+            Show Conditions
+          </UButton>
+        </div>
+
+        <!-- Condition Signals Info Bar -->
+        <div v-if="conditionSignalsData" class="flex items-center gap-4 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
+          <UIcon name="i-heroicons-funnel" class="text-green-600 dark:text-green-400 flex-shrink-0" />
+          <div class="text-sm flex-1">
+            <span class="font-medium">{{ conditionSignalsData.matchingQuotes }}</span> of
+            <span class="font-medium">{{ conditionSignalsData.totalQuotes }}</span> quotes matched
+            ({{ conditionSignalsData.conditionDescriptions.join(` ${conditionSignalsData.operator} `) }})
+          </div>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-heroicons-x-mark"
+            @click="conditionSignalsData = null"
+          >
+            Clear
+          </UButton>
         </div>
 
         <StockPriceChart
@@ -90,6 +119,7 @@
           :symbol="selectedStock.symbol"
           :signals="signalsData"
           :entry-strategy="selectedEntryStrategy"
+          :condition-signals="conditionSignalsData"
         />
 
         <!-- Strategy Signals Table -->
@@ -97,6 +127,12 @@
           :signals="signalsData"
           :entry-strategy="selectedEntryStrategy"
           :exit-strategy="selectedExitStrategy"
+        />
+
+        <!-- Condition Signals Table -->
+        <ConditionSignalsTable
+          v-if="conditionSignalsData"
+          :condition-signals="conditionSignalsData"
         />
 
         <!-- Time Range Selector -->
@@ -168,12 +204,17 @@
           Search for a stock symbol to view data
         </p>
       </div>
+      <!-- Condition Config Modal -->
+      <ConditionConfigModal
+        v-model:open="showConditionModal"
+        @evaluate="evaluateConditions"
+      />
     </template>
   </UDashboardPanel>
 </template>
 
 <script setup lang="ts">
-import type { Stock, MarketBreadthDaily, SectorBreadthDaily } from '~/types'
+import type { Stock, MarketBreadthDaily, SectorBreadthDaily, ConditionConfig, StockConditionSignals } from '~/types'
 
 // Page meta
 definePageMeta({
@@ -192,6 +233,9 @@ const selectedEntryStrategy = ref<string>('')
 const selectedExitStrategy = ref<string>('')
 const cooldownDays = ref<number>(0)
 const signalsData = ref<any>(null)
+const showConditionModal = ref(false)
+const conditionSignalsData = ref<StockConditionSignals | null>(null)
+const loadingConditions = ref(false)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
 const marketBreadthData = ref<MarketBreadthDaily[]>([])
 const sectorBreadthData = ref<SectorBreadthDaily[]>([])
@@ -308,6 +352,7 @@ const fetchSignals = async () => {
   }
 
   loadingSignals.value = true
+  conditionSignalsData.value = null
   try {
     const url = `/udgaard/api/stocks/${selectedSymbol.value}/signals?entryStrategy=${selectedEntryStrategy.value}&exitStrategy=${selectedExitStrategy.value}&cooldownDays=${cooldownDays.value}`
     const data = await $fetch(url)
@@ -329,6 +374,36 @@ const fetchSignals = async () => {
     signalsData.value = null
   } finally {
     loadingSignals.value = false
+  }
+}
+
+const evaluateConditions = async (conditions: ConditionConfig[], operator: 'AND' | 'OR') => {
+  if (!selectedSymbol.value || conditions.length === 0) return
+  loadingConditions.value = true
+  try {
+    const data = await $fetch<StockConditionSignals>(
+      `/udgaard/api/stocks/${selectedSymbol.value}/condition-signals`,
+      {
+        method: 'POST',
+        body: { conditions, operator }
+      }
+    )
+    conditionSignalsData.value = data
+    useToast().add({
+      title: 'Conditions Evaluated',
+      description: `${data.matchingQuotes} of ${data.totalQuotes} quotes matched`,
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Failed to evaluate conditions:', error)
+    useToast().add({
+      title: 'Error',
+      description: 'Failed to evaluate conditions',
+      color: 'error'
+    })
+    conditionSignalsData.value = null
+  } finally {
+    loadingConditions.value = false
   }
 }
 
@@ -387,5 +462,6 @@ onMounted(() => {
 // Watch for symbol changes and clear signals
 watch(selectedSymbol, () => {
   signalsData.value = null
+  conditionSignalsData.value = null
 })
 </script>

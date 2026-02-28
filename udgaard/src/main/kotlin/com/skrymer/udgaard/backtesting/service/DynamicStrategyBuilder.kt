@@ -29,6 +29,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCon
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockBreakoutCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockRejectionCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
@@ -41,6 +42,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCon
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SpyPriceUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolatilityContractedCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolumeAboveAverageCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ATRTrailingStopLoss
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.BearishOrderBlockExit
@@ -118,7 +120,7 @@ class DynamicStrategyBuilder(
     return CompositeExitStrategy(conditions, operator, config.description)
   }
 
-  private fun buildEntryCondition(config: ConditionConfig): EntryCondition =
+  fun buildEntryCondition(config: ConditionConfig): EntryCondition =
     when (config.type.lowercase()) {
       "uptrend" -> UptrendCondition()
       "priceaboveema" ->
@@ -226,6 +228,12 @@ class DynamicStrategyBuilder(
           ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 30,
           proximityPercent = (config.parameters["proximityPercent"] as? Number)?.toDouble() ?: 2.0,
         )
+      "orderblockbreakout" ->
+        OrderBlockBreakoutCondition(
+          consecutiveDays = (config.parameters["consecutiveDays"] as? Number)?.toInt() ?: 1,
+          maxDaysSinceBreakout = (config.parameters["maxDaysSinceBreakout"] as? Number)?.toInt() ?: 3,
+          ageInDays = (config.parameters["ageInDays"] as? Number)?.toInt() ?: 0,
+        )
       "bullishcandle" ->
         BullishCandleCondition(
           minPercent = (config.parameters["minPercent"] as? Number)?.toDouble() ?: 0.5,
@@ -239,6 +247,11 @@ class DynamicStrategyBuilder(
       "priceneardonchianhigh" ->
         PriceNearDonchianHighCondition(
           maxDistancePercent = (config.parameters["maxDistancePercent"] as? Number)?.toDouble() ?: 1.5,
+        )
+      "volatilitycontracted" ->
+        VolatilityContractedCondition(
+          lookbackDays = (config.parameters["lookbackDays"] as? Number)?.toInt() ?: 10,
+          maxAtrMultiple = (config.parameters["maxAtrMultiple"] as? Number)?.toDouble() ?: 2.5,
         )
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }

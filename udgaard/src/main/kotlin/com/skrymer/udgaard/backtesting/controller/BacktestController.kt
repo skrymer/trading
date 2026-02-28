@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
+import com.skrymer.udgaard.backtesting.dto.RankerConfig
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
@@ -18,6 +19,7 @@ import com.skrymer.udgaard.backtesting.strategy.DistanceFrom10EmaRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.RandomRanker
+import com.skrymer.udgaard.backtesting.strategy.SectorEdgeRanker
 import com.skrymer.udgaard.backtesting.strategy.SectorStrengthRanker
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.backtesting.strategy.VolatilityRanker
@@ -93,7 +95,7 @@ class BacktestController(
       resolveSymbols(request)
         ?: return logAndBadRequest("No symbols found. Use Data Manager to refresh stocks first.")
 
-    val rankerInstance = getRankerInstance(request.ranker)
+    val rankerInstance = getRankerInstance(request.ranker, request.rankerConfig)
       ?: throw IllegalArgumentException("Unknown ranker: ${request.ranker}")
 
     val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
@@ -166,6 +168,7 @@ class BacktestController(
         "DistanceFrom10Ema",
         "Composite",
         "SectorStrength",
+        "SectorEdge",
         "Random",
       )
     logger.info("Returning ${rankers.size} rankers")
@@ -308,12 +311,21 @@ class BacktestController(
     return ResponseEntity.badRequest().body(mapOf("error" to message)) as ResponseEntity<T>
   }
 
-  private fun getRankerInstance(rankerName: String): StockRanker? =
+  private fun getRankerInstance(rankerName: String, rankerConfig: RankerConfig? = null): StockRanker? =
     when (rankerName.lowercase()) {
       "volatility" -> VolatilityRanker()
       "distancefrom10ema" -> DistanceFrom10EmaRanker()
       "composite" -> CompositeRanker()
       "sectorstrength" -> SectorStrengthRanker()
+      "sectoredge" -> {
+        val ranking = rankerConfig?.sectorRanking
+        if (ranking.isNullOrEmpty()) {
+          logger.error("SectorEdge ranker requires rankerConfig.sectorRanking")
+          null
+        } else {
+          SectorEdgeRanker(ranking)
+        }
+      }
       "random" -> RandomRanker()
       "adaptive" -> AdaptiveRanker()
       else -> {

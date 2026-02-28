@@ -1137,3 +1137,25 @@ export interface RollScannerTradeRequest {
 export interface UpdateScannerTradeRequest {
   notes?: string
 }
+
+// Condition Signals
+export interface ConditionEvaluationRequest {
+  conditions: ConditionConfig[]
+  operator: 'AND' | 'OR'
+}
+
+export interface QuoteWithConditions {
+  date: string
+  closePrice: number
+  allConditionsMet: boolean
+  conditionResults: ConditionEvaluationResult[]
+}
+
+export interface StockConditionSignals {
+  symbol: string
+  operator: string
+  conditionDescriptions: string[]
+  totalQuotes: number
+  matchingQuotes: number
+  quotesWithConditions: QuoteWithConditions[]
+}

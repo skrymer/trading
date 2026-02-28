@@ -99,7 +99,9 @@ asgaard/
 │   │   │   └── ConditionCard.vue
 │   │   ├── StockPriceChart.client.vue  # Standalone stock chart
 │   │   ├── SymbolSearch.vue      # Symbol search autocomplete
-│   │   └── UserMenu.vue          # User menu dropdown
+│   │   ├── UserMenu.vue          # User menu dropdown
+│   │   ├── ConditionConfigModal.vue   # Condition configuration modal
+│   │   └── ConditionSignalsTable.vue  # Condition signals display table
 │   ├── composables/
 │   │   ├── useAuth.ts            # Authentication composable
 │   │   └── usePositionFormatters.ts  # Position formatting utilities

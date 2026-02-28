@@ -357,14 +357,14 @@ class OrderBlockCalculatorTest {
 
     val block = bearishBlocks.first { it.low == 102.0 && it.high == 106.0 }
 
-    // The OB should be mitigated at bar 19 (the trigger bar itself)
-    // because close[1] on bar 19 (= bar 18 close = 107.0) > OB high (106.0)
-    // Mitigation starts from the trigger bar, matching TV's behavior
+    // The OB should be mitigated at bar 17 — bar 16's close (108.0) > OB high (106.0),
+    // so mitigation date is bar 17 (the bar after the breaching close).
+    // Mitigation scans from the origin candle, catching closes between origin and trigger.
     assertNotNull(block.endDate, "OB should be mitigated")
     assertEquals(
-      baseDate.plusDays(19),
+      baseDate.plusDays(17),
       block.endDate,
-      "OB should be mitigated at bar 19 (trigger bar, close[1] > OB high), matching TV behavior",
+      "OB should be mitigated at bar 17 (bar 16 close 108.0 > OB high 106.0)",
     )
   }
 
