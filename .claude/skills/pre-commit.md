@@ -29,36 +29,42 @@ cd /home/sonni/development/git/trading/udgaard && ./gradlew ktlintCheck
 cd /home/sonni/development/git/trading/udgaard && ./gradlew detekt
 ```
 
+#### 4. Backend Compiler Warnings
+```bash
+cd /home/sonni/development/git/trading/udgaard && ./gradlew compileKotlin 2>&1 | grep "^w:"
+```
+If any warnings are found (redundant `!!`, always-true conditions, unnecessary `?:`, etc.), fix them. These are Kotlin compiler warnings that ktlint and detekt cannot catch (they require type resolution). Zero warnings expected.
+
 ### Midgaard (Reference Data Service) — only if changes in `midgaard/`
 
-#### 4. Midgaard Compile
+#### 5. Midgaard Compile
 ```bash
 cd /home/sonni/development/git/trading/midgaard && ./gradlew compileKotlin
 ```
 
-#### 5. Midgaard Linting (ktlint)
+#### 6. Midgaard Linting (ktlint)
 ```bash
 cd /home/sonni/development/git/trading/midgaard && ./gradlew ktlintCheck
 ```
 
-#### 6. Midgaard Static Analysis (detekt)
+#### 7. Midgaard Static Analysis (detekt)
 ```bash
 cd /home/sonni/development/git/trading/midgaard && ./gradlew detekt
 ```
 
 ### Asgaard (Frontend) — only if changes in `asgaard/`
 
-#### 7. Frontend Linting (ESLint)
+#### 8. Frontend Linting (ESLint)
 ```bash
 cd /home/sonni/development/git/trading/asgaard && npm run lint
 ```
 
-#### 8. Frontend TypeScript Validation
+#### 9. Frontend TypeScript Validation
 ```bash
 cd /home/sonni/development/git/trading/asgaard && npm run typecheck
 ```
 
-### 9. Update CLAUDE.md Files
+### 10. Update CLAUDE.md Files
 
 After the code checks complete, review the CLAUDE.md files for accuracy against the current codebase:
 
@@ -85,6 +91,7 @@ After all checks complete, provide a summary table. Only include rows for projec
 | Udgaard Tests | PASS / FAIL / SKIPPED |
 | Udgaard Lint (ktlint) | PASS / FAIL / SKIPPED |
 | Udgaard Static Analysis (detekt) | PASS / FAIL / SKIPPED |
+| Udgaard Compiler Warnings | PASS / FAIL / SKIPPED |
 | Midgaard Compile | PASS / FAIL / SKIPPED |
 | Midgaard Lint (ktlint) | PASS / FAIL / SKIPPED |
 | Midgaard Static Analysis (detekt) | PASS / FAIL / SKIPPED |
@@ -98,9 +105,11 @@ If any check fails, show the relevant error output and suggest fixes:
 - **ESLint failures**: Run `npm run lint -- --fix` to auto-fix
 - **Typecheck failures**: Review and fix the type errors manually
 - **Test failures**: Investigate and fix the failing tests
+- **Compiler warnings**: Fix redundant `!!`, unnecessary `?:`, always-true conditions, etc. directly in the source
 
 ## Important
 
 - All checks for changed projects MUST pass before committing
 - Docker must be running for backend tests (TestContainers)
 - Run checks from the project root using absolute paths
+- Follow the clean code principles defined in `.claude/skills/clean_code.md` — review changed code for SRP, DRY, KISS, clear naming, small functions, guard clauses, and no unnecessary comments before committing

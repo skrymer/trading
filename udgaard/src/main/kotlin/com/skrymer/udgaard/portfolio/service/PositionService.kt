@@ -471,7 +471,7 @@ class PositionService(
     var originalPosition = position
     while (originalPosition.parentPositionId != null) {
       originalPosition =
-        positionRepository.findById(originalPosition.parentPositionId!!)
+        positionRepository.findById(originalPosition.parentPositionId)
           ?: break
     }
 
@@ -479,7 +479,7 @@ class PositionService(
     val chain = mutableListOf(originalPosition)
     var currentPosition = originalPosition
     while (currentPosition.rolledToPositionId != null) {
-      val nextPosition = positionRepository.findById(currentPosition.rolledToPositionId!!)
+      val nextPosition = positionRepository.findById(currentPosition.rolledToPositionId)
       if (nextPosition != null) {
         chain.add(nextPosition)
         currentPosition = nextPosition
@@ -568,7 +568,7 @@ class PositionService(
     }
 
     // Calculate annualized return (CAGR)
-    val annualizedReturn = if (portfolio.initialBalance > 0 && portfolio.createdDate != null) {
+    val annualizedReturn = if (portfolio.initialBalance > 0) {
       val createdDate = portfolio.createdDate
       val currentYear = Year.now().value
       val createdYear = Year.of(createdDate.year).value

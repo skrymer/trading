@@ -58,22 +58,22 @@ data class Symbol(
 )
 
 object SectorMapping {
-    private val SECTOR_TO_SYMBOL = mapOf(
-        "TECHNOLOGY" to "XLK",
-        "FINANCIAL SERVICES" to "XLF",
-        "HEALTHCARE" to "XLV",
-        "ENERGY" to "XLE",
-        "INDUSTRIALS" to "XLI",
-        "CONSUMER CYCLICAL" to "XLY",
-        "CONSUMER DEFENSIVE" to "XLP",
-        "COMMUNICATION SERVICES" to "XLC",
-        "BASIC MATERIALS" to "XLB",
-        "REAL ESTATE" to "XLRE",
-        "UTILITIES" to "XLU",
-    )
+    private val SECTOR_TO_SYMBOL =
+        mapOf(
+            "TECHNOLOGY" to "XLK",
+            "FINANCIAL SERVICES" to "XLF",
+            "HEALTHCARE" to "XLV",
+            "ENERGY" to "XLE",
+            "INDUSTRIALS" to "XLI",
+            "CONSUMER CYCLICAL" to "XLY",
+            "CONSUMER DEFENSIVE" to "XLP",
+            "COMMUNICATION SERVICES" to "XLC",
+            "BASIC MATERIALS" to "XLB",
+            "REAL ESTATE" to "XLRE",
+            "UTILITIES" to "XLU",
+        )
 
-    fun toSectorSymbol(sectorName: String?): String? =
-        sectorName?.uppercase()?.let { SECTOR_TO_SYMBOL[it] }
+    fun toSectorSymbol(sectorName: String?): String? = sectorName?.uppercase()?.let { SECTOR_TO_SYMBOL[it] }
 }
 
 enum class AssetType {

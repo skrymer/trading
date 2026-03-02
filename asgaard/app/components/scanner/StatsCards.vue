@@ -4,6 +4,8 @@ import type { ScannerTrade, ExitCheckResult } from '~/types'
 const props = defineProps<{
   trades: ScannerTrade[]
   exitResults: Map<number, ExitCheckResult>
+  capitalDeployed?: number
+  portfolioValue?: number
 }>()
 
 const activeTrades = computed(() => props.trades.length)
@@ -25,10 +27,17 @@ const avgPnl = computed(() => {
 const totalRolledCredits = computed(() => {
   return props.trades.reduce((sum, t) => sum + t.rolledCredits, 0)
 })
+
+const utilizationPct = computed(() => {
+  if (!props.capitalDeployed || !props.portfolioValue || props.portfolioValue <= 0) return null
+  return (props.capitalDeployed / props.portfolioValue) * 100
+})
 </script>
 
 <template>
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div
+    :class="utilizationPct !== null ? 'grid grid-cols-2 lg:grid-cols-5 gap-4' : 'grid grid-cols-2 lg:grid-cols-4 gap-4'"
+  >
     <div class="p-4 bg-muted/50 rounded-lg border border-default">
       <div class="text-sm text-muted">
         Active Trades
@@ -77,6 +86,18 @@ const totalRolledCredits = computed(() => {
         ]"
       >
         {{ totalRolledCredits >= 0 ? '+' : '' }}${{ totalRolledCredits.toFixed(2) }}
+      </div>
+    </div>
+
+    <div v-if="utilizationPct !== null" class="p-4 bg-muted/50 rounded-lg border border-default">
+      <div class="text-sm text-muted">
+        Capital Deployed
+      </div>
+      <div class="text-2xl font-bold mt-1">
+        ${{ capitalDeployed!.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+      </div>
+      <div class="text-xs text-muted mt-1">
+        {{ utilizationPct!.toFixed(1) }}% of ${{ portfolioValue!.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
       </div>
     </div>
   </div>

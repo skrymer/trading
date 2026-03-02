@@ -14,7 +14,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 
@@ -73,9 +73,9 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 	// TestContainers for E2E tests
-	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.4')
-	testImplementation 'org.testcontainers:postgresql'
-	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation platform('org.testcontainers:testcontainers-bom:2.0.3')
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 }
 
 dependencyManagement {
@@ -88,6 +88,8 @@ dependencyManagement {
 		dependency 'org.jooq:jooq-kotlin:3.19.23'
 		dependency 'org.jooq:jooq-meta:3.19.23'
 		dependency 'org.jooq:jooq-codegen:3.19.23'
+		// Force TestContainers 2.x core (Spring Boot manages 1.x by default)
+		dependency 'org.testcontainers:testcontainers:2.0.3'
 	}
 }
 

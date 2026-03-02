@@ -57,4 +57,8 @@ class VcpEntryStrategy : DetailedEntryStrategy {
     quote: StockQuote,
     context: BacktestContext,
   ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote, context)
+
+  override fun preferredRanker(): StockRanker = SectorEdgeRanker(
+    listOf("XLC", "XLI", "XLK", "XLY", "XLV", "XLF", "XLE", "XLU", "XLP", "XLB", "XLRE"),
+  )
 }

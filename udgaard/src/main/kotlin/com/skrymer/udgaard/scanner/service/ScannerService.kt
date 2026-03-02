@@ -7,6 +7,8 @@ import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.RandomRanker
+import com.skrymer.udgaard.backtesting.strategy.RankerFactory
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -39,6 +41,8 @@ import java.time.LocalDate
 
 private data class EvalResult(
   val scanResult: ScanResult?,
+  val stock: Stock?,
+  val entryQuote: StockQuote?,
   val nearMiss: NearMissCandidate?,
   val failedConditions: List<ConditionEvaluationResult>?,
   val evaluated: Boolean = false,
@@ -74,6 +78,30 @@ private fun buildConditionFailureSummary(
     }.sortedByDescending { it.stocksBlocked }
 }
 
+private fun rankResults(
+  matchedEvals: List<EvalResult>,
+  rankerName: String?,
+  entryStrategy: EntryStrategy,
+  backtestContext: BacktestContext,
+): Pair<List<ScanResult>, String> {
+  val ranker = if (rankerName != null) {
+    RankerFactory.create(rankerName) ?: RandomRanker()
+  } else {
+    entryStrategy.preferredRanker() ?: RandomRanker()
+  }
+  val resolvedName = ranker::class.simpleName?.removeSuffix("Ranker") ?: "Unknown"
+
+  val ranked = matchedEvals
+    .mapNotNull { eval ->
+      val stock = eval.stock ?: return@mapNotNull null
+      val quote = eval.entryQuote ?: return@mapNotNull null
+      val score = ranker.score(stock, quote, backtestContext)
+      eval.scanResult?.copy(rankScore = score)
+    }.sortedByDescending { it.rankScore }
+
+  return ranked to resolvedName
+}
+
 @Service
 class ScannerService(
   private val scannerTradeRepository: ScannerTradeJooqRepository,
@@ -93,43 +121,42 @@ class ScannerService(
   fun scan(request: ScanRequest): ScanResponse {
     val startTime = System.currentTimeMillis()
     val scanDate = LocalDate.now()
-
     val entryStrategy = strategyRegistry.createEntryStrategy(request.entryStrategyName)
       ?: throw IllegalArgumentException("Entry strategy '${request.entryStrategyName}' not found")
 
-    logger.info("Starting scan with entry=${request.entryStrategyName}, exit=${request.exitStrategyName}")
-
     val backtestContext = buildBacktestContext()
     val currentMarketDate = backtestContext.marketBreadthMap.keys.maxOrNull()
-    logger.info("Current market date: $currentMarketDate")
-
     val symbols = resolveSymbols(request)
-    logger.info("Scanning ${symbols.size} symbols")
+    logger.info("Scanning ${symbols.size} symbols, market date: $currentMarketDate")
 
     val quotesAfter = scanDate.minusDays(90)
-    val results = mutableListOf<ScanResult>()
+    val matchedEvals = mutableListOf<EvalResult>()
     val nearMisses = mutableListOf<NearMissCandidate>()
     val failedConditions = mutableListOf<List<ConditionEvaluationResult>>()
     var stocksEvaluated = 0
 
-    symbols.chunked(BATCH_SIZE).forEachIndexed { batchIndex, batch ->
+    symbols.chunked(BATCH_SIZE).forEach { batch ->
       val stocks = stockRepository.findBySymbols(batch, quotesAfter = quotesAfter)
-      logger.info("Processing batch ${batchIndex + 1}: ${stocks.size} stocks loaded")
-
       runBlocking(Dispatchers.Default) {
-        stocks
+        val evals = stocks
           .map { stock ->
             async { evaluateStock(stock, entryStrategy, backtestContext, request.entryStrategyName, currentMarketDate) }
           }.awaitAll()
-          .forEach { eval ->
-            if (eval.evaluated) stocksEvaluated++
-            eval.scanResult?.let { results.add(it) }
-            eval.nearMiss?.let { nearMisses.add(it) }
-            eval.failedConditions?.let { failedConditions.add(it) }
-          }
+        evals.forEach { eval ->
+          if (eval.evaluated) stocksEvaluated++
+          if (eval.scanResult != null) matchedEvals.add(eval)
+          eval.nearMiss?.let { nearMisses.add(it) }
+          eval.failedConditions?.let { failedConditions.add(it) }
+        }
       }
     }
 
+    val (rankedResults, resolvedRankerName) = rankResults(
+      matchedEvals,
+      request.rankerName,
+      entryStrategy,
+      backtestContext,
+    )
     val nearMissLimit = request.nearMissLimit ?: DEFAULT_NEAR_MISS_LIMIT
     val topNearMisses = nearMisses.sortedByDescending { it.conditionsPassed }.take(nearMissLimit)
     val failureSummary = if (entryStrategy is DetailedEntryStrategy) {
@@ -137,23 +164,19 @@ class ScannerService(
     } else {
       emptyList()
     }
-
-    val skipped = symbols.size - stocksEvaluated
     val executionTime = System.currentTimeMillis() - startTime
-    logger.info(
-      "Scan complete: ${results.size} matches, ${nearMisses.size} near-misses " +
-        "from $stocksEvaluated stocks in ${executionTime}ms ($skipped skipped, no current quotes)",
-    )
+    logger.info("Scan complete: ${rankedResults.size} matches in ${executionTime}ms (ranked by $resolvedRankerName)")
 
     return ScanResponse(
       scanDate = scanDate,
       entryStrategyName = request.entryStrategyName,
       exitStrategyName = request.exitStrategyName,
-      results = results,
+      results = rankedResults,
       totalStocksScanned = stocksEvaluated,
       executionTimeMs = executionTime,
       nearMissCandidates = topNearMisses,
       conditionFailureSummary = failureSummary,
+      rankerName = resolvedRankerName,
     )
   }
 
@@ -164,8 +187,8 @@ class ScannerService(
     strategyName: String,
     currentMarketDate: LocalDate?,
   ): EvalResult {
-    val quote = stock.quotes.lastOrNull() ?: return EvalResult(null, null, null)
-    if (currentMarketDate != null && quote.date != currentMarketDate) return EvalResult(null, null, null)
+    val quote = stock.quotes.lastOrNull() ?: return EvalResult(null, null, null, null, null)
+    if (currentMarketDate != null && quote.date != currentMarketDate) return EvalResult(null, null, null, null, null)
 
     if (entryStrategy is DetailedEntryStrategy) {
       val details = entryStrategy
@@ -173,19 +196,19 @@ class ScannerService(
         .copy(strategyName = strategyName)
 
       return if (details.allConditionsMet) {
-        EvalResult(toScanResult(stock, quote, details), null, details.conditions, true)
+        EvalResult(toScanResult(stock, quote, details), stock, quote, null, details.conditions, true)
       } else {
         val passed = details.conditions.count { it.passed }
         val nearMiss = if (passed > 0) toNearMiss(stock, quote, details, passed) else null
-        EvalResult(null, nearMiss, details.conditions, true)
+        EvalResult(null, null, null, nearMiss, details.conditions, true)
       }
     }
 
     val matches = entryStrategy.test(stock, quote, backtestContext)
     return if (matches) {
-      EvalResult(toScanResult(stock, quote, null), null, null, true)
+      EvalResult(toScanResult(stock, quote, null), stock, quote, null, null, true)
     } else {
-      EvalResult(null, null, null, evaluated = true)
+      EvalResult(null, null, null, null, null, evaluated = true)
     }
   }
 

@@ -150,14 +150,6 @@ class RandomRanker : StockRanker {
 }
 
 /**
- * Adaptive ranker that switches between strategies based on market conditions.
- * Theory: Use Volatility ranker in trending markets, DistanceFrom10Ema in choppy markets.
- *
- * Market Regime Detection:
- * - Trending: Market breadth above 60% (majority of stocks in uptrend)
- * - Choppy: Otherwise
- */
-/**
  * Ranks stocks by sector edge priority.
  * Accepts an ordered list of sector symbols — first = highest priority.
  * Score = listSize - index (e.g., first sector gets 11, second gets 10, etc.)
@@ -167,9 +159,10 @@ class SectorEdgeRanker(
   sectorRanking: List<String>,
 ) : StockRanker {
   private val sectorScores: Map<String, Double> =
-    sectorRanking.mapIndexed { index, sector ->
-      sector to (sectorRanking.size - index).toDouble()
-    }.toMap()
+    sectorRanking
+      .mapIndexed { index, sector ->
+        sector to (sectorRanking.size - index).toDouble()
+      }.toMap()
 
   override fun score(
     stock: Stock,
@@ -179,6 +172,14 @@ class SectorEdgeRanker(
   override fun description() = "Sector edge priority (ordered list)"
 }
 
+/**
+ * Adaptive ranker that switches between strategies based on market conditions.
+ * Theory: Use Volatility ranker in trending markets, DistanceFrom10Ema in choppy markets.
+ *
+ * Market Regime Detection:
+ * - Trending: Market breadth above 60% (majority of stocks in uptrend)
+ * - Choppy: Otherwise
+ */
 class AdaptiveRanker : StockRanker {
   private val volatilityRanker = VolatilityRanker()
   private val distanceRanker = DistanceFrom10EmaRanker()

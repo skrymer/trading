@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { z } from 'zod'
-import type { ScanResult, AddScannerTradeRequest } from '~/types'
+import type { ScanResult, AddScannerTradeRequest, OptionContractResponse } from '~/types'
 
 const props = defineProps<{
   scanResult: ScanResult | null
   entryStrategyName: string
   exitStrategyName: string
+  calculatedQuantity?: number
+  optionContract?: OptionContractResponse
 }>()
 
 const emit = defineEmits<{
@@ -52,12 +54,20 @@ const optionTypeOptions = [
 // Reset form when modal opens
 watch(isOpen, (newValue) => {
   if (newValue) {
-    state.instrumentType = 'STOCK'
-    state.quantity = 100
-    state.optionType = ''
-    state.strikePrice = undefined
-    state.expirationDate = ''
-    state.multiplier = 100
+    if (props.optionContract) {
+      state.instrumentType = 'OPTION'
+      state.optionType = 'CALL'
+      state.strikePrice = props.optionContract.strike
+      state.expirationDate = props.optionContract.expiration
+      state.multiplier = 100
+    } else {
+      state.instrumentType = 'STOCK'
+      state.optionType = ''
+      state.strikePrice = undefined
+      state.expirationDate = ''
+      state.multiplier = 100
+    }
+    state.quantity = (props.calculatedQuantity && props.calculatedQuantity > 0) ? props.calculatedQuantity : (props.optionContract ? 1 : 100)
     state.notes = ''
   }
 })
@@ -67,11 +77,14 @@ async function onSubmit() {
 
   loading.value = true
   try {
+    const entryPrice = state.instrumentType === 'OPTION' && props.optionContract
+      ? props.optionContract.price
+      : props.scanResult.closePrice
     const body: AddScannerTradeRequest = {
       symbol: props.scanResult.symbol,
       sectorSymbol: props.scanResult.sectorSymbol ?? undefined,
       instrumentType: state.instrumentType,
-      entryPrice: props.scanResult.closePrice,
+      entryPrice,
       entryDate: props.scanResult.date,
       quantity: state.quantity,
       entryStrategyName: props.entryStrategyName,
@@ -144,37 +157,58 @@ async function onSubmit() {
               <span class="font-medium ml-1">{{ scanResult.trend }}</span>
             </div>
           </div>
+          <div v-if="optionContract" class="grid grid-cols-4 gap-2 mt-2 text-sm border-t border-default pt-2">
+            <div>
+              <span class="text-muted">Option:</span>
+              <span class="font-medium ml-1">${{ optionContract.price.toFixed(2) }}</span>
+            </div>
+            <div>
+              <span class="text-muted">Strike:</span>
+              <span class="font-medium ml-1">${{ optionContract.strike.toFixed(0) }}</span>
+            </div>
+            <div>
+              <span class="text-muted">Delta:</span>
+              <span class="font-medium ml-1">{{ optionContract.delta.toFixed(2) }}</span>
+            </div>
+            <div>
+              <span class="text-muted">Extr:</span>
+              <span class="font-medium ml-1">${{ optionContract.extrinsic.toFixed(2) }}</span>
+            </div>
+          </div>
         </div>
 
         <UForm
           :state="state"
           :schema="schema"
-          class="space-y-4"
           @submit="onSubmit"
         >
-          <UFormField label="Instrument Type" name="instrumentType" required>
-            <USelect
-              v-model="state.instrumentType"
-              :items="instrumentTypeOptions"
-              value-key="value"
-            />
-          </UFormField>
-
-          <UFormField label="Quantity" name="quantity" required>
-            <UInput v-model.number="state.quantity" type="number" :min="1" />
-          </UFormField>
-
-          <!-- Option fields -->
-          <template v-if="state.instrumentType === 'OPTION'">
-            <UFormField label="Option Type" required>
+          <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+            <UFormField label="Instrument Type" name="instrumentType" required>
               <USelect
-                v-model="state.optionType"
-                :items="optionTypeOptions"
+                v-model="state.instrumentType"
+                :items="instrumentTypeOptions"
                 value-key="value"
               />
             </UFormField>
 
-            <div class="grid grid-cols-2 gap-4">
+            <UFormField label="Quantity" name="quantity" required>
+              <UInput v-model.number="state.quantity" type="number" :min="1" />
+            </UFormField>
+
+            <!-- Option fields -->
+            <template v-if="state.instrumentType === 'OPTION'">
+              <UFormField label="Option Type" required>
+                <USelect
+                  v-model="state.optionType"
+                  :items="optionTypeOptions"
+                  value-key="value"
+                />
+              </UFormField>
+
+              <UFormField label="Multiplier">
+                <UInput v-model.number="state.multiplier" type="number" :min="1" />
+              </UFormField>
+
               <UFormField label="Strike Price" required>
                 <UInput
                   v-model.number="state.strikePrice"
@@ -191,18 +225,14 @@ async function onSubmit() {
               <UFormField label="Expiration Date" required>
                 <UInput v-model="state.expirationDate" type="date" />
               </UFormField>
-            </div>
+            </template>
 
-            <UFormField label="Multiplier">
-              <UInput v-model.number="state.multiplier" type="number" :min="1" />
+            <UFormField label="Notes (optional)" name="notes" class="col-span-2">
+              <UTextarea v-model="state.notes" placeholder="Add notes..." :rows="2" />
             </UFormField>
-          </template>
+          </div>
 
-          <UFormField label="Notes (optional)" name="notes">
-            <UTextarea v-model="state.notes" placeholder="Add notes..." :rows="2" />
-          </UFormField>
-
-          <div class="flex justify-end gap-2 pt-2">
+          <div class="flex justify-end gap-2 pt-4">
             <UButton label="Cancel" variant="outline" @click="isOpen = false" />
             <UButton
               type="submit"

@@ -47,4 +47,5 @@ data class OptionContract(
   val gamma: Double? = null,
   val theta: Double? = null,
   val vega: Double? = null,
+  val openInterest: Int? = null,
 )

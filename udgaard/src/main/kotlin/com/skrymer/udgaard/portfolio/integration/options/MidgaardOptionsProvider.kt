@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Service
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import java.time.LocalDate
 
@@ -40,7 +41,11 @@ class MidgaardOptionsProvider(
 
     response?.map { it.toOptionContract() }
   }.onFailure { e ->
-    logger.error("Failed to fetch options from Midgaard for $symbol: ${e.message}", e)
+    if (e is HttpClientErrorException.NotFound) {
+      logger.debug("No options data available for $symbol")
+    } else {
+      logger.error("Failed to fetch options from Midgaard for $symbol: ${e.message}", e)
+    }
   }.getOrNull()
 
   override fun findOptionContract(
@@ -64,7 +69,11 @@ class MidgaardOptionsProvider(
       .body(MidgaardOptionContractDto::class.java)
       ?.toOptionContract()
   }.onFailure { e ->
-    logger.error("Failed to find option contract from Midgaard for $symbol: ${e.message}", e)
+    if (e is HttpClientErrorException.NotFound) {
+      logger.debug("No option contract found for $symbol")
+    } else {
+      logger.error("Failed to find option contract from Midgaard for $symbol: ${e.message}", e)
+    }
   }.getOrNull()
 
   companion object {
@@ -88,6 +97,7 @@ private data class MidgaardOptionContractDto(
   val gamma: Double? = null,
   val theta: Double? = null,
   val vega: Double? = null,
+  val openInterest: Int? = null,
 ) {
   fun toOptionContract(): OptionContract =
     OptionContract(
@@ -103,6 +113,7 @@ private data class MidgaardOptionContractDto(
       gamma = gamma,
       theta = theta,
       vega = vega,
+      openInterest = openInterest,
     )
 
   private fun parseOptionType(type: String): OptionType =

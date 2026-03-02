@@ -77,31 +77,67 @@
             </div>
           </UCard>
 
-          <!-- Configuration File Info -->
-          <UCard v-if="credentialsStatus">
+          <!-- Position Sizing Section -->
+          <UCard>
             <template #header>
-              <h3 class="text-lg font-semibold">
-                Configuration File
-              </h3>
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold">
+                    Position Sizing
+                  </h3>
+                  <p class="text-sm text-gray-500 mt-1">
+                    Configure default position sizing for scanner trades
+                  </p>
+                </div>
+                <USwitch v-model="positionSizing.enabled" />
+              </div>
             </template>
 
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">Config file exists</span>
-                <UBadge :color="credentialsStatus.configFileExists ? 'success' : 'neutral'">
-                  {{ credentialsStatus.configFileExists ? 'Yes' : 'No' }}
-                </UBadge>
+            <div v-if="positionSizing.enabled" class="space-y-4">
+              <div class="grid grid-cols-3 gap-4">
+                <UFormGroup label="Portfolio Value ($)" help="Total portfolio value used for position size calculations">
+                  <UInput
+                    v-model.number="positionSizing.portfolioValue"
+                    type="number"
+                    :min="1000"
+                    :step="1000"
+                    placeholder="100000"
+                  />
+                </UFormGroup>
+
+                <UFormGroup label="Risk Per Trade (%)" help="Percentage of portfolio to risk per trade">
+                  <UInput
+                    v-model.number="positionSizing.riskPercentage"
+                    type="number"
+                    :min="0.1"
+                    :max="10"
+                    :step="0.1"
+                    placeholder="1.5"
+                  />
+                </UFormGroup>
+
+                <UFormGroup label="ATR Multiplier" help="Number of ATRs used for stop distance (e.g., 2.0 = 2x ATR)">
+                  <UInput
+                    v-model.number="positionSizing.nAtr"
+                    type="number"
+                    :min="0.5"
+                    :max="10"
+                    :step="0.5"
+                    placeholder="2.0"
+                  />
+                </UFormGroup>
               </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">Location</span>
-                <code class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">~/.trading-app/config.properties</code>
-              </div>
+
               <UAlert
-                icon="i-lucide-info"
+                icon="i-lucide-calculator"
                 color="neutral"
                 variant="subtle"
-                description="Your credentials are saved locally and never sent to any server except the respective API providers"
+                :description="formulaPreview"
               />
+            </div>
+
+            <div v-else class="text-sm text-muted">
+              Position sizing is disabled. Enable it to automatically calculate trade quantities based on ATR risk.
             </div>
           </UCard>
         </div>
@@ -111,6 +147,8 @@
 </template>
 
 <script setup lang="ts">
+import type { PositionSizingSettings } from '~/types'
+
 const toast = useToast()
 
 const credentials = ref({
@@ -120,15 +158,20 @@ const credentials = ref({
 
 const credentialsStatus = ref<{
   ibkrConfigured: boolean
-  configFileExists: boolean
 } | null>(null)
+
+const positionSizing = ref<PositionSizingSettings>({
+  enabled: true,
+  portfolioValue: 100000,
+  riskPercentage: 1.5,
+  nAtr: 2.0
+})
 
 const saving = ref(false)
 
-// Load credentials on mount
+// Load settings on mount
 onMounted(async () => {
-  await loadCredentials()
-  await loadCredentialsStatus()
+  await Promise.all([loadCredentials(), loadCredentialsStatus(), loadPositionSizing()])
 })
 
 async function loadCredentials() {
@@ -154,27 +197,47 @@ async function loadCredentialsStatus() {
   }
 }
 
+async function loadPositionSizing() {
+  try {
+    const data = await $fetch<PositionSizingSettings>('/udgaard/api/settings/position-sizing')
+    positionSizing.value = data
+  } catch (error) {
+    console.error('Failed to load position sizing settings:', error)
+  }
+}
+
+const formulaPreview = computed(() => {
+  const { portfolioValue, riskPercentage, nAtr } = positionSizing.value
+  return `shares = floor($${portfolioValue.toLocaleString()} x ${riskPercentage}% / (${nAtr} x ATR))`
+})
+
 async function saveSettings() {
   saving.value = true
   try {
-    await $fetch('/udgaard/api/settings/credentials', {
-      method: 'POST',
-      body: credentials.value
-    })
+    await Promise.all([
+      $fetch('/udgaard/api/settings/credentials', {
+        method: 'POST',
+        body: credentials.value
+      }),
+      $fetch('/udgaard/api/settings/position-sizing', {
+        method: 'POST',
+        body: positionSizing.value
+      })
+    ])
 
     toast.add({
       title: 'Success',
-      description: 'Credentials saved successfully',
+      description: 'Settings saved successfully',
       color: 'success'
     })
 
     // Reload status
     await loadCredentialsStatus()
   } catch (error) {
-    console.error('Failed to save credentials:', error)
+    console.error('Failed to save settings:', error)
     toast.add({
       title: 'Error',
-      description: 'Failed to save credentials',
+      description: 'Failed to save settings',
       color: 'error'
     })
   } finally {

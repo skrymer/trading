@@ -679,6 +679,8 @@ Measures how consistent a strategy's edge is across yearly periods (0-100 score)
 
 Returns null when fewer than 2 years have trades.
 
+**Important:** The top-level field is `edgeConsistencyScore` (an object with `score`, `interpretation`, `yearlyEdges`, etc.). Do not confuse it with `edgeConsistency` which appears on individual `sectorStats` entries for per-sector consistency. When extracting with jq, use `.edgeConsistencyScore.score` (not `.edgeConsistency`).
+
 **Use Case:** Quickly assess whether a strategy's edge is reliable or driven by one or two outlier years.
 
 ```python

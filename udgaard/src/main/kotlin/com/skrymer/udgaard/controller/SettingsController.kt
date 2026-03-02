@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.controller
 
 import com.skrymer.udgaard.controller.dto.ApiCredentialsDto
+import com.skrymer.udgaard.controller.dto.PositionSizingSettingsDto
 import com.skrymer.udgaard.service.SettingsService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -29,5 +30,17 @@ class SettingsController(
   fun getCredentialsStatus(): ResponseEntity<Map<String, Boolean>> {
     val status = settingsService.getCredentialsStatus()
     return ResponseEntity.ok(status)
+  }
+
+  @GetMapping("/position-sizing")
+  fun getPositionSizingSettings(): ResponseEntity<PositionSizingSettingsDto> =
+    ResponseEntity.ok(settingsService.getPositionSizingSettings())
+
+  @PostMapping("/position-sizing")
+  fun savePositionSizingSettings(
+    @RequestBody settings: PositionSizingSettingsDto,
+  ): ResponseEntity<Map<String, String>> {
+    settingsService.savePositionSizingSettings(settings)
+    return ResponseEntity.ok(mapOf("message" to "Position sizing settings saved successfully"))
   }
 }

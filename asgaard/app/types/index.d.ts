@@ -460,6 +460,15 @@ export interface PositionSizingConfig {
   leverageRatio?: number
 }
 
+export interface PositionSizingSettings {
+  enabled: boolean
+  portfolioValue: number
+  riskPercentage: number
+  nAtr: number
+  instrumentMode?: 'STOCK' | 'OPTION'
+  maxPositions?: number
+}
+
 export interface PositionSizingResult {
   startingCapital: number
   finalCapital: number
@@ -1014,6 +1023,7 @@ export interface ScanRequest {
   includeSectors?: string[]
   excludeSectors?: string[]
   nearMissLimit?: number
+  rankerName?: string
 }
 
 export interface ConditionEvaluationResult {
@@ -1040,6 +1050,7 @@ export interface ScanResult {
   entrySignalDetails?: EntrySignalDetails
   atr: number
   trend?: string
+  rankScore?: number
 }
 
 export interface ScanResponse {
@@ -1051,6 +1062,7 @@ export interface ScanResponse {
   executionTimeMs: number
   nearMissCandidates: NearMissCandidate[]
   conditionFailureSummary: ConditionFailureSummary[]
+  rankerName?: string
 }
 
 export interface NearMissCandidate {
@@ -1136,6 +1148,17 @@ export interface RollScannerTradeRequest {
 
 export interface UpdateScannerTradeRequest {
   notes?: string
+}
+
+export interface OptionContractResponse {
+  symbol: string
+  strike: number
+  expiration: string
+  price: number
+  delta: number
+  openInterest: number | null
+  intrinsic: number
+  extrinsic: number
 }
 
 // Condition Signals

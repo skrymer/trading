@@ -11,6 +11,7 @@ data class ScanRequest(
   val includeSectors: List<String>? = null,
   val excludeSectors: List<String>? = null,
   val nearMissLimit: Int? = null,
+  val rankerName: String? = null,
 )
 
 /**
@@ -50,4 +51,27 @@ data class RollScannerTradeRequest(
  */
 data class UpdateScannerTradeRequest(
   val notes: String?,
+)
+
+/**
+ * Request to fetch option contracts for multiple symbols
+ */
+data class OptionContractsRequest(
+  val symbols: List<String>,
+  val stockPrices: Map<String, Double>,
+  val date: String? = null,
+)
+
+/**
+ * Response for a single symbol's recommended option contract
+ */
+data class OptionContractResponse(
+  val symbol: String,
+  val strike: Double,
+  val expiration: String,
+  val price: Double,
+  val delta: Double,
+  val openInterest: Int?,
+  val intrinsic: Double,
+  val extrinsic: Double,
 )

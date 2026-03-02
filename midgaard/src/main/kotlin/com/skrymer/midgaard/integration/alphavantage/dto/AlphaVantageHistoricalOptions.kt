@@ -63,6 +63,7 @@ data class AlphaVantageOptionContract(
             gamma = gamma?.toDoubleOrNull(),
             theta = theta?.toDoubleOrNull(),
             vega = vega?.toDoubleOrNull(),
+            openInterest = openInterest?.toIntOrNull(),
         )
 
     private fun parseDate(dateStr: String?): LocalDate =

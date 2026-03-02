@@ -12,4 +12,6 @@ interface EntryStrategy {
     quote: StockQuote,
     context: BacktestContext,
   ): Boolean
+
+  fun preferredRanker(): StockRanker? = null
 }

@@ -2,7 +2,6 @@ package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
-import com.skrymer.udgaard.backtesting.dto.RankerConfig
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
@@ -13,16 +12,10 @@ import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.PositionSizingService
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
-import com.skrymer.udgaard.backtesting.strategy.AdaptiveRanker
-import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
-import com.skrymer.udgaard.backtesting.strategy.DistanceFrom10EmaRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
-import com.skrymer.udgaard.backtesting.strategy.RandomRanker
-import com.skrymer.udgaard.backtesting.strategy.SectorEdgeRanker
-import com.skrymer.udgaard.backtesting.strategy.SectorStrengthRanker
+import com.skrymer.udgaard.backtesting.strategy.RankerFactory
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
-import com.skrymer.udgaard.backtesting.strategy.VolatilityRanker
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.data.service.StockService
@@ -95,8 +88,11 @@ class BacktestController(
       resolveSymbols(request)
         ?: return logAndBadRequest("No symbols found. Use Data Manager to refresh stocks first.")
 
-    val rankerInstance = getRankerInstance(request.ranker, request.rankerConfig)
-      ?: throw IllegalArgumentException("Unknown ranker: ${request.ranker}")
+    val rankerInstance = if (request.ranker == "Adaptive" && request.rankerConfig == null) {
+      entryStrategy.preferredRanker() ?: RankerFactory.create(request.ranker, request.rankerConfig)
+    } else {
+      RankerFactory.create(request.ranker, request.rankerConfig)
+    } ?: throw IllegalArgumentException("Unknown ranker: ${request.ranker}")
 
     val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
     val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
@@ -161,16 +157,7 @@ class BacktestController(
   @GetMapping("/rankers")
   fun getAvailableRankers(): ResponseEntity<List<String>> {
     logger.info("Retrieving available rankers")
-    val rankers =
-      mutableListOf(
-        "Adaptive",
-        "Volatility",
-        "DistanceFrom10Ema",
-        "Composite",
-        "SectorStrength",
-        "SectorEdge",
-        "Random",
-      )
+    val rankers = RankerFactory.availableRankers()
     logger.info("Returning ${rankers.size} rankers")
     return ResponseEntity.ok(rankers)
   }
@@ -310,29 +297,6 @@ class BacktestController(
     logger.error(message)
     return ResponseEntity.badRequest().body(mapOf("error" to message)) as ResponseEntity<T>
   }
-
-  private fun getRankerInstance(rankerName: String, rankerConfig: RankerConfig? = null): StockRanker? =
-    when (rankerName.lowercase()) {
-      "volatility" -> VolatilityRanker()
-      "distancefrom10ema" -> DistanceFrom10EmaRanker()
-      "composite" -> CompositeRanker()
-      "sectorstrength" -> SectorStrengthRanker()
-      "sectoredge" -> {
-        val ranking = rankerConfig?.sectorRanking
-        if (ranking.isNullOrEmpty()) {
-          logger.error("SectorEdge ranker requires rankerConfig.sectorRanking")
-          null
-        } else {
-          SectorEdgeRanker(ranking)
-        }
-      }
-      "random" -> RandomRanker()
-      "adaptive" -> AdaptiveRanker()
-      else -> {
-        logger.error("Unknown ranker: $rankerName")
-        null
-      }
-    }
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)

@@ -1,6 +1,6 @@
 # VCP Strategy Development
 
-## Current State (2026-02-27)
+## Current State (2026-03-01)
 
 ### Entry Strategy
 ```kotlin
@@ -35,53 +35,55 @@ exitStrategy {
 
 | Metric | Value |
 |---|---|
-| Total Trades | 8,752 |
+| Total Trades | 9,555 |
 | Win Rate | 48.6% |
-| Edge | 5.84% |
-| Avg Win / Loss | 18.44% / -6.12% |
+| Edge | 5.70% |
+| Avg Win / Loss | 18.07% / -6.01% |
 | Win/Loss Ratio | 3.01x |
+| Profit Factor | 2.41 |
 | Edge Consistency | **96.0/100 (Excellent)** |
+
+*Updated 2026-03-01 after OB calculation fix.*
 
 ### Yearly Edge
 | Year | Edge | Tradeable (>=1.5%)? |
 |---|---|---|
-| 2016 | +5.93% | T |
-| 2017 | +7.91% | T |
-| 2018 | +2.31% | T |
-| 2019 | +6.28% | T |
-| 2020 | +11.21% | T |
-| 2021 | +2.46% | T |
-| 2022 | +0.85% | |
-| 2023 | +7.34% | T |
-| 2024 | +3.81% | T |
-| 2025 | +6.35% | T |
+| 2016 | +5.75% | T |
+| 2017 | +7.70% | T |
+| 2018 | +2.63% | T |
+| 2019 | +6.29% | T |
+| 2020 | +10.61% | T |
+| 2021 | +2.50% | T |
+| 2022 | +0.67% | |
+| 2023 | +6.92% | T |
+| 2024 | +3.74% | T |
+| 2025 | +6.66% | T |
 
 **10/10 years profitable**, 9/10 years have tradeable edge (>=1.5%).
 
 ### Exit Reasons
-- EMA cross (10/20): 3,429 exits (93.5%), +5.75% avg, 48.9% WR, 51d avg hold
-- Stop loss (2.5 ATR): 238 exits (6.5%), -8.47% avg, 0% WR, 8d avg hold
+- EMA cross (10/20): 8,743 exits (91.5%), +7.08% avg, 53.2% WR, 54d avg hold
+- Stop loss (2.5 ATR): 812 exits (8.5%), -9.08% avg, 0% WR, 9d avg hold
 
 ### Sector Performance (all sectors profitable)
 | Sector | Trades | WR | Edge |
 |---|---|---|---|
-| XLY | 366 | 50.3% | +7.67% |
-| XLI | 584 | 53.9% | +6.50% |
-| XLC | 133 | 39.1% | +6.42% |
-| XLE | 157 | 44.6% | +5.07% |
-| XLK | 504 | 44.8% | +4.95% |
-| XLF | 691 | 44.3% | +4.21% |
-| XLV | 492 | 41.7% | +4.17% |
-| XLRE | 221 | 44.3% | +3.35% |
-| XLU | 147 | 42.9% | +3.23% |
-| XLP | 144 | 43.8% | +2.83% |
-| (none) | 59 | 45.8% | +1.64% |
-| XLB | 169 | 39.6% | +1.56% |
+| XLC | 375 | 43.7% | +7.54% |
+| XLI | 1,584 | 53.0% | +7.08% |
+| XLK | 1,518 | 48.0% | +6.08% |
+| XLY | 1,124 | 48.9% | +6.00% |
+| XLV | 1,134 | 42.8% | +5.73% |
+| XLF | 1,770 | 50.8% | +5.32% |
+| XLE | 455 | 50.5% | +5.26% |
+| XLU | 269 | 52.0% | +4.84% |
+| XLP | 354 | 46.6% | +4.21% |
+| XLB | 462 | 47.0% | +3.93% |
+| XLRE | 510 | 44.5% | +3.08% |
 
 ### EC Score Breakdown
 - Profitable Periods: 100% (10/10 years positive, weight 40%)
 - Stability (Tradeable Edge): 90% (9/10 years >= 1.5%, weight 40%)
-- Downside: 100% (worst year +0.85%, weight 20%)
+- Downside: 100% (worst year +0.67%, weight 20%)
 - **Total: 96.0 (Excellent)**
 
 ---
@@ -471,36 +473,50 @@ Removed `priceAbove(50)` from `VcpEntryStrategy.kt` — proven redundant by abla
 
 ---
 
-## Position Limit Testing (maxPositions=15, Adaptive ranker)
+## Position Limit & Ranker Testing (maxPositions=15, 2026-03-01)
 
-Tested with 15-position cap for comparison to unlimited:
+Tested with 15-position cap comparing Random vs SectorEdge rankers against the unlimited baseline.
 
-| Metric | 15 Positions | Unlimited |
-|---|---|---|
-| Total Trades | 587 | 3,667 |
-| Win Rate | 39.7% | 45.7% |
-| Edge | +3.36% | +4.83% |
-| Avg Win / Loss | 17.89% / -6.21% | 16.95% / -5.38% |
-| Win/Loss Ratio | 2.88x | 3.15x |
-| Edge Consistency | 77.1 (Good) | 92.0 (Excellent) |
-| Profitable Years | 5/6 (2020-2025) | 10/10 |
-| Missed Opportunities | 2,038 | 0 |
+### Ranker Comparison
 
-**Yearly edge (15 positions, 2020-2025 only):**
-| Year | 15 Positions | Unlimited |
-|---|---|---|
-| 2020 | +10.53% | +8.71% |
-| 2021 | +1.31% | +2.03% |
-| 2022 | +2.35% | +0.08% |
-| 2023 | +2.88% | +7.70% |
-| 2024 | +6.54% | +2.49% |
-| 2025 | -1.43% | +4.03% |
+| Metric | SectorEdge | Random | Unlimited |
+|---|---|---|---|
+| Total Trades | 925 | 945 | 9,555 |
+| Win Rate | 47.2% | 47.3% | 48.6% |
+| Edge | **+5.50%** | +4.24% | +5.70% |
+| Avg Win / Loss | 18.55% / -6.18% | 15.98% / -6.30% | 18.07% / -6.01% |
+| Profit Factor | **2.71** | 2.30 | 2.41 |
+| EC Score | **91.7** | 85.2 | 96.0 |
+| Profitable Years | 9/10 | 9/10 | 10/10 |
+| Missed Opportunities | 8,783 | 8,782 | 0 |
+| Missed Avg Profit | +5.74% | +5.86% | — |
 
-**Key findings:**
-1. Position cap cuts 84% of trades — entry conditions are generating far more signals than 15 slots allow
-2. Unlimited has better EC (92 vs 77) and higher edge (+4.83% vs +3.36%)
-3. 15-position cap introduced a negative year (2025: -1.43%) that doesn't exist in unlimited (+4.03%)
-4. 2,038 missed opportunities averaged +5.12% — confirming the entry signals find real opportunities
+*SectorEdge ranking: XLC, XLI, XLK, XLY, XLV, XLF, XLE, XLU, XLP, XLB, XLRE (ordered by unlimited baseline edge).*
+
+### Yearly Edge
+
+| Year | SectorEdge | Random | Unlimited |
+|---|---|---|---|
+| 2016 | +2.53% | +4.78% | +5.75% |
+| 2017 | +6.87% | +8.28% | +7.70% |
+| 2018 | **+3.87%** | +0.99% | +2.63% |
+| 2019 | **+8.88%** | +4.66% | +6.29% |
+| 2020 | +12.09% | +12.62% | +10.61% |
+| 2021 | **+5.26%** | +2.06% | +2.50% |
+| 2022 | -0.13% | -1.39% | +0.67% |
+| 2023 | +8.71% | +8.90% | +6.92% |
+| 2024 | **+8.80%** | +3.91% | +3.74% |
+| 2025 | +2.99% | +2.15% | +6.66% |
+
+### Key Findings
+
+1. **SectorEdge is significantly better than Random** — +1.26pp edge improvement (5.50% vs 4.24%), EC 91.7 vs 85.2
+2. **SectorEdge nearly matches unlimited edge** — 5.50% vs 5.70% (-0.20pp), remarkable given it takes only 10% of trades
+3. **SectorEdge dominates in difficult years** — 2018 (+3.87% vs +0.99%), 2021 (+5.26% vs +2.06%), 2024 (+8.80% vs +3.91%)
+4. **2022 still negative for both** — SectorEdge (-0.13%) better than Random (-1.39%), but unlimited stays positive (+0.67%)
+5. **Profit factor highest with SectorEdge** (2.71) — even higher than unlimited (2.41), showing the ranker selects higher-quality trades
+6. **Random results vary between runs** — SectorEdge is deterministic and reproducible
+7. Position cap still cuts ~90% of trades — 8,783 missed opportunities averaging +5.74%
 
 ---
 
@@ -617,6 +633,7 @@ Each optimization compounded on the previous: loosening VC from 2.5→3.5 added 
 - Test with different exit strategies (PlanAlpha, PlanMoney)
 - Combined portfolio simulation — run VCP + Mjolnir together to measure diversification benefit
 - Position sizing framework with ATR drawdown stats
+- **Options-based position sizing** — With $10K and 1.5% risk, stock positions cost ~$1,875 each, so only 4-5 fit before 100% capital utilization. Options (calls or debit spreads) would use ~$200-400 per position, enabling the full 15 concurrent positions at small account sizes. Explore: delta target (e.g., 0.70 calls), expiration selection (45-60 DTE to cover avg 54-day hold), stop-loss translation (% of premium vs ATR-based)
 
 ---
 

@@ -12,7 +12,7 @@ For complete project capabilities and overview, see the main CLAUDE.md file in t
 - **Language**: Kotlin 2.3.0
 - **Framework**: Spring Boot 3.5.0
 - **Database**: PostgreSQL 17 (Docker Compose)
-- **Testing**: TestContainers (PostgreSQL) for E2E tests
+- **Testing**: TestContainers 2.0.3 (PostgreSQL) for E2E tests
 - **Database Access**: jOOQ 3.19.23 (type-safe SQL queries)
 - **Database Migrations**: Flyway (via net.ltgt.flyway plugin)
 - **Build Tool**: Gradle 9.1.0
@@ -51,6 +51,7 @@ udgaard/
 │   │       ├── CompositeExitStrategy.kt
 │   │       ├── StrategyDsl.kt        # DSL builder
 │   │       ├── StockRanker.kt        # Ranking implementations
+│   │       ├── RankerFactory.kt     # Shared ranker creation logic
 │   │       ├── RegisteredStrategy.kt # Auto-discovery annotation
 │   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
 │   │       ├── *ExitStrategy.kt
@@ -132,6 +133,9 @@ udgaard/
 │   │   │   └── ScannerTradeJooqRepository.kt
 │   │   └── service/
 │   │       └── ScannerService.kt
+│   ├── service/                     # Shared services
+│   │   ├── SettingsService.kt       # Settings (DB-backed via UserSettingsJooqRepository)
+│   │   └── UserSettingsJooqRepository.kt
 │   ├── controller/                   # Shared controllers
 │   │   ├── AuthController.kt
 │   │   ├── CacheController.kt
@@ -155,7 +159,9 @@ udgaard/
 │       ├── V4__Add_scanner_trades.sql
 │       ├── V5__Add_users_table.sql
 │       ├── V6__Move_sector_to_symbols.sql
-│       └── V7__Add_sector_to_stocks.sql
+│       ├── V7__Add_sector_to_stocks.sql
+│       ├── V8__Drop_sector_from_symbols.sql
+│       └── V9__Add_user_settings.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

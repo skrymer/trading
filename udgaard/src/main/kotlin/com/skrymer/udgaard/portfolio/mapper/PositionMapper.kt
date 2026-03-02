@@ -19,8 +19,8 @@ class PositionMapper {
   fun toDomain(position: Positions): Position =
     Position(
       id = position.id,
-      portfolioId = position.portfolioId ?: 0,
-      symbol = position.symbol ?: "",
+      portfolioId = position.portfolioId,
+      symbol = position.symbol,
       underlyingSymbol = position.underlyingSymbol,
       instrumentType =
         when (position.instrumentType) {
@@ -38,17 +38,17 @@ class PositionMapper {
       strikePrice = position.strikePrice?.toDouble(),
       expirationDate = position.expirationDate,
       multiplier = position.multiplier ?: 100,
-      currentQuantity = position.currentQuantity ?: 0,
+      currentQuantity = position.currentQuantity,
       currentContracts = position.currentContracts,
-      averageEntryPrice = position.averageEntryPrice?.toDouble() ?: 0.0,
-      totalCost = position.totalCost?.toDouble() ?: 0.0,
+      averageEntryPrice = position.averageEntryPrice.toDouble(),
+      totalCost = position.totalCost.toDouble(),
       status =
         when (position.status) {
           "OPEN" -> PositionStatus.OPEN
           "CLOSED" -> PositionStatus.CLOSED
           else -> PositionStatus.OPEN
         },
-      openedDate = position.openedDate ?: java.time.LocalDate.now(),
+      openedDate = position.openedDate,
       closedDate = position.closedDate,
       realizedPnl = position.realizedPnl?.toDouble(),
       rolledToPositionId = position.rolledToPositionId,

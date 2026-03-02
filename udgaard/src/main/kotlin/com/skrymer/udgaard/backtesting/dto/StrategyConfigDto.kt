@@ -5,9 +5,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 
 /**
- * Request DTO for backtesting with either predefined or custom strategies
- */
-/**
  * Optional configuration for ranker-specific parameters.
  */
 data class RankerConfig(

@@ -21,10 +21,11 @@ class StartupLogger {
 
     @EventListener(ApplicationReadyEvent::class)
     fun logMemoryConfig() {
-        val memoryArgs = ManagementFactory
-            .getRuntimeMXBean()
-            .inputArguments
-            .filter { it.startsWith("-X") }
+        val memoryArgs =
+            ManagementFactory
+                .getRuntimeMXBean()
+                .inputArguments
+                .filter { it.startsWith("-X") }
         logger.info("JVM memory configuration: {}", memoryArgs.ifEmpty { listOf("(defaults)") })
     }
 }

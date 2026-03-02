@@ -21,9 +21,10 @@ const loading = ref(false)
 const state = reactive({
   entryStrategyName: '',
   exitStrategyName: '',
+  rankerName: 'default',
   stockSelection: 'all' as 'all' | 'specific',
   specificStocks: '',
-  assetTypes: [] as string[],
+  assetTypes: ['STOCK'] as string[],
   excludeSectors: [] as string[]
 })
 
@@ -40,6 +41,14 @@ const entryStrategyOptions = computed(() =>
 const exitStrategyOptions = computed(() =>
   (availableStrategies.value?.exitStrategies ?? []).map(s => ({ label: s, value: s }))
 )
+
+// Fetch available rankers from backend
+const { data: availableRankers } = useFetch<string[]>('/udgaard/api/backtest/rankers')
+
+const rankerOptions = computed(() => [
+  { label: 'Strategy Default', value: 'default' },
+  ...(availableRankers.value ?? []).map(r => ({ label: r, value: r }))
+])
 
 // Auto-select first strategies when loaded
 watch(availableStrategies, (strategies) => {
@@ -66,6 +75,9 @@ function handleSubmit() {
   if (state.excludeSectors.length > 0) {
     config.excludeSectors = state.excludeSectors
   }
+  if (state.rankerName !== 'default') {
+    config.rankerName = state.rankerName
+  }
 
   emit('run-scan', config)
 }
@@ -79,7 +91,7 @@ function handleSubmit() {
     @update:open="emit('update:open', $event)"
   >
     <template #body>
-      <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-x-6 gap-y-4">
         <!-- Entry Strategy -->
         <UFormField label="Entry Strategy" required>
           <USelect
@@ -100,22 +112,13 @@ function handleSubmit() {
           />
         </UFormField>
 
-        <!-- Stock Selection -->
-        <UFormField label="Stocks">
-          <div class="space-y-2">
-            <URadioGroup
-              v-model="state.stockSelection"
-              :items="[
-                { label: 'All stocks', value: 'all' },
-                { label: 'Specific symbols', value: 'specific' }
-              ]"
-            />
-            <UInput
-              v-if="state.stockSelection === 'specific'"
-              v-model="state.specificStocks"
-              placeholder="AAPL, MSFT, GOOGL..."
-            />
-          </div>
+        <!-- Ranker -->
+        <UFormField label="Ranker">
+          <USelect
+            v-model="state.rankerName"
+            :items="rankerOptions"
+            value-key="value"
+          />
         </UFormField>
 
         <!-- Asset Types -->
@@ -138,6 +141,24 @@ function handleSubmit() {
             placeholder="None"
             value-key="value"
           />
+        </UFormField>
+
+        <!-- Stock Selection -->
+        <UFormField label="Stocks">
+          <div class="space-y-2">
+            <URadioGroup
+              v-model="state.stockSelection"
+              :items="[
+                { label: 'All stocks', value: 'all' },
+                { label: 'Specific symbols', value: 'specific' }
+              ]"
+            />
+            <UInput
+              v-if="state.stockSelection === 'specific'"
+              v-model="state.specificStocks"
+              placeholder="AAPL, MSFT, GOOGL..."
+            />
+          </div>
         </UFormField>
       </div>
     </template>

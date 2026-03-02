@@ -165,7 +165,7 @@ trading/
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
-│   ├── src/main/resources/           # Config, migrations (V1-V8)
+│   ├── src/main/resources/           # Config, migrations (V1-V9)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL)
 │   ├── build.gradle                  # Gradle build config
@@ -278,4 +278,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-02-26_
+_Last Updated: 2026-03-02_

@@ -291,6 +291,7 @@ class BrokerIntegrationService(
       exitStrategy = "Broker Import"
     )
 
+    val positionId = position.id!!
     var executionsCreated = 0
     val processedBrokerTradeIds = mutableSetOf<String>()
 
@@ -300,7 +301,7 @@ class BrokerIntegrationService(
 
     // Process opening executions (aggregate quantities for same broker_trade_id)
     openingTrades.forEach { (brokerTradeId, lotsWithSameTrade) ->
-      if (brokerTradeId != null && brokerTradeId !in processedBrokerTradeIds) {
+      if (brokerTradeId !in processedBrokerTradeIds) {
         val existingOpen = executionRepository.findByBrokerTradeId(brokerTradeId)
         if (existingOpen == null) {
           // Sum quantities from all lots that share this broker_trade_id
@@ -308,7 +309,7 @@ class BrokerIntegrationService(
           val firstTrade = lotsWithSameTrade.first().openTrade
 
           positionService.addExecution(
-            positionId = position.id!!,
+            positionId = positionId,
             quantity = totalQuantity,
             price = firstTrade.price,
             executionDate = firstTrade.tradeDate,
@@ -323,7 +324,7 @@ class BrokerIntegrationService(
 
     // Process closing executions (aggregate quantities for same broker_trade_id)
     closingTrades.forEach { (brokerTradeId, tradesWithSameBrokerId) ->
-      if (brokerTradeId != null && brokerTradeId !in processedBrokerTradeIds) {
+      if (brokerTradeId !in processedBrokerTradeIds) {
         val existingClose = executionRepository.findByBrokerTradeId(brokerTradeId)
         if (existingClose == null) {
           // Sum quantities from all closing trades that share this broker_trade_id
@@ -331,7 +332,7 @@ class BrokerIntegrationService(
           val firstTrade = tradesWithSameBrokerId.first()
 
           positionService.addExecution(
-            positionId = position.id!!,
+            positionId = positionId,
             quantity = -totalQuantity,
             price = firstTrade.price,
             executionDate = firstTrade.tradeDate,
@@ -345,12 +346,12 @@ class BrokerIntegrationService(
     }
 
     // Check if position should be closed
-    val updatedPosition = positionService.getPositionById(position.id!!)
+    val updatedPosition = positionService.getPositionById(positionId)
     if (updatedPosition != null && updatedPosition.currentQuantity == 0) {
       // Find the latest closing date
       val latestCloseDate = lots.mapNotNull { it.closeTrade?.tradeDate }.maxOrNull()
       if (latestCloseDate != null) {
-        positionService.closePosition(position.id!!, latestCloseDate)
+        positionService.closePosition(positionId, latestCloseDate)
       }
     }
 
@@ -376,16 +377,14 @@ class BrokerIntegrationService(
     lot: TradeLot,
   ): RegularLotImportResult {
     // Skip if opening execution already exists (sync scenario)
-    if (lot.openTrade.brokerTradeId != null) {
-      val existingOpen = executionRepository.findByBrokerTradeId(lot.openTrade.brokerTradeId)
-      if (existingOpen != null) {
-        logger.debug("Opening execution ${lot.openTrade.brokerTradeId} already exists, skipping lot")
-        return RegularLotImportResult(
-          positionsCreated = 0,
-          newPositions = 0,
-          executionsCreated = 0
-        )
-      }
+    val existingOpen = executionRepository.findByBrokerTradeId(lot.openTrade.brokerTradeId)
+    if (existingOpen != null) {
+      logger.debug("Opening execution ${lot.openTrade.brokerTradeId} already exists, skipping lot")
+      return RegularLotImportResult(
+        positionsCreated = 0,
+        newPositions = 0,
+        executionsCreated = 0
+      )
     }
 
     // Create position
@@ -403,11 +402,12 @@ class BrokerIntegrationService(
       exitStrategy = "Broker Import"
     )
 
+    val positionId = position.id!!
     var executionsCreated = 0
 
     // Add opening execution
     positionService.addExecution(
-      positionId = position.id!!,
+      positionId = positionId,
       quantity = lot.openTrade.quantity,
       price = lot.openTrade.price,
       executionDate = lot.openTrade.tradeDate,
@@ -418,38 +418,25 @@ class BrokerIntegrationService(
 
     // Add closing execution if closed (skip if already exists)
     if (lot.closeTrade != null) {
-      if (lot.closeTrade.brokerTradeId != null) {
-        val existingClose = executionRepository.findByBrokerTradeId(lot.closeTrade.brokerTradeId)
-        if (existingClose == null) {
-          positionService.addExecution(
-            positionId = position.id!!,
-            quantity = -lot.closeTrade.quantity,
-            price = lot.closeTrade.price,
-            executionDate = lot.closeTrade.tradeDate,
-            brokerTradeId = lot.closeTrade.brokerTradeId,
-            commission = lot.closeTrade.commission
-          )
-          executionsCreated++
-        } else {
-          logger.debug("Closing execution ${lot.closeTrade.brokerTradeId} already exists, skipping")
-        }
-      } else {
-        // No broker trade ID, always insert
+      val existingClose = executionRepository.findByBrokerTradeId(lot.closeTrade.brokerTradeId)
+      if (existingClose == null) {
         positionService.addExecution(
-          positionId = position.id!!,
+          positionId = positionId,
           quantity = -lot.closeTrade.quantity,
           price = lot.closeTrade.price,
           executionDate = lot.closeTrade.tradeDate,
-          brokerTradeId = null,
+          brokerTradeId = lot.closeTrade.brokerTradeId,
           commission = lot.closeTrade.commission
         )
         executionsCreated++
+      } else {
+        logger.debug("Closing execution ${lot.closeTrade.brokerTradeId} already exists, skipping")
       }
 
       // Only close position if it has no remaining quantity
-      val updatedPosition = positionService.getPositionById(position.id!!)
+      val updatedPosition = positionService.getPositionById(positionId)
       if (updatedPosition?.currentQuantity == 0) {
-        positionService.closePosition(position.id!!, lot.closeTrade.tradeDate)
+        positionService.closePosition(positionId, lot.closeTrade.tradeDate)
       }
     }
 
@@ -497,6 +484,7 @@ class BrokerIntegrationService(
       )
     }
 
+    val positionId = position.id!!
     val isNewPosition = existingPosition == null && position.currentQuantity == 0
 
     // Process each lot in the chain
@@ -504,29 +492,27 @@ class BrokerIntegrationService(
       val isLast = index == chain.lots.lastIndex
 
       // Add opening execution (skip if already exists)
-      if (lot.openTrade.brokerTradeId != null) {
-        val existingOpen = executionRepository.findByBrokerTradeId(lot.openTrade.brokerTradeId)
-        if (existingOpen == null) {
-          positionService.addExecution(
-            positionId = position.id!!,
-            quantity = lot.openTrade.quantity,
-            price = lot.openTrade.price,
-            executionDate = lot.openTrade.tradeDate,
-            brokerTradeId = lot.openTrade.brokerTradeId,
-            commission = lot.openTrade.commission
-          )
-          executionsCreated++
-        } else {
-          logger.debug("Execution ${lot.openTrade.brokerTradeId} already exists, skipping")
-        }
+      val existingOpen = executionRepository.findByBrokerTradeId(lot.openTrade.brokerTradeId)
+      if (existingOpen == null) {
+        positionService.addExecution(
+          positionId = positionId,
+          quantity = lot.openTrade.quantity,
+          price = lot.openTrade.price,
+          executionDate = lot.openTrade.tradeDate,
+          brokerTradeId = lot.openTrade.brokerTradeId,
+          commission = lot.openTrade.commission
+        )
+        executionsCreated++
+      } else {
+        logger.debug("Execution ${lot.openTrade.brokerTradeId} already exists, skipping")
       }
 
       // Add closing execution (skip if already exists)
-      if (lot.closeTrade != null && lot.closeTrade.brokerTradeId != null) {
+      if (lot.closeTrade != null) {
         val existingClose = executionRepository.findByBrokerTradeId(lot.closeTrade.brokerTradeId)
         if (existingClose == null) {
           positionService.addExecution(
-            positionId = position.id!!,
+            positionId = positionId,
             quantity = -lot.closeTrade.quantity,
             price = lot.closeTrade.price,
             executionDate = lot.closeTrade.tradeDate,
@@ -543,7 +529,7 @@ class BrokerIntegrationService(
       if (!isLast) {
         val nextLot = chain.lots[index + 1]
         positionService.updatePositionAfterRoll(
-          positionId = position.id!!,
+          positionId = positionId,
           newSymbol = nextLot.symbol,
           newStrike = nextLot.openTrade.optionDetails?.strike,
           newExpiry = nextLot.openTrade.optionDetails?.expiry,
@@ -555,7 +541,7 @@ class BrokerIntegrationService(
     // Close position if chain is closed
     if (chain.isClosed) {
       positionService.closePosition(
-        position.id!!,
+        positionId,
         chain.lots
           .last()
           .closeTrade!!

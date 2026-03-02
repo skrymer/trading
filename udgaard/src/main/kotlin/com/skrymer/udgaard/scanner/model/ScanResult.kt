@@ -14,6 +14,7 @@ data class ScanResult(
   val entrySignalDetails: EntrySignalDetails?,
   val atr: Double,
   val trend: String?,
+  val rankScore: Double? = null,
 )
 
 /**
@@ -28,6 +29,7 @@ data class ScanResponse(
   val executionTimeMs: Long,
   val nearMissCandidates: List<NearMissCandidate> = emptyList(),
   val conditionFailureSummary: List<ConditionFailureSummary> = emptyList(),
+  val rankerName: String? = null,
 )
 
 /**
