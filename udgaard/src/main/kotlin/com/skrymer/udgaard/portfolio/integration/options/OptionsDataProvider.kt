@@ -29,6 +29,15 @@ interface OptionsDataProvider {
     optionType: OptionType,
     date: String,
   ): OptionContract?
+
+  fun getRealtimeOptions(symbol: String): List<OptionContract>?
+
+  fun findRealtimeOptionContract(
+    symbol: String,
+    strike: Double,
+    expiration: String,
+    optionType: OptionType,
+  ): OptionContract?
 }
 
 /**

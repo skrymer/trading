@@ -44,19 +44,19 @@
           </h3>
           <ChartsBreadthChart
             :data="filteredMarketBreadth"
-            :height="400"
+            :height="600"
           />
         </div>
 
         <!-- Section B: Sector Heat Summary -->
-        <div v-if="sectorHeatData.length > 0">
-          <h3 class="text-lg font-semibold mb-2">
-            Sector Heat Summary
-          </h3>
-          <UCard>
-            <UTable :data="sectorHeatData" :columns="heatColumns" />
-          </UCard>
-        </div>
+        <UCollapsible v-if="sectorHeatData.length > 0">
+          <UButton variant="ghost" class="mb-2" icon="i-heroicons-chevron-down" label="Sector Heat Summary" />
+          <template #content>
+            <UCard>
+              <UTable :data="sectorHeatData" :columns="heatColumns" />
+            </UCard>
+          </template>
+        </UCollapsible>
 
         <!-- Section C: Sector Breadth Charts -->
         <div v-if="Object.keys(sectorBreadthMap).length > 0">
@@ -64,17 +64,23 @@
             Sector Breadth
           </h3>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div v-for="sector in SECTORS" :key="sector">
+            <div v-for="sector in sortedSectors" :key="sector">
               <h4
                 class="text-md font-medium mb-2 flex items-center gap-2 cursor-pointer hover:text-primary"
                 @click="openSectorModal(sector)"
               >
-                {{ SECTOR_NAMES[sector] || sector }} ({{ sector }})
+                {{ getSectorName(sector) }} ({{ sector }})
                 <UBadge v-if="sectorEmaStatus(sector) === 'hot'" color="success" variant="subtle">
                   🔥
                 </UBadge>
                 <UBadge v-else-if="sectorEmaStatus(sector) === 'cold'" color="error" variant="subtle">
                   ❄️
+                </UBadge>
+                <UBadge v-if="sectorUptrendStatus(sector) === 'uptrend'" color="success" variant="subtle">
+                  <UIcon name="i-heroicons-arrow-trending-up" />
+                </UBadge>
+                <UBadge v-else-if="sectorUptrendStatus(sector) === 'downtrend'" color="error" variant="subtle">
+                  <UIcon name="i-heroicons-arrow-trending-down" />
                 </UBadge>
               </h4>
               <ChartsLineChart
@@ -96,13 +102,10 @@
           :title="sectorModalTitle"
         >
           <template #body>
-            <ChartsLineChart
-              v-if="sectorModalSector && sectorSeries(sectorModalSector).length > 0"
-              :series="sectorSeries(sectorModalSector)"
-              :categories="sectorCategories(sectorModalSector)"
-              :line-colors="['#eab308', '#10b981', '#ef4444']"
+            <ChartsBreadthChart
+              v-if="sectorModalSector && sectorModalBreadthData.length > 0"
+              :data="sectorModalBreadthData"
               :height="800"
-              :percent-mode="true"
             />
           </template>
         </UModal>
@@ -114,26 +117,13 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { MarketBreadthDaily, SectorBreadthDaily } from '~/types'
+import { getSectorName } from '~/types/enums'
 
 definePageMeta({
   layout: 'default'
 })
 
 const SECTORS = ['XLB', 'XLC', 'XLE', 'XLF', 'XLI', 'XLK', 'XLP', 'XLRE', 'XLU', 'XLV', 'XLY']
-
-const SECTOR_NAMES: Record<string, string> = {
-  XLB: 'Materials',
-  XLC: 'Communication Services',
-  XLE: 'Energy',
-  XLF: 'Financials',
-  XLI: 'Industrials',
-  XLK: 'Technology',
-  XLP: 'Consumer Staples',
-  XLRE: 'Real Estate',
-  XLU: 'Utilities',
-  XLV: 'Health Care',
-  XLY: 'Consumer Discretionary'
-}
 
 // State
 const loading = ref(false)
@@ -145,7 +135,7 @@ const sectorModalSector = ref<string | null>(null)
 
 const sectorModalTitle = computed(() => {
   if (!sectorModalSector.value) return ''
-  const name = SECTOR_NAMES[sectorModalSector.value] || sectorModalSector.value
+  const name = getSectorName(sectorModalSector.value)
   return `${name} (${sectorModalSector.value})`
 })
 
@@ -153,6 +143,20 @@ function openSectorModal(sector: string) {
   sectorModalSector.value = sector
   sectorModalOpen.value = true
 }
+
+const sectorModalBreadthData = computed<MarketBreadthDaily[]>(() => {
+  if (!sectorModalSector.value) return []
+  return filteredSectorBreadth(sectorModalSector.value).map(d => ({
+    quoteDate: d.quoteDate,
+    breadthPercent: d.bullPercentage,
+    ema5: d.ema5,
+    ema10: d.ema10,
+    ema20: d.ema20,
+    ema50: d.ema50,
+    donchianUpperBand: d.donchianUpperBand,
+    donchianLowerBand: d.donchianLowerBand
+  }))
+})
 
 // Cutoff date computed
 const cutoffDate = computed(() => {
@@ -177,6 +181,17 @@ function filteredSectorBreadth(sector: string): SectorBreadthDaily[] {
   return data.filter(d => new Date(d.quoteDate) >= cutoffDate.value)
 }
 
+// Sectors sorted by latest bull percentage (highest first)
+const sortedSectors = computed(() => {
+  return [...SECTORS].sort((a, b) => {
+    const aData = filteredSectorBreadth(a)
+    const bData = filteredSectorBreadth(b)
+    const aBull = aData.length > 0 ? aData[aData.length - 1]!.bullPercentage : 0
+    const bBull = bData.length > 0 ? bData[bData.length - 1]!.bullPercentage : 0
+    return bBull - aBull
+  })
+})
+
 // Sector EMA status helper
 function sectorEmaStatus(sector: string): 'hot' | 'cold' | null {
   const filtered = filteredSectorBreadth(sector)
@@ -185,6 +200,17 @@ function sectorEmaStatus(sector: string): 'hot' | 'cold' | null {
   if (!latest) return null
   if (latest.ema10 > latest.ema20) return 'hot'
   if (latest.ema10 < latest.ema20) return 'cold'
+  return null
+}
+
+// Sector uptrend status: bullPercentage above both EMAs
+function sectorUptrendStatus(sector: string): 'uptrend' | 'downtrend' | null {
+  const filtered = filteredSectorBreadth(sector)
+  if (filtered.length === 0) return null
+  const latest = filtered[filtered.length - 1]
+  if (!latest) return null
+  if (latest.bullPercentage > latest.ema10 && latest.bullPercentage > latest.ema20) return 'uptrend'
+  if (latest.bullPercentage < latest.ema10 && latest.bullPercentage < latest.ema20) return 'downtrend'
   return null
 }
 
@@ -246,7 +272,7 @@ const heatColumns: TableColumn<SectorHeatRow>[] = [
   {
     accessorKey: 'sector',
     header: 'Sector',
-    cell: ({ row }) => `${SECTOR_NAMES[row.original.sector] || row.original.sector} (${row.original.sector})`
+    cell: ({ row }) => `${getSectorName(row.original.sector)} (${row.original.sector})`
   },
   {
     accessorKey: 'bullPct',

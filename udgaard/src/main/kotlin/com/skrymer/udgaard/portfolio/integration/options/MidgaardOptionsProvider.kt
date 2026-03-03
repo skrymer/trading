@@ -76,6 +76,49 @@ class MidgaardOptionsProvider(
     }
   }.getOrNull()
 
+  override fun getRealtimeOptions(symbol: String): List<OptionContract>? = runCatching {
+    val response = restClient
+      .get()
+      .uri { uriBuilder ->
+        uriBuilder.path("/api/options/{symbol}/realtime").build(symbol)
+      }.retrieve()
+      .body(object : ParameterizedTypeReference<List<MidgaardOptionContractDto>>() {})
+
+    response?.map { it.toOptionContract() }
+  }.onFailure { e ->
+    if (e is HttpClientErrorException.NotFound) {
+      logger.debug("No realtime options data available for $symbol")
+    } else {
+      logger.error("Failed to fetch realtime options from Midgaard for $symbol: ${e.message}", e)
+    }
+  }.getOrNull()
+
+  override fun findRealtimeOptionContract(
+    symbol: String,
+    strike: Double,
+    expiration: String,
+    optionType: OptionType,
+  ): OptionContract? = runCatching {
+    restClient
+      .get()
+      .uri { uriBuilder ->
+        uriBuilder
+          .path("/api/options/{symbol}/realtime/find")
+          .queryParam("strike", strike)
+          .queryParam("expiration", expiration)
+          .queryParam("optionType", optionType.name.lowercase())
+          .build(symbol)
+      }.retrieve()
+      .body(MidgaardOptionContractDto::class.java)
+      ?.toOptionContract()
+  }.onFailure { e ->
+    if (e is HttpClientErrorException.NotFound) {
+      logger.debug("No realtime option contract found for $symbol")
+    } else {
+      logger.error("Failed to find realtime option contract from Midgaard for $symbol: ${e.message}", e)
+    }
+  }.getOrNull()
+
   companion object {
     private val logger = LoggerFactory.getLogger(MidgaardOptionsProvider::class.java)
   }

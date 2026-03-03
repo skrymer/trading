@@ -200,6 +200,40 @@ class AlphaVantageProvider(
         }
     }
 
+    override fun getRealtimeOptions(symbol: String): List<OptionContractDto>? =
+        runCatching {
+            val response =
+                restClient
+                    .get()
+                    .uri { uriBuilder ->
+                        uriBuilder
+                            .queryParam("function", FUNCTION_REALTIME_OPTIONS)
+                            .queryParam("symbol", symbol)
+                            .queryParam("require_greeks", "true")
+                            .queryParam("apikey", apiKey)
+                            .build()
+                    }.retrieve()
+                    .toEntity(AlphaVantageHistoricalOptions::class.java)
+                    .body
+            validateAndTransform(response, symbol, "realtime options") { it.toOptionContracts() }
+        }.onFailure { e ->
+            logger.error("Failed to fetch realtime options for $symbol: ${e.message}", e)
+        }.getOrNull()
+
+    override fun findRealtimeOptionContract(
+        symbol: String,
+        strike: Double,
+        expiration: String,
+        optionType: String,
+    ): OptionContractDto? {
+        val contracts = getRealtimeOptions(symbol) ?: return null
+        return contracts.firstOrNull { contract ->
+            contract.strike == strike &&
+                contract.expiration.toString() == expiration &&
+                contract.optionType.equals(optionType, ignoreCase = true)
+        }
+    }
+
     private fun <T : AlphaVantageApiResponse, R> validateAndTransform(
         response: T?,
         symbol: String,
@@ -221,5 +255,6 @@ class AlphaVantageProvider(
         private const val FUNCTION_EARNINGS = "EARNINGS"
         private const val FUNCTION_OVERVIEW = "OVERVIEW"
         private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
+        private const val FUNCTION_REALTIME_OPTIONS = "REALTIME_OPTIONS"
     }
 }

@@ -45,6 +45,7 @@ data class NearMissCandidate(
   val trend: String?,
   val conditionsPassed: Int,
   val conditionsTotal: Int,
+  val rankScore: Double? = null,
 )
 
 /**

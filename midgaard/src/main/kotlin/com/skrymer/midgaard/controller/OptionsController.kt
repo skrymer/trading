@@ -43,4 +43,31 @@ class OptionsController(
             ) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(contract)
     }
+
+    @GetMapping("/{symbol}/realtime")
+    fun getRealtimeOptions(
+        @PathVariable symbol: String,
+    ): ResponseEntity<List<OptionContractDto>> {
+        val contracts =
+            optionsProvider.getRealtimeOptions(symbol.uppercase())
+                ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(contracts)
+    }
+
+    @GetMapping("/{symbol}/realtime/find")
+    fun findRealtimeOptionContract(
+        @PathVariable symbol: String,
+        @RequestParam strike: Double,
+        @RequestParam expiration: String,
+        @RequestParam optionType: String,
+    ): ResponseEntity<OptionContractDto> {
+        val contract =
+            optionsProvider.findRealtimeOptionContract(
+                symbol = symbol.uppercase(),
+                strike = strike,
+                expiration = expiration,
+                optionType = optionType,
+            ) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(contract)
+    }
 }

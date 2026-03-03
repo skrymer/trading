@@ -21,7 +21,7 @@ data class BacktestRequest(
   val startDate: String? = null,
   val endDate: String? = null,
   val maxPositions: Int? = null,
-  val ranker: String = "Adaptive",
+  val ranker: String? = null,
   val useUnderlyingAssets: Boolean = true, // Enable automatic underlying asset detection
   val customUnderlyingMap: Map<String, String>? = null, // Custom symbol → underlying mappings
   val cooldownDays: Int = 0, // Global cooldown period in trading days after exit (0 = disabled)

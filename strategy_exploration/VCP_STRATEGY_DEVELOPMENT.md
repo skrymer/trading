@@ -552,65 +552,74 @@ Tested with 15-position cap comparing Random vs SectorEdge rankers against the u
 ### Configuration
 - Starting capital: $10,000
 - Max positions: 15
-- Ranker: Random
+- Ranker: SectorEdge (strategy's preferred ranker, deterministic)
+- Entry delay: 1 day (realistic execution — signal fires after close, enter next day)
 - Risk per trade: 1.5% of portfolio
 - ATR multiplier (nAtr): 2.0
 - Leverage: 1.0x (stock only, no options)
 - No sector exclusions
 
-### Current Results (VC 3.5 + sectorUptrend)
+### Current Results (VC 3.5 + sectorUptrend, SectorEdge ranker, entry delay 1)
 
 | Metric | Value |
 |---|---|
 | Starting Capital | $10,000 |
-| Final Capital | **$317,756** |
-| Peak Capital | $317,756 (still at peak) |
-| Total Return | +3,078% |
-| CAGR | **41.3%** |
-| Max Drawdown | **20.7%** ($18,806) |
-| Total Trades | 837 |
-| Win Rate | 49.5% |
-| Edge | +5.74% |
-| Avg Win / Loss | 18.40% / -6.65% |
-| Profit Factor | 4.72 |
+| Final Capital | **$395,432** |
+| Peak Capital | $395,432 (still at peak) |
+| Total Return | +3,854% |
+| CAGR | **44.4%** |
+| Max Drawdown | **16.7%** ($38,147) |
+| Total Trades | 899 |
+| Win Rate | 47.3% |
+| Edge | +5.24% |
+| Avg Win / Loss | 17.57% / -5.82% |
+| Win/Loss Ratio | 3.02x |
+| Profit Factor | 2.79 |
 | EC Score | 96.0 (Excellent) |
 
 ### Yearly Edge
 
 | Year | Trades | Edge | Tradeable? |
 |---|---|---|---|
-| 2016 | 89 | +4.03% | T |
-| 2017 | 61 | +8.38% | T |
-| 2018 | 77 | +2.00% | T |
-| 2019 | 65 | +10.11% | T |
-| 2020 | 65 | +12.94% | T |
-| 2021 | 96 | +4.75% | T |
-| 2022 | 99 | +0.67% | |
-| 2023 | 89 | +8.12% | T |
-| 2024 | 74 | +8.61% | T |
-| 2025 | 122 | +3.29% | T |
+| 2016 | 101 | +2.72% | T |
+| 2017 | 70 | +6.95% | T |
+| 2018 | 69 | +5.25% | T |
+| 2019 | 82 | +6.88% | T |
+| 2020 | 77 | +10.83% | T |
+| 2021 | 107 | +5.20% | T |
+| 2022 | 110 | +0.14% | |
+| 2023 | 90 | +8.03% | T |
+| 2024 | 77 | +7.06% | T |
+| 2025 | 116 | +3.02% | T |
 
-**10/10 years profitable.** 9/10 tradeable. $10K → $318K (31.8x) over 10 years.
+**10/10 years profitable.** 9/10 tradeable. $10K → $395K (39.5x) over 10 years.
+
+### Exit Reasons
+
+| Reason | Count | % | Avg Profit | WR | Avg Hold |
+|---|---|---|---|---|---|
+| EMA cross (10/20) | 825 | 91.8% | +6.65% | 51.5% | 53d |
+| Stop loss (2.5 ATR) | 74 | 8.2% | -10.45% | 0% | 10d |
 
 ### Evolution: Position-Sized Results Across Optimizations
 
-| Metric | VC 2.5 (original) | VC 3.5 | VC 3.5 + sectorUptrend |
-|---|---|---|---|
-| Final Capital | $148,124 | $224,840 | **$317,756** |
-| CAGR | 30.9% | 36.5% | **41.3%** |
-| Max Drawdown | **15.2%** | 19.7% | 20.7% |
-| Trades | 855 | 927 | 837 |
-| Win Rate | 46.3% | 49.1% | **49.5%** |
-| Edge | +4.86% | +5.46% | **+5.74%** |
-| Profit Factor | — | 2.04 | **4.72** |
-| EC | 92.0 | 96.0 | **96.0** |
+| Metric | VC 2.5 (original) | VC 3.5 | VC 3.5 + sectorUptrend | + SectorEdge + delay 1 |
+|---|---|---|---|---|
+| Final Capital | $148,124 | $224,840 | $317,756 | **$395,432** |
+| CAGR | 30.9% | 36.5% | 41.3% | **44.4%** |
+| Max Drawdown | 15.2% | 19.7% | 20.7% | **16.7%** |
+| Trades | 855 | 927 | 837 | 899 |
+| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% |
+| Edge | +4.86% | +5.46% | +5.74% | +5.24% |
+| Profit Factor | — | 2.04 | 4.72 | 2.79 |
+| EC | 92.0 | 96.0 | 96.0 | **96.0** |
 
-Each optimization compounded on the previous: loosening VC from 2.5→3.5 added $76K, then adding sectorUptrend added another $93K — while maintaining 10/10 profitable years and EC 96.0. Drawdown increased modestly from 15.2% to 20.7% across all changes.
+Each optimization compounded on the previous: loosening VC from 2.5→3.5 added $76K, then adding sectorUptrend added another $93K, then switching to the SectorEdge ranker with 1-day entry delay added another $78K — while maintaining 10/10 profitable years and EC 96.0. The latest change also *reduced* max drawdown from 20.7% to 16.7%.
 
 ### Position Sizing Notes
 - Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
 - Adding `leverageRatio: 1.0` caps total notional exposure to 1x portfolio value, producing realistic results
-- Results vary slightly between runs due to random ranker — run multiple times for confidence
+- SectorEdge ranker is deterministic — results are reproducible across runs (unlike Random ranker)
 
 ---
 
@@ -658,7 +667,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 
 ### Realistic (position-sized with $10K)
 
-Simulates real trading with capital constraints, position sizing, and a 15-position cap. Use this to estimate actual returns, drawdowns, and equity curves.
+Simulates real trading with capital constraints, position sizing, 1-day entry delay, and a 15-position cap. Uses the strategy's preferred SectorEdge ranker for deterministic, reproducible results.
 
 ```bash
 curl -s -X POST http://localhost:8080/udgaard/api/backtest \
@@ -671,7 +680,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
     "startDate": "2016-01-01",
     "endDate": "2025-12-31",
     "maxPositions": 15,
-    "ranker": "Random",
+    "entryDelayDays": 1,
     "positionSizing": {
       "startingCapital": 10000,
       "riskPercentage": 1.5,
@@ -688,6 +697,6 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 - `leverageRatio`: Max total notional as multiple of portfolio (1.0 = no leverage, 2.0 = 2x leverage)
 
 **Notes:**
-- `ranker: "Random"` randomizes which signals get filled when more signals than slots — avoids selection bias
+- Ranker omitted → uses strategy's preferred ranker: SectorEdge (deterministic, reproducible results)
+- `entryDelayDays: 1` → signal fires after Day 0 close, entry at Day 1's close (realistic execution)
 - Requires ~12GB heap (`-Xmx12288m` in `build.gradle` bootRun task) for full 10-year run
-- Position-sized results vary slightly between runs due to random ranker — run multiple times for confidence

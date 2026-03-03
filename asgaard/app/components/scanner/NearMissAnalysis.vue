@@ -2,6 +2,7 @@
 import { h } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { NearMissCandidate, ConditionFailureSummary } from '~/types'
+import { getSectorName } from '~/types/enums'
 
 defineProps<{
   nearMissCandidates: NearMissCandidate[]
@@ -44,7 +45,7 @@ const columns: TableColumn<NearMissCandidate>[] = [
   {
     id: 'sector',
     header: 'Sector',
-    cell: ({ row }) => row.original.sectorSymbol ?? '-'
+    cell: ({ row }) => row.original.sectorSymbol ? getSectorName(row.original.sectorSymbol) : '-'
   },
   {
     id: 'price',
@@ -68,6 +69,11 @@ const columns: TableColumn<NearMissCandidate>[] = [
         }, () => `${c.conditionsPassed}/${c.conditionsTotal}`)
       ])
     }
+  },
+  {
+    id: 'rankScore',
+    header: 'Rank Score',
+    cell: ({ row }) => row.original.rankScore != null ? row.original.rankScore.toFixed(2) : '-'
   },
   {
     id: 'trend',
@@ -134,9 +140,6 @@ const columns: TableColumn<NearMissCandidate>[] = [
       >
         <template #expanded="{ row }">
           <div class="p-3 text-sm">
-            <div class="font-medium mb-2">
-              {{ row.original.entrySignalDetails.strategyDescription }}
-            </div>
             <div class="space-y-1">
               <div
                 v-for="condition in row.original.entrySignalDetails.conditions"

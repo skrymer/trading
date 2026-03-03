@@ -311,7 +311,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     assertEquals(HttpStatus.OK, response.statusCode)
     val body = response.body!!
     assertNotNull(body.backtestId)
-    assertEquals(58, body.totalTrades)
+    assertEquals(80, body.totalTrades)
   }
 
   @Test

@@ -54,7 +54,7 @@ const state = reactive<{
   endDate: '',
   positionLimitEnabled: true,
   maxPositions: 10,
-  ranker: 'Adaptive',
+  ranker: '',
   cooldownDays: 0,
   entryDelayDays: 0,
   refresh: false,
@@ -82,11 +82,11 @@ const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/ap
 
 // Ranker options computed from fetched data
 const rankerOptions = computed(() => {
-  if (!availableRankers.value) return []
-  return availableRankers.value.map(r => ({
-    label: r,
-    value: r
-  }))
+  const options = [{ label: 'Strategy Default', value: '' }]
+  if (availableRankers.value) {
+    options.push(...availableRankers.value.map(r => ({ label: r, value: r })))
+  }
+  return options
 })
 
 // Asset mapper - matches backend AssetMapper.kt
@@ -210,7 +210,7 @@ function onSubmit() {
     startDate: state.startDate || undefined,
     endDate: state.endDate || undefined,
     maxPositions: state.positionLimitEnabled ? state.maxPositions : undefined,
-    ranker: state.positionLimitEnabled ? state.ranker : undefined,
+    ranker: state.positionLimitEnabled && state.ranker ? state.ranker : undefined,
     cooldownDays: state.cooldownDays > 0 ? state.cooldownDays : undefined,
     entryDelayDays: state.entryDelayDays > 0 ? state.entryDelayDays : undefined,
     refresh: state.refresh,

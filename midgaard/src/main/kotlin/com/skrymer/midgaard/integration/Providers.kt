@@ -47,4 +47,13 @@ interface OptionsProvider {
         optionType: String,
         date: String,
     ): OptionContractDto?
+
+    fun getRealtimeOptions(symbol: String): List<OptionContractDto>?
+
+    fun findRealtimeOptionContract(
+        symbol: String,
+        strike: Double,
+        expiration: String,
+        optionType: String,
+    ): OptionContractDto?
 }

@@ -1075,6 +1075,7 @@ export interface NearMissCandidate {
   trend?: string
   conditionsPassed: number
   conditionsTotal: number
+  rankScore?: number
 }
 
 export interface ConditionFailureSummary {

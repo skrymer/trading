@@ -9,6 +9,7 @@ import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.RandomRanker
 import com.skrymer.udgaard.backtesting.strategy.RankerFactory
+import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -83,7 +84,7 @@ private fun rankResults(
   rankerName: String?,
   entryStrategy: EntryStrategy,
   backtestContext: BacktestContext,
-): Pair<List<ScanResult>, String> {
+): Triple<List<ScanResult>, String, StockRanker> {
   val ranker = if (rankerName != null) {
     RankerFactory.create(rankerName) ?: RandomRanker()
   } else {
@@ -99,7 +100,7 @@ private fun rankResults(
       eval.scanResult?.copy(rankScore = score)
     }.sortedByDescending { it.rankScore }
 
-  return ranked to resolvedName
+  return Triple(ranked, resolvedName, ranker)
 }
 
 @Service
@@ -131,7 +132,7 @@ class ScannerService(
 
     val quotesAfter = scanDate.minusDays(90)
     val matchedEvals = mutableListOf<EvalResult>()
-    val nearMisses = mutableListOf<NearMissCandidate>()
+    val nearMissEvals = mutableListOf<EvalResult>()
     val failedConditions = mutableListOf<List<ConditionEvaluationResult>>()
     var stocksEvaluated = 0
 
@@ -145,20 +146,30 @@ class ScannerService(
         evals.forEach { eval ->
           if (eval.evaluated) stocksEvaluated++
           if (eval.scanResult != null) matchedEvals.add(eval)
-          eval.nearMiss?.let { nearMisses.add(it) }
+          if (eval.nearMiss != null) nearMissEvals.add(eval)
           eval.failedConditions?.let { failedConditions.add(it) }
         }
       }
     }
 
-    val (rankedResults, resolvedRankerName) = rankResults(
+    val (rankedResults, resolvedRankerName, ranker) = rankResults(
       matchedEvals,
       request.rankerName,
       entryStrategy,
       backtestContext,
     )
     val nearMissLimit = request.nearMissLimit ?: DEFAULT_NEAR_MISS_LIMIT
-    val topNearMisses = nearMisses.sortedByDescending { it.conditionsPassed }.take(nearMissLimit)
+    val topNearMisses =
+      nearMissEvals
+        .mapNotNull { eval ->
+          val stock = eval.stock ?: return@mapNotNull null
+          val quote = eval.entryQuote ?: return@mapNotNull null
+          val score = ranker.score(stock, quote, backtestContext)
+          eval.nearMiss?.copy(rankScore = score)
+        }.sortedWith(
+          compareByDescending<NearMissCandidate> { it.conditionsPassed }
+            .thenByDescending { it.rankScore ?: 0.0 },
+        ).take(nearMissLimit)
     val failureSummary = if (entryStrategy is DetailedEntryStrategy) {
       buildConditionFailureSummary(failedConditions, stocksEvaluated)
     } else {
@@ -200,7 +211,7 @@ class ScannerService(
       } else {
         val passed = details.conditions.count { it.passed }
         val nearMiss = if (passed > 0) toNearMiss(stock, quote, details, passed) else null
-        EvalResult(null, null, null, nearMiss, details.conditions, true)
+        EvalResult(null, stock, quote, nearMiss, details.conditions, true)
       }
     }
 

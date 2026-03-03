@@ -12,6 +12,7 @@ import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.PositionSizingService
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
+import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.RankerFactory
@@ -88,11 +89,12 @@ class BacktestController(
       resolveSymbols(request)
         ?: return logAndBadRequest("No symbols found. Use Data Manager to refresh stocks first.")
 
-    val rankerInstance = if (request.ranker == "Adaptive" && request.rankerConfig == null) {
-      entryStrategy.preferredRanker() ?: RankerFactory.create(request.ranker, request.rankerConfig)
+    val rankerInstance = if (request.ranker == null) {
+      entryStrategy.preferredRanker() ?: CompositeRanker()
     } else {
       RankerFactory.create(request.ranker, request.rankerConfig)
-    } ?: throw IllegalArgumentException("Unknown ranker: ${request.ranker}")
+        ?: throw IllegalArgumentException("Unknown ranker: ${request.ranker}")
+    }
 
     val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
     val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()

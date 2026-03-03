@@ -590,7 +590,7 @@ class BacktestService(
 
     // Enrich each trade with excursion metrics and market conditions (parallel)
     runBlocking {
-      val dispatcher = Dispatchers.Default.limitedParallelism(Runtime.getRuntime().availableProcessors().coerceAtMost(16))
+      val dispatcher = Dispatchers.Default.limitedParallelism(Runtime.getRuntime().availableProcessors().coerceAtMost(5))
       trades
         .map { trade ->
           async(dispatcher) {
@@ -663,7 +663,7 @@ class BacktestService(
     entryDelayDays: Int,
     logger: org.slf4j.Logger,
   ): Pair<List<Trade>, List<Trade>> {
-    val parallelism = Runtime.getRuntime().availableProcessors().coerceAtMost(16)
+    val parallelism = Runtime.getRuntime().availableProcessors().coerceAtMost(5)
     val totalStocks = stockPairs.size
     logger.info("Parallel processing: $totalStocks stocks across $parallelism threads")
 

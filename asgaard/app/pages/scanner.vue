@@ -444,7 +444,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   <UDashboardPanel id="scanner">
     <template #header>
       <UDashboardNavbar title="Scanner">
-        <template #actions>
+        <template #right>
           <UButton
             label="Check Exits"
             icon="i-lucide-shield-alert"
