@@ -69,16 +69,16 @@ const existingCapitalDeployed = computed(() =>
 
 const maxPositions = computed(() => positionSizingSettings.value.maxPositions ?? 15)
 const availableSlots = computed(() => Math.max(0, maxPositions.value - trades.value.length))
+const activeTradeSymbols = computed(() => new Set(trades.value.map(t => t.symbol)))
 
-const preferredResults = computed(() => {
+const filteredResults = computed(() => {
   if (!scanResponse.value) return []
-  return scanResponse.value.results.slice(0, availableSlots.value)
+  return scanResponse.value.results.filter(r => !activeTradeSymbols.value.has(r.symbol))
 })
 
-const remainingResults = computed(() => {
-  if (!scanResponse.value) return []
-  return scanResponse.value.results.slice(availableSlots.value)
-})
+const preferredResults = computed(() => filteredResults.value.slice(0, availableSlots.value))
+
+const remainingResults = computed(() => filteredResults.value.slice(availableSlots.value))
 
 const selectedResults = computed(() => {
   if (!scanResponse.value) return []
@@ -369,20 +369,28 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     }, row.original.symbol)
   },
   {
-    id: 'type',
-    header: 'Type',
+    id: 'entryPrice',
+    header: 'Stock Price',
+    cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
+  },
+  {
+    id: 'optionPrice',
+    header: 'Premium',
     cell: ({ row }) => {
       const t = row.original
-      if (t.instrumentType === 'OPTION') {
-        return `${t.optionType} $${t.strikePrice?.toFixed(0)} ${t.expirationDate}`
-      }
-      return t.instrumentType
+      if (t.instrumentType !== 'OPTION') return '-'
+      return t.optionPrice ? `$${t.optionPrice.toFixed(2)}` : '-'
     }
   },
   {
-    id: 'entryPrice',
-    header: 'Entry',
-    cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
+    id: 'optionDetails',
+    header: 'Option',
+    cell: ({ row }) => {
+      const t = row.original
+      if (t.instrumentType !== 'OPTION') return '-'
+      const delta = t.delta ? ` Δ${t.delta.toFixed(2)}` : ''
+      return `${t.optionType} $${t.strikePrice?.toFixed(0)} ${t.expirationDate}${delta}`
+    }
   },
   {
     id: 'entryDate',

@@ -30,7 +30,7 @@ const state = reactive({
   optionType: '' as string,
   strikePrice: undefined as number | undefined,
   expirationDate: '',
-  multiplier: 100,
+  optionPrice: undefined as number | undefined,
   notes: ''
 })
 
@@ -59,13 +59,13 @@ watch(isOpen, (newValue) => {
       state.optionType = 'CALL'
       state.strikePrice = props.optionContract.strike
       state.expirationDate = props.optionContract.expiration
-      state.multiplier = 100
+      state.optionPrice = props.optionContract.price
     } else {
       state.instrumentType = 'STOCK'
       state.optionType = ''
       state.strikePrice = undefined
       state.expirationDate = ''
-      state.multiplier = 100
+      state.optionPrice = undefined
     }
     state.quantity = (props.calculatedQuantity && props.calculatedQuantity > 0) ? props.calculatedQuantity : (props.optionContract ? 1 : 100)
     state.notes = ''
@@ -77,9 +77,7 @@ async function onSubmit() {
 
   loading.value = true
   try {
-    const entryPrice = state.instrumentType === 'OPTION' && props.optionContract
-      ? props.optionContract.price
-      : props.scanResult.closePrice
+    const entryPrice = props.scanResult.closePrice
     const body: AddScannerTradeRequest = {
       symbol: props.scanResult.symbol,
       sectorSymbol: props.scanResult.sectorSymbol ?? undefined,
@@ -96,7 +94,8 @@ async function onSubmit() {
       body.optionType = state.optionType
       body.strikePrice = state.strikePrice
       body.expirationDate = state.expirationDate
-      body.multiplier = state.multiplier
+      body.optionPrice = state.optionPrice
+      body.delta = props.optionContract?.delta
     }
 
     await $fetch('/udgaard/api/scanner/trades', {
@@ -157,11 +156,7 @@ async function onSubmit() {
               <span class="font-medium ml-1">{{ scanResult.trend }}</span>
             </div>
           </div>
-          <div v-if="optionContract" class="grid grid-cols-4 gap-2 mt-2 text-sm border-t border-default pt-2">
-            <div>
-              <span class="text-muted">Option:</span>
-              <span class="font-medium ml-1">${{ optionContract.price.toFixed(2) }}</span>
-            </div>
+          <div v-if="optionContract" class="grid grid-cols-3 gap-2 mt-2 text-sm border-t border-default pt-2">
             <div>
               <span class="text-muted">Strike:</span>
               <span class="font-medium ml-1">${{ optionContract.strike.toFixed(0) }}</span>
@@ -205,15 +200,24 @@ async function onSubmit() {
                 />
               </UFormField>
 
-              <UFormField label="Multiplier">
-                <UInput v-model.number="state.multiplier" type="number" :min="1" />
+              <UFormField label="Option Price" required>
+                <UInput
+                  v-model.number="state.optionPrice"
+                  type="number"
+                  step="0.01"
+                  :min="0.01"
+                >
+                  <template #leading>
+                    <span class="text-muted">$</span>
+                  </template>
+                </UInput>
               </UFormField>
 
               <UFormField label="Strike Price" required>
                 <UInput
                   v-model.number="state.strikePrice"
                   type="number"
-                  step="0.50"
+                  step="any"
                   :min="0.01"
                 >
                   <template #leading>

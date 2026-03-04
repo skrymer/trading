@@ -1,6 +1,6 @@
 # VCP Strategy Development
 
-## Current State (2026-03-01)
+## Current State (2026-03-04)
 
 ### Entry Strategy
 ```kotlin
@@ -86,14 +86,170 @@ exitStrategy {
 - Downside: 100% (worst year +0.67%, weight 20%)
 - **Total: 96.0 (Excellent)**
 
+### Position-Sized Results ($10K Starting Capital)
+
+**Configuration:**
+- Starting capital: $10,000
+- Max positions: 15
+- Ranker: SectorEdge (strategy's preferred ranker, deterministic)
+- Entry delay: 1 day (realistic execution — signal fires after close, enter next day)
+- Risk per trade: 1.5% of portfolio
+- ATR multiplier (nAtr): 2.0
+- Leverage: 1.0x (stock only, no options)
+- No sector exclusions
+
+**Results (VC 3.5 + sectorUptrend, SectorEdge ranker, entry delay 1):**
+
+| Metric | Value |
+|---|---|
+| Starting Capital | $10,000 |
+| Final Capital | **$395,432** |
+| Peak Capital | $395,432 (still at peak) |
+| Total Return | +3,854% |
+| CAGR | **44.4%** |
+| Max Drawdown | **16.7%** ($38,147) |
+| Total Trades | 899 |
+| Win Rate | 47.3% |
+| Edge | +5.24% |
+| Avg Win / Loss | 17.57% / -5.82% |
+| Win/Loss Ratio | 3.02x |
+| Profit Factor | 2.79 |
+| EC Score | 96.0 (Excellent) |
+
+**Yearly edge:**
+
+| Year | Trades | Edge | Tradeable? |
+|---|---|---|---|
+| 2016 | 101 | +2.72% | T |
+| 2017 | 70 | +6.95% | T |
+| 2018 | 69 | +5.25% | T |
+| 2019 | 82 | +6.88% | T |
+| 2020 | 77 | +10.83% | T |
+| 2021 | 107 | +5.20% | T |
+| 2022 | 110 | +0.14% | |
+| 2023 | 90 | +8.03% | T |
+| 2024 | 77 | +7.06% | T |
+| 2025 | 116 | +3.02% | T |
+
+**10/10 years profitable.** 9/10 tradeable. $10K → $395K (39.5x) over 10 years.
+
+**Exit reasons:**
+
+| Reason | Count | % | Avg Profit | WR | Avg Hold |
+|---|---|---|---|---|---|
+| EMA cross (10/20) | 825 | 91.8% | +6.65% | 51.5% | 53d |
+| Stop loss (2.5 ATR) | 74 | 8.2% | -10.45% | 0% | 10d |
+
+**Evolution across optimizations:**
+
+| Metric | VC 2.5 (original) | VC 3.5 | VC 3.5 + sectorUptrend | + SectorEdge + delay 1 |
+|---|---|---|---|---|
+| Final Capital | $148,124 | $224,840 | $317,756 | **$395,432** |
+| CAGR | 30.9% | 36.5% | 41.3% | **44.4%** |
+| Max Drawdown | 15.2% | 19.7% | 20.7% | **16.7%** |
+| Trades | 855 | 927 | 837 | 899 |
+| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% |
+| Edge | +4.86% | +5.46% | +5.74% | +5.24% |
+| Profit Factor | — | 2.04 | 4.72 | 2.79 |
+| EC | 92.0 | 96.0 | 96.0 | **96.0** |
+
+Each optimization compounded on the previous: loosening VC from 2.5→3.5 added $76K, then adding sectorUptrend added another $93K, then switching to the SectorEdge ranker with 1-day entry delay added another $78K — while maintaining 10/10 profitable years and EC 96.0. The latest change also *reduced* max drawdown from 20.7% to 16.7%.
+
+**Position sizing notes:**
+- Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
+- Adding `leverageRatio: 1.0` caps total notional exposure to 1x portfolio value, producing realistic results
+- SectorEdge ranker is deterministic — results are reproducible across runs (unlike Random ranker)
+
+### Comparison to Mjolnir Strategy
+
+| Metric | VCP | Mjolnir |
+|---|---|---|
+| Trades (10yr) | 8,752 | 868 |
+| Win Rate | 48.6% | 44.2% |
+| Edge | 5.84% | 5.60% |
+| Avg Win / Loss | 18.44% / 6.12% | 21.65% / 7.14% |
+| Win/Loss Ratio | 3.01x | 3.03x |
+| EC Score | 96.0 (Excellent) | 81.3 (Excellent) |
+| Profitable Years | 10/10 | 8/10 |
+| Tradeable Years | 9/10 | 6/10 |
+| Sectors Profitable | 12/12 (all) | 7/11 (excl 4) |
+| Sector Exclusions | None needed | XLV, XLE, XLP, XLB |
+
+**Key differences:**
+1. **VCP generates 10x more trades** — much broader signal generation
+2. **VCP now has higher edge** (5.84% vs 5.60%) — surpassed Mjolnir after VC 3.5 + sectorUptrend optimization
+3. **VCP is profitable across all sectors** — no exclusions needed, more robust
+4. **VCP has much better EC** (96.0 vs 81.3) — more consistent year over year
+5. **VCP never has a losing year** — Mjolnir has 2022 (-1.34%) and 2024 (-0.18%)
+6. Both strategies share the same exit (emaCross + 2.5 ATR stop) and similar win/loss ratios (~3:1)
+
+**Complementary strategies:** VCP casts a wider net (volume + contraction breakouts) while Mjolnir is more selective (ATR expanding + consecutive higher highs in value zone). They filter for different market microstructure — VCP for post-contraction breakouts, Mjolnir for expanding volatility momentum. Could potentially run both simultaneously for diversification.
+
+### Running Backtests
+
+#### Unlimited (statistical analysis)
+
+Best for measuring raw strategy edge, sector analysis, and parameter sweeps. No position limits or sizing — every signal is taken.
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assetTypes": ["STOCK"],
+    "useUnderlyingAssets": false,
+    "entryStrategy": {"type": "predefined", "name": "Vcp"},
+    "exitStrategy": {"type": "predefined", "name": "MjolnirExitStrategy"},
+    "startDate": "2016-01-01",
+    "endDate": "2025-12-31"
+  }'
+```
+
+#### Realistic (position-sized with $10K)
+
+Simulates real trading with capital constraints, position sizing, 1-day entry delay, and a 15-position cap. Uses the strategy's preferred SectorEdge ranker for deterministic, reproducible results.
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assetTypes": ["STOCK"],
+    "useUnderlyingAssets": false,
+    "entryStrategy": {"type": "predefined", "name": "Vcp"},
+    "exitStrategy": {"type": "predefined", "name": "MjolnirExitStrategy"},
+    "startDate": "2016-01-01",
+    "endDate": "2025-12-31",
+    "maxPositions": 15,
+    "entryDelayDays": 1,
+    "positionSizing": {
+      "startingCapital": 10000,
+      "riskPercentage": 1.5,
+      "nAtr": 2.0,
+      "leverageRatio": 1.0
+    }
+  }'
+```
+
+**Position sizing parameters:**
+- `startingCapital`: Initial portfolio value in dollars
+- `riskPercentage`: % of portfolio risked per trade (1.5% = risk $150 on a $10K portfolio)
+- `nAtr`: ATR multiplier for stop distance — determines position size (size = risk$ / (nAtr × ATR))
+- `leverageRatio`: Max total notional as multiple of portfolio (1.0 = no leverage, 2.0 = 2x leverage)
+
+**Notes:**
+- Ranker omitted → uses strategy's preferred ranker: SectorEdge (deterministic, reproducible results)
+- `entryDelayDays: 1` → signal fires after Day 0 close, entry at Day 1's close (realistic execution)
+- Requires ~12GB heap (`-Xmx12288m` in `build.gradle` bootRun task) for full 10-year run
+
 ---
 
-## Strategy Design
+## Research & Findings
 
-### Concept
+### Strategy Design
+
+#### Concept
 Volatility Contraction Pattern (VCP) inspired by Mark Minervini, with bearish order blocks as resistance levels. The VCP captures stocks in strong uptrends that consolidate with decreasing volatility, then break out above institutional supply zones with volume confirmation.
 
-### Entry Condition Logic
+#### Entry Condition Logic
 
 | Condition | Purpose | Parameters |
 |---|---|---|
@@ -106,7 +262,7 @@ Volatility Contraction Pattern (VCP) inspired by Mark Minervini, with bearish or
 | `volumeAboveAverage()` | Volume surge on breakout | multiplier=1.2, lookback=20 |
 | `minimumPrice(10.0)` | Filter penny stocks | $10 |
 
-### New Condition: VolatilityContractedCondition
+#### VolatilityContractedCondition
 
 Measures how tight recent price action is relative to the stock's ATR. When the price range over a lookback period is small relative to ATR, volatility is contracted (the VCP "squeeze").
 
@@ -119,78 +275,78 @@ Measures how tight recent price action is relative to the stock's ATR. When the 
 
 ---
 
-## MarketBreadthTrending Parameter Sweep (2026-02-27)
+### Entry Condition Ablation Study (2026-02-27)
 
-### Goal
-Test whether adding `marketBreadthTrending(minWidth)` improves the VCP strategy by filtering out entries during choppy/range-bound markets.
+#### Goal
+Measure each entry condition's individual contribution by removing one at a time and comparing to the baseline (3,667 trades, 45.7% WR, +4.83% edge, EC 92.0, 10/10 profitable years).
 
-All tests: 2016-01-01 to 2025-12-31, STOCK only, unlimited positions, no sector exclusions.
+#### Results
 
-### Results
+| Condition Removed | Trades | ΔTrades | WR | Edge | ΔEdge | EC | ΔEC | Prof Yrs |
+|---|---|---|---|---|---|---|---|---|
+| aboveBearishOrderBlock | 25,100 | +21,433 | 32.5% | +0.80% | **-4.02** | 54.9 | -37.1 | 7/10 |
+| volumeAboveAverage | 11,083 | +7,416 | 42.9% | +4.28% | -0.55 | 83.4 | -8.6 | 9/10 |
+| uptrend | 4,723 | +1,056 | 45.1% | +4.64% | -0.19 | 86.8 | -5.2 | 9/10 |
+| marketUptrend | 6,433 | +2,766 | 45.2% | +4.65% | -0.17 | 86.9 | -5.1 | 9/10 |
+| priceNearDonchianHigh | 4,919 | +1,252 | 43.8% | +4.79% | -0.03 | 83.4 | -8.6 | 9/10 |
+| priceAbove(50) | 3,667 | **+0** | 45.7% | +4.83% | **+0.00** | 92.0 | +0.0 | 10/10 |
+| volatilityContracted | 16,329 | +12,662 | 49.2% | +5.47% | +0.64 | 96.0 | +4.0 | 10/10 |
+| minimumPrice | 4,296 | +629 | 45.9% | +8.96% | +4.14 | 96.0 | +4.0 | 10/10 |
 
-| Config | Trades | WR | Edge | PF | Avg Win | Avg Loss | EC | Prof Yrs | Stability | Downside |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **Baseline** | **3,667** | **45.7%** | **+4.83%** | **0.664** | **16.95%** | **5.38%** | **92.0** | **100%** | **80%** | **100%** |
-| MBT(20) | 3,135 | 46.6% | +5.03% | 0.638 | 17.00% | 5.44% | 87.6 | 90% | 80% | 98% |
-| **MBT(25)** | **2,691** | **47.3%** | **+5.29%** | **0.523** | **17.23%** | **5.41%** | **91.5** | **90%** | **90%** | **97%** |
-| MBT(30) | 2,066 | 49.6% | +6.01% | 0.383 | 17.70% | 5.47% | 87.4 | 90% | 80% | 97% |
+#### Importance Ranking
 
-### Yearly Edge
-
-| Year | Baseline | MBT(20) | MBT(25) | MBT(30) |
+| Rank | Condition | ΔEdge | ΔEC | Role |
 |---|---|---|---|---|
-| 2016 | +4.24% | +4.36% | +4.39% | +4.73% |
-| 2017 | +7.86% | +7.46% | +7.50% | +7.82% |
-| 2018 | +0.58% | +1.39% | **+2.48%** | +3.64% |
-| 2019 | +5.60% | +5.75% | +5.75% | +6.92% |
-| 2020 | +8.71% | +8.30% | +8.95% | +10.56% |
-| 2021 | +2.03% | +2.11% | +1.77% | **-0.31%** |
-| 2022 | +0.08% | -0.18% | -0.27% | +0.21% |
-| 2023 | +7.70% | +7.02% | +7.14% | +7.31% |
-| 2024 | +2.49% | +2.54% | +2.86% | +2.94% |
-| 2025 | +4.03% | +5.68% | +6.07% | +7.27% |
+| 1 | **aboveBearishOrderBlock** | -4.02pp | -37.1 | **CRITICAL** — the strategy's alpha engine. Without it, 21K junk trades flood in and edge collapses to 0.80% |
+| 2 | **volumeAboveAverage** | -0.55pp | -8.6 | Important — filters 7K false breakouts lacking volume confirmation |
+| 3 | uptrend | -0.19pp | -5.2 | Minervini trend template adds modest quality filtering |
+| 4 | marketUptrend | -0.17pp | -5.1 | Market regime filter, protects consistency (removes a losing year when present) |
+| 5 | priceNearDonchianHigh | -0.03pp | -8.6 | Tiny edge impact but large EC impact — ensures entries are near breakout levels |
+| 6 | ~~priceAbove(50)~~ | +0.00 | +0.0 | **Completely redundant** — `uptrend()` already requires price > 50 EMA. **Removed.** |
+| 7 | volatilityContracted | +0.64pp | +4.0 | Quantity filter, not quality — the 12K extra trades it blocks actually have higher edge |
+| 8 | minimumPrice | +4.14pp | +4.0 | Blocks 629 cheap stocks that have outsized edge (especially in 2022: +39%) |
 
-### Yearly Trades
+#### Yearly Edge (removing each condition)
 
-| Year | Baseline | MBT(20) | MBT(25) | MBT(30) |
-|---|---|---|---|---|
-| 2016 | 291 | 253 | 246 | 230 |
-| 2017 | 292 | 221 | 117 | 93 |
-| 2018 | 195 | 121 | 83 | 46 |
-| 2019 | 320 | 289 | 237 | 176 |
-| 2020 | 428 | 386 | 359 | 277 |
-| 2021 | 272 | 268 | 176 | 106 |
-| 2022 | 250 | 247 | 223 | 134 |
-| 2023 | 553 | 494 | 459 | 413 |
-| 2024 | 382 | 281 | 261 | 234 |
-| 2025 | 684 | 575 | 530 | 357 |
+| Year | Baseline | -OB | -Volume | -Uptrend | -Market | -Donchian | -VolContr | -MinPrice |
+|---|---|---|---|---|---|---|---|---|
+| 2016 | +4.2% | +0.9% | +4.1% | +4.4% | +4.8% | +3.8% | +7.3% | +5.8% |
+| 2017 | +7.9% | +1.8% | +7.0% | +8.0% | +6.8% | +8.0% | +7.4% | +8.3% |
+| 2018 | +0.6% | **-1.0%** | +1.1% | +0.8% | +1.1% | +0.9% | +2.6% | +1.1% |
+| 2019 | +5.6% | +1.1% | +5.1% | +5.3% | +4.3% | +5.6% | +5.7% | +6.3% |
+| 2020 | +8.7% | +3.9% | +9.9% | +9.3% | +10.4% | +9.5% | +11.3% | +13.5% |
+| 2021 | +2.0% | **-0.0%** | +1.4% | +1.8% | +2.8% | +0.8% | +2.1% | +3.0% |
+| 2022 | +0.1% | **-2.5%** | **-0.3%** | **-0.6%** | **-0.6%** | **-0.3%** | +0.8% | **+39.2%** |
+| 2023 | +7.7% | +2.5% | +5.9% | +6.9% | +5.6% | +7.5% | +6.6% | +8.9% |
+| 2024 | +2.5% | +0.4% | +2.6% | +2.6% | +3.2% | +3.2% | +3.9% | +3.3% |
+| 2025 | +4.0% | +0.6% | +3.4% | +3.8% | +4.2% | +3.8% | +5.2% | +4.7% |
 
-### Key Findings
+#### Key Findings
 
-1. **Higher minWidth monotonically improves edge and WR** — MBT(30) has the best per-trade edge (+6.01%) and WR (49.6%)
-2. **MBT(25) is the sweet spot** — EC 91.5 (nearly matching baseline's 92.0), stability jumps to 90% (9/10 tradeable years), edge +5.29%
-3. **MBT(30) kills 2021** — flips it negative (-0.31%), dropping EC to 87.4 despite highest edge. Same failure mode as Mjolnir's MBT testing
-4. **2018 is the biggest beneficiary** — all MBT variants improve it significantly (0.58% → 2.48-3.64%), making it tradeable
-5. **2022 is the weak spot** — flips slightly negative at MBT(20) and MBT(25) (-0.18%, -0.27%); MBT(30) stays barely positive (+0.21%)
-6. **2025 improves across all variants** — baseline +4.03% → MBT(25) +6.07% → MBT(30) +7.27%
+1. **`aboveBearishOrderBlock` is the alpha engine.** It's doing almost all the work — filtering 25K → 3.7K trades with 6x edge improvement (0.80% → 4.83%). The order block resistance concept is the core insight of this strategy.
 
-### Conclusion
+2. **`priceAbove(50)` was completely redundant.** The `uptrend()` condition (Minervini trend template) already requires price above the 50 EMA. Zero trades added, zero edge change, zero EC change. **Removed from strategy.**
 
-The MBT filter improves per-trade quality but introduces marginal losing years. The tradeoff:
-- **Baseline**: 10/10 profitable years, lower edge (4.83%), EC 92.0 — most robust
-- **MBT(25)**: 9/10 profitable years (2022: -0.27%), higher edge (5.29%), EC 91.5, best stability (90%) — best risk-adjusted
-- **MBT(30)**: 9/10 profitable years (2021: -0.31%), highest edge (6.01%), EC 87.4 — too aggressive
+3. **`minimumPrice` is technically a drag** — removing it adds 629 cheap stocks with +8.96% edge and an extraordinary +39.2% in 2022. However, penny stocks are practically difficult to trade (wide spreads, low liquidity, hard to get fills). Keeping the filter is a pragmatic choice, not a statistical one.
 
-**Not adding MBT to the default strategy.** The baseline's 10/10 profitable years and 92.0 EC is the VCP strategy's signature strength. MBT(25) is a viable alternative for traders who prefer higher edge over zero losing years.
+4. **`volatilityContracted` reduces quantity, not quality.** The 12,662 trades it blocks actually have higher edge (+5.47%). It narrows the strategy to post-squeeze breakouts, which is conceptually the VCP pattern but statistically filters profitable signals. Kept for strategy identity.
+
+5. **Volume confirmation matters.** Removing `volumeAboveAverage` adds 7,416 trades but drops edge by 0.55pp — breakouts without volume surge are unreliable.
+
+6. **Every "important" condition protects 2022.** Removing uptrend, marketUptrend, volume, or Donchian all flip 2022 negative. The conditions work as an ensemble to keep the weakest year barely positive.
+
+#### Action Taken
+
+Removed `priceAbove(50)` from `VcpEntryStrategy.kt` — proven redundant by ablation study. No impact on backtest results.
 
 ---
 
-## Volatility Contraction (maxAtrMultiple) Sweep (2026-02-27)
+### Volatility Contraction (maxAtrMultiple) Sweep (2026-02-27)
 
-### Goal
+#### Goal
 The ablation study showed that removing `volatilityContracted` entirely *improves* edge (+0.64pp) and EC (+4.0). Test whether loosening the parameter (instead of removing) finds a sweet spot that keeps the VCP contraction concept while capturing more profitable trades.
 
-### Results
+#### Results
 
 | Config | Trades | WR | Edge | Avg Win | Avg Loss | EC | Prof Yrs | Tradeable Yrs |
 |---|---|---|---|---|---|---|---|---|
@@ -201,7 +357,7 @@ The ablation study showed that removing `volatilityContracted` entirely *improve
 | VC 5.0 | 14,927 | 48.9% | +5.40% | 17.96% | 6.60% | 96.0 | 10/10 | 9/10 |
 | No VC | 16,329 | 49.2% | +5.47% | 18.10% | 6.74% | 96.0 | 10/10 | 9/10 |
 
-### Yearly Edge
+#### Yearly Edge
 
 | Year | VC 2.5 | VC 3.0 | VC 3.5 | VC 4.0 | VC 5.0 | No VC |
 |---|---|---|---|---|---|---|
@@ -216,7 +372,7 @@ The ablation study showed that removing `volatilityContracted` entirely *improve
 | 2024 | +2.49% | +2.88% | +3.84% | +3.60% | +4.00% | +3.85% |
 | 2025 | +4.03% | +4.88% | +5.45% | +5.08% | +5.25% | +5.17% |
 
-### EC Breakdown
+#### EC Breakdown
 
 | Config | Score | Prof Periods | Stability | Downside |
 |---|---|---|---|---|
@@ -227,7 +383,7 @@ The ablation study showed that removing `volatilityContracted` entirely *improve
 | VC 5.0 | 96.0 | 100.0 | 90.0 | 100.0 |
 | No VC | 96.0 | 100.0 | 90.0 | 100.0 |
 
-### Key Findings
+#### Key Findings
 
 1. **VC 3.5 is the optimal value** — highest edge (+5.51%), EC 96.0, 10/10 profitable years, 9/10 tradeable years. It's the tightest contraction that achieves the maximum EC score.
 2. **VC 3.0 is a trap** — the only value that breaks a profitable year (2022: -0.00%). Worse than both 2.5 and 3.5.
@@ -235,7 +391,7 @@ The ablation study showed that removing `volatilityContracted` entirely *improve
 4. **2018 becomes tradeable at VC 3.5** — jumps from +0.58% (VC 2.5) to +1.79% (VC 3.5), crossing the 1.5% threshold.
 5. **The original VC 2.5 was too tight** — it filtered 6,370 trades (vs VC 3.5) that had higher edge, artificially constraining the strategy.
 
-### Action Taken
+#### Action Taken
 
 Updated `VcpEntryStrategy.kt` to use `maxAtrMultiple = 3.5`. This is the new default configuration.
 
@@ -247,9 +403,181 @@ Updated `VcpEntryStrategy.kt` to use `maxAtrMultiple = 3.5`. This is the new def
 
 ---
 
-## Exit Analysis & Excursion Study (2026-02-27)
+### Donchian Distance (maxDistancePercent) Sweep (2026-03-04)
 
-### Excursion Analysis (3,667 trades, 2016-2025)
+#### Goal
+Test whether tightening or loosening `priceNearDonchianHigh` improves the VCP strategy. Current default is 3.0%. Sweep: 1.5%, 3.0%, 5.0%.
+
+All tests: 2016-01-01 to 2025-12-31, STOCK only, unlimited positions, no sector exclusions.
+
+#### Results (Unlimited)
+
+| Config | Trades | WR | Edge | Avg Win | Avg Loss | W/L Ratio | PF | EC |
+|---|---|---|---|---|---|---|---|---|
+| **DC 1.5%** | 6,981 | **50.2%** | **+5.83%** | 17.59% | 6.01% | 2.92x | 2.30 | **96.0** |
+| **DC 3.0% (current)** | 9,564 | 48.7% | +5.72% | 18.07% | 6.01% | 3.01x | **2.41** | **96.0** |
+| DC 5.0% | 11,057 | 47.2% | +5.43% | 18.19% | 5.99% | 3.04x | 2.37 | **96.0** |
+
+All three variants: 10/10 profitable years, 9/10 tradeable years, EC 96.0 (identical breakdown: 100% profitable periods, 90% stability, 100% downside).
+
+#### Yearly Edge
+
+| Year | DC 1.5% | DC 3.0% | DC 5.0% |
+|---|---|---|---|
+| 2016 | **+6.04%** | +5.75% | +5.25% |
+| 2017 | **+8.46%** | +7.71% | +7.33% |
+| 2018 | **+3.02%** | +2.63% | +2.47% |
+| 2019 | **+6.48%** | +6.29% | +6.21% |
+| 2020 | +10.57% | +10.61% | **+10.77%** |
+| 2021 | +1.70% | **+2.50%** | +2.11% |
+| 2022 | **+1.11%** | +0.66% | +0.52% |
+| 2023 | **+7.26%** | +6.92% | +6.51% |
+| 2024 | **+4.36%** | +3.73% | +3.40% |
+| 2025 | +6.15% | **+6.75%** | +6.31% |
+
+DC 1.5% wins 7/10 years outright. DC 3.0% wins in 2020, 2021, and 2025.
+
+#### Yearly Trades
+
+| Year | DC 1.5% | DC 3.0% | DC 5.0% |
+|---|---|---|---|
+| 2016 | 518 | 685 | 764 |
+| 2017 | 454 | 560 | 615 |
+| 2018 | 327 | 456 | 513 |
+| 2019 | 639 | 828 | 937 |
+| 2020 | 733 | 1,035 | 1,241 |
+| 2021 | 536 | 767 | 914 |
+| 2022 | 581 | 795 | 943 |
+| 2023 | 1,105 | 1,479 | 1,678 |
+| 2024 | 859 | 1,184 | 1,385 |
+| 2025 | 1,229 | 1,775 | 2,067 |
+
+#### Exit Reasons
+
+| Config | EMA Cross Exits | EMA Avg | EMA WR | SL Exits | SL Avg |
+|---|---|---|---|---|---|
+| DC 1.5% | 6,301 (90.3%) | +7.41% | 55.6% | 680 (9.7%) | -8.77% |
+| DC 3.0% | 8,752 (91.5%) | +7.10% | 53.2% | 812 (8.5%) | -9.08% |
+| DC 5.0% | 10,210 (92.3%) | +6.65% | 51.2% | 847 (7.7%) | -9.27% |
+
+#### Position-Sized Comparison (DC 1.5% vs DC 3.0%)
+
+Tested both with $10K start, 15 max positions, SectorEdge ranker, 1-day entry delay, 1.5% risk, 1.0x leverage.
+
+| Metric | DC 1.5% | DC 3.0% (current) | Delta |
+|---|---|---|---|
+| Final Capital | $446,281 | **$474,300** | -$28K (-5.9%) |
+| CAGR | 46.2% | **47.1%** | -0.9pp |
+| Max Drawdown | **18.7%** | 19.8% | -1.1pp |
+| Return/DD Ratio | 233.2 | 234.4 | ~equal |
+| Trades | 897 | 966 | -69 |
+| Win Rate | **46.2%** | 43.6% | +2.6pp |
+| Edge | **+5.93%** | +4.69% | +1.24pp |
+| EC Score | **91.7** | 87.3 | +4.4 |
+
+**Yearly edge (position-sized):**
+
+| Year | DC 1.5% | DC 3.0% | Winner |
+|---|---|---|---|
+| 2016 | +6.60% | +5.44% | DC 1.5% |
+| 2017 | +10.30% | +6.61% | DC 1.5% (+3.7pp) |
+| 2018 | +2.75% | +1.33% | DC 1.5% |
+| 2019 | +6.76% | +6.92% | DC 3.0% |
+| 2020 | +19.72% | +13.50% | DC 1.5% (+6.2pp) |
+| 2021 | +4.16% | +2.58% | DC 1.5% |
+| 2022 | -0.15% | -0.34% | DC 1.5% (both negative) |
+| 2023 | +5.43% | +6.58% | DC 3.0% |
+| 2024 | +5.27% | +3.28% | DC 1.5% |
+| 2025 | +3.14% | +3.72% | DC 3.0% |
+
+DC 1.5% wins 7/10 years in position-sized mode too.
+
+#### Key Findings
+
+1. **Tighter Donchian monotonically improves per-trade edge and WR** — DC 1.5% has the best edge (+5.83%) and WR (50.2%) in unlimited mode, while DC 5.0% is weakest (+5.43%, 47.2%)
+2. **All three share identical EC (96.0)** — No differentiation on consistency. All are 10/10 profitable, 9/10 tradeable
+3. **DC 1.5% has better trade quality but fewer signals** — Filters 27% of trades (9,564 → 6,981), keeping only entries closest to breakout levels
+4. **DC 3.0% produces more dollars in position-sized mode** — $474K vs $446K (+5.9%). The 69 extra trades compound into more capital despite lower per-trade edge
+5. **Risk profiles are essentially identical** — Return/DD ratios of 233 vs 234. DC 1.5% has slightly lower max DD (18.7% vs 19.8%)
+6. **The SectorEdge ranker benefits from a larger pool** — With position limits, having more signals to choose from (DC 3.0%) gives the ranker better selection, offsetting the lower per-trade quality
+
+#### Conclusion
+
+**Keeping DC 3.0% as the default.** Despite DC 1.5% having superior per-trade quality (+0.11pp edge, +1.5pp WR in unlimited), the position-sized results show DC 3.0% produces more total capital ($474K vs $446K). The larger signal pool gives the SectorEdge ranker more candidates, and the compounding effect of additional trades outweighs the per-trade edge difference. Risk profiles are equivalent (Return/DD ~234 for both).
+
+DC 1.5% would be preferable only if trading without a ranker (taking every signal), where per-trade edge dominates.
+
+---
+
+### MarketBreadthTrending Parameter Sweep (2026-02-27)
+
+#### Goal
+Test whether adding `marketBreadthTrending(minWidth)` improves the VCP strategy by filtering out entries during choppy/range-bound markets.
+
+All tests: 2016-01-01 to 2025-12-31, STOCK only, unlimited positions, no sector exclusions.
+
+#### Results
+
+| Config | Trades | WR | Edge | PF | Avg Win | Avg Loss | EC | Prof Yrs | Stability | Downside |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **Baseline** | **3,667** | **45.7%** | **+4.83%** | **0.664** | **16.95%** | **5.38%** | **92.0** | **100%** | **80%** | **100%** |
+| MBT(20) | 3,135 | 46.6% | +5.03% | 0.638 | 17.00% | 5.44% | 87.6 | 90% | 80% | 98% |
+| **MBT(25)** | **2,691** | **47.3%** | **+5.29%** | **0.523** | **17.23%** | **5.41%** | **91.5** | **90%** | **90%** | **97%** |
+| MBT(30) | 2,066 | 49.6% | +6.01% | 0.383 | 17.70% | 5.47% | 87.4 | 90% | 80% | 97% |
+
+#### Yearly Edge
+
+| Year | Baseline | MBT(20) | MBT(25) | MBT(30) |
+|---|---|---|---|---|
+| 2016 | +4.24% | +4.36% | +4.39% | +4.73% |
+| 2017 | +7.86% | +7.46% | +7.50% | +7.82% |
+| 2018 | +0.58% | +1.39% | **+2.48%** | +3.64% |
+| 2019 | +5.60% | +5.75% | +5.75% | +6.92% |
+| 2020 | +8.71% | +8.30% | +8.95% | +10.56% |
+| 2021 | +2.03% | +2.11% | +1.77% | **-0.31%** |
+| 2022 | +0.08% | -0.18% | -0.27% | +0.21% |
+| 2023 | +7.70% | +7.02% | +7.14% | +7.31% |
+| 2024 | +2.49% | +2.54% | +2.86% | +2.94% |
+| 2025 | +4.03% | +5.68% | +6.07% | +7.27% |
+
+#### Yearly Trades
+
+| Year | Baseline | MBT(20) | MBT(25) | MBT(30) |
+|---|---|---|---|---|
+| 2016 | 291 | 253 | 246 | 230 |
+| 2017 | 292 | 221 | 117 | 93 |
+| 2018 | 195 | 121 | 83 | 46 |
+| 2019 | 320 | 289 | 237 | 176 |
+| 2020 | 428 | 386 | 359 | 277 |
+| 2021 | 272 | 268 | 176 | 106 |
+| 2022 | 250 | 247 | 223 | 134 |
+| 2023 | 553 | 494 | 459 | 413 |
+| 2024 | 382 | 281 | 261 | 234 |
+| 2025 | 684 | 575 | 530 | 357 |
+
+#### Key Findings
+
+1. **Higher minWidth monotonically improves edge and WR** — MBT(30) has the best per-trade edge (+6.01%) and WR (49.6%)
+2. **MBT(25) is the sweet spot** — EC 91.5 (nearly matching baseline's 92.0), stability jumps to 90% (9/10 tradeable years), edge +5.29%
+3. **MBT(30) kills 2021** — flips it negative (-0.31%), dropping EC to 87.4 despite highest edge. Same failure mode as Mjolnir's MBT testing
+4. **2018 is the biggest beneficiary** — all MBT variants improve it significantly (0.58% → 2.48-3.64%), making it tradeable
+5. **2022 is the weak spot** — flips slightly negative at MBT(20) and MBT(25) (-0.18%, -0.27%); MBT(30) stays barely positive (+0.21%)
+6. **2025 improves across all variants** — baseline +4.03% → MBT(25) +6.07% → MBT(30) +7.27%
+
+#### Conclusion
+
+The MBT filter improves per-trade quality but introduces marginal losing years. The tradeoff:
+- **Baseline**: 10/10 profitable years, lower edge (4.83%), EC 92.0 — most robust
+- **MBT(25)**: 9/10 profitable years (2022: -0.27%), higher edge (5.29%), EC 91.5, best stability (90%) — best risk-adjusted
+- **MBT(30)**: 9/10 profitable years (2021: -0.31%), highest edge (6.01%), EC 87.4 — too aggressive
+
+**Not adding MBT to the default strategy.** The baseline's 10/10 profitable years and 92.0 EC is the VCP strategy's signature strength. MBT(25) is a viable alternative for traders who prefer higher edge over zero losing years.
+
+---
+
+### Exit Analysis & Excursion Study (2026-02-27)
+
+#### Excursion Analysis (3,667 trades, 2016-2025)
 
 **Winners (1,676):**
 | Metric | Value |
@@ -292,7 +620,7 @@ Updated `VcpEntryStrategy.kt` to use `maxAtrMultiple = 3.5`. This is the new def
 
 **Overall MFE efficiency: 49.6%** — capturing about half of the maximum favorable excursion. This is the inherent cost of using a lagging EMA cross exit.
 
-### Stop Loss ATR Sweep
+#### Stop Loss ATR Sweep
 
 Tested stop loss from 1.5 to 3.0 ATR to see if a tighter stop improves results.
 
@@ -327,7 +655,7 @@ Tested stop loss from 1.5 to 3.0 ATR to see if a tighter stop improves results.
 | 2024 | +1.98% | +2.54% | +2.49% | +2.67% |
 | 2025 | +3.86% | +4.02% | +4.03% | +4.03% |
 
-### Key Findings
+#### Key Findings
 
 1. **Tighter stops hurt.** SL 1.5 ATR stops out 868 trades (23%) — killing 73 eventual winners and dropping edge by -0.33%. EC falls from 92.0 to 87.5 and 2022 flips negative.
 2. **SL 2.5 ATR is well-calibrated.** 95% of winners never dip below 1.53 ATR, so the 2.5 ATR stop gives all winners room to breathe while catching fast failures within 8 days.
@@ -339,12 +667,12 @@ Tested stop loss from 1.5 to 3.0 ATR to see if a tighter stop improves results.
 
 ---
 
-## Sector Exclusion Analysis (2026-02-27)
+### Sector Exclusion Analysis (2026-02-27)
 
-### Goal
+#### Goal
 With 3,667 trades, the VCP strategy can afford to be selective. Test whether excluding the weakest sectors improves overall performance.
 
-### Sector Performance (sorted by edge, with EC and yearly consistency)
+#### Sector Performance (sorted by edge, with EC and yearly consistency)
 
 | Sector | Trades | WR | Edge | EC | Losing Yrs | Best Year | Worst Year |
 |---|---|---|---|---|---|---|---|
@@ -361,7 +689,7 @@ With 3,667 trades, the VCP strategy can afford to be selective. Test whether exc
 | (unknown) | 59 | 45.8% | +1.64% | 46.1 | 4 | +12.6% (2021) | -8.9% (2025) |
 | XLB (Materials) | 169 | 39.6% | +1.56% | 38.3 | 5 | +4.6% (2023) | -8.8% (2016) |
 
-### Exclusion Candidates
+#### Exclusion Candidates
 
 **XLB (Materials)** — Weakest sector: 1.56% edge, EC 38.3 (Poor), negative in 5 of 10 years. Clear drag on performance.
 
@@ -369,7 +697,7 @@ With 3,667 trades, the VCP strategy can afford to be selective. Test whether exc
 
 **XLE (Energy)** — Edge looks decent (5.07%) but EC is only 48.0 with wild swings (-13.6% in 2017, +23.8% in 2020). Very inconsistent. However, it contributes a critical +2.7% edge in 2022.
 
-### Test: Exclude XLB + Unknown + XLE
+#### Test: Exclude XLB + Unknown + XLE
 
 | Metric | Baseline | Excl XLB/XLE/Unknown | Delta |
 |---|---|---|---|
@@ -394,90 +722,24 @@ With 3,667 trades, the VCP strategy can afford to be selective. Test whether exc
 | 2024 | +2.49% | +2.68% |
 | 2025 | +4.03% | +3.78% |
 
-### Key Findings
+#### Key Findings
 
 1. **Per-trade improvement is marginal** — edge only goes from 4.83% to 4.98% (+0.15pp), WR from 45.7% to 46.1%
 2. **2022 flips negative** — XLE's +2.7% edge in 2022 was keeping that marginal year positive. Without it, 2022 goes to -0.13%
 3. **EC drops significantly** — 92.0 → 87.9, losing the "10/10 profitable years" signature strength
 4. **Paradox of sector exclusion** — XLE is individually inconsistent (EC 48.0) but its 2022 contribution is essential for the portfolio-level perfect year streak
 
-### Conclusion
+#### Conclusion
 
 **No sector exclusions for the VCP strategy.** The per-trade improvement (+0.15pp) is negligible compared to the consistency damage (EC -4.1, lost 10/10 streak). Unlike Mjolnir (which benefits from excluding 4 sectors), VCP's broad signal generation across all sectors is its strength — every sector contributes positive edge, and the weak sectors provide diversification that smooths out individual year results.
 
 ---
 
-## Entry Condition Ablation Study (2026-02-27)
-
-### Goal
-Measure each entry condition's individual contribution by removing one at a time and comparing to the baseline (3,667 trades, 45.7% WR, +4.83% edge, EC 92.0, 10/10 profitable years).
-
-### Results
-
-| Condition Removed | Trades | ΔTrades | WR | Edge | ΔEdge | EC | ΔEC | Prof Yrs |
-|---|---|---|---|---|---|---|---|---|
-| aboveBearishOrderBlock | 25,100 | +21,433 | 32.5% | +0.80% | **-4.02** | 54.9 | -37.1 | 7/10 |
-| volumeAboveAverage | 11,083 | +7,416 | 42.9% | +4.28% | -0.55 | 83.4 | -8.6 | 9/10 |
-| uptrend | 4,723 | +1,056 | 45.1% | +4.64% | -0.19 | 86.8 | -5.2 | 9/10 |
-| marketUptrend | 6,433 | +2,766 | 45.2% | +4.65% | -0.17 | 86.9 | -5.1 | 9/10 |
-| priceNearDonchianHigh | 4,919 | +1,252 | 43.8% | +4.79% | -0.03 | 83.4 | -8.6 | 9/10 |
-| priceAbove(50) | 3,667 | **+0** | 45.7% | +4.83% | **+0.00** | 92.0 | +0.0 | 10/10 |
-| volatilityContracted | 16,329 | +12,662 | 49.2% | +5.47% | +0.64 | 96.0 | +4.0 | 10/10 |
-| minimumPrice | 4,296 | +629 | 45.9% | +8.96% | +4.14 | 96.0 | +4.0 | 10/10 |
-
-### Importance Ranking
-
-| Rank | Condition | ΔEdge | ΔEC | Role |
-|---|---|---|---|---|
-| 1 | **aboveBearishOrderBlock** | -4.02pp | -37.1 | **CRITICAL** — the strategy's alpha engine. Without it, 21K junk trades flood in and edge collapses to 0.80% |
-| 2 | **volumeAboveAverage** | -0.55pp | -8.6 | Important — filters 7K false breakouts lacking volume confirmation |
-| 3 | uptrend | -0.19pp | -5.2 | Minervini trend template adds modest quality filtering |
-| 4 | marketUptrend | -0.17pp | -5.1 | Market regime filter, protects consistency (removes a losing year when present) |
-| 5 | priceNearDonchianHigh | -0.03pp | -8.6 | Tiny edge impact but large EC impact — ensures entries are near breakout levels |
-| 6 | ~~priceAbove(50)~~ | +0.00 | +0.0 | **Completely redundant** — `uptrend()` already requires price > 50 EMA. **Removed.** |
-| 7 | volatilityContracted | +0.64pp | +4.0 | Quantity filter, not quality — the 12K extra trades it blocks actually have higher edge |
-| 8 | minimumPrice | +4.14pp | +4.0 | Blocks 629 cheap stocks that have outsized edge (especially in 2022: +39%) |
-
-### Yearly Edge (removing each condition)
-
-| Year | Baseline | -OB | -Volume | -Uptrend | -Market | -Donchian | -VolContr | -MinPrice |
-|---|---|---|---|---|---|---|---|---|
-| 2016 | +4.2% | +0.9% | +4.1% | +4.4% | +4.8% | +3.8% | +7.3% | +5.8% |
-| 2017 | +7.9% | +1.8% | +7.0% | +8.0% | +6.8% | +8.0% | +7.4% | +8.3% |
-| 2018 | +0.6% | **-1.0%** | +1.1% | +0.8% | +1.1% | +0.9% | +2.6% | +1.1% |
-| 2019 | +5.6% | +1.1% | +5.1% | +5.3% | +4.3% | +5.6% | +5.7% | +6.3% |
-| 2020 | +8.7% | +3.9% | +9.9% | +9.3% | +10.4% | +9.5% | +11.3% | +13.5% |
-| 2021 | +2.0% | **-0.0%** | +1.4% | +1.8% | +2.8% | +0.8% | +2.1% | +3.0% |
-| 2022 | +0.1% | **-2.5%** | **-0.3%** | **-0.6%** | **-0.6%** | **-0.3%** | +0.8% | **+39.2%** |
-| 2023 | +7.7% | +2.5% | +5.9% | +6.9% | +5.6% | +7.5% | +6.6% | +8.9% |
-| 2024 | +2.5% | +0.4% | +2.6% | +2.6% | +3.2% | +3.2% | +3.9% | +3.3% |
-| 2025 | +4.0% | +0.6% | +3.4% | +3.8% | +4.2% | +3.8% | +5.2% | +4.7% |
-
-### Key Findings
-
-1. **`aboveBearishOrderBlock` is the alpha engine.** It's doing almost all the work — filtering 25K → 3.7K trades with 6x edge improvement (0.80% → 4.83%). The order block resistance concept is the core insight of this strategy.
-
-2. **`priceAbove(50)` was completely redundant.** The `uptrend()` condition (Minervini trend template) already requires price above the 50 EMA. Zero trades added, zero edge change, zero EC change. **Removed from strategy.**
-
-3. **`minimumPrice` is technically a drag** — removing it adds 629 cheap stocks with +8.96% edge and an extraordinary +39.2% in 2022. However, penny stocks are practically difficult to trade (wide spreads, low liquidity, hard to get fills). Keeping the filter is a pragmatic choice, not a statistical one.
-
-4. **`volatilityContracted` reduces quantity, not quality.** The 12,662 trades it blocks actually have higher edge (+5.47%). It narrows the strategy to post-squeeze breakouts, which is conceptually the VCP pattern but statistically filters profitable signals. Kept for strategy identity.
-
-5. **Volume confirmation matters.** Removing `volumeAboveAverage` adds 7,416 trades but drops edge by 0.55pp — breakouts without volume surge are unreliable.
-
-6. **Every "important" condition protects 2022.** Removing uptrend, marketUptrend, volume, or Donchian all flip 2022 negative. The conditions work as an ensemble to keep the weakest year barely positive.
-
-### Action Taken
-
-Removed `priceAbove(50)` from `VcpEntryStrategy.kt` — proven redundant by ablation study. No impact on backtest results.
-
----
-
-## Position Limit & Ranker Testing (maxPositions=15, 2026-03-01)
+### Position Limit & Ranker Testing (maxPositions=15, 2026-03-01)
 
 Tested with 15-position cap comparing Random vs SectorEdge rankers against the unlimited baseline.
 
-### Ranker Comparison
+#### Ranker Comparison
 
 | Metric | SectorEdge | Random | Unlimited |
 |---|---|---|---|
@@ -493,7 +755,7 @@ Tested with 15-position cap comparing Random vs SectorEdge rankers against the u
 
 *SectorEdge ranking: XLC, XLI, XLK, XLY, XLV, XLF, XLE, XLU, XLP, XLB, XLRE (ordered by unlimited baseline edge).*
 
-### Yearly Edge
+#### Yearly Edge
 
 | Year | SectorEdge | Random | Unlimited |
 |---|---|---|---|
@@ -508,7 +770,7 @@ Tested with 15-position cap comparing Random vs SectorEdge rankers against the u
 | 2024 | **+8.80%** | +3.91% | +3.74% |
 | 2025 | +2.99% | +2.15% | +6.66% |
 
-### Key Findings
+#### Key Findings
 
 1. **SectorEdge is significantly better than Random** — +1.26pp edge improvement (5.50% vs 4.24%), EC 91.7 vs 85.2
 2. **SectorEdge nearly matches unlimited edge** — 5.50% vs 5.70% (-0.20pp), remarkable given it takes only 10% of trades
@@ -520,122 +782,19 @@ Tested with 15-position cap comparing Random vs SectorEdge rankers against the u
 
 ---
 
-## Comparison to Mjolnir Strategy
+## Appendix
 
-| Metric | VCP | Mjolnir |
-|---|---|---|
-| Trades (10yr) | 8,752 | 868 |
-| Win Rate | 48.6% | 44.2% |
-| Edge | 5.84% | 5.60% |
-| Avg Win / Loss | 18.44% / 6.12% | 21.65% / 7.14% |
-| Win/Loss Ratio | 3.01x | 3.03x |
-| EC Score | 96.0 (Excellent) | 81.3 (Excellent) |
-| Profitable Years | 10/10 | 8/10 |
-| Tradeable Years | 9/10 | 6/10 |
-| Sectors Profitable | 12/12 (all) | 7/11 (excl 4) |
-| Sector Exclusions | None needed | XLV, XLE, XLP, XLB |
-
-**Key differences:**
-1. **VCP generates 10x more trades** — much broader signal generation
-2. **VCP now has higher edge** (5.84% vs 5.60%) — surpassed Mjolnir after VC 3.5 + sectorUptrend optimization
-3. **VCP is profitable across all sectors** — no exclusions needed, more robust
-4. **VCP has much better EC** (96.0 vs 81.3) — more consistent year over year
-5. **VCP never has a losing year** — Mjolnir has 2022 (-1.34%) and 2024 (-0.18%)
-6. Both strategies share the same exit (emaCross + 2.5 ATR stop) and similar win/loss ratios (~3:1)
-
-**Complementary strategies:** VCP casts a wider net (volume + contraction breakouts) while Mjolnir is more selective (ATR expanding + consecutive higher highs in value zone). They filter for different market microstructure — VCP for post-contraction breakouts, Mjolnir for expanding volatility momentum. Could potentially run both simultaneously for diversification.
-
----
-
-## Position-Sized Backtest ($10K Starting Capital)
-
-### Configuration
-- Starting capital: $10,000
-- Max positions: 15
-- Ranker: SectorEdge (strategy's preferred ranker, deterministic)
-- Entry delay: 1 day (realistic execution — signal fires after close, enter next day)
-- Risk per trade: 1.5% of portfolio
-- ATR multiplier (nAtr): 2.0
-- Leverage: 1.0x (stock only, no options)
-- No sector exclusions
-
-### Current Results (VC 3.5 + sectorUptrend, SectorEdge ranker, entry delay 1)
-
-| Metric | Value |
-|---|---|
-| Starting Capital | $10,000 |
-| Final Capital | **$395,432** |
-| Peak Capital | $395,432 (still at peak) |
-| Total Return | +3,854% |
-| CAGR | **44.4%** |
-| Max Drawdown | **16.7%** ($38,147) |
-| Total Trades | 899 |
-| Win Rate | 47.3% |
-| Edge | +5.24% |
-| Avg Win / Loss | 17.57% / -5.82% |
-| Win/Loss Ratio | 3.02x |
-| Profit Factor | 2.79 |
-| EC Score | 96.0 (Excellent) |
-
-### Yearly Edge
-
-| Year | Trades | Edge | Tradeable? |
-|---|---|---|---|
-| 2016 | 101 | +2.72% | T |
-| 2017 | 70 | +6.95% | T |
-| 2018 | 69 | +5.25% | T |
-| 2019 | 82 | +6.88% | T |
-| 2020 | 77 | +10.83% | T |
-| 2021 | 107 | +5.20% | T |
-| 2022 | 110 | +0.14% | |
-| 2023 | 90 | +8.03% | T |
-| 2024 | 77 | +7.06% | T |
-| 2025 | 116 | +3.02% | T |
-
-**10/10 years profitable.** 9/10 tradeable. $10K → $395K (39.5x) over 10 years.
-
-### Exit Reasons
-
-| Reason | Count | % | Avg Profit | WR | Avg Hold |
-|---|---|---|---|---|---|
-| EMA cross (10/20) | 825 | 91.8% | +6.65% | 51.5% | 53d |
-| Stop loss (2.5 ATR) | 74 | 8.2% | -10.45% | 0% | 10d |
-
-### Evolution: Position-Sized Results Across Optimizations
-
-| Metric | VC 2.5 (original) | VC 3.5 | VC 3.5 + sectorUptrend | + SectorEdge + delay 1 |
-|---|---|---|---|---|
-| Final Capital | $148,124 | $224,840 | $317,756 | **$395,432** |
-| CAGR | 30.9% | 36.5% | 41.3% | **44.4%** |
-| Max Drawdown | 15.2% | 19.7% | 20.7% | **16.7%** |
-| Trades | 855 | 927 | 837 | 899 |
-| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% |
-| Edge | +4.86% | +5.46% | +5.74% | +5.24% |
-| Profit Factor | — | 2.04 | 4.72 | 2.79 |
-| EC | 92.0 | 96.0 | 96.0 | **96.0** |
-
-Each optimization compounded on the previous: loosening VC from 2.5→3.5 added $76K, then adding sectorUptrend added another $93K, then switching to the SectorEdge ranker with 1-day entry delay added another $78K — while maintaining 10/10 profitable years and EC 96.0. The latest change also *reduced* max drawdown from 20.7% to 16.7%.
-
-### Position Sizing Notes
-- Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
-- Adding `leverageRatio: 1.0` caps total notional exposure to 1x portfolio value, producing realistic results
-- SectorEdge ranker is deterministic — results are reproducible across runs (unlike Random ranker)
-
----
-
-## Code Changes Made
+### Code Changes
 - `VolatilityContractedCondition.kt` — New entry condition (range/ATR squeeze detection)
 - `VcpEntryStrategy.kt` — New registered strategy (`@RegisteredStrategy(name = "Vcp", type = StrategyType.ENTRY)`)
 - `StrategyDsl.kt` — Added `volatilityContracted(lookbackDays, maxAtrMultiple)` DSL function
 - `DynamicStrategyBuilder.kt` — Added `"volatilitycontracted"` condition mapping
 - `VolatilityContractedConditionTest.kt` — 11 unit tests covering pass/fail/boundary/metadata/detailed evaluation
 
----
-
-## Potential Next Steps
+### Potential Next Steps
 - ~~Entry condition ablation study~~ — Done. `priceAbove(50)` removed as redundant (see Ablation Study)
 - ~~Parameter sensitivity on `volatilityContracted`~~ — Done. maxAtrMultiple changed from 2.5 to 3.5 (see VC Sweep)
-- Parameter sensitivity on `priceNearDonchianHigh` (1.5% vs 3.0% vs 5.0%)
+- ~~Parameter sensitivity on `priceNearDonchianHigh`~~ — Done. 3.0% confirmed as optimal (see Donchian Distance Sweep)
 - Parameter sensitivity on `volumeAboveAverage` multiplier (1.0 vs 1.2 vs 1.5)
 - ~~Sector exclusion testing~~ — Done. No exclusions recommended (see Sector Exclusion Analysis)
 - Monte Carlo validation (10,000 iterations)
@@ -643,60 +802,3 @@ Each optimization compounded on the previous: loosening VC from 2.5→3.5 added 
 - Combined portfolio simulation — run VCP + Mjolnir together to measure diversification benefit
 - Position sizing framework with ATR drawdown stats
 - **Options-based position sizing** — With $10K and 1.5% risk, stock positions cost ~$1,875 each, so only 4-5 fit before 100% capital utilization. Options (calls or debit spreads) would use ~$200-400 per position, enabling the full 15 concurrent positions at small account sizes. Explore: delta target (e.g., 0.70 calls), expiration selection (45-60 DTE to cover avg 54-day hold), stop-loss translation (% of premium vs ATR-based)
-
----
-
-## Running Backtests
-
-### Unlimited (statistical analysis)
-
-Best for measuring raw strategy edge, sector analysis, and parameter sweeps. No position limits or sizing — every signal is taken.
-
-```bash
-curl -s -X POST http://localhost:8080/udgaard/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "assetTypes": ["STOCK"],
-    "useUnderlyingAssets": false,
-    "entryStrategy": {"type": "predefined", "name": "Vcp"},
-    "exitStrategy": {"type": "predefined", "name": "MjolnirExitStrategy"},
-    "startDate": "2016-01-01",
-    "endDate": "2025-12-31"
-  }'
-```
-
-### Realistic (position-sized with $10K)
-
-Simulates real trading with capital constraints, position sizing, 1-day entry delay, and a 15-position cap. Uses the strategy's preferred SectorEdge ranker for deterministic, reproducible results.
-
-```bash
-curl -s -X POST http://localhost:8080/udgaard/api/backtest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "assetTypes": ["STOCK"],
-    "useUnderlyingAssets": false,
-    "entryStrategy": {"type": "predefined", "name": "Vcp"},
-    "exitStrategy": {"type": "predefined", "name": "MjolnirExitStrategy"},
-    "startDate": "2016-01-01",
-    "endDate": "2025-12-31",
-    "maxPositions": 15,
-    "entryDelayDays": 1,
-    "positionSizing": {
-      "startingCapital": 10000,
-      "riskPercentage": 1.5,
-      "nAtr": 2.0,
-      "leverageRatio": 1.0
-    }
-  }'
-```
-
-**Position sizing parameters:**
-- `startingCapital`: Initial portfolio value in dollars
-- `riskPercentage`: % of portfolio risked per trade (1.5% = risk $150 on a $10K portfolio)
-- `nAtr`: ATR multiplier for stop distance — determines position size (size = risk$ / (nAtr × ATR))
-- `leverageRatio`: Max total notional as multiple of portfolio (1.0 = no leverage, 2.0 = 2x leverage)
-
-**Notes:**
-- Ranker omitted → uses strategy's preferred ranker: SectorEdge (deterministic, reproducible results)
-- `entryDelayDays: 1` → signal fires after Day 0 close, entry at Day 1's close (realistic execution)
-- Requires ~12GB heap (`-Xmx12288m` in `build.gradle` bootRun task) for full 10-year run

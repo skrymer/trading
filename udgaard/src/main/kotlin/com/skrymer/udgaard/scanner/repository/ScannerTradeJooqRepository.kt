@@ -53,6 +53,8 @@ class ScannerTradeJooqRepository(
           .set(SCANNER_TRADES.STRIKE_PRICE, pojo.strikePrice)
           .set(SCANNER_TRADES.EXPIRATION_DATE, pojo.expirationDate)
           .set(SCANNER_TRADES.MULTIPLIER, pojo.multiplier)
+          .set(SCANNER_TRADES.OPTION_PRICE, pojo.optionPrice)
+          .set(SCANNER_TRADES.DELTA, pojo.delta)
           .set(SCANNER_TRADES.ENTRY_STRATEGY_NAME, pojo.entryStrategyName)
           .set(SCANNER_TRADES.EXIT_STRATEGY_NAME, pojo.exitStrategyName)
           .set(SCANNER_TRADES.ROLLED_CREDITS, pojo.rolledCredits)

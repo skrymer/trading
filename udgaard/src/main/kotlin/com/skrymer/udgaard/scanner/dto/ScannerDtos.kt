@@ -28,6 +28,8 @@ data class AddScannerTradeRequest(
   val strikePrice: Double? = null,
   val expirationDate: String? = null,
   val multiplier: Int? = null,
+  val optionPrice: Double? = null,
+  val delta: Double? = null,
   val entryStrategyName: String,
   val exitStrategyName: String,
   val notes: String? = null,

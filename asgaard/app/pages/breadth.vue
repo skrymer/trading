@@ -50,7 +50,12 @@
 
         <!-- Section B: Sector Heat Summary -->
         <UCollapsible v-if="sectorHeatData.length > 0">
-          <UButton variant="ghost" class="mb-2" icon="i-heroicons-chevron-down" label="Sector Heat Summary" />
+          <UButton
+            variant="ghost"
+            class="mb-2"
+            icon="i-heroicons-chevron-down"
+            label="Sector Heat Summary"
+          />
           <template #content>
             <UCard>
               <UTable :data="sectorHeatData" :columns="heatColumns" />

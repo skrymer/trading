@@ -1112,6 +1112,8 @@ export interface ScannerTrade {
   strikePrice?: number
   expirationDate?: string
   multiplier: number
+  optionPrice?: number
+  delta?: number
   entryStrategyName: string
   exitStrategyName: string
   rolledCredits: number
@@ -1132,6 +1134,8 @@ export interface AddScannerTradeRequest {
   strikePrice?: number
   expirationDate?: string
   multiplier?: number
+  optionPrice?: number
+  delta?: number
   entryStrategyName: string
   exitStrategyName: string
   notes?: string

@@ -130,48 +130,27 @@ class ScannerService(
     val symbols = resolveSymbols(request)
     logger.info("Scanning ${symbols.size} symbols, market date: $currentMarketDate")
 
-    val quotesAfter = scanDate.minusDays(90)
-    val matchedEvals = mutableListOf<EvalResult>()
-    val nearMissEvals = mutableListOf<EvalResult>()
-    val failedConditions = mutableListOf<List<ConditionEvaluationResult>>()
-    var stocksEvaluated = 0
-
-    symbols.chunked(BATCH_SIZE).forEach { batch ->
-      val stocks = stockRepository.findBySymbols(batch, quotesAfter = quotesAfter)
-      runBlocking(Dispatchers.Default) {
-        val evals = stocks
-          .map { stock ->
-            async { evaluateStock(stock, entryStrategy, backtestContext, request.entryStrategyName, currentMarketDate) }
-          }.awaitAll()
-        evals.forEach { eval ->
-          if (eval.evaluated) stocksEvaluated++
-          if (eval.scanResult != null) matchedEvals.add(eval)
-          if (eval.nearMiss != null) nearMissEvals.add(eval)
-          eval.failedConditions?.let { failedConditions.add(it) }
-        }
-      }
-    }
+    val evalResult =
+      evaluateSymbols(symbols, scanDate, entryStrategy, backtestContext, request.entryStrategyName, currentMarketDate)
 
     val (rankedResults, resolvedRankerName, ranker) = rankResults(
-      matchedEvals,
+      evalResult.matched,
       request.rankerName,
       entryStrategy,
       backtestContext,
     )
     val nearMissLimit = request.nearMissLimit ?: DEFAULT_NEAR_MISS_LIMIT
-    val topNearMisses =
-      nearMissEvals
-        .mapNotNull { eval ->
-          val stock = eval.stock ?: return@mapNotNull null
-          val quote = eval.entryQuote ?: return@mapNotNull null
-          val score = ranker.score(stock, quote, backtestContext)
-          eval.nearMiss?.copy(rankScore = score)
-        }.sortedWith(
-          compareByDescending<NearMissCandidate> { it.conditionsPassed }
-            .thenByDescending { it.rankScore ?: 0.0 },
-        ).take(nearMissLimit)
+    val topNearMisses = evalResult.nearMisses
+      .mapNotNull { eval ->
+        val stock = eval.stock ?: return@mapNotNull null
+        val quote = eval.entryQuote ?: return@mapNotNull null
+        eval.nearMiss?.copy(rankScore = ranker.score(stock, quote, backtestContext))
+      }.sortedWith(
+        compareByDescending<NearMissCandidate> { it.conditionsPassed }
+          .thenByDescending { it.rankScore ?: 0.0 },
+      ).take(nearMissLimit)
     val failureSummary = if (entryStrategy is DetailedEntryStrategy) {
-      buildConditionFailureSummary(failedConditions, stocksEvaluated)
+      buildConditionFailureSummary(evalResult.failedConditions, evalResult.stocksEvaluated)
     } else {
       emptyList()
     }
@@ -183,12 +162,51 @@ class ScannerService(
       entryStrategyName = request.entryStrategyName,
       exitStrategyName = request.exitStrategyName,
       results = rankedResults,
-      totalStocksScanned = stocksEvaluated,
+      totalStocksScanned = evalResult.stocksEvaluated,
       executionTimeMs = executionTime,
       nearMissCandidates = topNearMisses,
       conditionFailureSummary = failureSummary,
       rankerName = resolvedRankerName,
     )
+  }
+
+  private data class ScanEvaluation(
+    val matched: List<EvalResult>,
+    val nearMisses: List<EvalResult>,
+    val failedConditions: List<List<ConditionEvaluationResult>>,
+    val stocksEvaluated: Int,
+  )
+
+  private fun evaluateSymbols(
+    symbols: List<String>,
+    scanDate: LocalDate,
+    entryStrategy: EntryStrategy,
+    backtestContext: BacktestContext,
+    strategyName: String,
+    currentMarketDate: LocalDate?,
+  ): ScanEvaluation {
+    val quotesAfter = scanDate.minusDays(90)
+    val matched = mutableListOf<EvalResult>()
+    val nearMisses = mutableListOf<EvalResult>()
+    val failed = mutableListOf<List<ConditionEvaluationResult>>()
+    var count = 0
+
+    symbols.chunked(BATCH_SIZE).forEach { batch ->
+      val stocks = stockRepository.findBySymbols(batch, quotesAfter = quotesAfter)
+      runBlocking(Dispatchers.Default) {
+        stocks
+          .map { stock ->
+            async { evaluateStock(stock, entryStrategy, backtestContext, strategyName, currentMarketDate) }
+          }.awaitAll()
+          .forEach { eval ->
+            if (eval.evaluated) count++
+            if (eval.scanResult != null) matched.add(eval)
+            if (eval.nearMiss != null) nearMisses.add(eval)
+            eval.failedConditions?.let { failed.add(it) }
+          }
+      }
+    }
+    return ScanEvaluation(matched, nearMisses, failed, count)
   }
 
   private fun evaluateStock(
@@ -291,7 +309,7 @@ class ScannerService(
     val existingTrade = scannerTradeRepository.findById(tradeId)
       ?: throw IllegalArgumentException("Scanner trade $tradeId not found")
 
-    val rollCredit = (request.closePrice - existingTrade.entryPrice) * existingTrade.quantity *
+    val rollCredit = (request.closePrice - existingTrade.optionPrice!!) * existingTrade.quantity *
       if (existingTrade.instrumentType == InstrumentType.OPTION) existingTrade.multiplier else 1
     val newRolledCredits = existingTrade.rolledCredits + rollCredit
 
@@ -337,6 +355,8 @@ class ScannerService(
       strikePrice = request.strikePrice,
       expirationDate = request.expirationDate?.let { LocalDate.parse(it) },
       multiplier = request.multiplier ?: 100,
+      optionPrice = request.optionPrice,
+      delta = request.delta,
       entryStrategyName = request.entryStrategyName,
       exitStrategyName = request.exitStrategyName,
       notes = request.notes,

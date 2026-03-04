@@ -262,6 +262,7 @@ class ScannerServiceTest {
       strikePrice = 140.0,
       expirationDate = LocalDate.of(2024, 2, 16),
       multiplier = 100,
+      optionPrice = 5.0,
       entryStrategyName = "Mjolnir",
       exitStrategyName = "MjolnirExit",
       rolledCredits = 50.0,

@@ -42,7 +42,7 @@ const schema = z.object({
 
 const rollCredit = computed(() => {
   if (!props.trade || state.closePrice === undefined) return 0
-  return (state.closePrice - props.trade.entryPrice) * props.trade.quantity * props.trade.multiplier
+  return (state.closePrice - props.trade.optionPrice!) * props.trade.quantity * props.trade.multiplier
 })
 
 const totalRolledCredits = computed(() => {
@@ -121,8 +121,8 @@ async function onSubmit() {
           </div>
           <div class="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <span class="text-muted">Entry:</span>
-              <span class="font-medium ml-1">${{ trade.entryPrice.toFixed(2) }}</span>
+              <span class="text-muted">Premium:</span>
+              <span class="font-medium ml-1">${{ trade.optionPrice!.toFixed(2) }}</span>
             </div>
             <div>
               <span class="text-muted">Strike:</span>
@@ -161,7 +161,7 @@ async function onSubmit() {
               <UInput
                 v-model.number="state.newStrikePrice"
                 type="number"
-                step="0.50"
+                step="any"
                 :min="0.01"
               >
                 <template #leading>

@@ -20,6 +20,8 @@ data class ScannerTrade(
   val strikePrice: Double?,
   val expirationDate: LocalDate?,
   val multiplier: Int = 100,
+  val optionPrice: Double? = null,
+  val delta: Double? = null,
   val entryStrategyName: String,
   val exitStrategyName: String,
   val rolledCredits: Double = 0.0,
