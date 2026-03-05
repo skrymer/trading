@@ -1,0 +1,4 @@
+# Copy this file to secure.properties and fill in your API keys
+# DO NOT commit secure.properties to source control
+alphavantage.api.key=YOUR_ALPHAVANTAGE_KEY_HERE
+massive.api.key=YOUR_MASSIVE_KEY_HERE

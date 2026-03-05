@@ -1,19 +1,15 @@
 package com.skrymer.udgaard.backtesting.service
 
-import com.github.benmanes.caffeine.cache.Caffeine
 import com.skrymer.udgaard.backtesting.model.BacktestReport
+import org.springframework.cache.CacheManager
 import org.springframework.stereotype.Component
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 @Component
-class BacktestResultStore {
-  private val cache =
-    Caffeine
-      .newBuilder()
-      .maximumSize(10)
-      .expireAfterAccess(1, TimeUnit.HOURS)
-      .build<String, BacktestReport>()
+class BacktestResultStore(
+  private val cacheManager: CacheManager,
+) {
+  private val cache get() = cacheManager.getCache("backtestResults")!!
 
   fun store(report: BacktestReport): String {
     val id = UUID.randomUUID().toString()
@@ -21,5 +17,5 @@ class BacktestResultStore {
     return id
   }
 
-  fun get(backtestId: String): BacktestReport? = cache.getIfPresent(backtestId)
+  fun get(backtestId: String): BacktestReport? = cache.get(backtestId, BacktestReport::class.java)
 }

@@ -20,7 +20,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
+class SecurityConfig(
+  private val objectMapper: ObjectMapper,
+) {
   @Bean
   fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
@@ -46,7 +48,14 @@ class SecurityConfig {
     http
       .cors { it.configurationSource(corsConfigurationSource()) }
       .csrf { it.disable() }
-      .addFilterBefore(
+      .headers { headers ->
+        headers.frameOptions { it.deny() }
+        headers.contentTypeOptions { }
+        headers.httpStrictTransportSecurity { hsts ->
+          hsts.includeSubDomains(true)
+          hsts.maxAgeInSeconds(31536000)
+        }
+      }.addFilterBefore(
         ApiKeyAuthenticationFilter(userRepository),
         UsernamePasswordAuthenticationFilter::class.java
       ).authorizeHttpRequests { auth ->
@@ -83,7 +92,14 @@ class SecurityConfig {
     http
       .cors { it.configurationSource(corsConfigurationSource()) }
       .csrf { it.disable() }
-      .authorizeHttpRequests { it.anyRequest().permitAll() }
+      .headers { headers ->
+        headers.frameOptions { it.deny() }
+        headers.contentTypeOptions { }
+        headers.httpStrictTransportSecurity { hsts ->
+          hsts.includeSubDomains(true)
+          hsts.maxAgeInSeconds(31536000)
+        }
+      }.authorizeHttpRequests { it.anyRequest().permitAll() }
     return http.build()
   }
 
@@ -95,7 +111,7 @@ class SecurityConfig {
   private fun writeJson(response: HttpServletResponse, status: Int, body: Map<String, String>) {
     response.status = status
     response.contentType = MediaType.APPLICATION_JSON_VALUE
-    val json = ObjectMapper().writeValueAsString(body)
+    val json = objectMapper.writeValueAsString(body)
     response.writer.write(json)
   }
 }

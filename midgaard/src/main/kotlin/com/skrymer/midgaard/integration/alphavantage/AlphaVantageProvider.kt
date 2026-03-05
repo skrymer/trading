@@ -16,28 +16,38 @@ import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.OptionContractDto
 import com.skrymer.midgaard.model.RawBar
+import com.skrymer.midgaard.service.ApiKeyService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.time.Duration
 import java.time.LocalDate
 
 @Component
 class AlphaVantageProvider(
-    @Value("\${alphavantage.api.key:}") private val apiKey: String,
+    private val apiKeyService: ApiKeyService,
     @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
     EarningsProvider,
     CompanyInfoProvider,
     OptionsProvider {
+    private val apiKey: String get() = apiKeyService.getAlphaVantageApiKey()
+
     private val restClient: RestClient =
         RestClient
             .builder()
             .baseUrl(baseUrl)
-            .build()
+            .requestFactory(
+                SimpleClientHttpRequestFactory().apply {
+                    setConnectTimeout(Duration.ofSeconds(5))
+                    setReadTimeout(Duration.ofSeconds(30))
+                },
+            ).build()
 
     override suspend fun getDailyBars(
         symbol: String,

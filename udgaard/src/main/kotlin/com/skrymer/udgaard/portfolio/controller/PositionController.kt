@@ -12,6 +12,7 @@ import com.skrymer.udgaard.portfolio.model.PositionStats
 import com.skrymer.udgaard.portfolio.model.PositionStatus
 import com.skrymer.udgaard.portfolio.service.PositionService
 import com.skrymer.udgaard.portfolio.service.UnrealizedPnlService
+import jakarta.validation.Valid
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -73,7 +74,7 @@ class PositionController(
   @PostMapping("/{portfolioId}")
   fun createPosition(
     @PathVariable portfolioId: Long,
-    @RequestBody request: CreatePositionRequest,
+    @Valid @RequestBody request: CreatePositionRequest,
   ): ResponseEntity<Position> {
     val position =
       positionService.createManualPosition(
@@ -103,7 +104,7 @@ class PositionController(
   fun closePosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
-    @RequestBody request: ClosePositionRequest,
+    @Valid @RequestBody request: ClosePositionRequest,
   ): ResponseEntity<Position> = try {
     val position =
       positionService.closeManualPosition(

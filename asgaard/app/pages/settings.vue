@@ -95,7 +95,15 @@
 
             <div v-if="positionSizing.enabled" class="space-y-4">
               <div class="grid grid-cols-3 gap-4">
-                <UFormGroup label="Portfolio Value ($)" help="Total portfolio value used for position size calculations">
+                <UFormField>
+                  <template #label>
+                    <span class="flex items-center gap-1">
+                      Portfolio Value ($)
+                      <UTooltip text="Total capital allocated for trading. Used to calculate dollar risk and position sizes.">
+                        <UIcon name="i-lucide-info" class="size-3.5 text-muted cursor-help" />
+                      </UTooltip>
+                    </span>
+                  </template>
                   <UInput
                     v-model.number="positionSizing.portfolioValue"
                     type="number"
@@ -103,9 +111,17 @@
                     :step="1000"
                     placeholder="100000"
                   />
-                </UFormGroup>
+                </UFormField>
 
-                <UFormGroup label="Risk Per Trade (%)" help="Percentage of portfolio to risk per trade">
+                <UFormField>
+                  <template #label>
+                    <span class="flex items-center gap-1">
+                      Risk Per Trade (%)
+                      <UTooltip text="Max percentage of portfolio risked per trade. E.g., 1.5% of $100k = $1,500 risk per trade.">
+                        <UIcon name="i-lucide-info" class="size-3.5 text-muted cursor-help" />
+                      </UTooltip>
+                    </span>
+                  </template>
                   <UInput
                     v-model.number="positionSizing.riskPercentage"
                     type="number"
@@ -114,9 +130,17 @@
                     :step="0.1"
                     placeholder="1.5"
                   />
-                </UFormGroup>
+                </UFormField>
 
-                <UFormGroup label="ATR Multiplier" help="Number of ATRs used for stop distance (e.g., 2.0 = 2x ATR)">
+                <UFormField>
+                  <template #label>
+                    <span class="flex items-center gap-1">
+                      ATR Multiplier
+                      <UTooltip text="Shares = Risk$ / (nATR x ATR). Lower = more shares with a tighter stop. Higher = fewer shares with a wider stop.">
+                        <UIcon name="i-lucide-info" class="size-3.5 text-muted cursor-help" />
+                      </UTooltip>
+                    </span>
+                  </template>
                   <UInput
                     v-model.number="positionSizing.nAtr"
                     type="number"
@@ -125,7 +149,7 @@
                     :step="0.5"
                     placeholder="2.0"
                   />
-                </UFormGroup>
+                </UFormField>
               </div>
 
               <UAlert

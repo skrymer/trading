@@ -23,7 +23,6 @@ import com.skrymer.udgaard.data.service.StockService
 import com.skrymer.udgaard.data.service.SymbolService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -79,15 +78,15 @@ class BacktestController(
 
     val entryStrategy =
       dynamicStrategyBuilder.buildEntryStrategy(request.entryStrategy)
-        ?: return logAndBadRequest("Failed to build entry strategy from config: ${request.entryStrategy}")
+        ?: throw IllegalArgumentException("Failed to build entry strategy from config: ${request.entryStrategy}")
 
     val exitStrategy =
       dynamicStrategyBuilder.buildExitStrategy(request.exitStrategy)
-        ?: return logAndBadRequest("Failed to build exit strategy from config: ${request.exitStrategy}")
+        ?: throw IllegalArgumentException("Failed to build exit strategy from config: ${request.exitStrategy}")
 
     val symbols =
       resolveSymbols(request)
-        ?: return logAndBadRequest("No symbols found. Use Data Manager to refresh stocks first.")
+        ?: throw IllegalArgumentException("No symbols found. Use Data Manager to refresh stocks first.")
 
     val rankerInstance = if (request.ranker == null) {
       entryStrategy.preferredRanker() ?: CompositeRanker()
@@ -234,70 +233,56 @@ class BacktestController(
     end: LocalDate,
     request: BacktestRequest,
     ranker: StockRanker,
-  ): ResponseEntity<BacktestResponseDto> =
-    try {
-      logger.info("Starting backtest execution...")
-      val backtestReport =
-        backtestService.backtest(
-          entryStrategy,
-          exitStrategy,
-          symbols,
-          start,
-          end,
-          request.maxPositions,
-          ranker,
-          request.useUnderlyingAssets,
-          request.customUnderlyingMap,
-          request.cooldownDays,
-          request.entryDelayDays,
-        )
-
-      logger.info(
-        "Backtest complete: ${backtestReport.trades.size} trades, " +
-          "Win rate: ${String.format("%.2f", backtestReport.winRate * 100)}%, " +
-          "Edge: ${String.format("%.2f", backtestReport.edge)}%",
+  ): ResponseEntity<BacktestResponseDto> {
+    logger.info("Starting backtest execution...")
+    val backtestReport =
+      backtestService.backtest(
+        entryStrategy,
+        exitStrategy,
+        symbols,
+        start,
+        end,
+        request.maxPositions,
+        ranker,
+        request.useUnderlyingAssets,
+        request.customUnderlyingMap,
+        request.cooldownDays,
+        request.entryDelayDays,
       )
 
-      val finalReport =
-        if (request.positionSizing != null) {
-          val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
-          logger.info(
-            "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
-              "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
-              "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%",
-          )
-          BacktestReport(
-            winningTrades = backtestReport.winningTrades,
-            losingTrades = backtestReport.losingTrades,
-            missedTrades = backtestReport.missedTrades,
-            timeBasedStats = backtestReport.timeBasedStats,
-            exitReasonAnalysis = backtestReport.exitReasonAnalysis,
-            sectorPerformance = backtestReport.sectorPerformance,
-            stockPerformance = backtestReport.stockPerformance,
-            atrDrawdownStats = backtestReport.atrDrawdownStats,
-            marketConditionAverages = backtestReport.marketConditionAverages,
-            edgeConsistencyScore = backtestReport.edgeConsistencyScore,
-            positionSizingResult = sizingResult,
-          )
-        } else {
-          backtestReport
-        }
+    logger.info(
+      "Backtest complete: ${backtestReport.trades.size} trades, " +
+        "Win rate: ${String.format("%.2f", backtestReport.winRate * 100)}%, " +
+        "Edge: ${String.format("%.2f", backtestReport.edge)}%",
+    )
 
-      val backtestId = backtestResultStore.store(finalReport)
-      ResponseEntity.ok(finalReport.toResponseDto(backtestId))
-    } catch (e: IllegalArgumentException) {
-      logger.error("Backtest validation failed: ${e.message}", e)
-      @Suppress("UNCHECKED_CAST")
-      ResponseEntity.badRequest().body(mapOf("error" to e.message)) as ResponseEntity<BacktestResponseDto>
-    } catch (e: Exception) {
-      logger.error("Unexpected error during backtest: ${e.message}", e)
-      ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-    }
+    val finalReport =
+      if (request.positionSizing != null) {
+        val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
+        logger.info(
+          "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
+            "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
+            "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%",
+        )
+        BacktestReport(
+          winningTrades = backtestReport.winningTrades,
+          losingTrades = backtestReport.losingTrades,
+          missedTrades = backtestReport.missedTrades,
+          timeBasedStats = backtestReport.timeBasedStats,
+          exitReasonAnalysis = backtestReport.exitReasonAnalysis,
+          sectorPerformance = backtestReport.sectorPerformance,
+          stockPerformance = backtestReport.stockPerformance,
+          atrDrawdownStats = backtestReport.atrDrawdownStats,
+          marketConditionAverages = backtestReport.marketConditionAverages,
+          edgeConsistencyScore = backtestReport.edgeConsistencyScore,
+          positionSizingResult = sizingResult,
+        )
+      } else {
+        backtestReport
+      }
 
-  @Suppress("UNCHECKED_CAST")
-  private fun <T> logAndBadRequest(message: String): ResponseEntity<T> {
-    logger.error(message)
-    return ResponseEntity.badRequest().body(mapOf("error" to message)) as ResponseEntity<T>
+    val backtestId = backtestResultStore.store(finalReport)
+    return ResponseEntity.ok(finalReport.toResponseDto(backtestId))
   }
 
   companion object {

@@ -11,6 +11,7 @@ import com.skrymer.udgaard.portfolio.dto.toBrokerCredentials
 import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.service.BrokerIntegrationService
 import com.skrymer.udgaard.portfolio.service.PortfolioService
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
@@ -51,7 +52,7 @@ class PortfolioController(
    */
   @PostMapping
   fun createPortfolio(
-    @RequestBody request: CreatePortfolioRequest,
+    @Valid @RequestBody request: CreatePortfolioRequest,
   ): ResponseEntity<Portfolio> {
     val portfolio =
       portfolioService.createPortfolio(
@@ -83,7 +84,7 @@ class PortfolioController(
   @PutMapping("/{portfolioId}")
   fun updatePortfolio(
     @PathVariable portfolioId: Long,
-    @RequestBody request: UpdatePortfolioRequest,
+    @Valid @RequestBody request: UpdatePortfolioRequest,
   ): ResponseEntity<Portfolio> {
     val portfolio =
       portfolioService.updatePortfolio(portfolioId, request.currentBalance)
@@ -109,27 +110,17 @@ class PortfolioController(
   fun createFromBroker(
     @RequestBody request: CreatePortfolioFromBrokerRequest,
   ): ResponseEntity<*> {
-    try {
-      val credentials = request.credentials.toBrokerCredentials(request.broker)
-      val result =
-        brokerIntegrationService.createPortfolioFromBroker(
-          name = request.name,
-          broker = request.broker,
-          credentials = credentials,
-          startDate = request.startDate,
-          currency = request.currency,
-          initialBalance = request.initialBalance,
-        )
-      return ResponseEntity.status(HttpStatus.CREATED).body(result)
-    } catch (e: IllegalArgumentException) {
-      return ResponseEntity
-        .badRequest()
-        .body(BrokerErrorResponse("Bad Request", e.message ?: "Invalid request parameters"))
-    } catch (e: Exception) {
-      return ResponseEntity
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(BrokerErrorResponse("Internal Server Error", e.message ?: "An unexpected error occurred"))
-    }
+    val credentials = request.credentials.toBrokerCredentials(request.broker)
+    val result =
+      brokerIntegrationService.createPortfolioFromBroker(
+        name = request.name,
+        broker = request.broker,
+        credentials = credentials,
+        startDate = request.startDate,
+        currency = request.currency,
+        initialBalance = request.initialBalance,
+      )
+    return ResponseEntity.status(HttpStatus.CREATED).body(result)
   }
 
   /**
@@ -140,25 +131,13 @@ class PortfolioController(
     @PathVariable portfolioId: Long,
     @RequestBody request: SyncPortfolioRequest,
   ): ResponseEntity<*> {
-    try {
-      val portfolio = portfolioService.getPortfolio(portfolioId)
-      if (portfolio == null) {
-        return ResponseEntity
-          .status(HttpStatus.NOT_FOUND)
-          .body(BrokerErrorResponse("Not Found", "Portfolio not found"))
-      }
-      val credentials = request.credentials.toBrokerCredentials(portfolio.broker)
-      val result = brokerIntegrationService.syncPortfolio(portfolioId, credentials)
-      return ResponseEntity.ok(result)
-    } catch (e: IllegalArgumentException) {
-      return ResponseEntity
-        .badRequest()
-        .body(BrokerErrorResponse("Bad Request", e.message ?: "Invalid request parameters"))
-    } catch (e: Exception) {
-      return ResponseEntity
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(BrokerErrorResponse("Internal Server Error", e.message ?: "An unexpected error occurred"))
-    }
+    val portfolio = portfolioService.getPortfolio(portfolioId)
+      ?: return ResponseEntity
+        .status(HttpStatus.NOT_FOUND)
+        .body(BrokerErrorResponse("Not Found", "Portfolio not found"))
+    val credentials = request.credentials.toBrokerCredentials(portfolio.broker)
+    val result = brokerIntegrationService.syncPortfolio(portfolioId, credentials)
+    return ResponseEntity.ok(result)
   }
 
   /**

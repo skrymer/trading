@@ -1,3 +1,5 @@
+# Standalone Midgaard development setup (PostgreSQL on port 5433).
+# For integrated setup with Udgaard, use udgaard/compose.yaml instead.
 services:
   postgres:
     image: postgres:17

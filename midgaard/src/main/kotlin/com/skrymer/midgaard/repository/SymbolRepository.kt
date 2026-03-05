@@ -5,6 +5,7 @@ import com.skrymer.midgaard.model.AssetType
 import com.skrymer.midgaard.model.Symbol
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class SymbolRepository(
@@ -38,6 +39,7 @@ class SymbolRepository(
                 )
             }
 
+    @Transactional
     fun upsertSymbol(symbol: Symbol) {
         dsl
             .insertInto(SYMBOLS)

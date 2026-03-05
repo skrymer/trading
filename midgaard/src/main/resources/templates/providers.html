@@ -4,6 +4,36 @@
 <div th:fragment="content">
   <h2 class="mb-4">Providers</h2>
 
+  <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+    <span th:text="${success}">Success</span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+
+  <!-- Update API Keys -->
+  <div class="card mb-4">
+    <div class="card-header"><strong>Update API Keys</strong></div>
+    <div class="card-body">
+      <form method="post" action="/providers">
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label">AlphaVantage API Key</label>
+            <input type="password" class="form-control" name="alphaVantageApiKey"
+                   placeholder="Enter new key to update">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Massive (Polygon) API Key</label>
+            <input type="password" class="form-control" name="massiveApiKey"
+                   placeholder="Enter new key to update">
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Save</button>
+          </div>
+        </div>
+        <small class="text-muted mt-2 d-block">Leave a field empty to keep the current key.</small>
+      </form>
+    </div>
+  </div>
+
   <div class="row">
     <div class="col-md-6 mb-4" th:each="provider : ${providers}">
       <div class="card h-100">

@@ -25,31 +25,34 @@ class SecurityConfig(
 ) {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-        http
-            .csrf { it.disable() }
-            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+        http.csrf { it.disable() }
 
         if (securityProperties.enabled) {
             http
+                .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) }
                 .authorizeHttpRequests { auth ->
                     auth
                         .requestMatchers("/actuator/health")
                         .permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**")
+                        .permitAll()
                         .requestMatchers("/api/**")
                         .authenticated()
                         .anyRequest()
-                        .permitAll()
+                        .authenticated()
+                }.formLogin { form ->
+                    form.defaultSuccessUrl("/", true).permitAll()
                 }.exceptionHandling { it.authenticationEntryPoint(jsonUnauthorizedEntryPoint()) }
                 .addFilterBefore(
                     ApiKeyAuthenticationFilter(securityProperties.apiKeyHash),
                     UsernamePasswordAuthenticationFilter::class.java,
                 )
         } else {
-            http.authorizeHttpRequests {
-                it
-                    .anyRequest()
-                    .permitAll()
-            }
+            http
+                .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+                .authorizeHttpRequests {
+                    it.anyRequest().permitAll()
+                }
         }
 
         return http.build()

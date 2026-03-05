@@ -331,7 +331,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     )
 
     assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-    assertTrue(response.body?.contains("error") == true)
+    assertTrue(response.body?.contains("message") == true)
   }
 
   private fun testBacktestRequest() = BacktestRequest(
@@ -454,8 +454,9 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
   private fun assertChartData(body: BacktestResponseDto) {
     assertEquals(227, body.equityCurveData.size)
     assertEquals(227, body.excursionPoints.size)
-    assertEquals(227, body.excursionSummary!!.totalTrades)
-    assertEquals(59.03, body.excursionSummary!!.profitReachRate, 0.01)
+    val excursionSummary = body.excursionSummary!!
+    assertEquals(227, excursionSummary.totalTrades)
+    assertEquals(59.03, excursionSummary.profitReachRate, 0.01)
     assertEquals(31, body.dailyProfitSummary.size)
     body.dailyProfitSummary.forEach { dps ->
       assertTrue(dps.tradeCount > 0, "No trades on ${dps.date}")

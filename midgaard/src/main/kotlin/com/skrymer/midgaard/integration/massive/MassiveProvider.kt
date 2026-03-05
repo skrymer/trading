@@ -3,25 +3,34 @@ package com.skrymer.midgaard.integration.massive
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.massive.dto.MassiveAggregatesResponse
 import com.skrymer.midgaard.model.RawBar
+import com.skrymer.midgaard.service.ApiKeyService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.time.Duration
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Component
 class MassiveProvider(
-    @Value("\${massive.api.key:}") private val apiKey: String,
+    private val apiKeyService: ApiKeyService,
     @Value("\${massive.api.baseUrl:}") private val baseUrl: String,
 ) : OhlcvProvider {
+    private val apiKey: String get() = apiKeyService.getMassiveApiKey()
     private val restClient: RestClient by lazy {
         RestClient
             .builder()
             .baseUrl(baseUrl)
-            .build()
+            .requestFactory(
+                SimpleClientHttpRequestFactory().apply {
+                    setConnectTimeout(Duration.ofSeconds(5))
+                    setReadTimeout(Duration.ofSeconds(30))
+                },
+            ).build()
     }
 
     override suspend fun getDailyBars(
@@ -73,7 +82,9 @@ class MassiveProvider(
     ): List<RawBar> {
         val allBars = mutableListOf<RawBar>()
         var nextUrl = initialNextUrl
-        while (nextUrl != null) {
+        var pageCount = 0
+        while (nextUrl != null && pageCount < MAX_PAGES) {
+            pageCount++
             val pageResponse =
                 restClient
                     .get()
@@ -91,6 +102,9 @@ class MassiveProvider(
             allBars.addAll(pageResponse.toRawBars(symbol, minDate))
             nextUrl = pageResponse.nextUrl
         }
+        if (pageCount >= MAX_PAGES) {
+            logger.warn("Hit maximum page limit ($MAX_PAGES) for $symbol pagination, some data may be missing")
+        }
         return allBars
     }
 
@@ -98,5 +112,6 @@ class MassiveProvider(
         private val logger = LoggerFactory.getLogger(MassiveProvider::class.java)
         private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
         private const val MAX_RESULTS_PER_PAGE = 50000
+        private const val MAX_PAGES = 100
     }
 }

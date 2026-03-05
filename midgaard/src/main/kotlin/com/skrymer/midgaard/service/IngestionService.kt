@@ -24,6 +24,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -314,4 +316,16 @@ data class BulkProgress(
     val succeeded: AtomicInteger = AtomicInteger(0),
     val failed: AtomicInteger = AtomicInteger(0),
     val errors: ConcurrentHashMap<String, String> = ConcurrentHashMap(),
-)
+    val logLines: java.util.concurrent.ConcurrentLinkedDeque<String> = java.util.concurrent.ConcurrentLinkedDeque(),
+) {
+    fun log(message: String) {
+        val timestamp = LocalDateTime.now().format(LOG_TIMESTAMP_FORMAT)
+        logLines.addLast("$timestamp - $message")
+        while (logLines.size > MAX_LOG_LINES) logLines.pollFirst()
+    }
+
+    companion object {
+        private const val MAX_LOG_LINES = 500
+        private val LOG_TIMESTAMP_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    }
+}

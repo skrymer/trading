@@ -53,6 +53,9 @@ build/
 logs/
 *.hprof
 
+# API keys and secrets
+**/secure.properties
+
 # IDE
 .idea/
 .vscode/

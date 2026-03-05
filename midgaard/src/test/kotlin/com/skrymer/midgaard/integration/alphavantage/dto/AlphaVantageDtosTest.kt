@@ -56,11 +56,12 @@ class AlphaVantageDtosTest {
 
     @Test
     fun `toRawBars filters out holiday bars`() {
-        val response = buildTimeSeriesResponse(
-            "2026-02-13" to tradingBar("12.38", "12.93", "12.32", "12.43", "3737419"),
-            "2026-02-16" to holidayBar("12.43"),
-            "2026-02-17" to tradingBar("12.27", "12.50", "11.96", "12.30", "3358350"),
-        )
+        val response =
+            buildTimeSeriesResponse(
+                "2026-02-13" to tradingBar("12.38", "12.93", "12.32", "12.43", "3737419"),
+                "2026-02-16" to holidayBar("12.43"),
+                "2026-02-17" to tradingBar("12.27", "12.50", "11.96", "12.30", "3358350"),
+            )
 
         val bars = response.toRawBars()
 
@@ -69,11 +70,15 @@ class AlphaVantageDtosTest {
         assertEquals("2026-02-17", bars[1].date.toString())
     }
 
-    private fun tradingBar(open: String, high: String, low: String, close: String, volume: String) =
-        DailyAdjustedData(open, high, low, close, close, volume, "0.0000", "1.0")
+    private fun tradingBar(
+        open: String,
+        high: String,
+        low: String,
+        close: String,
+        volume: String,
+    ) = DailyAdjustedData(open, high, low, close, close, volume, "0.0000", "1.0")
 
-    private fun holidayBar(price: String) =
-        DailyAdjustedData(price, price, price, price, price, "0", "0.0000", "1.0")
+    private fun holidayBar(price: String) = DailyAdjustedData(price, price, price, price, price, "0", "0.0000", "1.0")
 
     private fun buildTimeSeriesResponse(vararg entries: Pair<String, DailyAdjustedData>) =
         AlphaVantageTimeSeriesDailyAdjusted(

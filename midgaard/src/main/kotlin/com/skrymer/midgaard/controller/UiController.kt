@@ -4,6 +4,7 @@ import com.skrymer.midgaard.model.IngestionState
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.repository.QuoteRepository
 import com.skrymer.midgaard.repository.SymbolRepository
+import com.skrymer.midgaard.service.ApiKeyService
 import com.skrymer.midgaard.service.IngestionService
 import com.skrymer.midgaard.service.ProviderRateLimitStats
 import com.skrymer.midgaard.service.RateLimiterService
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.servlet.mvc.support.RedirectAttributes
 
 @Controller
 @ConditionalOnProperty("app.ui.enabled", havingValue = "true", matchIfMissing = true)
@@ -25,10 +27,9 @@ class UiController(
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val ingestionService: IngestionService,
     private val rateLimiterService: RateLimiterService,
+    private val apiKeyService: ApiKeyService,
     @Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
-    @Value("\${alphavantage.api.key:}") private val avApiKey: String,
     @Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
-    @Value("\${massive.api.key:}") private val massiveApiKey: String,
 ) {
     @GetMapping("/")
     fun dashboard(model: Model): String {
@@ -138,19 +139,20 @@ class UiController(
     @GetMapping("/providers")
     fun providers(model: Model): String {
         val stats = rateLimiterService.getAllProviderStats()
+        val maskedKeys = apiKeyService.getMaskedKeys()
 
         val providers =
             listOf(
                 ProviderViewModel(
                     name = "AlphaVantage",
                     baseUrl = avBaseUrl,
-                    maskedApiKey = maskApiKey(avApiKey),
+                    maskedApiKey = maskedKeys["alphaVantage"] ?: "Not configured",
                     stats = stats["alphavantage"],
                 ),
                 ProviderViewModel(
                     name = "Massive (Polygon)",
                     baseUrl = massiveBaseUrl,
-                    maskedApiKey = maskApiKey(massiveApiKey),
+                    maskedApiKey = maskedKeys["massive"] ?: "Not configured",
                     stats = stats["massive"],
                 ),
             )
@@ -159,14 +161,22 @@ class UiController(
         return "providers"
     }
 
-    private fun maskApiKey(key: String): String =
-        if (key.length > 4) {
-            "${"•".repeat(key.length - 4)}${key.takeLast(4)}"
-        } else if (key.isNotEmpty()) {
-            "•".repeat(key.length)
-        } else {
-            "Not configured"
+    @PostMapping("/providers")
+    fun saveApiKeys(
+        @RequestParam alphaVantageApiKey: String?,
+        @RequestParam massiveApiKey: String?,
+        redirectAttributes: RedirectAttributes,
+    ): String {
+        val avKey = alphaVantageApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+        val massiveKey = massiveApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+
+        if (avKey != null || massiveKey != null) {
+            apiKeyService.saveApiKeys(avKey, massiveKey)
+            redirectAttributes.addFlashAttribute("success", "API keys updated successfully")
         }
+
+        return "redirect:/providers"
+    }
 
     data class ProviderViewModel(
         val name: String,

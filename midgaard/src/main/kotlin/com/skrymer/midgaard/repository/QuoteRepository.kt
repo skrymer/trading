@@ -6,6 +6,7 @@ import com.skrymer.midgaard.model.IndicatorSource
 import com.skrymer.midgaard.model.Quote
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Repository
@@ -58,6 +59,7 @@ class QuoteRepository(
             .map { it.toQuote() }
             .reversed()
 
+    @Transactional
     fun upsertQuotes(quotes: List<Quote>) {
         if (quotes.isEmpty()) return
         dsl.batched { ctx ->

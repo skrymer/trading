@@ -4,6 +4,7 @@ import com.skrymer.midgaard.jooq.tables.references.EARNINGS
 import com.skrymer.midgaard.model.Earning
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class EarningsRepository(
@@ -28,6 +29,7 @@ class EarningsRepository(
                 )
             }
 
+    @Transactional
     fun upsertEarnings(earnings: List<Earning>) {
         if (earnings.isEmpty()) return
 

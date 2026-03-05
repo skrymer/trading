@@ -4,15 +4,20 @@ import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.portfolio.model.Position
 import com.skrymer.udgaard.portfolio.model.PositionWithExecutions
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
 import java.time.LocalDate
 
 /**
  * Request to create a manual position
  */
 data class CreatePositionRequest(
+  @field:NotBlank(message = "Symbol is required")
   val symbol: String,
   val instrumentType: InstrumentType,
+  @field:Positive(message = "Quantity must be positive")
   val quantity: Int,
+  @field:Positive(message = "Entry price must be positive")
   val entryPrice: Double,
   val entryDate: LocalDate,
   val entryStrategy: String,
@@ -29,6 +34,7 @@ data class CreatePositionRequest(
  * Request to close a position
  */
 data class ClosePositionRequest(
+  @field:Positive(message = "Exit price must be positive")
   val exitPrice: Double,
   val exitDate: LocalDate,
 )
