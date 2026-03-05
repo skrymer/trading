@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter
  */
 @Component
 class IBKRFlexQueryClient(
-  @Value("\${ibkr.flex.base.url:https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService}")
+  @param:Value("\${ibkr.flex.base.url:https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService}")
   private val baseUrl: String,
   private val restTemplate: RestTemplate = RestTemplate(),
   private val xmlMapper: XmlMapper = XmlMapper(),

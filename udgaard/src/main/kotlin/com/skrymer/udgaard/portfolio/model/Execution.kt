@@ -23,6 +23,7 @@ data class Execution(
   val executionDate: LocalDate,
   val executionTime: LocalTime?,
   val commission: Double?,
+  val fxRateToBase: Double? = null,
   val notes: String?,
   val createdAt: LocalDateTime? = null,
 ) {

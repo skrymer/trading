@@ -202,7 +202,7 @@ class AboveBearishOrderBlockCondition(
 
     val close = quote.closePrice
     val highestBlock = relevantOrderBlocks.maxByOrNull { it.high }!!
-    val blockAge = stock.countTradingDaysBetween(highestBlock.startDate, quote.date!!).toLong()
+    val blockAge = stock.countTradingDaysBetween(highestBlock.startDate, quote.date).toLong()
 
     // If current bar is inside or near an OB, always block
     if (isOrderBlockBlocked(relevantOrderBlocks, quote)) {

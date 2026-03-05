@@ -217,7 +217,7 @@ class OrderBlockCalculator {
         return OrderBlock(
           low = quote.low,
           high = quote.high,
-          startDate = quote.date ?: LocalDate.now(),
+          startDate = quote.date,
           endDate = endDate,
           orderBlockType = type,
           volume = quote.volume,

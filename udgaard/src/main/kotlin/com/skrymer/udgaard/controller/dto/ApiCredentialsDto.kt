@@ -6,4 +6,5 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 data class ApiCredentialsDto(
   val ibkrAccountId: String = "",
   val ibkrFlexQueryId: String = "",
+  val ibkrFlexQueryToken: String = "",
 )

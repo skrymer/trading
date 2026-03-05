@@ -20,19 +20,19 @@ import java.time.LocalDate
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class OvtlyrOrderBlock(
-  @JsonProperty("stockSymbol")
+  @param:JsonProperty("stockSymbol")
   val stockSymbol: String,
-  @JsonProperty("startdate")
-  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+  @param:JsonProperty("startdate")
+  @param:JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
   val startDate: LocalDate,
-  @JsonProperty("startdate_timestamp")
+  @param:JsonProperty("startdate_timestamp")
   val startDateTimestamp: Long,
   // End date can be "NA" or null in your sample, so keep it as String?
-  @JsonProperty("enddate")
+  @param:JsonProperty("enddate")
   val endDate: String?,
-  @JsonProperty("enddate_timestamp")
+  @param:JsonProperty("enddate_timestamp")
   val endDateTimestamp: Long?,
-  @JsonProperty("oB_Type")
+  @param:JsonProperty("oB_Type")
   val obType: ObType,
 ) {
   fun toModel(information: OvtlyrStockInformation): OrderBlock {

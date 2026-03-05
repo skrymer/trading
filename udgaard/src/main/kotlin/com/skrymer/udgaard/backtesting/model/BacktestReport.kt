@@ -208,7 +208,7 @@ class BacktestReport(
   val tradesGroupedByDate: List<ReportEntry>
     get() =
       trades
-        .groupBy { it.entryQuote.date!! }
+        .groupBy { it.entryQuote.date }
         .entries
         .map {
           ReportEntry(
@@ -480,7 +480,7 @@ private fun List<Trade>.avgOrZero(selector: (Trade) -> Double): Double =
 
 private fun buildDailyProfitSummary(trades: List<Trade>): List<DailyProfitSummary> =
   trades
-    .groupBy { it.entryQuote.date!! }
+    .groupBy { it.entryQuote.date }
     .entries
     .map { (date, dateTrades) ->
       DailyProfitSummary(

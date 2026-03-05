@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.portfolio.service
 
+import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import com.skrymer.udgaard.portfolio.integration.broker.AssetType
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapterFactory
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerCredentials
@@ -29,6 +30,8 @@ class BrokerIntegrationService(
   private val portfolioService: PortfolioService,
   private val positionService: PositionService,
   private val executionRepository: ExecutionJooqRepository,
+  private val forexTrackingService: ForexTrackingService,
+  private val midgaardClient: MidgaardClient,
 ) {
   /**
    * Create portfolio from broker data
@@ -42,30 +45,9 @@ class BrokerIntegrationService(
     currency: String = "USD",
     initialBalance: Double? = null,
   ): CreateFromBrokerResult {
-    if (startDate != null) {
-      logger.info("Creating portfolio from broker: name=$name, broker=$broker, startDate=$startDate")
-    } else {
-      logger.info("Creating portfolio from broker: name=$name, broker=$broker (using template defaults)")
-    }
+    logger.info("Creating portfolio from broker: name=$name, broker=$broker, startDate=$startDate")
 
-    // Calculate end date and validate if startDate is provided
-    val endDate = if (startDate != null) LocalDate.now().minusDays(2) else null
-
-    if (startDate != null && endDate != null) {
-      // Validate date range (IBKR limit: 366 days)
-      val daysBetween = java.time.temporal.ChronoUnit.DAYS
-        .between(startDate, endDate)
-      if (daysBetween > 366) {
-        throw IllegalArgumentException(
-          "Date range exceeds IBKR's 366 day limit. " +
-            "Selected range: $daysBetween days (from $startDate to $endDate). " +
-            "Please select a start date within the last 366 days.",
-        )
-      }
-      if (startDate.isAfter(endDate)) {
-        throw IllegalArgumentException("Start date cannot be in the future. Latest data available is for $endDate")
-      }
-    }
+    val endDate = validateAndGetEndDate(startDate)
 
     // 1. Get broker adapter
     val adapter = adapterFactory.getAdapter(broker)
@@ -89,12 +71,32 @@ class BrokerIntegrationService(
       )
 
     // Update portfolio with broker info
+    // Detect base currency from account info (e.g. AUD for IBKR Australia)
+    val baseCurrency = accountInfo.currency.takeIf { it != currency } ?: currency
+
+    // Fetch initial FX rate if base currency differs from trade currency
+    val initialFxRate = if (baseCurrency != currency && startDate != null) {
+      midgaardClient
+        .getHistoricalExchangeRate(currency, baseCurrency, startDate)
+        .also { rate ->
+          if (rate != null) {
+            logger.info("Fetched initial FX rate $currency/$baseCurrency for $startDate: $rate")
+          } else {
+            logger.warn("Could not fetch initial FX rate $currency/$baseCurrency for $startDate")
+          }
+        }
+    } else {
+      null
+    }
+
     val updatedPortfolio =
       portfolio.copy(
         broker = broker,
         brokerAccountId = accountInfo.accountId,
         brokerConfig = extractBrokerConfig(credentials),
         lastSyncDate = LocalDateTime.now(),
+        baseCurrency = baseCurrency,
+        initialFxRate = initialFxRate,
       )
 
     val savedPortfolio = portfolioService.updatePortfolioWithBrokerInfo(updatedPortfolio)
@@ -308,14 +310,26 @@ class BrokerIntegrationService(
           val totalQuantity = lotsWithSameTrade.sumOf { it.openTrade.quantity }
           val firstTrade = lotsWithSameTrade.first().openTrade
 
-          positionService.addExecution(
+          val execution = positionService.addExecution(
             positionId = positionId,
             quantity = totalQuantity,
             price = firstTrade.price,
             executionDate = firstTrade.tradeDate,
             brokerTradeId = brokerTradeId,
-            commission = firstTrade.commission
+            commission = firstTrade.commission,
+            fxRateToBase = firstTrade.fxRateToBase,
           )
+          // Track forex if FX rate is available
+          if (firstTrade.fxRateToBase != null) {
+            forexTrackingService.processExecution(
+              portfolioId = portfolioId,
+              executionId = execution.id,
+              date = firstTrade.tradeDate,
+              netCashUsd = firstTrade.netAmount,
+              fxRate = firstTrade.fxRateToBase,
+              description = "${firstTrade.symbol} ${firstTrade.direction}",
+            )
+          }
           executionsCreated++
           processedBrokerTradeIds.add(brokerTradeId)
         }
@@ -331,14 +345,26 @@ class BrokerIntegrationService(
           val totalQuantity = tradesWithSameBrokerId.sumOf { it.quantity }
           val firstTrade = tradesWithSameBrokerId.first()
 
-          positionService.addExecution(
+          val execution = positionService.addExecution(
             positionId = positionId,
             quantity = -totalQuantity,
             price = firstTrade.price,
             executionDate = firstTrade.tradeDate,
             brokerTradeId = brokerTradeId,
-            commission = firstTrade.commission
+            commission = firstTrade.commission,
+            fxRateToBase = firstTrade.fxRateToBase,
           )
+          // Track forex if FX rate is available
+          if (firstTrade.fxRateToBase != null) {
+            forexTrackingService.processExecution(
+              portfolioId = portfolioId,
+              executionId = execution.id,
+              date = firstTrade.tradeDate,
+              netCashUsd = firstTrade.netAmount,
+              fxRate = firstTrade.fxRateToBase,
+              description = "${firstTrade.symbol} ${firstTrade.direction}",
+            )
+          }
           executionsCreated++
           processedBrokerTradeIds.add(brokerTradeId)
         }
@@ -359,86 +385,6 @@ class BrokerIntegrationService(
       "Imported lot group for ${firstLot.symbol}: ${lots.size} lots, " +
         "$executionsCreated executions, qty: ${updatedPosition?.currentQuantity ?: 0}"
     )
-
-    return RegularLotImportResult(
-      positionsCreated = 1,
-      newPositions = 1,
-      executionsCreated = executionsCreated
-    )
-  }
-
-  /**
-   * DEPRECATED: Replaced by importLotGroup
-   * Import regular (non-rolled) lot into portfolio
-   * Creates a simple position with opening and optionally closing execution
-   */
-  private fun importRegularLot(
-    portfolioId: Long,
-    lot: TradeLot,
-  ): RegularLotImportResult {
-    // Skip if opening execution already exists (sync scenario)
-    val existingOpen = executionRepository.findByBrokerTradeId(lot.openTrade.brokerTradeId)
-    if (existingOpen != null) {
-      logger.debug("Opening execution ${lot.openTrade.brokerTradeId} already exists, skipping lot")
-      return RegularLotImportResult(
-        positionsCreated = 0,
-        newPositions = 0,
-        executionsCreated = 0
-      )
-    }
-
-    // Create position
-    val position = positionService.findOrCreatePosition(
-      portfolioId = portfolioId,
-      symbol = lot.symbol,
-      instrumentType = mapAssetType(lot.openTrade.assetType),
-      underlyingSymbol = lot.openTrade.optionDetails?.underlyingSymbol,
-      optionType = lot.openTrade.optionDetails?.optionType,
-      strikePrice = lot.openTrade.optionDetails?.strike,
-      expirationDate = lot.openTrade.optionDetails?.expiry,
-      openedDate = lot.openTrade.tradeDate,
-      currency = lot.openTrade.currency,
-      entryStrategy = "Broker Import",
-      exitStrategy = "Broker Import"
-    )
-
-    val positionId = position.id!!
-    var executionsCreated = 0
-
-    // Add opening execution
-    positionService.addExecution(
-      positionId = positionId,
-      quantity = lot.openTrade.quantity,
-      price = lot.openTrade.price,
-      executionDate = lot.openTrade.tradeDate,
-      brokerTradeId = lot.openTrade.brokerTradeId,
-      commission = lot.openTrade.commission
-    )
-    executionsCreated++
-
-    // Add closing execution if closed (skip if already exists)
-    if (lot.closeTrade != null) {
-      val existingClose = executionRepository.findByBrokerTradeId(lot.closeTrade.brokerTradeId)
-      if (existingClose == null) {
-        positionService.addExecution(
-          positionId = positionId,
-          quantity = -lot.closeTrade.quantity,
-          price = lot.closeTrade.price,
-          executionDate = lot.closeTrade.tradeDate,
-          brokerTradeId = lot.closeTrade.brokerTradeId,
-          commission = lot.closeTrade.commission
-        )
-        executionsCreated++
-      } else {
-        logger.debug("Closing execution ${lot.closeTrade.brokerTradeId} already exists, skipping")
-      }
-
-      // Only close position if it has no remaining quantity
-      val updatedPosition = positionService.getPositionById(positionId)
-      if (updatedPosition?.currentQuantity == 0) {
-        positionService.closePosition(positionId, lot.closeTrade.tradeDate)
-      }
-    }
 
     return RegularLotImportResult(
       positionsCreated = 1,
@@ -494,14 +440,25 @@ class BrokerIntegrationService(
       // Add opening execution (skip if already exists)
       val existingOpen = executionRepository.findByBrokerTradeId(lot.openTrade.brokerTradeId)
       if (existingOpen == null) {
-        positionService.addExecution(
+        val openExecution = positionService.addExecution(
           positionId = positionId,
           quantity = lot.openTrade.quantity,
           price = lot.openTrade.price,
           executionDate = lot.openTrade.tradeDate,
           brokerTradeId = lot.openTrade.brokerTradeId,
-          commission = lot.openTrade.commission
+          commission = lot.openTrade.commission,
+          fxRateToBase = lot.openTrade.fxRateToBase,
         )
+        if (lot.openTrade.fxRateToBase != null) {
+          forexTrackingService.processExecution(
+            portfolioId = portfolioId,
+            executionId = openExecution.id,
+            date = lot.openTrade.tradeDate,
+            netCashUsd = lot.openTrade.netAmount,
+            fxRate = lot.openTrade.fxRateToBase,
+            description = "${lot.openTrade.symbol} ${lot.openTrade.direction}",
+          )
+        }
         executionsCreated++
       } else {
         logger.debug("Execution ${lot.openTrade.brokerTradeId} already exists, skipping")
@@ -511,14 +468,25 @@ class BrokerIntegrationService(
       if (lot.closeTrade != null) {
         val existingClose = executionRepository.findByBrokerTradeId(lot.closeTrade.brokerTradeId)
         if (existingClose == null) {
-          positionService.addExecution(
+          val closeExecution = positionService.addExecution(
             positionId = positionId,
             quantity = -lot.closeTrade.quantity,
             price = lot.closeTrade.price,
             executionDate = lot.closeTrade.tradeDate,
             brokerTradeId = lot.closeTrade.brokerTradeId,
-            commission = lot.closeTrade.commission
+            commission = lot.closeTrade.commission,
+            fxRateToBase = lot.closeTrade.fxRateToBase,
           )
+          if (lot.closeTrade.fxRateToBase != null) {
+            forexTrackingService.processExecution(
+              portfolioId = portfolioId,
+              executionId = closeExecution.id,
+              date = lot.closeTrade.tradeDate,
+              netCashUsd = lot.closeTrade.netAmount,
+              fxRate = lot.closeTrade.fxRateToBase,
+              description = "${lot.closeTrade.symbol} ${lot.closeTrade.direction}",
+            )
+          }
           executionsCreated++
         } else {
           logger.debug("Execution ${lot.closeTrade.brokerTradeId} already exists, skipping")
@@ -559,6 +527,27 @@ class BrokerIntegrationService(
       newPositions = if (isNewPosition) 1 else 0,
       executionsCreated = executionsCreated
     )
+  }
+
+  /**
+   * Validate date range and return end date
+   */
+  private fun validateAndGetEndDate(startDate: LocalDate?): LocalDate? {
+    if (startDate == null) return null
+    val endDate = LocalDate.now().minusDays(1)
+    val daysBetween = java.time.temporal.ChronoUnit.DAYS
+      .between(startDate, endDate)
+    if (daysBetween > 366) {
+      throw IllegalArgumentException(
+        "Date range exceeds IBKR's 366 day limit. " +
+          "Selected range: $daysBetween days (from $startDate to $endDate). " +
+          "Please select a start date within the last 366 days.",
+      )
+    }
+    if (startDate.isAfter(endDate)) {
+      throw IllegalArgumentException("Start date cannot be in the future. Latest data available is for $endDate")
+    }
+    return endDate
   }
 
   /**

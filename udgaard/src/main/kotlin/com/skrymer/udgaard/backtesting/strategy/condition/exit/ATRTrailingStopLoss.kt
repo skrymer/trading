@@ -37,10 +37,8 @@ class ATRTrailingStopLoss(
     val quotesSinceEntry =
       stock.quotes
         .filter { q ->
-          q.date != null &&
-            entryQuote.date != null &&
-            (q.date!! >= entryQuote.date!!) &&
-            (q.date!! <= quote.date!!)
+          q.date >= entryQuote.date &&
+            q.date <= quote.date
         }.sortedBy { it.date }
 
     if (quotesSinceEntry.isEmpty()) return false

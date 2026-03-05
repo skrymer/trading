@@ -69,6 +69,7 @@ data class StandardizedTrade(
    * Currency
    */
   val currency: String = "USD",
+  val fxRateToBase: Double? = null,
 )
 
 /**

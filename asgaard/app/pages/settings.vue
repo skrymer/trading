@@ -65,12 +65,20 @@
                     />
                   </UFormGroup>
 
+                  <UFormGroup label="Flex Query Token" help="Token for accessing Flex Query reports (valid for up to 1 year)">
+                    <UInput
+                      v-model="credentials.ibkrFlexQueryToken"
+                      type="password"
+                      placeholder="Enter your Flex Query Token"
+                    />
+                  </UFormGroup>
+
                   <UAlert
                     icon="i-lucide-info"
                     color="info"
                     variant="subtle"
                     title="How to setup IBKR Flex Query"
-                    description="1. Login to IBKR Portal  2. Go to Reports > Flex Queries  3. Create a query with trade details  4. Copy the Query ID"
+                    description="1. Login to IBKR Portal  2. Go to Reports > Flex Queries  3. Create a query with trade details  4. Copy the Query ID and Token"
                   />
                 </div>
               </div>
@@ -177,7 +185,8 @@ const toast = useToast()
 
 const credentials = ref({
   ibkrAccountId: '',
-  ibkrFlexQueryId: ''
+  ibkrFlexQueryId: '',
+  ibkrFlexQueryToken: ''
 })
 
 const credentialsStatus = ref<{

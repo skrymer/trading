@@ -36,6 +36,7 @@ midgaard/
 │   │   ├── SymbolController.kt            # GET /api/symbols, /api/symbols/{symbol}
 │   │   ├── EarningsController.kt          # GET /api/earnings/{symbol}
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
+│   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical
 │   │   ├── StatusController.kt            # GET /api/status
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
 │   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled)

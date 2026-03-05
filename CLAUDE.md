@@ -69,6 +69,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `PortfolioService.kt`: Portfolio management
    - `PositionService.kt`: Position lifecycle management
    - `BrokerIntegrationService.kt`: Broker sync orchestration
+   - `ForexTrackingService.kt`: FIFO forex lot tracking for multi-currency portfolios
    - `OptionPriceService.kt`: Options pricing data
    - `UnrealizedPnlService.kt`: Real-time P/L calculations
    - IBKR integration via broker adapter pattern (`broker/`, `ibkr/`)
@@ -154,7 +155,7 @@ trading/
 │   │   │   ├── mapper/               # Entity/DTO mappers
 │   │   │   ├── model/                # Portfolio, Position, Execution
 │   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository
-│   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService
+│   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService
 │   │   ├── scanner/                  # Scanner domain
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
@@ -165,7 +166,7 @@ trading/
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
-│   ├── src/main/resources/           # Config, migrations (V1-V9)
+│   ├── src/main/resources/           # Config, migrations (V1-V12)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL)
 │   ├── build.gradle                  # Gradle build config
@@ -232,7 +233,9 @@ Strategies use a DSL for declarative composition, auto-discovered via `@Register
 
 ### Portfolio Management
 
-**Portfolio Features:** Multiple portfolios, independent balances/currencies, real-time P/L, YTD/annualized returns, win rate, proven edge
+**Portfolio Features:** Multiple portfolios, independent balances/currencies, real-time P/L, YTD/annualized returns, win rate, proven edge, multi-currency FX tracking (USD/AUD)
+
+**FX Tracking:** Portfolios with different base/trade currencies track FX impact. `initialFxRate` stored at portfolio creation, live rates fetched from Midgaard. Per-transaction FIFO forex lot tracking for tax purposes. Stats include `effectiveBalance` (currentBalance + FX P&L) and `currentFxRate` for currency toggle display.
 
 **Trade Types:** Stocks, Leveraged ETFs, Options (strike, expiration, type, contracts, multiplier)
 

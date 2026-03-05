@@ -43,7 +43,7 @@ class BelowOrderBlockCondition(
           // Must be at least ageInDays old (>= ageInDays) in TRADING DAYS
           stock.countTradingDaysBetween(
             it.startDate,
-            quote.date ?: return@filter false,
+            quote.date,
           ) >= ageInDays
         }.filter {
           // Order block must have started before current quote
@@ -106,15 +106,7 @@ class BelowOrderBlockCondition(
     context: BacktestContext,
   ): ConditionEvaluationResult {
     val price = quote.closePrice
-    val quoteDate =
-      quote.date ?: return ConditionEvaluationResult(
-        conditionType = "BelowOrderBlockCondition",
-        description = description(),
-        passed = false,
-        actualValue = null,
-        threshold = null,
-        message = "Quote date is null ✗",
-      )
+    val quoteDate = quote.date
 
     // Find relevant order blocks
     val relevantOrderBlocks =

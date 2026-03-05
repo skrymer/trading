@@ -1,0 +1,22 @@
+<FlexQueryResponse queryName="Test query FX" type="AF">
+<FlexStatements count="1">
+<FlexStatement accountId="U20790574" fromDate="2026-01-01" toDate="2026-02-28">
+<AccountInformation currency="AUD" accountType="Cash" />
+<Trades>
+<!-- ==================== STOCK TRADES (TQQQ) with FX rates ==================== -->
+<!-- Buy 100 shares @ $50, FX rate 1.60 (1 USD = 1.60 AUD) -->
+<Trade tradeID="500001" symbol="TQQQ" tradeDate="2026-01-05" dateTime="2026-01-06;074740" quantity="100" tradePrice="50.00" buySell="BUY" openCloseIndicator="O" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="95001" origTradeID="" ibCommission="-1.00" netCash="-5001.00" currency="USD" fxRateToBase="1.60" levelOfDetail="EXECUTION" />
+<!-- Sell 60 shares @ $55, FX rate 1.50 (AUD strengthened) -->
+<Trade tradeID="500002" symbol="TQQQ" tradeDate="2026-01-12" dateTime="2026-01-13;070857" quantity="-60" tradePrice="55.00" buySell="SELL" openCloseIndicator="C" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="95002" origTradeID="" ibCommission="-0.60" netCash="3299.40" currency="USD" fxRateToBase="1.50" levelOfDetail="EXECUTION" />
+<!-- Sell 40 shares @ $52, FX rate 1.45 (AUD strengthened further) -->
+<Trade tradeID="500003" symbol="TQQQ" tradeDate="2026-01-20" dateTime="2026-01-21;070900" quantity="-40" tradePrice="52.00" buySell="SELL" openCloseIndicator="C" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="95003" origTradeID="" ibCommission="-0.40" netCash="2079.60" currency="USD" fxRateToBase="1.45" levelOfDetail="EXECUTION" />
+
+<!-- ==================== OPTION TRADE (EGO) with FX rates ==================== -->
+<!-- Buy 2 EGO $35C, FX rate 1.55 -->
+<Trade tradeID="600001" symbol="EGO   260320C00035000" tradeDate="2026-01-13" dateTime="2026-01-14;071015" quantity="2" tradePrice="7.00" buySell="BUY" openCloseIndicator="O" assetCategory="OPT" putCall="C" strike="35" expiry="2026-03-20" multiplier="100" underlyingSymbol="EGO" ibOrderID="96001" origTradeID="" ibCommission="-1.40" netCash="-1401.40" currency="USD" fxRateToBase="1.55" levelOfDetail="EXECUTION" />
+<!-- Sell 2 EGO $35C, FX rate 1.48 -->
+<Trade tradeID="600002" symbol="EGO   260320C00035000" tradeDate="2026-01-20" dateTime="2026-01-21;070515" quantity="-2" tradePrice="8.50" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="35" expiry="2026-03-20" multiplier="100" underlyingSymbol="EGO" ibOrderID="96002" origTradeID="" ibCommission="-1.41" netCash="1698.59" currency="USD" fxRateToBase="1.48" levelOfDetail="EXECUTION" />
+</Trades>
+</FlexStatement>
+</FlexStatements>
+</FlexQueryResponse>

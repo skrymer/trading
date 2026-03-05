@@ -23,7 +23,7 @@ class BeforeEarningsExit(
     entryQuote: StockQuote?,
     quote: StockQuote,
   ): Boolean {
-    val quoteDate = quote.date ?: return false
+    val quoteDate = quote.date
     return stock.hasEarningsWithinDays(quoteDate, daysBeforeEarnings)
   }
 

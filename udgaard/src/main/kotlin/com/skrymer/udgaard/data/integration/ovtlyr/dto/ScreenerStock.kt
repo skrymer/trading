@@ -57,5 +57,5 @@ class ScreenerStock {
   @JsonProperty("closePrice")
   val closePrice: Double = 0.0
 
-  override fun toString(): String = "Symbol: $symbol Close price: $closePrice Signal date: $buySellDate".toString()
+  override fun toString(): String = "Symbol: $symbol Close price: $closePrice Signal date: $buySellDate"
 }

@@ -10,7 +10,7 @@ sealed class BrokerCredentials {
    */
   data class IBKRCredentials(
     /**
-     * Flex Query token (6 hour expiry, user provides at sync time)
+     * Flex Query token (valid for up to 1 year, saved in settings)
      */
     val token: String,
     /**

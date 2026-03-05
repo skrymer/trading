@@ -46,7 +46,7 @@ data class MonteCarloScenario(
   val losingTrades: Int,
 ) {
   data class EquityPoint(
-    @JsonFormat(pattern = "yyyy-MM-dd")
+    @param:JsonFormat(pattern = "yyyy-MM-dd")
     val date: LocalDate,
     val cumulativeReturnPercentage: Double,
     val tradeNumber: Int,

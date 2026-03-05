@@ -27,7 +27,7 @@ class IBKRTradeMapper {
       brokerTradeId = ibkrTrade.tradeID,
       symbol = ibkrTrade.symbol,
       tradeDate = parseDate(ibkrTrade.tradeDate),
-      tradeTime = ibkrTrade.tradeTime?.let { parseTime(it) },
+      tradeTime = ibkrTrade.tradeTime?.let { parseTime(it) } ?: ibkrTrade.dateTime?.let { parseDateTime(it) },
       quantity = Math.abs(parseIntSafe(ibkrTrade.quantity)), // Make quantity positive
       price = parseDoubleSafe(ibkrTrade.tradePrice),
       direction = parseDirection(ibkrTrade.buySell),
@@ -44,6 +44,7 @@ class IBKRTradeMapper {
       commission = ibkrTrade.ibCommission?.let { parseDoubleSafe(it) },
       netAmount = parseDoubleSafe(ibkrTrade.netCash),
       currency = ibkrTrade.currency ?: "USD",
+      fxRateToBase = ibkrTrade.fxRateToBase?.let { parseDoubleSafe(it) },
     )
 
   /**
@@ -95,6 +96,22 @@ class IBKRTradeMapper {
       }
     } catch (e: Exception) {
       logger.warn("Failed to parse time: $timeStr", e)
+      null
+    }
+
+  /**
+   * Extract time from IBKR dateTime field (format: "yyyy-MM-dd;HHmmss")
+   */
+  private fun parseDateTime(dateTimeStr: String): LocalTime? =
+    try {
+      val timePart = dateTimeStr.substringAfter(";", "")
+      if (timePart.length == 6) {
+        parseTime(timePart)
+      } else {
+        null
+      }
+    } catch (e: Exception) {
+      logger.warn("Failed to parse dateTime: $dateTimeStr", e)
       null
     }
 

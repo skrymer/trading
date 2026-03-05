@@ -14,10 +14,12 @@ data class Portfolio(
   val initialBalance: Double = 0.0,
   val currentBalance: Double = 0.0,
   val currency: String = "USD",
+  val baseCurrency: String = "USD",
   val createdDate: LocalDateTime = LocalDateTime.now(),
   val lastUpdated: LocalDateTime = LocalDateTime.now(),
   val broker: BrokerType = BrokerType.MANUAL,
   val brokerAccountId: String? = null,
   val brokerConfig: Map<String, String> = emptyMap(),
   val lastSyncDate: LocalDateTime? = null,
+  val initialFxRate: Double? = null,
 )

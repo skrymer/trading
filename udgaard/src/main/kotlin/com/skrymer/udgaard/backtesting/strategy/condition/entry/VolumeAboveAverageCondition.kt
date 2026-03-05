@@ -30,15 +30,13 @@ class VolumeAboveAverageCondition(
     val currentVolume = quote.volume
 
     // Get quotes from the lookback period (excluding current day)
-    val quoteDate = quote.date ?: return false
+    val quoteDate = quote.date
     val lookbackStartDate = quoteDate.minusDays(lookbackDays.toLong())
 
     val historicalQuotes =
       stock.quotes
-        .filter { q ->
-          val qDate = q.date
-          qDate != null && qDate >= lookbackStartDate && qDate < quoteDate
-        }.sortedByDescending { it.date }
+        .filter { q -> q.date >= lookbackStartDate && q.date < quoteDate }
+        .sortedByDescending { it.date }
         .take(lookbackDays)
 
     // Need at least half the lookback period to calculate average
@@ -87,16 +85,14 @@ class VolumeAboveAverageCondition(
     context: BacktestContext,
   ): ConditionEvaluationResult {
     val currentVolume = quote.volume
-    val quoteDate = quote.date ?: return failedResult("No date available")
+    val quoteDate = quote.date
 
     val lookbackStartDate = quoteDate.minusDays(lookbackDays.toLong())
 
     val historicalQuotes =
       stock.quotes
-        .filter { q ->
-          val qDate = q.date
-          qDate != null && qDate >= lookbackStartDate && qDate < quoteDate
-        }.sortedByDescending { it.date }
+        .filter { q -> q.date >= lookbackStartDate && q.date < quoteDate }
+        .sortedByDescending { it.date }
         .take(lookbackDays)
 
     if (historicalQuotes.size < lookbackDays / 2) {

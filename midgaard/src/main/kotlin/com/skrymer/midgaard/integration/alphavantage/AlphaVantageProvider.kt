@@ -9,7 +9,9 @@ import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageADX
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageApiResponse
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageCompanyOverview
+import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageCurrencyExchangeRate
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageEarnings
+import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageFxDaily
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageHistoricalOptions
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
 import com.skrymer.midgaard.model.CompanyInfo
@@ -244,6 +246,54 @@ class AlphaVantageProvider(
         }
     }
 
+    fun getExchangeRate(
+        fromCurrency: String,
+        toCurrency: String,
+    ): Double? =
+        runCatching {
+            val response =
+                restClient
+                    .get()
+                    .uri { uriBuilder ->
+                        uriBuilder
+                            .queryParam("function", FUNCTION_CURRENCY_EXCHANGE_RATE)
+                            .queryParam("from_currency", fromCurrency)
+                            .queryParam("to_currency", toCurrency)
+                            .queryParam("apikey", apiKey)
+                            .build()
+                    }.retrieve()
+                    .toEntity(AlphaVantageCurrencyExchangeRate::class.java)
+                    .body
+            validateAndTransform(response, "$fromCurrency/$toCurrency", "exchange rate") { it.toRate() }
+        }.onFailure { e ->
+            logger.error("Failed to fetch exchange rate $fromCurrency/$toCurrency: ${e.message}", e)
+        }.getOrNull()
+
+    fun getHistoricalExchangeRate(
+        fromCurrency: String,
+        toCurrency: String,
+        date: LocalDate,
+    ): Double? =
+        runCatching {
+            val response =
+                restClient
+                    .get()
+                    .uri { uriBuilder ->
+                        uriBuilder
+                            .queryParam("function", FUNCTION_FX_DAILY)
+                            .queryParam("from_symbol", fromCurrency)
+                            .queryParam("to_symbol", toCurrency)
+                            .queryParam("outputsize", "full")
+                            .queryParam("apikey", apiKey)
+                            .build()
+                    }.retrieve()
+                    .toEntity(AlphaVantageFxDaily::class.java)
+                    .body
+            validateAndTransform(response, "$fromCurrency/$toCurrency", "FX daily") { it.closestRateForDate(date) }
+        }.onFailure { e ->
+            logger.error("Failed to fetch historical FX rate $fromCurrency/$toCurrency for $date: ${e.message}", e)
+        }.getOrNull()
+
     private fun <T : AlphaVantageApiResponse, R> validateAndTransform(
         response: T?,
         symbol: String,
@@ -266,5 +316,7 @@ class AlphaVantageProvider(
         private const val FUNCTION_OVERVIEW = "OVERVIEW"
         private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
         private const val FUNCTION_REALTIME_OPTIONS = "REALTIME_OPTIONS"
+        private const val FUNCTION_CURRENCY_EXCHANGE_RATE = "CURRENCY_EXCHANGE_RATE"
+        private const val FUNCTION_FX_DAILY = "FX_DAILY"
     }
 }

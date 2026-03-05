@@ -112,13 +112,16 @@ udgaard/
 │   │   ├── repository/
 │   │   │   ├── PortfolioJooqRepository.kt
 │   │   │   ├── PositionJooqRepository.kt
-│   │   │   └── ExecutionJooqRepository.kt
+│   │   │   ├── ExecutionJooqRepository.kt
+│   │   │   ├── ForexLotJooqRepository.kt
+│   │   │   └── ForexDisposalJooqRepository.kt
 │   │   └── service/
 │   │       ├── PortfolioService.kt
 │   │       ├── PositionService.kt
 │   │       ├── BrokerIntegrationService.kt
 │   │       ├── OptionPriceService.kt
-│   │       └── UnrealizedPnlService.kt
+│   │       ├── UnrealizedPnlService.kt
+│   │       └── ForexTrackingService.kt
 │   ├── scanner/                      # Scanner domain
 │   │   ├── controller/
 │   │   │   └── ScannerController.kt

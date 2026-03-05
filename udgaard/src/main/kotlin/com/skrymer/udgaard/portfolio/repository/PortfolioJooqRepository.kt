@@ -73,11 +73,13 @@ class PortfolioJooqRepository(
           .set(PORTFOLIOS.INITIAL_BALANCE, pojo.initialBalance)
           .set(PORTFOLIOS.CURRENT_BALANCE, pojo.currentBalance)
           .set(PORTFOLIOS.CURRENCY, pojo.currency)
+          .set(PORTFOLIOS.BASE_CURRENCY, pojo.baseCurrency)
           .set(PORTFOLIOS.CREATED_AT, pojo.createdAt)
           .set(PORTFOLIOS.UPDATED_AT, pojo.updatedAt)
           .set(PORTFOLIOS.BROKER, pojo.broker)
           .set(PORTFOLIOS.BROKER_CONFIG, pojo.brokerConfig)
           .set(PORTFOLIOS.LAST_SYNC_DATE, pojo.lastSyncDate)
+          .set(PORTFOLIOS.INITIAL_FX_RATE, pojo.initialFxRate)
           .returningResult(PORTFOLIOS.ID)
           .fetchOne()
 
@@ -92,10 +94,12 @@ class PortfolioJooqRepository(
         .set(PORTFOLIOS.INITIAL_BALANCE, pojo.initialBalance)
         .set(PORTFOLIOS.CURRENT_BALANCE, pojo.currentBalance)
         .set(PORTFOLIOS.CURRENCY, pojo.currency)
+        .set(PORTFOLIOS.BASE_CURRENCY, pojo.baseCurrency)
         .set(PORTFOLIOS.UPDATED_AT, pojo.updatedAt)
         .set(PORTFOLIOS.BROKER, pojo.broker)
         .set(PORTFOLIOS.BROKER_CONFIG, pojo.brokerConfig)
         .set(PORTFOLIOS.LAST_SYNC_DATE, pojo.lastSyncDate)
+        .set(PORTFOLIOS.INITIAL_FX_RATE, pojo.initialFxRate)
         .where(PORTFOLIOS.ID.eq(portfolio.id))
         .execute()
 
@@ -121,5 +125,6 @@ class PortfolioJooqRepository(
       .selectCount()
       .from(PORTFOLIOS)
       .where(PORTFOLIOS.ID.eq(id))
-      .fetchOne(0, Int::class.java) ?: 0 > 0
+      .fetchOne(0, Int::class.java)
+      ?.let { it > 0 } ?: false
 }

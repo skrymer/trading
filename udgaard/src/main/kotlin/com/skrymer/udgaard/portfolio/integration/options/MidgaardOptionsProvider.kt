@@ -15,7 +15,7 @@ import java.time.LocalDate
  */
 @Service
 class MidgaardOptionsProvider(
-  @Value("\${midgaard.base-url:http://localhost:8081}") private val baseUrl: String,
+  @param:Value("\${midgaard.base-url:http://localhost:8081}") private val baseUrl: String,
 ) : OptionsDataProvider {
   private val restClient: RestClient by lazy {
     RestClient

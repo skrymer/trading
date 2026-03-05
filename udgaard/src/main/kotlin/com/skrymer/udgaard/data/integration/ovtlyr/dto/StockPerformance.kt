@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class StockPerformance(
-  @JsonProperty("lst_performanceSummary")
+  @param:JsonProperty("lst_performanceSummary")
   val performanceSummary: List<PerformanceSummaryItem>,
 ) {
   fun ovtlyrPerformance() =
@@ -16,16 +16,16 @@ data class StockPerformance(
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class PerformanceSummaryItem(
-  @JsonProperty("stockSymbol")
+  @param:JsonProperty("stockSymbol")
   val stockSymbol: String,
-  @JsonProperty("quotedate")
+  @param:JsonProperty("quotedate")
   val quoteDate: String,
-  @JsonProperty("matrics")
+  @param:JsonProperty("matrics")
   val metrics: String,
-  @JsonProperty("buyHold")
+  @param:JsonProperty("buyHold")
   val buyHold: String? = null,
-  @JsonProperty("ovtlyr")
+  @param:JsonProperty("ovtlyr")
   val ovtlyrPerformance: Double? = null,
-  @JsonProperty("period")
+  @param:JsonProperty("period")
   val period: String,
 )

@@ -22,12 +22,15 @@ const toast = useToast()
 // Load IBKR credentials from settings as fallback
 onMounted(async () => {
   try {
-    const data = await $fetch<{ ibkrAccountId?: string, ibkrFlexQueryId?: string }>('/udgaard/api/settings/credentials')
+    const data = await $fetch<{ ibkrAccountId?: string, ibkrFlexQueryId?: string, ibkrFlexQueryToken?: string }>('/udgaard/api/settings/credentials')
     if (data.ibkrFlexQueryId && data.ibkrAccountId) {
       settingsCredentials.value = {
         queryId: data.ibkrFlexQueryId,
         accountId: data.ibkrAccountId
       }
+    }
+    if (data.ibkrFlexQueryToken) {
+      token.value = data.ibkrFlexQueryToken
     }
   } catch (error) {
     console.error('Failed to load IBKR credentials from settings:', error)
@@ -163,7 +166,7 @@ function handleClose() {
           </div>
         </div>
 
-        <UFormField label="Flex Query Token" help="6-hour expiry - generate new token each time" required>
+        <UFormField label="Flex Query Token" :help="token ? 'Loaded from Settings' : 'Configure in Settings to auto-fill'" required>
           <UInput
             v-model="token"
             type="password"

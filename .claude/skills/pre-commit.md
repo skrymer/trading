@@ -31,8 +31,10 @@ cd /home/sonni/development/git/trading/udgaard && ./gradlew detekt
 
 #### 4. Backend Compiler Warnings
 ```bash
-cd /home/sonni/development/git/trading/udgaard && ./gradlew compileKotlin 2>&1 | grep "^w:"
+cd /home/sonni/development/git/trading/udgaard && ./gradlew clean compileKotlin 2>&1 | grep "^w:"
 ```
+**IMPORTANT:** Must use `clean` before `compileKotlin` — without it, the task may be UP-TO-DATE (cached) and produce no output, silently hiding warnings.
+
 If any warnings are found (redundant `!!`, always-true conditions, unnecessary `?:`, etc.), fix them. These are Kotlin compiler warnings that ktlint and detekt cannot catch (they require type resolution). Zero warnings expected.
 
 ### Midgaard (Reference Data Service) — only if changes in `midgaard/`

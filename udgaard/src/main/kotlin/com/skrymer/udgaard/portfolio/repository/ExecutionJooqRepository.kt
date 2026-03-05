@@ -77,6 +77,7 @@ class ExecutionJooqRepository(
         .set(EXECUTIONS.EXECUTION_DATE, pojo.executionDate)
         .set(EXECUTIONS.EXECUTION_TIME, pojo.executionTime)
         .set(EXECUTIONS.COMMISSION, pojo.commission)
+        .set(EXECUTIONS.FX_RATE_TO_BASE, pojo.fxRateToBase)
         .set(EXECUTIONS.NOTES, pojo.notes)
         .returningResult(EXECUTIONS.ID)
         .fetchOne()

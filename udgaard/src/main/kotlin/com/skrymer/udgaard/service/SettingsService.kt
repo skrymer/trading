@@ -25,6 +25,7 @@ class SettingsService(
 
     System.setProperty("ibkr.account.id", credentials.ibkrAccountId)
     System.setProperty("ibkr.flexquery.id", credentials.ibkrFlexQueryId)
+    System.setProperty("ibkr.flexquery.token", credentials.ibkrFlexQueryToken)
   }
 
   fun getPositionSizingSettings(): PositionSizingSettingsDto {
@@ -40,7 +41,11 @@ class SettingsService(
   fun getCredentialsStatus(): Map<String, Boolean> {
     val credentials = getCredentials()
     return mapOf(
-      "ibkrConfigured" to (credentials.ibkrAccountId.isNotBlank() && credentials.ibkrFlexQueryId.isNotBlank()),
+      "ibkrConfigured" to (
+        credentials.ibkrAccountId.isNotBlank() &&
+          credentials.ibkrFlexQueryId.isNotBlank() &&
+          credentials.ibkrFlexQueryToken.isNotBlank()
+      ),
     )
   }
 

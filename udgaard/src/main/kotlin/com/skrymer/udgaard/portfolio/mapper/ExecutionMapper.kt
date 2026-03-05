@@ -15,14 +15,15 @@ class ExecutionMapper {
   fun toDomain(execution: Executions): Execution =
     Execution(
       id = execution.id,
-      positionId = execution.positionId ?: 0,
+      positionId = execution.positionId,
       brokerTradeId = execution.brokerTradeId,
       linkedBrokerTradeId = execution.linkedBrokerTradeId,
-      quantity = execution.quantity ?: 0,
-      price = execution.price?.toDouble() ?: 0.0,
-      executionDate = execution.executionDate ?: java.time.LocalDate.now(),
+      quantity = execution.quantity,
+      price = execution.price.toDouble(),
+      executionDate = execution.executionDate,
       executionTime = execution.executionTime,
       commission = execution.commission?.toDouble(),
+      fxRateToBase = execution.fxRateToBase?.toDouble(),
       notes = execution.notes,
       createdAt = execution.createdAt,
     )
@@ -40,6 +41,7 @@ class ExecutionMapper {
       executionDate = execution.executionDate,
       executionTime = execution.executionTime,
       commission = execution.commission?.toBigDecimal(),
+      fxRateToBase = execution.fxRateToBase?.toBigDecimal(),
       notes = execution.notes,
       createdAt = execution.createdAt,
     ).apply {

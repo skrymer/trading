@@ -49,7 +49,7 @@ class TradeShufflingTechnique : MonteCarloTechnique {
 
       val exitDate =
         trade.quotes
-          .maxByOrNull { it.date ?: throw IllegalStateException("Trade has quote with null date") }
+          .maxByOrNull { it.date }
           ?.date
           ?: throw IllegalStateException("Trade has no quotes")
 
@@ -84,7 +84,7 @@ class TradeShufflingTechnique : MonteCarloTechnique {
 
       val exitDate =
         trade.quotes
-          .maxByOrNull { it.date ?: throw IllegalStateException("Trade has quote with null date") }
+          .maxByOrNull { it.date }
           ?.date
           ?: throw IllegalStateException("Trade has no quotes")
 

@@ -595,12 +595,14 @@ export interface Portfolio {
   initialBalance: number
   currentBalance: number
   currency: string
+  baseCurrency?: string
   createdDate?: string
   lastUpdated?: string
   broker?: string
   brokerAccountId?: string
   brokerConfig?: Record<string, string>
   lastSyncDate?: string
+  initialFxRate?: number | null
 }
 
 export interface Position {
@@ -629,6 +631,7 @@ export interface Position {
 
   // P&L
   realizedPnl?: number
+  realizedPnlBase?: number
 
   // Rolling (clean 1-to-1 relationship)
   rolledToPositionId?: number
@@ -669,6 +672,7 @@ export interface Execution {
 
   // Costs
   commission?: number
+  fxRateToBase?: number
 
   // Metadata
   notes?: string
@@ -787,6 +791,10 @@ export interface PortfolioStats {
   largestLoss?: number
   numberOfWins?: number
   numberOfLosses?: number
+  totalCommissions?: number
+  totalRealizedFxPnl?: number | null
+  effectiveBalance?: number | null
+  currentFxRate?: number | null
 }
 
 export interface EquityDataPoint {
@@ -1009,6 +1017,44 @@ export interface PortfolioSyncResult {
   rollsDetected: number
   lastSyncDate: string
   errors: string[]
+}
+
+export interface ForexSummary {
+  totalRealizedFxPnl: number
+  openLotsCount: number
+  exhaustedLotsCount: number
+  disposalsCount: number
+  openUsdBalance: number
+}
+
+export interface ForexLot {
+  id: number
+  portfolioId: number
+  acquisitionDate: string
+  currency: string
+  quantity: number
+  remainingQuantity: number
+  costRate: number
+  costBasis: number
+  sourceExecutionId?: number
+  sourceDescription?: string
+  status: 'OPEN' | 'EXHAUSTED'
+  createdAt?: string
+}
+
+export interface ForexDisposal {
+  id: number
+  portfolioId: number
+  lotId: number
+  disposalDate: string
+  quantity: number
+  costRate: number
+  disposalRate: number
+  costBasisAud: number
+  proceedsAud: number
+  realizedFxPnl: number
+  sourceExecutionId?: number
+  createdAt?: string
 }
 
 // ========================================

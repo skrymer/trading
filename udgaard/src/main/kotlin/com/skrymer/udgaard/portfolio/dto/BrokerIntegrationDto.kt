@@ -54,26 +54,6 @@ fun Map<String, String>.toBrokerCredentials(broker: BrokerType): BrokerCredentia
   }
 
 /**
- * Result from creating portfolio from broker
- */
-data class CreateFromBrokerResult(
-  val portfolio: com.skrymer.udgaard.portfolio.model.Portfolio,
-  val tradesImported: Int,
-  val tradesUpdated: Int,
-  val errors: List<String>,
-)
-
-/**
- * Result from syncing portfolio with broker
- */
-data class PortfolioSyncResult(
-  val tradesImported: Int,
-  val tradesUpdated: Int,
-  val lastSyncDate: LocalDateTime,
-  val errors: List<String>,
-)
-
-/**
  * Error response for broker operations
  */
 data class BrokerErrorResponse(

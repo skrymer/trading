@@ -13,12 +13,12 @@ import org.springframework.web.client.RestClient
 
 @Component
 class OvtlyrClient(
-  @Value("\${ovtlyr.header.projectId}") val projectIdHeader: String,
-  @Value("\${ovtlyr.cookies.token:}") val cookieToken: String,
-  @Value("\${ovtlyr.cookies.userid:}") val cookieUserId: String,
-  @Value("\${ovtlyr.stockinformation.baseUrl}") val stockInformationBaseUrl: String,
-  @Value("\${ovtlyr.marketbreadth.baseUrl}") val marketBreadthBaseUrl: String,
-  @Value("\${ovtlyr.screener.baseUrl}") val screenerBaseUrl: String,
+  @param:Value("\${ovtlyr.header.projectId}") val projectIdHeader: String,
+  @param:Value("\${ovtlyr.cookies.token:}") val cookieToken: String,
+  @param:Value("\${ovtlyr.cookies.userid:}") val cookieUserId: String,
+  @param:Value("\${ovtlyr.stockinformation.baseUrl}") val stockInformationBaseUrl: String,
+  @param:Value("\${ovtlyr.marketbreadth.baseUrl}") val marketBreadthBaseUrl: String,
+  @param:Value("\${ovtlyr.screener.baseUrl}") val screenerBaseUrl: String,
 ) {
   /**
    * @param symbol

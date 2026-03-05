@@ -48,3 +48,10 @@ data class MidgaardSymbolDto(
   val sector: String?,
   val sectorSymbol: String? = null,
 )
+
+data class MidgaardExchangeRateDto(
+  val from: String,
+  val to: String,
+  val rate: Double,
+  val date: LocalDate,
+)

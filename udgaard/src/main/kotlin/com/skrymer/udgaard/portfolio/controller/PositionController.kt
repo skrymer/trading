@@ -56,12 +56,14 @@ class PositionController(
    */
   @GetMapping("/{portfolioId}/{positionId}")
   @Transactional(readOnly = true)
-  @Suppress("detekt:UnusedParameter")
   fun getPosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
   ): ResponseEntity<PositionWithExecutionsResponse> = try {
     val positionWithExecutions = positionService.getPositionWithExecutions(positionId)
+    if (positionWithExecutions.position.portfolioId != portfolioId) {
+      return ResponseEntity.notFound().build()
+    }
     ResponseEntity.ok(PositionWithExecutionsResponse.from(positionWithExecutions))
   } catch (e: IllegalArgumentException) {
     logger.debug("Position not found: $positionId", e)
@@ -100,12 +102,15 @@ class PositionController(
    * Close a position
    */
   @PutMapping("/{portfolioId}/{positionId}/close")
-  @Suppress("detekt:UnusedParameter")
   fun closePosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
     @Valid @RequestBody request: ClosePositionRequest,
   ): ResponseEntity<Position> = try {
+    val existing = positionService.getPositionById(positionId)
+    if (existing == null || existing.portfolioId != portfolioId) {
+      return ResponseEntity.notFound().build()
+    }
     val position =
       positionService.closeManualPosition(
         positionId = positionId,
@@ -122,12 +127,15 @@ class PositionController(
    * Update position metadata (strategies, notes)
    */
   @PutMapping("/{portfolioId}/{positionId}/metadata")
-  @Suppress("detekt:UnusedParameter")
   fun updatePositionMetadata(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
     @RequestBody request: UpdatePositionMetadataRequest,
   ): ResponseEntity<Position> = try {
+    val existing = positionService.getPositionById(positionId)
+    if (existing == null || existing.portfolioId != portfolioId) {
+      return ResponseEntity.notFound().build()
+    }
     val position =
       positionService.updatePositionMetadata(
         positionId = positionId,
@@ -145,11 +153,14 @@ class PositionController(
    * Delete a position
    */
   @DeleteMapping("/{portfolioId}/{positionId}")
-  @Suppress("detekt:UnusedParameter")
   fun deletePosition(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
   ): ResponseEntity<Void> {
+    val existing = positionService.getPositionById(positionId)
+    if (existing == null || existing.portfolioId != portfolioId) {
+      return ResponseEntity.notFound().build()
+    }
     positionService.deletePosition(positionId)
     return ResponseEntity.noContent().build()
   }
@@ -208,11 +219,14 @@ class PositionController(
    */
   @GetMapping("/{portfolioId}/{positionId}/roll-chain")
   @Transactional(readOnly = true)
-  @Suppress("detekt:UnusedParameter")
   fun getRollChain(
     @PathVariable portfolioId: Long,
     @PathVariable positionId: Long,
   ): ResponseEntity<List<Position>> = try {
+    val existing = positionService.getPositionById(positionId)
+    if (existing == null || existing.portfolioId != portfolioId) {
+      return ResponseEntity.notFound().build()
+    }
     val chain = positionService.getRollChain(positionId)
     ResponseEntity.ok(chain)
   } catch (e: IllegalArgumentException) {

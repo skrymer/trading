@@ -1,0 +1,48 @@
+<FlexQueryResponse queryName="Test query" type="AF">
+<FlexStatements count="1">
+<FlexStatement accountId="U12345678" fromDate="2026-01-01" toDate="2026-02-28">
+<AccountInformation currency="USD" accountType="Individual" />
+<Trades>
+<!-- ==================== STOCK TRADES (TQQQ) ==================== -->
+<!-- Buy 10 shares -->
+<Trade tradeID="100001" symbol="TQQQ" tradeDate="2026-01-05" dateTime="2026-01-06;074740" quantity="10" tradePrice="53.73" buySell="BUY" openCloseIndicator="O" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="90001" origTradeID="" ibCommission="-1.00" netCash="-538.30" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Sell 5 shares (partial close) -->
+<Trade tradeID="100002" symbol="TQQQ" tradeDate="2026-01-12" dateTime="2026-01-13;070857" quantity="-5" tradePrice="56.25" buySell="SELL" openCloseIndicator="C" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="90002" origTradeID="" ibCommission="-0.50" netCash="280.75" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Sell 5 shares (close remaining) -->
+<Trade tradeID="100003" symbol="TQQQ" tradeDate="2026-01-13" dateTime="2026-01-14;070900" quantity="-5" tradePrice="55.31" buySell="SELL" openCloseIndicator="C" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="90003" origTradeID="" ibCommission="-0.50" netCash="276.05" currency="USD" levelOfDetail="EXECUTION" />
+
+<!-- ==================== OPTION ROLL CHAIN (NEM 105 -> 110 -> 115) ==================== -->
+<!-- Leg 1: Buy 2 NEM $105C Jan30 -->
+<Trade tradeID="200001" symbol="NEM   260130C00105000" tradeDate="2026-01-12" dateTime="2026-01-13;074029" quantity="2" tradePrice="9.55" buySell="BUY" openCloseIndicator="O" assetCategory="OPT" putCall="C" strike="105" expiry="2026-01-30" multiplier="100" underlyingSymbol="NEM" ibOrderID="91001" origTradeID="" ibCommission="-0.70" netCash="-1910.70" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 1: Sell 1 NEM $105C Jan30 (split exec 1 of roll to $110) -->
+<Trade tradeID="200002" symbol="NEM   260130C00105000" tradeDate="2026-01-20" dateTime="2026-01-21;070738" quantity="-1" tradePrice="13.90" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="105" expiry="2026-01-30" multiplier="100" underlyingSymbol="NEM" ibOrderID="91002" origTradeID="" ibCommission="-1.05" netCash="1388.95" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 1: Sell 1 NEM $105C Jan30 (split exec 2 of roll to $110) -->
+<Trade tradeID="200003" symbol="NEM   260130C00105000" tradeDate="2026-01-20" dateTime="2026-01-21;070738" quantity="-1" tradePrice="13.90" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="105" expiry="2026-01-30" multiplier="100" underlyingSymbol="NEM" ibOrderID="91002" origTradeID="" ibCommission="-0.35" netCash="1389.65" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 2: Buy 1 NEM $110C Feb20 (split exec 1 of roll from $105) -->
+<Trade tradeID="200004" symbol="NEM   260220C00110000" tradeDate="2026-01-20" dateTime="2026-01-21;070738" quantity="1" tradePrice="12.25" buySell="BUY" openCloseIndicator="O" assetCategory="OPT" putCall="C" strike="110" expiry="2026-02-20" multiplier="100" underlyingSymbol="NEM" ibOrderID="91003" origTradeID="" ibCommission="-1.05" netCash="-1226.05" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 2: Buy 1 NEM $110C Feb20 (split exec 2 of roll from $105) -->
+<Trade tradeID="200005" symbol="NEM   260220C00110000" tradeDate="2026-01-20" dateTime="2026-01-21;070738" quantity="1" tradePrice="12.25" buySell="BUY" openCloseIndicator="O" assetCategory="OPT" putCall="C" strike="110" expiry="2026-02-20" multiplier="100" underlyingSymbol="NEM" ibOrderID="91003" origTradeID="" ibCommission="-0.35" netCash="-1225.35" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 2: Sell 2 NEM $110C Feb20 (roll to $115) -->
+<Trade tradeID="200006" symbol="NEM   260220C00110000" tradeDate="2026-01-22" dateTime="2026-01-23;064132" quantity="-2" tradePrice="14.65" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="110" expiry="2026-02-20" multiplier="100" underlyingSymbol="NEM" ibOrderID="91004" origTradeID="" ibCommission="-1.41" netCash="2928.59" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 3: Buy 2 NEM $115C Feb20 (roll from $110) -->
+<Trade tradeID="200007" symbol="NEM   260220C00115000" tradeDate="2026-01-22" dateTime="2026-01-23;064132" quantity="2" tradePrice="11.19" buySell="BUY" openCloseIndicator="O" assetCategory="OPT" putCall="C" strike="115" expiry="2026-02-20" multiplier="100" underlyingSymbol="NEM" ibOrderID="91005" origTradeID="" ibCommission="-1.40" netCash="-2239.40" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 3: Sell 1 NEM $115C Feb20 (split exec 1 of final close) -->
+<Trade tradeID="200008" symbol="NEM   260220C00115000" tradeDate="2026-01-28" dateTime="2026-01-29;071645" quantity="-1" tradePrice="18.45" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="115" expiry="2026-02-20" multiplier="100" underlyingSymbol="NEM" ibOrderID="91006" origTradeID="" ibCommission="-1.05" netCash="1843.95" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Leg 3: Sell 1 NEM $115C Feb20 (split exec 2 of final close) -->
+<Trade tradeID="200009" symbol="NEM   260220C00115000" tradeDate="2026-01-28" dateTime="2026-01-29;071645" quantity="-1" tradePrice="18.45" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="115" expiry="2026-02-20" multiplier="100" underlyingSymbol="NEM" ibOrderID="91006" origTradeID="" ibCommission="-0.35" netCash="1844.65" currency="USD" levelOfDetail="EXECUTION" />
+
+<!-- ==================== SIMPLE OPTION (EGO - no roll, partial close) ==================== -->
+<!-- Buy 3 EGO $35C Mar20 -->
+<Trade tradeID="300001" symbol="EGO   260320C00035000" tradeDate="2026-01-13" dateTime="2026-01-14;071015" quantity="3" tradePrice="7.18" buySell="BUY" openCloseIndicator="O" assetCategory="OPT" putCall="C" strike="35" expiry="2026-03-20" multiplier="100" underlyingSymbol="EGO" ibOrderID="92001" origTradeID="" ibCommission="-2.10" netCash="-2156.10" currency="USD" levelOfDetail="EXECUTION" />
+<!-- Sell 3 EGO $35C Mar20 (close all) -->
+<Trade tradeID="300002" symbol="EGO   260320C00035000" tradeDate="2026-01-14" dateTime="2026-01-15;070515" quantity="-3" tradePrice="7.43" buySell="SELL" openCloseIndicator="C" assetCategory="OPT" putCall="C" strike="35" expiry="2026-03-20" multiplier="100" underlyingSymbol="EGO" ibOrderID="92002" origTradeID="" ibCommission="-2.11" netCash="2226.89" currency="USD" levelOfDetail="EXECUTION" />
+
+<!-- ==================== ROWS THAT SHOULD BE FILTERED ==================== -->
+<!-- CASH trade (currency conversion) -->
+<Trade tradeID="400001" symbol="AUD.USD" tradeDate="2026-03-03" dateTime="2026-03-04;090000" quantity="2" tradePrice="0.70373289" buySell="BUY" openCloseIndicator="" assetCategory="CASH" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="" ibOrderID="93001" origTradeID="" ibCommission="0" netCash="-1.41" currency="USD" levelOfDetail="EXECUTION" />
+<!-- SYMBOL_SUMMARY row (aggregated row, not an execution) -->
+<Trade tradeID="" symbol="TQQQ" tradeDate="2026-01-05" dateTime="" quantity="0" tradePrice="0" buySell="BUY" openCloseIndicator="" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="" origTradeID="" ibCommission="-2.00" netCash="-537.30" currency="USD" levelOfDetail="SYMBOL_SUMMARY" />
+</Trades>
+</FlexStatement>
+</FlexStatements>
+</FlexQueryResponse>

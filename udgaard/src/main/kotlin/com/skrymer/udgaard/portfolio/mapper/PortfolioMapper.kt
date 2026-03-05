@@ -23,16 +23,18 @@ class PortfolioMapper {
     return Portfolio(
       id = portfolio.id,
       userId = portfolio.userId,
-      name = portfolio.name ?: "",
-      initialBalance = portfolio.initialBalance?.toDouble() ?: 0.0,
-      currentBalance = portfolio.currentBalance?.toDouble() ?: 0.0,
-      currency = portfolio.currency ?: "USD",
+      name = portfolio.name,
+      initialBalance = portfolio.initialBalance.toDouble(),
+      currentBalance = portfolio.currentBalance.toDouble(),
+      currency = portfolio.currency,
+      baseCurrency = portfolio.baseCurrency ?: "USD",
       createdDate = portfolio.createdAt ?: java.time.LocalDateTime.now(),
       lastUpdated = portfolio.updatedAt ?: java.time.LocalDateTime.now(),
       broker = portfolio.broker?.let { BrokerType.valueOf(it) } ?: BrokerType.MANUAL,
       brokerAccountId = brokerConfig["accountId"], // Stored in brokerConfig JSON
       brokerConfig = brokerConfig,
       lastSyncDate = portfolio.lastSyncDate,
+      initialFxRate = portfolio.initialFxRate?.toDouble(),
     )
   }
 
@@ -53,12 +55,14 @@ class PortfolioMapper {
       initialBalance = portfolio.initialBalance.toBigDecimal(),
       currentBalance = portfolio.currentBalance.toBigDecimal(),
       currency = portfolio.currency,
+      baseCurrency = portfolio.baseCurrency,
       userId = portfolio.userId,
       createdAt = portfolio.createdDate,
       updatedAt = portfolio.lastUpdated,
       broker = portfolio.broker.name,
       brokerConfig = serializeBrokerConfig(configWithAccountId),
       lastSyncDate = portfolio.lastSyncDate,
+      initialFxRate = portfolio.initialFxRate?.toBigDecimal(),
     ).apply {
       id = portfolio.id
     }

@@ -15,7 +15,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
 data class FlexQueryResponse
   @JsonCreator
   constructor(
-    @JacksonXmlProperty(localName = "FlexStatements")
+    @param:JacksonXmlProperty(localName = "FlexStatements")
     val flexStatements: FlexStatements,
   )
 
@@ -23,7 +23,7 @@ data class FlexQueryResponse
 data class FlexStatements
   @JsonCreator
   constructor(
-    @JacksonXmlProperty(localName = "FlexStatement")
+    @param:JacksonXmlProperty(localName = "FlexStatement")
     val flexStatement: FlexStatement,
   )
 
@@ -31,24 +31,26 @@ data class FlexStatements
 data class FlexStatement
   @JsonCreator
   constructor(
-    @JacksonXmlProperty(isAttribute = true, localName = "accountId")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "accountId")
     val accountId: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "fromDate")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "fromDate")
     val fromDate: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "toDate")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "toDate")
     val toDate: String?,
-    @JacksonXmlProperty(localName = "Trades")
+    @param:JacksonXmlProperty(localName = "Trades")
     val trades: Trades?,
-    @JacksonXmlProperty(localName = "AccountInformation")
+    @param:JacksonXmlProperty(localName = "AccountInformation")
     val accountInformation: AccountInformation?,
+    @param:JacksonXmlProperty(localName = "FxPositions")
+    val fxPositions: FxPositions?,
   )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Trades
   @JsonCreator
   constructor(
-    @JacksonXmlElementWrapper(useWrapping = false)
-    @JacksonXmlProperty(localName = "Trade")
+    @param:JacksonXmlElementWrapper(useWrapping = false)
+    @param:JacksonXmlProperty(localName = "Trade")
     val trade: List<IBKRTrade>?,
   )
 
@@ -56,52 +58,77 @@ data class Trades
 data class IBKRTrade
   @JsonCreator
   constructor(
-    @JacksonXmlProperty(isAttribute = true, localName = "tradeID")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "tradeID")
     val tradeID: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "symbol")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "symbol")
     val symbol: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "tradeDate")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "tradeDate")
     val tradeDate: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "tradeTime")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "tradeTime")
     val tradeTime: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "quantity")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "quantity")
     val quantity: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "tradePrice")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "tradePrice")
     val tradePrice: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "buySell")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "buySell")
     val buySell: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "openCloseIndicator")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "openCloseIndicator")
     val openCloseIndicator: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "assetCategory")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "assetCategory")
     val assetCategory: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "putCall")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "putCall")
     val putCall: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "strike")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "strike")
     val strike: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "expiry")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "expiry")
     val expiry: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "multiplier")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "multiplier")
     val multiplier: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "underlyingSymbol")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "underlyingSymbol")
     val underlyingSymbol: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "ibOrderID")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "ibOrderID")
     val ibOrderID: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "origTradeID")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "origTradeID")
     val origTradeID: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "ibCommission")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "ibCommission")
     val ibCommission: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "netCash")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "netCash")
     val netCash: String,
-    @JacksonXmlProperty(isAttribute = true, localName = "currency")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "currency")
     val currency: String?,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "levelOfDetail")
+    val levelOfDetail: String?,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "dateTime")
+    val dateTime: String?,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "fxRateToBase")
+    val fxRateToBase: String?,
   )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AccountInformation
   @JsonCreator
   constructor(
-    @JacksonXmlProperty(isAttribute = true, localName = "currency")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "currency")
     val currency: String?,
-    @JacksonXmlProperty(isAttribute = true, localName = "accountType")
+    @param:JacksonXmlProperty(isAttribute = true, localName = "accountType")
     val accountType: String?,
+  )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxPositions
+  @JsonCreator
+  constructor(
+    @param:JacksonXmlElementWrapper(useWrapping = false)
+    @param:JacksonXmlProperty(localName = "FxPosition")
+    val fxPosition: List<FxPosition>?,
+  )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxPosition
+  @JsonCreator
+  constructor(
+    @param:JacksonXmlProperty(isAttribute = true, localName = "functionalCurrency")
+    val functionalCurrency: String?,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "fxCurrency")
+    val fxCurrency: String?,
   )

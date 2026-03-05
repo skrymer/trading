@@ -182,10 +182,9 @@ class TradeProcessor {
       // Skip if already processed as part of a roll
       if (closedLot in processedLots) return@forEach
 
-      // Look for opening trade same day, same underlying, different strike/expiry
-      // Can be either OPEN or CLOSED (to handle fully closed roll chains)
-      val openedLot =
-        lots.find { openLot ->
+      // Find all roll candidates: same underlying, same option type, different strike/expiry, within 1 day
+      val candidates =
+        lots.filter { openLot ->
           openLot !in processedLots &&
             openLot != closedLot &&
             openLot.openTrade.assetType == AssetType.OPTION &&
@@ -198,11 +197,19 @@ class TradeProcessor {
             ChronoUnit.DAYS.between(closedLot.closeTrade!!.tradeDate, openLot.openTrade.tradeDate) <= 1
         }
 
+      // Prefer candidate with matching relatedOrderId (combo order)
+      val closeOrderId = closedLot.closeTrade!!.relatedOrderId
+      val openedLot = if (closeOrderId != null) {
+        candidates.firstOrNull { it.openTrade.relatedOrderId == closeOrderId } ?: candidates.firstOrNull()
+      } else {
+        candidates.firstOrNull()
+      }
+
       if (openedLot != null) {
         // Check if this is high-confidence roll (same order ID)
         val highConfidence =
-          closedLot.closeTrade!!.relatedOrderId != null &&
-            closedLot.closeTrade!!.relatedOrderId == openedLot.openTrade.relatedOrderId
+          closeOrderId != null &&
+            closeOrderId == openedLot.openTrade.relatedOrderId
 
         logger.info(
           "Detected option roll: ${closedLot.symbol} " +

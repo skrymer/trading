@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.data.integration.midgaard
 
 import com.skrymer.udgaard.data.integration.StockProvider
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardExchangeRateDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.model.StockQuote
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.time.LocalDate
 
 /**
  * Client for the Midgaard reference data service.
@@ -19,7 +21,7 @@ import org.springframework.web.client.RestClient
  */
 @Component
 class MidgaardClient(
-  @Value("\${midgaard.base-url:http://localhost:8081}") private val baseUrl: String,
+  @param:Value("\${midgaard.base-url:http://localhost:8081}") private val baseUrl: String,
 ) : StockProvider {
   private val logger = LoggerFactory.getLogger(MidgaardClient::class.java)
 
@@ -81,6 +83,51 @@ class MidgaardClient(
         .body(object : ParameterizedTypeReference<List<MidgaardSymbolDto>>() {})
     } catch (e: Exception) {
       logger.error("Failed to fetch symbols from Midgaard: ${e.message}", e)
+      return null
+    }
+  }
+
+  /**
+   * Get current exchange rate from Midgaard (e.g., USD to AUD).
+   */
+  fun getExchangeRate(from: String, to: String): Double? {
+    try {
+      val response = restClient
+        .get()
+        .uri { uriBuilder ->
+          uriBuilder
+            .path("/api/fx/rate")
+            .queryParam("from", from)
+            .queryParam("to", to)
+            .build()
+        }.retrieve()
+        .body(MidgaardExchangeRateDto::class.java)
+      return response?.rate
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch exchange rate $from/$to from Midgaard: ${e.message}")
+      return null
+    }
+  }
+
+  /**
+   * Get historical exchange rate from Midgaard for a specific date.
+   */
+  fun getHistoricalExchangeRate(from: String, to: String, date: LocalDate): Double? {
+    try {
+      val response = restClient
+        .get()
+        .uri { uriBuilder ->
+          uriBuilder
+            .path("/api/fx/rate/historical")
+            .queryParam("from", from)
+            .queryParam("to", to)
+            .queryParam("date", date.toString())
+            .build()
+        }.retrieve()
+        .body(MidgaardExchangeRateDto::class.java)
+      return response?.rate
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch historical exchange rate $from/$to for $date from Midgaard: ${e.message}")
       return null
     }
   }

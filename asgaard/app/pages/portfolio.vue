@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData } from '~/types'
+import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal } from '~/types'
 import { usePositionFormatters } from '~/composables/usePositionFormatters'
 
 const { formatPositionName, formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
@@ -16,6 +16,30 @@ const isLoadingPortfolios = ref(true)
 const showUnrealizedPnl = ref(false)
 const unrealizedPnlData = ref<Map<number, PositionUnrealizedPnl>>(new Map())
 const isLoadingUnrealizedPnl = ref(false)
+const showBaseCurrency = ref(false)
+const forexSummary = ref<ForexSummary | null>(null)
+const forexLots = ref<ForexLot[]>([])
+const forexDisposals = ref<ForexDisposal[]>([])
+
+// Currency display helpers
+const hasBaseCurrency = computed(() => {
+  return portfolio.value?.baseCurrency && portfolio.value.baseCurrency !== portfolio.value.currency
+})
+
+// Convert a value from trade currency to base currency using the current FX rate
+const toDisplayCurrency = (value: number) => {
+  if (showBaseCurrency.value && stats.value?.currentFxRate) {
+    return value * stats.value.currentFxRate
+  }
+  return value
+}
+
+const displayCurrencyLabel = computed(() => {
+  if (showBaseCurrency.value && portfolio.value?.baseCurrency) {
+    return portfolio.value.baseCurrency
+  }
+  return portfolio.value?.currency || 'USD'
+})
 
 // Modal states
 const isCreatePortfolioModalOpen = ref(false)
@@ -33,26 +57,39 @@ const toast = useToast()
 const activeTab = ref('open')
 
 // Tab items configuration
-const tabItems = [
-  {
-    label: 'Open Positions',
-    icon: 'i-lucide-folder-open',
-    value: 'open',
-    slot: 'open'
-  },
-  {
-    label: 'Closed Positions',
-    icon: 'i-lucide-folder-closed',
-    value: 'closed',
-    slot: 'closed'
-  },
-  {
-    label: 'Equity Curve',
-    icon: 'i-lucide-trending-up',
-    value: 'equity-curve',
-    slot: 'equity-curve'
+const tabItems = computed(() => {
+  const items = [
+    {
+      label: 'Open Positions',
+      icon: 'i-lucide-folder-open',
+      value: 'open',
+      slot: 'open'
+    },
+    {
+      label: 'Closed Positions',
+      icon: 'i-lucide-folder-closed',
+      value: 'closed',
+      slot: 'closed'
+    },
+    {
+      label: 'Equity Curve',
+      icon: 'i-lucide-trending-up',
+      value: 'equity-curve',
+      slot: 'equity-curve'
+    }
+  ]
+
+  if (hasBaseCurrency.value) {
+    items.push({
+      label: `Forex (${portfolio.value?.baseCurrency})`,
+      icon: 'i-lucide-arrow-left-right',
+      value: 'forex',
+      slot: 'forex'
+    })
   }
-]
+
+  return items
+})
 
 // Load all portfolios on mount
 onMounted(async () => {
@@ -139,6 +176,24 @@ async function loadPortfolioData() {
     closedPositions.value = closedPositionsData
     equityCurveData.value = equityCurve
     status.value = 'success'
+
+    // Load forex data if portfolio has a different base currency
+    if (portfolioData.baseCurrency && portfolioData.baseCurrency !== portfolioData.currency) {
+      try {
+        const [summary, lots, disposals] = await Promise.all([
+          $fetch<ForexSummary>(`/udgaard/api/portfolio/${portfolioData.id}/forex/summary`),
+          $fetch<ForexLot[]>(`/udgaard/api/portfolio/${portfolioData.id}/forex/lots`),
+          $fetch<ForexDisposal[]>(`/udgaard/api/portfolio/${portfolioData.id}/forex/disposals`)
+        ])
+        forexSummary.value = summary
+        forexLots.value = lots
+        forexDisposals.value = disposals
+      } catch {
+        forexSummary.value = null
+        forexLots.value = []
+        forexDisposals.value = []
+      }
+    }
   } catch (error) {
     console.error('Error loading portfolio data:', error)
     status.value = 'error'
@@ -630,6 +685,93 @@ const closedPositionsColumns = computed(() => {
     }
   ]
 })
+
+// Forex lot table columns
+const forexLotColumns = [
+  {
+    accessorKey: 'acquisitionDate',
+    header: 'Date',
+    cell: ({ row }: { row: any }) => formatDate(row.original.acquisitionDate)
+  },
+  {
+    accessorKey: 'sourceDescription',
+    header: 'Source'
+  },
+  {
+    accessorKey: 'quantity',
+    header: 'USD Acquired',
+    cell: ({ row }: { row: any }) => formatCurrency(row.original.quantity)
+  },
+  {
+    accessorKey: 'remainingQuantity',
+    header: 'Remaining',
+    cell: ({ row }: { row: any }) => formatCurrency(row.original.remainingQuantity)
+  },
+  {
+    accessorKey: 'costRate',
+    header: 'FX Rate',
+    cell: ({ row }: { row: any }) => row.original.costRate.toFixed(4)
+  },
+  {
+    accessorKey: 'costBasis',
+    header: `Cost (${portfolio.value?.baseCurrency || 'AUD'})`,
+    cell: ({ row }: { row: any }) => formatCurrency(row.original.costBasis)
+  },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }: { row: any }) => {
+      const status = row.original.status
+      return h('span', {
+        class: status === 'OPEN' ? 'text-blue-600' : 'text-gray-400'
+      }, status)
+    }
+  }
+]
+
+// Forex disposal table columns
+const forexDisposalColumns = [
+  {
+    accessorKey: 'disposalDate',
+    header: 'Date',
+    cell: ({ row }: { row: any }) => formatDate(row.original.disposalDate)
+  },
+  {
+    accessorKey: 'quantity',
+    header: 'USD Disposed',
+    cell: ({ row }: { row: any }) => formatCurrency(row.original.quantity)
+  },
+  {
+    accessorKey: 'costRate',
+    header: 'Acquired Rate',
+    cell: ({ row }: { row: any }) => row.original.costRate.toFixed(4)
+  },
+  {
+    accessorKey: 'disposalRate',
+    header: 'Disposal Rate',
+    cell: ({ row }: { row: any }) => row.original.disposalRate.toFixed(4)
+  },
+  {
+    accessorKey: 'costBasisAud',
+    header: `Cost (${portfolio.value?.baseCurrency || 'AUD'})`,
+    cell: ({ row }: { row: any }) => formatCurrency(row.original.costBasisAud)
+  },
+  {
+    accessorKey: 'proceedsAud',
+    header: `Proceeds (${portfolio.value?.baseCurrency || 'AUD'})`,
+    cell: ({ row }: { row: any }) => formatCurrency(row.original.proceedsAud)
+  },
+  {
+    accessorKey: 'realizedFxPnl',
+    header: 'FX P&L',
+    cell: ({ row }: { row: any }) => {
+      const value = row.original.realizedFxPnl
+      return h('span', {
+        class: value >= 0 ? 'text-green-600' : 'text-red-600'
+      }, `${value >= 0 ? '+' : ''}${formatCurrency(value)}`)
+    }
+  }
+]
 </script>
 
 <template>
@@ -657,10 +799,10 @@ const closedPositionsColumns = computed(() => {
             <UDropdownMenu
               v-if="portfolio"
               :items="[
-                { label: 'Sync Portfolio', icon: 'i-lucide-refresh-cw', click: (): void => { isSyncPortfolioModalOpen = true }, disabled: portfolio.broker !== 'IBKR' },
-                { label: 'Import from Broker', icon: 'i-lucide-download', click: (): void => { isCreateFromBrokerModalOpen = true } },
+                { label: 'Sync Portfolio', icon: 'i-lucide-refresh-cw', onSelect: (): void => { isSyncPortfolioModalOpen = true }, disabled: portfolio.broker !== 'IBKR' },
+                { label: 'Import from Broker', icon: 'i-lucide-download', onSelect: (): void => { isCreateFromBrokerModalOpen = true } },
                 { type: 'separator' },
-                { label: 'Delete Portfolio', icon: 'i-lucide-trash', click: (): void => { isDeletePortfolioModalOpen = true } }
+                { label: 'Delete Portfolio', icon: 'i-lucide-trash', onSelect: (): void => { isDeletePortfolioModalOpen = true } }
               ]"
             >
               <UButton icon="i-lucide-more-vertical" variant="ghost" />
@@ -706,9 +848,18 @@ const closedPositionsColumns = computed(() => {
         </div>
       </div>
 
-      <!-- Unrealized P&L Toggle -->
-      <div v-if="portfolio && displayStats && displayStats.openPositions > 0" class="px-4 pt-4 flex justify-end">
+      <!-- Toggle Controls -->
+      <div v-if="portfolio && displayStats" class="px-4 pt-4 flex justify-end gap-2">
         <UButton
+          v-if="hasBaseCurrency"
+          :label="showBaseCurrency ? portfolio!.baseCurrency! : portfolio!.currency"
+          icon="i-lucide-arrow-left-right"
+          size="sm"
+          :variant="showBaseCurrency ? 'solid' : 'outline'"
+          @click="showBaseCurrency = !showBaseCurrency"
+        />
+        <UButton
+          v-if="displayStats.openPositions > 0"
           :label="showUnrealizedPnl ? 'Hide Unrealized P&L' : 'Show Unrealized P&L'"
           :icon="showUnrealizedPnl ? 'i-lucide-eye-off' : 'i-lucide-trending-up'"
           :loading="isLoadingUnrealizedPnl"
@@ -728,22 +879,28 @@ const closedPositionsColumns = computed(() => {
           </template>
           <div class="space-y-2">
             <div class="flex justify-between">
-              <span>Starting Balance:</span>
-              <span class="font-semibold">{{ formatCurrency(portfolio.initialBalance) }}</span>
+              <span>Starting Balance ({{ displayCurrencyLabel }}):</span>
+              <span class="font-semibold">{{ formatCurrency(toDisplayCurrency(portfolio.initialBalance)) }}</span>
             </div>
             <div class="flex justify-between">
-              <span>Current Balance:</span>
-              <span class="font-semibold text-primary">{{ formatCurrency(portfolio.currentBalance) }}</span>
+              <span>Current Balance ({{ displayCurrencyLabel }}):</span>
+              <span class="font-semibold text-primary">{{ formatCurrency(toDisplayCurrency(portfolio.currentBalance)) }}</span>
+            </div>
+            <div v-if="stats?.effectiveBalance != null" class="flex justify-between">
+              <span>Effective Balance ({{ displayCurrencyLabel }}):</span>
+              <span class="font-semibold" :class="toDisplayCurrency(stats.effectiveBalance) >= toDisplayCurrency(portfolio.initialBalance) ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(toDisplayCurrency(stats.effectiveBalance)) }}
+              </span>
             </div>
             <div v-if="showUnrealizedPnl" class="flex justify-between">
               <span>Unrealized P&L:</span>
               <span class="font-semibold" :class="totalUnrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ totalUnrealizedPnl >= 0 ? '+' : '' }}{{ formatCurrency(totalUnrealizedPnl) }}
+                {{ totalUnrealizedPnl >= 0 ? '+' : '' }}{{ formatCurrency(toDisplayCurrency(totalUnrealizedPnl)) }}
               </span>
             </div>
             <div v-if="showUnrealizedPnl" class="flex justify-between border-t pt-2">
               <span class="font-medium">Projected Balance:</span>
-              <span class="font-semibold text-blue-600">{{ formatCurrency(projectedBalance) }}</span>
+              <span class="font-semibold text-blue-600">{{ formatCurrency(toDisplayCurrency(projectedBalance)) }}</span>
             </div>
             <div class="flex justify-between" :class="{ 'border-t pt-2': showUnrealizedPnl }">
               <span>Total Positions:</span>
@@ -797,25 +954,50 @@ const closedPositionsColumns = computed(() => {
             </h3>
           </template>
           <div class="space-y-2">
+            <!-- Raw trade P&L (no commissions, no forex) -->
             <div class="flex justify-between">
-              <span>{{ showUnrealizedPnl ? 'Realized' : 'Total' }} Profit:</span>
+              <span>Trade P&L ({{ displayCurrencyLabel }}):</span>
               <span class="font-semibold" :class="displayStats.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatCurrency(displayStats.totalProfit) }}
+                {{ formatCurrency(toDisplayCurrency(displayStats.totalProfit)) }}
               </span>
             </div>
-            <div v-if="showUnrealizedPnl" class="flex justify-between">
+            <!-- Commissions -->
+            <div v-if="stats?.totalCommissions" class="flex justify-between">
+              <span>Commissions:</span>
+              <span class="font-semibold text-red-600">
+                {{ formatCurrency(toDisplayCurrency(stats.totalCommissions)) }}
+              </span>
+            </div>
+            <!-- P&L after commissions -->
+            <div v-if="stats?.totalCommissions" class="flex justify-between border-t pt-2">
+              <span class="font-medium">After Commissions:</span>
+              <span class="font-semibold" :class="(displayStats.totalProfit + (stats?.totalCommissions || 0)) >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(toDisplayCurrency(displayStats.totalProfit + (stats?.totalCommissions || 0))) }}
+              </span>
+            </div>
+            <!-- FX P&L on initial balance -->
+            <div v-if="stats?.totalRealizedFxPnl != null" class="flex justify-between">
+              <span>FX P&L:</span>
+              <span class="font-semibold" :class="stats.totalRealizedFxPnl >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ stats.totalRealizedFxPnl >= 0 ? '+' : '' }}{{ formatCurrency(toDisplayCurrency(stats.totalRealizedFxPnl)) }}
+              </span>
+            </div>
+            <!-- Actual P&L (everything included) -->
+            <div v-if="stats?.totalCommissions || stats?.totalRealizedFxPnl != null" class="flex justify-between border-t pt-2">
+              <span class="font-bold">Net P&L ({{ displayCurrencyLabel }}):</span>
+              <span class="font-bold" :class="(displayStats.totalProfit + (stats?.totalCommissions || 0) + (stats?.totalRealizedFxPnl || 0)) >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(toDisplayCurrency(displayStats.totalProfit + (stats?.totalCommissions || 0) + (stats?.totalRealizedFxPnl || 0))) }}
+              </span>
+            </div>
+            <!-- Unrealized -->
+            <div v-if="showUnrealizedPnl" class="flex justify-between border-t pt-2">
               <span>Unrealized P&L:</span>
               <span class="font-semibold" :class="totalUnrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ totalUnrealizedPnl >= 0 ? '+' : '' }}{{ formatCurrency(totalUnrealizedPnl) }}
+                {{ totalUnrealizedPnl >= 0 ? '+' : '' }}{{ formatCurrency(toDisplayCurrency(totalUnrealizedPnl)) }}
               </span>
             </div>
-            <div v-if="showUnrealizedPnl" class="flex justify-between border-t pt-2">
-              <span class="font-medium">Projected Profit:</span>
-              <span class="font-semibold text-blue-600" :class="displayStats.projectedProfit >= 0 ? 'text-blue-600' : 'text-orange-600'">
-                {{ formatCurrency(displayStats.projectedProfit) }}
-              </span>
-            </div>
-            <div class="flex justify-between" :class="{ 'border-t pt-2': showUnrealizedPnl }">
+            <!-- Avg Win/Loss -->
+            <div class="flex justify-between" :class="{ 'border-t pt-2': !showUnrealizedPnl }">
               <span>Avg Win:</span>
               <span class="font-semibold text-green-600">{{ formatCurrency(displayStats.avgWin) }}</span>
             </div>
@@ -898,6 +1080,85 @@ const closedPositionsColumns = computed(() => {
                   Close some positions to see your equity curve
                 </p>
               </div>
+            </UCard>
+          </template>
+
+          <!-- Forex Tab -->
+          <template #forex>
+            <!-- Forex Summary Cards -->
+            <div v-if="forexSummary" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Realized FX P&L
+                  </div>
+                  <div class="text-2xl font-bold" :class="forexSummary.totalRealizedFxPnl >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ forexSummary.totalRealizedFxPnl >= 0 ? '+' : '' }}{{ formatCurrency(forexSummary.totalRealizedFxPnl) }}
+                  </div>
+                  <div class="text-xs text-gray-400">
+                    {{ portfolio?.baseCurrency }}
+                  </div>
+                </div>
+              </UCard>
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Open USD Balance
+                  </div>
+                  <div class="text-2xl font-bold text-blue-600">
+                    {{ formatCurrency(forexSummary.openUsdBalance) }}
+                  </div>
+                  <div class="text-xs text-gray-400">
+                    across {{ forexSummary.openLotsCount }} lots
+                  </div>
+                </div>
+              </UCard>
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Open Lots
+                  </div>
+                  <div class="text-2xl font-bold">
+                    {{ forexSummary.openLotsCount }}
+                  </div>
+                </div>
+              </UCard>
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Disposals
+                  </div>
+                  <div class="text-2xl font-bold">
+                    {{ forexSummary.disposalsCount }}
+                  </div>
+                </div>
+              </UCard>
+            </div>
+
+            <!-- Forex Lots Table -->
+            <UCard class="mb-4">
+              <template #header>
+                <h3 class="text-lg font-semibold">
+                  USD Acquisition Lots (FIFO)
+                </h3>
+              </template>
+              <div v-if="forexLots.length === 0" class="text-center py-8 text-gray-500">
+                No forex lots recorded
+              </div>
+              <UTable v-else :data="forexLots" :columns="forexLotColumns" />
+            </UCard>
+
+            <!-- Forex Disposals Table -->
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">
+                  USD Disposals (Realized FX P&L)
+                </h3>
+              </template>
+              <div v-if="forexDisposals.length === 0" class="text-center py-8 text-gray-500">
+                No forex disposals recorded
+              </div>
+              <UTable v-else :data="forexDisposals" :columns="forexDisposalColumns" />
             </UCard>
           </template>
         </UTabs>

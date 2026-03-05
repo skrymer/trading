@@ -8,6 +8,7 @@ import com.skrymer.udgaard.portfolio.model.Position
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
@@ -47,8 +48,13 @@ class OptionPriceService(
     var currentDate = startDate
 
     while (!currentDate.isAfter(endDate)) {
-      // Format date in YYYY-MM-DD format (ISO 8601)
-      val dateString = currentDate.toString() // LocalDate.toString() returns YYYY-MM-DD format
+      // Skip weekends — no market data available
+      if (currentDate.dayOfWeek == DayOfWeek.SATURDAY || currentDate.dayOfWeek == DayOfWeek.SUNDAY) {
+        currentDate = currentDate.plusDays(1)
+        continue
+      }
+
+      val dateString = currentDate.toString()
       logger.debug("Fetching option data for $underlyingSymbol on $dateString")
 
       val contract =
@@ -102,19 +108,20 @@ class OptionPriceService(
    * Get option price and Greeks for a position at a specific date.
    * Returns full contract details including Greeks.
    */
+  @Suppress("detekt:ReturnCount")
   fun getOptionDataForPosition(
     position: Position,
     date: LocalDate,
   ): OptionContract? {
     if (position.instrumentType != InstrumentType.OPTION) return null
-
-    val underlying = position.underlyingSymbol ?: position.symbol
+    val strike = position.strikePrice ?: return null
+    val expiration = position.expirationDate ?: return null
 
     return getHistoricalOptionPrice(
-      underlyingSymbol = underlying,
-      strike = position.strikePrice!!,
-      expiration = position.expirationDate!!,
-      optionType = position.optionType!!,
+      underlyingSymbol = position.underlyingSymbol ?: position.symbol,
+      strike = strike,
+      expiration = expiration,
+      optionType = position.optionType ?: return null,
       date = date,
     )
   }

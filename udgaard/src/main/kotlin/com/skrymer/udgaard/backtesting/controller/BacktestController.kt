@@ -78,21 +78,26 @@ class BacktestController(
 
     val entryStrategy =
       dynamicStrategyBuilder.buildEntryStrategy(request.entryStrategy)
-        ?: throw IllegalArgumentException("Failed to build entry strategy from config: ${request.entryStrategy}")
+        ?: throw IllegalArgumentException(
+          "Failed to build entry strategy from config: ${request.entryStrategy}",
+        )
 
     val exitStrategy =
-      dynamicStrategyBuilder.buildExitStrategy(request.exitStrategy)
-        ?: throw IllegalArgumentException("Failed to build exit strategy from config: ${request.exitStrategy}")
+      requireNotNull(dynamicStrategyBuilder.buildExitStrategy(request.exitStrategy)) {
+        "Failed to build exit strategy from config: ${request.exitStrategy}"
+      }
 
     val symbols =
-      resolveSymbols(request)
-        ?: throw IllegalArgumentException("No symbols found. Use Data Manager to refresh stocks first.")
+      requireNotNull(resolveSymbols(request)) {
+        "No symbols found. Use Data Manager to refresh stocks first."
+      }
 
     val rankerInstance = if (request.ranker == null) {
       entryStrategy.preferredRanker() ?: CompositeRanker()
     } else {
-      RankerFactory.create(request.ranker, request.rankerConfig)
-        ?: throw IllegalArgumentException("Unknown ranker: ${request.ranker}")
+      requireNotNull(RankerFactory.create(request.ranker, request.rankerConfig)) {
+        "Unknown ranker: ${request.ranker}"
+      }
     }
 
     val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")

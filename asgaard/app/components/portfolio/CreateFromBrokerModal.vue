@@ -41,12 +41,15 @@ onMounted(async () => {
 
 async function loadCredentials() {
   try {
-    const data = await $fetch<{ ibkrAccountId?: string, ibkrFlexQueryId?: string }>('/udgaard/api/settings/credentials')
+    const data = await $fetch<{ ibkrAccountId?: string, ibkrFlexQueryId?: string, ibkrFlexQueryToken?: string }>('/udgaard/api/settings/credentials')
     if (data.ibkrAccountId) {
       accountId.value = data.ibkrAccountId
     }
     if (data.ibkrFlexQueryId) {
       queryId.value = data.ibkrFlexQueryId
+    }
+    if (data.ibkrFlexQueryToken) {
+      token.value = data.ibkrFlexQueryToken
     }
     credentialsLoaded.value = true
   } catch (error) {
@@ -268,7 +271,7 @@ function handleClose() {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <UFormField
               label="Flex Query Token"
-              help="6-hour expiry - generate new token each time"
+              :help="credentialsLoaded && token ? 'Loaded from Settings' : 'Configure in Settings to auto-fill'"
               required
               class="md:col-span-2"
             >

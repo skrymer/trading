@@ -54,7 +54,7 @@ class BootstrapResamplingTechnique : MonteCarloTechnique {
 
       val exitDate =
         trade.quotes
-          .maxByOrNull { it.date ?: throw IllegalStateException("Trade has quote with null date") }
+          .maxByOrNull { it.date }
           ?.date
           ?: throw IllegalStateException("Trade has no quotes")
 
@@ -89,7 +89,7 @@ class BootstrapResamplingTechnique : MonteCarloTechnique {
 
       val exitDate =
         trade.quotes
-          .maxByOrNull { it.date ?: throw IllegalStateException("Trade has quote with null date") }
+          .maxByOrNull { it.date }
           ?.date
           ?: throw IllegalStateException("Trade has no quotes")
 

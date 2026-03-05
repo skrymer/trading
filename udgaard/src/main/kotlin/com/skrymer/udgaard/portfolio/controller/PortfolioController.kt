@@ -8,8 +8,11 @@ import com.skrymer.udgaard.portfolio.dto.TestBrokerConnectionRequest
 import com.skrymer.udgaard.portfolio.dto.TestBrokerConnectionResponse
 import com.skrymer.udgaard.portfolio.dto.UpdatePortfolioRequest
 import com.skrymer.udgaard.portfolio.dto.toBrokerCredentials
+import com.skrymer.udgaard.portfolio.model.ForexDisposal
+import com.skrymer.udgaard.portfolio.model.ForexLot
 import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.service.BrokerIntegrationService
+import com.skrymer.udgaard.portfolio.service.ForexTrackingService
 import com.skrymer.udgaard.portfolio.service.PortfolioService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -34,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController
 class PortfolioController(
   private val portfolioService: PortfolioService,
   private val brokerIntegrationService: BrokerIntegrationService,
+  private val forexTrackingService: ForexTrackingService,
 ) {
   /**
    * Get all portfolios
@@ -141,6 +145,69 @@ class PortfolioController(
   }
 
   /**
+   * Get forex lots for a portfolio
+   */
+  @GetMapping("/{portfolioId}/forex/lots")
+  @Transactional(readOnly = true)
+  fun getForexLots(
+    @PathVariable portfolioId: Long,
+  ): ResponseEntity<List<ForexLot>> {
+    val lots = forexTrackingService.getForexLots(portfolioId)
+    return ResponseEntity.ok(lots)
+  }
+
+  /**
+   * Get forex disposals for a portfolio
+   */
+  @GetMapping("/{portfolioId}/forex/disposals")
+  @Transactional(readOnly = true)
+  fun getForexDisposals(
+    @PathVariable portfolioId: Long,
+    @RequestParam(required = false) startDate: java.time.LocalDate?,
+    @RequestParam(required = false) endDate: java.time.LocalDate?,
+  ): ResponseEntity<List<ForexDisposal>> {
+    val disposals = if (startDate != null && endDate != null) {
+      forexTrackingService.getForexDisposals(portfolioId, startDate, endDate)
+    } else {
+      forexTrackingService.getForexDisposals(portfolioId)
+    }
+    return ResponseEntity.ok(disposals)
+  }
+
+  /**
+   * Get forex summary for a portfolio
+   */
+  @GetMapping("/{portfolioId}/forex/summary")
+  @Transactional(readOnly = true)
+  fun getForexSummary(
+    @PathVariable portfolioId: Long,
+    @RequestParam(required = false) startDate: java.time.LocalDate?,
+    @RequestParam(required = false) endDate: java.time.LocalDate?,
+  ): ResponseEntity<ForexSummary> {
+    val lots = forexTrackingService.getForexLots(portfolioId)
+    val disposals = if (startDate != null && endDate != null) {
+      forexTrackingService.getForexDisposals(portfolioId, startDate, endDate)
+    } else {
+      forexTrackingService.getForexDisposals(portfolioId)
+    }
+
+    val totalRealizedFxPnl = disposals.sumOf { it.realizedFxPnl }
+    val openLotsUsdBalance = lots
+      .filter { it.status == com.skrymer.udgaard.portfolio.model.ForexLotStatus.OPEN }
+      .sumOf { it.remainingQuantity }
+
+    return ResponseEntity.ok(
+      ForexSummary(
+        totalRealizedFxPnl = totalRealizedFxPnl,
+        openLotsCount = lots.count { it.status == com.skrymer.udgaard.portfolio.model.ForexLotStatus.OPEN },
+        exhaustedLotsCount = lots.count { it.status == com.skrymer.udgaard.portfolio.model.ForexLotStatus.EXHAUSTED },
+        disposalsCount = disposals.size,
+        openUsdBalance = openLotsUsdBalance,
+      ),
+    )
+  }
+
+  /**
    * Test broker connection
    */
   @PostMapping("/broker/test")
@@ -166,3 +233,11 @@ class PortfolioController(
     }
   }
 }
+
+data class ForexSummary(
+  val totalRealizedFxPnl: Double,
+  val openLotsCount: Int,
+  val exhaustedLotsCount: Int,
+  val disposalsCount: Int,
+  val openUsdBalance: Double,
+)

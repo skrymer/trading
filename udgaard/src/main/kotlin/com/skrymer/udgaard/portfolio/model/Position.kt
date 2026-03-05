@@ -29,6 +29,7 @@ data class Position(
   val closedDate: LocalDate?,
   // P&L
   val realizedPnl: Double?,
+  val realizedPnlBase: Double? = null,
   // Rolling (clean 1-to-1 relationship)
   val rolledToPositionId: Long?,
   val parentPositionId: Long?,

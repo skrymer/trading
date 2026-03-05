@@ -52,22 +52,33 @@ class IBKRAdapter(
       val flexStatement = response.flexStatements.flexStatement
 
       // 4. Extract account info from response
+      // Use functionalCurrency from FxPositions as the account's base currency (e.g. "AUD")
+      // Falls back to AccountInformation.currency, then "USD"
+      val baseCurrency = flexStatement.fxPositions
+        ?.fxPosition
+        ?.firstOrNull()
+        ?.functionalCurrency
+        ?: flexStatement.accountInformation?.currency
+        ?: "USD"
       val accountInfo =
         BrokerAccountInfo(
           accountId = flexStatement.accountId ?: accountId,
-          currency = flexStatement.accountInformation?.currency ?: "USD",
+          currency = baseCurrency,
           accountType = flexStatement.accountInformation?.accountType ?: "Individual",
           balance = null, // IBKR doesn't provide balance in trade flex query
         )
 
-      // 5. Convert Trade elements to standardized format (filter out CASH transactions)
+      // 5. Convert Trade elements to standardized format
+      // Filter out CASH transactions and non-execution rows (SYMBOL_SUMMARY, ORDER_SUMMARY)
       val ibkrTrades = flexStatement.trades?.trade ?: emptyList()
-      val filteredTrades = ibkrTrades.filter { it.assetCategory != "CASH" }
+      val filteredTrades = ibkrTrades.filter {
+        it.assetCategory != "CASH" && (it.levelOfDetail == null || it.levelOfDetail == "EXECUTION")
+      }
       val standardizedTrades = filteredTrades.map { tradeMapper.toStandardizedTrade(it) }
 
       logger.info(
         "Fetched ${standardizedTrades.size} trades from IBKR Activity Flex Query " +
-          "(${ibkrTrades.size - filteredTrades.size} CASH transactions filtered out)",
+          "(${ibkrTrades.size - filteredTrades.size} non-execution/CASH rows filtered out)",
       )
       return BrokerDataResult(trades = standardizedTrades, accountInfo = accountInfo)
     } catch (e: IBKRApiException) {

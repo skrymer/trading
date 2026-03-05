@@ -289,3 +289,92 @@ data class AlphaVantageCompanyOverview(
 
     fun toMarketCap(): Long? = marketCapitalization?.toLongOrNull()
 }
+
+// ── Currency Exchange Rate (real-time) ──
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class AlphaVantageCurrencyExchangeRate(
+    @JsonProperty("Realtime Currency Exchange Rate") val exchangeRate: CurrencyExchangeRateData? = null,
+    @JsonProperty("Error Message") val errorMessage: String? = null,
+    @JsonProperty("Note") val note: String? = null,
+    @JsonProperty("Information") val information: String? = null,
+) : AlphaVantageApiResponse {
+    override fun hasError(): Boolean = errorMessage != null || note != null || information != null
+
+    override fun getErrorDescription(): String =
+        when {
+            errorMessage != null -> errorMessage
+            note != null -> note
+            information != null -> information
+            else -> "Unknown error"
+        }
+
+    override fun isValid(): Boolean = exchangeRate?.rate != null
+
+    fun toRate(): Double? = exchangeRate?.rate?.toDoubleOrNull()
+}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CurrencyExchangeRateData(
+    @JsonProperty("1. From_Currency Code") val fromCurrency: String? = null,
+    @JsonProperty("2. From_Currency Name") val fromCurrencyName: String? = null,
+    @JsonProperty("3. To_Currency Code") val toCurrency: String? = null,
+    @JsonProperty("4. To_Currency Name") val toCurrencyName: String? = null,
+    @JsonProperty("5. Exchange Rate") val rate: String? = null,
+    @JsonProperty("6. Last Refreshed") val lastRefreshed: String? = null,
+    @JsonProperty("8. Bid Price") val bidPrice: String? = null,
+    @JsonProperty("9. Ask Price") val askPrice: String? = null,
+)
+
+// ── FX Daily (historical) ──
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class AlphaVantageFxDaily(
+    @JsonProperty("Meta Data") val metaData: FxDailyMetaData? = null,
+    @JsonProperty("Time Series FX (Daily)") val timeSeries: Map<String, FxDailyData>? = null,
+    @JsonProperty("Error Message") val errorMessage: String? = null,
+    @JsonProperty("Note") val note: String? = null,
+    @JsonProperty("Information") val information: String? = null,
+) : AlphaVantageApiResponse {
+    override fun hasError(): Boolean = errorMessage != null || note != null || information != null
+
+    override fun getErrorDescription(): String =
+        when {
+            errorMessage != null -> errorMessage
+            note != null -> note
+            information != null -> information
+            else -> "Unknown error"
+        }
+
+    override fun isValid(): Boolean = metaData != null && timeSeries != null
+
+    fun rateForDate(date: LocalDate): Double? = timeSeries?.get(date.toString())?.close?.toDoubleOrNull()
+
+    fun closestRateForDate(date: LocalDate): Double? {
+        val series = timeSeries ?: return null
+        // Try exact date first, then walk backwards up to 5 days (weekends/holidays)
+        for (offset in 0L..5L) {
+            val d = date.minusDays(offset)
+            series[d.toString()]?.close?.toDoubleOrNull()?.let { return it }
+        }
+        return null
+    }
+}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxDailyMetaData(
+    @JsonProperty("1. Information") val information: String? = null,
+    @JsonProperty("2. From Symbol") val fromSymbol: String? = null,
+    @JsonProperty("3. To Symbol") val toSymbol: String? = null,
+    @JsonProperty("4. Output Size") val outputSize: String? = null,
+    @JsonProperty("5. Last Refreshed") val lastRefreshed: String? = null,
+    @JsonProperty("6. Time Zone") val timeZone: String? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxDailyData(
+    @JsonProperty("1. open") val open: String? = null,
+    @JsonProperty("2. high") val high: String? = null,
+    @JsonProperty("3. low") val low: String? = null,
+    @JsonProperty("4. close") val close: String? = null,
+)
