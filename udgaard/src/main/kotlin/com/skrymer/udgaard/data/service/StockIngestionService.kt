@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicReference
 
 @Service
 class StockIngestionService(
@@ -39,7 +40,9 @@ class StockIngestionService(
   @Volatile
   private var isProcessing = false
 
-  private var currentProgress = RefreshProgress()
+  private val currentProgress = AtomicReference(RefreshProgress())
+
+  @Volatile
   private var processingJob: Job? = null
 
   // ── Public API ─────────────────────────────────────────────────────
@@ -58,17 +61,17 @@ class StockIngestionService(
    */
   fun queueStockRefresh(symbols: List<String>) {
     symbols.forEach { refreshQueue.add(RefreshTask(type = RefreshType.STOCK, identifier = it)) }
-    currentProgress = RefreshProgress(total = refreshQueue.size)
+    currentProgress.set(RefreshProgress(total = refreshQueue.size))
     logger.info("Queued ${symbols.size} stocks for refresh. Total queue size: ${refreshQueue.size}")
     startProcessing()
   }
 
-  fun getProgress(): RefreshProgress = currentProgress
+  fun getProgress(): RefreshProgress = currentProgress.get()
 
   fun clearQueue() {
     logger.info("Clearing refresh queue")
     refreshQueue.clear()
-    currentProgress = RefreshProgress()
+    currentProgress.set(RefreshProgress())
     processingJob?.cancel()
     isProcessing = false
   }
@@ -212,7 +215,7 @@ class StockIngestionService(
       isProcessing = false
       refreshBreadth()
       logCompletionSummary(errorDetails)
-      currentProgress = RefreshProgress()
+      currentProgress.set(RefreshProgress())
     }
   }
 
@@ -228,25 +231,26 @@ class StockIngestionService(
     stocks: List<Stock>,
     failedSymbols: List<String>,
   ) {
-    synchronized(currentProgress) {
-      currentProgress = currentProgress.copy(
-        completed = currentProgress.completed + succeeded,
-        failed = currentProgress.failed + failed,
-        lastSuccess = stocks.lastOrNull()?.symbol ?: currentProgress.lastSuccess,
+    currentProgress.updateAndGet { prev ->
+      prev.copy(
+        completed = prev.completed + succeeded,
+        failed = prev.failed + failed,
+        lastSuccess = stocks.lastOrNull()?.symbol ?: prev.lastSuccess,
         lastError = if (failedSymbols.isNotEmpty()) {
           "Failed symbols: ${failedSymbols.joinToString(", ")}"
         } else {
-          currentProgress.lastError
+          prev.lastError
         },
       )
     }
   }
 
   private fun logProgressIfNeeded(lastProgressLog: Int): Int {
-    val progressCompleted = currentProgress.completed + currentProgress.failed
-    if (progressCompleted - lastProgressLog >= 10 || progressCompleted == currentProgress.total) {
-      val percentage = String.format("%.1f", progressCompleted.toDouble() / currentProgress.total * 100)
-      logger.info("Progress: $progressCompleted/${currentProgress.total} completed ($percentage%)")
+    val progress = currentProgress.get()
+    val progressCompleted = progress.completed + progress.failed
+    if (progressCompleted - lastProgressLog >= 10 || progressCompleted == progress.total) {
+      val percentage = String.format("%.1f", progressCompleted.toDouble() / progress.total * 100)
+      logger.info("Progress: $progressCompleted/${progress.total} completed ($percentage%)")
       return progressCompleted
     }
     return lastProgressLog
@@ -271,9 +275,10 @@ class StockIngestionService(
   }
 
   private fun logCompletionSummary(errorDetails: List<String>) {
-    val totalProcessed = currentProgress.completed + currentProgress.failed
+    val progress = currentProgress.get()
+    val totalProcessed = progress.completed + progress.failed
     val successRate = if (totalProcessed > 0) {
-      String.format("%.1f", currentProgress.completed.toDouble() / totalProcessed * 100)
+      String.format("%.1f", progress.completed.toDouble() / totalProcessed * 100)
     } else {
       "0.0"
     }
@@ -281,8 +286,8 @@ class StockIngestionService(
     logger.info("")
     logger.info("=== Refresh Complete ===")
     logger.info(
-      "Total: $totalProcessed | Succeeded: ${currentProgress.completed} " +
-        "| Failed: ${currentProgress.failed} ($successRate% success)",
+      "Total: $totalProcessed | Succeeded: ${progress.completed} " +
+        "| Failed: ${progress.failed} ($successRate% success)",
     )
 
     if (errorDetails.isNotEmpty()) {
