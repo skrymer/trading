@@ -123,7 +123,7 @@ async function testConnection() {
 }
 
 async function handleCreate() {
-  if (!name.value || !token.value || !queryId.value || !accountId.value) {
+  if (!name.value || !token.value || !queryId.value || !accountId.value || !startDate.value) {
     toast.add({
       title: 'Missing Fields',
       description: 'Please fill in all required fields',
@@ -145,7 +145,7 @@ async function handleCreate() {
         queryId: queryId.value,
         accountId: accountId.value
       },
-      startDate: startDate.value || undefined,
+      startDate: startDate.value,
       currency: currency.value,
       initialBalance: initialBalance.value
     }
@@ -240,22 +240,22 @@ function handleClose() {
               />
             </UFormField>
 
-            <UFormField label="Initial Balance" help="Optional - leave empty to calculate from broker data">
+            <UFormField :label="`Initial Balance (${currency})`" :help="`Starting balance in ${currency}. Use 0 to import from the beginning — deposits will provide the capital base.`">
               <UInput
                 v-model.number="initialBalance"
                 type="number"
                 min="0"
                 step="100"
-                placeholder="Auto-calculate from broker"
+                :placeholder="`Balance in ${currency}`"
               />
             </UFormField>
 
-            <UFormField label="Import Start Date" help="Optional - leave empty to use your Flex Query template defaults. If specified, fetches from this date until yesterday. Maximum 366 day range.">
+            <UFormField label="Import Start Date *" help="Fetches trades from this date until yesterday. Maximum 366 day range. Use 0 initial balance to import your entire portfolio.">
               <UInput
                 v-model="startDate"
                 type="date"
                 :min="maxStartDate"
-                placeholder="Leave empty for template defaults"
+                required
               />
             </UFormField>
           </div>

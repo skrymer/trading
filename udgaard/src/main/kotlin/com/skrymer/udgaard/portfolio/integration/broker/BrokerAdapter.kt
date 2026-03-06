@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.portfolio.integration.broker
 
+import com.skrymer.udgaard.portfolio.model.CashTransactionType
 import java.time.LocalDate
 
 /**
@@ -71,4 +72,15 @@ data class BrokerAccountInfo(
 data class BrokerDataResult(
   val trades: List<StandardizedTrade>,
   val accountInfo: BrokerAccountInfo,
+  val cashTransactions: List<StandardizedCashTransaction> = emptyList(),
+)
+
+data class StandardizedCashTransaction(
+  val brokerTransactionId: String,
+  val type: CashTransactionType,
+  val amount: Double,
+  val currency: String,
+  val fxRateToBase: Double?,
+  val transactionDate: LocalDate,
+  val description: String?,
 )

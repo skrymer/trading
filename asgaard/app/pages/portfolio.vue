@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal } from '~/types'
+import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal, CashTransaction, CashTransactionSummary } from '~/types'
 import { usePositionFormatters } from '~/composables/usePositionFormatters'
 
 const { formatPositionName, formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
@@ -20,6 +20,8 @@ const showBaseCurrency = ref(false)
 const forexSummary = ref<ForexSummary | null>(null)
 const forexLots = ref<ForexLot[]>([])
 const forexDisposals = ref<ForexDisposal[]>([])
+const cashTransactions = ref<CashTransaction[]>([])
+const cashTransactionSummary = ref<CashTransactionSummary | null>(null)
 
 // Currency display helpers
 const hasBaseCurrency = computed(() => {
@@ -78,6 +80,15 @@ const tabItems = computed(() => {
       slot: 'equity-curve'
     }
   ]
+
+  if (cashTransactionSummary.value && (cashTransactionSummary.value.totalDeposits > 0 || cashTransactionSummary.value.totalWithdrawals > 0)) {
+    items.push({
+      label: 'Cash Flow',
+      icon: 'i-lucide-wallet',
+      value: 'cash-flow',
+      slot: 'cash-flow'
+    })
+  }
 
   if (hasBaseCurrency.value) {
     items.push({
@@ -176,6 +187,19 @@ async function loadPortfolioData() {
     closedPositions.value = closedPositionsData
     equityCurveData.value = equityCurve
     status.value = 'success'
+
+    // Load cash transaction data
+    try {
+      const [txs, txSummary] = await Promise.all([
+        $fetch<CashTransaction[]>(`/udgaard/api/portfolio/${portfolioData.id}/cash-transactions`),
+        $fetch<CashTransactionSummary>(`/udgaard/api/portfolio/${portfolioData.id}/cash-transactions/summary`)
+      ])
+      cashTransactions.value = txs
+      cashTransactionSummary.value = txSummary
+    } catch {
+      cashTransactions.value = []
+      cashTransactionSummary.value = null
+    }
 
     // Load forex data if portfolio has a different base currency
     if (portfolioData.baseCurrency && portfolioData.baseCurrency !== portfolioData.currency) {
@@ -729,6 +753,50 @@ const forexLotColumns = [
   }
 ]
 
+// Cash transaction table columns
+const cashTransactionColumns = [
+  {
+    accessorKey: 'transactionDate',
+    header: 'Date',
+    cell: ({ row }: { row: any }) => formatDate(row.original.transactionDate)
+  },
+  {
+    accessorKey: 'type',
+    header: 'Type',
+    cell: ({ row }: { row: any }) => {
+      const type = row.original.type
+      return h('span', {
+        class: type === 'DEPOSIT' ? 'text-green-600' : 'text-red-600'
+      }, type)
+    }
+  },
+  {
+    accessorKey: 'amount',
+    header: 'Amount',
+    cell: ({ row }: { row: any }) => {
+      const type = row.original.type
+      const prefix = type === 'DEPOSIT' ? '+' : '-'
+      return h('span', {
+        class: type === 'DEPOSIT' ? 'text-green-600' : 'text-red-600'
+      }, `${prefix}${formatCurrency(row.original.amount)}`)
+    }
+  },
+  {
+    accessorKey: 'currency',
+    header: 'Currency'
+  },
+  {
+    accessorKey: 'fxRateToBase',
+    header: 'FX Rate',
+    cell: ({ row }: { row: any }) => row.original.fxRateToBase ? row.original.fxRateToBase.toFixed(4) : '-'
+  },
+  {
+    accessorKey: 'description',
+    header: 'Description',
+    cell: ({ row }: { row: any }) => row.original.description || '-'
+  }
+]
+
 // Forex disposal table columns
 const forexDisposalColumns = [
   {
@@ -885,12 +953,6 @@ const forexDisposalColumns = [
             <div class="flex justify-between">
               <span>Current Balance ({{ displayCurrencyLabel }}):</span>
               <span class="font-semibold text-primary">{{ formatCurrency(toDisplayCurrency(portfolio.currentBalance)) }}</span>
-            </div>
-            <div v-if="stats?.effectiveBalance != null" class="flex justify-between">
-              <span>Effective Balance ({{ displayCurrencyLabel }}):</span>
-              <span class="font-semibold" :class="toDisplayCurrency(stats.effectiveBalance) >= toDisplayCurrency(portfolio.initialBalance) ? 'text-green-600' : 'text-red-600'">
-                {{ formatCurrency(toDisplayCurrency(stats.effectiveBalance)) }}
-              </span>
             </div>
             <div v-if="showUnrealizedPnl" class="flex justify-between">
               <span>Unrealized P&L:</span>
@@ -1080,6 +1142,54 @@ const forexDisposalColumns = [
                   Close some positions to see your equity curve
                 </p>
               </div>
+            </UCard>
+          </template>
+
+          <!-- Cash Flow Tab -->
+          <template #cash-flow>
+            <div v-if="cashTransactionSummary" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Total Deposits
+                  </div>
+                  <div class="text-2xl font-bold text-green-600">
+                    +{{ formatCurrency(cashTransactionSummary.totalDeposits) }}
+                  </div>
+                </div>
+              </UCard>
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Total Withdrawals
+                  </div>
+                  <div class="text-2xl font-bold text-red-600">
+                    -{{ formatCurrency(cashTransactionSummary.totalWithdrawals) }}
+                  </div>
+                </div>
+              </UCard>
+              <UCard>
+                <div class="text-center">
+                  <div class="text-sm text-gray-500">
+                    Net Cash Flow
+                  </div>
+                  <div class="text-2xl font-bold" :class="cashTransactionSummary.netCashFlow >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ cashTransactionSummary.netCashFlow >= 0 ? '+' : '' }}{{ formatCurrency(cashTransactionSummary.netCashFlow) }}
+                  </div>
+                </div>
+              </UCard>
+            </div>
+
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">
+                  Transactions
+                </h3>
+              </template>
+              <div v-if="cashTransactions.length === 0" class="text-center py-8 text-gray-500">
+                No cash transactions recorded
+              </div>
+              <UTable v-else :data="cashTransactions" :columns="cashTransactionColumns" />
             </UCard>
           </template>
 

@@ -22,10 +22,6 @@ class SettingsService(
   fun saveCredentials(credentials: ApiCredentialsDto) {
     repository.upsert(KEY_CREDENTIALS, mapper.writeValueAsString(credentials))
     logger.info("Credentials saved to database")
-
-    System.setProperty("ibkr.account.id", credentials.ibkrAccountId)
-    System.setProperty("ibkr.flexquery.id", credentials.ibkrFlexQueryId)
-    System.setProperty("ibkr.flexquery.token", credentials.ibkrFlexQueryToken)
   }
 
   fun getPositionSizingSettings(): PositionSizingSettingsDto {

@@ -22,8 +22,9 @@ data class PositionStats(
   val numberOfLosses: Int = 0,
   val totalCommissions: Double = 0.0,
   val totalRealizedFxPnl: Double? = null,
-  val effectiveBalance: Double? = null,
   val currentFxRate: Double? = null,
+  val totalDeposits: Double = 0.0,
+  val totalWithdrawals: Double = 0.0,
 )
 
 /**

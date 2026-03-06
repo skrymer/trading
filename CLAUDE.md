@@ -70,6 +70,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `PositionService.kt`: Position lifecycle management
    - `BrokerIntegrationService.kt`: Broker sync orchestration
    - `ForexTrackingService.kt`: FIFO forex lot tracking for multi-currency portfolios
+   - `CashTransactionService.kt`: Deposits/withdrawals tracking (IBKR import + balance adjustment)
    - `OptionPriceService.kt`: Options pricing data
    - `UnrealizedPnlService.kt`: Real-time P/L calculations
    - IBKR integration via broker adapter pattern (`broker/`, `ibkr/`)
@@ -97,7 +98,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Stocks:** `GET /api/stocks`, `GET /api/stocks/{symbol}`, `POST /api/stocks/refresh`, `GET /api/stock-symbols`
 
-**Portfolio:** `GET/POST /api/portfolio`, `GET/DELETE /api/portfolio/{id}`, `GET /api/portfolio/{id}/stats`, `GET/POST /api/portfolio/{id}/trades`, `PUT/DELETE /api/portfolio/{id}/trades/{tradeId}`, `PUT /api/portfolio/{id}/trades/{tradeId}/close`, `GET /api/portfolio/{id}/equity-curve`
+**Portfolio:** `GET/POST /api/portfolio`, `GET/DELETE /api/portfolio/{id}`, `GET /api/portfolio/{id}/stats`, `GET/POST /api/portfolio/{id}/trades`, `PUT/DELETE /api/portfolio/{id}/trades/{tradeId}`, `PUT /api/portfolio/{id}/trades/{tradeId}/close`, `GET /api/portfolio/{id}/equity-curve`, `GET /api/portfolio/{id}/cash-transactions`, `GET /api/portfolio/{id}/cash-transactions/summary`
 
 **Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `POST /api/scanner/trades/{id}/roll`
 
@@ -155,7 +156,7 @@ trading/
 │   │   │   ├── mapper/               # Entity/DTO mappers
 │   │   │   ├── model/                # Portfolio, Position, Execution
 │   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository
-│   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService
+│   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService
 │   │   ├── scanner/                  # Scanner domain
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
@@ -166,7 +167,7 @@ trading/
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── mcp/                      # MCP server tools
 │   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
-│   ├── src/main/resources/           # Config, migrations (V1-V12)
+│   ├── src/main/resources/           # Config, migrations (V1-V14)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL)
 │   ├── build.gradle                  # Gradle build config
@@ -233,7 +234,11 @@ Strategies use a DSL for declarative composition, auto-discovered via `@Register
 
 ### Portfolio Management
 
-**Portfolio Features:** Multiple portfolios, independent balances/currencies, real-time P/L, YTD/annualized returns, win rate, proven edge, multi-currency FX tracking (USD/AUD)
+**Portfolio Features:** Multiple portfolios, independent balances/currencies, real-time P/L, YTD/annualized returns, win rate, proven edge, multi-currency FX tracking (USD/AUD), deposits/withdrawals tracking
+
+**Balance Formula:** `currentBalance = initialBalance + totalRealizedPnl - totalCommissions + totalDeposits - totalWithdrawals`
+
+**Cash Transactions:** Deposits and withdrawals imported from IBKR Flex Query (`CashTransactions` section, type `Deposits/Withdrawals`). Stored with `fxRateToBase` for AUD-equivalent tracking. Deduplication via `brokerTransactionId`.
 
 **FX Tracking:** Portfolios with different base/trade currencies track FX impact. `initialFxRate` stored at portfolio creation, live rates fetched from Midgaard. Per-transaction FIFO forex lot tracking for tax purposes. Stats include `effectiveBalance` (currentBalance + FX P&L) and `currentFxRate` for currency toggle display.
 
@@ -281,4 +286,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-02_
+_Last Updated: 2026-03-05_

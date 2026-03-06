@@ -283,6 +283,46 @@ class IBKRBrokerImportE2ETest : AbstractIntegrationTest() {
     assertEquals(100.0, stats.winRate, 0.01, "All 3 positions are wins")
   }
 
+  @Test
+  fun `portfolio balance should subtract commissions not add them`() {
+    val importResult = importPortfolio(initialBalance = 25000.0)
+    val portfolioId = importResult.portfolio.id!!
+
+    // Trigger recalculate to ensure balance is computed from scratch
+    val recalcResponse = restTemplate.postForEntity(
+      "/api/positions/$portfolioId/recalculate-balance",
+      null,
+      Map::class.java,
+    )
+    assertEquals(HttpStatus.OK, recalcResponse.statusCode)
+
+    // Re-fetch portfolio to get updated balance
+    val portfolio = restTemplate.getForObject("/api/portfolio/$portfolioId", Map::class.java)!!
+    val currentBalance = (portfolio["currentBalance"] as Number).toDouble()
+
+    // Total realizedPnl = 20.50 (TQQQ) + 2802.00 (NEM) + 75.00 (EGO) = 2897.50
+    // Total commissions = -13.92 (stored as negative from IBKR)
+    // Correct: balance = 25000 + 2897.50 + (-13.92) = 27883.58
+    // Bug (old): balance = 25000 + 2897.50 - (-13.92) = 27911.42
+    val expectedBalance = 25000.0 + 2897.50 + (-13.92)
+    assertEquals(
+      expectedBalance,
+      currentBalance,
+      0.01,
+      "Balance should subtract commissions (stored as negative), not double-negate them",
+    )
+  }
+
+  @Test
+  fun `portfolio stats should report commissions as negative values`() {
+    val importResult = importPortfolio()
+    val stats = getStats(importResult.portfolio.id!!)
+
+    // Commissions from IBKR are stored as negative values
+    assertTrue(stats.totalCommissions < 0, "Commissions should be negative, got ${stats.totalCommissions}")
+    assertEquals(-13.92, stats.totalCommissions, 0.01, "Total commissions should be -13.92")
+  }
+
   // -- Helper methods --
 
   private fun importPortfolio(

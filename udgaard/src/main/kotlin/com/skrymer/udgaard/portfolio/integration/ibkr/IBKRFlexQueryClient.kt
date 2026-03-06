@@ -65,7 +65,7 @@ class IBKRFlexQueryClient(
         throw IBKRApiException("Failed to send Flex Query request: ${e.message}", e)
       }
 
-    logger.debug("SendRequest response XML:\n{}", response)
+    logger.debug("SendRequest response received")
 
     // Extract <ReferenceCode> from XML response
     val referenceCode = extractReferenceCode(response)
@@ -144,7 +144,7 @@ class IBKRFlexQueryClient(
 
       // Statement is ready
       logger.info("Flex Query statement retrieved successfully (attempt ${attempt + 1})")
-      logger.debug("Raw XML response from IBKR:\n{}", response)
+      logger.debug("Flex Query statement received")
       return response
     }
 
@@ -156,10 +156,10 @@ class IBKRFlexQueryClient(
    */
   fun parseXml(xml: String): FlexQueryResponse =
     try {
-      logger.debug("Parsing XML (first 500 chars): {}", xml.take(500))
+      logger.debug("Parsing Flex Query XML")
       xmlMapper.readValue(xml, FlexQueryResponse::class.java)
     } catch (e: Exception) {
-      logger.error("Failed to parse Flex Query XML. XML content (first 1000 chars):\n{}", xml.take(1000))
+      logger.error("Failed to parse Flex Query XML")
       logger.error("Parse error details", e)
       throw IBKRApiException("Failed to parse Flex Query XML: ${e.message}", e)
     }
@@ -174,7 +174,7 @@ class IBKRFlexQueryClient(
       val errorCode = extractXmlTag(xml, "ErrorCode") ?: "UNKNOWN"
       val errorMessage = extractXmlTag(xml, "ErrorMessage") ?: "Unknown error from IBKR"
       logger.error("IBKR SendRequest failed - ErrorCode: $errorCode, Message: $errorMessage")
-      logger.error("Full response XML:\n{}", xml)
+      logger.error("IBKR SendRequest failed - ErrorCode: $errorCode, Message: $errorMessage")
       throw IBKRApiException("IBKR API Error [$errorCode]: $errorMessage")
     }
 

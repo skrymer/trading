@@ -1,0 +1,21 @@
+<FlexQueryResponse queryName="Test query cash transactions" type="AF">
+<FlexStatements count="1">
+<FlexStatement accountId="U20790574" fromDate="2026-01-01" toDate="2026-02-28">
+<AccountInformation currency="AUD" accountType="Cash" />
+<Trades>
+<!-- Buy 100 shares @ $50 -->
+<Trade tradeID="700001" symbol="TQQQ" tradeDate="2026-01-05" dateTime="2026-01-06;074740" quantity="100" tradePrice="50.00" buySell="BUY" openCloseIndicator="O" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="97001" origTradeID="" ibCommission="-1.00" netCash="-5001.00" currency="USD" fxRateToBase="1.55" levelOfDetail="EXECUTION" />
+<!-- Sell 100 shares @ $55 -->
+<Trade tradeID="700002" symbol="TQQQ" tradeDate="2026-01-20" dateTime="2026-01-21;070857" quantity="-100" tradePrice="55.00" buySell="SELL" openCloseIndicator="C" assetCategory="STK" putCall="" strike="" expiry="" multiplier="1" underlyingSymbol="TQQQ" ibOrderID="97002" origTradeID="" ibCommission="-1.00" netCash="5499.00" currency="USD" fxRateToBase="1.48" levelOfDetail="EXECUTION" />
+</Trades>
+<CashTransactions>
+<!-- Deposit of $10,000 USD -->
+<CashTransaction transactionID="CT001" type="Deposits/Withdrawals" amount="10000" currency="USD" fxRateToBase="1.55" reportDate="2026-01-10" description="Electronic Fund Deposit" />
+<!-- Withdrawal of $2,000 USD -->
+<CashTransaction transactionID="CT002" type="Deposits/Withdrawals" amount="-2000" currency="USD" fxRateToBase="1.48" reportDate="2026-01-25" description="Electronic Fund Withdrawal" />
+<!-- Dividend (should be filtered out) -->
+<CashTransaction transactionID="CT003" type="Dividends" amount="50" currency="USD" fxRateToBase="1.50" reportDate="2026-01-15" description="TQQQ CASH DIVIDEND" />
+</CashTransactions>
+</FlexStatement>
+</FlexStatements>
+</FlexQueryResponse>

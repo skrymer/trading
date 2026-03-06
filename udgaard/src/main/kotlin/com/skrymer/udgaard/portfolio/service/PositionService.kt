@@ -1,15 +1,10 @@
 package com.skrymer.udgaard.portfolio.service
 
-import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
-import com.skrymer.udgaard.portfolio.model.EquityCurveData
-import com.skrymer.udgaard.portfolio.model.EquityDataPoint
 import com.skrymer.udgaard.portfolio.model.Execution
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
-import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.model.Position
 import com.skrymer.udgaard.portfolio.model.PositionSource
-import com.skrymer.udgaard.portfolio.model.PositionStats
 import com.skrymer.udgaard.portfolio.model.PositionStatus
 import com.skrymer.udgaard.portfolio.model.PositionWithExecutions
 import com.skrymer.udgaard.portfolio.repository.ExecutionJooqRepository
@@ -20,18 +15,13 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
-/**
- * Service for managing positions and executions
- */
 @Service
 class PositionService(
   private val positionRepository: PositionJooqRepository,
   private val executionRepository: ExecutionJooqRepository,
   private val portfolioRepository: PortfolioJooqRepository,
-  private val midgaardClient: MidgaardClient,
 ) {
   private val logger = LoggerFactory.getLogger(PositionService::class.java)
 
@@ -204,14 +194,14 @@ class PositionService(
     val positionCommissions = executions.sumOf { it.commission ?: 0.0 }
     val updatedPortfolio =
       portfolio.copy(
-        currentBalance = portfolio.currentBalance + realizedPnl - positionCommissions,
+        currentBalance = portfolio.currentBalance + realizedPnl + positionCommissions,
         lastUpdated = LocalDateTime.now(),
       )
 
     portfolioRepository.save(updatedPortfolio)
     logger.info(
       "Updated portfolio ${position.portfolioId} balance: " +
-        "${portfolio.currentBalance} + $realizedPnl - $positionCommissions = ${updatedPortfolio.currentBalance}",
+        "${portfolio.currentBalance} + $realizedPnl + $positionCommissions = ${updatedPortfolio.currentBalance}",
     )
 
     return positionRepository.save(closed)
@@ -539,253 +529,4 @@ class PositionService(
 
     return chain
   }
-
-  // ===========================================
-  // STATS OPERATIONS
-  // ===========================================
-
-  /**
-   * Calculate portfolio statistics from positions
-   */
-  fun calculateStats(portfolioId: Long): PositionStats {
-    val portfolio = portfolioRepository.findById(portfolioId)
-      ?: throw IllegalArgumentException("Portfolio not found: $portfolioId")
-
-    val allPositions = getPositions(portfolioId)
-    val closedPositions = allPositions.filter { it.status == PositionStatus.CLOSED }
-    val openPositions = allPositions.filter { it.status == PositionStatus.OPEN }
-
-    if (closedPositions.isEmpty()) {
-      return createEmptyStats(allPositions.size, openPositions.size)
-    }
-
-    // Calculate wins and losses
-    val wins = closedPositions.filter { (it.realizedPnl ?: 0.0) > 0 }
-    val losses = closedPositions.filter { (it.realizedPnl ?: 0.0) < 0 }
-
-    val winRate =
-      if (closedPositions.isNotEmpty()) {
-        (wins.size.toDouble() / closedPositions.size) * 100.0
-      } else {
-        0.0
-      }
-
-    // Calculate average P&L percentages (guard against zero totalCost)
-    val avgWin =
-      if (wins.isNotEmpty()) {
-        wins
-          .filter { it.totalCost > 0 }
-          .map { ((it.realizedPnl ?: 0.0) / it.totalCost) * 100.0 }
-          .ifEmpty { null }
-          ?.average() ?: 0.0
-      } else {
-        0.0
-      }
-
-    val avgLoss =
-      if (losses.isNotEmpty()) {
-        losses
-          .filter { it.totalCost > 0 }
-          .map { ((it.realizedPnl ?: 0.0) / it.totalCost) * 100.0 }
-          .ifEmpty { null }
-          ?.average() ?: 0.0
-      } else {
-        0.0
-      }
-
-    // Calculate proven edge
-    val lossRate = 100.0 - winRate
-    val provenEdge = (winRate / 100.0 * avgWin) - (lossRate / 100.0 * abs(avgLoss))
-
-    // Calculate profit factor (Gross Profit / Gross Loss)
-    val profitFactor =
-      if (losses.isNotEmpty()) {
-        val grossProfit = wins.sumOf { it.realizedPnl ?: 0.0 }
-        val grossLoss = abs(losses.sumOf { it.realizedPnl ?: 0.0 })
-        if (grossLoss > 0.0) grossProfit / grossLoss else null
-      } else {
-        null // Undefined when there are no losses
-      }
-
-    // Total profit
-    val totalProfit = closedPositions.sumOf { it.realizedPnl ?: 0.0 }
-
-    // Calculate total commissions from all executions
-    val allExecutions = allPositions.mapNotNull { it.id }.flatMap { executionRepository.findByPositionId(it) }
-    val totalCommissions = allExecutions.sumOf { it.commission ?: 0.0 }
-
-    // Fetch live FX rate and calculate FX impact on initial balance
-    // Formula: (initialBalance / initialRate) * currentRate - initialBalance
-    // Negative when base currency strengthened (e.g., AUD went from 1.52 to 1.44 per USD)
-    val initialFxRate = portfolio.initialFxRate
-    val isFxPortfolio = initialFxRate != null && portfolio.baseCurrency != portfolio.currency
-    val currentFxRate = if (isFxPortfolio) {
-      midgaardClient.getExchangeRate(portfolio.currency, portfolio.baseCurrency)
-    } else {
-      null
-    }
-    val totalRealizedFxPnl = if (initialFxRate != null && currentFxRate != null) {
-      val initialUsdValue = portfolio.initialBalance / initialFxRate
-      val currentBaseValue = initialUsdValue * currentFxRate
-      currentBaseValue - portfolio.initialBalance
-    } else {
-      if (isFxPortfolio) {
-        logger.warn("Could not fetch current FX rate ${portfolio.currency}/${portfolio.baseCurrency} for FX P&L")
-      }
-      null
-    }
-
-    // Effective balance includes commissions (already in currentBalance) and live FX impact
-    val effectiveBalance = portfolio.currentBalance + (totalRealizedFxPnl ?: 0.0)
-
-    // Calculate YTD return (includes trade P&L, commissions, and FX impact)
-    val ytdReturn = if (portfolio.initialBalance > 0) {
-      ((effectiveBalance - portfolio.initialBalance) / portfolio.initialBalance) * 100.0
-    } else {
-      0.0
-    }
-
-    // Calculate total profit percentage
-    val totalProfitPercentage = if (portfolio.initialBalance > 0) {
-      (totalProfit / portfolio.initialBalance) * 100.0
-    } else {
-      0.0
-    }
-
-    // Calculate annualized return (CAGR) using fractional years
-    val annualizedReturn = if (portfolio.initialBalance > 0) {
-      val daysSinceCreation = ChronoUnit.DAYS.between(
-        portfolio.createdDate.toLocalDate(),
-        LocalDate.now(),
-      )
-      val fractionalYears = (daysSinceCreation / 365.25).coerceAtLeast(0.1)
-
-      (Math.pow(effectiveBalance / portfolio.initialBalance, 1.0 / fractionalYears) - 1.0) * 100.0
-    } else {
-      ytdReturn
-    }
-
-    // Largest win/loss (guard against zero totalCost)
-    val largestWin = wins
-      .filter { it.totalCost > 0 }
-      .maxOfOrNull { ((it.realizedPnl ?: 0.0) / it.totalCost) * 100.0 }
-    val largestLoss = losses
-      .filter { it.totalCost > 0 }
-      .minOfOrNull { ((it.realizedPnl ?: 0.0) / it.totalCost) * 100.0 }
-
-    return PositionStats(
-      totalTrades = allPositions.size,
-      openTrades = openPositions.size,
-      closedTrades = closedPositions.size,
-      ytdReturn = ytdReturn,
-      annualizedReturn = annualizedReturn,
-      avgWin = avgWin,
-      avgLoss = avgLoss,
-      winRate = winRate,
-      provenEdge = provenEdge,
-      profitFactor = profitFactor,
-      totalProfit = totalProfit,
-      totalProfitPercentage = totalProfitPercentage,
-      largestWin = largestWin,
-      largestLoss = largestLoss,
-      numberOfWins = wins.size,
-      numberOfLosses = losses.size,
-      totalCommissions = totalCommissions,
-      totalRealizedFxPnl = totalRealizedFxPnl,
-      effectiveBalance = if (totalRealizedFxPnl != null) effectiveBalance else null,
-      currentFxRate = currentFxRate,
-    )
-  }
-
-  /**
-   * Get equity curve data for portfolio
-   */
-  fun getEquityCurve(portfolioId: Long): EquityCurveData {
-    val portfolio = portfolioRepository.findById(portfolioId)
-    val initialBalance = portfolio?.initialBalance ?: 0.0
-
-    val closedPositions =
-      getPositions(portfolioId, PositionStatus.CLOSED)
-        .sortedBy { it.closedDate }
-
-    val dataPoints = mutableListOf<EquityDataPoint>()
-    var runningProfit = 0.0
-
-    // Group by closed date and aggregate
-    val positionsByDate = closedPositions.groupBy { it.closedDate }
-
-    positionsByDate.keys.filterNotNull().sorted().forEach { closedDate ->
-      val dayPositions = positionsByDate[closedDate] ?: emptyList()
-      val dayProfit = dayPositions.sumOf { it.realizedPnl ?: 0.0 }
-      runningProfit += dayProfit
-
-      val returnPercentage = if (initialBalance > 0) {
-        (runningProfit / initialBalance) * 100.0
-      } else {
-        0.0
-      }
-
-      dataPoints.add(
-        EquityDataPoint(
-          date = closedDate,
-          balance = runningProfit,
-          returnPercentage = returnPercentage,
-        ),
-      )
-    }
-
-    return EquityCurveData(dataPoints)
-  }
-
-  /**
-   * Recalculate portfolio current balance based on all closed positions
-   * Useful for correcting balance after data import or migration
-   */
-  fun recalculatePortfolioBalance(portfolioId: Long): Portfolio {
-    val portfolio =
-      portfolioRepository.findById(portfolioId)
-        ?: throw IllegalArgumentException("Portfolio $portfolioId not found")
-
-    // Sum all realized P&L from closed positions
-    val closedPositions = getPositions(portfolioId, PositionStatus.CLOSED)
-    val totalRealizedPnl = closedPositions.sumOf { it.realizedPnl ?: 0.0 }
-
-    // Sum all commissions from all executions
-    val allPositions = getPositions(portfolioId)
-    val totalCommissions = allPositions
-      .mapNotNull { it.id }
-      .flatMap { executionRepository.findByPositionId(it) }
-      .sumOf { it.commission ?: 0.0 }
-
-    val updatedPortfolio =
-      portfolio.copy(
-        currentBalance = portfolio.initialBalance + totalRealizedPnl - totalCommissions,
-        lastUpdated = LocalDateTime.now(),
-      )
-
-    logger.info(
-      "Recalculated portfolio $portfolioId balance: " +
-        "${portfolio.initialBalance} + $totalRealizedPnl - $totalCommissions = ${updatedPortfolio.currentBalance}",
-    )
-
-    return portfolioRepository.save(updatedPortfolio)
-  }
-
-  private fun createEmptyStats(
-    totalTrades: Int,
-    openTrades: Int,
-  ) = PositionStats(
-    totalTrades = totalTrades,
-    openTrades = openTrades,
-    closedTrades = 0,
-    ytdReturn = 0.0,
-    annualizedReturn = 0.0,
-    avgWin = 0.0,
-    avgLoss = 0.0,
-    winRate = 0.0,
-    provenEdge = 0.0,
-    profitFactor = null,
-    totalProfit = 0.0,
-    totalProfitPercentage = 0.0,
-  )
 }

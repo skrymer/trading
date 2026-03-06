@@ -2,13 +2,18 @@ package com.skrymer.udgaard.portfolio.service
 
 import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import com.skrymer.udgaard.portfolio.integration.broker.AssetType
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapter
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapterFactory
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerCredentials
+import com.skrymer.udgaard.portfolio.integration.broker.BrokerDataResult
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
+import com.skrymer.udgaard.portfolio.integration.ibkr.IBKRApiException
 import com.skrymer.udgaard.portfolio.integration.broker.RollChain
 import com.skrymer.udgaard.portfolio.integration.broker.RollPair
+import com.skrymer.udgaard.portfolio.integration.broker.StandardizedCashTransaction
 import com.skrymer.udgaard.portfolio.integration.broker.TradeLot
 import com.skrymer.udgaard.portfolio.integration.broker.TradeProcessor
+import com.skrymer.udgaard.portfolio.model.CashTransactionSource
 import com.skrymer.udgaard.portfolio.model.ImportResult
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.repository.ExecutionJooqRepository
@@ -29,8 +34,10 @@ class BrokerIntegrationService(
   private val tradeProcessor: TradeProcessor,
   private val portfolioService: PortfolioService,
   private val positionService: PositionService,
+  private val portfolioStatsService: PortfolioStatsService,
   private val executionRepository: ExecutionJooqRepository,
   private val forexTrackingService: ForexTrackingService,
+  private val cashTransactionService: CashTransactionService,
   private val midgaardClient: MidgaardClient,
 ) {
   /**
@@ -41,7 +48,7 @@ class BrokerIntegrationService(
     name: String,
     broker: BrokerType,
     credentials: BrokerCredentials,
-    startDate: LocalDate? = null,
+    startDate: LocalDate,
     currency: String = "USD",
     initialBalance: Double? = null,
   ): CreateFromBrokerResult {
@@ -53,7 +60,8 @@ class BrokerIntegrationService(
     val adapter = adapterFactory.getAdapter(broker)
 
     // 2. Fetch trades AND account info (single API call to minimize rate limiting)
-    val brokerData = adapter.fetchTrades(credentials, "", startDate, endDate)
+    // If yesterday's data isn't available yet (e.g. timezone gap with IBKR US), fall back to 2 days ago
+    val brokerData = fetchWithDateFallback(adapter, credentials, startDate, endDate)
     val standardizedTrades = brokerData.trades
     val accountInfo = brokerData.accountInfo
 
@@ -75,7 +83,7 @@ class BrokerIntegrationService(
     val baseCurrency = accountInfo.currency.takeIf { it != currency } ?: currency
 
     // Fetch initial FX rate if base currency differs from trade currency
-    val initialFxRate = if (baseCurrency != currency && startDate != null) {
+    val initialFxRate = if (baseCurrency != currency) {
       midgaardClient
         .getHistoricalExchangeRate(currency, baseCurrency, startDate)
         .also { rate ->
@@ -100,10 +108,18 @@ class BrokerIntegrationService(
       )
 
     val savedPortfolio = portfolioService.updatePortfolioWithBrokerInfo(updatedPortfolio)
-    logger.info("Created portfolio: id=${savedPortfolio.id}, broker=$broker, accountId=${accountInfo.accountId}")
+    val portfolioId = savedPortfolio.id
+      ?: throw IllegalStateException("Portfolio ID is null after save")
+    logger.info("Created portfolio: id=$portfolioId, broker=$broker, accountId=${accountInfo.accountId}")
 
     // 5. Import trades
-    val imported = importTrades(portfolio.id!!, lots, rolls)
+    val imported = importTrades(portfolioId, lots, rolls)
+
+    // 6. Import cash transactions and recalculate balance
+    importCashTransactions(portfolioId, brokerData.cashTransactions, currency)
+    if (brokerData.cashTransactions.isNotEmpty()) {
+      portfolioStatsService.recalculatePortfolioBalance(portfolioId)
+    }
 
     logger.info(
       "Portfolio import complete: ${imported.positionsCreated} positions, " +
@@ -165,13 +181,8 @@ class BrokerIntegrationService(
     }
 
     // Fetch trades AND account info
-    val brokerData =
-      adapter.fetchTrades(
-        credentials,
-        portfolio.brokerAccountId ?: "",
-        lastSync,
-        endDate,
-      )
+    // If yesterday's data isn't available yet, fall back to 2 days ago
+    val brokerData = fetchWithDateFallback(adapter, credentials, lastSync, endDate, portfolio.brokerAccountId ?: "")
     val standardizedTrades = brokerData.trades
 
     // Process trades
@@ -180,6 +191,12 @@ class BrokerIntegrationService(
 
     // Import/update trades
     val imported = importTrades(portfolioId, lots, rolls)
+
+    // Import cash transactions and recalculate balance
+    importCashTransactions(portfolioId, brokerData.cashTransactions, portfolio.currency)
+    if (brokerData.cashTransactions.isNotEmpty()) {
+      portfolioStatsService.recalculatePortfolioBalance(portfolioId)
+    }
 
     // Update last sync date
     portfolioService.updateLastSyncDate(portfolioId, LocalDateTime.now())
@@ -529,11 +546,97 @@ class BrokerIntegrationService(
     )
   }
 
+  private fun importCashTransactions(
+    portfolioId: Long,
+    cashTransactions: List<StandardizedCashTransaction>,
+    portfolioCurrency: String,
+  ) {
+    if (cashTransactions.isEmpty()) return
+
+    var imported = 0
+    cashTransactions.forEach { cashTx ->
+      val convertedAmount = convertToPortfolioCurrency(cashTx, portfolioCurrency)
+
+      val result = cashTransactionService.addCashTransaction(
+        portfolioId = portfolioId,
+        type = cashTx.type,
+        amount = cashTx.amount,
+        transactionDate = cashTx.transactionDate,
+        description = cashTx.description,
+        currency = cashTx.currency,
+        convertedAmount = convertedAmount,
+        fxRateToBase = cashTx.fxRateToBase,
+        brokerTransactionId = cashTx.brokerTransactionId,
+        source = CashTransactionSource.BROKER,
+      )
+      if (result.id != null) imported++
+    }
+
+    logger.info("Imported $imported cash transactions for portfolio $portfolioId")
+  }
+
+  private fun convertToPortfolioCurrency(
+    cashTx: StandardizedCashTransaction,
+    portfolioCurrency: String,
+  ): Double {
+    if (cashTx.currency == portfolioCurrency) return cashTx.amount
+
+    val rate = midgaardClient.getHistoricalExchangeRate(
+      portfolioCurrency,
+      cashTx.currency,
+      cashTx.transactionDate,
+    )
+    if (rate == null) {
+      logger.warn(
+        "Could not get FX rate {}/{} on {} for cash tx {}, using original amount",
+        portfolioCurrency,
+        cashTx.currency,
+        cashTx.transactionDate,
+        cashTx.brokerTransactionId,
+      )
+      return cashTx.amount
+    }
+
+    val converted = cashTx.amount / rate
+    logger.debug(
+      "Converted {} {} → {:.2f} {} (rate: {})",
+      cashTx.amount,
+      cashTx.currency,
+      converted,
+      portfolioCurrency,
+      rate,
+    )
+    return converted
+  }
+
+  /**
+   * Fetch trades with date fallback: if endDate data isn't available yet (IBKR error 1003),
+   * retry with endDate minus 1 day to handle timezone gaps with IBKR US
+   */
+  private fun fetchWithDateFallback(
+    adapter: BrokerAdapter,
+    credentials: BrokerCredentials,
+    startDate: LocalDate,
+    endDate: LocalDate,
+    accountId: String = "",
+  ): BrokerDataResult =
+    try {
+      adapter.fetchTrades(credentials, accountId, startDate, endDate)
+    } catch (e: IBKRApiException) {
+      if (e.message?.contains("1003") == true) {
+        val fallbackEndDate = endDate.minusDays(1)
+        logger.info("IBKR data not available for $endDate, retrying with $fallbackEndDate after cooldown")
+        Thread.sleep(IBKR_RETRY_DELAY_MS)
+        adapter.fetchTrades(credentials, accountId, startDate, fallbackEndDate)
+      } else {
+        throw e
+      }
+    }
+
   /**
    * Validate date range and return end date
    */
-  private fun validateAndGetEndDate(startDate: LocalDate?): LocalDate? {
-    if (startDate == null) return null
+  private fun validateAndGetEndDate(startDate: LocalDate): LocalDate {
     val endDate = LocalDate.now().minusDays(1)
     val daysBetween = java.time.temporal.ChronoUnit.DAYS
       .between(startDate, endDate)
@@ -602,6 +705,7 @@ class BrokerIntegrationService(
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(BrokerIntegrationService::class.java)
+    private const val IBKR_RETRY_DELAY_MS = 1000L
   }
 }
 

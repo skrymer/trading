@@ -5,10 +5,13 @@ import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapter
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerCredentials
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerDataResult
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
+import com.skrymer.udgaard.portfolio.integration.broker.StandardizedCashTransaction
+import com.skrymer.udgaard.portfolio.model.CashTransactionType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.LocalDate
+import kotlin.math.abs
 
 /**
  * Interactive Brokers adapter implementation
@@ -44,7 +47,8 @@ class IBKRAdapter(
           endDate = endDate,
         )
 
-      // 2. Get XML response
+      // 2. Wait for IBKR to generate the statement, then retrieve it
+      Thread.sleep(STATEMENT_GENERATION_DELAY_MS)
       val xml = flexQueryClient.getStatement(credentials.token, referenceCode)
 
       // 3. Parse XML
@@ -76,11 +80,19 @@ class IBKRAdapter(
       }
       val standardizedTrades = filteredTrades.map { tradeMapper.toStandardizedTrade(it) }
 
+      // 6. Extract cash transactions (deposits/withdrawals only)
+      val standardizedCashTxs = extractCashTransactions(flexStatement)
+
       logger.info(
         "Fetched ${standardizedTrades.size} trades from IBKR Activity Flex Query " +
-          "(${ibkrTrades.size - filteredTrades.size} non-execution/CASH rows filtered out)",
+          "(${ibkrTrades.size - filteredTrades.size} non-execution/CASH rows filtered out), " +
+          "${standardizedCashTxs.size} cash transactions",
       )
-      return BrokerDataResult(trades = standardizedTrades, accountInfo = accountInfo)
+      return BrokerDataResult(
+        trades = standardizedTrades,
+        accountInfo = accountInfo,
+        cashTransactions = standardizedCashTxs,
+      )
     } catch (e: IBKRApiException) {
       logger.error("Failed to fetch IBKR data", e)
       throw e
@@ -101,12 +113,14 @@ class IBKRAdapter(
     logger.info("Testing IBKR connection")
 
     return try {
-      // Test by sending a request without date overrides (uses template defaults)
-      // This avoids issues with requesting data that might not be available yet
-      flexQueryClient.sendRequest(
+      // Send request and retrieve the statement to avoid leaving orphaned pending statements
+      // (IBKR rejects new SendRequest calls while a previous statement is still pending)
+      val referenceCode = flexQueryClient.sendRequest(
         token = credentials.token,
         queryId = credentials.queryId,
       )
+      Thread.sleep(STATEMENT_GENERATION_DELAY_MS)
+      flexQueryClient.getStatement(credentials.token, referenceCode)
       logger.info("IBKR connection test successful")
       true
     } catch (e: Exception) {
@@ -133,6 +147,7 @@ class IBKRAdapter(
           queryId = credentials.queryId,
         )
 
+      Thread.sleep(STATEMENT_GENERATION_DELAY_MS)
       val xml = flexQueryClient.getStatement(credentials.token, referenceCode)
       val response = flexQueryClient.parseXml(xml)
 
@@ -157,9 +172,28 @@ class IBKRAdapter(
     }
   }
 
+  private fun extractCashTransactions(
+    flexStatement: com.skrymer.udgaard.portfolio.integration.ibkr.dto.FlexStatement,
+  ): List<StandardizedCashTransaction> =
+    (flexStatement.cashTransactions?.cashTransaction ?: emptyList())
+      .filter { it.type == "Deposits/Withdrawals" }
+      .map { cashTx ->
+        val rawAmount = cashTx.amount.toDouble()
+        StandardizedCashTransaction(
+          brokerTransactionId = cashTx.transactionID,
+          type = if (rawAmount >= 0) CashTransactionType.DEPOSIT else CashTransactionType.WITHDRAWAL,
+          amount = abs(rawAmount),
+          currency = cashTx.currency ?: "USD",
+          fxRateToBase = cashTx.fxRateToBase?.toDoubleOrNull(),
+          transactionDate = LocalDate.parse(cashTx.reportDate),
+          description = cashTx.description,
+        )
+      }
+
   override fun getBrokerType(): BrokerType = BrokerType.IBKR
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(IBKRAdapter::class.java)
+    private const val STATEMENT_GENERATION_DELAY_MS = 1000L
   }
 }

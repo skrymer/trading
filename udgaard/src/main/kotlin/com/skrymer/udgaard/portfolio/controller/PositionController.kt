@@ -10,6 +10,7 @@ import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.model.Position
 import com.skrymer.udgaard.portfolio.model.PositionStats
 import com.skrymer.udgaard.portfolio.model.PositionStatus
+import com.skrymer.udgaard.portfolio.service.PortfolioStatsService
 import com.skrymer.udgaard.portfolio.service.PositionService
 import com.skrymer.udgaard.portfolio.service.UnrealizedPnlService
 import jakarta.validation.Valid
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/positions")
 class PositionController(
   private val positionService: PositionService,
+  private val portfolioStatsService: PortfolioStatsService,
   private val unrealizedPnlService: UnrealizedPnlService,
 ) {
   /**
@@ -173,7 +175,7 @@ class PositionController(
   fun getPortfolioStats(
     @PathVariable portfolioId: Long,
   ): ResponseEntity<PositionStats> {
-    val stats = positionService.calculateStats(portfolioId)
+    val stats = portfolioStatsService.calculateStats(portfolioId)
     return ResponseEntity.ok(stats)
   }
 
@@ -199,7 +201,7 @@ class PositionController(
   fun getEquityCurve(
     @PathVariable portfolioId: Long,
   ): ResponseEntity<EquityCurveData> {
-    val equityCurve = positionService.getEquityCurve(portfolioId)
+    val equityCurve = portfolioStatsService.getEquityCurve(portfolioId)
     return ResponseEntity.ok(equityCurve)
   }
 
@@ -210,7 +212,7 @@ class PositionController(
   fun recalculateBalance(
     @PathVariable portfolioId: Long,
   ): ResponseEntity<Portfolio> {
-    val portfolio = positionService.recalculatePortfolioBalance(portfolioId)
+    val portfolio = portfolioStatsService.recalculatePortfolioBalance(portfolioId)
     return ResponseEntity.ok(portfolio)
   }
 

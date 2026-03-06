@@ -43,6 +43,8 @@ data class FlexStatement
     val accountInformation: AccountInformation?,
     @param:JacksonXmlProperty(localName = "FxPositions")
     val fxPositions: FxPositions?,
+    @param:JacksonXmlProperty(localName = "CashTransactions")
+    val cashTransactions: IBKRCashTransactions?,
   )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -131,4 +133,33 @@ data class FxPosition
     val functionalCurrency: String?,
     @param:JacksonXmlProperty(isAttribute = true, localName = "fxCurrency")
     val fxCurrency: String?,
+  )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class IBKRCashTransactions
+  @JsonCreator
+  constructor(
+    @param:JacksonXmlElementWrapper(useWrapping = false)
+    @param:JacksonXmlProperty(localName = "CashTransaction")
+    val cashTransaction: List<IBKRCashTransaction>?,
+  )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class IBKRCashTransaction
+  @JsonCreator
+  constructor(
+    @param:JacksonXmlProperty(isAttribute = true, localName = "transactionID")
+    val transactionID: String,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "type")
+    val type: String,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "amount")
+    val amount: String,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "currency")
+    val currency: String?,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "fxRateToBase")
+    val fxRateToBase: String?,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "reportDate")
+    val reportDate: String,
+    @param:JacksonXmlProperty(isAttribute = true, localName = "description")
+    val description: String?,
   )

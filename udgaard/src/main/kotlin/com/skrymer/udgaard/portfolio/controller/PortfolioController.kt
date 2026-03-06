@@ -8,10 +8,12 @@ import com.skrymer.udgaard.portfolio.dto.TestBrokerConnectionRequest
 import com.skrymer.udgaard.portfolio.dto.TestBrokerConnectionResponse
 import com.skrymer.udgaard.portfolio.dto.UpdatePortfolioRequest
 import com.skrymer.udgaard.portfolio.dto.toBrokerCredentials
+import com.skrymer.udgaard.portfolio.model.CashTransaction
 import com.skrymer.udgaard.portfolio.model.ForexDisposal
 import com.skrymer.udgaard.portfolio.model.ForexLot
 import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.service.BrokerIntegrationService
+import com.skrymer.udgaard.portfolio.service.CashTransactionService
 import com.skrymer.udgaard.portfolio.service.ForexTrackingService
 import com.skrymer.udgaard.portfolio.service.PortfolioService
 import jakarta.validation.Valid
@@ -38,6 +40,7 @@ class PortfolioController(
   private val portfolioService: PortfolioService,
   private val brokerIntegrationService: BrokerIntegrationService,
   private val forexTrackingService: ForexTrackingService,
+  private val cashTransactionService: CashTransactionService,
 ) {
   /**
    * Get all portfolios
@@ -207,6 +210,31 @@ class PortfolioController(
     )
   }
 
+  @GetMapping("/{portfolioId}/cash-transactions")
+  @Transactional(readOnly = true)
+  fun getCashTransactions(
+    @PathVariable portfolioId: Long,
+  ): ResponseEntity<List<CashTransaction>> {
+    val transactions = cashTransactionService.getCashTransactions(portfolioId)
+    return ResponseEntity.ok(transactions)
+  }
+
+  @GetMapping("/{portfolioId}/cash-transactions/summary")
+  @Transactional(readOnly = true)
+  fun getCashTransactionSummary(
+    @PathVariable portfolioId: Long,
+  ): ResponseEntity<CashTransactionSummary> {
+    val totalDeposits = cashTransactionService.getTotalDeposits(portfolioId)
+    val totalWithdrawals = cashTransactionService.getTotalWithdrawals(portfolioId)
+    return ResponseEntity.ok(
+      CashTransactionSummary(
+        totalDeposits = totalDeposits,
+        totalWithdrawals = totalWithdrawals,
+        netCashFlow = totalDeposits - totalWithdrawals,
+      ),
+    )
+  }
+
   /**
    * Test broker connection
    */
@@ -233,6 +261,12 @@ class PortfolioController(
     }
   }
 }
+
+data class CashTransactionSummary(
+  val totalDeposits: Double,
+  val totalWithdrawals: Double,
+  val netCashFlow: Double,
+)
 
 data class ForexSummary(
   val totalRealizedFxPnl: Double,

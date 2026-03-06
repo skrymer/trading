@@ -65,6 +65,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     dsl.deleteFrom(DSL.table("forex_lots")).execute()
     dsl.deleteFrom(DSL.table("executions")).execute()
     dsl.deleteFrom(DSL.table("positions")).execute()
+    dsl.deleteFrom(DSL.table("cash_transactions")).execute()
     dsl.deleteFrom(DSL.table("portfolios")).execute()
 
     val xml = ResourceUtils.getFile("classpath:ibkr-test-trades-fx.xml").readText()
@@ -271,21 +272,21 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
   }
 
   @Test
-  fun `stats totalRealizedFxPnl should reflect FX impact on initial balance`() {
+  fun `stats totalRealizedFxPnl should reflect FX impact on current balance`() {
     val result = importPortfolio()
     val stats = getStats(result.portfolio.id!!)
 
-    // FX impact on initial balance:
+    // FX impact on current balance using weighted avg acquisition rate:
     // initialBalance = 50,000 AUD, initialFxRate = 1.60, currentFxRate = 1.45
-    // initialUsdValue = 50,000 / 1.60 = 31,250 USD
-    // currentBaseValue = 31,250 * 1.45 = 45,312.50 AUD
-    // FX P&L = 45,312.50 - 50,000 = -4,687.50
+    // No cash transactions → avgAcquisitionRate = initialFxRate = 1.60
+    // currentBalance = 50,000 + 380 (TQQQ) - 2.00 (TQQQ comm) + 300 (EGO) - 2.81 (EGO comm) = 50,675.19
+    // FX P&L (in USD) = 50,675.19 * (1 - 1.60/1.45) = 50,675.19 * (-3/29) ≈ -5,242.26
     assertNotNull(stats.totalRealizedFxPnl, "Should have FX impact in stats")
     assertEquals(
-      -4687.50,
+      -5242.26,
       stats.totalRealizedFxPnl!!,
       1.0,
-      "FX P&L should reflect impact of rate change on initial balance",
+      "FX P&L should reflect impact of rate change on current balance",
     )
   }
 

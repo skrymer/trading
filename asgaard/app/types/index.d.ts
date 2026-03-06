@@ -793,8 +793,9 @@ export interface PortfolioStats {
   numberOfLosses?: number
   totalCommissions?: number
   totalRealizedFxPnl?: number | null
-  effectiveBalance?: number | null
   currentFxRate?: number | null
+  totalDeposits?: number
+  totalWithdrawals?: number
 }
 
 export interface EquityDataPoint {
@@ -985,7 +986,7 @@ export interface CreatePortfolioFromBrokerRequest {
   name: string
   broker: string
   credentials: Record<string, string>
-  startDate?: string
+  startDate: string
   currency?: string
   initialBalance?: number
 }
@@ -1055,6 +1056,34 @@ export interface ForexDisposal {
   realizedFxPnl: number
   sourceExecutionId?: number
   createdAt?: string
+}
+
+// ========================================
+// Cash Transaction Types
+// ========================================
+
+export type CashTransactionType = 'DEPOSIT' | 'WITHDRAWAL'
+export type CashTransactionSource = 'MANUAL' | 'BROKER'
+
+export interface CashTransaction {
+  id: number
+  portfolioId: number
+  type: CashTransactionType
+  amount: number
+  currency: string
+  convertedAmount?: number
+  transactionDate: string
+  description?: string
+  fxRateToBase?: number
+  brokerTransactionId?: string
+  source: CashTransactionSource
+  createdAt?: string
+}
+
+export interface CashTransactionSummary {
+  totalDeposits: number
+  totalWithdrawals: number
+  netCashFlow: number
 }
 
 // ========================================

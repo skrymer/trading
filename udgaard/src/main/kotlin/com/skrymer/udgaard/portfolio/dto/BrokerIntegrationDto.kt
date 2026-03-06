@@ -12,7 +12,7 @@ data class CreatePortfolioFromBrokerRequest(
   val name: String,
   val broker: BrokerType,
   val credentials: Map<String, String>,
-  val startDate: LocalDate? = null,
+  val startDate: LocalDate,
   val currency: String = "USD",
   val initialBalance: Double? = null,
 )
