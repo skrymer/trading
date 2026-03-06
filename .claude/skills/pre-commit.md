@@ -10,108 +10,58 @@ First, detect which projects have changes by running `git diff --name-only HEAD`
 - **Midgaard**: any changed files under `midgaard/`
 - **Asgaard**: any changed files under `asgaard/`
 
-Only run checks for projects with changes. Run all applicable checks in parallel. Then verify CLAUDE.md files are up to date. Report results for each check clearly, and flag any failures.
+## Sub-Agent Delegation
 
-### Udgaard (Backend) — only if changes in `udgaard/`
+Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch all applicable agents **in parallel as background tasks**.
 
-#### 1. Backend Tests
-```bash
-cd /home/sonni/development/git/trading/udgaard && ./gradlew test
-```
+### Available Sub-Agents
 
-#### 2. Backend Linting (ktlint)
-```bash
-cd /home/sonni/development/git/trading/udgaard && ./gradlew ktlintCheck
-```
+| Sub-Agent | When to Use |
+|-----------|------------|
+| **backend-reviewer** | When `udgaard/` or `midgaard/` has changes. Tell it which projects changed. Runs tests, ktlint, detekt, compiler warnings. Auto-fixes issues. |
+| **frontend-reviewer** | When `asgaard/` has changes. Runs ESLint, typecheck. Auto-fixes lint issues. |
+| **docs-reviewer** | Always. Reviews and updates CLAUDE.md files for accuracy. |
+| **voltagent-qa-sec:code-reviewer** *(voltagent plugin)* | One instance per changed project. Reviews changed code for security issues, code quality, and QA concerns. Launched as separate parallel agents (subagents cannot spawn other subagents). |
 
-#### 3. Backend Static Analysis (detekt)
-```bash
-cd /home/sonni/development/git/trading/udgaard && ./gradlew detekt
-```
+### Workflow
 
-#### 4. Backend Compiler Warnings
-```bash
-cd /home/sonni/development/git/trading/udgaard && ./gradlew clean compileKotlin 2>&1 | grep "^w:"
-```
-**IMPORTANT:** Must use `clean` before `compileKotlin` — without it, the task may be UP-TO-DATE (cached) and produce no output, silently hiding warnings.
-
-If any warnings are found (redundant `!!`, always-true conditions, unnecessary `?:`, etc.), fix them. These are Kotlin compiler warnings that ktlint and detekt cannot catch (they require type resolution). Zero warnings expected.
-
-### Midgaard (Reference Data Service) — only if changes in `midgaard/`
-
-#### 5. Midgaard Compile
-```bash
-cd /home/sonni/development/git/trading/midgaard && ./gradlew compileKotlin
-```
-
-#### 6. Midgaard Linting (ktlint)
-```bash
-cd /home/sonni/development/git/trading/midgaard && ./gradlew ktlintCheck
-```
-
-#### 7. Midgaard Static Analysis (detekt)
-```bash
-cd /home/sonni/development/git/trading/midgaard && ./gradlew detekt
-```
-
-### Asgaard (Frontend) — only if changes in `asgaard/`
-
-#### 8. Frontend Linting (ESLint)
-```bash
-cd /home/sonni/development/git/trading/asgaard && npm run lint
-```
-
-#### 9. Frontend TypeScript Validation
-```bash
-cd /home/sonni/development/git/trading/asgaard && npm run typecheck
-```
-
-### 10. Update CLAUDE.md Files
-
-After the code checks complete, review the CLAUDE.md files for accuracy against the current codebase:
-
-- `CLAUDE.md` (project root) - Project overview, architecture, tech stack versions, project structure
-- `udgaard/claude.md` - Backend tech stack, package structure, strategies, DSL conditions, development commands
-- `midgaard/claude.md` - Reference data service tech stack, package structure, providers, development commands
-- `asgaard/claude.md` - Frontend tech stack, pages, components, chart libraries
-
-**Check for:**
-- Version numbers (Kotlin, Spring Boot, Nuxt, NuxtUI, etc.) matching `build.gradle` and `package.json`
-- Package/directory structure matching actual codebase layout
-- Listed strategies, conditions, rankers, and services matching what actually exists
-- Listed pages and components matching what actually exists
-- No references to deleted files or removed features
-
-If any CLAUDE.md file is outdated, update it. If all are current, note "CLAUDE.md files are up to date" in the report.
+1. Detect which projects have changes
+2. Launch applicable agents in parallel:
+   - **backend-reviewer** (if udgaard/ or midgaard/ changed) — tell it which projects: "udgaard", "midgaard", or both
+   - **frontend-reviewer** (if asgaard/ changed)
+   - **docs-reviewer** (always)
+   - **voltagent-qa-sec:code-reviewer** for backend (if udgaard/ or midgaard/ changed) — provide changed backend files
+   - **voltagent-qa-sec:code-reviewer** for frontend (if asgaard/ changed) — provide changed frontend files
+3. Wait for all agents to complete
+4. Collect results and present the summary table
 
 ## Reporting
 
-After all checks complete, provide a summary table. Only include rows for projects that had changes. Mark skipped projects as "SKIPPED (no changes)":
+After all agents complete, present a unified summary table. Only include rows for projects that had changes. Mark skipped projects as "SKIPPED (no changes)":
 
 | Check | Status |
 |-------|--------|
-| Udgaard Tests | PASS / FAIL / SKIPPED |
-| Udgaard Lint (ktlint) | PASS / FAIL / SKIPPED |
-| Udgaard Static Analysis (detekt) | PASS / FAIL / SKIPPED |
-| Udgaard Compiler Warnings | PASS / FAIL / SKIPPED |
-| Midgaard Compile | PASS / FAIL / SKIPPED |
-| Midgaard Lint (ktlint) | PASS / FAIL / SKIPPED |
-| Midgaard Static Analysis (detekt) | PASS / FAIL / SKIPPED |
-| Frontend Lint (ESLint) | PASS / FAIL / SKIPPED |
-| Frontend Typecheck | PASS / FAIL / SKIPPED |
+| Udgaard Tests | PASS / FAIL / FIXED / SKIPPED |
+| Udgaard Lint (ktlint) | PASS / FAIL / FIXED / SKIPPED |
+| Udgaard Static Analysis (detekt) | PASS / FAIL / FIXED / SKIPPED |
+| Udgaard Compiler Warnings | PASS / FAIL / FIXED / SKIPPED |
+| Midgaard Compile | PASS / FAIL / FIXED / SKIPPED |
+| Midgaard Lint (ktlint) | PASS / FAIL / FIXED / SKIPPED |
+| Midgaard Static Analysis (detekt) | PASS / FAIL / FIXED / SKIPPED |
+| Frontend Lint (ESLint) | PASS / FAIL / FIXED / SKIPPED |
+| Frontend Typecheck | PASS / FAIL / FIXED / SKIPPED |
 | CLAUDE.md files | UP TO DATE / UPDATED |
+| Backend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
+| Frontend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 
-If any check fails, show the relevant error output and suggest fixes:
-- **ktlint failures**: Run `./gradlew ktlintFormat` to auto-fix
-- **detekt failures**: Fix the flagged code smells, or run `./gradlew detektBaseline` to update the baseline
-- **ESLint failures**: Run `npm run lint -- --fix` to auto-fix
-- **Typecheck failures**: Review and fix the type errors manually
-- **Test failures**: Investigate and fix the failing tests
-- **Compiler warnings**: Fix redundant `!!`, unnecessary `?:`, always-true conditions, etc. directly in the source
+If any check has status FAIL (not auto-fixable), show the relevant error output and highlight what needs manual attention.
+
+If agents auto-fixed issues (status FIXED), list the files that were modified.
+
+If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** severity issues, list them separately after the summary table with file paths and a brief description. These may need fixing before committing.
 
 ## Important
 
 - All checks for changed projects MUST pass before committing
 - Docker must be running for backend tests (TestContainers)
-- Run checks from the project root using absolute paths
 - Follow the clean code principles defined in `.claude/skills/clean_code.md` — review changed code for SRP, DRY, KISS, clear naming, small functions, guard clauses, and no unnecessary comments before committing

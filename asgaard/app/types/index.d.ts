@@ -583,7 +583,7 @@ export interface MonteCarloResult {
 
 // Portfolio Manager Types
 export type TradeStatus = 'OPEN' | 'CLOSED'
-export type InstrumentType = 'STOCK' | 'OPTION' | 'LEVERAGED_ETF'
+export type InstrumentType = 'STOCK' | 'OPTION' | 'ETF' | 'LEVERAGED_ETF'
 export type OptionType = 'CALL' | 'PUT'
 export type PositionStatus = 'OPEN' | 'CLOSED'
 export type PositionSource = 'BROKER' | 'MANUAL'

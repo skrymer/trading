@@ -2,9 +2,12 @@ package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
+import com.skrymer.udgaard.backtesting.dto.WalkForwardRequest
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
+import com.skrymer.udgaard.backtesting.model.WalkForwardResult
 import com.skrymer.udgaard.backtesting.model.toResponseDto
 import com.skrymer.udgaard.backtesting.service.BacktestResultStore
 import com.skrymer.udgaard.backtesting.service.BacktestService
@@ -12,6 +15,7 @@ import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.PositionSizingService
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
+import com.skrymer.udgaard.backtesting.service.WalkForwardService
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
@@ -53,6 +57,7 @@ class BacktestController(
   private val conditionRegistry: ConditionRegistry,
   private val backtestResultStore: BacktestResultStore,
   private val positionSizingService: PositionSizingService,
+  private val walkForwardService: WalkForwardService,
 ) {
   /**
    * Run backtest with request body.
@@ -185,36 +190,113 @@ class BacktestController(
     return ResponseEntity.ok(conditions)
   }
 
-  private fun resolveSymbols(request: BacktestRequest): List<String>? {
+  @PostMapping("/walk-forward")
+  fun runWalkForward(
+    @RequestBody request: WalkForwardRequest,
+  ): ResponseEntity<WalkForwardResult> {
+    val entryStrategy = dynamicStrategyBuilder.buildEntryStrategy(request.entryStrategy)
+      ?: throw IllegalArgumentException("Failed to build entry strategy from config: ${request.entryStrategy}")
+
+    val exitStrategy = requireNotNull(dynamicStrategyBuilder.buildExitStrategy(request.exitStrategy)) {
+      "Failed to build exit strategy from config: ${request.exitStrategy}"
+    }
+
+    val symbols = requireNotNull(resolveSymbols(request)) {
+      "No symbols found. Use Data Manager to refresh stocks first."
+    }
+
+    val rankerInstance = if (request.ranker == null) {
+      entryStrategy.preferredRanker() ?: CompositeRanker()
+    } else {
+      requireNotNull(RankerFactory.create(request.ranker, request.rankerConfig)) {
+        "Unknown ranker: ${request.ranker}"
+      }
+    }
+
+    val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
+    val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
+
+    val config = WalkForwardConfig(
+      inSampleYears = request.inSampleYears,
+      outOfSampleYears = request.outOfSampleYears,
+      stepYears = request.stepYears,
+      startDate = start,
+      endDate = end,
+    )
+
+    logger.info("Running walk-forward: IS=${config.inSampleYears}y, OOS=${config.outOfSampleYears}y, step=${config.stepYears}y")
+
+    val result = walkForwardService.runWalkForward(
+      config = config,
+      entryStrategy = entryStrategy,
+      exitStrategy = exitStrategy,
+      symbols = symbols,
+      ranker = rankerInstance,
+      maxPositions = request.maxPositions,
+      useUnderlyingAssets = request.useUnderlyingAssets,
+      customUnderlyingMap = request.customUnderlyingMap,
+      cooldownDays = request.cooldownDays,
+      entryDelayDays = request.entryDelayDays,
+    )
+
+    logger.info(
+      "Walk-forward complete: WFE=${String.format("%.2f", result.walkForwardEfficiency)}, " +
+        "OOS edge=${String.format("%.2f", result.aggregateOosEdge)}",
+    )
+
+    return ResponseEntity.ok(result)
+  }
+
+  private fun resolveSymbols(request: WalkForwardRequest): List<String>? =
+    resolveSymbols(
+      stockSymbols = request.stockSymbols,
+      assetTypes = request.assetTypes,
+      includeSectors = request.includeSectors,
+      excludeSectors = request.excludeSectors,
+    )
+
+  private fun resolveSymbols(request: BacktestRequest): List<String>? =
+    resolveSymbols(
+      stockSymbols = request.stockSymbols,
+      assetTypes = request.assetTypes,
+      includeSectors = request.includeSectors,
+      excludeSectors = request.excludeSectors,
+    )
+
+  private fun resolveSymbols(
+    stockSymbols: List<String>?,
+    assetTypes: List<String>?,
+    includeSectors: List<String>?,
+    excludeSectors: List<String>?,
+  ): List<String>? {
     var symbols: List<String> =
-      if (!request.stockSymbols.isNullOrEmpty()) {
-        request.stockSymbols.map { it.uppercase() }
-      } else if (!request.assetTypes.isNullOrEmpty()) {
-        val assetTypeEnums = request.assetTypes.map { AssetType.valueOf(it) }
+      if (!stockSymbols.isNullOrEmpty()) {
+        stockSymbols.map { it.uppercase() }
+      } else if (!assetTypes.isNullOrEmpty()) {
+        val assetTypeEnums = assetTypes.map { AssetType.valueOf(it) }
         val filtered =
           symbolService
             .getAll()
             .filter { it.assetType in assetTypeEnums }
             .map { it.symbol }
-        logger.info("Filtered to ${filtered.size} symbols matching asset types: ${request.assetTypes.joinToString(", ")}")
+        logger.info("Filtered to ${filtered.size} symbols matching asset types: ${assetTypes.joinToString(", ")}")
         filtered
       } else {
         stockRepository.findAllSymbols()
       }
 
-    // Sector filtering requires stock→sector mapping (lightweight query)
-    if (!request.includeSectors.isNullOrEmpty() || !request.excludeSectors.isNullOrEmpty()) {
+    if (!includeSectors.isNullOrEmpty() || !excludeSectors.isNullOrEmpty()) {
       val sectorBySymbol = stockService.getAllStocksSimple().associate { it.symbol to it.sector }
 
-      if (!request.includeSectors.isNullOrEmpty()) {
-        val sectors = request.includeSectors.map { it.uppercase() }.toSet()
+      if (!includeSectors.isNullOrEmpty()) {
+        val sectors = includeSectors.map { it.uppercase() }.toSet()
         val before = symbols.size
         symbols = symbols.filter { sectorBySymbol[it]?.uppercase() in sectors }
         logger.info("Sector include filter: $before → ${symbols.size} symbols (sectors: ${sectors.joinToString(", ")})")
       }
 
-      if (!request.excludeSectors.isNullOrEmpty()) {
-        val sectors = request.excludeSectors.map { it.uppercase() }.toSet()
+      if (!excludeSectors.isNullOrEmpty()) {
+        val sectors = excludeSectors.map { it.uppercase() }.toSet()
         val before = symbols.size
         symbols = symbols.filter { sectorBySymbol[it]?.uppercase() !in sectors }
         logger.info("Sector exclude filter: $before → ${symbols.size} symbols (excluded: ${sectors.joinToString(", ")})")

@@ -35,7 +35,7 @@ class OrderBlockRejectionCondition(
     val relevantOrderBlocks =
       stock.orderBlocks
         .filter { it.orderBlockType == OrderBlockType.BEARISH }
-        .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
+        .filter { ChronoUnit.DAYS.between(it.triggerDate, quote.date) >= ageInDays }
         .filter { it.startDate.isBefore(quote.date) }
         .filter {
           val endDate = it.endDate
@@ -146,7 +146,7 @@ class OrderBlockRejectionCondition(
     val relevantOrderBlocks =
       stock.orderBlocks
         .filter { it.orderBlockType == OrderBlockType.BEARISH }
-        .filter { ChronoUnit.DAYS.between(it.startDate, quote.date) >= ageInDays }
+        .filter { ChronoUnit.DAYS.between(it.triggerDate, quote.date) >= ageInDays }
         .filter { it.startDate.isBefore(quote.date) }
         .filter {
           val endDate = it.endDate

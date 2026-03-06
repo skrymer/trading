@@ -33,6 +33,8 @@ class StockMapper {
       quotes = quotes.map { toDomain(it) },
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },
+      listingDate = stock.listingDate,
+      delistingDate = stock.delistingDate,
     )
 
   /**
@@ -83,6 +85,7 @@ class StockMapper {
           else -> null
         },
       rateOfChange = orderBlock.rateOfChange?.toDouble() ?: 0.0,
+      triggerDate = orderBlock.triggerDate,
     )
 
   /**
@@ -168,6 +171,7 @@ class StockMapper {
       volumeStrength = orderBlock.volumeStrength.toBigDecimal(),
       rateOfChange = orderBlock.rateOfChange.toBigDecimal(),
       isActive = orderBlock.endDate == null,
+      triggerDate = orderBlock.triggerDate,
     )
 
   /**

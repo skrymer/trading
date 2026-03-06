@@ -244,7 +244,7 @@ class VolumeAboveAverageConditionTest {
     assertEquals("1.50×", result.actualValue)
     assertEquals("1.3×", result.threshold)
     assertTrue(result.message!!.contains("1.5M"))
-    assertTrue(result.message!!.contains("✓"))
+    assertTrue(result.message.contains("✓"))
   }
 
   @Test
@@ -273,6 +273,6 @@ class VolumeAboveAverageConditionTest {
     assertEquals("1.5×", result.threshold)
     assertTrue(result.message!!.contains("1.2M"))
     assertTrue(result.message.contains("needs 1.5×"))
-    assertTrue(result.message!!.contains("✗"))
+    assertTrue(result.message.contains("✗"))
   }
 }

@@ -86,6 +86,7 @@ data class Position(
 enum class InstrumentType {
   STOCK,
   OPTION,
+  ETF,
   LEVERAGED_ETF,
 }
 

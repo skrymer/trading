@@ -791,14 +791,342 @@ Tested with 15-position cap comparing Random vs SectorEdge rankers against the u
 - `DynamicStrategyBuilder.kt` — Added `"volatilitycontracted"` condition mapping
 - `VolatilityContractedConditionTest.kt` — 11 unit tests covering pass/fail/boundary/metadata/detailed evaluation
 
+### Strategy Validation (2026-03-06)
+
+Five critical methodological fixes were applied to the backtesting framework before re-running the VCP strategy. This section documents the impact on unlimited backtest results and Monte Carlo validation.
+
+#### Fixes Applied
+
+1. **P1: Order Block Look-Ahead Bias Fix** — Added `triggerDate` to OrderBlock model. OBs are now only visible from the ROC crossing date (4-15 bars after origin), not the origin candle date. All 6 OB conditions updated to use `triggerDate` for age calculations.
+
+2. **P2: Daily Mark-to-Market Drawdown** — PositionSizingService rewritten to iterate day-by-day through all trading dates, computing daily portfolio value as `cash + unrealized P/L of open positions`. Captures intra-trade drawdowns that exit-based tracking misses.
+
+3. **P3: Survivorship Bias Filter** — Added `listingDate` and `delistingDate` to Stock model. Backtest entry evaluation now skips stocks not yet listed or already delisted on the current date. Dates derived from quote date range during ingestion.
+
+#### Unlimited Backtest: Before vs After
+
+| Metric | Before | After | Delta |
+|---|---|---|---|
+| Total Trades | 9,555 | 9,476 | -79 (-0.8%) |
+| Win Rate | 48.6% | 48.8% | +0.2pp |
+| Edge | 5.70% | 5.67% | -0.03pp |
+| Avg Win / Loss | 18.07% / -6.01% | 17.91% / -6.02% | minor |
+| Profit Factor | 2.41 | 2.41 | same |
+| EC Score | 96.0 | 96.0 | same |
+
+#### Yearly Edge (After Fixes)
+
+| Year | Edge | Tradeable? |
+|---|---|---|
+| 2016 | +5.42% | T |
+| 2017 | +7.75% | T |
+| 2018 | +2.52% | T |
+| 2019 | +6.22% | T |
+| 2020 | +10.73% | T |
+| 2021 | +2.35% | T |
+| 2022 | +0.80% | |
+| 2023 | +6.86% | T |
+| 2024 | +3.67% | T |
+| 2025 | +6.65% | T |
+
+**10/10 years profitable, 9/10 tradeable.** Pattern preserved.
+
+#### Sector Performance (After Fixes)
+
+| Sector | Trades | WR | Edge |
+|---|---|---|---|
+| XLI | 1,568 | 53.3% | +7.16% |
+| XLC | 381 | 44.1% | +6.53% |
+| XLY | 1,094 | 49.4% | +6.16% |
+| XLK | 1,506 | 48.0% | +6.05% |
+| XLV | 1,111 | 43.1% | +5.66% |
+| XLE | 451 | 51.0% | +5.38% |
+| XLF | 1,756 | 51.0% | +5.30% |
+| XLU | 280 | 50.4% | +4.51% |
+| XLP | 366 | 46.7% | +4.14% |
+| XLB | 460 | 47.8% | +3.90% |
+| XLRE | 503 | 44.7% | +3.05% |
+
+All 11 sectors profitable. Exit reasons unchanged: EMA cross 91.6% (8,675 exits, +7.03% avg, 53.3% WR), stop loss 8.4% (801 exits, -9.04% avg).
+
+#### P1-P3 Impact Assessment
+
+- **P1 (triggerDate)**: Minimal impact as predicted. The `aboveBearishOrderBlock(ageInDays=0)` condition with price-above filter meant most affected OBs were already correctly excluded — during the 4-15 bar window between origin and trigger, a bearish OB origin (bullish candle at the top) almost always has price below the OB zone, so the "above OB" check fails anyway. Only 79 trades lost.
+- **P2 (M2M drawdown)**: No impact on unlimited results (no position sizing). Will show impact in position-sized backtest.
+- **P3 (survivorship)**: Negligible effect — most delisted stocks had no quote data in the tested period.
+- **Overall**: Strategy edge is real, not inflated by methodological artifacts. EC 96.0 unchanged.
+
+#### Monte Carlo Validation (Bootstrap Resampling, 10K iterations)
+
+Bootstrap resampling draws random samples with replacement from the original 9,476 trades to measure confidence intervals on the strategy's edge and win rate.
+
+**Edge Confidence Interval:**
+
+| Percentile | Edge |
+|---|---|
+| p5 (worst case) | **+5.28%** |
+| p25 | +5.51% |
+| p50 (median) | +5.67% |
+| p75 | +5.83% |
+| p95 (best case) | +6.08% |
+
+**Win Rate Confidence Interval:**
+
+| Percentile | Win Rate |
+|---|---|
+| p5 | 48.0% |
+| p50 | 48.8% |
+| p95 | 49.7% |
+
+**Key findings:**
+1. **Edge is statistically robust.** Even at p5 (worst-case resampling), edge is +5.28% — well above the 1.5% tradeable threshold.
+2. **Tight confidence interval** (5.28% - 6.08%) indicates the edge is not driven by a few outlier trades. The strategy's alpha is broadly distributed across the 9,476 trade sample.
+3. **Original edge (5.67%) sits at the median** — the backtest sequence was neither lucky nor unlucky.
+4. **Win rate is stable** — the narrow 48.0%-49.7% range confirms the win rate is a genuine property of the strategy, not sampling noise.
+
+#### Position-Sized Results (After Fixes, $10K Starting Capital)
+
+**Configuration:** $10K start, 15 max positions, SectorEdge ranker, 1-day entry delay, 1.5% risk, 2.0 nAtr, 1.0x leverage.
+
+| Metric | Before Fixes | After Fixes | Delta |
+|---|---|---|---|
+| Starting Capital | $10,000 | $10,000 | — |
+| Final Capital | $395,432 | **$327,469** | -$67,963 (-17%) |
+| Peak Capital | $395,432 | $350,693 | -$44,739 |
+| CAGR | 44.4% | **41.7%** | -2.7pp |
+| Max Drawdown | 16.7% | **25.9%** ($42,052) | +9.2pp |
+| Total Trades | 899 | 906 | +7 |
+| Win Rate | 47.3% | 48.2% | +0.9pp |
+| Edge | +5.24% | +5.22% | -0.02pp |
+| Avg Win / Loss | 17.57% / -5.82% | 17.12% / -5.87% | minor |
+| Profit Factor | 2.79 | 2.81 | +0.02 |
+| EC Score | 96.0 | 92.0 | -4.0 |
+
+**Yearly edge (position-sized, after fixes):**
+
+| Year | Trades | Edge | Tradeable? |
+|---|---|---|---|
+| 2016 | ~90 | +2.63% | T |
+| 2017 | ~57 | +5.10% | T |
+| 2018 | ~64 | +4.37% | T |
+| 2019 | ~74 | +5.51% | T |
+| 2020 | ~82 | +13.69% | T |
+| 2021 | ~108 | +6.22% | T |
+| 2022 | ~114 | -0.00% | |
+| 2023 | ~86 | +8.39% | T |
+| 2024 | ~85 | +6.40% | T |
+| 2025 | ~146 | +3.41% | T |
+
+**9/10 years profitable** (2022 essentially flat at -0.004%), 9/10 tradeable.
+
+**Exit reasons:** EMA cross 92.6% (839 exits, +6.47% avg, 52.1% WR, 52d hold), stop loss 7.4% (67 exits, -10.48% avg, 10.8d hold).
+
+**Impact analysis:**
+- **Edge nearly unchanged** (-0.02pp) — P1 triggerDate and P3 survivorship had minimal effect on trade selection, consistent with unlimited results.
+- **Max drawdown increased** (16.7% → 25.9%) — The P2 daily M2M fix captures intra-trade drawdowns that exit-based tracking missed. With 15 concurrent positions, simultaneous declines create portfolio drawdowns invisible to exit-only tracking. Note: an initial M2M implementation had a bug where `processExit()` compared `cash` against a `peakCapital` that included unrealized P/L, producing a phantom 33.0% DD. Fixed by removing drawdown tracking from exit handler — the daily M2M block correctly computes `cash + unrealizedPnl` for all open positions.
+- **Final capital lower** (-17%) — Partly from marginally fewer winning trades, but mainly because the daily equity curve is now more accurate, affecting peak capital tracking and position sizing calculations.
+- **EC dropped from 96.0 to 92.0** — 2022 flipped from +0.14% to essentially zero, losing the "10/10 profitable" status.
+
+#### Monte Carlo: Position-Sized Trades (10K iterations)
+
+**Trade Shuffling (drawdown distribution):**
+
+| Metric | Value |
+|---|---|
+| Probability of Profit | **100%** |
+| Max Drawdown p5 (best case) | 15.5% |
+| Max Drawdown p25 | 18.0% |
+| Max Drawdown p50 (median) | 20.2% |
+| Max Drawdown p75 | 23.0% |
+| Max Drawdown p95 (worst case) | **28.3%** |
+
+The actual 25.9% max drawdown falls between p75 (23.0%) and p95 (28.3%) of the shuffled distribution. The historical trade ordering produced a somewhat worse-than-average drawdown, consistent with correlated losing trades clustering in 2022, but within the expected range.
+
+**Bootstrap Resampling (edge confidence):**
+
+| Percentile | Edge | Win Rate |
+|---|---|---|
+| p5 (worst case) | **+4.16%** | 45.5% |
+| p25 | +4.77% | 47.1% |
+| p50 (median) | +5.20% | 48.2% |
+| p75 | +5.66% | 49.3% |
+| p95 (best case) | +6.34% | 51.0% |
+| Probability of Profit | **100%** | — |
+
+Even at p5, the position-sized edge (+4.16%) is well above the 1.5% tradeable threshold. 100% probability of profit across all 10K bootstrap iterations.
+
+#### Walk-Forward Validation (5yr IS / 1yr OOS, step 1yr)
+
+Walk-forward tests whether the strategy's edge persists out-of-sample. Each window trains on 5 years of in-sample data, then tests on the next 1 year out-of-sample. OOS backtests use 15 max positions with 1-day entry delay (realistic execution).
+
+**Per-Window Results:**
+
+| Window | IS Period | OOS Year | IS Edge | OOS Edge | IS Trades | OOS Trades | WFE |
+|---|---|---|---|---|---|---|---|
+| 1 | 2016-2020 | 2021 | +6.94% | **+4.20%** | 3,517 | 110 | 0.61 |
+| 2 | 2017-2021 | 2022 | +6.30% | **-0.18%** | 3,548 | 117 | -0.03 |
+| 3 | 2018-2022 | 2023 | +4.98% | **+6.90%** | 3,741 | 95 | 1.39 |
+| 4 | 2019-2023 | 2024 | +5.53% | **+4.85%** | 4,797 | 95 | 0.88 |
+
+**Aggregate:**
+
+| Metric | Value |
+|---|---|
+| OOS Trades | 417 |
+| OOS Edge (trade-weighted) | **+3.74%** |
+| OOS Win Rate | 45.6% |
+| Walk-Forward Efficiency | **0.63** |
+
+**Derived Sector Rankings (top 5 per window):**
+
+| Window | OOS Year | Top Sectors (from IS) |
+|---|---|---|
+| 1 | 2021 | XLY, XLK, XLV, XLP, XLF |
+| 2 | 2022 | XLY, XLK, XLI, XLF, XLV |
+| 3 | 2023 | XLY, XLI, XLK, XLE, XLF |
+| 4 | 2024 | XLI, XLY, XLF, XLK, XLP |
+
+**Key findings:**
+
+1. **WFE = 0.63 (robust).** A WFE above 0.50 indicates the strategy retains more than half its in-sample edge out-of-sample. The VCP strategy retains 63% — strong evidence of genuine alpha rather than curve-fitting.
+2. **3 of 4 OOS windows are profitable.** Only 2022 is negative (-0.18%), consistent with the strategy's known weakness in that year across all testing modes.
+3. **OOS edge (+3.74%) remains well above tradeable threshold** (1.5%). The strategy works on unseen data.
+4. **Window 3 (OOS 2023) outperforms in-sample** — OOS edge +6.90% vs IS +4.98% (WFE 1.39). This means the strategy discovered patterns in 2018-2022 that worked even better in 2023.
+5. **Sector rankings are stable** — XLY, XLK, XLI, XLF consistently appear in top 5 across all windows. The strategy's sector preferences are not random.
+6. **2022 is the strategy's Achilles' heel** — negative in walk-forward, barely positive in full backtest, and the source of the worst drawdown. This is a known characteristic of VCP (trend-following struggles in sustained bear markets).
+
+#### Drawdown Duration Analysis
+
+Analysis of the top 10 drawdown episodes from the position-sized equity curve (2,486 daily M2M points).
+
+| # | Depth | Peak Date | Peak $ | Trough Date | Trough $ | Recovery | Decline | Recov | Total |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | **25.9%** | 2022-04-20 | $101,476 | 2022-09-23 | $75,171 | 2023-05-04 | 156d | 223d | **379d** |
+| 2 | 16.4% | 2020-02-12 | $32,455 | 2020-04-13 | $27,144 | 2020-06-02 | 61d | 50d | 111d |
+| 3 | 14.5% | 2016-09-07 | $12,668 | 2016-11-04 | $10,827 | 2017-01-11 | 58d | 68d | 126d |
+| 4 | 13.7% | 2025-02-05 | $258,231 | 2025-04-21 | $222,879 | 2025-06-24 | 75d | 64d | 139d |
+| 5 | 13.4% | 2025-09-18 | $314,471 | 2025-11-20 | $272,420 | 2025-12-03 | 63d | 13d | 76d |
+
+**Worst drawdown detail:**
+- Peak: $101,476 on 2022-04-20 → Trough: $75,171 on 2022-09-23 ($26,305 lost)
+- Decline phase: 156 days (5 months) — slow grind, not a crash
+- Recovery phase: 223 days (7 months) — took longer to recover than to decline
+- Total underwater: **379 days (12 months)** — one full year peak-to-recovery
+
+**Key findings:**
+1. All drawdowns recovered. No open-ended losses in the backtest period.
+2. The worst drawdown (25.9%) took 12 months total — psychologically demanding but manageable.
+3. COVID drawdown (16.4%) was short: 111 days total with a fast 50-day recovery (V-shape).
+4. Most drawdowns recover in 2-5 months. Only the 2022 bear market took longer.
+5. Decline phases are typically 1-5 months. Recoveries are often comparable or faster.
+
+#### SPY Correlation & Risk-Adjusted Metrics
+
+Daily return correlation analysis between VCP strategy (position-sized) and SPY over 2,485 overlapping trading days.
+
+| Metric | Value |
+|---|---|
+| Correlation with SPY | **0.502** |
+| Beta | **0.560** |
+| Alpha (annualized) | **+27.7%** |
+| Strategy ann. return | 37.1% |
+| SPY ann. return | 16.7% |
+| Sharpe Ratio | **2.04** |
+| Sortino Ratio | **3.20** |
+| Calmar Ratio | **1.61** (CAGR 41.7% / MaxDD 25.9%) |
+
+**Interpretation:**
+1. **Moderate correlation (0.502)** — the strategy is a mix of alpha and beta. About half the daily return variance is explained by market exposure, the other half is genuine stock selection alpha.
+2. **Beta of 0.56** — the strategy has less market exposure than a buy-and-hold SPY portfolio. This makes sense: the `marketUptrend()` filter keeps the strategy out of the market during sustained downtrends, reducing drawdown exposure.
+3. **Alpha of +27.7% annualized** — the vast majority of returns come from genuine alpha, not market beta. Even if SPY returned 0%, the strategy would generate 27.7% annually from stock selection and timing.
+4. **Sharpe 2.04** — excellent risk-adjusted returns. Above 1.0 is good, above 2.0 is exceptional.
+5. **Sortino 3.20** — even better on downside-adjusted basis, confirming the strategy's losses are well-controlled relative to gains.
+6. **Calmar 1.61** — strong return per unit of drawdown risk. Above 1.0 is considered good for trend-following strategies.
+
+#### Validation Summary
+
+The VCP strategy passes all validation checks:
+
+1. **Edge is real** — P1 (OB look-ahead) and P3 (survivorship) reduced edge by only 0.03pp in unlimited mode. The strategy's alpha is not inflated by methodological artifacts.
+2. **Edge is statistically robust** — Bootstrap p5 edge is +5.28% (unlimited) and +4.16% (position-sized), both well above tradeable threshold. Tight confidence intervals confirm edge is broadly distributed, not driven by outliers.
+3. **Edge persists out-of-sample** — Walk-forward efficiency of 0.63, with OOS edge +3.74% across 417 trades. 3/4 OOS windows profitable.
+4. **Drawdown was underreported** — P2 (daily M2M) revealed true max drawdown of 25.9% vs previously reported 16.7%. Traders should size positions expecting ~25% peak-to-trough drawdowns, not ~17%.
+5. **Drawdown is within expected range** — Monte Carlo shows the median shuffled drawdown is 20.2%, and the actual 25.9% falls between p75 (23.0%) and p95 (28.3%). Somewhat worse than average due to correlated losses in 2022, but not extreme.
+6. **100% probability of profit** across all Monte Carlo scenarios (both techniques).
+7. **Genuine alpha, not just beta** — SPY correlation 0.502, beta 0.56, annualized alpha +27.7%. The majority of returns come from stock selection, not market exposure. Sharpe 2.04, Sortino 3.20, Calmar 1.61.
+8. **Drawdowns recover** — Worst drawdown (25.9%) took 12 months peak-to-recovery. All drawdowns in the backtest period recovered fully.
+
+---
+
 ### Potential Next Steps
 - ~~Entry condition ablation study~~ — Done. `priceAbove(50)` removed as redundant (see Ablation Study)
 - ~~Parameter sensitivity on `volatilityContracted`~~ — Done. maxAtrMultiple changed from 2.5 to 3.5 (see VC Sweep)
 - ~~Parameter sensitivity on `priceNearDonchianHigh`~~ — Done. 3.0% confirmed as optimal (see Donchian Distance Sweep)
 - Parameter sensitivity on `volumeAboveAverage` multiplier (1.0 vs 1.2 vs 1.5)
 - ~~Sector exclusion testing~~ — Done. No exclusions recommended (see Sector Exclusion Analysis)
-- Monte Carlo validation (10,000 iterations)
+- ~~Monte Carlo validation (10,000 iterations)~~ — Done. Edge robust at p5=+4.16% position-sized (see Strategy Validation)
+- ~~Strategy validation (P1-P3 fixes)~~ — Done. Edge is real, drawdown was underreported (see Strategy Validation)
+- ~~Walk-forward validation~~ — Done. WFE=0.63, OOS edge +3.74% (see Walk-Forward Validation)
 - Test with different exit strategies (PlanAlpha, PlanMoney)
 - Combined portfolio simulation — run VCP + Mjolnir together to measure diversification benefit
-- Position sizing framework with ATR drawdown stats
 - **Options-based position sizing** — With $10K and 1.5% risk, stock positions cost ~$1,875 each, so only 4-5 fit before 100% capital utilization. Options (calls or debit spreads) would use ~$200-400 per position, enabling the full 15 concurrent positions at small account sizes. Explore: delta target (e.g., 0.70 calls), expiration selection (45-60 DTE to cover avg 54-day hold), stop-loss translation (% of premium vs ATR-based)
+
+---
+
+### Quant Analyst Recommendations (2026-03-06)
+
+Independent review of the Strategy Validation section. Findings organized by priority.
+
+#### Assessment: Conditionally Ready for Live Trading
+
+The strategy demonstrates genuine statistical edge backed by rigorous validation. The P1-P3 bias corrections cost only 0.03pp of edge — a strong result. However, several issues must be addressed before full deployment.
+
+#### Risk Summary
+
+| Finding | Assessment | Action |
+|---|---|---|
+| Edge existence | Confirmed (5.67% unlimited, 5.22% position-sized) | None |
+| Edge robustness | Strong (bootstrap p5 = +5.28% unlimited, +4.16% position-sized) | None |
+| WFE 0.63 | Good but only 4 OOS windows; per-window WFEs dispersed (-0.03 to 1.39) | Extend backtest period for more windows |
+| Max drawdown 25.9% | Corrected from phantom 33.0% (processExit bug). Plan for 35-40% worst case | Resize positions |
+| DD within MC range | Actual 25.9% between p75 (23.0%) and p95 (28.3%). Some correlation clustering but not extreme | Monitor, no urgent action |
+| 2022 vulnerability | Near-zero or negative across all testing modes | Accept; plan for worse bear markets |
+| SectorEdge ranker | Potentially look-ahead contaminated — full-sample ranking used over same period | Re-run with walk-forward-derived rankings |
+| Pre-2016 regimes | Never tested in 2008-style crash or liquidity crisis | Extend data if possible |
+| Execution costs | Unmodeled (commissions, slippage) | Quantify before live trading |
+| Alpha concentration | Single factor (order blocks) provides all alpha (-4.02pp if removed) | Test OB parameter sensitivity |
+| SPY correlation | 0.502 (moderate). Beta 0.56, alpha +27.7% | Confirmed: mostly alpha, not beta |
+| Risk-adjusted | Sharpe 2.04, Sortino 3.20, Calmar 1.61 | All excellent |
+| DD duration | Worst: 12 months (5mo decline + 7mo recovery). All recovered. | Manageable |
+
+#### Priority Validations Before Going Live
+
+1. **Stress-test SectorEdge ranker OOS** — Run position-sized backtest using walk-forward-derived sector rankings only (not full-sample ranking). If CAGR drops significantly, the ranker contributes look-ahead bias. Highest priority gap.
+2. **Quantify execution costs** — Run position-sized backtest with estimated round-trip commissions + slippage (e.g., 0.05-0.10% per trade). With +5.22% avg edge, even 0.20% costs are fine, but confirm it.
+3. **Drawdown duration analysis** — How long did the worst drawdown last? 33% over 3 months vs 12 months is very different psychologically. Recovery time matters as much as depth.
+4. **OB parameter sensitivity** — Since order blocks are the alpha engine, test ROC momentum threshold/lookback stability. If edge is sensitive to these parameters, the strategy is more fragile than it appears.
+5. **Index correlation analysis** — Compute daily return correlation with SPY/QQQ. If correlation > 0.6-0.7, much of the "alpha" is beta (market exposure, not stock selection skill).
+6. **Paper trade 3-6 months** — Validate live signal generation matches backtest. Confirm execution quality. Build psychological comfort with trade frequency (~2/week) and drawdown profile.
+
+#### Position Sizing Adjustments
+
+1. **Reduce risk per trade from 1.5% to 1.0% initially** — Scales positions down by 1/3. Expected CAGR ~28-30%, expected drawdown ~17-20%. Scale back up after 6-12 months of confirmed live performance.
+2. **Reduce max positions from 15 to 10** — Mechanically limits correlation clustering exposure.
+3. **Portfolio heat limit** — Cap total open risk (sum of all position risk amounts) at 10-15% of portfolio.
+4. **Drawdown response plan** — Define in advance: 15% DD = review, 20% DD = reduce risk to 1.0%, 30% DD = half-size, 40% DD = stop trading, post-mortem.
+
+#### WFE Interpretation Notes
+
+- 0.63 is above the 0.50 robustness threshold — strategy retains 63% of IS edge OOS
+- Only 4 windows is a small sample; per-window WFEs are dispersed (-0.03 to 1.39)
+- 2022 OOS window (WFE = -0.03) is a structural failure mode, not just a bad year — the strategy cannot predict bear-market performance from bull-market training data
+- WFE tested fixed parameters across time (more realistic than re-optimizing), meaning 0.63 confirms parameter durability
+
+#### Drawdown Clustering Interpretation
+
+The actual 25.9% max drawdown falls between MC p75 (23.0%) and p95 (28.3%), indicating the historical trade ordering was somewhat unlucky but within expected range. Some correlation clustering exists due to:
+- Market-wide selloffs hitting multiple concurrent positions simultaneously
+- Sector correlation during stress (all sectors sold off together in 2022)
+- Stop-loss clustering (multiple positions hitting 2.5 ATR stops in a narrow window)
+
+Use 25.9% as the baseline expectation, plan for 35-40% in a regime worse than any seen in 2016-2025.

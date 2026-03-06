@@ -26,6 +26,7 @@ class PositionMapper {
         when (position.instrumentType) {
           "STOCK" -> InstrumentType.STOCK
           "OPTION" -> InstrumentType.OPTION
+          "ETF" -> InstrumentType.ETF
           "LEVERAGED_ETF" -> InstrumentType.LEVERAGED_ETF
           else -> InstrumentType.STOCK
         },
@@ -81,6 +82,7 @@ class PositionMapper {
         when (position.instrumentType) {
           InstrumentType.STOCK -> "STOCK"
           InstrumentType.OPTION -> "OPTION"
+          InstrumentType.ETF -> "ETF"
           InstrumentType.LEVERAGED_ETF -> "LEVERAGED_ETF"
         },
       optionType =

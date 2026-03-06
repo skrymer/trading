@@ -145,19 +145,20 @@ class PositionSizingServiceTest {
   }
 
   @Test
-  fun `equity curve should have points at exits plus initial point`() {
+  fun `equity curve should have daily M2M points for all trading dates`() {
     val trade1 = createTrade(profit = 5.0, entryPrice = 50.0, atr = 2.0, entryDate = LocalDate.of(2024, 1, 1))
     val trade2 = createTrade(profit = 3.0, entryPrice = 60.0, atr = 2.0, entryDate = LocalDate.of(2024, 1, 10))
 
     val result = service.applyPositionSizing(listOf(trade1, trade2), defaultConfig)
 
-    // Initial point + one point per exit
-    assertEquals(3, result.equityCurve.size)
+    // Daily M2M: one point per trading date (entry + exit per trade = 4 dates)
+    assertEquals(4, result.equityCurve.size)
+    // Entry day for trade1: cash + M2M of open position at entry price
     assertEquals(100_000.0, result.equityCurve[0].portfolioValue, 0.01)
-    // After first exit
+    // Exit day for trade1: cash-only after exit
     assertEquals(result.trades[0].dollarProfit + 100_000.0, result.equityCurve[1].portfolioValue, 0.01)
-    // After second exit
-    assertEquals(result.finalCapital, result.equityCurve[2].portfolioValue, 0.01)
+    // Last point should equal final capital
+    assertEquals(result.finalCapital, result.equityCurve.last().portfolioValue, 0.01)
   }
 
   @Test

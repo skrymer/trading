@@ -45,7 +45,7 @@ class BearishOrderBlockExit(
         .filter { sensitivity == null || it.sensitivity == sensitivity }
         .filter { it.startsBefore(quote.date) }
         .filter { it.endsAfter(quote.date) }
-        .filter { stock.countTradingDaysBetween(it.startDate, quote.date) >= orderBlockAgeInDays }
+        .filter { stock.countTradingDaysBetween(it.triggerDate, quote.date) >= orderBlockAgeInDays }
         .filter { candleTop >= it.low && candleBottom <= it.high }
 
     val topLabel = if (useHighPrice) "high" else "bodyTop"

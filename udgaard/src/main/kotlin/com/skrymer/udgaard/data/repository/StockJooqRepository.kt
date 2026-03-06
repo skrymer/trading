@@ -226,14 +226,18 @@ class StockJooqRepository(
     return dsl.transactionResult { configuration ->
       val ctx = configuration.dsl()
 
-      // 1. Upsert Stock (including sector)
+      // 1. Upsert Stock (including sector and listing dates)
       ctx
         .insertInto(STOCKS)
         .set(STOCKS.SYMBOL, stock.symbol)
         .set(STOCKS.SECTOR, stock.sectorSymbol)
+        .set(STOCKS.LISTING_DATE, stock.listingDate)
+        .set(STOCKS.DELISTING_DATE, stock.delistingDate)
         .onConflict(STOCKS.SYMBOL)
         .doUpdate()
         .set(STOCKS.SECTOR, stock.sectorSymbol)
+        .set(STOCKS.LISTING_DATE, stock.listingDate)
+        .set(STOCKS.DELISTING_DATE, stock.delistingDate)
         .execute()
 
       // 2. Delete existing quotes, order blocks, and earnings (cascade delete)
@@ -290,6 +294,7 @@ class StockJooqRepository(
               .set(ORDER_BLOCKS.VOLUME_STRENGTH, pojo.volumeStrength)
               .set(ORDER_BLOCKS.RATE_OF_CHANGE, pojo.rateOfChange)
               .set(ORDER_BLOCKS.IS_ACTIVE, pojo.isActive)
+              .set(ORDER_BLOCKS.TRIGGER_DATE, pojo.triggerDate)
           },
         )
         orderBlockBatch.execute()
@@ -395,7 +400,7 @@ class StockJooqRepository(
     return dsl.transactionResult { configuration ->
       val ctx = configuration.dsl()
 
-      // 1. Batch upsert stocks (including sector)
+      // 1. Batch upsert stocks (including sector and listing dates)
       val stockBatch =
         ctx.batch(
           stocks.map { stock ->
@@ -403,9 +408,13 @@ class StockJooqRepository(
               .insertInto(STOCKS)
               .set(STOCKS.SYMBOL, stock.symbol)
               .set(STOCKS.SECTOR, stock.sectorSymbol)
+              .set(STOCKS.LISTING_DATE, stock.listingDate)
+              .set(STOCKS.DELISTING_DATE, stock.delistingDate)
               .onConflict(STOCKS.SYMBOL)
               .doUpdate()
               .set(STOCKS.SECTOR, stock.sectorSymbol)
+              .set(STOCKS.LISTING_DATE, stock.listingDate)
+              .set(STOCKS.DELISTING_DATE, stock.delistingDate)
           },
         )
       stockBatch.execute()
@@ -443,10 +452,10 @@ class StockJooqRepository(
       // 1. Insert stocks
       val stockBatch = ctx.batch(
         ctx
-          .insertInto(STOCKS, STOCKS.SYMBOL, STOCKS.SECTOR)
-          .values(null as String?, null as String?),
+          .insertInto(STOCKS, STOCKS.SYMBOL, STOCKS.SECTOR, STOCKS.LISTING_DATE, STOCKS.DELISTING_DATE)
+          .values(null as String?, null as String?, null as LocalDate?, null as LocalDate?),
       )
-      stocks.forEach { stock -> stockBatch.bind(stock.symbol, stock.sectorSymbol) }
+      stocks.forEach { stock -> stockBatch.bind(stock.symbol, stock.sectorSymbol, stock.listingDate, stock.delistingDate) }
       stockBatch.execute()
 
       // 2. Insert all child records
@@ -551,6 +560,7 @@ class StockJooqRepository(
           ORDER_BLOCKS.VOLUME_STRENGTH,
           ORDER_BLOCKS.RATE_OF_CHANGE,
           ORDER_BLOCKS.IS_ACTIVE,
+          ORDER_BLOCKS.TRIGGER_DATE,
         ).values(
           null as String?,
           null as String?,
@@ -565,6 +575,7 @@ class StockJooqRepository(
           null as java.math.BigDecimal?,
           null as java.math.BigDecimal?,
           null as Boolean?,
+          null as LocalDate?,
         ),
     )
     allOrderBlocks.forEach { (symbol, orderBlock) ->
@@ -583,6 +594,7 @@ class StockJooqRepository(
         pojo.volumeStrength,
         pojo.rateOfChange,
         pojo.isActive,
+        pojo.triggerDate,
       )
     }
     batch.execute()

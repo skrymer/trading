@@ -43,6 +43,7 @@ const schema = z.object({
 const instrumentTypeOptions = [
   { label: 'Stock', value: 'STOCK' },
   { label: 'Option', value: 'OPTION' },
+  { label: 'ETF', value: 'ETF' },
   { label: 'Leveraged ETF', value: 'LEVERAGED_ETF' }
 ]
 

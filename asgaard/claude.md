@@ -41,7 +41,7 @@ asgaard/
 │   │   ├── backtesting/          # Backtesting components (16)
 │   │   │   ├── Cards.vue         # Summary stat cards
 │   │   │   ├── ConfigModal.vue   # Strategy configuration modal
-│   │   │   ├── EquityCurve.vue   # Equity curve visualization
+│   │   │   ├── EquityCurve.client.vue  # Equity curve visualization (client-only)
 │   │   │   ├── SectorAnalysis.vue
 │   │   │   ├── StockPerformance.vue
 │   │   │   ├── ATRDrawdownStats.vue

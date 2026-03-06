@@ -259,7 +259,7 @@ class NoEarningsWithinDaysConditionTest {
     assertEquals("None", result.actualValue)
     assertEquals("7 days", result.threshold)
     assertTrue(result.message!!.contains("No upcoming earnings found"))
-    assertTrue(result.message!!.contains("✓"))
+    assertTrue(result.message.contains("✓"))
   }
 
   @Test
@@ -285,7 +285,7 @@ class NoEarningsWithinDaysConditionTest {
     assertEquals("2024-01-20", result.actualValue)
     assertEquals("7 days", result.threshold)
     assertTrue(result.message!!.contains("Next earnings in 15 days"))
-    assertTrue(result.message!!.contains("✓"))
+    assertTrue(result.message.contains("✓"))
   }
 
   @Test
@@ -311,7 +311,7 @@ class NoEarningsWithinDaysConditionTest {
     assertEquals("2024-01-08", result.actualValue)
     assertEquals("7 days", result.threshold)
     assertTrue(result.message!!.contains("Earnings in 3 days"))
-    assertTrue(result.message!!.contains("too soon"))
-    assertTrue(result.message!!.contains("✗"))
+    assertTrue(result.message.contains("too soon"))
+    assertTrue(result.message.contains("✗"))
   }
 }

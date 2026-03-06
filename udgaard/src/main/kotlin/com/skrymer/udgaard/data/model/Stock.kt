@@ -18,6 +18,8 @@ data class Stock(
   val quotes: List<StockQuote> = emptyList(),
   val orderBlocks: List<OrderBlock> = emptyList(),
   val earnings: List<Earning> = emptyList(),
+  val listingDate: LocalDate? = null,
+  val delistingDate: LocalDate? = null,
 ) {
   init {
     require(quotes.zipWithNext().all { (a, b) -> !a.date.isAfter(b.date) }) {
@@ -159,7 +161,7 @@ data class Stock(
       .filter { sensitivity == null || it.sensitivity == sensitivity }
       .filter { it.startsBefore(quote.date) }
       .filter { it.endsAfter(quote.date) }
-      .filter { countTradingDaysBetween(it.startDate, quote.date) >= tradingDaysOld }
+      .filter { countTradingDaysBetween(it.triggerDate, quote.date) >= tradingDaysOld }
       .any { candleTop >= it.low && candleBottom <= it.high }
   }
 

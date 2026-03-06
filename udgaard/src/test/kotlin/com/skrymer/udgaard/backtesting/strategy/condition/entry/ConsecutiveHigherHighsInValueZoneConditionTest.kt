@@ -500,8 +500,8 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     assertTrue(result.passed)
     assertEquals("ConsecutiveHigherHighsInValueZoneCondition", result.conditionType)
     assertTrue(result.message!!.contains("103.00 >= 102.00 >= 101.00"))
-    assertTrue(result.message!!.contains("✓"))
-    assertTrue(result.message!!.contains("100.00 - 104.00"))
+    assertTrue(result.message.contains("✓"))
+    assertTrue(result.message.contains("100.00 - 104.00"))
   }
 
   @Test
@@ -523,7 +523,7 @@ class ConsecutiveHigherHighsInValueZoneConditionTest {
     assertFalse(result.passed)
     assertEquals("ConsecutiveHigherHighsInValueZoneCondition", result.conditionType)
     assertTrue(result.message!!.contains("Insufficient historical data"))
-    assertTrue(result.message!!.contains("✗"))
+    assertTrue(result.message.contains("✗"))
   }
 
   @Test

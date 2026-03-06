@@ -30,7 +30,8 @@ midgaard/
 │   │   ├── SecurityProperties.kt          # app.security.enabled, app.security.api-key-hash
 │   │   ├── ApiKeyAuthenticationFilter.kt  # X-API-Key header filter (SHA-256 + constant-time compare)
 │   │   ├── ProviderConfiguration.kt       # Provider bean definitions
-│   │   └── ExternalConfigLoader.kt        # External configuration loading
+│   │   ├── ExternalConfigLoader.kt        # External configuration loading
+│   │   └── GlobalExceptionHandler.kt      # Global exception handler
 │   ├── controller/
 │   │   ├── QuoteController.kt             # GET /api/quotes/{symbol}, /api/quotes/bulk
 │   │   ├── SymbolController.kt            # GET /api/symbols, /api/symbols/{symbol}
@@ -55,22 +56,26 @@ midgaard/
 │   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count)
 │   │   ├── SymbolRepository.kt            # Symbol reference data
 │   │   ├── EarningsRepository.kt          # Earnings data
-│   │   └── IngestionStatusRepository.kt   # Ingestion tracking
+│   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
+│   │   └── ProviderConfigRepository.kt    # Provider configuration data
 │   └── service/
 │       ├── IngestionService.kt            # Orchestrates initial + daily ingestion (async, semaphore)
 │       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation
-│       └── RateLimiterService.kt          # Token bucket per provider
+│       ├── RateLimiterService.kt          # Token bucket per provider
+│       └── ApiKeyService.kt              # API key management
 ├── src/main/resources/
 │   ├── application.properties
 │   ├── secure.properties                  # API keys (not in git)
 │   ├── db/migration/
 │   │   ├── V1__Create_schema.sql          # quotes, earnings, symbols, ingestion_status tables
-│   │   └── V2__Populate_symbols.sql       # 3,128 symbols
+│   │   ├── V2__Populate_symbols.sql       # 3,128 symbols
+│   │   ├── V3__Add_sector_symbol.sql      # Add sector to symbols
+│   │   └── V4__Add_provider_config.sql    # Provider config table
 │   └── templates/                         # Thymeleaf admin UI (6 templates)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
-├── Dockerfile                             # Runtime image (eclipse-temurin:21-jre-alpine)
-├── build.gradle
-├── detekt.yml
+├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
+├── build.gradle                           # Gradle build config
+├── detekt.yml                             # Detekt configuration
 └── settings.gradle
 ```
 

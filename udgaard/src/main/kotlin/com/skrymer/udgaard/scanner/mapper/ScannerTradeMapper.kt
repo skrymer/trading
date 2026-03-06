@@ -20,6 +20,7 @@ class ScannerTradeMapper {
         when (pojo.instrumentType) {
           "STOCK" -> InstrumentType.STOCK
           "OPTION" -> InstrumentType.OPTION
+          "ETF" -> InstrumentType.ETF
           "LEVERAGED_ETF" -> InstrumentType.LEVERAGED_ETF
           else -> InstrumentType.STOCK
         },
@@ -54,6 +55,7 @@ class ScannerTradeMapper {
         when (trade.instrumentType) {
           InstrumentType.STOCK -> "STOCK"
           InstrumentType.OPTION -> "OPTION"
+          InstrumentType.ETF -> "ETF"
           InstrumentType.LEVERAGED_ETF -> "LEVERAGED_ETF"
         },
       entryPrice = trade.entryPrice.toBigDecimal(),

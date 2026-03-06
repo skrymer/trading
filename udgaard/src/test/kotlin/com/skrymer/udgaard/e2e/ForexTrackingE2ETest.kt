@@ -94,7 +94,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     assertEquals("AUD", result.portfolio.baseCurrency, "Portfolio should have AUD base currency")
     assertEquals("USD", result.portfolio.currency, "Trade currency should remain USD")
     assertNotNull(result.portfolio.initialFxRate, "Should have initial FX rate")
-    assertEquals(1.60, result.portfolio.initialFxRate!!, 0.001, "Initial FX rate should be 1.60")
+    assertEquals(1.60, result.portfolio.initialFxRate, 0.001, "Initial FX rate should be 1.60")
   }
 
   @Test
@@ -103,7 +103,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     val positions = getPositions(result.portfolio.id!!)
     val tqqq = positions.first { it.symbol == "TQQQ" }
 
-    val positionDetail = getPositionDetail(result.portfolio.id!!, tqqq.id!!)
+    val positionDetail = getPositionDetail(result.portfolio.id, tqqq.id!!)
 
     @Suppress("UNCHECKED_CAST")
     val executions = positionDetail["executions"] as List<Map<String, Any>>
@@ -135,7 +135,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     // Base P&L: sells (60*55*1.50 + 40*52*1.45) - buy (100*50*1.60)
     //         = (4950 + 3016) - 8000 = -34 AUD
     assertNotNull(tqqq.realizedPnlBase, "Should have base currency P&L")
-    assertEquals(-34.0, tqqq.realizedPnlBase!!, 0.01, "AUD realized P&L should be -34")
+    assertEquals(-34.0, tqqq.realizedPnlBase, 0.01, "AUD realized P&L should be -34")
   }
 
   @Test
@@ -154,7 +154,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     // Base P&L: sells (2*8.50*1.48) - buy (2*7.00*1.55)
     //         = (25.16 - 21.70) * 100 = 346.0
     assertNotNull(ego.realizedPnlBase, "Should have base currency P&L")
-    assertEquals(346.0, ego.realizedPnlBase!!, 0.01, "AUD realized P&L should be 346")
+    assertEquals(346.0, ego.realizedPnlBase, 0.01, "AUD realized P&L should be 346")
   }
 
   @Test
@@ -284,7 +284,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     assertNotNull(stats.totalRealizedFxPnl, "Should have FX impact in stats")
     assertEquals(
       -5242.26,
-      stats.totalRealizedFxPnl!!,
+      stats.totalRealizedFxPnl,
       1.0,
       "FX P&L should reflect impact of rate change on current balance",
     )
@@ -302,7 +302,7 @@ class ForexTrackingE2ETest : AbstractIntegrationTest() {
     assertEquals(1400.0, ego.totalCost, 0.01, "Option totalCost should include multiplier")
 
     // With correct totalCost, return % should be reasonable
-    val stats = getStats(result.portfolio.id!!)
+    val stats = getStats(result.portfolio.id)
     assertTrue(
       stats.avgWin < 50.0,
       "avgWin should be reasonable (not inflated by missing multiplier), got ${stats.avgWin}",

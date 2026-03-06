@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
 
@@ -88,11 +89,17 @@ class StockIngestionService(
       val quotes = fetchQuotes(symbol)
       val enrichedQuotes = enrichWithTrend(quotes, symbol)
       val orderBlocks = calculateOrderBlocks(enrichedQuotes)
+      val sortedQuotes = enrichedQuotes.sortedBy { it.date }
       Stock(
         symbol = symbol,
         sectorSymbol = midgaardClient.getSymbolInfo(symbol)?.sectorSymbol,
-        quotes = enrichedQuotes.toMutableList(),
+        quotes = sortedQuotes,
         orderBlocks = orderBlocks.toMutableList(),
+        listingDate = sortedQuotes.firstOrNull()?.date,
+        delistingDate = sortedQuotes.lastOrNull()?.date?.let { lastDate ->
+          val cutoff = LocalDate.now().minusDays(90)
+          if (lastDate.isBefore(cutoff)) lastDate else null
+        },
       )
     }.onFailure { error ->
       logger.error("✗ $symbol failed: ${error.message ?: error::class.simpleName}", error)

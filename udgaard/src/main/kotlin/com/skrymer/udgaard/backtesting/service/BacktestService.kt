@@ -525,6 +525,9 @@ class BacktestService(
 
         for ((date, strategyQuote) in strategyIndex.quotesByDate) {
           if (date.isBefore(after) || date.isAfter(before)) continue
+          // Skip if stock not yet listed or already delisted (survivorship bias filter)
+          if (stockPair.tradingStock.listingDate?.isAfter(date) == true) continue
+          if (stockPair.tradingStock.delistingDate?.isBefore(date) == true) continue
           tradingIndex.getQuote(date) ?: continue
 
           if (entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) {
@@ -716,6 +719,10 @@ class BacktestService(
     val usedTradeQuotes = HashSet<StockQuote>()
 
     for ((index, currentDate) in allTradingDates.withIndex()) {
+      // Skip if stock not yet listed or already delisted (survivorship bias filter)
+      if (stockPair.tradingStock.listingDate?.isAfter(currentDate) == true) continue
+      if (stockPair.tradingStock.delistingDate?.isBefore(currentDate) == true) continue
+
       val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate) ?: continue
       val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate) ?: continue
 

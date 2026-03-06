@@ -25,26 +25,25 @@ open class StockService(
     val stock = stockRepository.findBySymbol(symbol)
 
     // Enrich order blocks with trading days age
-    stock?.let { enrichOrderBlocksWithAge(it) }
-
-    return stock
+    return stock?.let { enrichOrderBlocksWithAge(it) }
   }
 
   /**
    * Enriches order blocks with trading days age based on the stock's quote history
    */
-  private fun enrichOrderBlocksWithAge(stock: Stock) {
+  private fun enrichOrderBlocksWithAge(stock: Stock): Stock {
     val lastQuote = stock.quotes.maxByOrNull { it.date }
     if (lastQuote == null) {
       logger.warn("No quotes available for ${stock.symbol}, cannot calculate order block age")
-      return
+      return stock
     }
 
-    stock.orderBlocks.forEach { orderBlock ->
+    val enrichedBlocks = stock.orderBlocks.map { orderBlock ->
       val endDate = orderBlock.endDate ?: lastQuote.date
-      val ageInTradingDays = stock.countTradingDaysBetween(orderBlock.startDate, endDate)
-      orderBlock.ageInTradingDays = ageInTradingDays
+      val age = stock.countTradingDaysBetween(orderBlock.startDate, endDate)
+      orderBlock.copy(ageInTradingDays = age)
     }
+    return stock.copy(orderBlocks = enrichedBlocks)
   }
 
   /**

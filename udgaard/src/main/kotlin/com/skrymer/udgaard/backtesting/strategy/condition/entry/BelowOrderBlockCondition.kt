@@ -42,7 +42,7 @@ class BelowOrderBlockCondition(
         }.filter {
           // Must be at least ageInDays old (>= ageInDays) in TRADING DAYS
           stock.countTradingDaysBetween(
-            it.startDate,
+            it.triggerDate,
             quote.date,
           ) >= ageInDays
         }.filter {
@@ -113,7 +113,7 @@ class BelowOrderBlockCondition(
       stock.orderBlocks
         .filter { it.orderBlockType == OrderBlockType.BEARISH }
         .filter { sensitivity == null || it.sensitivity == sensitivity }
-        .filter { stock.countTradingDaysBetween(it.startDate, quoteDate) >= ageInDays }
+        .filter { stock.countTradingDaysBetween(it.triggerDate, quoteDate) >= ageInDays }
         .filter { it.startDate.isBefore(quoteDate) }
         .filter {
           val endDate = it.endDate

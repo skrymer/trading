@@ -7,12 +7,12 @@ import com.skrymer.udgaard.portfolio.integration.broker.BrokerAdapterFactory
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerCredentials
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerDataResult
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
-import com.skrymer.udgaard.portfolio.integration.ibkr.IBKRApiException
 import com.skrymer.udgaard.portfolio.integration.broker.RollChain
 import com.skrymer.udgaard.portfolio.integration.broker.RollPair
 import com.skrymer.udgaard.portfolio.integration.broker.StandardizedCashTransaction
 import com.skrymer.udgaard.portfolio.integration.broker.TradeLot
 import com.skrymer.udgaard.portfolio.integration.broker.TradeProcessor
+import com.skrymer.udgaard.portfolio.integration.ibkr.IBKRApiException
 import com.skrymer.udgaard.portfolio.model.CashTransactionSource
 import com.skrymer.udgaard.portfolio.model.ImportResult
 import com.skrymer.udgaard.portfolio.model.InstrumentType
@@ -673,7 +673,7 @@ class BrokerIntegrationService(
     when (assetType) {
       AssetType.STOCK -> InstrumentType.STOCK
       AssetType.OPTION -> InstrumentType.OPTION
-      AssetType.ETF -> InstrumentType.LEVERAGED_ETF
+      AssetType.ETF -> InstrumentType.ETF
     }
 
   /**

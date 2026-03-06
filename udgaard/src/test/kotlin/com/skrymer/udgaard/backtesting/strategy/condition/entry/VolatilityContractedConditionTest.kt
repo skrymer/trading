@@ -220,7 +220,7 @@ class VolatilityContractedConditionTest {
     assertEquals("4.5×", result.actualValue)
     assertEquals("≤ 2.5×", result.threshold)
     assertTrue(result.message!!.contains("needs"))
-    assertTrue(result.message!!.contains("✗"))
+    assertTrue(result.message.contains("✗"))
   }
 
   @Test
@@ -241,6 +241,6 @@ class VolatilityContractedConditionTest {
 
     assertFalse(result.passed)
     assertTrue(result.message!!.contains("Insufficient data"))
-    assertTrue(result.message!!.contains("✗"))
+    assertTrue(result.message.contains("✗"))
   }
 }

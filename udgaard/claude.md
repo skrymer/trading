@@ -30,9 +30,16 @@ udgaard/
 │   │   ├── controller/               # REST endpoints
 │   │   │   ├── BacktestController.kt
 │   │   │   └── MonteCarloController.kt
+│   │   ├── dto/                      # DTOs
+│   │   │   ├── StrategyConfigDto.kt
+│   │   │   ├── MonteCarloRequestDto.kt
+│   │   │   ├── ConditionSignalDtos.kt
+│   │   │   ├── ConditionEvaluationResult.kt
+│   │   │   └── StockWithSignals.kt
 │   │   ├── model/                    # Domain models
 │   │   │   ├── BacktestReport.kt
 │   │   │   ├── BacktestContext.kt
+│   │   │   ├── WalkForwardResult.kt
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── service/                  # Business logic
 │   │   │   ├── BacktestService.kt    # Core backtesting engine
@@ -40,7 +47,8 @@ udgaard/
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
 │   │   │   ├── MonteCarloService.kt
-│   │   │   ├── PositionSizingService.kt  # Position sizing calculations
+│   │   │   ├── PositionSizingService.kt  # Position sizing with daily M2M drawdown
+│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
 │   │   │   ├── BacktestResultStore.kt    # In-memory backtest result store
 │   │   │   └── ConditionRegistry.kt
 │   │   └── strategy/                 # Trading strategies
@@ -65,22 +73,21 @@ udgaard/
 │   │   │   └── DataManagementController.kt
 │   │   ├── integration/              # External API integrations
 │   │   │   ├── StockProvider.kt      # Interface for OHLCV data
-│   │   │   ├── TechnicalIndicatorProvider.kt  # Interface for ATR/ADX
-│   │   │   ├── CompanyInfoProvider.kt # Interface for company info (sector + market cap)
-│   │   │   ├── FundamentalDataProvider.kt  # Interface for earnings
-│   │   │   ├── alphavantage/         # ATR, ADX, earnings, company overview
-│   │   │   │   ├── AlphaVantageClient.kt
-│   │   │   │   └── dto/
 │   │   │   ├── midgaard/             # OHLCV + pre-computed indicators from Midgaard service
 │   │   │   │   ├── MidgaardClient.kt
 │   │   │   │   └── dto/
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
+│   │   ├── mapper/                   # Data mappers
+│   │   │   └── StockMapper.kt
 │   │   ├── model/                    # Domain models
 │   │   │   ├── Stock.kt
 │   │   │   ├── StockQuote.kt
 │   │   │   ├── OrderBlock.kt
+│   │   │   ├── Earning.kt
+│   │   │   ├── AssetType.kt
+│   │   │   ├── MarketSymbol.kt
 │   │   │   ├── MarketBreadthDaily.kt
 │   │   │   └── SectorBreadthDaily.kt
 │   │   ├── repository/               # jOOQ repositories
@@ -106,7 +113,7 @@ udgaard/
 │   │   ├── integration/
 │   │   │   ├── broker/               # Broker adapter pattern (BrokerAdapter, TradeProcessor)
 │   │   │   ├── ibkr/                 # Interactive Brokers (client, adapter, mapper, dto/)
-│   │   │   └── options/              # Options data (AlphaVantage)
+│   │   │   └── options/              # Options data (Midgaard)
 │   │   ├── mapper/                   # Entity/DTO mappers
 │   │   ├── model/
 │   │   ├── repository/
@@ -114,14 +121,17 @@ udgaard/
 │   │   │   ├── PositionJooqRepository.kt
 │   │   │   ├── ExecutionJooqRepository.kt
 │   │   │   ├── ForexLotJooqRepository.kt
-│   │   │   └── ForexDisposalJooqRepository.kt
+│   │   │   ├── ForexDisposalJooqRepository.kt
+│   │   │   └── CashTransactionJooqRepository.kt
 │   │   └── service/
 │   │       ├── PortfolioService.kt
+│   │       ├── PortfolioStatsService.kt
 │   │       ├── PositionService.kt
 │   │       ├── BrokerIntegrationService.kt
 │   │       ├── OptionPriceService.kt
 │   │       ├── UnrealizedPnlService.kt
-│   │       └── ForexTrackingService.kt
+│   │       ├── ForexTrackingService.kt
+│   │       └── CashTransactionService.kt
 │   ├── scanner/                      # Scanner domain
 │   │   ├── controller/
 │   │   │   └── ScannerController.kt
@@ -144,18 +154,26 @@ udgaard/
 │   │   ├── CacheController.kt
 │   │   └── SettingsController.kt
 │   ├── mcp/                          # MCP server tools
-│   │   └── StockMcpTools.kt
+│   │   ├── config/
+│   │   │   └── McpConfiguration.kt
+│   │   └── service/
+│   │       └── StockMcpTools.kt
 │   ├── config/                       # Configuration classes
+│   │   ├── ApiKeyAuthenticationFilter.kt  # API key auth filter
+│   │   ├── AppUserDetailsService.kt  # Spring Security user details
 │   │   ├── CacheConfig.kt
-│   │   ├── ProviderConfiguration.kt  # API provider beans (Midgaard)
+│   │   ├── ExternalConfigLoader.kt   # External config loading
+│   │   ├── GlobalExceptionHandler.kt # Global exception handler
+│   │   ├── MidgaardHealthIndicator.kt # Midgaard health check
 │   │   ├── SecurityConfig.kt         # Spring Security configuration
-│   │   ├── StockRefreshProperties.kt # Stock refresh scheduling config
-│   │   └── StockRefreshScheduleConfig.kt
+│   │   ├── SecurityProperties.kt     # Security properties
+│   │   ├── UserRepository.kt         # User data access
+│   │   └── UserSeeder.kt             # Initial user seeding
 │   └── UdgaardApplication.kt        # Main application
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations
+│   └── db/migration/                 # Flyway migrations (V1-V16)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -164,12 +182,24 @@ udgaard/
 │       ├── V6__Move_sector_to_symbols.sql
 │       ├── V7__Add_sector_to_stocks.sql
 │       ├── V8__Drop_sector_from_symbols.sql
-│       └── V9__Add_user_settings.sql
+│       ├── V9__Add_user_settings.sql
+│       ├── V10__Add_option_details_to_scanner_trades.sql
+│       ├── V11__Add_fx_tracking.sql
+│       ├── V12__Add_initial_fx_rate.sql
+│       ├── V13__Add_cash_transactions.sql
+│       ├── V14__Add_converted_amount_to_cash_transactions.sql
+│       ├── V15__Add_order_block_trigger_date.sql
+│       └── V16__Add_listing_dates.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
 │       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator
-│       └── BacktestApiE2ETest.kt       # Backtest API E2E tests
+│       ├── BacktestApiE2ETest.kt       # Backtest API E2E tests
+│       ├── CashTransactionE2ETest.kt   # Cash transaction E2E tests
+│       ├── ForexTrackingE2ETest.kt     # Forex tracking E2E tests
+│       ├── IBKRBrokerImportE2ETest.kt  # IBKR broker import E2E tests
+│       ├── TestEntryStrategy.kt        # Test entry strategy fixture
+│       └── TestExitStrategy.kt         # Test exit strategy fixture
 ├── src/test/resources/
 │   └── application-test.properties   # Test profile config
 ├── compose.yaml                      # Docker Compose (PostgreSQL)
@@ -561,11 +591,8 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 spring.datasource.username=trading
 spring.datasource.password=trading
 
-# Midgaard Reference Data Service (OHLCV + pre-computed indicators)
+# Midgaard Reference Data Service (OHLCV + pre-computed indicators, options, FX rates)
 midgaard.base-url=http://localhost:8081
-
-# AlphaVantage API (earnings, company overview — used by Midgaard for initial load)
-alphavantage.api.baseUrl=https://www.alphavantage.co/query
 
 # Ovtlyr API (configured via Settings UI or secure.properties)
 ovtlyr.header.projectId=Ovtlyr.com_project1

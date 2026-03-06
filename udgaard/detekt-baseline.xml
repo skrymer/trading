@@ -5,6 +5,7 @@
     <ID>ClassOrdering:OrderBlockCalculator.kt:OrderBlockCalculator$Companion</ID>
     <ID>ClassOrdering:OvtlyrStockQuote.kt:OvtlyrStockQuote$val isInUptrend: Boolean get() = "Uptrend" == trend</ID>
     <ID>ComplexCondition:UnrealizedPnlService.kt:UnrealizedPnlService$position.strikePrice == null || position.expirationDate == null || position.optionType == null || position.underlyingSymbol == null</ID>
+    <ID>CyclomaticComplexMethod:BacktestService.kt:BacktestService$private fun processStockTrades: List&lt;Trade&gt;</ID>
     <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$fun buildEntryCondition: EntryCondition</ID>
     <ID>CyclomaticComplexMethod:DynamicStrategyBuilder.kt:DynamicStrategyBuilder$private fun buildExitCondition: ExitCondition</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:BacktestService.kt:BacktestService$val (timeStats, exitAnalysis, sectorPerf, stockPerf, atrDrawdown) = runBlocking { val d = Dispatchers.Default val t1 = async(d) { calculateTimeBasedStats(trades) } val t2 = async(d) { calculateExitReasonAnalysis(trades) } val t3 = async(d) { calculateSectorPerformance(trades) } val t4 = async(d) { calculateStockPerformance(trades) } val t5 = async(d) { calculateATRDrawdownStats(winningTrades, losingTrades) } AnalyticsResult(t1.await(), t2.await(), t3.await(), t4.await(), t5.await()) }</ID>
@@ -37,6 +38,7 @@
     <ID>ThrowsCount:BrokerIntegrationService.kt:BrokerIntegrationService$@Transactional fun syncPortfolio: PortfolioSyncResult</ID>
     <ID>ThrowsCount:IBKRFlexQueryClient.kt:IBKRFlexQueryClient$fun getStatement: String</ID>
     <ID>TooManyFunctions:BacktestService.kt:BacktestService</ID>
+    <ID>TooManyFunctions:BrokerIntegrationService.kt:BrokerIntegrationService</ID>
     <ID>TooManyFunctions:OvtlyrStockQuote.kt:OvtlyrStockQuote</ID>
     <ID>TooManyFunctions:PortfolioController.kt:PortfolioController</ID>
     <ID>TooManyFunctions:PositionService.kt:PositionService</ID>

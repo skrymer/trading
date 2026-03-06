@@ -404,6 +404,7 @@ object BacktestTestDataGenerator {
         .set(ORDER_BLOCKS.VOLUME_STRENGTH, 1.5.toBd())
         .set(ORDER_BLOCKS.RATE_OF_CHANGE, (-3.5).toBd())
         .set(ORDER_BLOCKS.IS_ACTIVE, true)
+        .set(ORDER_BLOCKS.TRIGGER_DATE, tradingDays[5])
         .execute()
 
       // Bullish order block below current price — tests notInOrderBlock entry filter
@@ -422,6 +423,7 @@ object BacktestTestDataGenerator {
         .set(ORDER_BLOCKS.VOLUME_STRENGTH, 1.8.toBd())
         .set(ORDER_BLOCKS.RATE_OF_CHANGE, 4.2.toBd())
         .set(ORDER_BLOCKS.IS_ACTIVE, true)
+        .set(ORDER_BLOCKS.TRIGGER_DATE, tradingDays[2])
         .execute()
     }
   }

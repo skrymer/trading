@@ -83,7 +83,7 @@ class AboveBearishOrderBlockCondition(
       .filter { sensitivity == null || it.sensitivity == sensitivity }
       .filter {
         stock.countTradingDaysBetween(
-          it.startDate,
+          it.triggerDate,
           quote.date,
         ) >= ageInDays
       }.filter {

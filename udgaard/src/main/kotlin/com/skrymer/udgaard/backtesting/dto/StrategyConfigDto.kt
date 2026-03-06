@@ -90,3 +90,24 @@ data class ParameterMetadata(
   val max: Number? = null,
   val options: List<String>? = null, // For enum-like parameters
 )
+
+data class WalkForwardRequest(
+  val entryStrategy: StrategyConfig,
+  val exitStrategy: StrategyConfig,
+  val stockSymbols: List<String>? = null,
+  val assetTypes: List<String>? = null,
+  val includeSectors: List<String>? = null,
+  val excludeSectors: List<String>? = null,
+  val startDate: String? = null,
+  val endDate: String? = null,
+  val inSampleYears: Int = 5,
+  val outOfSampleYears: Int = 1,
+  val stepYears: Int = 1,
+  val maxPositions: Int? = null,
+  val ranker: String? = null,
+  val rankerConfig: RankerConfig? = null,
+  val useUnderlyingAssets: Boolean = true,
+  val customUnderlyingMap: Map<String, String>? = null,
+  val cooldownDays: Int = 0,
+  val entryDelayDays: Int = 0,
+)

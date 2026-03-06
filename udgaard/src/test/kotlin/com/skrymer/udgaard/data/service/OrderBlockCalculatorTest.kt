@@ -216,7 +216,7 @@ class OrderBlockCalculatorTest {
     // Add quotes that close above the order block high to mitigate it
     bearishQuotes.add(
       createQuote(
-        lastQuote.date!!.plusDays(1),
+        lastQuote.date.plusDays(1),
         75.0,
         110.0, // Close above the OB high
         111.0,

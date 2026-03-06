@@ -40,8 +40,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
-- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian)
-- **AlphaVantage API** for earnings and company overview (used by Midgaard for initial data load)
+- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian), options data, and FX rates
 - Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
@@ -52,7 +51,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
    - `MonteCarloService.kt`: Monte Carlo simulations
-   - `PositionSizingService.kt`: Position sizing calculations
+   - `PositionSizingService.kt`: Position sizing with daily mark-to-market drawdown
+   - `WalkForwardService.kt`: Walk-forward validation with rolling IS/OOS windows
    - `BacktestResultStore.kt`: In-memory store for backtest results
    - DSL-based strategy builder (`StrategyDsl.kt`)
    - Strategies and conditions are discoverable via MCP tools (`getAvailableStrategies`, `getAvailableConditions`)
@@ -72,9 +72,10 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `ForexTrackingService.kt`: FIFO forex lot tracking for multi-currency portfolios
    - `CashTransactionService.kt`: Deposits/withdrawals tracking (IBKR import + balance adjustment)
    - `OptionPriceService.kt`: Options pricing data
+   - `PortfolioStatsService.kt`: Portfolio statistics and metrics
    - `UnrealizedPnlService.kt`: Real-time P/L calculations
    - IBKR integration via broker adapter pattern (`broker/`, `ibkr/`)
-   - Options data via AlphaVantage
+   - Options data via Midgaard (`options/MidgaardOptionsProvider.kt`)
 
 4. **Scanner** (`scanner/`)
    - `ScannerService.kt`: Scan for entry signals, check exits, CRUD trades, roll trades
@@ -84,29 +85,40 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Uses `StrategyRegistry` for predefined strategy lookup
 
 5. **MCP Server** (`mcp/`)
-   - `StockMcpTools.kt`: Tools for Claude AI integration
+   - `mcp/config/McpConfiguration.kt`: MCP server configuration
+   - `mcp/service/StockMcpTools.kt`: Tools for Claude AI integration
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
 6. **Integration** (`data/integration/`)
    - **Midgaard**: OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client
-   - **AlphaVantage**: Earnings, company overview (used by Midgaard; AlphaVantageClient kept in Udgaard for options data)
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
+   - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
 **API Endpoints:**
 
-**Backtesting:** `POST /api/backtest`, `GET /api/strategies/available`
+**Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`
 
-**Stocks:** `GET /api/stocks`, `GET /api/stocks/{symbol}`, `POST /api/stocks/refresh`, `GET /api/stock-symbols`
+**Stocks:** `GET /api/stocks`, `GET /api/stocks/symbols`, `GET /api/stocks/symbols/search`, `GET /api/stocks/{symbol}`, `GET /api/stocks/{symbol}/signals`, `GET /api/stocks/{symbol}/evaluate-date/{date}`, `GET /api/stocks/{symbol}/evaluate-exit/{date}`, `POST /api/stocks/{symbol}/condition-signals`
 
-**Portfolio:** `GET/POST /api/portfolio`, `GET/DELETE /api/portfolio/{id}`, `GET /api/portfolio/{id}/stats`, `GET/POST /api/portfolio/{id}/trades`, `PUT/DELETE /api/portfolio/{id}/trades/{tradeId}`, `PUT /api/portfolio/{id}/trades/{tradeId}/close`, `GET /api/portfolio/{id}/equity-curve`, `GET /api/portfolio/{id}/cash-transactions`, `GET /api/portfolio/{id}/cash-transactions/summary`
+**Portfolio:** `GET/POST /api/portfolio`, `GET/PUT/DELETE /api/portfolio/{id}`, `POST /api/portfolio/import`, `POST /api/portfolio/{id}/sync`, `GET /api/portfolio/{id}/forex/lots`, `GET /api/portfolio/{id}/forex/disposals`, `GET /api/portfolio/{id}/forex/summary`, `GET /api/portfolio/{id}/cash-transactions`, `GET /api/portfolio/{id}/cash-transactions/summary`, `POST /api/portfolio/broker/test`
 
-**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `POST /api/scanner/trades/{id}/roll`
+**Positions:** `GET /api/positions/{portfolioId}`, `GET /api/positions/{portfolioId}/{positionId}`, `POST /api/positions/{portfolioId}`, `PUT /api/positions/{portfolioId}/{positionId}/close`, `PUT /api/positions/{portfolioId}/{positionId}/metadata`, `DELETE /api/positions/{portfolioId}/{positionId}`, `GET /api/positions/{portfolioId}/stats`, `GET /api/positions/{portfolioId}/unrealized-pnl`, `GET /api/positions/{portfolioId}/equity-curve`, `POST /api/positions/{portfolioId}/recalculate-balance`, `GET /api/positions/{portfolioId}/{positionId}/roll-chain`
 
-**Market Breadth:** `GET /api/breadth`, `GET /api/breadth/{symbol}`, `POST /api/breadth/refresh`
+**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
 
-**Data Management:** `POST /api/data-management/populate-sectors`
+**Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
 
-**Other:** `POST /api/monte-carlo/run`, `POST /api/cache/evict`, `POST /api/cache/evict-all`, `POST /api/data/import`
+**Data Management:** `GET /api/data-management/stats`, `POST /api/data-management/refresh/stocks`, `POST /api/data-management/refresh/all-stocks`, `POST /api/data-management/refresh/recalculate-breadth`, `GET /api/data-management/breadth-coverage`, `GET /api/data-management/refresh/progress`, `POST /api/data-management/refresh/clear`
+
+**Monte Carlo:** `POST /api/monte-carlo/simulate`
+
+**Options:** `GET /api/options/historical-prices`
+
+**Settings:** `GET/POST /api/settings/credentials`, `GET /api/settings/credentials/status`, `GET/POST /api/settings/position-sizing`
+
+**Auth:** `GET /api/auth/check`
+
+**Cache:** `GET /api/cache/status`
 
 ### Frontend: Asgaard (Nuxt.js)
 
@@ -140,23 +152,25 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext, PositionSizingConfig
-│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService
+│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext, PositionSizingConfig, WalkForwardResult, MonteCarloResult
+│   │   │   ├── dto/                  # DTOs (StrategyConfigDto, MonteCarloRequestDto, ConditionSignalDtos, etc.)
+│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService, WalkForwardService
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
-│   │   │   ├── integration/          # Midgaard, AlphaVantage, Ovtlyr clients
-│   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadth
-│   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository
-│   │   │   └── service/              # StockService, TechnicalIndicatorService, OrderBlockCalculator
+│   │   │   ├── integration/          # Midgaard, Ovtlyr clients + StockProvider interface
+│   │   │   ├── mapper/               # StockMapper
+│   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, AssetType
+│   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
+│   │   │   └── service/              # StockService, StockIngestionService, TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService
 │   │   ├── portfolio/                # Portfolio domain
 │   │   │   ├── controller/           # PortfolioController, PositionController, OptionController
 │   │   │   ├── dto/                  # Request/response DTOs
-│   │   │   ├── integration/          # Broker adapters, IBKR, options providers
+│   │   │   ├── integration/          # Broker adapters (broker/), IBKR (ibkr/), options providers (options/MidgaardOptionsProvider)
 │   │   │   ├── mapper/               # Entity/DTO mappers
-│   │   │   ├── model/                # Portfolio, Position, Execution
-│   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository
-│   │   │   └── service/              # PortfolioService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService
+│   │   │   ├── model/                # Portfolio, Position, Execution, PortfolioStats, CashTransaction, ForexLot, ForexDisposal, EquityCurveData
+│   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository, ForexLotJooqRepository, ForexDisposalJooqRepository, CashTransactionJooqRepository
+│   │   │   └── service/              # PortfolioService, PortfolioStatsService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService
 │   │   ├── scanner/                  # Scanner domain
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
@@ -165,9 +179,10 @@ trading/
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
-│   │   ├── mcp/                      # MCP server tools
-│   │   └── config/                   # Configuration classes (Security, Cache, Providers, StockRefresh)
-│   ├── src/main/resources/           # Config, migrations (V1-V14)
+│   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
+│   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
+│   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, MidgaardHealthIndicator)
+│   ├── src/main/resources/           # Config, migrations (V1-V16)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL)
 │   ├── build.gradle                  # Gradle build config
@@ -175,14 +190,15 @@ trading/
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
 │   ├── src/main/kotlin/com/skrymer/midgaard/
-│   │   ├── provider/                 # Provider abstractions + implementations (AlphaVantage, Massive)
-│   │   ├── indicator/                # Indicator calculator (ATR, ADX, EMAs, Donchian)
-│   │   ├── ingestion/                # Ingestion service (initial load + daily updates)
-│   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status)
+│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive)
+│   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, ApiKeyService
+│   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
-│   │   └── config/                   # Configuration classes
+│   │   ├── model/                    # Domain models (Models.kt, OptionContractDto)
+│   │   └── config/                   # Configuration classes (Security, ProviderConfiguration, ExternalConfigLoader)
 │   ├── src/main/resources/           # Config, migrations, Thymeleaf templates
-│   └── build.gradle.kts              # Kotlin DSL build config
+│   ├── build.gradle                  # Gradle build config
+│   └── detekt.yml                    # Detekt configuration
 ├── asgaard/                          # Frontend (Nuxt.js)
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
@@ -286,4 +302,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-05_
+_Last Updated: 2026-03-07_

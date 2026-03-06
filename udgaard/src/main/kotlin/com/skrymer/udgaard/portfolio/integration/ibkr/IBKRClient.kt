@@ -4,7 +4,8 @@ import com.skrymer.udgaard.portfolio.integration.ibkr.dto.OptionsChain
 import com.skrymer.udgaard.portfolio.integration.ibkr.dto.SearchResult
 import org.apache.hc.client5.http.impl.classic.HttpClients
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder
+import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
 import org.springframework.stereotype.Component
@@ -95,11 +96,8 @@ class IBKRClient {
         .setConnectionManager(
           PoolingHttpClientConnectionManagerBuilder
             .create()
-            .setSSLSocketFactory(
-              SSLConnectionSocketFactoryBuilder
-                .create()
-                .setSslContext(sslContext)
-                .build(),
+            .setTlsSocketStrategy(
+              DefaultClientTlsStrategy(sslContext, NoopHostnameVerifier.INSTANCE),
             ).build(),
         ).build()
 

@@ -54,7 +54,7 @@ class OrderBlockBreakoutCondition(
     stock.orderBlocks.any {
       it.orderBlockType == OrderBlockType.BEARISH &&
         it.startsBefore(quote.date) &&
-        (it.endDate == null || it.endDate!!.isAfter(quote.date)) &&
+        (it.endDate == null || it.endDate.isAfter(quote.date)) &&
         quote.closePrice >= it.low &&
         quote.closePrice <= it.high
     }
@@ -69,8 +69,8 @@ class OrderBlockBreakoutCondition(
   ): OrderBlock? =
     stock.orderBlocks
       .filter { it.orderBlockType == OrderBlockType.BEARISH }
-      .filter { stock.countTradingDaysBetween(it.startDate, quote.date) >= ageInDays }
-      .filter { it.endDate != null && !it.endDate!!.isAfter(quote.date) }
+      .filter { stock.countTradingDaysBetween(it.triggerDate, quote.date) >= ageInDays }
+      .filter { it.endDate != null && !it.endDate.isAfter(quote.date) }
       .filter {
         stock.countTradingDaysBetween(it.endDate!!, quote.date) <= maxDaysSinceBreakout
       }.maxByOrNull { it.endDate!! }

@@ -144,7 +144,7 @@ class OrderBlockCalculator {
       }
 
       // Check for mitigation of active blocks
-      mitigateBlocks(activeBlocks, sortedQuotes[i], sortedQuotes.getOrNull(i - 1))
+      mitigateBlocks(activeBlocks, orderBlockDomains, sortedQuotes[i], sortedQuotes.getOrNull(i - 1))
     }
 
     return orderBlockDomains
@@ -224,6 +224,7 @@ class OrderBlockCalculator {
           volumeStrength = volumeStrength,
           sensitivity = sensitivityLevel, // Use passed sensitivity level
           rateOfChange = roc, // Already in percentage form from calculateRateOfChange()
+          triggerDate = quotes[triggerIndex].date,
         )
       }
     }
@@ -319,6 +320,7 @@ class OrderBlockCalculator {
    */
   private fun mitigateBlocks(
     activeBlocks: MutableList<OrderBlock>,
+    allBlocks: MutableList<OrderBlock>,
     currentQuote: StockQuote,
     previousQuote: StockQuote?,
   ) {
@@ -335,9 +337,11 @@ class OrderBlockCalculator {
         }
       }
 
-    // Update mitigated blocks with end date (current bar's date, since previous bar caused mitigation)
+    // Replace mitigated blocks with copies that have endDate set
     blocksToMitigate.forEach { block ->
-      block.endDate = currentQuote.date
+      val mitigated = block.copy(endDate = currentQuote.date)
+      val idx = allBlocks.indexOf(block)
+      if (idx >= 0) allBlocks[idx] = mitigated
     }
 
     // Remove mitigated blocks from active list

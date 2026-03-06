@@ -92,10 +92,10 @@ class CashTransactionE2ETest : AbstractIntegrationTest() {
     // TQQQ: buy 100 @ $50, sell 100 @ $55 = $500 realized P&L
     // Commissions stored as negative: -1.00 + -1.00 = -2.00
     // Net cash flow: $10,000 deposit - $2,000 withdrawal = $8,000
-    // Balance = initialBalance + totalRealizedPnl - totalCommissions + netCashFlow
-    //         = 50,000 + 500 - (-2) + 8,000 = 58,502
+    // Balance = initialBalance + totalRealizedPnl + totalCommissions + netCashFlow
+    //         = 50,000 + 500 + (-2) + 8,000 = 58,498
     val portfolio = getPortfolio(result.portfolio.id!!)
-    assertEquals(58502.0, portfolio["currentBalance"] as Double, 1.0)
+    assertEquals(58498.0, portfolio["currentBalance"] as Double, 1.0)
   }
 
   @Test
@@ -137,7 +137,7 @@ class CashTransactionE2ETest : AbstractIntegrationTest() {
     // Sync again (same data)
     syncPortfolio(result.portfolio.id!!)
 
-    val transactions = getCashTransactions(result.portfolio.id!!)
+    val transactions = getCashTransactions(result.portfolio.id)
     assertEquals(2, transactions.size, "Should not duplicate cash transactions on re-sync")
   }
 
@@ -148,11 +148,11 @@ class CashTransactionE2ETest : AbstractIntegrationTest() {
 
     val deposit = transactions.first { it.type.name == "DEPOSIT" }
     assertNotNull(deposit.fxRateToBase, "Deposit should have FX rate")
-    assertEquals(1.55, deposit.fxRateToBase!!, 0.001)
+    assertEquals(1.55, deposit.fxRateToBase, 0.001)
 
     val withdrawal = transactions.first { it.type.name == "WITHDRAWAL" }
     assertNotNull(withdrawal.fxRateToBase, "Withdrawal should have FX rate")
-    assertEquals(1.48, withdrawal.fxRateToBase!!, 0.001)
+    assertEquals(1.48, withdrawal.fxRateToBase, 0.001)
   }
 
   // -- Helper methods --

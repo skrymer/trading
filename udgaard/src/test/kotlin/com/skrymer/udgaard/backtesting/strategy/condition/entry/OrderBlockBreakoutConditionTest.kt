@@ -419,7 +419,7 @@ class OrderBlockBreakoutConditionTest {
     assertEquals("OrderBlockBreakoutCondition", result.conditionType)
     assertEquals("Below OB high", result.actualValue)
     assertTrue(result.message!!.contains("below"))
-    assertTrue(result.message!!.contains("\u2717"))
+    assertTrue(result.message.contains("\u2717"))
   }
 
   @Test
@@ -458,7 +458,7 @@ class OrderBlockBreakoutConditionTest {
 
     assertFalse(result.passed)
     assertTrue(result.message!!.contains("below"))
-    assertTrue(result.message!!.contains("\u2717"))
+    assertTrue(result.message.contains("\u2717"))
   }
 
   @Test
@@ -482,6 +482,6 @@ class OrderBlockBreakoutConditionTest {
     assertTrue(result.passed)
     assertEquals("OrderBlockBreakoutCondition", result.conditionType)
     assertTrue(result.message!!.contains("Breakout confirmed"))
-    assertTrue(result.message!!.contains("\u2713"))
+    assertTrue(result.message.contains("\u2713"))
   }
 }

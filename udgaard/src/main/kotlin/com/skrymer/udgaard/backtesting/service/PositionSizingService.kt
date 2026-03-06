@@ -23,33 +23,73 @@ class PositionSizingService {
     return processTradesChronologically(trades, config)
   }
 
+  /**
+   * Day-by-day processing with daily mark-to-market for accurate drawdown calculation.
+   *
+   * Instead of only tracking portfolio value at trade exits, this iterates through
+   * every trading day where positions are open and computes daily portfolio value as:
+   *   cash + sum(open position market values at that day's close price)
+   *
+   * This captures intra-trade drawdowns that exit-based tracking misses.
+   */
   private fun processTradesChronologically(
     trades: List<Trade>,
     config: PositionSizingConfig,
   ): PositionSizingResult {
+    // Build per-trade quote lookup: date -> closePrice
+    val tradeQuoteMap = buildTradeQuoteMaps(trades)
+
+    // Build entry/exit events
     val events = buildEventList(trades)
+
+    // Collect all unique trading dates from all trades (entry dates + quote dates)
+    val tradingDates = collectTradingDates(trades)
+
     val state = PortfolioState(config.startingCapital)
     val openPositions = mutableMapOf<Trade, OpenPosition>()
 
-    state.equityCurve.add(PortfolioEquityPoint(date = events.first().date, portfolioValue = config.startingCapital))
+    // Index into events list for efficient processing
+    var eventIndex = 0
 
-    for (event in events) {
-      when (event) {
-        is TradeEvent.Entry -> processEntry(event, config, state, openPositions)
-        is TradeEvent.Exit -> processExit(event, state, openPositions)
+    for (date in tradingDates) {
+      // Process all events for this date (entries before exits)
+      while (eventIndex < events.size && events[eventIndex].date == date) {
+        when (val event = events[eventIndex]) {
+          is TradeEvent.Entry -> processEntry(event, config, state, openPositions)
+          is TradeEvent.Exit -> processExit(event, state, openPositions)
+        }
+        eventIndex++
+      }
+
+      // Daily mark-to-market: compute portfolio value from cash + unrealized P/L of open positions
+      // Note: cash tracks starting capital + realized P/L (not reduced by purchases),
+      // so open position value must be unrealized P/L only (not full market value).
+      if (openPositions.isNotEmpty()) {
+        val unrealizedPnl = computeUnrealizedPnl(openPositions, tradeQuoteMap, date)
+        val dailyPortfolioValue = state.cash + unrealizedPnl
+        updateDrawdown(state, dailyPortfolioValue)
+        state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = dailyPortfolioValue))
+      } else if (state.equityCurve.isEmpty() || state.equityCurve.last().date != date) {
+        // No open positions -- record cash-only equity point on event days
+        val hasEventsToday = eventIndex > 0 && events[eventIndex - 1].date == date
+        if (hasEventsToday || state.equityCurve.isEmpty()) {
+          updateDrawdown(state, state.cash)
+          state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = state.cash))
+        }
       }
     }
 
+    val finalValue = state.cash
     val totalReturnPct =
       if (config.startingCapital > 0.0) {
-        ((state.portfolioValue - config.startingCapital) / config.startingCapital) * 100.0
+        ((finalValue - config.startingCapital) / config.startingCapital) * 100.0
       } else {
         0.0
       }
 
     return PositionSizingResult(
       startingCapital = config.startingCapital,
-      finalCapital = state.portfolioValue,
+      finalCapital = finalValue,
       totalReturnPct = totalReturnPct,
       maxDrawdownPct = state.maxDrawdownPct,
       maxDrawdownDollars = state.maxDrawdownDollars,
@@ -65,11 +105,12 @@ class PositionSizingService {
     state: PortfolioState,
     openPositions: MutableMap<Trade, OpenPosition>,
   ) {
-    var shares = calculateShares(state.portfolioValue, event.trade.entryQuote.atr, config)
+    // Use cash for portfolio value calculation (consistent with available capital)
+    var shares = calculateShares(state.cash, event.trade.entryQuote.atr, config)
     val entryPrice = event.trade.entryQuote.closePrice
 
     if (config.leverageRatio != null && shares > 0 && entryPrice > 0.0) {
-      val maxNotional = state.portfolioValue * config.leverageRatio
+      val maxNotional = state.cash * config.leverageRatio
       val availableNotional = maxNotional - state.openNotional
       if (availableNotional <= 0.0) {
         shares = 0
@@ -80,7 +121,11 @@ class PositionSizingService {
     }
 
     state.openNotional += shares * entryPrice
-    openPositions[event.trade] = OpenPosition(shares = shares, portfolioValueAtEntry = state.portfolioValue, entryPrice = entryPrice)
+    openPositions[event.trade] = OpenPosition(
+      shares = shares,
+      portfolioValueAtEntry = state.cash,
+      entryPrice = entryPrice,
+    )
   }
 
   private fun processExit(
@@ -91,7 +136,7 @@ class PositionSizingService {
     val position = openPositions.remove(event.trade) ?: return
     state.openNotional -= position.shares * position.entryPrice
     val dollarProfit = position.shares * event.trade.profit
-    state.portfolioValue += dollarProfit
+    state.cash += dollarProfit
 
     val portfolioReturnPct =
       if (position.portfolioValueAtEntry > 0.0) {
@@ -120,13 +165,58 @@ class PositionSizingService {
       ),
     )
 
-    state.peakCapital = max(state.peakCapital, state.portfolioValue)
-    val drawdownDollars = state.peakCapital - state.portfolioValue
+    // Peak/drawdown tracking is handled by the daily M2M block which correctly
+    // computes portfolio value as cash + unrealized P/L of all remaining open positions.
+    // Do NOT track drawdown here from cash alone — it would compare against a peak
+    // that includes unrealized gains, creating a phantom drawdown.
+  }
+
+  private fun computeUnrealizedPnl(
+    openPositions: Map<Trade, OpenPosition>,
+    tradeQuoteMap: Map<Trade, Map<LocalDate, Double>>,
+    date: LocalDate,
+  ): Double =
+    openPositions.entries.sumOf { (trade, pos) ->
+      val quoteMap = tradeQuoteMap[trade] ?: emptyMap()
+      val closePrice = quoteMap[date] ?: pos.lastKnownPrice
+      pos.lastKnownPrice = closePrice
+      pos.shares * (closePrice - pos.entryPrice)
+    }
+
+  private fun updateDrawdown(
+    state: PortfolioState,
+    portfolioValue: Double,
+  ) {
+    state.peakCapital = max(state.peakCapital, portfolioValue)
+    val drawdownDollars = state.peakCapital - portfolioValue
     val drawdownPct = if (state.peakCapital > 0.0) (drawdownDollars / state.peakCapital) * 100.0 else 0.0
     if (drawdownDollars > state.maxDrawdownDollars) state.maxDrawdownDollars = drawdownDollars
     if (drawdownPct > state.maxDrawdownPct) state.maxDrawdownPct = drawdownPct
+  }
 
-    state.equityCurve.add(PortfolioEquityPoint(date = event.date, portfolioValue = state.portfolioValue))
+  /**
+   * Build a map of Trade -> (date -> closePrice) for fast M2M lookup.
+   */
+  private fun buildTradeQuoteMaps(trades: List<Trade>): Map<Trade, Map<LocalDate, Double>> =
+    trades.associateWith { trade ->
+      val map = mutableMapOf<LocalDate, Double>()
+      // Include entry quote
+      map[trade.entryQuote.date] = trade.entryQuote.closePrice
+      // Include all trade quotes
+      trade.quotes.forEach { q -> map[q.date] = q.closePrice }
+      map
+    }
+
+  /**
+   * Collect all unique trading dates across all trades, sorted.
+   */
+  private fun collectTradingDates(trades: List<Trade>): List<LocalDate> {
+    val dates = sortedSetOf<LocalDate>()
+    for (trade in trades) {
+      dates.add(trade.entryQuote.date)
+      trade.quotes.forEach { dates.add(it.date) }
+    }
+    return dates.toList()
   }
 
   private fun buildEventList(trades: List<Trade>): List<TradeEvent> {
@@ -161,7 +251,7 @@ class PositionSizingService {
   private class PortfolioState(
     startingCapital: Double,
   ) {
-    var portfolioValue: Double = startingCapital
+    var cash: Double = startingCapital
     var peakCapital: Double = startingCapital
     var maxDrawdownDollars: Double = 0.0
     var maxDrawdownPct: Double = 0.0
@@ -170,10 +260,11 @@ class PositionSizingService {
     val equityCurve: MutableList<PortfolioEquityPoint> = mutableListOf()
   }
 
-  private data class OpenPosition(
+  private class OpenPosition(
     val shares: Int,
     val portfolioValueAtEntry: Double,
     val entryPrice: Double = 0.0,
+    var lastKnownPrice: Double = entryPrice,
   )
 
   private sealed class TradeEvent {

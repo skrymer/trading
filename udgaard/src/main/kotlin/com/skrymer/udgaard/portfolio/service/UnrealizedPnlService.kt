@@ -141,7 +141,7 @@ class UnrealizedPnlService(
                       contract?.price
                     }
                   }
-                  InstrumentType.STOCK, InstrumentType.LEVERAGED_ETF -> {
+                  InstrumentType.STOCK, InstrumentType.ETF, InstrumentType.LEVERAGED_ETF -> {
                     // Fetch latest stock price
                     val quotes = stockProvider.getDailyAdjustedTimeSeries(position.symbol)
                     quotes?.firstOrNull()?.closePrice

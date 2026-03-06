@@ -278,7 +278,7 @@ class DaysSinceEarningsConditionTest {
     assertEquals("None", result.actualValue)
     assertEquals("5 days", result.threshold)
     assertTrue(result.message!!.contains("No past earnings found"))
-    assertTrue(result.message!!.contains("✓"))
+    assertTrue(result.message.contains("✓"))
   }
 
   @Test
@@ -304,7 +304,7 @@ class DaysSinceEarningsConditionTest {
     assertEquals("2024-01-01", result.actualValue)
     assertEquals("5 days", result.threshold)
     assertTrue(result.message!!.contains("9 days since earnings"))
-    assertTrue(result.message!!.contains("✓"))
+    assertTrue(result.message.contains("✓"))
   }
 
   @Test
@@ -330,7 +330,7 @@ class DaysSinceEarningsConditionTest {
     assertEquals("2024-01-08", result.actualValue)
     assertEquals("5 days", result.threshold)
     assertTrue(result.message!!.contains("2 days since earnings"))
-    assertTrue(result.message!!.contains("too recent"))
-    assertTrue(result.message!!.contains("✗"))
+    assertTrue(result.message.contains("too recent"))
+    assertTrue(result.message.contains("✗"))
   }
 }
