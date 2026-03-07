@@ -98,7 +98,7 @@ class IngestionService(
         }
 
     fun initialIngestAll(): Job {
-        val symbols = symbolRepository.findAll().filter { it.assetType.name == "STOCK" }
+        val symbols = symbolRepository.findAll()
         logger.info("Starting bulk initial ingest for ${symbols.size} symbols")
         val progress = BulkProgress(total = symbols.size)
         bulkProgress = progress
