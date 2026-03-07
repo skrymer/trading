@@ -589,6 +589,11 @@ const openPositionsColumns = computed(() => {
       }
     },
     { accessorKey: 'instrumentType', header: 'Type' },
+    {
+      accessorKey: 'entryStrategy',
+      header: 'Strategy',
+      cell: ({ row }: { row: any }) => row.original.entryStrategy || '—'
+    },
     { accessorKey: 'currentQuantity', header: 'Quantity' },
     {
       accessorKey: 'averageEntryPrice',
@@ -671,6 +676,11 @@ const closedPositionsColumns = computed(() => {
       }
     },
     { accessorKey: 'instrumentType', header: 'Type' },
+    {
+      accessorKey: 'entryStrategy',
+      header: 'Strategy',
+      cell: ({ row }: { row: any }) => row.original.entryStrategy || '—'
+    },
     {
       accessorKey: 'averageEntryPrice',
       header: 'Entry',
@@ -992,7 +1002,7 @@ const forexDisposalColumns = [
             </div>
             <div class="flex justify-between">
               <span>Proven Edge:</span>
-              <span class="font-semibold text-green-600">{{ formatPercent(displayStats.provenEdge) }}</span>
+              <span class="font-semibold" :class="displayStats.provenEdge >= 0 ? 'text-green-600' : 'text-red-600'">{{ formatPercent(displayStats.provenEdge) }}</span>
             </div>
             <div class="flex justify-between">
               <span>Profit Factor:</span>
