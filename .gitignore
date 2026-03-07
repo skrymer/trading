@@ -55,6 +55,7 @@ logs/
 
 # API keys and secrets
 **/secure.properties
+.env.prod
 
 # IDE
 .idea/

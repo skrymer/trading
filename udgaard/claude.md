@@ -202,8 +202,10 @@ udgaard/
 │       └── TestExitStrategy.kt         # Test exit strategy fixture
 ├── src/test/resources/
 │   └── application-test.properties   # Test profile config
-├── compose.yaml                      # Docker Compose (PostgreSQL)
-├── build.gradle                      # Dependencies & build config
+├── compose.yaml                      # Docker Compose (PostgreSQL for local dev)
+├── Dockerfile                        # Runtime image (eclipse-temurin:25-jre-alpine)
+├── init-databases.sql                # Init script for prod PostgreSQL (creates both trading + datastore DBs)
+├── build.gradle                      # Dependencies & build config (includes springBoot { buildInfo() })
 ├── detekt.yml                        # Detekt static analysis config
 └── detekt-baseline.xml               # Detekt baseline for existing issues
 ```

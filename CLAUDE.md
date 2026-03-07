@@ -184,8 +184,10 @@ trading/
 │   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, MidgaardHealthIndicator)
 │   ├── src/main/resources/           # Config, migrations (V1-V16)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
-│   ├── compose.yaml                  # Docker Compose (PostgreSQL)
-│   ├── build.gradle                  # Gradle build config
+│   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
+│   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)
+│   ├── init-databases.sql            # Init script for prod PostgreSQL (creates both trading + datastore DBs)
+│   ├── build.gradle                  # Gradle build config (includes springBoot { buildInfo() })
 │   ├── detekt.yml                    # Detekt configuration
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
@@ -208,9 +210,13 @@ trading/
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
 │   │   └── error.vue                 # Error page
-│   ├── nuxt.config.ts                # Nuxt configuration
+│   ├── nuxt.config.ts                # Nuxt configuration (proxy target via NUXT_BACKEND_URL env var)
+│   ├── Dockerfile                    # Multi-stage build (node:24-alpine)
+│   ├── .dockerignore                 # Docker build exclusions
 │   ├── package.json                  # Dependencies
 │   └── claude.md                     # Nuxt-specific context
+├── compose.prod.yaml                 # Production Docker Compose (all services: postgres, midgaard, udgaard, asgaard, adminer)
+├── deploy-prd.fish                   # Production deployment script (version bump, build JARs, deploy containers)
 └── README.md                         # Main project README
 ```
 
@@ -231,6 +237,28 @@ docker compose up -d postgres   # Start PostgreSQL
 cd asgaard
 pnpm install && pnpm dev        # Runs on http://localhost:3000
 ```
+
+### Production Deployment
+
+The platform can be deployed as a full Docker stack using `compose.prod.yaml`. All services (PostgreSQL, Midgaard, Udgaard, Asgaard, Adminer) run in containers with production ports (9000, 9080, 9081, 9083, 9432).
+
+```bash
+# Deploy to production (bumps versions, builds JARs, builds/starts containers)
+./deploy-prd.fish
+
+# Or with explicit versions
+./deploy-prd.fish --midgaard 1.0.5 --udgaard 1.0.1
+
+# Manual steps
+cd udgaard && ./gradlew bootJar -x test -x generateJooq   # Build Udgaard JAR
+cd midgaard && ./gradlew bootJar -x test -x generateJooq  # Build Midgaard JAR
+docker compose -f compose.prod.yaml build                   # Build Docker images
+docker compose -f compose.prod.yaml up -d                   # Start all services
+```
+
+**Production URLs:** Asgaard http://localhost:9000, Udgaard http://localhost:9080, Midgaard http://localhost:9081, Adminer http://localhost:9083, PostgreSQL localhost:9432
+
+**Environment:** Optional `.env.prod` file for API keys and overrides. Asgaard uses `NUXT_BACKEND_URL` env var (defaults to `http://udgaard:8080` in Docker) for backend proxy target.
 
 ### Running Tests
 

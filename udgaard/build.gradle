@@ -10,7 +10,7 @@ plugins {
 }
 
 group = 'com.skrymer'
-version = '0.0.1-SNAPSHOT'
+version = '1.0.0'
 
 java {
 	toolchain {
@@ -104,6 +104,10 @@ kotlin {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+springBoot {
+	buildInfo()
 }
 
 tasks.named('bootRun') {

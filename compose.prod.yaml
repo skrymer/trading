@@ -1,0 +1,101 @@
+name: trading-prd
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: trading-prd-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: trading
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+    ports:
+      - "127.0.0.1:9432:5432"
+    volumes:
+      - trading-prd-data:/var/lib/postgresql/data
+      - ./udgaard/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d trading && pg_isready -U trading -d datastore"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  midgaard:
+    build:
+      context: ./midgaard
+      dockerfile: Dockerfile
+    container_name: trading-prd-midgaard
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/datastore
+      SPRING_DATASOURCE_USERNAME: trading
+      SPRING_DATASOURCE_PASSWORD: trading
+      APP_SECURITY_ENABLED: "false"
+      APP_UI_ENABLED: "true"
+    env_file:
+      - path: .env.prod
+        required: false
+    ports:
+      - "127.0.0.1:9081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  udgaard:
+    build:
+      context: ./udgaard
+      dockerfile: Dockerfile
+    container_name: trading-prd-udgaard
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      midgaard:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/trading
+      SPRING_DATASOURCE_USERNAME: trading
+      SPRING_DATASOURCE_PASSWORD: trading
+      MIDGAARD_BASE_URL: http://midgaard:8081
+      SPRING_FLYWAY_ENABLED: "true"
+    env_file:
+      - path: .env.prod
+        required: false
+    ports:
+      - "9080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/udgaard/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  asgaard:
+    build:
+      context: ./asgaard
+      dockerfile: Dockerfile
+    container_name: trading-prd-asgaard
+    restart: always
+    depends_on:
+      udgaard:
+        condition: service_healthy
+    ports:
+      - "9000:3000"
+
+  adminer:
+    image: adminer
+    container_name: trading-prd-adminer
+    restart: always
+    ports:
+      - "127.0.0.1:9083:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+volumes:
+  trading-prd-data:

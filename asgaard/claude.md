@@ -113,7 +113,9 @@ asgaard/
 │   ├── app.vue                   # Root component
 │   └── error.vue                 # Error page
 ├── assets/css/main.css           # Global styles
-├── nuxt.config.ts                # Nuxt configuration
+├── nuxt.config.ts                # Nuxt configuration (proxy target via NUXT_BACKEND_URL env var)
+├── Dockerfile                    # Multi-stage build (node:24-alpine, pnpm)
+├── .dockerignore                 # Docker build exclusions
 ├── package.json                  # Dependencies
 ├── pnpm-lock.yaml                # Lock file
 └── claude.md                     # This file
@@ -127,6 +129,18 @@ pnpm build        # Build for production
 pnpm preview      # Preview production build locally
 pnpm lint         # Run ESLint
 pnpm typecheck    # Run TypeScript type checking
+```
+
+### Docker / Production
+
+The Asgaard frontend is containerized via a multi-stage Dockerfile (node:24-alpine). The backend proxy target is configurable via the `NUXT_BACKEND_URL` environment variable (defaults to `http://localhost:8080` for local dev, set to `http://udgaard:8080` in Docker).
+
+```bash
+# Build Docker image
+docker build -t asgaard .
+
+# Production deployment (via root compose.prod.yaml)
+cd /path/to/trading && docker compose -f compose.prod.yaml up -d asgaard
 ```
 
 ## Key Patterns

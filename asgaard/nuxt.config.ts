@@ -1,4 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+declare const process: { env: Record<string, string | undefined> }
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
@@ -14,14 +17,15 @@ export default defineNuxtConfig({
 
   routeRules: {
     // Proxy all backend API calls to /udgaard/api/** (avoids conflicts with Nuxt internal /api/*)
+    // NUXT_BACKEND_URL overrides the target (e.g., http://udgaard:8080 in Docker)
     '/udgaard/api/**': {
       proxy: {
-        to: 'http://localhost:8080/udgaard/api/**'
+        to: `${process.env.NUXT_BACKEND_URL || 'http://localhost:8080'}/udgaard/api/**`
       }
     },
     '/udgaard/actuator/**': {
       proxy: {
-        to: 'http://localhost:8080/udgaard/actuator/**'
+        to: `${process.env.NUXT_BACKEND_URL || 'http://localhost:8080'}/udgaard/actuator/**`
       }
     }
   },
