@@ -209,11 +209,7 @@ class BacktestService(
 
           // Get all trading quotes between entry and exit
           val entryDate = entry.tradingEntryQuote.date
-          val tradingQuotes =
-            entry.stockPair.tradingStock.quotes.filter { quote ->
-              val qDate = quote.date
-              !qDate.isBefore(entryDate) && !qDate.isAfter(exitDate)
-            }
+          val tradingQuotes = entry.stockPair.tradingStock.quotesInRange(entryDate, exitDate)
 
           return Trade(
             entry.stockPair.tradingStock.symbol,

@@ -30,18 +30,52 @@
         >
           <!-- Entry Strategy -->
           <UFormField label="Entry Strategy" name="entryStrategy" required>
-            <UInput
+            <USelect
+              v-if="!useCustomEntry"
               v-model="state.entryStrategy"
-              placeholder="e.g., PlanAlpha, Breakout, Support Bounce"
+              :items="entryOptions"
+              value-key="value"
+              placeholder="Select entry strategy"
+              class="w-full"
             />
+            <div v-else class="flex gap-2">
+              <UInput
+                v-model="state.entryStrategy"
+                placeholder="Enter custom strategy name"
+                class="flex-1"
+              />
+              <UButton
+                icon="i-lucide-x"
+                variant="ghost"
+                size="sm"
+                @click="useCustomEntry = false; state.entryStrategy = ''"
+              />
+            </div>
           </UFormField>
 
           <!-- Exit Strategy -->
           <UFormField label="Exit Strategy" name="exitStrategy" required>
-            <UInput
+            <USelect
+              v-if="!useCustomExit"
               v-model="state.exitStrategy"
-              placeholder="e.g., PlanMoney, Profit Target, Stop Loss"
+              :items="exitOptions"
+              value-key="value"
+              placeholder="Select exit strategy"
+              class="w-full"
             />
+            <div v-else class="flex gap-2">
+              <UInput
+                v-model="state.exitStrategy"
+                placeholder="Enter custom strategy name"
+                class="flex-1"
+              />
+              <UButton
+                icon="i-lucide-x"
+                variant="ghost"
+                size="sm"
+                @click="useCustomExit = false; state.exitStrategy = ''"
+              />
+            </div>
           </UFormField>
 
           <!-- Notes -->
@@ -112,11 +146,43 @@ const isOpen = computed({
 
 const toast = useToast()
 const loading = ref(false)
+const useCustomEntry = ref(false)
+const useCustomExit = ref(false)
+
+const CUSTOM_VALUE = '__custom__'
+
+const { data: strategies } = useFetch<{ entryStrategies: string[], exitStrategies: string[] }>('/udgaard/api/backtest/strategies')
+
+const entryOptions = computed(() => {
+  const items = (strategies.value?.entryStrategies || []).map(s => ({ label: s, value: s }))
+  items.push({ label: 'Custom...', value: CUSTOM_VALUE })
+  return items
+})
+
+const exitOptions = computed(() => {
+  const items = (strategies.value?.exitStrategies || []).map(s => ({ label: s, value: s }))
+  items.push({ label: 'Custom...', value: CUSTOM_VALUE })
+  return items
+})
 
 const state = reactive({
   entryStrategy: '',
   exitStrategy: '',
   notes: ''
+})
+
+watch(() => state.entryStrategy, (val) => {
+  if (val === CUSTOM_VALUE) {
+    useCustomEntry.value = true
+    state.entryStrategy = ''
+  }
+})
+
+watch(() => state.exitStrategy, (val) => {
+  if (val === CUSTOM_VALUE) {
+    useCustomExit.value = true
+    state.exitStrategy = ''
+  }
 })
 
 const schema = z.object({
@@ -128,8 +194,15 @@ const schema = z.object({
 // Initialize form when position changes or modal opens
 watch([() => props.position, isOpen], ([newPosition, modalOpen]) => {
   if (modalOpen && newPosition) {
-    state.entryStrategy = newPosition.entryStrategy || ''
-    state.exitStrategy = newPosition.exitStrategy || ''
+    const entry = newPosition.entryStrategy || ''
+    const exit = newPosition.exitStrategy || ''
+    const knownEntries = strategies.value?.entryStrategies || []
+    const knownExits = strategies.value?.exitStrategies || []
+
+    useCustomEntry.value = entry !== '' && !knownEntries.includes(entry)
+    useCustomExit.value = exit !== '' && !knownExits.includes(exit)
+    state.entryStrategy = entry
+    state.exitStrategy = exit
     state.notes = newPosition.notes || ''
   }
 }, { immediate: true })

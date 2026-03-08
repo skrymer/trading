@@ -1,5 +1,6 @@
 package com.skrymer.midgaard.controller
 
+import com.skrymer.midgaard.model.AssetType
 import com.skrymer.midgaard.model.IngestionState
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.repository.QuoteRepository
@@ -33,7 +34,7 @@ class UiController(
 ) {
     @GetMapping("/")
     fun dashboard(model: Model): String {
-        model.addAttribute("totalSymbols", symbolRepository.count())
+        model.addAttribute("totalStocks", symbolRepository.countByAssetType(AssetType.STOCK))
         model.addAttribute("totalQuotes", quoteRepository.getTotalQuoteCount())
         model.addAttribute("pendingCount", ingestionStatusRepository.countByStatus(IngestionState.PENDING))
         model.addAttribute("completeCount", ingestionStatusRepository.countByStatus(IngestionState.COMPLETE))

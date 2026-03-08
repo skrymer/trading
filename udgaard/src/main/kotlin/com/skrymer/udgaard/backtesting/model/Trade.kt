@@ -50,10 +50,8 @@ class Trade(
    */
   val tradingDays: Long
     get() {
-      val exitDate =
-        quotes.maxByOrNull { it.date }!!.date
-
-      return ChronoUnit.DAYS.between(entryQuote.date, exitDate)
+      if (quotes.isEmpty()) return 0L
+      return ChronoUnit.DAYS.between(entryQuote.date, quotes.last().date)
     }
 
   fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)

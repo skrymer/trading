@@ -31,7 +31,7 @@ data class Stock(
    * Index of the first quote with date > targetDate. O(log n).
    * Returns quotes.size if all quotes are on or before targetDate.
    */
-  private fun indexAfter(targetDate: LocalDate): Int {
+  internal fun indexAfter(targetDate: LocalDate): Int {
     var lo = 0
     var hi = quotes.size
     while (lo < hi) {
@@ -45,7 +45,7 @@ data class Stock(
    * Index of the first quote with date >= targetDate. O(log n).
    * Returns quotes.size if all quotes are before targetDate.
    */
-  private fun indexOnOrAfter(targetDate: LocalDate): Int {
+  internal fun indexOnOrAfter(targetDate: LocalDate): Int {
     var lo = 0
     var hi = quotes.size
     while (lo < hi) {
@@ -53,6 +53,15 @@ data class Stock(
       if (quotes[mid].date < targetDate) lo = mid + 1 else hi = mid
     }
     return lo
+  }
+
+  /**
+   * Get quotes in the inclusive date range [from, to]. O(log n).
+   */
+  fun quotesInRange(from: LocalDate, to: LocalDate): List<StockQuote> {
+    val startIdx = indexOnOrAfter(from)
+    val endIdx = indexAfter(to)
+    return quotes.subList(startIdx, endIdx)
   }
 
   /**
@@ -156,13 +165,15 @@ data class Stock(
     val candleTop = if (useHighPrice) quote.high else maxOf(quote.openPrice, quote.closePrice)
     val candleBottom = minOf(quote.openPrice, quote.closePrice)
 
-    return orderBlocks
-      .filter { it.orderBlockType == OrderBlockType.BEARISH }
-      .filter { sensitivity == null || it.sensitivity == sensitivity }
-      .filter { it.startsBefore(quote.date) }
-      .filter { it.endsAfter(quote.date) }
-      .filter { countTradingDaysBetween(it.triggerDate, quote.date) >= tradingDaysOld }
-      .any { candleTop >= it.low && candleBottom <= it.high }
+    return orderBlocks.any { ob ->
+      ob.orderBlockType == OrderBlockType.BEARISH &&
+        (sensitivity == null || ob.sensitivity == sensitivity) &&
+        ob.startsBefore(quote.date) &&
+        ob.endsAfter(quote.date) &&
+        countTradingDaysBetween(ob.triggerDate, quote.date) >= tradingDaysOld &&
+        candleTop >= ob.low &&
+        candleBottom <= ob.high
+    }
   }
 
   /**

@@ -68,12 +68,13 @@ asgaard/
 │   │   │   ├── RefreshControlsCard.vue
 │   │   │   ├── BreadthRefreshCard.vue
 │   │   │   └── RateLimitCard.vue
-│   │   ├── portfolio/            # Portfolio components (13)
+│   │   ├── portfolio/            # Portfolio components (14)
 │   │   │   ├── CreateModal.vue
 │   │   │   ├── PositionDetailsModal.vue
 │   │   │   ├── ClosePositionModal.vue
 │   │   │   ├── DeleteModal.vue / DeletePositionModal.vue
 │   │   │   ├── EditPositionMetadataModal.vue
+│   │   │   ├── BatchEditStrategyModal.vue
 │   │   │   ├── AddExecutionModal.vue
 │   │   │   ├── EquityCurve.client.vue
 │   │   │   ├── OpenTradeChart.client.vue

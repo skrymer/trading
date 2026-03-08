@@ -89,7 +89,7 @@ class BacktestReport(
    * @return the win rate
    */
   val winRate: Double
-    get() = (winningTrades.size.toDouble() / this.totalTrades)
+    get() = if (totalTrades == 0) 0.0 else (winningTrades.size.toDouble() / totalTrades)
 
   /**
    * Calculated as totalWinningAmount / totalWins
@@ -117,7 +117,7 @@ class BacktestReport(
    * @return the loss rate
    */
   val lossRate: Double
-    get() = (losingTrades.size.toDouble() / this.totalTrades)
+    get() = if (totalTrades == 0) 0.0 else (losingTrades.size.toDouble() / totalTrades)
 
   /**
    * Calculated as the (totalLossAmount / totalLosses)
@@ -397,10 +397,9 @@ fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
 private fun buildEquityCurveData(trades: List<Trade>): List<EquityCurvePoint> =
   trades
     .filter { it.quotes.isNotEmpty() }
-    .sortedBy { it.quotes.maxByOrNull { q -> q.date }?.date }
+    .sortedBy { it.quotes.last().date }
     .map { trade ->
-      val exitDate = trade.quotes.maxByOrNull { it.date }!!.date
-      EquityCurvePoint(date = exitDate, profitPercentage = trade.profitPercentage)
+      EquityCurvePoint(date = trade.quotes.last().date, profitPercentage = trade.profitPercentage)
     }
 
 private fun buildExcursionPoints(trades: List<Trade>): List<ExcursionPoint> {

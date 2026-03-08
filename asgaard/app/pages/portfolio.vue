@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
+import { h, resolveComponent, type Ref } from 'vue'
 import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal, CashTransaction, CashTransactionSummary } from '~/types'
 import { usePositionFormatters } from '~/composables/usePositionFormatters'
 
@@ -57,6 +57,43 @@ const isSyncPortfolioModalOpen = ref(false)
 const selectedPosition = ref<Position | null>(null)
 const toast = useToast()
 const activeTab = ref('open')
+const showStrategyBreakdown = ref(false)
+
+// Row selection for batch operations
+const selectedOpenIds = ref<Set<number>>(new Set())
+const selectedClosedIds = ref<Set<number>>(new Set())
+const isBatchEditStrategyModalOpen = ref(false)
+
+function toggleSelect(id: number, selectionSet: Ref<Set<number>>) {
+  const next = new Set(selectionSet.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+  selectionSet.value = next
+}
+
+function toggleSelectAll(positions: Position[], selectionSet: Ref<Set<number>>) {
+  if (selectionSet.value.size === positions.length) {
+    selectionSet.value = new Set()
+  } else {
+    selectionSet.value = new Set(positions.map(p => p.id))
+  }
+}
+
+// Clear selection when switching tabs
+watch(activeTab, () => {
+  selectedOpenIds.value = new Set()
+  selectedClosedIds.value = new Set()
+})
+
+const selectedPositionsForBatch = computed(() => {
+  if (activeTab.value === 'open') {
+    return openPositions.value.filter(p => selectedOpenIds.value.has(p.id))
+  }
+  return closedPositions.value.filter(p => selectedClosedIds.value.has(p.id))
+})
 
 // Tab items configuration
 const tabItems = computed(() => {
@@ -134,6 +171,8 @@ async function loadPortfolios() {
 // Switch to a different portfolio
 async function selectPortfolio(selectedPortfolio: Portfolio) {
   portfolio.value = selectedPortfolio
+  selectedOpenIds.value = new Set()
+  selectedClosedIds.value = new Set()
   await loadPortfolioData()
 }
 
@@ -450,6 +489,12 @@ async function handleDeletePosition() {
   await deletePosition(selectedPosition.value.id)
 }
 
+async function handleBatchEditSuccess() {
+  selectedOpenIds.value = new Set()
+  selectedClosedIds.value = new Set()
+  await loadPortfolioData()
+}
+
 // Computed stats display
 // When unrealized P&L is shown, include it in total profit
 const displayStats = computed(() => {
@@ -471,6 +516,122 @@ const displayStats = computed(() => {
     totalProfit: stats.value.totalProfit,
     projectedProfit
   }
+})
+
+// Strategy breakdown stats
+const UNASSIGNED_STRATEGIES = new Set(['', 'Broker Import'])
+
+interface StrategyStats {
+  strategy: string
+  trades: number
+  wins: number
+  losses: number
+  winRate: number
+  avgWin: number
+  avgLoss: number
+  profitFactor: number | null
+  totalPnl: number
+}
+
+const strategyBreakdown = computed<StrategyStats[]>(() => {
+  if (closedPositions.value.length === 0) return []
+
+  const grouped = new Map<string, Position[]>()
+  for (const pos of closedPositions.value) {
+    const key = (!pos.entryStrategy || UNASSIGNED_STRATEGIES.has(pos.entryStrategy))
+      ? '(Unassigned)'
+      : pos.entryStrategy
+    const list = grouped.get(key) || []
+    list.push(pos)
+    grouped.set(key, list)
+  }
+
+  const results: StrategyStats[] = []
+  for (const [strategy, positions] of grouped) {
+    const wins = positions.filter(p => (p.realizedPnl ?? 0) > 0)
+    const losses = positions.filter(p => (p.realizedPnl ?? 0) < 0)
+    const totalPnl = positions.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0)
+
+    const avgWinPnl = wins.length > 0
+      ? wins.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0) / wins.length
+      : 0
+    const avgLossPnl = losses.length > 0
+      ? losses.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0) / losses.length
+      : 0
+
+    const grossProfit = wins.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0)
+    const grossLoss = Math.abs(losses.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0))
+
+    results.push({
+      strategy,
+      trades: positions.length,
+      wins: wins.length,
+      losses: losses.length,
+      winRate: positions.length > 0 ? (wins.length / positions.length) * 100 : 0,
+      avgWin: avgWinPnl,
+      avgLoss: avgLossPnl,
+      profitFactor: grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? null : 0),
+      totalPnl
+    })
+  }
+
+  return results.sort((a, b) => b.trades - a.trades)
+})
+
+const strategyBreakdownColumns = computed(() => {
+  const UBadge = resolveComponent('UBadge')
+
+  return [
+    {
+      accessorKey: 'strategy',
+      header: 'Strategy',
+      cell: ({ row }: { row: any }) => {
+        const s = row.original as StrategyStats
+        const children: any[] = []
+        if (s.strategy === '(Unassigned)') {
+          children.push(h('span', { class: 'italic text-gray-400' }, s.strategy))
+        } else {
+          children.push(h('span', {}, s.strategy))
+        }
+        if (s.trades < 5) {
+          children.push(h(UBadge as any, { variant: 'subtle', color: 'warning', size: 'xs', class: 'ml-2' }, () => '< 5 trades'))
+        }
+        return h('div', { class: 'flex items-center' }, children)
+      }
+    },
+    { accessorKey: 'trades', header: 'Trades' },
+    {
+      accessorKey: 'winRate',
+      header: 'Win Rate',
+      cell: ({ row }: { row: any }) => {
+        const val = row.original.winRate
+        return h('span', { class: val >= 50 ? 'text-green-600' : 'text-red-600' }, formatPercent(val))
+      }
+    },
+    {
+      accessorKey: 'avgWin',
+      header: 'Avg Win',
+      cell: ({ row }: { row: any }) => h('span', { class: 'text-green-600' }, formatCurrency(row.original.avgWin))
+    },
+    {
+      accessorKey: 'avgLoss',
+      header: 'Avg Loss',
+      cell: ({ row }: { row: any }) => h('span', { class: 'text-red-600' }, formatCurrency(row.original.avgLoss))
+    },
+    {
+      accessorKey: 'profitFactor',
+      header: 'Profit Factor',
+      cell: ({ row }: { row: any }) => formatProfitFactor(row.original.profitFactor)
+    },
+    {
+      accessorKey: 'totalPnl',
+      header: 'Total P&L',
+      cell: ({ row }: { row: any }) => {
+        const val = row.original.totalPnl
+        return h('span', { class: val >= 0 ? 'text-green-600' : 'text-red-600' }, formatCurrency(val))
+      }
+    }
+  ]
 })
 
 // Format percentage
@@ -575,6 +736,22 @@ const openPositionsColumns = computed(() => {
 
   const columns: any[] = [
     {
+      id: 'select',
+      header: () => h('input', {
+        type: 'checkbox',
+        checked: selectedOpenIds.value.size === openPositions.value.length && openPositions.value.length > 0,
+        indeterminate: selectedOpenIds.value.size > 0 && selectedOpenIds.value.size < openPositions.value.length,
+        class: 'rounded',
+        onChange: () => toggleSelectAll(openPositions.value, selectedOpenIds)
+      }),
+      cell: ({ row }: { row: any }) => h('input', {
+        type: 'checkbox',
+        checked: selectedOpenIds.value.has(row.original.id),
+        class: 'rounded',
+        onChange: () => toggleSelect(row.original.id, selectedOpenIds)
+      })
+    },
+    {
       accessorKey: 'symbol',
       header: 'Symbol',
       cell: ({ row }: { row: any }) => {
@@ -661,6 +838,22 @@ const closedPositionsColumns = computed(() => {
   const UButton = resolveComponent('UButton')
 
   return [
+    {
+      id: 'select',
+      header: () => h('input', {
+        type: 'checkbox',
+        checked: selectedClosedIds.value.size === closedPositions.value.length && closedPositions.value.length > 0,
+        indeterminate: selectedClosedIds.value.size > 0 && selectedClosedIds.value.size < closedPositions.value.length,
+        class: 'rounded',
+        onChange: () => toggleSelectAll(closedPositions.value, selectedClosedIds)
+      }),
+      cell: ({ row }: { row: any }) => h('input', {
+        type: 'checkbox',
+        checked: selectedClosedIds.value.has(row.original.id),
+        class: 'rounded',
+        onChange: () => toggleSelect(row.original.id, selectedClosedIds)
+      })
+    },
     {
       accessorKey: 'symbol',
       header: 'Symbol',
@@ -945,6 +1138,14 @@ const forexDisposalColumns = [
           variant="outline"
           @click="toggleUnrealizedPnl"
         />
+        <UButton
+          v-if="displayStats.closedPositions > 0"
+          label="Strategy Breakdown"
+          icon="i-lucide-bar-chart-3"
+          size="sm"
+          :variant="showStrategyBreakdown ? 'solid' : 'outline'"
+          @click="showStrategyBreakdown = !showStrategyBreakdown"
+        />
       </div>
 
       <!-- Stats Cards -->
@@ -1081,6 +1282,18 @@ const forexDisposalColumns = [
         </UCard>
       </div>
 
+      <!-- Strategy Breakdown -->
+      <div v-show="showStrategyBreakdown && strategyBreakdown.length > 0" class="px-4">
+        <UCard>
+          <template #header>
+            <h3 class="text-base font-semibold">
+              Performance by Entry Strategy
+            </h3>
+          </template>
+          <UTable :data="strategyBreakdown" :columns="strategyBreakdownColumns" />
+        </UCard>
+      </div>
+
       <!-- Tabs for Positions and Equity Curve -->
       <div v-if="portfolio" class="p-4">
         <UTabs
@@ -1098,6 +1311,25 @@ const forexDisposalColumns = [
                 </h3>
               </template>
 
+              <div v-if="selectedOpenIds.size > 0" class="flex items-center justify-between px-4 py-2 bg-primary-50 dark:bg-primary-950 border-b border-primary-200 dark:border-primary-800">
+                <span class="text-sm font-medium">{{ selectedOpenIds.size }} position{{ selectedOpenIds.size === 1 ? '' : 's' }} selected</span>
+                <div class="flex gap-2">
+                  <UButton
+                    label="Edit Strategy"
+                    icon="i-lucide-pencil"
+                    size="sm"
+                    variant="soft"
+                    @click="isBatchEditStrategyModalOpen = true"
+                  />
+                  <UButton
+                    icon="i-lucide-x"
+                    size="sm"
+                    variant="ghost"
+                    @click="selectedOpenIds = new Set()"
+                  />
+                </div>
+              </div>
+
               <div v-if="openPositions.length === 0" class="text-center py-8 text-gray-500">
                 No open positions
               </div>
@@ -1113,6 +1345,25 @@ const forexDisposalColumns = [
                   Closed Positions
                 </h3>
               </template>
+
+              <div v-if="selectedClosedIds.size > 0" class="flex items-center justify-between px-4 py-2 bg-primary-50 dark:bg-primary-950 border-b border-primary-200 dark:border-primary-800">
+                <span class="text-sm font-medium">{{ selectedClosedIds.size }} position{{ selectedClosedIds.size === 1 ? '' : 's' }} selected</span>
+                <div class="flex gap-2">
+                  <UButton
+                    label="Edit Strategy"
+                    icon="i-lucide-pencil"
+                    size="sm"
+                    variant="soft"
+                    @click="isBatchEditStrategyModalOpen = true"
+                  />
+                  <UButton
+                    icon="i-lucide-x"
+                    size="sm"
+                    variant="ghost"
+                    @click="selectedClosedIds = new Set()"
+                  />
+                </div>
+              </div>
 
               <div v-if="closedPositions.length === 0" class="text-center py-8 text-gray-500">
                 No closed positions
@@ -1346,5 +1597,11 @@ const forexDisposalColumns = [
     v-model="isDeletePositionModalOpen"
     :position="selectedPosition || null"
     @delete="handleDeletePosition"
+  />
+
+  <PortfolioBatchEditStrategyModal
+    v-model="isBatchEditStrategyModalOpen"
+    :positions="selectedPositionsForBatch"
+    @success="handleBatchEditSuccess"
   />
 </template>

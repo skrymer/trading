@@ -145,11 +145,9 @@ class PositionSizingService {
         0.0
       }
 
-    val exitDate =
-      event.trade.quotes
-        .maxByOrNull { it.date }
-        ?.date
-        ?: event.date
+    val exitDate = event.trade.quotes
+      .lastOrNull()
+      ?.date ?: event.date
 
     state.sizedTrades.add(
       PositionSizedTrade(
@@ -224,7 +222,7 @@ class PositionSizingService {
 
     for (trade in trades) {
       val entryDate = trade.entryQuote.date
-      val exitDate = trade.quotes.maxByOrNull { it.date }?.date ?: entryDate
+      val exitDate = trade.quotes.lastOrNull()?.date ?: entryDate
 
       events.add(TradeEvent.Entry(date = entryDate, trade = trade))
       events.add(TradeEvent.Exit(date = exitDate, trade = trade))

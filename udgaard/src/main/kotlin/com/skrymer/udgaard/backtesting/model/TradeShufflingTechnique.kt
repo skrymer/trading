@@ -47,11 +47,8 @@ class TradeShufflingTechnique : MonteCarloTechnique {
       multiplier *= (1.0 + trade.profitPercentage / 100.0)
       val cumulativeReturn = (multiplier - 1.0) * 100.0
 
-      val exitDate =
-        trade.quotes
-          .maxByOrNull { it.date }
-          ?.date
-          ?: throw IllegalStateException("Trade has no quotes")
+      val exitDate = trade.quotes.lastOrNull()?.date
+        ?: throw IllegalStateException("Trade has no quotes")
 
       equityCurve.add(
         MonteCarloScenario.EquityPoint(
@@ -82,11 +79,8 @@ class TradeShufflingTechnique : MonteCarloTechnique {
 
       val cumulativeReturn = ((portfolioValue - config.startingCapital) / config.startingCapital) * 100.0
 
-      val exitDate =
-        trade.quotes
-          .maxByOrNull { it.date }
-          ?.date
-          ?: throw IllegalStateException("Trade has no quotes")
+      val exitDate = trade.quotes.lastOrNull()?.date
+        ?: throw IllegalStateException("Trade has no quotes")
 
       equityCurve.add(
         MonteCarloScenario.EquityPoint(
