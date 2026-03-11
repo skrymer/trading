@@ -133,7 +133,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
 - **Settings** (`components/settings/`): MembersList
 - **Root-level**: StockPriceChart.client, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable
-- **Pages**: index, backtesting, portfolio, scanner, stock-data, breadth, data-manager, app-metrics, settings, login, test-chart
+- **Pages**: index, backtesting, portfolio, scanner, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -197,7 +197,7 @@ trading/
 │   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
 │   │   ├── model/                    # Domain models (Models.kt, OptionContractDto)
-│   │   └── config/                   # Configuration classes (Security, ProviderConfiguration, ExternalConfigLoader)
+│   │   └── config/                   # Configuration classes (Security, ProviderConfiguration, ExternalConfigLoader, VersionAdvice)
 │   ├── src/main/resources/           # Config, migrations, Thymeleaf templates
 │   ├── build.gradle                  # Gradle build config
 │   └── detekt.yml                    # Detekt configuration
@@ -205,7 +205,7 @@ trading/
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (12 pages)
+│   │   ├── pages/                    # File-based routing (11 pages + 1 dynamic route)
 │   │   ├── plugins/                  # Nuxt plugins
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
@@ -330,4 +330,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-08_
+_Last Updated: 2026-03-11_

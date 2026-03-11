@@ -204,11 +204,11 @@ function handleClose() {
   <UModal
     :open="open"
     title="Create Portfolio from Broker"
-    fullscreen
+    :ui="{ content: 'max-w-2xl' }"
     @update:open="emit('update:open', $event)"
   >
     <template #body>
-      <div class="max-w-4xl mx-auto py-8 space-y-6">
+      <div class="space-y-6">
         <UCard>
           <template #header>
             <h4 class="text-base font-semibold">

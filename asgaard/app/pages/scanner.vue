@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h } from 'vue'
+import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
 import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, PositionSizingSettings, AddScannerTradeRequest, OptionContractResponse } from '~/types'
 
@@ -41,6 +42,7 @@ const optionContracts = ref<Map<string, OptionContractResponse>>(new Map())
 const optionFetchStatus = ref<'idle' | 'pending'>('idle')
 
 const toast = useToast()
+const NuxtLink = resolveComponent('NuxtLink')
 
 const isOptionsMode = computed(() => positionSizingSettings.value.instrumentMode === 'OPTION')
 
@@ -363,10 +365,20 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   {
     id: 'symbol',
     header: 'Symbol',
-    cell: ({ row }) => h('button', {
-      class: 'font-semibold hover:underline text-primary',
-      onClick: () => openTradeDetails(row.original)
-    }, row.original.symbol)
+    cell: ({ row }) => h('div', { class: 'flex items-center gap-1.5' }, [
+      h(NuxtLink, {
+        to: `/stock-data/${row.original.symbol.toLowerCase()}`,
+        target: '_blank',
+        class: 'font-semibold text-primary hover:underline'
+      }, () => row.original.symbol),
+      h(resolveComponent('UButton'), {
+        icon: 'i-lucide-info',
+        size: 'xs',
+        variant: 'ghost',
+        color: 'neutral',
+        onClick: () => openTradeDetails(row.original)
+      })
+    ])
   },
   {
     id: 'entryPrice',
@@ -413,10 +425,28 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => {
       const result = exitResults.value.get(row.original.id)
       if (!result) return '-'
+
+      const UIcon = resolveComponent('UIcon')
+      const UBadge = resolveComponent('UBadge')
+
       if (result.exitTriggered) {
-        return h(resolveComponent('UBadge'), { color: 'error', variant: 'solid', size: 'sm' }, () => result.exitReason ?? 'EXIT')
+        return h(UBadge, { color: 'error', variant: 'solid', size: 'sm', class: 'gap-1' }, () => [
+          h(UIcon, { name: 'i-lucide-x-circle', class: 'size-3.5 shrink-0' }),
+          result.exitReason ?? 'EXIT'
+        ])
       }
-      return h(resolveComponent('UBadge'), { color: 'success', variant: 'subtle', size: 'sm' }, () => `${result.unrealizedPnlPercent >= 0 ? '+' : ''}${result.unrealizedPnlPercent.toFixed(1)}%`)
+
+      const pnl = result.unrealizedPnlPercent
+      const hasSignificantPnl = Math.abs(pnl) >= 0.05
+      const pnlColor = pnl > 0 ? 'success' : pnl < -0.05 ? 'error' : 'neutral'
+      const pnlLabel = hasSignificantPnl
+        ? `${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%`
+        : null
+
+      return h(UBadge, { color: pnlColor, variant: 'subtle', size: 'sm', class: 'gap-1' }, () => [
+        h(UIcon, { name: 'i-lucide-check-circle', class: 'size-3.5 shrink-0' }),
+        ...(pnlLabel ? [pnlLabel] : [])
+      ])
     }
   },
   {
@@ -446,6 +476,15 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     }
   }
 ]
+
+const tradesTableUi = computed(() => ({
+  // NuxtUI v4 UTable accepts (row: Row<T>) => string for tr at runtime, but Volar
+  // resolves the ui prop as the static theme slot type (ClassNameValue). Cast to any.
+  tr: ((row: Row<ScannerTrade>) =>
+    exitResults.value.get(row.original.id)?.exitTriggered
+      ? 'bg-red-500/8 dark:bg-red-500/10 border-l-2 border-l-red-500'
+      : '') as any
+}))
 </script>
 
 <template>
@@ -453,14 +492,6 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     <template #header>
       <UDashboardNavbar title="Scanner">
         <template #right>
-          <UButton
-            label="Check Exits"
-            icon="i-lucide-shield-alert"
-            variant="soft"
-            :loading="exitCheckStatus === 'pending'"
-            :disabled="trades.length === 0"
-            @click="checkExits"
-          />
           <UButton
             label="New Scan"
             icon="i-lucide-scan-search"
@@ -491,20 +522,22 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
           </div>
           <div class="grid grid-cols-4 gap-4">
             <UFormField label="Instrument">
-              <UButtonGroup size="sm" class="w-full">
+              <div class="flex w-full">
                 <UButton
                   label="Stock"
+                  size="sm"
                   :variant="positionSizingSettings.instrumentMode === 'STOCK' ? 'solid' : 'outline'"
-                  class="flex-1"
+                  class="flex-1 rounded-r-none"
                   @click="positionSizingSettings.instrumentMode = 'STOCK'"
                 />
                 <UButton
                   label="Options"
+                  size="sm"
                   :variant="positionSizingSettings.instrumentMode === 'OPTION' ? 'solid' : 'outline'"
-                  class="flex-1"
+                  class="flex-1 rounded-l-none"
                   @click="positionSizingSettings.instrumentMode = 'OPTION'"
                 />
-              </UButtonGroup>
+              </div>
             </UFormField>
             <UFormField label="Portfolio Value ($)">
               <UInput
@@ -554,11 +587,13 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
                 {{ portfolioUtilization.toFixed(1) }}% utilized
               </span>
             </div>
-            <UProgress
-              :value="Math.min(portfolioUtilization, 100)"
-              :color="portfolioUtilization > 100 ? 'error' : portfolioUtilization > 80 ? 'warning' : 'primary'"
-              size="xs"
-            />
+            <div class="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="portfolioUtilization > 100 ? 'bg-red-500' : portfolioUtilization > 80 ? 'bg-yellow-500' : 'bg-primary'"
+                :style="{ width: `${Math.min(portfolioUtilization, 100)}%` }"
+              />
+            </div>
           </div>
         </div>
         <div v-else class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-default">
@@ -684,7 +719,22 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
           <!-- Active Trades Tab -->
           <template #trades>
             <div class="pt-4">
-              <UTable :data="trades" :columns="tradeColumns">
+              <div class="flex justify-end mb-3">
+                <UButton
+                  label="Check Exits"
+                  icon="i-lucide-shield-alert"
+                  variant="soft"
+                  size="sm"
+                  :loading="exitCheckStatus === 'pending'"
+                  :disabled="trades.length === 0"
+                  @click="checkExits"
+                />
+              </div>
+              <UTable
+                :data="trades"
+                :columns="tradeColumns"
+                :ui="tradesTableUi"
+              >
                 <template #empty-state>
                   <div class="flex flex-col items-center justify-center py-8">
                     <UIcon name="i-lucide-inbox" class="w-10 h-10 text-muted mb-2" />

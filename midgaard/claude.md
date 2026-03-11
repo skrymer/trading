@@ -31,7 +31,8 @@ midgaard/
 │   │   ├── ApiKeyAuthenticationFilter.kt  # X-API-Key header filter (SHA-256 + constant-time compare)
 │   │   ├── ProviderConfiguration.kt       # Provider bean definitions
 │   │   ├── ExternalConfigLoader.kt        # External configuration loading
-│   │   └── GlobalExceptionHandler.kt      # Global exception handler
+│   │   ├── GlobalExceptionHandler.kt      # Global exception handler
+│   │   └── VersionAdvice.kt              # Build version info via @ControllerAdvice
 │   ├── controller/
 │   │   ├── QuoteController.kt             # GET /api/quotes/{symbol}, /api/quotes/bulk
 │   │   ├── SymbolController.kt            # GET /api/symbols, /api/symbols/{symbol}

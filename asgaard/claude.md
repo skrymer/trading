@@ -30,7 +30,8 @@ asgaard/
 │   │   ├── backtesting.vue       # Backtesting UI with strategy builder
 │   │   ├── portfolio.vue         # Portfolio management
 │   │   ├── scanner.vue           # Stock scanner
-│   │   ├── stock-data.vue        # Stock data explorer with charts
+│   │   ├── stock-data/            # Stock data explorer with charts
+│   │   │   └── [[symbol]].vue    #   Dynamic route: /stock-data/:symbol?
 │   │   ├── breadth.vue           # Market/sector breadth analysis
 │   │   ├── data-manager.vue      # Data ingestion & refresh controls
 │   │   ├── app-metrics.vue       # Application metrics dashboard

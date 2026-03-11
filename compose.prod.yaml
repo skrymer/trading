@@ -64,6 +64,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: trading
       MIDGAARD_BASE_URL: http://midgaard:8081
       SPRING_FLYWAY_ENABLED: "true"
+      APP_SECURITY_ENABLED: "true"
     env_file:
       - path: .env.prod
         required: false

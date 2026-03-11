@@ -31,167 +31,177 @@
 
       <!-- Stock Data Display -->
       <div v-else-if="selectedStock" class="space-y-4">
-        <!-- Strategy Selection Row -->
-        <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div class="flex items-center gap-2 flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Entry Strategy:
-            </label>
-            <USelectMenu
-              v-model="selectedEntryStrategy"
-              :items="entryStrategies"
-              :loading="loadingStrategies"
-              placeholder="Select entry strategy"
-              class="flex-1 max-w-xs"
-            />
-          </div>
+        <UTabs v-model="activeTab" :items="tabItems">
+          <template #chart>
+            <div class="pt-4 space-y-4">
+              <!-- Strategy Selection Row -->
+              <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div class="flex items-center gap-2 flex-1">
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    Entry Strategy:
+                  </label>
+                  <USelectMenu
+                    v-model="selectedEntryStrategy"
+                    :items="entryStrategies"
+                    :loading="loadingStrategies"
+                    placeholder="Select entry strategy"
+                    class="flex-1 max-w-xs"
+                  />
+                </div>
 
-          <div class="flex items-center gap-2 flex-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Exit Strategy:
-            </label>
-            <USelectMenu
-              v-model="selectedExitStrategy"
-              :items="exitStrategies"
-              :loading="loadingStrategies"
-              placeholder="Select exit strategy"
-              class="flex-1 max-w-xs"
-            />
-          </div>
+                <div class="flex items-center gap-2 flex-1">
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    Exit Strategy:
+                  </label>
+                  <USelectMenu
+                    v-model="selectedExitStrategy"
+                    :items="exitStrategies"
+                    :loading="loadingStrategies"
+                    placeholder="Select exit strategy"
+                    class="flex-1 max-w-xs"
+                  />
+                </div>
 
-          <div class="flex items-center gap-3">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Cooldown Days:
-            </label>
-            <UInput
-              v-model.number="cooldownDays"
-              type="number"
-              min="0"
-              max="100"
-              class="w-24"
-              placeholder="0"
-            />
-          </div>
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    Cooldown Days:
+                  </label>
+                  <UInput
+                    v-model.number="cooldownDays"
+                    type="number"
+                    min="0"
+                    max="100"
+                    class="w-24"
+                    placeholder="0"
+                  />
+                </div>
 
-          <UButton
-            icon="i-heroicons-chart-bar"
-            :loading="loadingSignals"
-            :disabled="!selectedEntryStrategy || !selectedExitStrategy"
-            @click="fetchSignals"
-          >
-            Show Signals
-          </UButton>
+                <UButton
+                  icon="i-heroicons-chart-bar"
+                  :loading="loadingSignals"
+                  :disabled="!selectedEntryStrategy || !selectedExitStrategy"
+                  @click="fetchSignals"
+                >
+                  Show Signals
+                </UButton>
 
-          <UButton
-            icon="i-heroicons-funnel"
-            color="success"
-            variant="soft"
-            :loading="loadingConditions"
-            @click="showConditionModal = true"
-          >
-            Show Conditions
-          </UButton>
-        </div>
+                <UButton
+                  icon="i-heroicons-funnel"
+                  color="success"
+                  variant="soft"
+                  :loading="loadingConditions"
+                  @click="showConditionModal = true"
+                >
+                  Show Conditions
+                </UButton>
+              </div>
 
-        <!-- Condition Signals Info Bar -->
-        <div v-if="conditionSignalsData" class="flex items-center gap-4 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
-          <UIcon name="i-heroicons-funnel" class="text-green-600 dark:text-green-400 flex-shrink-0" />
-          <div class="text-sm flex-1">
-            <span class="font-medium">{{ conditionSignalsData.matchingQuotes }}</span> of
-            <span class="font-medium">{{ conditionSignalsData.totalQuotes }}</span> quotes matched
-            ({{ conditionSignalsData.conditionDescriptions.join(` ${conditionSignalsData.operator} `) }})
-          </div>
-          <UButton
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            icon="i-heroicons-x-mark"
-            @click="conditionSignalsData = null"
-          >
-            Clear
-          </UButton>
-        </div>
+              <!-- Condition Signals Info Bar -->
+              <div v-if="conditionSignalsData" class="flex items-center gap-4 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                <UIcon name="i-heroicons-funnel" class="text-green-600 dark:text-green-400 flex-shrink-0" />
+                <div class="text-sm flex-1">
+                  <span class="font-medium">{{ conditionSignalsData.matchingQuotes }}</span> of
+                  <span class="font-medium">{{ conditionSignalsData.totalQuotes }}</span> quotes matched
+                  ({{ conditionSignalsData.conditionDescriptions.join(` ${conditionSignalsData.operator} `) }})
+                </div>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-heroicons-x-mark"
+                  @click="conditionSignalsData = null"
+                >
+                  Clear
+                </UButton>
+              </div>
 
-        <StockPriceChart
-          v-if="selectedStock.quotes && selectedStock.quotes.length > 0"
-          :quotes="selectedStock.quotes"
-          :order-blocks="selectedStock.orderBlocks || []"
-          :symbol="selectedStock.symbol"
-          :signals="signalsData"
-          :entry-strategy="selectedEntryStrategy"
-          :condition-signals="conditionSignalsData"
-        />
+              <StockPriceChart
+                v-if="selectedStock.quotes && selectedStock.quotes.length > 0"
+                :quotes="selectedStock.quotes"
+                :order-blocks="selectedStock.orderBlocks || []"
+                :symbol="selectedStock.symbol"
+                :signals="signalsData"
+                :entry-strategy="selectedEntryStrategy"
+                :condition-signals="conditionSignalsData"
+              />
 
-        <!-- Strategy Signals Table -->
-        <ChartsStrategySignalsTable
-          :signals="signalsData"
-          :entry-strategy="selectedEntryStrategy"
-          :exit-strategy="selectedExitStrategy"
-        />
+              <!-- Strategy Signals Table -->
+              <ChartsStrategySignalsTable
+                :signals="signalsData"
+                :entry-strategy="selectedEntryStrategy"
+                :exit-strategy="selectedExitStrategy"
+              />
 
-        <!-- Condition Signals Table -->
-        <ConditionSignalsTable
-          v-if="conditionSignalsData"
-          :condition-signals="conditionSignalsData"
-        />
+              <!-- Condition Signals Table -->
+              <ConditionSignalsTable
+                v-if="conditionSignalsData"
+                :condition-signals="conditionSignalsData"
+              />
+            </div>
+          </template>
 
-        <!-- Time Range Selector -->
-        <div v-if="selectedStock" class="flex items-center justify-end">
-          <div class="flex items-center gap-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Time Range:
-            </label>
-            <USelectMenu
-              v-model="heatmapMonths"
-              :items="[
-                { label: '1 Week', value: 0.25 },
-                { label: '1 Month', value: 1 },
-                { label: '3 Months', value: 3 },
-                { label: '6 Months', value: 6 },
-                { label: '1 Year', value: 12 },
-                { label: '2 Years', value: 24 },
-                { label: 'All Time', value: 1000 }
-              ]"
-              value-attribute="value"
-              class="w-36"
-            />
-          </div>
-        </div>
+          <template #breadth>
+            <div class="pt-4 space-y-4">
+              <!-- Time Range Selector -->
+              <div class="flex items-center justify-end">
+                <div class="flex items-center gap-2">
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Time Range:
+                  </label>
+                  <USelectMenu
+                    v-model="heatmapMonths"
+                    :items="[
+                      { label: '1 Week', value: 0.25 },
+                      { label: '1 Month', value: 1 },
+                      { label: '3 Months', value: 3 },
+                      { label: '6 Months', value: 6 },
+                      { label: '1 Year', value: 12 },
+                      { label: '2 Years', value: 24 },
+                      { label: 'All Time', value: 1000 }
+                    ]"
+                    value-attribute="value"
+                    class="w-36"
+                  />
+                </div>
+              </div>
 
-        <!-- Breadth Analysis Charts -->
-        <div v-if="marketBreadthSeries.length > 0 || sectorBreadthSeries.length > 0" class="space-y-4">
-          <h3 class="text-lg font-semibold">
-            Breadth Analysis
-          </h3>
+              <!-- Market Breadth Chart -->
+              <div v-if="marketBreadthSeries.length > 0">
+                <h4 class="text-md font-medium mb-2">
+                  Market Breadth
+                </h4>
+                <ChartsLineChart
+                  :series="marketBreadthSeries"
+                  :categories="marketBreadthCategories"
+                  :line-colors="['#eab308', '#10b981', '#ef4444']"
+                  :height="400"
+                  :percent-mode="true"
+                />
+              </div>
 
-          <!-- Market Breadth Chart -->
-          <div v-if="marketBreadthSeries.length > 0">
-            <h4 class="text-md font-medium mb-2">
-              Market Breadth
-            </h4>
-            <ChartsLineChart
-              :series="marketBreadthSeries"
-              :categories="marketBreadthCategories"
-              :line-colors="['#eab308', '#10b981', '#ef4444']"
-              :height="400"
-              :percent-mode="true"
-            />
-          </div>
+              <!-- Sector Breadth Chart -->
+              <div v-if="sectorBreadthSeries.length > 0 && selectedStock?.sectorSymbol">
+                <h4 class="text-md font-medium mb-2">
+                  Sector Breadth - {{ getSectorName(selectedStock.sectorSymbol) }}
+                </h4>
+                <ChartsLineChart
+                  :series="sectorBreadthSeries"
+                  :categories="sectorBreadthCategories"
+                  :line-colors="['#eab308', '#10b981', '#ef4444']"
+                  :height="400"
+                  :percent-mode="true"
+                />
+              </div>
 
-          <!-- Sector Breadth Chart -->
-          <div v-if="sectorBreadthSeries.length > 0 && selectedStock?.sectorSymbol">
-            <h4 class="text-md font-medium mb-2">
-              {{ selectedStock.sectorSymbol }} Sector Breadth
-            </h4>
-            <ChartsLineChart
-              :series="sectorBreadthSeries"
-              :categories="sectorBreadthCategories"
-              :line-colors="['#eab308', '#10b981', '#ef4444']"
-              :height="400"
-              :percent-mode="true"
-            />
-          </div>
-        </div>
+              <div v-if="marketBreadthSeries.length === 0 && sectorBreadthSeries.length === 0" class="text-center py-12">
+                <UIcon name="i-lucide-bar-chart-3" class="w-12 h-12 text-muted mb-3" />
+                <p class="text-muted">
+                  No breadth data available
+                </p>
+              </div>
+            </div>
+          </template>
+        </UTabs>
       </div>
 
       <!-- No Selection State -->
@@ -215,14 +225,37 @@
 
 <script setup lang="ts">
 import type { Stock, MarketBreadthDaily, SectorBreadthDaily, ConditionConfig, StockConditionSignals } from '~/types'
+import { getSectorName } from '~/types/enums'
 
 // Page meta
 definePageMeta({
   layout: 'default'
 })
 
+// Route
+const route = useRoute()
+const router = useRouter()
+
+// Tabs
+const activeTab = ref('chart')
+const tabItems = [
+  {
+    label: 'Chart',
+    icon: 'i-lucide-chart-candlestick',
+    value: 'chart',
+    slot: 'chart'
+  },
+  {
+    label: 'Breadth',
+    icon: 'i-lucide-bar-chart-3',
+    value: 'breadth',
+    slot: 'breadth'
+  }
+]
+
 // State
-const selectedSymbol = ref<string>('')
+const routeSymbol = (route.params.symbol as string)?.toUpperCase() || ''
+const selectedSymbol = ref<string>(routeSymbol)
 const selectedStock = ref<Stock | null>(null)
 const loading = ref(false)
 const loadingStrategies = ref(false)
@@ -444,6 +477,10 @@ const refreshStock = async () => {
 
 // Watchers
 watch(selectedSymbol, async (newSymbol) => {
+  const path = newSymbol ? `/stock-data/${newSymbol.toLowerCase()}` : '/stock-data'
+  if (route.path !== path) {
+    router.replace(path)
+  }
   if (newSymbol) {
     await fetchStockData(newSymbol)
     fetchBreadthData()
@@ -455,8 +492,12 @@ watch(selectedSymbol, async (newSymbol) => {
 })
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
   fetchStrategies()
+  if (selectedSymbol.value) {
+    await fetchStockData(selectedSymbol.value)
+    fetchBreadthData()
+  }
 })
 
 // Watch for symbol changes and clear signals

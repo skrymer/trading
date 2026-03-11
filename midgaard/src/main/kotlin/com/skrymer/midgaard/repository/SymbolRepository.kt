@@ -57,6 +57,5 @@ class SymbolRepository(
 
     fun count(): Int = dsl.fetchCount(SYMBOLS)
 
-    fun countByAssetType(assetType: AssetType): Int =
-        dsl.fetchCount(SYMBOLS, SYMBOLS.ASSET_TYPE.eq(assetType.name))
+    fun countByAssetType(assetType: AssetType): Int = dsl.fetchCount(SYMBOLS, SYMBOLS.ASSET_TYPE.eq(assetType.name))
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { z } from 'zod'
 import type { BacktestRequest, StrategyConfig, AvailableConditions, PositionSizingConfig } from '~/types'
 import { AssetTypeOptions, SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
 
@@ -18,6 +19,10 @@ const emit = defineEmits<{
 
 // Form ref
 const form = ref<{ submit: () => void } | null>(null)
+
+// Sidebar navigation
+type SectionId = 'universe' | 'strategies' | 'position-limits' | 'trade-timing' | 'position-sizing' | 'advanced'
+const currentSection = ref<SectionId>('universe')
 
 // Form state
 const state = reactive<{
@@ -54,7 +59,7 @@ const state = reactive<{
   endDate: '',
   positionLimitEnabled: true,
   maxPositions: 10,
-  ranker: '',
+  ranker: 'strategy-default',
   cooldownDays: 0,
   entryDelayDays: 0,
   refresh: false,
@@ -67,6 +72,154 @@ const state = reactive<{
   positionSizingNAtr: 2.0,
   positionSizingLeverageRatio: null
 })
+
+// Validation schema
+const schema = z.object({
+  stockSelection: z.enum(['all', 'specific']),
+  specificStocks: z.array(z.string()),
+  entryStrategy: z.object({
+    type: z.enum(['predefined', 'custom']),
+    name: z.string().optional(),
+    conditions: z.array(z.any()).optional()
+  }).passthrough(),
+  exitStrategy: z.object({
+    type: z.enum(['predefined', 'custom']),
+    name: z.string().optional(),
+    conditions: z.array(z.any()).optional()
+  }).passthrough(),
+  positionLimitEnabled: z.boolean(),
+  maxPositions: z.number().optional(),
+  positionSizingEnabled: z.boolean(),
+  positionSizingStartingCapital: z.number().optional(),
+  positionSizingRiskPercentage: z.number().optional(),
+  positionSizingNAtr: z.number().optional(),
+  positionSizingLeverageRatio: z.number().nullable().optional()
+}).passthrough().superRefine((data, ctx) => {
+  // Specific stocks required when in specific mode
+  if (data.stockSelection === 'specific' && data.specificStocks.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Select at least one stock',
+      path: ['specificStocks']
+    })
+  }
+
+  // Entry strategy validation
+  if (data.entryStrategy.type === 'predefined' && !data.entryStrategy.name) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Select an entry strategy',
+      path: ['entryStrategy']
+    })
+  }
+  if (data.entryStrategy.type === 'custom' && (!data.entryStrategy.conditions || data.entryStrategy.conditions.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Add at least one entry condition',
+      path: ['entryStrategy']
+    })
+  }
+
+  // Exit strategy validation
+  if (data.exitStrategy.type === 'predefined' && !data.exitStrategy.name) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Select an exit strategy',
+      path: ['exitStrategy']
+    })
+  }
+  if (data.exitStrategy.type === 'custom' && (!data.exitStrategy.conditions || data.exitStrategy.conditions.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Add at least one exit condition',
+      path: ['exitStrategy']
+    })
+  }
+
+  // Position limit validation
+  if (data.positionLimitEnabled) {
+    if (!data.maxPositions || data.maxPositions < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Must be at least 1',
+        path: ['maxPositions']
+      })
+    }
+  }
+
+  // Position sizing validation
+  if (data.positionSizingEnabled) {
+    if (!data.positionSizingStartingCapital || data.positionSizingStartingCapital < 1000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Must be at least $1,000',
+        path: ['positionSizingStartingCapital']
+      })
+    }
+    if (!data.positionSizingRiskPercentage || data.positionSizingRiskPercentage < 0.1 || data.positionSizingRiskPercentage > 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Must be between 0.1% and 10%',
+        path: ['positionSizingRiskPercentage']
+      })
+    }
+    if (!data.positionSizingNAtr || data.positionSizingNAtr < 0.5 || data.positionSizingNAtr > 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Must be between 0.5 and 10',
+        path: ['positionSizingNAtr']
+      })
+    }
+    if (data.positionSizingLeverageRatio != null && (data.positionSizingLeverageRatio < 0.1 || data.positionSizingLeverageRatio > 20)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Must be between 0.1 and 20',
+        path: ['positionSizingLeverageRatio']
+      })
+    }
+  }
+})
+
+// Track validation errors per section for sidebar indicators
+const validationErrors = ref<Record<string, string[]>>({})
+
+// Map field paths to sidebar sections
+const fieldToSection: Record<string, SectionId> = {
+  specificStocks: 'universe',
+  stockSelection: 'universe',
+  entryStrategy: 'strategies',
+  exitStrategy: 'strategies',
+  maxPositions: 'position-limits',
+  positionSizingStartingCapital: 'position-sizing',
+  positionSizingRiskPercentage: 'position-sizing',
+  positionSizingNAtr: 'position-sizing',
+  positionSizingLeverageRatio: 'position-sizing'
+}
+
+function sectionHasErrors(sectionId: SectionId): boolean {
+  return Object.entries(validationErrors.value).some(
+    ([field, errors]) => fieldToSection[field] === sectionId && errors.length > 0
+  )
+}
+
+function onValidationError(event: { errors: Array<{ name?: string, message: string }> }) {
+  const errors = event.errors || []
+  const errorMap: Record<string, string[]> = {}
+  errors.forEach((err) => {
+    const field = err.name
+    if (field) {
+      if (!errorMap[field]) errorMap[field] = []
+      errorMap[field].push(err.message)
+    }
+  })
+  validationErrors.value = errorMap
+
+  // Navigate to first section with errors
+  const firstErrorField = errors[0]?.name
+  if (firstErrorField && fieldToSection[firstErrorField]) {
+    currentSection.value = fieldToSection[firstErrorField]
+  }
+}
 
 // Fetch available strategies from backend
 const { data: availableStrategies } = useFetch<{
@@ -82,7 +235,7 @@ const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/ap
 
 // Ranker options computed from fetched data
 const rankerOptions = computed(() => {
-  const options = [{ label: 'Strategy Default', value: '' }]
+  const options = [{ label: 'Strategy Default', value: 'strategy-default' }]
   if (availableRankers.value) {
     options.push(...availableRankers.value.map(r => ({ label: r, value: r })))
   }
@@ -173,6 +326,8 @@ function removeDetectedMapping(symbol: string) {
 }
 
 function onSubmit() {
+  validationErrors.value = {}
+
   // Build customUnderlyingMap from detected + custom overrides
   const customUnderlyingMap: Record<string, string> = {}
 
@@ -210,7 +365,7 @@ function onSubmit() {
     startDate: state.startDate || undefined,
     endDate: state.endDate || undefined,
     maxPositions: state.positionLimitEnabled ? state.maxPositions : undefined,
-    ranker: state.positionLimitEnabled && state.ranker ? state.ranker : undefined,
+    ranker: state.positionLimitEnabled && state.ranker && state.ranker !== 'strategy-default' ? state.ranker : undefined,
     cooldownDays: state.cooldownDays > 0 ? state.cooldownDays : undefined,
     entryDelayDays: state.entryDelayDays > 0 ? state.entryDelayDays : undefined,
     refresh: state.refresh,
@@ -226,425 +381,559 @@ function onSubmit() {
 function cancel() {
   emit('update:open', false)
 }
+
+// Sidebar section definitions with computed subtitles
+const sections = computed(() => [
+  {
+    id: 'universe' as SectionId,
+    label: 'Universe',
+    icon: 'i-lucide-database',
+    subtitle: state.stockSelection === 'specific'
+      ? state.specificStocks.length > 0
+        ? `${state.specificStocks.length} stock${state.specificStocks.length === 1 ? '' : 's'}`
+        : 'No stocks selected'
+      : state.assetTypes.length > 0
+        ? state.assetTypes.join(', ')
+        : 'All Stocks'
+  },
+  {
+    id: 'strategies' as SectionId,
+    label: 'Strategies',
+    icon: 'i-lucide-git-branch',
+    subtitle: (() => {
+      const entry = state.entryStrategy.type === 'predefined' ? state.entryStrategy.name : 'Custom'
+      const exit = state.exitStrategy.type === 'predefined' ? state.exitStrategy.name : 'Custom'
+      return `${entry} / ${exit}`
+    })()
+  },
+  {
+    id: 'position-limits' as SectionId,
+    label: 'Position Limits',
+    icon: 'i-lucide-layers',
+    subtitle: state.positionLimitEnabled
+      ? `Max ${state.maxPositions}, ${state.ranker === 'strategy-default' ? 'Default ranker' : state.ranker}`
+      : 'Disabled'
+  },
+  {
+    id: 'trade-timing' as SectionId,
+    label: 'Trade Timing',
+    icon: 'i-lucide-clock',
+    subtitle: (() => {
+      const parts: string[] = []
+      if (state.cooldownDays > 0) parts.push(`${state.cooldownDays}d cooldown`)
+      if (state.entryDelayDays > 0) parts.push(`${state.entryDelayDays}d delay`)
+      return parts.length > 0 ? parts.join(', ') : 'No timing constraints'
+    })()
+  },
+  {
+    id: 'position-sizing' as SectionId,
+    label: 'Position Sizing',
+    icon: 'i-lucide-trending-up',
+    subtitle: state.positionSizingEnabled
+      ? `$${state.positionSizingStartingCapital.toLocaleString()}, ${state.positionSizingRiskPercentage}% risk`
+      : 'Disabled'
+  },
+  {
+    id: 'advanced' as SectionId,
+    label: 'Advanced',
+    icon: 'i-lucide-settings-2',
+    subtitle: (() => {
+      const parts: string[] = []
+      if (state.useUnderlyingAssets) parts.push('Underlying assets')
+      if (state.refresh) parts.push('Refresh data')
+      return parts.length > 0 ? parts.join(', ') : 'Default settings'
+    })()
+  }
+])
 </script>
 
 <template>
   <UModal
     :open="open"
     title="Backtest Configuration"
-    fullscreen
-    :ui="{ content: 'overflow-y-auto' }"
+    :ui="{ content: 'max-w-5xl h-[85vh] flex flex-col' }"
     @update:open="emit('update:open', $event)"
   >
     <template #body>
-      <UForm ref="form" :state="state" @submit="onSubmit">
-        <div class="space-y-6">
-          <!-- Stock Selection and Date Range -->
-          <UCard>
-            <template #header>
-              <h3 class="text-base font-semibold">
+      <UForm
+        ref="form"
+        :state="state"
+        :schema="schema"
+        class="flex flex-col flex-1 min-h-0"
+        @submit="onSubmit"
+        @error="onValidationError"
+      >
+        <div class="flex flex-1 min-h-0">
+          <!-- Sidebar -->
+          <div class="w-48 shrink-0 border-r border-default flex flex-col gap-1 py-2 px-2">
+            <button
+              v-for="section in sections"
+              :key="section.id"
+              type="button"
+              class="w-full text-left rounded-lg px-3 py-2.5 transition-colors"
+              :class="currentSection === section.id
+                ? 'bg-primary/10 text-primary'
+                : 'text-default hover:bg-elevated'"
+              @click="currentSection = section.id"
+            >
+              <div class="flex items-center gap-2 mb-0.5">
+                <UIcon
+                  :name="section.icon"
+                  class="w-4 h-4 shrink-0"
+                  :class="currentSection === section.id ? 'text-primary' : 'text-muted'"
+                />
+                <span class="text-sm font-medium">{{ section.label }}</span>
+                <span
+                  v-if="sectionHasErrors(section.id)"
+                  class="w-2 h-2 rounded-full bg-red-500 shrink-0"
+                />
+              </div>
+              <p class="text-xs text-muted leading-tight pl-6 truncate">
+                {{ section.subtitle }}
+              </p>
+            </button>
+          </div>
+
+          <!-- Content panel -->
+          <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            <!-- Universe: Stock Selection & Date Range -->
+            <div v-show="currentSection === 'universe'">
+              <h3 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">
                 Stock Selection & Date Range
               </h3>
-            </template>
-            <div class="space-y-4">
-              <div class="grid grid-cols-4 gap-4">
-                <UFormField label="Stock Selection" name="stockSelection">
-                  <URadioGroup
-                    v-model="state.stockSelection"
-                    :items="[
-                      { value: 'all', label: 'All Stocks' },
-                      { value: 'specific', label: 'Specific Stocks' }
-                    ]"
-                  />
-                </UFormField>
+              <div class="space-y-4">
+                <div class="grid grid-cols-4 gap-4">
+                  <UFormField label="Stock Selection" name="stockSelection">
+                    <URadioGroup
+                      v-model="state.stockSelection"
+                      :items="[
+                        { value: 'all', label: 'All Stocks' },
+                        { value: 'specific', label: 'Specific Stocks' }
+                      ]"
+                    />
+                  </UFormField>
+
+                  <UFormField
+                    v-if="state.stockSelection === 'all'"
+                    label="Asset Types"
+                    name="assetTypes"
+                    help="Filter by asset type (empty = all)"
+                  >
+                    <USelectMenu
+                      v-model="state.assetTypes"
+                      :items="AssetTypeOptions"
+                      value-key="value"
+                      multiple
+                      placeholder="All asset types"
+                      :search-input="false"
+                    />
+                  </UFormField>
+                  <div v-else />
+
+                  <UFormField
+                    v-if="state.stockSelection === 'all'"
+                    label="Exclude Sectors"
+                    name="excludeSectors"
+                    help="Exclude stocks in these sectors"
+                    class="col-span-2"
+                  >
+                    <USelectMenu
+                      v-model="state.excludeSectors"
+                      :items="SectorOptions"
+                      value-key="value"
+                      multiple
+                      placeholder="No exclusions"
+                      :search-input="false"
+                    />
+                  </UFormField>
+
+                  <UFormField name="startDate">
+                    <template #label>
+                      <span>Start Date <span class="text-muted">Optional</span></span>
+                    </template>
+                    <UInput
+                      v-model="state.startDate"
+                      type="date"
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </UFormField>
+
+                  <UFormField name="endDate">
+                    <template #label>
+                      <span>End Date <span class="text-muted">Optional</span></span>
+                    </template>
+                    <UInput
+                      v-model="state.endDate"
+                      type="date"
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </UFormField>
+                </div>
 
                 <UFormField
-                  v-if="state.stockSelection === 'all'"
-                  label="Asset Types"
-                  name="assetTypes"
-                  help="Filter by asset type (empty = all)"
+                  v-if="state.stockSelection === 'specific'"
+                  name="specificStocks"
                 >
-                  <USelectMenu
-                    v-model="state.assetTypes"
-                    :items="AssetTypeOptions"
-                    value-key="value"
+                  <SymbolSearch
+                    v-model="state.specificStocks"
+                    placeholder="Type to search stock symbols..."
                     multiple
-                    placeholder="All asset types"
-                    :search-input="false"
-                  />
-                </UFormField>
-                <div v-else />
-
-                <UFormField
-                  v-if="state.stockSelection === 'all'"
-                  label="Exclude Sectors"
-                  name="excludeSectors"
-                  help="Exclude stocks in these sectors"
-                  class="col-span-2"
-                >
-                  <USelectMenu
-                    v-model="state.excludeSectors"
-                    :items="SectorOptions"
-                    value-key="value"
-                    multiple
-                    placeholder="No exclusions"
-                    :search-input="false"
-                  />
-                </UFormField>
-
-                <UFormField name="startDate">
-                  <template #label>
-                    <span>Start Date <span class="text-muted">Optional</span></span>
-                  </template>
-                  <UInput
-                    v-model="state.startDate"
-                    type="date"
-                    placeholder="YYYY-MM-DD"
-                  />
-                </UFormField>
-
-                <UFormField name="endDate">
-                  <template #label>
-                    <span>End Date <span class="text-muted">Optional</span></span>
-                  </template>
-                  <UInput
-                    v-model="state.endDate"
-                    type="date"
-                    placeholder="YYYY-MM-DD"
                   />
                 </UFormField>
               </div>
-
-              <SymbolSearch
-                v-if="state.stockSelection === 'specific'"
-                v-model="state.specificStocks"
-                placeholder="Type to search stock symbols..."
-                multiple
-              />
             </div>
-          </UCard>
 
-          <!-- Strategies Section -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- Entry Strategy -->
-            <UCard :ui="{ body: 'space-y-3' }">
-              <template #header>
-                <h3 class="text-base font-semibold">
-                  Entry Strategy
-                </h3>
-              </template>
-              <StrategySelector
-                v-if="availableStrategies && availableConditions"
-                v-model="state.entryStrategy"
-                :available-predefined="availableStrategies.entryStrategies"
-                :available-conditions="availableConditions.entryConditions"
-                strategy-type="entry"
-              />
-              <div v-else class="flex items-center justify-center py-8">
-                <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-muted" />
-              </div>
-            </UCard>
-
-            <!-- Exit Strategy -->
-            <UCard :ui="{ body: 'space-y-3' }">
-              <template #header>
-                <h3 class="text-base font-semibold">
-                  Exit Strategy
-                </h3>
-              </template>
-              <StrategySelector
-                v-if="availableStrategies && availableConditions"
-                v-model="state.exitStrategy"
-                :available-predefined="availableStrategies.exitStrategies"
-                :available-conditions="availableConditions.exitConditions"
-                strategy-type="exit"
-              />
-              <div v-else class="flex items-center justify-center py-8">
-                <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-muted" />
-              </div>
-            </UCard>
-          </div>
-
-          <!-- Position Limiting and Cooldown Section -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- Position Limiting Section -->
-            <UCard>
-              <template #header>
-                <div class="flex items-center justify-between">
-                  <h3 class="text-base font-semibold">
-                    Position Limiting
-                  </h3>
-                  <USwitch v-model="state.positionLimitEnabled" />
-                </div>
-              </template>
-              <div v-if="state.positionLimitEnabled" class="grid grid-cols-2 gap-4">
-                <UFormField label="Max Positions" name="maxPositions" help="Maximum positions per day">
-                  <UInput
-                    v-model.number="state.maxPositions"
-                    type="number"
-                    min="1"
-                    max="100"
-                    placeholder="10"
-                  />
+            <!-- Strategies: Entry & Exit -->
+            <div v-show="currentSection === 'strategies'">
+              <h3 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">
+                Entry & Exit Strategy
+              </h3>
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Entry Strategy -->
+                <UFormField name="entryStrategy">
+                  <UCard :ui="{ body: 'space-y-3' }">
+                    <template #header>
+                      <h3 class="text-base font-semibold">
+                        Entry Strategy
+                      </h3>
+                    </template>
+                    <StrategySelector
+                      v-if="availableStrategies && availableConditions"
+                      v-model="state.entryStrategy"
+                      :available-predefined="availableStrategies.entryStrategies"
+                      :available-conditions="availableConditions.entryConditions"
+                      strategy-type="entry"
+                    />
+                    <div v-else class="flex items-center justify-center py-8">
+                      <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-muted" />
+                    </div>
+                  </UCard>
                 </UFormField>
 
-                <UFormField label="Stock Ranker" name="ranker" help="Method to rank stocks on same entry date">
-                  <USelect
-                    v-model="state.ranker"
-                    :items="rankerOptions"
-                    value-key="value"
-                    placeholder="Select ranker"
-                  />
+                <!-- Exit Strategy -->
+                <UFormField name="exitStrategy">
+                  <UCard :ui="{ body: 'space-y-3' }">
+                    <template #header>
+                      <h3 class="text-base font-semibold">
+                        Exit Strategy
+                      </h3>
+                    </template>
+                    <StrategySelector
+                      v-if="availableStrategies && availableConditions"
+                      v-model="state.exitStrategy"
+                      :available-predefined="availableStrategies.exitStrategies"
+                      :available-conditions="availableConditions.exitConditions"
+                      strategy-type="exit"
+                    />
+                    <div v-else class="flex items-center justify-center py-8">
+                      <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-muted" />
+                    </div>
+                  </UCard>
                 </UFormField>
               </div>
-              <div v-else class="text-sm text-muted">
-                Unlimited positions mode: All stocks matching the entry strategy will be entered
-              </div>
-            </UCard>
+            </div>
 
-            <!-- Trade Timing Section -->
-            <UCard>
-              <template #header>
-                <h3 class="text-base font-semibold">
-                  Trade Timing
-                </h3>
-              </template>
-              <div class="grid grid-cols-2 gap-6">
-                <div>
-                  <div class="flex items-center gap-4">
-                    <label class="text-sm font-medium whitespace-nowrap">
-                      Cooldown Days:
-                    </label>
+            <!-- Position Limits -->
+            <div v-show="currentSection === 'position-limits'">
+              <h3 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">
+                Position Limiting
+              </h3>
+              <UCard>
+                <template #header>
+                  <div class="flex items-center justify-between">
+                    <h3 class="text-base font-semibold">
+                      Position Limiting
+                    </h3>
+                    <USwitch v-model="state.positionLimitEnabled" />
+                  </div>
+                </template>
+                <div v-if="state.positionLimitEnabled" class="grid grid-cols-2 gap-4">
+                  <UFormField label="Max Positions" name="maxPositions" help="Maximum positions per day">
                     <UInput
-                      v-model.number="state.cooldownDays"
+                      v-model.number="state.maxPositions"
                       type="number"
-                      min="0"
-                      max="365"
-                      placeholder="0"
-                      class="w-32"
+                      min="1"
+                      max="100"
+                      placeholder="10"
                     />
+                  </UFormField>
+
+                  <UFormField label="Stock Ranker" name="ranker" help="Method to rank stocks on same entry date">
+                    <USelect
+                      v-model="state.ranker"
+                      :items="rankerOptions"
+                      value-key="value"
+                      placeholder="Select ranker"
+                    />
+                  </UFormField>
+                </div>
+                <div v-else class="text-sm text-muted">
+                  Unlimited positions mode: All stocks matching the entry strategy will be entered
+                </div>
+              </UCard>
+            </div>
+
+            <!-- Trade Timing -->
+            <div v-show="currentSection === 'trade-timing'">
+              <h3 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">
+                Cooldown & Entry Delay
+              </h3>
+              <UCard>
+                <template #header>
+                  <h3 class="text-base font-semibold">
+                    Trade Timing
+                  </h3>
+                </template>
+                <div class="grid grid-cols-2 gap-6">
+                  <div>
+                    <div class="flex items-center gap-4">
+                      <label class="text-sm font-medium whitespace-nowrap">
+                        Cooldown Days:
+                      </label>
+                      <UInput
+                        v-model.number="state.cooldownDays"
+                        type="number"
+                        min="0"
+                        max="365"
+                        placeholder="0"
+                        class="w-32"
+                      />
+                    </div>
+                    <div v-if="state.cooldownDays > 0" class="text-sm text-muted mt-2">
+                      After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
+                    </div>
+                    <div v-else class="text-sm text-muted mt-2">
+                      No cooldown: Immediate re-entry after exits
+                    </div>
                   </div>
-                  <div v-if="state.cooldownDays > 0" class="text-sm text-muted mt-2">
-                    After <strong>any exit</strong> (win or loss), all new entries are blocked for {{ state.cooldownDays }} trading {{ state.cooldownDays === 1 ? 'day' : 'days' }}.
-                  </div>
-                  <div v-else class="text-sm text-muted mt-2">
-                    No cooldown: Immediate re-entry after exits
+
+                  <div>
+                    <div class="flex items-center gap-4">
+                      <label class="text-sm font-medium whitespace-nowrap">
+                        Entry Delay Days:
+                      </label>
+                      <UInput
+                        v-model.number="state.entryDelayDays"
+                        type="number"
+                        min="0"
+                        max="5"
+                        placeholder="0"
+                        class="w-32"
+                      />
+                    </div>
+                    <div v-if="state.entryDelayDays > 0" class="text-sm text-muted mt-2">
+                      Signal fires on Day 0, entry at Day {{ state.entryDelayDays }}'s close price
+                    </div>
+                    <div v-else class="text-sm text-muted mt-2">
+                      No delay: Enter at signal day's close price
+                    </div>
                   </div>
                 </div>
+              </UCard>
+            </div>
 
-                <div>
-                  <div class="flex items-center gap-4">
-                    <label class="text-sm font-medium whitespace-nowrap">
-                      Entry Delay Days:
-                    </label>
+            <!-- Position Sizing -->
+            <div v-show="currentSection === 'position-sizing'">
+              <h3 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">
+                ATR-Based Sizing
+              </h3>
+              <UCard>
+                <template #header>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <h3 class="text-base font-semibold">
+                        Position Sizing
+                      </h3>
+                      <p class="text-xs text-muted mt-1">
+                        ATR-based position sizing for realistic portfolio simulation
+                      </p>
+                    </div>
+                    <USwitch v-model="state.positionSizingEnabled" />
+                  </div>
+                </template>
+
+                <div v-if="state.positionSizingEnabled" class="grid grid-cols-2 gap-4">
+                  <UFormField label="Starting Capital ($)" name="positionSizingStartingCapital">
                     <UInput
-                      v-model.number="state.entryDelayDays"
+                      v-model.number="state.positionSizingStartingCapital"
                       type="number"
-                      min="0"
-                      max="5"
-                      placeholder="0"
-                      class="w-32"
+                      min="1000"
+                      step="1000"
+                      placeholder="100000"
                     />
-                  </div>
-                  <div v-if="state.entryDelayDays > 0" class="text-sm text-muted mt-2">
-                    Signal fires on Day 0, entry at Day {{ state.entryDelayDays }}'s close price
-                  </div>
-                  <div v-else class="text-sm text-muted mt-2">
-                    No delay: Enter at signal day's close price
-                  </div>
+                  </UFormField>
+
+                  <UFormField label="Risk Per Trade (%)" name="positionSizingRiskPercentage" help="% of portfolio risked per trade">
+                    <UInput
+                      v-model.number="state.positionSizingRiskPercentage"
+                      type="number"
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                      placeholder="1.5"
+                    />
+                  </UFormField>
+
+                  <UFormField label="ATR Multiplier" name="positionSizingNAtr" help="Expected adverse move in ATR units">
+                    <UInput
+                      v-model.number="state.positionSizingNAtr"
+                      type="number"
+                      min="0.5"
+                      max="10"
+                      step="0.1"
+                      placeholder="2.0"
+                    />
+                  </UFormField>
+
+                  <UFormField label="Leverage Ratio" name="positionSizingLeverageRatio" help="Max notional as multiple of portfolio (empty = no cap)">
+                    <UInput
+                      v-model.number="state.positionSizingLeverageRatio"
+                      type="number"
+                      min="0.1"
+                      max="20"
+                      step="0.1"
+                      placeholder="No cap"
+                    />
+                  </UFormField>
                 </div>
+                <div v-else class="text-sm text-muted">
+                  Disabled: Backtest will report per-trade percentage returns without position sizing
+                </div>
+              </UCard>
+            </div>
+
+            <!-- Advanced -->
+            <div v-show="currentSection === 'advanced'">
+              <h3 class="text-sm font-semibold text-muted uppercase tracking-wide mb-4">
+                Underlying Assets & Options
+              </h3>
+              <div class="space-y-4">
+                <!-- Underlying Assets Configuration -->
+                <UCard>
+                  <template #header>
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <h3 class="text-base font-semibold">
+                          Underlying Asset Signals
+                        </h3>
+                        <p class="text-xs text-muted mt-1">
+                          Use underlying assets for strategy evaluation
+                        </p>
+                      </div>
+                      <USwitch v-model="state.useUnderlyingAssets" />
+                    </div>
+                  </template>
+
+                  <div v-if="state.useUnderlyingAssets" class="space-y-4">
+                    <p class="text-sm text-muted">
+                      Leveraged ETFs will use their underlying assets for entry/exit signals, while P&L is calculated from the actual traded symbol.
+                    </p>
+
+                    <!-- Auto-detected Mappings -->
+                    <div v-if="state.detectedMappings.length > 0" class="space-y-2">
+                      <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-medium">
+                          Auto-Detected Mappings
+                        </h4>
+                        <span class="text-xs text-muted">{{ state.detectedMappings.length }} detected</span>
+                      </div>
+                      <div class="space-y-2">
+                        <div
+                          v-for="mapping in state.detectedMappings"
+                          :key="mapping.symbol"
+                          class="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                        >
+                          <span class="text-sm font-medium">{{ mapping.symbol }}</span>
+                          <UIcon name="i-lucide-arrow-right" class="w-3 h-3 text-muted" />
+                          <span class="text-sm font-medium text-blue-600 dark:text-blue-400">{{ mapping.underlying }}</span>
+                          <span class="text-xs text-muted flex-1">(signals)</span>
+                          <UButton
+                            icon="i-lucide-x"
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            @click="removeDetectedMapping(mapping.symbol)"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Custom Overrides -->
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-medium">
+                          Custom Overrides
+                        </h4>
+                        <UButton
+                          icon="i-lucide-plus"
+                          label="Add Override"
+                          size="xs"
+                          variant="outline"
+                          @click="addCustomOverride"
+                        />
+                      </div>
+                      <div v-if="state.customOverrides.length > 0" class="space-y-2">
+                        <div
+                          v-for="(override, idx) in state.customOverrides"
+                          :key="idx"
+                          class="flex items-center gap-2"
+                        >
+                          <UInput
+                            v-model="override.symbol"
+                            placeholder="Symbol (e.g., AAPL)"
+                            size="sm"
+                            class="flex-1"
+                          />
+                          <UIcon name="i-lucide-arrow-right" class="w-3 h-3 text-muted" />
+                          <UInput
+                            v-model="override.underlying"
+                            placeholder="Underlying (e.g., SPY)"
+                            size="sm"
+                            class="flex-1"
+                          />
+                          <UButton
+                            icon="i-lucide-x"
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            @click="removeCustomOverride(idx)"
+                          />
+                        </div>
+                      </div>
+                      <p v-else class="text-xs text-muted italic">
+                        No custom overrides. Click "Add Override" to create one.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div v-else class="text-sm text-muted">
+                    Disabled: Strategies will be evaluated on the traded symbols directly.
+                  </div>
+                </UCard>
+
+                <!-- Refresh Data -->
+                <UFormField name="refresh">
+                  <UCheckbox v-model="state.refresh" label="Refresh data from source" />
+                </UFormField>
+
+                <!-- Info Alert -->
+                <UAlert
+                  v-if="state.positionLimitEnabled"
+                  color="primary"
+                  variant="subtle"
+                  title="Position-Limited Backtest"
+                  description="When multiple stocks trigger on the same day, only the top-ranked stocks (by selected ranker) will be taken."
+                />
+                <UAlert
+                  v-else
+                  color="warning"
+                  variant="subtle"
+                  title="Unlimited Positions Mode"
+                  description="All stocks matching the entry strategy will be entered. This may result in unrealistic backtest results with many concurrent positions."
+                />
               </div>
-            </UCard>
+            </div>
           </div>
-
-          <!-- Position Sizing Section -->
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <div>
-                  <h3 class="text-base font-semibold">
-                    Position Sizing
-                  </h3>
-                  <p class="text-xs text-muted mt-1">
-                    ATR-based position sizing for realistic portfolio simulation
-                  </p>
-                </div>
-                <USwitch v-model="state.positionSizingEnabled" />
-              </div>
-            </template>
-
-            <div v-if="state.positionSizingEnabled" class="grid grid-cols-4 gap-4">
-              <UFormField label="Starting Capital ($)" name="positionSizingStartingCapital">
-                <UInput
-                  v-model.number="state.positionSizingStartingCapital"
-                  type="number"
-                  min="1000"
-                  step="1000"
-                  placeholder="100000"
-                />
-              </UFormField>
-
-              <UFormField label="Risk Per Trade (%)" name="positionSizingRiskPercentage" help="% of portfolio risked per trade">
-                <UInput
-                  v-model.number="state.positionSizingRiskPercentage"
-                  type="number"
-                  min="0.1"
-                  max="10"
-                  step="0.1"
-                  placeholder="1.5"
-                />
-              </UFormField>
-
-              <UFormField label="ATR Multiplier" name="positionSizingNAtr" help="Expected adverse move in ATR units">
-                <UInput
-                  v-model.number="state.positionSizingNAtr"
-                  type="number"
-                  min="0.5"
-                  max="10"
-                  step="0.1"
-                  placeholder="2.0"
-                />
-              </UFormField>
-
-              <UFormField label="Leverage Ratio" name="positionSizingLeverageRatio" help="Max notional as multiple of portfolio (empty = no cap)">
-                <UInput
-                  v-model.number="state.positionSizingLeverageRatio"
-                  type="number"
-                  min="0.1"
-                  max="20"
-                  step="0.1"
-                  placeholder="No cap"
-                />
-              </UFormField>
-            </div>
-            <div v-else class="text-sm text-muted">
-              Disabled: Backtest will report per-trade percentage returns without position sizing
-            </div>
-          </UCard>
-
-          <!-- Underlying Assets Configuration -->
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <div>
-                  <h3 class="text-base font-semibold">
-                    Underlying Asset Signals
-                  </h3>
-                  <p class="text-xs text-muted mt-1">
-                    Use underlying assets for strategy evaluation
-                  </p>
-                </div>
-                <USwitch v-model="state.useUnderlyingAssets" />
-              </div>
-            </template>
-
-            <div v-if="state.useUnderlyingAssets" class="space-y-4">
-              <p class="text-sm text-muted">
-                Leveraged ETFs will use their underlying assets for entry/exit signals, while P&L is calculated from the actual traded symbol.
-              </p>
-
-              <!-- Auto-detected Mappings -->
-              <div v-if="state.detectedMappings.length > 0" class="space-y-2">
-                <div class="flex items-center justify-between">
-                  <h4 class="text-sm font-medium">
-                    Auto-Detected Mappings
-                  </h4>
-                  <span class="text-xs text-muted">{{ state.detectedMappings.length }} detected</span>
-                </div>
-                <div class="space-y-2">
-                  <div
-                    v-for="mapping in state.detectedMappings"
-                    :key="mapping.symbol"
-                    class="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
-                  >
-                    <span class="text-sm font-medium">{{ mapping.symbol }}</span>
-                    <UIcon name="i-lucide-arrow-right" class="w-3 h-3 text-muted" />
-                    <span class="text-sm font-medium text-blue-600 dark:text-blue-400">{{ mapping.underlying }}</span>
-                    <span class="text-xs text-muted flex-1">(signals)</span>
-                    <UButton
-                      icon="i-lucide-x"
-                      size="xs"
-                      variant="ghost"
-                      color="neutral"
-                      @click="removeDetectedMapping(mapping.symbol)"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <!-- Custom Overrides -->
-              <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                  <h4 class="text-sm font-medium">
-                    Custom Overrides
-                  </h4>
-                  <UButton
-                    icon="i-lucide-plus"
-                    label="Add Override"
-                    size="xs"
-                    variant="outline"
-                    @click="addCustomOverride"
-                  />
-                </div>
-                <div v-if="state.customOverrides.length > 0" class="space-y-2">
-                  <div
-                    v-for="(override, idx) in state.customOverrides"
-                    :key="idx"
-                    class="flex items-center gap-2"
-                  >
-                    <UInput
-                      v-model="override.symbol"
-                      placeholder="Symbol (e.g., AAPL)"
-                      size="sm"
-                      class="flex-1"
-                    />
-                    <UIcon name="i-lucide-arrow-right" class="w-3 h-3 text-muted" />
-                    <UInput
-                      v-model="override.underlying"
-                      placeholder="Underlying (e.g., SPY)"
-                      size="sm"
-                      class="flex-1"
-                    />
-                    <UButton
-                      icon="i-lucide-x"
-                      size="xs"
-                      variant="ghost"
-                      color="neutral"
-                      @click="removeCustomOverride(idx)"
-                    />
-                  </div>
-                </div>
-                <p v-else class="text-xs text-muted italic">
-                  No custom overrides. Click "Add Override" to create one.
-                </p>
-              </div>
-            </div>
-
-            <div v-else class="text-sm text-muted">
-              Disabled: Strategies will be evaluated on the traded symbols directly.
-            </div>
-          </UCard>
-
-          <!-- Refresh Data -->
-          <UFormField name="refresh">
-            <UCheckbox v-model="state.refresh" label="Refresh data from source" />
-          </UFormField>
-
-          <!-- Info Alert -->
-          <UAlert
-            v-if="state.positionLimitEnabled"
-            color="primary"
-            variant="subtle"
-            title="Position-Limited Backtest"
-            description="When multiple stocks trigger on the same day, only the top-ranked stocks (by selected ranker) will be taken."
-          />
-          <UAlert
-            v-else
-            color="warning"
-            variant="subtle"
-            title="Unlimited Positions Mode"
-            description="All stocks matching the entry strategy will be entered. This may result in unrealistic backtest results with many concurrent positions."
-          />
         </div>
       </UForm>
     </template>
@@ -659,7 +948,6 @@ function cancel() {
         />
         <UButton
           label="Run Backtest"
-          :disabled="state.stockSelection === 'specific' && state.specificStocks.length === 0"
           @click="form?.submit()"
         />
       </div>

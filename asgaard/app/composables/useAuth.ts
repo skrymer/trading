@@ -3,7 +3,9 @@ export function useAuth() {
 
   async function checkAuth(): Promise<boolean> {
     try {
-      await $fetch('/udgaard/api/auth/check')
+      // Forward browser cookies during SSR so the session is recognized
+      const headers = import.meta.server ? useRequestHeaders(['cookie']) : {}
+      await $fetch('/udgaard/api/auth/check', { headers })
       authenticated.value = true
       return true
     } catch (error: any) {

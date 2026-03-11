@@ -10,7 +10,7 @@ plugins {
 }
 
 group = 'com.skrymer'
-version = '1.0.1'
+version = '1.0.2'
 
 java {
 	toolchain {
@@ -111,7 +111,7 @@ springBoot {
 }
 
 tasks.named('bootRun') {
-	jvmArgs = ['-Xmx12288m', '-Xms4096m']
+	jvmArgs = ['-Xmx20480m', '-Xms8192m']
 }
 
 ktlint {
