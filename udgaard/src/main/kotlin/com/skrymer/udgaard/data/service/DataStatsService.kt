@@ -10,6 +10,7 @@ import java.time.LocalDateTime
 @Service
 class DataStatsService(
   private val stockRepository: StockJooqRepository,
+  private val stockIngestionService: StockIngestionService,
 ) {
   @Transactional(readOnly = true)
   fun calculateStats(): DatabaseStats =
@@ -18,6 +19,7 @@ class DataStatsService(
       totalDataPoints = 0, // Simplified - not counting quotes
       estimatedSizeKB = 0, // Simplified - not estimating size
       generatedAt = LocalDateTime.now(),
+      lastRefreshedAt = stockIngestionService.lastRefreshedAt,
     )
 
   private fun calculateStockStats(): StockDataStats {

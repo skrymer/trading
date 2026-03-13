@@ -63,7 +63,8 @@ midgaard/
 │       ├── IngestionService.kt            # Orchestrates initial + daily ingestion (async, semaphore)
 │       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation
 │       ├── RateLimiterService.kt          # Token bucket per provider
-│       └── ApiKeyService.kt              # API key management
+│       ├── ApiKeyService.kt              # API key management
+│       └── ScheduledIngestionService.kt  # Scheduled automatic data ingestion
 ├── src/main/resources/
 │   ├── application.properties
 │   ├── secure.properties                  # API keys (not in git)

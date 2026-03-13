@@ -61,6 +61,14 @@ class IngestionStatusRepository(
 
     fun countTotal(): Int = dsl.fetchCount(INGESTION_STATUS)
 
+    fun getLastUpdated(): LocalDateTime? =
+        dsl
+            .select(
+                org.jooq.impl.DSL
+                    .max(INGESTION_STATUS.LAST_INGESTED),
+            ).from(INGESTION_STATUS)
+            .fetchOne(0, LocalDateTime::class.java)
+
     private fun org.jooq.Record.toModel(): IngestionStatus =
         IngestionStatus(
             symbol = get(INGESTION_STATUS.SYMBOL)!!,

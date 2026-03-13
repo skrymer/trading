@@ -67,12 +67,14 @@ class PositionSizingService {
       if (openPositions.isNotEmpty()) {
         val unrealizedPnl = computeUnrealizedPnl(openPositions, tradeQuoteMap, date)
         val dailyPortfolioValue = state.cash + unrealizedPnl
+        state.lastPortfolioValue = dailyPortfolioValue
         updateDrawdown(state, dailyPortfolioValue)
         state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = dailyPortfolioValue))
       } else if (state.equityCurve.isEmpty() || state.equityCurve.last().date != date) {
         // No open positions -- record cash-only equity point on event days
         val hasEventsToday = eventIndex > 0 && events[eventIndex - 1].date == date
         if (hasEventsToday || state.equityCurve.isEmpty()) {
+          state.lastPortfolioValue = state.cash
           updateDrawdown(state, state.cash)
           state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = state.cash))
         }
@@ -105,12 +107,16 @@ class PositionSizingService {
     state: PortfolioState,
     openPositions: MutableMap<Trade, OpenPosition>,
   ) {
-    // Use cash for portfolio value calculation (consistent with available capital)
-    var shares = calculateShares(state.cash, event.trade.entryQuote.atr, config)
+    // When no positions are open, portfolio value is just cash
+    if (openPositions.isEmpty()) {
+      state.lastPortfolioValue = state.cash
+    }
+    val effectiveConfig = applyDrawdownScaling(config, state)
+    var shares = calculateShares(state.cash, event.trade.entryQuote.atr, effectiveConfig)
     val entryPrice = event.trade.entryQuote.closePrice
 
-    if (config.leverageRatio != null && shares > 0 && entryPrice > 0.0) {
-      val maxNotional = state.cash * config.leverageRatio
+    if (effectiveConfig.leverageRatio != null && shares > 0 && entryPrice > 0.0) {
+      val maxNotional = state.cash * effectiveConfig.leverageRatio
       val availableNotional = maxNotional - state.openNotional
       if (availableNotional <= 0.0) {
         shares = 0
@@ -167,6 +173,34 @@ class PositionSizingService {
     // computes portfolio value as cash + unrealized P/L of all remaining open positions.
     // Do NOT track drawdown here from cash alone — it would compare against a peak
     // that includes unrealized gains, creating a phantom drawdown.
+  }
+
+  /**
+   * Returns a config with risk scaled down based on current drawdown depth.
+   * Thresholds are evaluated deepest-first; the first match applies.
+   * If no drawdown scaling is configured, returns the original config unchanged.
+   *
+   * Uses [PortfolioState.lastPortfolioValue] (cash + unrealized P/L) for consistent
+   * comparison with [PortfolioState.peakCapital], which is also computed from full portfolio value.
+   */
+  private fun applyDrawdownScaling(
+    config: PositionSizingConfig,
+    state: PortfolioState,
+  ): PositionSizingConfig {
+    val scaling = config.drawdownScaling ?: return config
+    val currentDrawdownPct =
+      if (state.peakCapital > 0.0) {
+        ((state.peakCapital - state.lastPortfolioValue) / state.peakCapital) * 100.0
+      } else {
+        0.0
+      }
+
+    val multiplier = scaling.thresholds
+      .sortedByDescending { it.drawdownPercent }
+      .firstOrNull { currentDrawdownPct >= it.drawdownPercent }
+      ?.riskMultiplier ?: return config
+
+    return config.copy(riskPercentage = config.riskPercentage * multiplier)
   }
 
   private fun computeUnrealizedPnl(
@@ -251,6 +285,7 @@ class PositionSizingService {
   ) {
     var cash: Double = startingCapital
     var peakCapital: Double = startingCapital
+    var lastPortfolioValue: Double = startingCapital
     var maxDrawdownDollars: Double = 0.0
     var maxDrawdownPct: Double = 0.0
     var openNotional: Double = 0.0

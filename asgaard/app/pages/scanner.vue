@@ -120,9 +120,19 @@ const tabItems = [
   }
 ]
 
-// Load trades and position sizing settings on mount
+const lastExitCheckAt = ref<number>(0)
+const EXIT_CHECK_COOLDOWN_MS = 5 * 60 * 1000
+
 onMounted(async () => {
   await Promise.all([loadTrades(), loadPositionSizingSettings()])
+  if (trades.value.length > 0) {
+    activeTab.value = 'trades'
+    const now = Date.now()
+    if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
+      lastExitCheckAt.value = now
+      checkExits()
+    }
+  }
 })
 
 async function loadPositionSizingSettings() {
@@ -236,7 +246,7 @@ async function checkExits() {
     exitResults.value = newMap
 
     toast.add({
-      title: 'Exit Check Complete',
+      title: 'Status Check Complete',
       description: `${response.checksPerformed} trades checked, ${response.exitsTriggered} exits triggered`,
       icon: 'i-lucide-check-circle',
       color: response.exitsTriggered > 0 ? 'warning' : 'success'
@@ -244,7 +254,7 @@ async function checkExits() {
   } catch (error: any) {
     toast.add({
       title: 'Error',
-      description: error.data?.message || 'Failed to check exits',
+      description: error.data?.message || 'Failed to check status',
       icon: 'i-lucide-alert-circle',
       color: 'error'
     })
@@ -421,7 +431,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   },
   {
     id: 'exitAlert',
-    header: 'Exit',
+    header: 'Status',
     cell: ({ row }) => {
       const result = exitResults.value.get(row.original.id)
       if (!result) return '-'
@@ -721,7 +731,7 @@ const tradesTableUi = computed(() => ({
             <div class="pt-4">
               <div class="flex justify-end mb-3">
                 <UButton
-                  label="Check Exits"
+                  label="Check Status"
                   icon="i-lucide-shield-alert"
                   variant="soft"
                   size="sm"

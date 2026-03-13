@@ -104,6 +104,9 @@ asgaard/
 │   │   ├── UserMenu.vue          # User menu dropdown
 │   │   ├── ConditionConfigModal.vue   # Condition configuration modal
 │   │   └── ConditionSignalsTable.vue  # Condition signals display table
+│   ├── plugins/
+│   │   ├── apexcharts.client.ts  # ApexCharts plugin (client-only)
+│   │   └── auth-interceptor.client.ts  # Auth interceptor plugin (client-only)
 │   ├── composables/
 │   │   ├── useAuth.ts            # Authentication composable
 │   │   └── usePositionFormatters.ts  # Position formatting utilities

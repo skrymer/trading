@@ -9,6 +9,7 @@ data class DatabaseStats(
   val totalDataPoints: Long,
   val estimatedSizeKB: Long,
   val generatedAt: LocalDateTime,
+  val lastRefreshedAt: LocalDateTime? = null,
 )
 
 data class StockDataStats(

@@ -279,6 +279,36 @@ Position sizing calculates **how many shares to buy** for each trade based on th
 
 **IMPORTANT:** Always include `leverageRatio: 1.0` for stock backtests. Without it, ATR-based sizing can produce extreme leverage (50x+) on low-ATR stocks, leading to unrealistic results.
 
+#### 6. Drawdown-Responsive Position Sizing (Optional)
+
+Reduces risk per trade when the portfolio is in drawdown, scaling back up as equity recovers to new highs. This is a position sizing overlay — it does not change entry signals, only dollar exposure.
+
+```json
+{
+  "positionSizing": {
+    "startingCapital": 10000,
+    "riskPercentage": 1.5,
+    "nAtr": 2.0,
+    "leverageRatio": 1.0,
+    "drawdownScaling": {
+      "thresholds": [
+        {"drawdownPercent": 5.0, "riskMultiplier": 0.67},
+        {"drawdownPercent": 10.0, "riskMultiplier": 0.33}
+      ]
+    }
+  }
+}
+```
+
+**How it works:**
+- At each entry, current drawdown % is computed from peak capital vs cash
+- Thresholds are evaluated deepest-first; the first match applies its `riskMultiplier` to the base `riskPercentage`
+- Example: at 7% drawdown with the above config, effective risk = 1.5% × 0.67 = 1.005%
+- When drawdown < all thresholds, full risk is used
+- Omit `drawdownScaling` entirely to disable (default behavior)
+
+**Impact (VCP 2016-2025):** Max DD 21.2% → 13.6% (-36%), CAGR 46.4% → 39.8% (-6.6pp), Calmar 2.18 → 2.90 (+33%). All risk-adjusted ratios improve (Sharpe, Sortino, Calmar) at the cost of lower absolute returns from compounding drag during recovery phases.
+
 **Response fields** (when `positionSizing` is included in request):
 - `positionSizing.startingCapital` / `finalCapital` - Portfolio start and end values
 - `positionSizing.totalReturnPct` - Total return as percentage

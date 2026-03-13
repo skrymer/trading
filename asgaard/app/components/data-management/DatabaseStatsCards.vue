@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { formatDistanceToNow } from 'date-fns'
 import type { BreadthCoverageStats, DatabaseStats } from '~/types'
 
-defineProps<{
+const props = defineProps<{
   stats: DatabaseStats
 }>()
+
+const lastRefreshedLabel = computed(() => {
+  if (!props.stats.lastRefreshedAt) return 'Never'
+  return formatDistanceToNow(new Date(props.stats.lastRefreshedAt), { addSuffix: true })
+})
+
+const lastRefreshedFull = computed(() => {
+  if (!props.stats.lastRefreshedAt) return null
+  return new Date(props.stats.lastRefreshedAt).toLocaleString()
+})
 
 const coverage = ref<BreadthCoverageStats | null>(null)
 
@@ -26,7 +37,27 @@ onMounted(() => {
       Database Statistics
     </h3>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Last Refreshed -->
+      <UCard>
+        <div>
+          <p class="text-sm text-muted">
+            Last Refreshed
+          </p>
+          <UTooltip v-if="lastRefreshedFull" :text="lastRefreshedFull">
+            <p class="text-3xl font-bold">
+              {{ lastRefreshedLabel }}
+            </p>
+          </UTooltip>
+          <p v-else class="text-3xl font-bold text-muted">
+            {{ lastRefreshedLabel }}
+          </p>
+          <p class="text-xs text-muted mt-1">
+            Auto-refresh daily after market close
+          </p>
+        </div>
+      </UCard>
+
       <!-- Total Stocks -->
       <UCard>
         <div>

@@ -40,6 +40,7 @@ class UiController(
         model.addAttribute("completeCount", ingestionStatusRepository.countByStatus(IngestionState.COMPLETE))
         model.addAttribute("failedCount", ingestionStatusRepository.countByStatus(IngestionState.FAILED))
         model.addAttribute("rateLimits", rateLimiterService.getAllProviderStats())
+        model.addAttribute("lastUpdated", ingestionStatusRepository.getLastUpdated())
         return "dashboard"
     }
 

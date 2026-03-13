@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.backtesting.service
 
+import com.skrymer.udgaard.backtesting.model.DrawdownScaling
+import com.skrymer.udgaard.backtesting.model.DrawdownThreshold
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.data.model.StockQuote
@@ -369,6 +371,203 @@ class PositionSizingServiceTest {
   @Test
   fun `calculateShares with negative portfolio should return zero`() {
     assertEquals(0, PositionSizingService.calculateShares(-1000.0, 2.0, defaultConfig))
+  }
+
+  @Test
+  fun `drawdown scaling should reduce shares when in drawdown`() {
+    // Trade 1: big loss → puts portfolio into drawdown
+    // Trade 2: should be sized with reduced risk
+    val scaling = DrawdownScaling(
+      thresholds = listOf(
+        DrawdownThreshold(drawdownPercent = 5.0, riskMultiplier = 0.67),
+        DrawdownThreshold(drawdownPercent = 10.0, riskMultiplier = 0.33),
+      ),
+    )
+    val config = defaultConfig.copy(drawdownScaling = scaling)
+
+    // Trade 1: ATR=2, shares=375, profit=-20 → loss=375*20=7500 → portfolio=92500
+    // Drawdown = 7500/100000 = 7.5% (above 5% threshold)
+    val trade1 = createTrade(
+      profit = -20.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 5),
+    )
+    // Trade 2: portfolio=92500, drawdown=7.5% → risk scaled by 0.67
+    // Effective risk = 1.5% * 0.67 = 1.005%, shares = floor(92500 * 0.01005 / 4) = 232
+    val trade2 = createTrade(
+      profit = 5.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 10),
+      exitDate = LocalDate.of(2024, 1, 15),
+    )
+
+    val result = service.applyPositionSizing(listOf(trade1, trade2), config)
+
+    assertEquals(375, result.trades[0].shares) // First trade: no drawdown yet
+    val expectedShares2 = floor(92_500.0 * (1.5 * 0.67 / 100.0) / 4.0).toInt()
+    assertEquals(expectedShares2, result.trades[1].shares) // Scaled down
+  }
+
+  @Test
+  fun `drawdown scaling should use deepest matching threshold`() {
+    val scaling = DrawdownScaling(
+      thresholds = listOf(
+        DrawdownThreshold(drawdownPercent = 5.0, riskMultiplier = 0.67),
+        DrawdownThreshold(drawdownPercent = 10.0, riskMultiplier = 0.33),
+      ),
+    )
+    val config = defaultConfig.copy(drawdownScaling = scaling)
+
+    // Trade 1: ATR=0.5, shares=1500, profit=-10 → loss=15000 → portfolio=85000
+    // Drawdown = 15000/100000 = 15% (above 10% threshold → multiplier 0.33)
+    val trade1 = createTrade(
+      profit = -10.0,
+      entryPrice = 50.0,
+      atr = 0.5,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 5),
+    )
+    val trade2 = createTrade(
+      profit = 5.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 10),
+      exitDate = LocalDate.of(2024, 1, 15),
+    )
+
+    val result = service.applyPositionSizing(listOf(trade1, trade2), config)
+
+    val expectedShares2 = floor(85_000.0 * (1.5 * 0.33 / 100.0) / 4.0).toInt()
+    assertEquals(expectedShares2, result.trades[1].shares)
+  }
+
+  @Test
+  fun `drawdown scaling should not affect trades when no drawdown`() {
+    val scaling = DrawdownScaling(
+      thresholds = listOf(
+        DrawdownThreshold(drawdownPercent = 5.0, riskMultiplier = 0.67),
+      ),
+    )
+    val config = defaultConfig.copy(drawdownScaling = scaling)
+
+    val trade = createTrade(profit = 5.0, entryPrice = 50.0, atr = 2.0, entryDate = LocalDate.of(2024, 1, 1))
+
+    val result = service.applyPositionSizing(listOf(trade), config)
+
+    // No drawdown → full risk → same as default
+    assertEquals(375, result.trades[0].shares)
+  }
+
+  @Test
+  fun `null drawdown scaling should not affect sizing`() {
+    // Config without drawdown scaling should behave identically to default
+    val trade = createTrade(profit = 5.0, entryPrice = 50.0, atr = 2.0, entryDate = LocalDate.of(2024, 1, 1))
+
+    val resultWithout = service.applyPositionSizing(listOf(trade), defaultConfig)
+    val resultWith = service.applyPositionSizing(listOf(trade), defaultConfig.copy(drawdownScaling = null))
+
+    assertEquals(resultWithout.trades[0].shares, resultWith.trades[0].shares)
+  }
+
+  @Test
+  fun `drawdown scaling should recover to full risk after equity recovers`() {
+    val scaling = DrawdownScaling(
+      thresholds = listOf(
+        DrawdownThreshold(drawdownPercent = 5.0, riskMultiplier = 0.67),
+      ),
+    )
+    val config = defaultConfig.copy(drawdownScaling = scaling)
+
+    // Trade 1: loss puts portfolio into drawdown
+    // ATR=2, shares=375, profit=-20 → loss=7500 → portfolio=92500 (7.5% DD)
+    val trade1 = createTrade(
+      profit = -20.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 5),
+    )
+    // Trade 2: sized with reduced risk (in drawdown)
+    val trade2 = createTrade(
+      profit = 40.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 10),
+      exitDate = LocalDate.of(2024, 1, 15),
+    )
+    // Trade 3: equity recovered above peak → full risk again
+    val trade3 = createTrade(
+      profit = 5.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 20),
+      exitDate = LocalDate.of(2024, 1, 25),
+    )
+
+    val result = service.applyPositionSizing(listOf(trade1, trade2, trade3), config)
+
+    assertEquals(375, result.trades[0].shares) // Full risk (no DD)
+    val scaledShares = floor(92_500.0 * (1.5 * 0.67 / 100.0) / 4.0).toInt()
+    assertEquals(scaledShares, result.trades[1].shares) // Scaled down (in DD)
+    // After trade 2: cash = 92500 + (scaledShares * 40) → above peak → full risk
+    val portfolioAfterTrade2 = 92_500.0 + scaledShares * 40.0
+    assertTrue(portfolioAfterTrade2 > 100_000.0, "Portfolio should have recovered above peak")
+    val fullShares = floor(portfolioAfterTrade2 * (1.5 / 100.0) / 4.0).toInt()
+    assertEquals(fullShares, result.trades[2].shares) // Back to full risk
+  }
+
+  @Test
+  fun `drawdown scaling with overlapping trades should use portfolio value not cash`() {
+    val scaling = DrawdownScaling(
+      thresholds = listOf(
+        DrawdownThreshold(drawdownPercent = 5.0, riskMultiplier = 0.50),
+      ),
+    )
+    val config = defaultConfig.copy(drawdownScaling = scaling)
+
+    // Trade 1: open losing position (overlaps with trade 2 entry)
+    // Enters at $50, goes to $45 by day 10 → unrealized loss = 375 * -5 = -1875
+    // Portfolio value on day 5 (last M2M before trade 2): cash + unrealized = 100000 + (-1875) = 98125
+    // DD = (100000 - 98125) / 100000 = 1.875% → below 5% threshold → full risk
+    val trade1 = createTrade(
+      profit = -5.0,
+      entryPrice = 50.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 10),
+    )
+    // Trade 2: enters on day 5 while trade 1 is still open
+    val trade2 = createTrade(
+      profit = 3.0,
+      entryPrice = 60.0,
+      atr = 2.0,
+      entryDate = LocalDate.of(2024, 1, 5),
+      exitDate = LocalDate.of(2024, 1, 15),
+    )
+
+    val result = service.applyPositionSizing(listOf(trade1, trade2), config)
+
+    // Trade 1: full risk (no drawdown at entry)
+    assertEquals(375, result.trades[0].shares)
+    // Trade 2: drawdown is ~1.875% (below 5% threshold) → should get full risk
+    assertEquals(375, result.trades[1].shares)
+  }
+
+  @Test
+  fun `drawdown threshold should reject negative drawdown percent`() {
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      DrawdownThreshold(drawdownPercent = -1.0, riskMultiplier = 0.5)
+    }
+  }
+
+  @Test
+  fun `drawdown threshold should reject risk multiplier above 1`() {
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      DrawdownThreshold(drawdownPercent = 5.0, riskMultiplier = 1.5)
+    }
   }
 
   private fun createTrade(

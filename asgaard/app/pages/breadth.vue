@@ -37,6 +37,39 @@
       </div>
 
       <div v-else class="space-y-6">
+        <!-- Methodology -->
+        <UCollapsible>
+          <UButton
+            variant="ghost"
+            icon="i-lucide-info"
+            label="How Breadth is Calculated"
+            size="sm"
+            color="neutral"
+          />
+          <template #content>
+            <UCard class="mt-2">
+              <div class="text-sm space-y-3 text-muted">
+                <p>
+                  <strong class="text-default">Breadth percentage</strong> measures the proportion of stocks in an uptrend. A stock is considered in an uptrend when EMA 5 &gt; EMA 10 &gt; EMA 20 and price is above the 50 EMA.
+                </p>
+                <p>
+                  <strong class="text-default">Market breadth</strong> is computed across all stocks in the database. <strong class="text-default">Sector breadth</strong> is computed per GICS sector (e.g., XLK = Technology, XLF = Financials).
+                </p>
+                <p>
+                  <strong class="text-default">EMA 10 / EMA 20</strong> are exponential moving averages of the daily breadth percentage. When EMA 10 &gt; EMA 20, breadth is expanding (bullish); when EMA 10 &lt; EMA 20, breadth is contracting (bearish).
+                </p>
+                <p>
+                  <strong class="text-default">Donchian bands</strong> show the highest and lowest breadth values over a rolling 5-day window, highlighting short-term breadth extremes.
+                </p>
+                <p>
+                  <strong class="text-default">Sector indicators:</strong>
+                  Hot/cold badges reflect EMA 10 vs EMA 20 crossover. Trend arrows show whether the breadth percentage is above (uptrend) or below (downtrend) both EMAs.
+                </p>
+              </div>
+            </UCard>
+          </template>
+        </UCollapsible>
+
         <!-- Section A: Market Breadth Chart -->
         <div v-if="filteredMarketBreadth.length > 0">
           <h3 class="text-lg font-semibold mb-2">

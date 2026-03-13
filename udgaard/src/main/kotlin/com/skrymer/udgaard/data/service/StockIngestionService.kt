@@ -18,9 +18,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
 
@@ -45,6 +47,15 @@ class StockIngestionService(
 
   @Volatile
   private var processingJob: Job? = null
+
+  @Volatile
+  private var _lastRefreshedAt: LocalDateTime? = null
+  val lastRefreshedAt: LocalDateTime? get() = _lastRefreshedAt
+
+  @PostConstruct
+  fun initLastRefreshedAt() {
+    _lastRefreshedAt = stockRepository.getLatestQuoteTimestamp()
+  }
 
   // ── Public API ─────────────────────────────────────────────────────
 
@@ -222,6 +233,7 @@ class StockIngestionService(
       isProcessing = false
       refreshBreadth()
       logCompletionSummary(errorDetails)
+      _lastRefreshedAt = LocalDateTime.now()
       currentProgress.set(RefreshProgress())
     }
   }

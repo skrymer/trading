@@ -914,6 +914,7 @@ export interface DatabaseStats {
   totalDataPoints: number
   estimatedSizeKB: number
   generatedAt: string
+  lastRefreshedAt: string | null
 }
 
 export interface StockDataStats {

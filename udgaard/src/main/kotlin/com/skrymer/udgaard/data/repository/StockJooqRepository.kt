@@ -367,6 +367,13 @@ class StockJooqRepository(
       .from(STOCK_QUOTES)
       .fetchOne(0, Int::class.java) ?: 0
 
+  fun getLatestQuoteTimestamp(): java.time.LocalDateTime? =
+    dsl
+      .select(DSL.max(STOCK_QUOTES.QUOTE_DATE))
+      .from(STOCK_QUOTES)
+      .fetchOne(0, LocalDate::class.java)
+      ?.atStartOfDay()
+
   /**
    * Delete multiple stocks by symbols in a single transaction
    * Cascades to quotes, order blocks, and earnings

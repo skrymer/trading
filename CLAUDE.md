@@ -51,7 +51,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
    - `MonteCarloService.kt`: Monte Carlo simulations
-   - `PositionSizingService.kt`: Position sizing with daily mark-to-market drawdown
+   - `PositionSizingService.kt`: Position sizing with daily mark-to-market drawdown and drawdown-responsive risk scaling
    - `WalkForwardService.kt`: Walk-forward validation with rolling IS/OOS windows
    - `BacktestResultStore.kt`: In-memory store for backtest results
    - DSL-based strategy builder (`StrategyDsl.kt`)
@@ -64,6 +64,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `MarketBreadthService.kt` / `SectorBreadthService.kt`: Market & sector breadth
    - `OrderBlockCalculator.kt`: Order block detection via ROC momentum
    - `SymbolService.kt`: Stock symbol management (DB-backed with caching)
+   - `ScheduledRefreshService.kt`: Scheduled automatic data refresh
 
 3. **Portfolio** (`portfolio/`)
    - `PortfolioService.kt`: Portfolio management
@@ -152,7 +153,7 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext, PositionSizingConfig, WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
+│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
 │   │   │   ├── dto/                  # DTOs (StrategyConfigDto, MonteCarloRequestDto, ConditionSignalDtos, etc.)
 │   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService, WalkForwardService
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
@@ -162,7 +163,7 @@ trading/
 │   │   │   ├── mapper/               # StockMapper
 │   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, AssetType
 │   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
-│   │   │   └── service/              # StockService, StockIngestionService, TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService
+│   │   │   └── service/              # StockService, StockIngestionService, TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService, ScheduledRefreshService
 │   │   ├── portfolio/                # Portfolio domain
 │   │   │   ├── controller/           # PortfolioController, PositionController, OptionController
 │   │   │   ├── dto/                  # Request/response DTOs
@@ -193,7 +194,7 @@ trading/
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
 │   ├── src/main/kotlin/com/skrymer/midgaard/
 │   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive)
-│   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, ApiKeyService
+│   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, ApiKeyService, ScheduledIngestionService
 │   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
 │   │   ├── model/                    # Domain models (Models.kt, OptionContractDto)
@@ -206,7 +207,7 @@ trading/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
 │   │   ├── pages/                    # File-based routing (11 pages + 1 dynamic route)
-│   │   ├── plugins/                  # Nuxt plugins
+│   │   ├── plugins/                  # Nuxt plugins (apexcharts.client, auth-interceptor.client)
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
 │   │   └── error.vue                 # Error page
@@ -330,4 +331,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-13_

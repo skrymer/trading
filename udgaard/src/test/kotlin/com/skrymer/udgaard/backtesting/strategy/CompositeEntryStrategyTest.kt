@@ -31,8 +31,8 @@ class CompositeEntryStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        trend = "Uptrend",
         closePrice = 100.0,
+        closePriceEMA5 = 98.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 90.0,
         closePriceEMA50 = 85.0,
@@ -60,8 +60,8 @@ class CompositeEntryStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        trend = "Uptrend",
         closePrice = 100.0,
+        closePriceEMA5 = 98.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 96.0, // EMA10 < EMA20, so EmaAlignment fails
         closePriceEMA50 = 85.0,
@@ -88,8 +88,8 @@ class CompositeEntryStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        trend = "Downtrend",
         closePrice = 100.0,
+        closePriceEMA5 = 90.0, // EMA5 < EMA10, so uptrend fails
         closePriceEMA10 = 95.0, // Price > EMA10, so PriceAboveEma passes
         closePriceEMA20 = 105.0,
         closePriceEMA50 = 85.0,
@@ -116,8 +116,8 @@ class CompositeEntryStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        trend = "Downtrend",
         closePrice = 90.0, // Below EMA10
+        closePriceEMA5 = 88.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 100.0,
         closePriceEMA50 = 85.0,
@@ -140,8 +140,8 @@ class CompositeEntryStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        trend = "Uptrend",
         closePrice = 100.0,
+        closePriceEMA5 = 98.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 90.0,
         closePriceEMA50 = 85.0, // In uptrend, but NOT negates it to false
@@ -184,8 +184,8 @@ class CompositeEntryStrategyTest {
     val quote =
       StockQuote(
         date = LocalDate.of(2024, 1, 15),
-        trend = "Uptrend",
         closePrice = 100.0,
+        closePriceEMA5 = 98.0,
         closePriceEMA10 = 95.0,
         closePriceEMA20 = 90.0,
         closePriceEMA50 = 85.0,

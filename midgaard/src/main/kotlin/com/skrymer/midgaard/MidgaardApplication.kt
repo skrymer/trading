@@ -5,10 +5,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.runApplication
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import java.lang.management.ManagementFactory
 
 @SpringBootApplication
+@EnableScheduling
 class MidgaardApplication
 
 fun main(args: Array<String>) {

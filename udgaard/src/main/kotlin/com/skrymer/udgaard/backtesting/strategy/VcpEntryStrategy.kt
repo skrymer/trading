@@ -18,7 +18,7 @@ import com.skrymer.udgaard.data.model.StockQuote
  * - Sector in uptrend
  *
  * STOCK:
- * - Stock is in uptrend (Minervini trend template)
+ * - Stock is in uptrend (EMA alignment: 5 > 10 > 20, price > 50)
  * - Volatility contracted (price range ≤ 3.5× ATR over 10 days)
  * - Price above bearish order block (1 consecutive day)
  * - Price near Donchian high (breakout within 3%)

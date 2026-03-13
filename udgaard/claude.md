@@ -47,7 +47,7 @@ udgaard/
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
 │   │   │   ├── MonteCarloService.kt
-│   │   │   ├── PositionSizingService.kt  # Position sizing with daily M2M drawdown
+│   │   │   ├── PositionSizingService.kt  # Position sizing with daily M2M drawdown + drawdown-responsive scaling
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
 │   │   │   ├── BacktestResultStore.kt    # In-memory backtest result store
 │   │   │   └── ConditionRegistry.kt
@@ -103,7 +103,8 @@ udgaard/
 │   │       ├── SectorBreadthService.kt
 │   │       ├── OrderBlockCalculator.kt
 │   │       ├── SymbolService.kt
-│   │       └── DataStatsService.kt
+│   │       ├── DataStatsService.kt
+│   │       └── ScheduledRefreshService.kt  # Scheduled automatic data refresh
 │   ├── portfolio/                    # Portfolio domain
 │   │   ├── controller/
 │   │   │   ├── PortfolioController.kt
@@ -200,6 +201,10 @@ udgaard/
 │       ├── IBKRBrokerImportE2ETest.kt  # IBKR broker import E2E tests
 │       ├── TestEntryStrategy.kt        # Test entry strategy fixture
 │       └── TestExitStrategy.kt         # Test exit strategy fixture
+├── src/test/kotlin/.../backtesting/
+│   ├── model/                          # BacktestReportSectorStatsTest, BootstrapResamplingTechniqueTest, EdgeConsistencyScoreTest, TradeShufflingTechniqueTest
+│   ├── service/                        # BacktestServiceTest, MonteCarloServiceTest, PositionSizingServiceTest
+│   └── strategy/                       # CompositeEntryStrategyTest, CompositeExitStrategyTest, condition/
 ├── src/test/resources/
 │   └── application-test.properties   # Test profile config
 ├── compose.yaml                      # Docker Compose (PostgreSQL for local dev)

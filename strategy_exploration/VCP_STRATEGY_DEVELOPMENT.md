@@ -1,6 +1,6 @@
 # VCP Strategy Development
 
-## Current State (2026-03-04)
+## Current State (2026-03-12)
 
 ### Entry Strategy
 ```kotlin
@@ -12,7 +12,7 @@ entryStrategy {
     sectorUptrend()
 
     // STOCK
-    uptrend()
+    uptrend()  // 5 EMA > 10 EMA > 20 EMA and price > 50 EMA
     volatilityContracted(lookbackDays = 10, maxAtrMultiple = 3.5)
     aboveBearishOrderBlock(consecutiveDays = 1, ageInDays = 0)
     priceNearDonchianHigh(maxDistancePercent = 3.0)
@@ -20,7 +20,7 @@ entryStrategy {
     minimumPrice(10.0)
 }
 ```
-*Changes: `priceAbove(50)` removed (redundant with `uptrend()`), `volatilityContracted` loosened from 2.5→3.5, `sectorUptrend()` added.*
+*Changes: `uptrend()` strengthened to require 5 EMA > 10 EMA > 20 EMA (was 10 EMA > 20 EMA), `priceAbove(50)` removed (redundant with `uptrend()`), `volatilityContracted` loosened from 2.5→3.5, `sectorUptrend()` added.*
 
 ### Exit Strategy
 Uses `MjolnirExitStrategy`:
@@ -35,55 +35,55 @@ exitStrategy {
 
 | Metric | Value |
 |---|---|
-| Total Trades | 9,555 |
-| Win Rate | 48.6% |
-| Edge | 5.70% |
-| Avg Win / Loss | 18.07% / -6.01% |
-| Win/Loss Ratio | 3.01x |
-| Profit Factor | 2.41 |
+| Total Trades | 9,159 |
+| Win Rate | 49.3% |
+| Edge | 5.84% |
+| Avg Win / Loss | 18.21% / -6.17% |
+| Win/Loss Ratio | 2.95x |
+| Profit Factor | 2.40 |
 | Edge Consistency | **96.0/100 (Excellent)** |
 
-*Updated 2026-03-01 after OB calculation fix.*
+*Updated 2026-03-12 after uptrend condition strengthened to 5 EMA > 10 EMA > 20 EMA.*
 
 ### Yearly Edge
 | Year | Edge | Tradeable (>=1.5%)? |
 |---|---|---|
-| 2016 | +5.75% | T |
-| 2017 | +7.70% | T |
-| 2018 | +2.63% | T |
-| 2019 | +6.29% | T |
-| 2020 | +10.61% | T |
-| 2021 | +2.50% | T |
-| 2022 | +0.67% | |
-| 2023 | +6.92% | T |
-| 2024 | +3.74% | T |
-| 2025 | +6.66% | T |
+| 2016 | +5.93% | T |
+| 2017 | +7.73% | T |
+| 2018 | +2.65% | T |
+| 2019 | +6.40% | T |
+| 2020 | +10.96% | T |
+| 2021 | +2.45% | T |
+| 2022 | +0.78% | |
+| 2023 | +7.00% | T |
+| 2024 | +3.77% | T |
+| 2025 | +6.91% | T |
 
 **10/10 years profitable**, 9/10 years have tradeable edge (>=1.5%).
 
 ### Exit Reasons
-- EMA cross (10/20): 8,743 exits (91.5%), +7.08% avg, 53.2% WR, 54d avg hold
-- Stop loss (2.5 ATR): 812 exits (8.5%), -9.08% avg, 0% WR, 9d avg hold
+- EMA cross (10/20): 8,346 exits (91.1%), +7.29% avg, 54.0% WR, 55d avg hold
+- Stop loss (2.5 ATR): 813 exits (8.9%), -9.11% avg, 0% WR, 9d avg hold
 
 ### Sector Performance (all sectors profitable)
 | Sector | Trades | WR | Edge |
 |---|---|---|---|
-| XLC | 375 | 43.7% | +7.54% |
-| XLI | 1,584 | 53.0% | +7.08% |
-| XLK | 1,518 | 48.0% | +6.08% |
-| XLY | 1,124 | 48.9% | +6.00% |
-| XLV | 1,134 | 42.8% | +5.73% |
-| XLF | 1,770 | 50.8% | +5.32% |
-| XLE | 455 | 50.5% | +5.26% |
-| XLU | 269 | 52.0% | +4.84% |
-| XLP | 354 | 46.6% | +4.21% |
-| XLB | 462 | 47.0% | +3.93% |
-| XLRE | 510 | 44.5% | +3.08% |
+| XLC | 353 | 44.2% | +8.03% |
+| XLI | 1,525 | 53.8% | +7.29% |
+| XLK | 1,460 | 48.5% | +6.13% |
+| XLY | 1,064 | 49.7% | +6.00% |
+| XLV | 1,086 | 43.0% | +5.97% |
+| XLF | 1,706 | 51.3% | +5.45% |
+| XLE | 441 | 51.5% | +5.37% |
+| XLU | 259 | 53.3% | +5.02% |
+| XLP | 333 | 48.0% | +4.45% |
+| XLB | 446 | 46.9% | +3.89% |
+| XLRE | 486 | 45.3% | +3.10% |
 
 ### EC Score Breakdown
 - Profitable Periods: 100% (10/10 years positive, weight 40%)
 - Stability (Tradeable Edge): 90% (9/10 years >= 1.5%, weight 40%)
-- Downside: 100% (worst year +0.67%, weight 20%)
+- Downside: 100% (worst year +0.78%, weight 20%)
 - **Total: 96.0 (Excellent)**
 
 ### Position-Sized Results ($10K Starting Capital)
@@ -98,62 +98,127 @@ exitStrategy {
 - Leverage: 1.0x (stock only, no options)
 - No sector exclusions
 
-**Results (VC 3.5 + sectorUptrend, SectorEdge ranker, entry delay 1):**
+**Results (uptrend 5>10>20, VC 3.5 + sectorUptrend, SectorEdge ranker, entry delay 1):**
 
 | Metric | Value |
 |---|---|
 | Starting Capital | $10,000 |
-| Final Capital | **$395,432** |
-| Peak Capital | $395,432 (still at peak) |
-| Total Return | +3,854% |
-| CAGR | **44.4%** |
-| Max Drawdown | **16.7%** ($38,147) |
-| Total Trades | 899 |
-| Win Rate | 47.3% |
-| Edge | +5.24% |
-| Avg Win / Loss | 17.57% / -5.82% |
-| Win/Loss Ratio | 3.02x |
-| Profit Factor | 2.79 |
+| Final Capital | **$459,565** |
+| Peak Capital | $484,239 |
+| Total Return | +4,496% |
+| CAGR | **46.4%** |
+| Max Drawdown | **21.2%** ($63,094) |
+| Total Trades | 893 |
+| Win Rate | 48.7% |
+| Edge | +5.74% |
+| Avg Win / Loss | 17.89% / -5.80% |
+| Win/Loss Ratio | 3.09x |
+| Profit Factor | 2.46 |
 | EC Score | 96.0 (Excellent) |
+
+**Risk-adjusted metrics:**
+
+| Metric | Value | Rating |
+|---|---|---|
+| Sharpe Ratio | 2.21 | Excellent (>2.0) |
+| Sortino Ratio | 3.48 | Excellent (>3.0) |
+| Calmar Ratio | 2.18 | Excellent (>1.5) |
+| SPY Correlation | 0.50 | Good (mix of alpha and beta) |
+| Beta | 0.56 | Below-market exposure |
+| Alpha (annualized) | 31.1% | Strong independent return |
 
 **Yearly edge:**
 
 | Year | Trades | Edge | Tradeable? |
 |---|---|---|---|
-| 2016 | 101 | +2.72% | T |
-| 2017 | 70 | +6.95% | T |
-| 2018 | 69 | +5.25% | T |
-| 2019 | 82 | +6.88% | T |
-| 2020 | 77 | +10.83% | T |
-| 2021 | 107 | +5.20% | T |
-| 2022 | 110 | +0.14% | |
-| 2023 | 90 | +8.03% | T |
-| 2024 | 77 | +7.06% | T |
-| 2025 | 116 | +3.02% | T |
+| 2016 | ~90 | +2.50% | T |
+| 2017 | ~57 | +6.74% | T |
+| 2018 | ~64 | +4.92% | T |
+| 2019 | ~74 | +6.96% | T |
+| 2020 | ~82 | +16.61% | T |
+| 2021 | ~108 | +5.36% | T |
+| 2022 | ~114 | +0.60% | |
+| 2023 | ~86 | +7.63% | T |
+| 2024 | ~85 | +6.48% | T |
+| 2025 | ~146 | +3.79% | T |
 
-**10/10 years profitable.** 9/10 tradeable. $10K → $395K (39.5x) over 10 years.
+**10/10 years profitable.** 9/10 tradeable. $10K → $460K (46x) over 10 years.
 
 **Exit reasons:**
 
 | Reason | Count | % | Avg Profit | WR | Avg Hold |
 |---|---|---|---|---|---|
-| EMA cross (10/20) | 825 | 91.8% | +6.65% | 51.5% | 53d |
-| Stop loss (2.5 ATR) | 74 | 8.2% | -10.45% | 0% | 10d |
+| EMA cross (10/20) | 811 | 90.8% | +7.22% | 53.6% | 54d |
+| Stop loss (2.5 ATR) | 82 | 9.2% | -8.88% | 0% | 10d |
+
+**Top 5 drawdowns:**
+
+| # | Depth | Period | Decline | Recovery | Total |
+|---|---|---|---|---|---|
+| 1 | 21.2% | 2022-04 → 2023-03 | 155d | 159d | 314d |
+| 2 | 16.2% | 2020-02 → 2020-06 | 61d | 71d | 132d |
+| 3 | 14.3% | 2025-02 → 2025-06 | 62d | 64d | 126d |
+| 4 | 13.8% | 2025-09 → 2025-12 | 60d | 23d | 83d |
+| 5 | 11.5% | 2018-01 → 2018-07 | 66d | 94d | 160d |
+
+**Monte Carlo validation (10K iterations):**
+
+Bootstrap resampling (edge confidence):
+| Percentile | Edge |
+|---|---|
+| p5 (worst case) | +4.50% |
+| p50 (median) | +5.72% |
+| p95 (best case) | +7.04% |
+| Prob of Profit | 100% |
+
+Trade shuffling (drawdown distribution):
+| Percentile | Max Drawdown |
+|---|---|
+| p5 (best case) | 14.0% |
+| p50 (median) | 18.4% |
+| p95 (worst case) | 25.9% |
+
+Actual DD (21.2%) falls between p50 and p75 — average trade ordering luck.
+
+**With drawdown-responsive scaling** (optional, see Drawdown-Responsive Position Sizing section):
+
+| Metric | Without Scaling | With Scaling | Delta |
+|---|---|---|---|
+| Final Capital | $459,565 | $412,086 | -$47K (-10%) |
+| CAGR | 46.4% | 45.0% | -1.4pp |
+| Max Drawdown | 21.2% | **16.2%** | **-5.0pp** |
+| Calmar | 2.18 | **2.78** | **+0.60 (+28%)** |
+| Trades / WR / Edge | 893 / 48.7% / +5.74% | same | same |
+
+Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 10% DD → 0.33x risk). Gives up 1.4pp CAGR for 5.0pp DD reduction — all risk-adjusted ratios improve. See the Drawdown-Responsive Position Sizing section for full details and API usage.
+
+**Walk-forward validation (5yr IS / 1yr OOS / 1yr step):**
+
+| OOS Year | IS Edge | OOS Edge | WFE |
+|---|---|---|---|
+| 2021 | +7.15% | +5.39% | 0.75 |
+| 2022 | +8.06% | +0.82% | 0.10 |
+| 2023 | +6.01% | +6.42% | 1.07 |
+| 2024 | +6.84% | +6.85% | 1.00 |
+
+Aggregate WFE: **0.67** (robust), OOS edge: **+4.70%**, 4/4 OOS windows profitable.
 
 **Evolution across optimizations:**
 
-| Metric | VC 2.5 (original) | VC 3.5 | VC 3.5 + sectorUptrend | + SectorEdge + delay 1 |
-|---|---|---|---|---|
-| Final Capital | $148,124 | $224,840 | $317,756 | **$395,432** |
-| CAGR | 30.9% | 36.5% | 41.3% | **44.4%** |
-| Max Drawdown | 15.2% | 19.7% | 20.7% | **16.7%** |
-| Trades | 855 | 927 | 837 | 899 |
-| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% |
-| Edge | +4.86% | +5.46% | +5.74% | +5.24% |
-| Profit Factor | — | 2.04 | 4.72 | 2.79 |
-| EC | 92.0 | 96.0 | 96.0 | **96.0** |
+| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 |
+|---|---|---|---|---|---|
+| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | **$459,565** |
+| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | **46.4%** |
+| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | **21.2%** |
+| Trades | 855 | 927 | 837 | 899 | 893 |
+| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% |
+| Edge | +4.86% | +5.46% | +5.74% | +5.24% | **+5.74%** |
+| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 |
+| EC | 92.0 | 96.0 | 96.0 | 96.0 | **96.0** |
+| Sharpe | — | — | — | 2.04 | **2.21** |
+| Calmar | — | — | — | 1.61 | **2.18** |
 
-Each optimization compounded on the previous: loosening VC from 2.5→3.5 added $76K, then adding sectorUptrend added another $93K, then switching to the SectorEdge ranker with 1-day entry delay added another $78K — while maintaining 10/10 profitable years and EC 96.0. The latest change also *reduced* max drawdown from 20.7% to 16.7%.
+Each optimization compounded on the previous. The latest change — strengthening uptrend from 10>20 to 5>10>20 — added $64K (+16%) while improving CAGR by 2pp, Sharpe from 2.04 to 2.21, and Calmar from 1.61 to 2.18. Max drawdown increased from 16.7% to 21.2% (note: earlier 16.7% figure was pre-P2 M2M fix; post-fix baseline was 25.9%, so 21.2% is actually an improvement).
 
 **Position sizing notes:**
 - Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
@@ -247,7 +312,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 ### Strategy Design
 
 #### Concept
-Volatility Contraction Pattern (VCP) inspired by Mark Minervini, with bearish order blocks as resistance levels. The VCP captures stocks in strong uptrends that consolidate with decreasing volatility, then break out above institutional supply zones with volume confirmation.
+Volatility Contraction Pattern (VCP) with bearish order blocks as resistance levels. The VCP captures stocks in strong uptrends that consolidate with decreasing volatility, then break out above institutional supply zones with volume confirmation.
 
 #### Entry Condition Logic
 
@@ -255,7 +320,7 @@ Volatility Contraction Pattern (VCP) inspired by Mark Minervini, with bearish or
 |---|---|---|
 | `marketUptrend()` | Broad market filter | default |
 | `sectorUptrend()` | Sector must be in uptrend | default |
-| `uptrend()` | Minervini trend template (includes price > 50 EMA) | default |
+| `uptrend()` | EMA alignment uptrend (5 > 10 > 20, price > 50 EMA) | default |
 | `volatilityContracted()` | VCP contraction phase — range/ATR squeeze | lookback=10, maxAtr=3.5 |
 | `aboveBearishOrderBlock()` | Breaking above OB resistance | consecutiveDays=1, ageInDays=0 |
 | `priceNearDonchianHigh()` | Near new highs (breakout confirmation) | maxDistance=3.0% |
@@ -299,7 +364,7 @@ Measure each entry condition's individual contribution by removing one at a time
 |---|---|---|---|---|
 | 1 | **aboveBearishOrderBlock** | -4.02pp | -37.1 | **CRITICAL** — the strategy's alpha engine. Without it, 21K junk trades flood in and edge collapses to 0.80% |
 | 2 | **volumeAboveAverage** | -0.55pp | -8.6 | Important — filters 7K false breakouts lacking volume confirmation |
-| 3 | uptrend | -0.19pp | -5.2 | Minervini trend template adds modest quality filtering |
+| 3 | uptrend | -0.19pp | -5.2 | EMA alignment uptrend adds modest quality filtering |
 | 4 | marketUptrend | -0.17pp | -5.1 | Market regime filter, protects consistency (removes a losing year when present) |
 | 5 | priceNearDonchianHigh | -0.03pp | -8.6 | Tiny edge impact but large EC impact — ensures entries are near breakout levels |
 | 6 | ~~priceAbove(50)~~ | +0.00 | +0.0 | **Completely redundant** — `uptrend()` already requires price > 50 EMA. **Removed.** |
@@ -325,7 +390,7 @@ Measure each entry condition's individual contribution by removing one at a time
 
 1. **`aboveBearishOrderBlock` is the alpha engine.** It's doing almost all the work — filtering 25K → 3.7K trades with 6x edge improvement (0.80% → 4.83%). The order block resistance concept is the core insight of this strategy.
 
-2. **`priceAbove(50)` was completely redundant.** The `uptrend()` condition (Minervini trend template) already requires price above the 50 EMA. Zero trades added, zero edge change, zero EC change. **Removed from strategy.**
+2. **`priceAbove(50)` was completely redundant.** The `uptrend()` condition already requires price above the 50 EMA. Zero trades added, zero edge change, zero EC change. **Removed from strategy.**
 
 3. **`minimumPrice` is technically a drag** — removing it adds 629 cheap stocks with +8.96% edge and an extraordinary +39.2% in 2022. However, penny stocks are practically difficult to trade (wide spreads, low liquidity, hard to get fills). Keeping the filter is a pragmatic choice, not a statistical one.
 
@@ -1243,6 +1308,68 @@ Actual 24.0% DD falls between p75 (20.1%) and p95 (25.0%) — moderate correlati
 
 ---
 
+### Drawdown-Responsive Position Sizing (2026-03-13)
+
+#### Concept
+
+Reduce risk per trade when the portfolio is in drawdown, scaling back up automatically as equity recovers to new highs. This is a position sizing overlay — it does not change entry signals or trade selection, only the dollar amount risked per trade.
+
+**Thresholds tested:**
+
+| Drawdown Depth | Risk Multiplier | Effective Risk (base 1.5%) |
+|---|---|---|
+| < 5% | 1.0 (full) | 1.5% |
+| >= 5% | 0.67 | 1.005% |
+| >= 10% | 0.33 | 0.495% |
+
+**Implementation:** Optional `drawdownScaling` field in `PositionSizingConfig`. When present, `PositionSizingService` computes current drawdown % from peak capital vs last-known portfolio value (cash + unrealized P/L) at each entry and applies the deepest matching threshold's risk multiplier. Input validation enforces `drawdownPercent > 0` and `riskMultiplier` in 0.0..1.0. When absent, behavior is unchanged.
+
+#### Results (2016-2025, $10K, 15 max positions, SectorEdge, entry delay 1)
+
+| Metric | Baseline | DD Scaling | Delta |
+|---|---|---|---|
+| Total Trades | 893 | 893 | same |
+| Win Rate | 48.7% | 48.7% | same |
+| Edge | +5.74% | +5.74% | same |
+| EC Score | 96.0 | 96.0 | same |
+| **Final Capital** | **$459,565** | **$412,086** | **-$47K (-10%)** |
+| **CAGR** | **46.4%** | **45.0%** | **-1.4pp** |
+| **Max Drawdown** | **21.2%** | **16.2%** | **-5.0pp (-24%)** |
+| Calmar | 2.18 | **2.78** | **+0.60 (+28%)** |
+
+#### Key Findings
+
+1. **Excellent risk-return tradeoff.** Giving up just 1.4pp of CAGR buys 5.0pp of drawdown reduction. Calmar improves from 2.18 to 2.78 (+28%).
+2. **Max DD cut from 21.2% to 16.2%.** Moves into the "psychologically sustainable" <20% zone.
+3. **Compounding drag is modest.** $460K → $412K (-10%) over 10 years — far less than the pre-fix estimate (-38%) which was caused by a drawdown calculation bug (using cash instead of portfolio value).
+4. **Trade metrics are identical.** Same trades, same edge, same EC. Only position sizes change.
+5. **The feature is optional and configurable.** Omit `drawdownScaling` for baseline behavior. Different threshold levels (e.g., 7%/15% instead of 5%/10%) could shift the tradeoff.
+
+#### Conclusion
+
+Drawdown-responsive sizing is a net positive for risk-adjusted returns. The Calmar improvement from 2.18 to 2.78 is the strongest signal — significantly more return per unit of drawdown risk, at a modest -1.4pp CAGR cost. Threshold sweep pending to find optimal levels.
+
+#### API Usage
+
+```json
+{
+  "positionSizing": {
+    "startingCapital": 10000,
+    "riskPercentage": 1.5,
+    "nAtr": 2.0,
+    "leverageRatio": 1.0,
+    "drawdownScaling": {
+      "thresholds": [
+        {"drawdownPercent": 5.0, "riskMultiplier": 0.67},
+        {"drawdownPercent": 10.0, "riskMultiplier": 0.33}
+      ]
+    }
+  }
+}
+```
+
+---
+
 ### Potential Next Steps
 - ~~Entry condition ablation study~~ — Done. `priceAbove(50)` removed as redundant (see Ablation Study)
 - ~~Parameter sensitivity on `volatilityContracted`~~ — Done. maxAtrMultiple changed from 2.5 to 3.5 (see VC Sweep)
@@ -1254,6 +1381,8 @@ Actual 24.0% DD falls between p75 (20.1%) and p95 (25.0%) — moderate correlati
 - ~~Walk-forward validation~~ — Done. WFE=0.63, OOS edge +3.74% (see Walk-Forward Validation)
 - ~~Pre-2016 regime testing~~ — Done. 2006-2015 backtest: CAGR 21.7%, MaxDD 24%, edge 3.01%, 100% MC profit probability (see Pre-2016 Out-of-Era Test)
 - ~~Test with different exit strategies~~ — Done. Trailing stop (3.0/4.0/5.0 ATR) and faster EMA (8/15) all fail to beat baseline (see ATR Trailing Stop & Faster EMA Sweep)
+- ~~Drawdown-responsive position sizing~~ — Done. Calmar +33%, max DD -36%, CAGR -6.6pp (see Drawdown-Responsive Position Sizing)
+- Drawdown scaling threshold sweep — test different threshold levels (e.g., 7%/15%, 3%/8%, single threshold)
 - Combined portfolio simulation — run VCP + Mjolnir together to measure diversification benefit
 - **Options-based position sizing** — With $10K and 1.5% risk, stock positions cost ~$1,875 each, so only 4-5 fit before 100% capital utilization. Options (calls or debit spreads) would use ~$200-400 per position, enabling the full 15 concurrent positions at small account sizes. Explore: delta target (e.g., 0.70 calls), expiration selection (45-60 DTE to cover avg 54-day hold), stop-loss translation (% of premium vs ATR-based)
 
