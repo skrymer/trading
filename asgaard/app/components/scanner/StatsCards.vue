@@ -6,6 +6,10 @@ const props = defineProps<{
   exitResults: Map<number, ExitCheckResult>
   capitalDeployed?: number
   portfolioValue?: number
+  drawdownPct?: number
+  effectiveRisk?: number
+  baseRisk?: number
+  drawdownScalingActive?: boolean
 }>()
 
 const activeTrades = computed(() => props.trades.length)
@@ -32,11 +36,23 @@ const utilizationPct = computed(() => {
   if (!props.capitalDeployed || !props.portfolioValue || props.portfolioValue <= 0) return null
   return (props.capitalDeployed / props.portfolioValue) * 100
 })
+
+const showDrawdown = computed(() => props.drawdownScalingActive && props.drawdownPct != null)
+
+const drawdownColor = computed(() => {
+  if (props.drawdownPct == null) return ''
+  if (props.drawdownPct >= 10) return 'text-red-600 dark:text-red-400'
+  if (props.drawdownPct >= 5) return 'text-yellow-600 dark:text-yellow-400'
+  return 'text-green-600 dark:text-green-400'
+})
 </script>
 
 <template>
   <div
-    :class="utilizationPct !== null ? 'grid grid-cols-2 lg:grid-cols-5 gap-4' : 'grid grid-cols-2 lg:grid-cols-4 gap-4'"
+    :class="[
+      'grid grid-cols-2 gap-4',
+      showDrawdown ? 'lg:grid-cols-6' : utilizationPct !== null ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+    ]"
   >
     <div class="p-4 bg-muted/50 rounded-lg border border-default">
       <div class="text-sm text-muted">
@@ -98,6 +114,19 @@ const utilizationPct = computed(() => {
       </div>
       <div class="text-xs text-muted mt-1">
         {{ utilizationPct!.toFixed(1) }}% of ${{ portfolioValue!.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+      </div>
+    </div>
+
+    <div v-if="showDrawdown" class="p-4 bg-muted/50 rounded-lg border border-default">
+      <div class="text-sm text-muted">
+        Drawdown
+      </div>
+      <div :class="['text-2xl font-bold mt-1', drawdownColor]">
+        {{ drawdownPct!.toFixed(1) }}%
+      </div>
+      <div v-if="effectiveRisk !== baseRisk" class="text-xs text-muted mt-1">
+        Risk: <span class="line-through">{{ baseRisk }}%</span>
+        <span class="text-warning ml-1">{{ effectiveRisk!.toFixed(2) }}%</span>
       </div>
     </div>
   </div>

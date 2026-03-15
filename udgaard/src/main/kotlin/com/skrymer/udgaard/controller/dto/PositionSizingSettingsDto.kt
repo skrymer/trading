@@ -13,4 +13,15 @@ data class PositionSizingSettingsDto(
   val nAtr: Double = 2.0,
   val instrumentMode: String = "STOCK",
   val maxPositions: Int = 15,
+  val drawdownScalingEnabled: Boolean = false,
+  val drawdownThresholds: List<DrawdownThresholdDto> = listOf(
+    DrawdownThresholdDto(5.0, 0.67),
+    DrawdownThresholdDto(10.0, 0.33),
+  ),
+  val peakEquity: Double? = null,
+)
+
+data class DrawdownThresholdDto(
+  val drawdownPercent: Double,
+  val riskMultiplier: Double,
 )

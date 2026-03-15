@@ -2,7 +2,7 @@
 import { h } from 'vue'
 import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, PositionSizingSettings, AddScannerTradeRequest, OptionContractResponse } from '~/types'
+import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, PositionSizingSettings, AddScannerTradeRequest, OptionContractResponse, DrawdownStatsResponse } from '~/types'
 
 // State
 const scanResponse = ref<ScanResponse | null>(null)
@@ -18,12 +18,19 @@ const isAddTradeModalOpen = ref(false)
 const isDeleteTradeModalOpen = ref(false)
 const isRollTradeModalOpen = ref(false)
 const isTradeDetailsModalOpen = ref(false)
+const isCloseTradeModalOpen = ref(false)
 const selectedScanResult = ref<ScanResult | null>(null)
 const selectedTrade = ref<ScannerTrade | null>(null)
 
 // Last scan config (for pre-filling add trade)
 const lastEntryStrategy = ref('')
 const lastExitStrategy = ref('')
+
+// Drawdown state
+const closedTrades = ref<ScannerTrade[]>([])
+const drawdownStats = ref<DrawdownStatsResponse | null>(null)
+const closeTradePrice = ref(0)
+const closeTradeDate = ref(new Date().toISOString().split('T')[0])
 
 // Position sizing
 const positionSizingSettings = ref<PositionSizingSettings>({
@@ -32,7 +39,13 @@ const positionSizingSettings = ref<PositionSizingSettings>({
   riskPercentage: 1.5,
   nAtr: 2.0,
   instrumentMode: 'STOCK',
-  maxPositions: 15
+  maxPositions: 15,
+  drawdownScalingEnabled: false,
+  drawdownThresholds: [
+    { drawdownPercent: 5.0, riskMultiplier: 0.67 },
+    { drawdownPercent: 10.0, riskMultiplier: 0.33 }
+  ],
+  peakEquity: null
 })
 const selectedSymbols = ref<Set<string>>(new Set())
 const addingSelectedTrades = ref(false)
@@ -46,11 +59,45 @@ const NuxtLink = resolveComponent('NuxtLink')
 
 const isOptionsMode = computed(() => positionSizingSettings.value.instrumentMode === 'OPTION')
 
+// Drawdown computed properties
+const totalUnrealizedPnlDollars = computed(() => {
+  let total = 0
+  for (const [, result] of exitResults.value) {
+    total += result.unrealizedPnlDollars ?? 0
+  }
+  return total
+})
+
+const currentEquity = computed(() => {
+  const pv = positionSizingSettings.value.portfolioValue
+  const realized = drawdownStats.value?.totalRealizedPnl ?? 0
+  return pv + realized + totalUnrealizedPnlDollars.value
+})
+
+const currentDrawdownPct = computed(() => {
+  const peak = positionSizingSettings.value.peakEquity ?? positionSizingSettings.value.portfolioValue
+  if (peak <= 0) return 0
+  return Math.max(0, ((peak - currentEquity.value) / peak) * 100)
+})
+
+const activeDrawdownThreshold = computed(() => {
+  if (!positionSizingSettings.value.drawdownScalingEnabled) return null
+  const thresholds = positionSizingSettings.value.drawdownThresholds ?? []
+  const sorted = [...thresholds].sort((a, b) => b.drawdownPercent - a.drawdownPercent)
+  return sorted.find(t => currentDrawdownPct.value >= t.drawdownPercent) ?? null
+})
+
+const effectiveRiskPercentage = computed(() => {
+  const base = positionSizingSettings.value.riskPercentage
+  if (!activeDrawdownThreshold.value) return base
+  return base * activeDrawdownThreshold.value.riskMultiplier
+})
+
 function calculateQuantity(atr: number, symbol?: string): number {
   if (atr <= 0) return 0
-  const { portfolioValue, riskPercentage, nAtr } = positionSizingSettings.value
+  const { portfolioValue, nAtr } = positionSizingSettings.value
   if (portfolioValue <= 0) return 0
-  const riskDollars = portfolioValue * (riskPercentage / 100)
+  const riskDollars = portfolioValue * (effectiveRiskPercentage.value / 100)
 
   if (isOptionsMode.value && symbol) {
     const contract = optionContracts.value.get(symbol)
@@ -117,6 +164,12 @@ const tabItems = [
     icon: 'i-lucide-list',
     value: 'trades',
     slot: 'trades'
+  },
+  {
+    label: 'Closed Trades',
+    icon: 'i-lucide-archive',
+    value: 'closed',
+    slot: 'closed'
   }
 ]
 
@@ -124,7 +177,7 @@ const lastExitCheckAt = ref<number>(0)
 const EXIT_CHECK_COOLDOWN_MS = 5 * 60 * 1000
 
 onMounted(async () => {
-  await Promise.all([loadTrades(), loadPositionSizingSettings()])
+  await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades()])
   if (trades.value.length > 0) {
     activeTab.value = 'trades'
     const now = Date.now()
@@ -171,9 +224,26 @@ async function loadTrades() {
   }
 }
 
+async function loadClosedTrades() {
+  try {
+    closedTrades.value = await $fetch<ScannerTrade[]>('/udgaard/api/scanner/trades/closed')
+  } catch (error) {
+    console.error('Error loading closed trades:', error)
+  }
+}
+
+async function loadDrawdownStats() {
+  try {
+    drawdownStats.value = await $fetch<DrawdownStatsResponse>('/udgaard/api/scanner/drawdown-stats')
+  } catch (error) {
+    console.error('Error loading drawdown stats:', error)
+  }
+}
+
 async function runScan(config: ScanRequest) {
   isScanConfigModalOpen.value = false
   scanStatus.value = 'pending'
+  activeTab.value = 'results'
   lastEntryStrategy.value = config.entryStrategyName
   lastExitStrategy.value = config.exitStrategyName
 
@@ -183,7 +253,6 @@ async function runScan(config: ScanRequest) {
       body: config
     })
     scanStatus.value = 'success'
-    activeTab.value = 'results'
 
     // Fetch option contracts for preferred results in options mode
     if (isOptionsMode.value && scanResponse.value.results.length > 0) {
@@ -244,6 +313,7 @@ async function checkExits() {
       newMap.set(result.tradeId, result)
     }
     exitResults.value = newMap
+    updatePeakEquity()
 
     toast.add({
       title: 'Status Check Complete',
@@ -281,6 +351,55 @@ function openRollTrade(trade: ScannerTrade) {
 function openTradeDetails(trade: ScannerTrade) {
   selectedTrade.value = trade
   isTradeDetailsModalOpen.value = true
+}
+
+function openCloseTrade(trade: ScannerTrade) {
+  selectedTrade.value = trade
+  const exitResult = exitResults.value.get(trade.id)
+  closeTradePrice.value = exitResult?.currentPrice ?? trade.entryPrice
+  closeTradeDate.value = new Date().toISOString().split('T')[0]
+  isCloseTradeModalOpen.value = true
+}
+
+async function closeTrade() {
+  if (!selectedTrade.value) return
+  try {
+    await $fetch(`/udgaard/api/scanner/trades/${selectedTrade.value.id}/close`, {
+      method: 'PUT',
+      body: {
+        exitPrice: closeTradePrice.value,
+        exitDate: closeTradeDate.value
+      }
+    })
+    isCloseTradeModalOpen.value = false
+    await Promise.all([loadTrades(), loadClosedTrades(), loadDrawdownStats()])
+    updatePeakEquity()
+    toast.add({
+      title: 'Trade Closed',
+      description: `Closed ${selectedTrade.value.symbol}`,
+      icon: 'i-lucide-check-circle',
+      color: 'success'
+    })
+  } catch (_error: any) {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to close trade',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  }
+}
+
+function updatePeakEquity() {
+  const current = currentEquity.value
+  const peak = positionSizingSettings.value.peakEquity ?? positionSizingSettings.value.portfolioValue
+  if (current > peak) {
+    positionSizingSettings.value.peakEquity = current
+  }
+}
+
+function resetPeakEquity() {
+  positionSizingSettings.value.peakEquity = currentEquity.value
 }
 
 async function deleteTrade() {
@@ -465,10 +584,19 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => {
       const buttons = [
         h(resolveComponent('UButton'), {
+          icon: 'i-lucide-circle-x',
+          size: 'xs',
+          variant: 'ghost',
+          color: 'warning',
+          title: 'Close trade',
+          onClick: () => openCloseTrade(row.original)
+        }),
+        h(resolveComponent('UButton'), {
           icon: 'i-lucide-trash-2',
           size: 'xs',
           variant: 'ghost',
           color: 'error',
+          title: 'Delete trade',
           onClick: () => openDeleteTrade(row.original)
         })
       ]
@@ -483,6 +611,60 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
         )
       }
       return h('div', { class: 'flex gap-1' }, buttons)
+    }
+  }
+]
+
+// Closed trades table columns
+const closedTradeColumns: TableColumn<ScannerTrade>[] = [
+  {
+    id: 'symbol',
+    header: 'Symbol',
+    cell: ({ row }) => h(NuxtLink, {
+      to: `/stock-data/${row.original.symbol.toLowerCase()}`,
+      target: '_blank',
+      class: 'font-semibold text-primary hover:underline'
+    }, () => row.original.symbol)
+  },
+  {
+    id: 'instrumentType',
+    header: 'Type',
+    cell: ({ row }) => row.original.instrumentType
+  },
+  {
+    id: 'entryPrice',
+    header: 'Entry',
+    cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
+  },
+  {
+    id: 'exitPrice',
+    header: 'Exit',
+    cell: ({ row }) => row.original.exitPrice ? `$${row.original.exitPrice.toFixed(2)}` : '-'
+  },
+  {
+    id: 'entryDate',
+    header: 'Opened',
+    cell: ({ row }) => row.original.entryDate
+  },
+  {
+    id: 'exitDate',
+    header: 'Closed',
+    cell: ({ row }) => row.original.exitDate ?? '-'
+  },
+  {
+    id: 'quantity',
+    header: 'Qty',
+    cell: ({ row }) => row.original.quantity.toString()
+  },
+  {
+    id: 'realizedPnl',
+    header: 'P&L',
+    cell: ({ row }) => {
+      const pnl = row.original.realizedPnl
+      if (pnl == null) return '-'
+      const color = pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+      const sign = pnl >= 0 ? '+' : ''
+      return h('span', { class: color }, `${sign}$${pnl.toFixed(2)}`)
     }
   }
 ]
@@ -519,6 +701,10 @@ const tradesTableUi = computed(() => ({
           :exit-results="exitResults"
           :capital-deployed="positionSizingSettings.enabled ? existingCapitalDeployed : undefined"
           :portfolio-value="positionSizingSettings.enabled ? positionSizingSettings.portfolioValue : undefined"
+          :drawdown-pct="currentDrawdownPct"
+          :effective-risk="effectiveRiskPercentage"
+          :base-risk="positionSizingSettings.riskPercentage"
+          :drawdown-scaling-active="positionSizingSettings.drawdownScalingEnabled"
         />
 
         <!-- Position Sizing Config -->
@@ -605,6 +791,69 @@ const tradesTableUi = computed(() => ({
               />
             </div>
           </div>
+
+          <!-- Drawdown Scaling -->
+          <div class="flex items-center justify-between pt-2 border-t border-default">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-shield-alert" class="w-4 h-4 text-muted" />
+              <span class="text-sm font-semibold">Drawdown Scaling</span>
+              <UTooltip text="Automatically reduces risk per trade when portfolio is in drawdown">
+                <UIcon name="i-lucide-info" class="size-3.5 text-muted" />
+              </UTooltip>
+            </div>
+            <USwitch v-model="positionSizingSettings.drawdownScalingEnabled" size="sm" />
+          </div>
+
+          <template v-if="positionSizingSettings.drawdownScalingEnabled">
+            <!-- Drawdown Alert -->
+            <UAlert
+              v-if="activeDrawdownThreshold"
+              :color="currentDrawdownPct >= 10 ? 'error' : 'warning'"
+              :title="`Drawdown: ${currentDrawdownPct.toFixed(1)}%`"
+              :description="`Risk scaled to ${effectiveRiskPercentage.toFixed(2)}% (${activeDrawdownThreshold.riskMultiplier}x of ${positionSizingSettings.riskPercentage}%)`"
+              icon="i-lucide-trending-down"
+            />
+
+            <!-- Drawdown Info Row -->
+            <div class="grid grid-cols-4 gap-4 text-sm">
+              <div>
+                <span class="text-muted">Equity:</span>
+                <span class="ml-1 font-medium">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
+              </div>
+              <div>
+                <span class="text-muted">Peak:</span>
+                <span class="ml-1 font-medium">${{ (positionSizingSettings.peakEquity ?? positionSizingSettings.portfolioValue).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
+              </div>
+              <div>
+                <span class="text-muted">Drawdown:</span>
+                <span
+                  class="ml-1 font-medium"
+                  :class="currentDrawdownPct >= 10 ? 'text-red-600 dark:text-red-400' : currentDrawdownPct >= 5 ? 'text-yellow-600 dark:text-yellow-400' : ''"
+                >
+                  {{ currentDrawdownPct.toFixed(1) }}%
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-muted">Risk:</span>
+                <span class="font-medium">
+                  <template v-if="activeDrawdownThreshold">
+                    <span class="line-through text-muted">{{ positionSizingSettings.riskPercentage }}%</span>
+                    <span class="ml-1 text-warning">{{ effectiveRiskPercentage.toFixed(2) }}%</span>
+                  </template>
+                  <template v-else>
+                    {{ positionSizingSettings.riskPercentage }}%
+                  </template>
+                </span>
+                <UButton
+                  label="Reset Peak"
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  @click="resetPeakEquity"
+                />
+              </div>
+            </div>
+          </template>
         </div>
         <div v-else class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-default">
           <div class="flex items-center gap-2">
@@ -756,6 +1005,43 @@ const tradesTableUi = computed(() => ({
               </UTable>
             </div>
           </template>
+
+          <!-- Closed Trades Tab -->
+          <template #closed>
+            <div class="pt-4">
+              <div v-if="drawdownStats && drawdownStats.closedTradeCount > 0" class="flex items-center gap-4 mb-3 text-sm text-muted">
+                <span>
+                  Total P&L:
+                  <span
+                    class="font-semibold"
+                    :class="drawdownStats.totalRealizedPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                  >
+                    {{ drawdownStats.totalRealizedPnl >= 0 ? '+' : '' }}${{ drawdownStats.totalRealizedPnl.toFixed(2) }}
+                  </span>
+                </span>
+                <span>
+                  Win Rate:
+                  <span class="font-semibold">{{ (drawdownStats.winRate * 100).toFixed(0) }}%</span>
+                </span>
+                <span>
+                  Trades: <span class="font-semibold">{{ drawdownStats.closedTradeCount }}</span>
+                </span>
+              </div>
+              <UTable
+                :data="closedTrades"
+                :columns="closedTradeColumns"
+              >
+                <template #empty-state>
+                  <div class="flex flex-col items-center justify-center py-8">
+                    <UIcon name="i-lucide-archive" class="w-10 h-10 text-muted mb-2" />
+                    <p class="text-muted text-sm">
+                      No closed trades yet. Close trades to track realized P&L.
+                    </p>
+                  </div>
+                </template>
+              </UTable>
+            </div>
+          </template>
         </UTabs>
       </div>
     </template>
@@ -795,4 +1081,49 @@ const tradesTableUi = computed(() => ({
     :trade="selectedTrade"
     @update:open="isTradeDetailsModalOpen = $event"
   />
+
+  <!-- Close Trade Modal -->
+  <UModal
+    :open="isCloseTradeModalOpen"
+    title="Close Trade"
+    @update:open="isCloseTradeModalOpen = $event"
+  >
+    <template #body>
+      <div v-if="selectedTrade" class="space-y-4">
+        <p class="text-sm">
+          Close <span class="font-semibold">{{ selectedTrade.symbol }}</span> and record realized P&L.
+        </p>
+        <UFormField label="Exit Price ($)">
+          <UInput
+            v-model.number="closeTradePrice"
+            type="number"
+            :min="0"
+            :step="0.01"
+          />
+        </UFormField>
+        <UFormField label="Exit Date">
+          <UInput
+            v-model="closeTradeDate"
+            type="date"
+          />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          label="Cancel"
+          color="neutral"
+          variant="outline"
+          @click="isCloseTradeModalOpen = false"
+        />
+        <UButton
+          label="Close Trade"
+          color="warning"
+          icon="i-lucide-circle-x"
+          @click="closeTrade"
+        />
+      </div>
+    </template>
+  </UModal>
 </template>

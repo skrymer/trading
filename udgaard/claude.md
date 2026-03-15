@@ -137,12 +137,12 @@ udgaard/
 │   │   ├── controller/
 │   │   │   └── ScannerController.kt
 │   │   ├── dto/
-│   │   │   └── ScannerDtos.kt
+│   │   │   └── ScannerDtos.kt        # ScanRequest, AddScannerTradeRequest, RollScannerTradeRequest, UpdateScannerTradeRequest, CloseScannerTradeRequest, OptionContractsRequest, OptionContractResponse, DrawdownStatsResponse
 │   │   ├── mapper/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/
-│   │   │   ├── ScannerTrade.kt
-│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse, ExitCheckResult, ExitCheckResponse
+│   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt)
+│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult, ExitCheckResponse
 │   │   ├── repository/
 │   │   │   └── ScannerTradeJooqRepository.kt
 │   │   └── service/
@@ -174,7 +174,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V16)
+│   └── db/migration/                 # Flyway migrations (V1-V17)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -190,7 +190,8 @@ udgaard/
 │       ├── V13__Add_cash_transactions.sql
 │       ├── V14__Add_converted_amount_to_cash_transactions.sql
 │       ├── V15__Add_order_block_trigger_date.sql
-│       └── V16__Add_listing_dates.sql
+│       ├── V16__Add_listing_dates.sql
+│       └── V17__Add_close_fields_to_scanner_trades.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

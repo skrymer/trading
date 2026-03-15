@@ -136,7 +136,7 @@ class ScannerServiceTest {
   fun `checkExits detects triggered exit signals`() {
     // Given
     val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
-    whenever(scannerTradeRepository.findAll()).thenReturn(listOf(trade))
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
     whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
@@ -164,7 +164,7 @@ class ScannerServiceTest {
   fun `checkExits returns no exits when strategy does not match`() {
     // Given
     val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
-    whenever(scannerTradeRepository.findAll()).thenReturn(listOf(trade))
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
     whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)

@@ -1370,11 +1370,101 @@ Drawdown-responsive sizing is a net positive for risk-adjusted returns. The Calm
 
 ---
 
+### Volume Multiplier (volumeAboveAverage) Sweep (2026-03-15)
+
+#### Goal
+Test whether tightening or loosening the `volumeAboveAverage` multiplier improves the VCP strategy. Current default is 1.2x. Sweep: 1.0x, 1.2x, 1.5x.
+
+All tests: 2016-01-01 to 2025-12-31, STOCK only, unlimited positions, no sector exclusions.
+
+#### Results (Unlimited)
+
+| Config | Trades | WR | Edge | Avg Win | Avg Loss | W/L Ratio | PF | EC |
+|---|---|---|---|---|---|---|---|---|
+| **Vol 1.0** | 12,927 | 48.8% | +5.53% | 17.72% | -6.08% | 2.91x | 2.37 | 96.0 |
+| **Vol 1.2 (current)** | 9,077 | 49.7% | +5.90% | 18.14% | -6.17% | 2.94x | 2.44 | 96.0 |
+| **Vol 1.5** | 4,939 | 50.9% | +6.23% | 18.52% | -6.49% | 2.85x | 2.54 | 96.0 |
+
+All three variants: 10/10 profitable years, 9/10 tradeable years, EC 96.0 (identical).
+
+#### Yearly Edge
+
+| Year | Vol 1.0 | Vol 1.2 | Vol 1.5 |
+|---|---|---|---|
+| 2016 | +5.54% | +5.58% | +5.20% |
+| 2017 | +7.84% | +7.90% | **+9.67%** |
+| 2018 | +2.49% | +2.59% | **+3.40%** |
+| 2019 | +6.26% | +6.30% | +6.24% |
+| 2020 | +11.03% | +11.08% | +11.20% |
+| 2021 | +2.16% | +2.30% | +2.16% |
+| 2022 | **+0.99%** | +0.98% | +0.35% |
+| 2023 | +6.35% | +6.90% | **+7.78%** |
+| 2024 | +3.17% | +3.53% | **+3.69%** |
+| 2025 | +6.37% | +7.49% | **+8.10%** |
+
+#### Exit Reasons
+
+| Config | EMA Cross Exits | EMA Avg | EMA WR | SL Exits | SL Avg |
+|---|---|---|---|---|---|
+| Vol 1.0 | 11,808 (91.3%) | +6.90% | 53.4% | 1,119 (8.7%) | -8.91% |
+| Vol 1.2 | 8,279 (91.2%) | +7.34% | 54.5% | 798 (8.8%) | -9.05% |
+| Vol 1.5 | 4,470 (90.5%) | +7.88% | 56.2% | 469 (9.5%) | -9.41% |
+
+#### Position-Sized Comparison (Vol 1.2 vs Vol 1.5)
+
+Tested both with $10K start, 15 max positions, SectorEdge ranker, 1-day entry delay, 1.5% risk, 1.0x leverage.
+
+**Note:** These custom strategy runs don't inherit the predefined Vcp strategy's built-in SectorEdge sector ordering, so results differ from the baseline $459K.
+
+| Metric | Vol 1.2 | Vol 1.5 | Delta |
+|---|---|---|---|
+| Final Capital | **$393,493** | $250,539 | **-$143K (-36%)** |
+| CAGR | **44.4%** | 38.0% | **-6.4pp** |
+| Max Drawdown | 23.2% | **20.0%** | -3.2pp |
+| Calmar | 1.91 | 1.90 | ~equal |
+| Trades | 959 | 898 | -61 |
+| Win Rate | 43.5% | **46.5%** | +3.0pp |
+| Edge | 4.78% | **4.88%** | +0.10pp |
+| W/L Ratio | **3.21x** | 2.80x | -0.41x |
+| Profit Factor | **2.66** | 2.37 | -0.29 |
+| EC Score | 87.0 | 86.5 | ~equal |
+
+**Yearly edge (position-sized):**
+
+| Year | Vol 1.2 | Vol 1.5 | Winner |
+|---|---|---|---|
+| 2016 | +4.46% | +4.73% | Vol 1.5 |
+| 2017 | +7.60% | **+12.01%** | Vol 1.5 (+4.4pp) |
+| 2018 | +0.69% | **+1.92%** | Vol 1.5 |
+| 2019 | **+7.54%** | +5.94% | Vol 1.2 |
+| 2020 | +13.92% | +13.38% | Vol 1.2 |
+| 2021 | +3.49% | +3.33% | Vol 1.2 |
+| 2022 | -0.51% | -0.74% | Vol 1.2 |
+| 2023 | +7.10% | +7.75% | Vol 1.5 |
+| 2024 | +2.66% | **+3.82%** | Vol 1.5 |
+| 2025 | **+3.43%** | +0.89% | Vol 1.2 |
+
+#### Key Findings
+
+1. **Higher multiplier monotonically improves per-trade quality** — Vol 1.5 has the best edge (+6.23%), WR (50.9%), profit factor (2.54), and EMA exit WR (56.2%) in unlimited mode
+2. **All three share identical EC (96.0)** — No differentiation on consistency
+3. **Vol 1.5 filters 46% of trades** (12,927 → 4,939) — only keeping the highest-volume breakouts
+4. **Vol 1.2 produces $143K more (+36%) in position-sized mode** — same pattern as the Donchian sweep: larger signal pool gives SectorEdge ranker better selection
+5. **Calmar ratios are identical (~1.90)** — Vol 1.5's lower DD (20.0%) is offset by lower CAGR (38.0%)
+6. **2022 weakens with tighter filter** — Vol 1.5 drops to +0.35% unlimited (+0.99% at Vol 1.0), and both go negative in position-sized mode
+7. **2025 is a big gap in position-sized** — Vol 1.2 (+3.43%) vs Vol 1.5 (+0.89%). Fewer signals hurt in recent high-signal years
+
+#### Conclusion
+
+**Keeping Vol 1.2 as the default.** Same conclusion as the Donchian distance sweep: tighter filters improve per-trade quality but the larger signal pool at 1.2x gives the SectorEdge ranker more candidates, and the compounding effect of additional trades outweighs the per-trade edge difference. The $143K gap (+36%) in position-sized mode is decisive. Vol 1.5 would be preferable only if trading without a ranker (taking every signal).
+
+---
+
 ### Potential Next Steps
 - ~~Entry condition ablation study~~ — Done. `priceAbove(50)` removed as redundant (see Ablation Study)
 - ~~Parameter sensitivity on `volatilityContracted`~~ — Done. maxAtrMultiple changed from 2.5 to 3.5 (see VC Sweep)
 - ~~Parameter sensitivity on `priceNearDonchianHigh`~~ — Done. 3.0% confirmed as optimal (see Donchian Distance Sweep)
-- Parameter sensitivity on `volumeAboveAverage` multiplier (1.0 vs 1.2 vs 1.5)
+- ~~Parameter sensitivity on `volumeAboveAverage` multiplier~~ — Done. 1.2x confirmed as optimal (see Volume Multiplier Sweep)
 - ~~Sector exclusion testing~~ — Done. No exclusions recommended (see Sector Exclusion Analysis)
 - ~~Monte Carlo validation (10,000 iterations)~~ — Done. Edge robust at p5=+4.16% position-sized (see Strategy Validation)
 - ~~Strategy validation (P1-P3 fixes)~~ — Done. Edge is real, drawdown was underreported (see Strategy Validation)

@@ -79,8 +79,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Options data via Midgaard (`options/MidgaardOptionsProvider.kt`)
 
 4. **Scanner** (`scanner/`)
-   - `ScannerService.kt`: Scan for entry signals, check exits, CRUD trades, roll trades
-   - `ScannerController.kt`: REST API for scanner operations
+   - `ScannerService.kt`: Scan for entry signals, check exits, CRUD trades, roll trades, close trades, drawdown stats
+   - `ScannerController.kt`: REST API for scanner operations (scan, trades CRUD, close, roll, exits, drawdown stats)
    - `ScannerTradeJooqRepository.kt`: jOOQ persistence for scanner trades
    - Lightweight trade tracking separate from portfolio positions
    - Uses `StrategyRegistry` for predefined strategy lookup
@@ -105,7 +105,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Positions:** `GET /api/positions/{portfolioId}`, `GET /api/positions/{portfolioId}/{positionId}`, `POST /api/positions/{portfolioId}`, `PUT /api/positions/{portfolioId}/{positionId}/close`, `PUT /api/positions/{portfolioId}/{positionId}/metadata`, `DELETE /api/positions/{portfolioId}/{positionId}`, `GET /api/positions/{portfolioId}/stats`, `GET /api/positions/{portfolioId}/unrealized-pnl`, `GET /api/positions/{portfolioId}/equity-curve`, `POST /api/positions/{portfolioId}/recalculate-balance`, `GET /api/positions/{portfolioId}/{positionId}/roll-chain`
 
-**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
+**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `GET /api/scanner/trades/closed`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
 
 **Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
 
@@ -176,14 +176,14 @@ trading/
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
 │   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade, ScanResult, ScanResponse
+│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult, ExitCheckResponse
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
 │   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, MidgaardHealthIndicator)
-│   ├── src/main/resources/           # Config, migrations (V1-V16)
+│   ├── src/main/resources/           # Config, migrations (V1-V17)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -331,4 +331,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-13_
+_Last Updated: 2026-03-15_

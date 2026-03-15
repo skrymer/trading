@@ -2,6 +2,8 @@ package com.skrymer.udgaard.scanner.controller
 
 import com.skrymer.udgaard.portfolio.integration.options.OptionsDataProvider
 import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.CloseScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.DrawdownStatsResponse
 import com.skrymer.udgaard.scanner.dto.OptionContractResponse
 import com.skrymer.udgaard.scanner.dto.OptionContractsRequest
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
@@ -100,6 +102,21 @@ class ScannerController(
     }
   }
 
+  @PutMapping("/trades/{id}/close")
+  fun closeTrade(
+    @PathVariable id: Long,
+    @RequestBody request: CloseScannerTradeRequest,
+  ): ResponseEntity<ScannerTrade> {
+    logger.info("Closing scanner trade $id")
+    return try {
+      val trade = scannerService.closeTrade(id, request)
+      ResponseEntity.ok(trade)
+    } catch (e: IllegalArgumentException) {
+      logger.error("Scanner trade not found: $id - ${e.message}")
+      ResponseEntity.notFound().build()
+    }
+  }
+
   @DeleteMapping("/trades/{id}")
   fun deleteTrade(
     @PathVariable id: Long,
@@ -108,6 +125,16 @@ class ScannerController(
     scannerService.deleteTrade(id)
     return ResponseEntity.noContent().build()
   }
+
+  @GetMapping("/trades/closed")
+  fun getClosedTrades(): ResponseEntity<List<ScannerTrade>> {
+    val trades = scannerService.getClosedTrades()
+    return ResponseEntity.ok(trades)
+  }
+
+  @GetMapping("/drawdown-stats")
+  fun getDrawdownStats(): ResponseEntity<DrawdownStatsResponse> =
+    ResponseEntity.ok(scannerService.getDrawdownStats())
 
   @PostMapping("/trades/{id}/roll")
   fun rollTrade(

@@ -467,6 +467,14 @@ export interface PositionSizingSettings {
   nAtr: number
   instrumentMode?: 'STOCK' | 'OPTION'
   maxPositions?: number
+  drawdownScalingEnabled?: boolean
+  drawdownThresholds?: DrawdownThreshold[]
+  peakEquity?: number | null
+}
+
+export interface DrawdownThreshold {
+  drawdownPercent: number
+  riskMultiplier: number
 }
 
 export interface PositionSizingResult {
@@ -1168,6 +1176,7 @@ export interface ExitCheckResult {
   exitReason?: string
   currentPrice: number
   unrealizedPnlPercent: number
+  unrealizedPnlDollars: number
 }
 
 export interface ExitCheckResponse {
@@ -1197,6 +1206,17 @@ export interface ScannerTrade {
   notes?: string
   createdAt?: string
   updatedAt?: string
+  status?: 'OPEN' | 'CLOSED'
+  exitPrice?: number
+  exitDate?: string
+  realizedPnl?: number
+  closedAt?: string
+}
+
+export interface DrawdownStatsResponse {
+  totalRealizedPnl: number
+  closedTradeCount: number
+  winRate: number
 }
 
 export interface AddScannerTradeRequest {

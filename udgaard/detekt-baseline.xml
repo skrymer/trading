@@ -42,6 +42,7 @@
     <ID>TooManyFunctions:OvtlyrStockQuote.kt:OvtlyrStockQuote</ID>
     <ID>TooManyFunctions:PortfolioController.kt:PortfolioController</ID>
     <ID>TooManyFunctions:PositionService.kt:PositionService</ID>
+    <ID>TooManyFunctions:ScannerController.kt:ScannerController</ID>
     <ID>TooManyFunctions:ScannerService.kt:ScannerService</ID>
     <ID>TooManyFunctions:Stock.kt:Stock</ID>
     <ID>TooManyFunctions:StockIngestionService.kt:StockIngestionService</ID>

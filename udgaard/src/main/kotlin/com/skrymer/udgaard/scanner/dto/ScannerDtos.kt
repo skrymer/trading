@@ -77,3 +77,14 @@ data class OptionContractResponse(
   val intrinsic: Double,
   val extrinsic: Double,
 )
+
+data class CloseScannerTradeRequest(
+  val exitPrice: Double,
+  val exitDate: String,
+)
+
+data class DrawdownStatsResponse(
+  val totalRealizedPnl: Double,
+  val closedTradeCount: Int,
+  val winRate: Double,
+)

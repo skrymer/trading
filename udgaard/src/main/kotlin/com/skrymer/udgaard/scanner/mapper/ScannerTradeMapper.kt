@@ -4,11 +4,9 @@ import com.skrymer.udgaard.jooq.tables.pojos.ScannerTrades
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.model.ScannerTrade
+import com.skrymer.udgaard.scanner.model.TradeStatus
 import org.springframework.stereotype.Component
 
-/**
- * Mapper between jOOQ ScannerTrades POJOs and domain models
- */
 @Component
 class ScannerTradeMapper {
   fun toDomain(pojo: ScannerTrades): ScannerTrade =
@@ -45,6 +43,15 @@ class ScannerTradeMapper {
       notes = pojo.notes,
       createdAt = pojo.createdAt,
       updatedAt = pojo.updatedAt,
+      status =
+        when (pojo.status) {
+          "CLOSED" -> TradeStatus.CLOSED
+          else -> TradeStatus.OPEN
+        },
+      exitPrice = pojo.exitPrice?.toDouble(),
+      exitDate = pojo.exitDate,
+      realizedPnl = pojo.realizedPnl?.toDouble(),
+      closedAt = pojo.closedAt,
     )
 
   fun toPojo(trade: ScannerTrade): ScannerTrades =
@@ -79,6 +86,11 @@ class ScannerTradeMapper {
       notes = trade.notes,
       createdAt = trade.createdAt,
       updatedAt = trade.updatedAt,
+      status = trade.status.name,
+      exitPrice = trade.exitPrice?.toBigDecimal(),
+      exitDate = trade.exitDate,
+      realizedPnl = trade.realizedPnl?.toBigDecimal(),
+      closedAt = trade.closedAt,
     ).apply {
       id = trade.id
     }

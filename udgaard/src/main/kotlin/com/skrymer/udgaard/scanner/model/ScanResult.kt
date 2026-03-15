@@ -68,6 +68,7 @@ data class ExitCheckResult(
   val exitReason: String?,
   val currentPrice: Double,
   val unrealizedPnlPercent: Double,
+  val unrealizedPnlDollars: Double,
 )
 
 /**

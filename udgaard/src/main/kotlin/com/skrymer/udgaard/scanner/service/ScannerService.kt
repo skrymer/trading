@@ -21,6 +21,8 @@ import com.skrymer.udgaard.data.service.SymbolService
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.CloseScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.DrawdownStatsResponse
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
@@ -31,6 +33,7 @@ import com.skrymer.udgaard.scanner.model.NearMissCandidate
 import com.skrymer.udgaard.scanner.model.ScanResponse
 import com.skrymer.udgaard.scanner.model.ScanResult
 import com.skrymer.udgaard.scanner.model.ScannerTrade
+import com.skrymer.udgaard.scanner.model.TradeStatus
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -38,7 +41,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 private data class EvalResult(
   val scanResult: ScanResult?,
@@ -245,7 +250,7 @@ class ScannerService(
    * Check exit signals for all open scanner trades.
    */
   fun checkExits(): ExitCheckResponse {
-    val trades = scannerTradeRepository.findAll()
+    val trades = scannerTradeRepository.findOpen()
     if (trades.isEmpty()) {
       return ExitCheckResponse(results = emptyList(), checksPerformed = 0, exitsTriggered = 0)
     }
@@ -281,6 +286,13 @@ class ScannerService(
       } else {
         0.0
       }
+      val pnlDollars = if (trade.instrumentType == InstrumentType.OPTION) {
+        val delta = trade.delta ?: 0.80
+        val stockPriceChange = currentPrice - trade.entryPrice
+        stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
+      } else {
+        (currentPrice - trade.entryPrice) * trade.quantity
+      }
 
       ExitCheckResult(
         tradeId = trade.id ?: 0,
@@ -289,6 +301,7 @@ class ScannerService(
         exitReason = exitReport.exitReason,
         currentPrice = currentPrice,
         unrealizedPnlPercent = pnlPercent,
+        unrealizedPnlDollars = pnlDollars,
       )
     }
 
@@ -305,11 +318,14 @@ class ScannerService(
   /**
    * Roll a scanner trade: delete old, create new with accumulated credits.
    */
+  @Transactional
   fun rollTrade(tradeId: Long, request: RollScannerTradeRequest): ScannerTrade {
     val existingTrade = scannerTradeRepository.findById(tradeId)
       ?: throw IllegalArgumentException("Scanner trade $tradeId not found")
 
-    val rollCredit = (request.closePrice - existingTrade.optionPrice!!) * existingTrade.quantity *
+    val optionPrice = existingTrade.optionPrice
+      ?: throw IllegalArgumentException("Cannot roll trade $tradeId: optionPrice is missing")
+    val rollCredit = (request.closePrice - optionPrice) * existingTrade.quantity *
       if (existingTrade.instrumentType == InstrumentType.OPTION) existingTrade.multiplier else 1
     val newRolledCredits = existingTrade.rolledCredits + rollCredit
 
@@ -366,7 +382,32 @@ class ScannerService(
     return saved
   }
 
-  fun getTrades(): List<ScannerTrade> = scannerTradeRepository.findAll()
+  fun closeTrade(id: Long, request: CloseScannerTradeRequest): ScannerTrade {
+    val trade = findOpenTrade(id)
+
+    val exitPrice = request.exitPrice
+    val exitDate = parseDate(request.exitDate)
+    val realizedPnl = if (trade.instrumentType == InstrumentType.OPTION) {
+      (exitPrice - (trade.optionPrice ?: trade.entryPrice)) * trade.quantity * trade.multiplier + trade.rolledCredits
+    } else {
+      (exitPrice - trade.entryPrice) * trade.quantity
+    }
+
+    val closed = trade.copy(
+      status = TradeStatus.CLOSED,
+      exitPrice = exitPrice,
+      exitDate = exitDate,
+      realizedPnl = realizedPnl,
+      closedAt = LocalDateTime.now(),
+    )
+    val saved = scannerTradeRepository.save(closed)
+    logger.info("Closed scanner trade $id: ${trade.symbol}, P&L=${"%.2f".format(realizedPnl)}")
+    return saved
+  }
+
+  fun getTrades(): List<ScannerTrade> = scannerTradeRepository.findOpen()
+
+  fun getClosedTrades(): List<ScannerTrade> = scannerTradeRepository.findClosed()
 
   fun getTrade(id: Long): ScannerTrade? = scannerTradeRepository.findById(id)
 
@@ -380,6 +421,19 @@ class ScannerService(
   fun deleteTrade(id: Long) {
     scannerTradeRepository.delete(id)
     logger.info("Deleted scanner trade $id")
+  }
+
+  fun getDrawdownStats(): DrawdownStatsResponse {
+    val closedTrades = scannerTradeRepository.findClosed()
+    val totalRealizedPnl = closedTrades.sumOf { it.realizedPnl ?: 0.0 }
+    val winners = closedTrades.count { (it.realizedPnl ?: 0.0) > 0.0 }
+    val winRate = if (closedTrades.isNotEmpty()) winners.toDouble() / closedTrades.size else 0.0
+
+    return DrawdownStatsResponse(
+      totalRealizedPnl = totalRealizedPnl,
+      closedTradeCount = closedTrades.size,
+      winRate = winRate,
+    )
   }
 
   private fun buildBacktestContext(): BacktestContext {
@@ -420,6 +474,20 @@ class ScannerService(
 
     return symbols
   }
+
+  private fun findOpenTrade(id: Long): ScannerTrade {
+    val trade = scannerTradeRepository.findById(id)
+      ?: throw IllegalArgumentException("Scanner trade $id not found")
+    require(trade.status != TradeStatus.CLOSED) { "Scanner trade $id is already closed" }
+    return trade
+  }
+
+  private fun parseDate(dateStr: String): LocalDate =
+    try {
+      LocalDate.parse(dateStr)
+    } catch (_: java.time.format.DateTimeParseException) {
+      throw IllegalArgumentException("Invalid exit date format: $dateStr")
+    }
 
   companion object {
     private const val BATCH_SIZE = 150

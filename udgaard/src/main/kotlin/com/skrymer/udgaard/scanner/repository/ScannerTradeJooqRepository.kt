@@ -4,27 +4,38 @@ import com.skrymer.udgaard.jooq.tables.pojos.ScannerTrades
 import com.skrymer.udgaard.jooq.tables.references.SCANNER_TRADES
 import com.skrymer.udgaard.scanner.mapper.ScannerTradeMapper
 import com.skrymer.udgaard.scanner.model.ScannerTrade
+import com.skrymer.udgaard.scanner.model.TradeStatus
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.LocalDateTime
 
-/**
- * jOOQ-based repository for ScannerTrade operations
- */
 @Repository
 class ScannerTradeJooqRepository(
   private val dsl: DSLContext,
   private val mapper: ScannerTradeMapper,
 ) {
-  fun findAll(): List<ScannerTrade> {
-    val trades =
-      dsl
-        .selectFrom(SCANNER_TRADES)
-        .orderBy(SCANNER_TRADES.ENTRY_DATE.desc())
-        .fetchInto(ScannerTrades::class.java)
+  fun findOpen(): List<ScannerTrade> =
+    dsl
+      .selectFrom(SCANNER_TRADES)
+      .where(SCANNER_TRADES.STATUS.eq(TradeStatus.OPEN.name))
+      .orderBy(SCANNER_TRADES.ENTRY_DATE.desc())
+      .fetchInto(ScannerTrades::class.java)
+      .map { mapper.toDomain(it) }
 
-    return trades.map { mapper.toDomain(it) }
-  }
+  fun findClosed(): List<ScannerTrade> =
+    dsl
+      .selectFrom(SCANNER_TRADES)
+      .where(SCANNER_TRADES.STATUS.eq(TradeStatus.CLOSED.name))
+      .orderBy(SCANNER_TRADES.CLOSED_AT.desc())
+      .fetchInto(ScannerTrades::class.java)
+      .map { mapper.toDomain(it) }
+
+  fun findAll(): List<ScannerTrade> =
+    dsl
+      .selectFrom(SCANNER_TRADES)
+      .orderBy(SCANNER_TRADES.ENTRY_DATE.desc())
+      .fetchInto(ScannerTrades::class.java)
+      .map { mapper.toDomain(it) }
 
   fun findById(id: Long): ScannerTrade? {
     val trade =
@@ -60,6 +71,7 @@ class ScannerTradeJooqRepository(
           .set(SCANNER_TRADES.ROLLED_CREDITS, pojo.rolledCredits)
           .set(SCANNER_TRADES.ROLL_COUNT, pojo.rollCount)
           .set(SCANNER_TRADES.NOTES, pojo.notes)
+          .set(SCANNER_TRADES.STATUS, pojo.status)
           .returningResult(SCANNER_TRADES.ID)
           .fetchOne()
 
@@ -83,6 +95,11 @@ class ScannerTradeJooqRepository(
         .set(SCANNER_TRADES.ROLLED_CREDITS, pojo.rolledCredits)
         .set(SCANNER_TRADES.ROLL_COUNT, pojo.rollCount)
         .set(SCANNER_TRADES.NOTES, pojo.notes)
+        .set(SCANNER_TRADES.STATUS, pojo.status)
+        .set(SCANNER_TRADES.EXIT_PRICE, pojo.exitPrice)
+        .set(SCANNER_TRADES.EXIT_DATE, pojo.exitDate)
+        .set(SCANNER_TRADES.REALIZED_PNL, pojo.realizedPnl)
+        .set(SCANNER_TRADES.CLOSED_AT, pojo.closedAt)
         .set(SCANNER_TRADES.UPDATED_AT, LocalDateTime.now())
         .where(SCANNER_TRADES.ID.eq(trade.id))
         .execute()

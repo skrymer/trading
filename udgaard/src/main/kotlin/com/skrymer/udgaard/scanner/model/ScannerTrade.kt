@@ -5,9 +5,8 @@ import com.skrymer.udgaard.portfolio.model.OptionType
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/**
- * Domain model for a scanner trade — a lightweight tracked opportunity
- */
+enum class TradeStatus { OPEN, CLOSED }
+
 data class ScannerTrade(
   val id: Long?,
   val symbol: String,
@@ -29,4 +28,9 @@ data class ScannerTrade(
   val notes: String?,
   val createdAt: LocalDateTime? = null,
   val updatedAt: LocalDateTime? = null,
+  val status: TradeStatus = TradeStatus.OPEN,
+  val exitPrice: Double? = null,
+  val exitDate: LocalDate? = null,
+  val realizedPnl: Double? = null,
+  val closedAt: LocalDateTime? = null,
 )
