@@ -111,7 +111,7 @@ springBoot {
 }
 
 tasks.named('bootRun') {
-	jvmArgs = ['-Xmx20480m', '-Xms8192m']
+	jvmArgs = ['-Xmx12288m', '-Xms4096m']
 }
 
 ktlint {

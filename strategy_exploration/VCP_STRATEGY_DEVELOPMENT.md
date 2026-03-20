@@ -1,6 +1,6 @@
 # VCP Strategy Development
 
-## Current State (2026-03-19)
+## Current State (2026-03-20)
 
 ### Entry Strategy
 ```kotlin
@@ -36,41 +36,41 @@ exitStrategy {
 
 | Metric | Value |
 |---|---|
-| Total Trades | 9,333 |
-| Win Rate | 52.7% |
-| Edge | 5.17% |
-| Avg Win / Loss | 15.14% / -5.93% |
-| Win/Loss Ratio | 2.55x |
-| Profit Factor | 2.42 |
+| Total Trades | 8,324 |
+| Win Rate | 52.4% |
+| Edge | 5.15% |
+| Avg Win / Loss | 15.22% / -5.95% |
+| Win/Loss Ratio | 2.56x |
+| Profit Factor | 2.41 |
 | Edge Consistency | **96.0/100 (Excellent)** |
 
-*Updated 2026-03-19 after stagnation exit added. Per-trade edge lower (-0.74pp) because stagnation exits average -0.11%, but capital efficiency gains produce more total dollars in position-sized mode.*
+*Updated 2026-03-20 after backtesting code review fixes (position sizing M2M, VolumeAboveAverage calendar day correction).*
 
 ### Yearly Edge
 | Year | Edge | Tradeable (>=1.5%)? |
 |---|---|---|
-| 2016 | +4.49% | T |
-| 2017 | +6.27% | T |
-| 2018 | +2.27% | T |
-| 2019 | +5.84% | T |
-| 2020 | +9.39% | T |
-| 2021 | +1.66% | T |
-| 2022 | +0.70% | |
-| 2023 | +6.48% | T |
-| 2024 | +3.29% | T |
-| 2025 | +6.61% | T |
+| 2016 | +4.11% | T |
+| 2017 | +7.36% | T |
+| 2018 | +2.33% | T |
+| 2019 | +5.70% | T |
+| 2020 | +9.69% | T |
+| 2021 | +1.92% | T |
+| 2022 | +1.05% | |
+| 2023 | +6.23% | T |
+| 2024 | +3.46% | T |
+| 2025 | +6.11% | T |
 
 **10/10 years profitable**, 9/10 years have tradeable edge (>=1.5%).
 
 ### Exit Reasons
-- EMA cross (10/20): 6,669 exits (71.5%), +8.33% avg, 57.7% WR, 55d avg hold
-- Stagnation (3%/15d): 1,871 exits (20.0%), -0.11% avg, 57.1% WR, 22d avg hold
-- Stop loss (2.5 ATR): 793 exits (8.5%), -9.00% avg, 0% WR, 8d avg hold
+- EMA cross (10/20): 5,945 exits (71.4%), +8.34% avg, 57.5% WR
+- Stagnation (3%/15d): 1,662 exits (20.0%), -0.13% avg, 56.8% WR
+- Stop loss (2.5 ATR): 717 exits (8.6%), -9.02% avg, 0% WR
 
 ### EC Score Breakdown
 - Profitable Periods: 100% (10/10 years positive, weight 40%)
 - Stability (Tradeable Edge): 90% (9/10 years >= 1.5%, weight 40%)
-- Downside: 100% (worst year +0.70%, weight 20%)
+- Downside: 100% (worst year +1.05%, weight 20%)
 - **Total: 96.0 (Excellent)**
 
 ### Position-Sized Results ($10K Starting Capital)
@@ -90,89 +90,51 @@ exitStrategy {
 | Metric | Value |
 |---|---|
 | Starting Capital | $10,000 |
-| Final Capital | **$442,061** |
-| Peak Capital | $464,341 |
-| Total Return | +4,321% |
-| CAGR | **45.4%** |
-| Max Drawdown | **17.8%** ($53,614) |
-| Total Trades | 1,025 |
-| Win Rate | 50.6% |
-| Edge | +5.44% |
-| Avg Win / Loss | 15.91% / -5.29% |
-| Win/Loss Ratio | 3.01x |
-| Profit Factor | 2.71 |
-| EC Score | **100.0 (Excellent)** |
+| Final Capital | **$1,066,691** |
+| Peak Capital | $1,115,622 |
+| Total Return | +10,567% |
+| CAGR | **~60%** |
+| Max Drawdown | **22.0%** ($132,663) |
+| Total Trades | 1,028 |
+| Win Rate | 51.0% |
+| Edge | +5.05% |
+| Avg Win / Loss | 15.22% / -5.51% |
+| Win/Loss Ratio | 2.76x |
+| Profit Factor | 2.68 |
+| EC Score | 96.0 (Excellent) |
 
-**Risk-adjusted metrics:**
-
-| Metric | Value | Rating |
-|---|---|---|
-| Sharpe Ratio | 2.18 | Excellent (>2.0) |
-| Sortino Ratio | 3.44 | Excellent (>3.0) |
-| Calmar Ratio | 2.55 | Excellent (>1.5) |
-| SPY Correlation | 0.52 | Good (mix of alpha and beta) |
-| Beta | 0.57 | Below-market exposure |
-| Alpha (annualized) | 30.9% | Strong independent return |
+*Updated 2026-03-20 after position sizing M2M fix. Position sizes now use true portfolio value (cash + unrealized P/L) instead of cash-only, producing more aggressive compounding and higher final capital.*
 
 **Yearly edge:**
 
 | Year | Trades | Edge | Tradeable? |
 |---|---|---|---|
-| 2016 | ~95 | +3.12% | T |
-| 2017 | ~60 | +5.40% | T |
-| 2018 | ~70 | +2.36% | T |
-| 2019 | ~80 | +5.54% | T |
-| 2020 | ~95 | +16.34% | T |
-| 2021 | ~115 | +3.75% | T |
-| 2022 | ~120 | +1.68% | T |
-| 2023 | ~100 | +8.69% | T |
-| 2024 | ~100 | +5.62% | T |
-| 2025 | ~190 | +4.90% | T |
+| 2016 | ~95 | +2.14% | T |
+| 2017 | ~60 | +7.66% | T |
+| 2018 | ~70 | +3.40% | T |
+| 2019 | ~80 | +4.30% | T |
+| 2020 | ~95 | +10.50% | T |
+| 2021 | ~115 | +4.51% | T |
+| 2022 | ~120 | +1.12% | |
+| 2023 | ~100 | +5.82% | T |
+| 2024 | ~100 | +7.79% | T |
+| 2025 | ~190 | +5.42% | T |
 
-**10/10 years profitable. 10/10 tradeable.** $10K → $442K (44x) over 10 years. First time all years exceed the 1.5% tradeable threshold — 2022 improves from +0.60% to +1.68% thanks to capital freed by stagnation exits being redeployed into better signals.
+**10/10 years profitable.** 9/10 tradeable. $10K → $1.07M (107x) over 10 years.
 
 **Exit reasons:**
 
 | Reason | Count | % | Avg Profit | WR | Avg Hold |
 |---|---|---|---|---|---|
-| EMA cross (10/20) | 751 | 73.3% | +8.28% | 54.9% | 55d |
-| Stagnation (3%/15d) | 205 | 20.0% | -0.13% | 52.2% | 22d |
-| Stop loss (2.5 ATR) | 69 | 6.7% | -8.88% | 0% | 9d |
+| EMA cross (10/20) | 731 | 71.1% | +8.01% | 54.9% | |
+| Stagnation (3%/15d) | 225 | 21.9% | -0.08% | 54.7% | |
+| Stop loss (2.5 ATR) | 72 | 7.0% | -8.90% | 0% | |
 
-**Top 5 drawdowns:**
-
-| # | Depth | Period | Decline | Recovery | Total |
-|---|---|---|---|---|---|
-| 1 | 17.8% | 2022-04 → 2022-11 | 111d | 40d | 151d |
-| 2 | 17.6% | 2020-02 → 2020-06 | 43d | 36d | 79d |
-| 3 | 15.7% | 2025-02 → 2025-06 | 53d | 47d | 100d |
-| 4 | 12.6% | 2025-09 → 2025-12 | 45d | 9d | 54d |
-| 5 | 10.4% | 2021-03 → 2021-04 | 6d | 8d | 14d |
-
-**Monte Carlo validation (10K iterations):**
-
-Bootstrap resampling (edge confidence):
-| Percentile | Edge |
-|---|---|
-| p5 (worst case) | +4.35% |
-| p50 (median) | +5.40% |
-| p95 (best case) | +6.59% |
-| Prob of Profit | 100% |
-
-**Walk-forward validation (5yr IS / 1yr OOS / 1yr step):**
-
-| OOS Year | IS Edge | OOS Edge | WFE |
-|---|---|---|---|
-| 2021 | +6.05% | +2.92% | 0.48 |
-| 2022 | +6.38% | +1.41% | 0.22 |
-| 2023 | +5.16% | +6.54% | 1.27 |
-| 2024 | +6.46% | +5.90% | 0.91 |
-
-Aggregate WFE: **0.69** (robust), OOS edge: **+4.17%**, 4/4 OOS windows profitable.
+**Walk-forward and Monte Carlo validation** should be re-run against these corrected results. Prior validation (WFE 0.69, MC p5 edge +4.35%) was run before the M2M fix and volume lookback correction.
 
 **With drawdown-responsive scaling** (optional, see Drawdown-Responsive Position Sizing section):
 
-Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 10% DD → 0.33x risk). Can be combined with the stagnation exit for further DD reduction. See the Drawdown-Responsive Position Sizing section for full details and API usage.
+Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 10% DD → 0.33x risk). Can be combined with the stagnation exit for further DD reduction. Should be re-tested with the corrected position sizing. See the Drawdown-Responsive Position Sizing section for full details and API usage.
 
 **Evolution across optimizations:**
 
@@ -1458,6 +1420,18 @@ Tested both with $10K start, 15 max positions, SectorEdge ranker, 1-day entry de
 5. **Calmar ratios are identical (~1.90)** — Vol 1.5's lower DD (20.0%) is offset by lower CAGR (38.0%)
 6. **2022 weakens with tighter filter** — Vol 1.5 drops to +0.35% unlimited (+0.99% at Vol 1.0), and both go negative in position-sized mode
 7. **2025 is a big gap in position-sized** — Vol 1.2 (+3.43%) vs Vol 1.5 (+0.89%). Fewer signals hurt in recent high-signal years
+
+#### Re-verified Post-Fix (2026-03-20)
+
+After VolumeAboveAverageCondition calendar day fix (lookback now uses `days * 1.5` to cover weekends), re-ran the sweep to confirm 1.2x is still optimal:
+
+| Config | Trades | WR | Edge | PF | EC |
+|---|---|---|---|---|---|
+| Vol 1.0 | 12,413 | 51.8% | +4.77% | 2.37 | 96 |
+| **Vol 1.2 (current)** | **8,324** | **52.4%** | **+5.15%** | **2.41** | **96** |
+| Vol 1.5 | 4,452 | 53.0% | +5.27% | 2.43 | 92 |
+
+Same relative ranking — Vol 1.2 best EC (96 vs 92 for Vol 1.5), Vol 1.5's 2021 edge drops to +1.42% (below tradeable). **No parameter change needed.**
 
 #### Conclusion
 
