@@ -93,7 +93,7 @@ exitStrategy {
 | Final Capital | **$1,066,691** |
 | Peak Capital | $1,115,622 |
 | Total Return | +10,567% |
-| CAGR | **~60%** |
+| CAGR | **58.6%** |
 | Max Drawdown | **22.0%** ($132,663) |
 | Total Trades | 1,028 |
 | Win Rate | 51.0% |
@@ -130,28 +130,68 @@ exitStrategy {
 | Stagnation (3%/15d) | 225 | 21.9% | -0.08% | 54.7% | |
 | Stop loss (2.5 ATR) | 72 | 7.0% | -8.90% | 0% | |
 
-**Walk-forward and Monte Carlo validation** should be re-run against these corrected results. Prior validation (WFE 0.69, MC p5 edge +4.35%) was run before the M2M fix and volume lookback correction.
+**Risk-adjusted metrics:**
+
+| Metric | Value | Rating |
+|---|---|---|
+| Sharpe Ratio | 2.37 | Excellent (>2.0) |
+| Sortino Ratio | 3.78 | Excellent (>3.0) |
+| Calmar Ratio | 2.67 | Excellent (>1.5) |
+| SPY Correlation | 0.52 | Good (mix of alpha and beta) |
+| Beta | 0.66 | Below-market exposure |
+| Alpha (annualized) | 39.2% | Strong independent return |
+
+**Top 5 drawdowns:**
+
+| # | Depth | Period | Total Days |
+|---|---|---|---|
+| 1 | 22.0% | 2022-04 → 2023-01 | 190d |
+| 2 | 22.0% | 2020-02 → 2020-06 | 61d |
+| 3 | 14.6% | 2025-02 → 2025-05 | 61d |
+| 4 | 13.5% | 2025-10 → 2025-12 | 34d |
+| 5 | 13.2% | 2021-03 → 2021-04 | 14d |
+
+**Monte Carlo validation (10K iterations):**
+
+Bootstrap resampling (edge confidence):
+| Percentile | Edge |
+|---|---|
+| p5 (worst case) | +4.04% |
+| p50 (median) | +5.04% |
+| p95 (best case) | +6.07% |
+| Prob of Profit | 100% |
+
+**Walk-forward validation (5yr IS / 1yr OOS / 1yr step):**
+
+| OOS Year | IS Edge | OOS Edge | IS Trades | OOS Trades |
+|---|---|---|---|---|
+| 2021 | +5.34% | +3.15% | 475 | 115 |
+| 2022 | +6.18% | +1.05% | 468 | 119 |
+| 2023 | +4.14% | +4.69% | 513 | 118 |
+| 2024 | +5.03% | +7.75% | 527 | 99 |
+
+Aggregate WFE: **0.78** (robust), OOS edge: **+4.01%**, 4/4 OOS windows profitable.
 
 **With drawdown-responsive scaling** (optional, see Drawdown-Responsive Position Sizing section):
 
-Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 10% DD → 0.33x risk). Can be combined with the stagnation exit for further DD reduction. Should be re-tested with the corrected position sizing. See the Drawdown-Responsive Position Sizing section for full details and API usage.
+Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 10% DD → 0.33x risk). Can be combined with the stagnation exit for further DD reduction. Should be re-tested with the corrected M2M-based position sizing. See the Drawdown-Responsive Position Sizing section for full details and API usage.
 
 **Evolution across optimizations:**
 
-| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 | + stagnation 3%/15d |
-|---|---|---|---|---|---|---|
-| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | $459,565 | **$442,061** |
-| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | 46.4% | **45.4%** |
-| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | 21.2% | **17.8%** |
-| Trades | 855 | 927 | 837 | 899 | 893 | **1,025** |
-| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% | **50.6%** |
-| Edge | +4.86% | +5.46% | +5.74% | +5.24% | +5.74% | **+5.44%** |
-| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 | **2.71** |
-| EC | 92.0 | 96.0 | 96.0 | 96.0 | 96.0 | **100.0** |
-| Sharpe | — | — | — | 2.04 | 2.21 | **2.18** |
-| Calmar | — | — | — | 1.61 | 2.18 | **2.55** |
+Note: pre-stagnation values are from the old cash-based position sizing. The stagnation column uses corrected M2M-based sizing, so the jump in final capital reflects both the stagnation exit AND the M2M fix.
 
-The stagnation exit trades -1pp CAGR for -3.4pp max DD reduction. Calmar improves from 2.18 to 2.55 (+17%), EC reaches 100/100 for the first time, and worst drawdown recovery drops from 314d to 151d. The capital efficiency gain (more trades via faster turnover) offsets the lower per-trade edge.
+| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 | + stagnation + M2M fix |
+|---|---|---|---|---|---|---|
+| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | $459,565 | **$1,066,691** |
+| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | 46.4% | **58.6%** |
+| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | 21.2% | **22.0%** |
+| Trades | 855 | 927 | 837 | 899 | 893 | **1,028** |
+| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% | **51.0%** |
+| Edge | +4.86% | +5.46% | +5.74% | +5.24% | +5.74% | **+5.05%** |
+| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 | **2.68** |
+| EC | 92.0 | 96.0 | 96.0 | 96.0 | 96.0 | **96.0** |
+| Sharpe | — | — | — | 2.04 | 2.21 | **2.37** |
+| Calmar | — | — | — | 1.61 | 2.18 | **2.67** |
 
 **Position sizing notes:**
 - Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
