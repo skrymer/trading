@@ -1261,57 +1261,53 @@ Worst drawdown (24.0%) took 283 days — shorter than the 2022 drawdown (379 day
 
 Actual 24.0% DD falls between p75 (20.1%) and p95 (25.0%) — moderate correlation clustering from GFC.
 
-#### With VcpExitStrategy (stagnation 3%/15d, 2026-03-19)
+#### With VcpExitStrategy — Post M2M Fix (2026-03-20)
 
-Re-tested with the current VcpExitStrategy (emaCross + stopLoss + stagnation) to confirm the stagnation exit adds value in the pre-2016 era too.
+Re-tested with the current VcpExitStrategy and corrected M2M-based position sizing.
 
-| Metric | Baseline (no stag) | VcpExitStrategy | Delta |
+| Metric | Pre-Fix VcpExitStrategy | Post-Fix VcpExitStrategy | Delta |
 |---|---|---|---|
-| Starting → Final | $10K → $71K | $10K → **$80K** | **+$9K (+13%)** |
-| Max Drawdown | 24.0% | **19.2%** | **-4.8pp** |
-| Total Trades | 844 | 964 | +120 |
-| Win Rate | 45.6% | 50.3% | +4.7pp |
-| Edge | 3.01% | 2.69% | -0.32pp |
-| EC Score | 82.3 | 79.0 | -3.3 |
+| Starting → Final | $10K → $80K | $10K → **$121K** | **+$41K (+51%)** |
+| Max Drawdown | 19.2% | **27.0%** | +7.8pp |
+| Total Trades | 964 | 958 | -6 |
+| Win Rate | 50.3% | 49.4% | -0.9pp |
+| Edge | 2.69% | 2.38% | -0.31pp |
+| EC Score | 79.0 | **83.0** | +4.0 |
 
-**Yearly edge (VcpExitStrategy):**
+**Yearly edge (VcpExitStrategy, post-fix):**
 
 | Year | Edge | Tradeable? |
 |---|---|---|
-| 2006 | +2.24% | T |
-| 2007 | +0.83% | |
-| **2008** | **-2.30%** | |
-| 2009 | +2.98% | T |
-| 2010 | +6.70% | T |
-| 2011 | +2.22% | T |
-| 2012 | +2.98% | T |
-| 2013 | +9.81% | T |
-| 2014 | +3.74% | T |
-| 2015 | +0.84% | |
+| 2006 | +2.32% | T |
+| 2007 | +0.23% | |
+| **2008** | **-2.48%** | |
+| 2009 | +3.30% | T |
+| 2010 | +4.35% | T |
+| 2011 | +2.60% | T |
+| 2012 | +2.70% | T |
+| 2013 | +7.32% | T |
+| 2014 | +2.85% | T |
+| 2015 | +1.81% | T |
 
-8/10 profitable, 7/10 tradeable.
+**9/10 profitable, 8/10 tradeable** (2015 now crosses the tradeable threshold with the corrected sizing).
 
-**Exit reasons:** EMA cross 652 (67.6%, +4.95% avg, 53.2% WR), stagnation 241 (25.0%, -0.23% avg, 57.3% WR), stop loss 71 (7.4%, -8.15% avg).
+**Exit reasons:** EMA cross 649 (67.7%, +4.58% avg, 52.7% WR), stagnation 232 (24.2%, -0.28% avg, 56.5% WR), stop loss 77 (8.0%, -8.19% avg).
 
-**Same pattern as 2016-2025:** stagnation exit adds +13% more capital and reduces max DD by 4.8pp, confirming the capital efficiency benefit is structural, not era-specific. GFC drawdown drops from 24% to 19.2% — into the <20% "psychologically sustainable" zone. The stagnation exit fires at 25% of exits (vs 20% in 2016-2025), suggesting more stagnant trades in the less explosive pre-2016 market.
+**Same pattern as 2016-2025:** M2M sizing produces more final capital (+51%) but higher max DD (+7.8pp). The GFC drawdown of 27.0% is higher than the pre-fix 19.2% but still manageable during a -56% SPY crash. EC improves from 79 to 83 as 2015 crosses the tradeable threshold. The stagnation exit fires at 24% of exits, consistent with the pre-2016 era having more stagnant trades.
 
 #### Key Findings
 
-1. **The edge is real across eras.** 4.33% unlimited edge and 3.01% position-sized edge (2.69% with VcpExitStrategy) in a completely different market regime. 100% Monte Carlo probability of profit. p5 edge (2.27%) above tradeable threshold.
+1. **The edge is real across eras.** 4.33% unlimited edge and 2.38% position-sized edge in a completely different market regime. 100% Monte Carlo probability of profit (pre-fix validation, p5 edge +2.27%).
 
-2. **2008 is the first and only losing year** (-3.63% unlimited, -2.30% with VcpExitStrategy). The `marketUptrend()` filter contained GFC damage to -19.2% max DD during a -56% SPY crash — impressive for a long-only momentum strategy.
+2. **2008 is the first and only losing year** (-3.63% unlimited, -2.48% position-sized). The `marketUptrend()` filter contained GFC damage to -27% max DD during a -56% SPY crash.
 
-3. **Strategy was weaker in 2006-2015.** Roughly half the CAGR, lower edge, worse risk-adjusted metrics. Smaller average winners suggest less explosive breakouts in that era.
+3. **Strategy was weaker in 2006-2015.** ~$121K final vs ~$1.07M in modern era. Lower edge (2.38% vs 5.05%), smaller average winners suggest less explosive breakouts in that era.
 
-4. **Higher market dependency.** SPY correlation 0.608 vs 0.502 — more of the returns came from market exposure. Alpha still excellent (+18.1% annualized) but narrower than 2016-2025 (+27.7%).
+4. **M2M sizing amplifies both returns and drawdowns.** $121K (+51% vs pre-fix $80K) but 27% max DD (+7.8pp vs 19.2%). The corrected sizing uses true portfolio value, which compounds more aggressively in both directions.
 
-5. **Sortino of 1.27 is concerning** — downside volatility nearly equals total volatility, meaning losing days were as volatile as winning days. This improved dramatically in 2016-2025 (3.20).
+5. **All sectors profitable in unlimited mode**, but XLP turns negative (-1.07%) in position-sized mode (only 36 trades — small sample).
 
-6. **Stagnation exit adds value in both eras.** +13% more capital and -4.8pp max DD in 2006-2015 mirrors the +25% / -3.4pp improvement in 2016-2025. The capital efficiency benefit is structural.
-
-7. **All sectors profitable in unlimited mode**, but XLP turns negative (-1.07%) in position-sized mode (only 36 trades — small sample).
-
-8. **Addresses quant analyst gap.** "Pre-2016 regimes: Never tested in 2008-style crash" is now resolved. The strategy survives the GFC with a manageable drawdown and preserves positive edge across the full period.
+6. **Addresses quant analyst gap.** "Pre-2016 regimes: Never tested in 2008-style crash" is now resolved. The strategy survives the GFC with a manageable drawdown and preserves positive edge across the full period.
 
 ---
 
