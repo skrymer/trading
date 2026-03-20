@@ -57,6 +57,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForD
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.SectorBreadthBelowExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.StagnationExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.StopLossExit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -318,6 +319,12 @@ class DynamicStrategyBuilder(
           val daysBeforeEarnings = (config.parameters["daysBeforeEarnings"] as? Number)?.toInt() ?: 1
           logger.info("  -> BeforeEarningsExit(daysBeforeEarnings=$daysBeforeEarnings)")
           BeforeEarningsExit(daysBeforeEarnings)
+        }
+        "stagnation" -> {
+          val thresholdPercent = (config.parameters["thresholdPercent"] as? Number)?.toDouble() ?: 3.0
+          val windowDays = (config.parameters["windowDays"] as? Number)?.toInt() ?: 15
+          logger.info("  -> StagnationExit(thresholdPercent=$thresholdPercent, windowDays=$windowDays)")
+          StagnationExit(thresholdPercent, windowDays)
         }
         else -> throw IllegalArgumentException("Unknown exit condition type: ${config.type}")
       }

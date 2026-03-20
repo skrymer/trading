@@ -163,6 +163,7 @@ let volumeSeries: any = null
 let adxSeries: any = null
 let currentOrderBlockPrimitive: any = null
 let seriesMarkersPlugin: any = null
+let ema5Series: any = null
 let ema10Series: any = null
 let ema20Series: any = null
 let ema50Series: any = null
@@ -526,6 +527,15 @@ onMounted(async () => {
   // Add EMA line series
   const LineSeries = LightweightCharts.LineSeries || 'Line'
 
+  ema5Series = chart.addSeries(LineSeries, {
+    color: '#E91E63',
+    lineWidth: 2,
+    title: 'EMA 5',
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false
+  })
+
   ema10Series = chart.addSeries(LineSeries, {
     color: '#2962FF',
     lineWidth: 2,
@@ -844,16 +854,19 @@ function updateChartData() {
   candlestickSeries.setData(candlestickData)
 
   // Calculate and set EMA data
-  if (ema10Series && ema20Series && ema50Series) {
+  if (ema5Series && ema10Series && ema20Series && ema50Series) {
+    const ema5Data = calculateEMA(candlestickData, 5)
     const ema10Data = calculateEMA(candlestickData, 10)
     const ema20Data = calculateEMA(candlestickData, 20)
     const ema50Data = calculateEMA(candlestickData, 50)
 
     if (showEMA.value) {
+      ema5Series.setData(ema5Data)
       ema10Series.setData(ema10Data)
       ema20Series.setData(ema20Data)
       ema50Series.setData(ema50Data)
     } else {
+      ema5Series.setData([])
       ema10Series.setData([])
       ema20Series.setData([])
       ema50Series.setData([])

@@ -48,6 +48,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForD
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.SectorBreadthBelowExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.StagnationExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.StopLossExit
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 
@@ -352,6 +353,13 @@ class ExitStrategyBuilder {
     apply {
       conditions.add(BeforeEarningsExit(days))
     }
+
+  fun stagnation(
+    thresholdPercent: Double = 3.0,
+    windowDays: Int = 15,
+  ) = apply {
+    conditions.add(StagnationExit(thresholdPercent, windowDays))
+  }
 
   fun withOperator(op: LogicalOperator) =
     apply {

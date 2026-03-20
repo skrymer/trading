@@ -511,8 +511,17 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   },
   {
     id: 'entryPrice',
-    header: 'Stock Price',
+    header: 'Entry Price',
     cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
+  },
+  {
+    id: 'currentPrice',
+    header: 'Current Price',
+    cell: ({ row }) => {
+      const result = exitResults.value.get(row.original.id)
+      if (!result) return '-'
+      return `$${result.currentPrice.toFixed(2)}`
+    }
   },
   {
     id: 'optionPrice',
@@ -546,7 +555,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   {
     id: 'strategy',
     header: 'Strategy',
-    cell: ({ row }) => row.original.entryStrategyName
+    cell: ({ row }) => `${row.original.entryStrategyName} / ${row.original.exitStrategyName}`
   },
   {
     id: 'exitAlert',
