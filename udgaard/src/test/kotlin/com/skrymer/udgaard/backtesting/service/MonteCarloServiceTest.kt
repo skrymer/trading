@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class MonteCarloServiceTest {
-  private val service = MonteCarloService()
+  private val service = MonteCarloService(PositionSizingService())
 
   @Test
   fun `should run trade shuffling simulation successfully`() {

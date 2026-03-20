@@ -103,5 +103,4 @@ class StagnationExit(
         ),
       category = "CapitalEfficiency",
     )
-
 }

@@ -240,6 +240,10 @@ class ScannerServiceTest {
 
   @Test
   fun `deleteTrade removes trade from repository`() {
+    // Given
+    val existing = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 150.0)
+    whenever(scannerTradeRepository.findById(1L)).thenReturn(existing)
+
     // When
     service.deleteTrade(1L)
 

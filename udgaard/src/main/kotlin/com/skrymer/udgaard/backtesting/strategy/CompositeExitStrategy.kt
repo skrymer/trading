@@ -18,6 +18,14 @@ class CompositeExitStrategy(
 ) : ExitStrategy {
   private val logger = LoggerFactory.getLogger(CompositeExitStrategy::class.java)
 
+  init {
+    require(operator != LogicalOperator.NOT || exitConditions.size == 1) {
+      "NOT operator requires exactly one exit condition, but ${exitConditions.size} were provided"
+    }
+  }
+
+  private val lastMatchedCondition = ThreadLocal<ExitCondition?>()
+
   override fun match(
     stock: Stock,
     entryQuote: StockQuote?,
@@ -28,11 +36,17 @@ class CompositeExitStrategy(
       return false
     }
 
-    return when (operator) {
+    lastMatchedCondition.set(null)
+    val matched = when (operator) {
       LogicalOperator.AND -> exitConditions.all { it.shouldExit(stock, entryQuote, quote) }
-      LogicalOperator.OR -> exitConditions.any { it.shouldExit(stock, entryQuote, quote) }
+      LogicalOperator.OR -> {
+        val condition = exitConditions.firstOrNull { it.shouldExit(stock, entryQuote, quote) }
+        lastMatchedCondition.set(condition)
+        condition != null
+      }
       LogicalOperator.NOT -> !exitConditions.first().shouldExit(stock, entryQuote, quote)
     }
+    return matched
   }
 
   override fun match(
@@ -46,31 +60,31 @@ class CompositeExitStrategy(
       return false
     }
 
-    return when (operator) {
+    lastMatchedCondition.set(null)
+    val matched = when (operator) {
       LogicalOperator.AND -> exitConditions.all { it.shouldExit(stock, entryQuote, quote, context) }
-      LogicalOperator.OR -> exitConditions.any { it.shouldExit(stock, entryQuote, quote, context) }
+      LogicalOperator.OR -> {
+        val condition = exitConditions.firstOrNull { it.shouldExit(stock, entryQuote, quote, context) }
+        lastMatchedCondition.set(condition)
+        condition != null
+      }
       LogicalOperator.NOT -> !exitConditions.first().shouldExit(stock, entryQuote, quote, context)
     }
+    return matched
   }
 
   override fun reason(
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote,
-  ): String? =
-    exitConditions
-      .firstOrNull { it.shouldExit(stock, entryQuote, quote) }
-      ?.exitReason()
+  ): String? = lastMatchedCondition.get()?.exitReason()
 
   override fun reason(
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote,
     context: BacktestContext,
-  ): String? =
-    exitConditions
-      .firstOrNull { it.shouldExit(stock, entryQuote, quote, context) }
-      ?.exitReason()
+  ): String? = lastMatchedCondition.get()?.exitReason()
 
   override fun description(): String {
     if (strategyDescription != null) {

@@ -14,7 +14,9 @@ import kotlin.math.sqrt
  * Service for running Monte Carlo simulations on backtest results
  */
 @Service
-class MonteCarloService {
+class MonteCarloService(
+  private val positionSizingService: PositionSizingService,
+) {
   private val techniques =
     mapOf(
       MonteCarloTechniqueType.TRADE_SHUFFLING to TradeShufflingTechnique(),
@@ -56,7 +58,7 @@ class MonteCarloService {
       if (request.positionSizing != null) {
         // Use position-sized return when sizing is configured
         val sizingResult =
-          PositionSizingService().applyPositionSizing(
+          positionSizingService.applyPositionSizing(
             request.backtestResult.trades,
             request.positionSizing,
           )
@@ -180,11 +182,13 @@ class MonteCarloService {
     // Find the scenario closest to each percentile
     val sortedByReturn = scenarios.sortedBy { it.totalReturnPercentage }
 
-    val p5Scenario = sortedByReturn[(0.05 * scenarios.size).toInt()]
-    val p25Scenario = sortedByReturn[(0.25 * scenarios.size).toInt()]
-    val p50Scenario = sortedByReturn[(0.50 * scenarios.size).toInt()]
-    val p75Scenario = sortedByReturn[(0.75 * scenarios.size).toInt()]
-    val p95Scenario = sortedByReturn[(0.95 * scenarios.size).toInt()]
+    fun clampedIndex(percentile: Double) = (percentile * scenarios.size).toInt().coerceIn(0, scenarios.size - 1)
+
+    val p5Scenario = sortedByReturn[clampedIndex(0.05)]
+    val p25Scenario = sortedByReturn[clampedIndex(0.25)]
+    val p50Scenario = sortedByReturn[clampedIndex(0.50)]
+    val p75Scenario = sortedByReturn[clampedIndex(0.75)]
+    val p95Scenario = sortedByReturn[clampedIndex(0.95)]
 
     return MonteCarloResult.PercentileEquityCurves(
       p5 = p5Scenario.equityCurve,

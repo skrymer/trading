@@ -33,18 +33,11 @@ class ATRTrailingStopLoss(
   ): Boolean {
     if (entryQuote == null) return false
 
-    // Get all quotes from entry to current
-    val quotesSinceEntry =
-      stock.quotes
-        .filter { q ->
-          q.date >= entryQuote.date &&
-            q.date <= quote.date
-        }.sortedBy { it.date }
-
-    if (quotesSinceEntry.isEmpty()) return false
-
-    // Find the highest close price reached since entry
-    val highestPrice = quotesSinceEntry.maxOfOrNull { it.closePrice } ?: entryQuote.closePrice
+    val highestPrice = stock.quotes
+      .asSequence()
+      .filter { it.date in entryQuote.date..quote.date }
+      .maxOfOrNull { it.closePrice }
+      ?: entryQuote.closePrice
 
     // Calculate trailing stop level using the ATR from the current quote
     val trailingStopLevel = highestPrice - (atrMultiplier * quote.atr)

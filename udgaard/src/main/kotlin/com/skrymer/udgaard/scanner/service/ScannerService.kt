@@ -320,8 +320,7 @@ class ScannerService(
    */
   @Transactional
   fun rollTrade(tradeId: Long, request: RollScannerTradeRequest): ScannerTrade {
-    val existingTrade = scannerTradeRepository.findById(tradeId)
-      ?: throw IllegalArgumentException("Scanner trade $tradeId not found")
+    val existingTrade = findOpenTrade(tradeId)
 
     val optionPrice = existingTrade.optionPrice
       ?: throw IllegalArgumentException("Cannot roll trade $tradeId: optionPrice is missing")
@@ -343,6 +342,8 @@ class ScannerService(
       strikePrice = request.newStrikePrice,
       expirationDate = LocalDate.parse(request.newExpirationDate),
       multiplier = existingTrade.multiplier,
+      optionPrice = request.newOptionPrice ?: existingTrade.optionPrice,
+      delta = request.newDelta ?: existingTrade.delta,
       entryStrategyName = existingTrade.entryStrategyName,
       exitStrategyName = existingTrade.exitStrategyName,
       rolledCredits = newRolledCredits,
@@ -382,6 +383,7 @@ class ScannerService(
     return saved
   }
 
+  @Transactional
   fun closeTrade(id: Long, request: CloseScannerTradeRequest): ScannerTrade {
     val trade = findOpenTrade(id)
 
@@ -412,13 +414,13 @@ class ScannerService(
   fun getTrade(id: Long): ScannerTrade? = scannerTradeRepository.findById(id)
 
   fun updateTrade(id: Long, request: UpdateScannerTradeRequest): ScannerTrade {
-    val existing = scannerTradeRepository.findById(id)
-      ?: throw IllegalArgumentException("Scanner trade $id not found")
+    val existing = findOpenTrade(id)
     val updated = existing.copy(notes = request.notes)
     return scannerTradeRepository.save(updated)
   }
 
   fun deleteTrade(id: Long) {
+    findOpenTrade(id)
     scannerTradeRepository.delete(id)
     logger.info("Deleted scanner trade $id")
   }

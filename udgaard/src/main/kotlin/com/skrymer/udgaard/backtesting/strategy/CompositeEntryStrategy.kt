@@ -16,6 +16,12 @@ class CompositeEntryStrategy(
   private val operator: LogicalOperator = LogicalOperator.AND,
   private val strategyDescription: String? = null,
 ) : DetailedEntryStrategy {
+  init {
+    require(operator != LogicalOperator.NOT || conditions.size == 1) {
+      "NOT operator requires exactly one entry condition, but ${conditions.size} were provided"
+    }
+  }
+
   override fun test(
     stock: Stock,
     quote: StockQuote,

@@ -156,6 +156,7 @@ class CompositeExitStrategyTest {
         atr = 2.0,
       )
 
+    assertTrue(strategy.match(stock, null, quote))
     val reason = strategy.reason(stock, null, quote)
     assertEquals("10 ema has crossed under the 20 ema", reason)
   }

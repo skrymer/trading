@@ -286,7 +286,7 @@ class ExitStrategyBuilder {
   }
 
   fun profitTarget(
-    atrMultiplier: Double = 3.5,
+    atrMultiplier: Double = 3.0,
     emaPeriod: Int = 20,
   ) = apply {
     conditions.add(ProfitTargetExit(atrMultiplier, emaPeriod))

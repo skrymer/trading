@@ -31,7 +31,7 @@ class VolumeAboveAverageCondition(
 
     // Get quotes from the lookback period (excluding current day)
     val quoteDate = quote.date
-    val lookbackStartDate = quoteDate.minusDays(lookbackDays.toLong())
+    val lookbackStartDate = quoteDate.minusDays((lookbackDays * 1.5).toLong())
 
     val historicalQuotes =
       stock.quotes
@@ -87,7 +87,7 @@ class VolumeAboveAverageCondition(
     val currentVolume = quote.volume
     val quoteDate = quote.date
 
-    val lookbackStartDate = quoteDate.minusDays(lookbackDays.toLong())
+    val lookbackStartDate = quoteDate.minusDays((lookbackDays * 1.5).toLong())
 
     val historicalQuotes =
       stock.quotes

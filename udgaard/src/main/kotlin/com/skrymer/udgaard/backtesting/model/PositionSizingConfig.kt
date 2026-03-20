@@ -6,7 +6,13 @@ data class PositionSizingConfig(
   val nAtr: Double = 2.0,
   val leverageRatio: Double? = null,
   val drawdownScaling: DrawdownScaling? = null,
-)
+) {
+  init {
+    require(startingCapital > 0.0) { "startingCapital must be positive, got $startingCapital" }
+    require(riskPercentage > 0.0) { "riskPercentage must be positive, got $riskPercentage" }
+    require(nAtr > 0.0) { "nAtr must be positive, got $nAtr" }
+  }
+}
 
 /**
  * Drawdown-responsive risk scaling. Reduces risk per trade when the portfolio

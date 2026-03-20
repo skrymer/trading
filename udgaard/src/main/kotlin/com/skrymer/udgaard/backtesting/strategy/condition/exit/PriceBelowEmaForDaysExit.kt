@@ -44,7 +44,7 @@ class PriceBelowEmaForDaysExit(
     }
 
     // Get sorted quotes to look back
-    val sortedQuotes = stock.quotes.sortedBy { it.date }
+    val sortedQuotes = stock.quotes
     val currentIndex = sortedQuotes.indexOfFirst { it.date == quote.date }
 
     if (currentIndex < consecutiveDays - 1) {

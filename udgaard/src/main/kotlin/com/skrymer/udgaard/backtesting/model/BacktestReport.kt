@@ -193,8 +193,9 @@ class BacktestReport(
   /**
    * All trades, winning and losing.
    */
-  val trades: List<Trade>
-    get() = (winningTrades + losingTrades).sortedBy { it.entryQuote.date }
+  val trades: List<Trade> by lazy {
+    (winningTrades + losingTrades).sortedBy { it.entryQuote.date }
+  }
 
   /**
    * Exit reason grouped by count

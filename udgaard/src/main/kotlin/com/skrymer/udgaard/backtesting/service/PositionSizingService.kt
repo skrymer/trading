@@ -112,11 +112,12 @@ class PositionSizingService {
       state.lastPortfolioValue = state.cash
     }
     val effectiveConfig = applyDrawdownScaling(config, state)
-    var shares = calculateShares(state.cash, event.trade.entryQuote.atr, effectiveConfig)
+    val portfolioValue = state.lastPortfolioValue
+    var shares = calculateShares(portfolioValue, event.trade.entryQuote.atr, effectiveConfig)
     val entryPrice = event.trade.entryQuote.closePrice
 
     if (effectiveConfig.leverageRatio != null && shares > 0 && entryPrice > 0.0) {
-      val maxNotional = state.cash * effectiveConfig.leverageRatio
+      val maxNotional = portfolioValue * effectiveConfig.leverageRatio
       val availableNotional = maxNotional - state.openNotional
       if (availableNotional <= 0.0) {
         shares = 0
@@ -129,7 +130,7 @@ class PositionSizingService {
     state.openNotional += shares * entryPrice
     openPositions[event.trade] = OpenPosition(
       shares = shares,
-      portfolioValueAtEntry = state.cash,
+      portfolioValueAtEntry = portfolioValue,
       entryPrice = entryPrice,
     )
   }

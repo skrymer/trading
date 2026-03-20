@@ -29,6 +29,11 @@ class WalkForwardService(
     cooldownDays: Int = 0,
     entryDelayDays: Int = 0,
   ): WalkForwardResult {
+    require(config.inSampleYears > 0) { "inSampleYears must be positive" }
+    require(config.outOfSampleYears > 0) { "outOfSampleYears must be positive" }
+    require(config.stepYears > 0) { "stepYears must be positive" }
+    require(config.startDate.isBefore(config.endDate)) { "startDate must be before endDate" }
+
     val windows = generateWindows(config)
     logger.info(
       "Walk-forward: ${windows.size} windows, " +
@@ -119,6 +124,16 @@ class WalkForwardService(
   }
 
   private fun aggregateResults(results: List<WalkForwardWindow>): WalkForwardResult {
+    if (results.isEmpty()) {
+      return WalkForwardResult(
+        windows = emptyList(),
+        aggregateOosEdge = 0.0,
+        aggregateOosTrades = 0,
+        aggregateOosWinRate = 0.0,
+        walkForwardEfficiency = 0.0,
+      )
+    }
+
     val totalOosTrades = results.sumOf { it.outOfSampleTrades }
     val weightedOosEdge = if (totalOosTrades > 0) {
       results.sumOf { it.outOfSampleEdge * it.outOfSampleTrades } / totalOosTrades
@@ -130,13 +145,18 @@ class WalkForwardService(
     } else {
       0.0
     }
-    val avgIsEdge = results.map { it.inSampleEdge }.average()
-    val wfe = if (avgIsEdge != 0.0) weightedOosEdge / avgIsEdge else 0.0
+    val totalIsTrades = results.sumOf { it.inSampleTrades }
+    val weightedIsEdge = if (totalIsTrades > 0) {
+      results.sumOf { it.inSampleEdge * it.inSampleTrades } / totalIsTrades
+    } else {
+      0.0
+    }
+    val wfe = if (weightedIsEdge != 0.0) weightedOosEdge / weightedIsEdge else 0.0
 
     logger.info(
       "Walk-forward complete: WFE=${String.format("%.2f", wfe)}, " +
         "OOS edge=${String.format("%.2f", weightedOosEdge)}, " +
-        "IS edge=${String.format("%.2f", avgIsEdge)}",
+        "IS edge=${String.format("%.2f", weightedIsEdge)}",
     )
 
     return WalkForwardResult(

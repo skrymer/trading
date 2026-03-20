@@ -150,29 +150,24 @@ class BacktestService(
    *
    * @param currentDate - the date to check
    * @param lastExitDate - the most recent exit date, or null if no exits yet
-   * @param allTradingDates - sorted list of all trading dates
+   * @param tradingDateIndex - map of date to index for O(1) lookups
    * @param cooldownDays - number of trading days to wait after exit before allowing new entry
    * @return true if in cooldown period, false otherwise
    */
   private fun isInCooldown(
     currentDate: LocalDate,
     lastExitDate: LocalDate?,
-    allTradingDates: List<LocalDate>,
+    tradingDateIndex: Map<LocalDate, Int>,
     cooldownDays: Int,
   ): Boolean {
     if (cooldownDays <= 0 || lastExitDate == null) {
       return false
     }
 
-    val exitDateIndex = allTradingDates.indexOf(lastExitDate)
-    val currentDateIndex = allTradingDates.indexOf(currentDate)
-
-    return if (exitDateIndex >= 0 && currentDateIndex >= 0) {
-      val tradingDaysSinceExit = currentDateIndex - exitDateIndex
-      tradingDaysSinceExit <= cooldownDays
-    } else {
-      false
-    }
+    val exitDateIdx = tradingDateIndex[lastExitDate] ?: return false
+    val currentDateIdx = tradingDateIndex[currentDate] ?: return false
+    val tradingDaysSinceExit = currentDateIdx - exitDateIdx
+    return tradingDaysSinceExit <= cooldownDays
   }
 
   /**
@@ -775,6 +770,7 @@ class BacktestService(
 
     logger.info("Sequential processing: ${stockPairs.size} stocks evaluated per date")
 
+    val tradingDateIndex = allTradingDates.withIndex().associate { (i, date) -> date to i }
     val totalDays = allTradingDates.size
     var lastLoggedPercent = 0
 
@@ -793,7 +789,7 @@ class BacktestService(
             val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
 
             if (strategyQuote != null && tradingQuote != null) {
-              val inCooldown = isInCooldown(currentDate, lastExitDate, allTradingDates, cooldownDays)
+              val inCooldown = isInCooldown(currentDate, lastExitDate, tradingDateIndex, cooldownDays)
 
               if (inCooldown) {
                 null
@@ -968,9 +964,6 @@ class BacktestService(
     }
   }
 
-  // Helper extension for formatting doubles
-  private fun Double.format(decimals: Int) = "%.${decimals}f".format(this)
-
   /**
    * Calculate Maximum Favorable Excursion (MFE) and Maximum Adverse Excursion (MAE)
    * for a trade, both in percentage and ATR units.
@@ -980,7 +973,7 @@ class BacktestService(
     entryQuote: StockQuote,
   ): ExcursionMetrics {
     val entryPrice = entryQuote.closePrice
-    val entryATR = entryQuote.atr // Fallback to 1.0 if ATR missing
+    val entryATR = if (entryQuote.atr > 0.0) entryQuote.atr else 1.0
 
     var maxProfit = 0.0
     var maxDrawdown = 0.0

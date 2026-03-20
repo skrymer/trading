@@ -112,8 +112,13 @@ class ScannerController(
       val trade = scannerService.closeTrade(id, request)
       ResponseEntity.ok(trade)
     } catch (e: IllegalArgumentException) {
-      logger.error("Scanner trade not found: $id - ${e.message}")
-      ResponseEntity.notFound().build()
+      if (e.message?.contains("already closed") == true) {
+        logger.warn("Scanner trade already closed: $id - ${e.message}")
+        ResponseEntity.status(409).build()
+      } else {
+        logger.error("Scanner trade not found: $id - ${e.message}")
+        ResponseEntity.notFound().build()
+      }
     }
   }
 

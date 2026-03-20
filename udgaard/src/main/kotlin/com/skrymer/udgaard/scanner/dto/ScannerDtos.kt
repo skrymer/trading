@@ -46,6 +46,8 @@ data class RollScannerTradeRequest(
   val newEntryPrice: Double,
   val newEntryDate: String,
   val newQuantity: Int,
+  val newOptionPrice: Double? = null,
+  val newDelta: Double? = null,
 )
 
 /**
