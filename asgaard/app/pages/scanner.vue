@@ -19,6 +19,7 @@ const isDeleteTradeModalOpen = ref(false)
 const isRollTradeModalOpen = ref(false)
 const isTradeDetailsModalOpen = ref(false)
 const isCloseTradeModalOpen = ref(false)
+const isResetPeakModalOpen = ref(false)
 const selectedScanResult = ref<ScanResult | null>(null)
 const selectedTrade = ref<ScannerTrade | null>(null)
 
@@ -40,7 +41,7 @@ const positionSizingSettings = ref<PositionSizingSettings>({
   nAtr: 2.0,
   instrumentMode: 'STOCK',
   maxPositions: 15,
-  drawdownScalingEnabled: false,
+  drawdownScalingEnabled: true,
   drawdownThresholds: [
     { drawdownPercent: 5.0, riskMultiplier: 0.67 },
     { drawdownPercent: 10.0, riskMultiplier: 0.33 }
@@ -95,9 +96,10 @@ const effectiveRiskPercentage = computed(() => {
 
 function calculateQuantity(atr: number, symbol?: string): number {
   if (atr <= 0) return 0
-  const { portfolioValue, nAtr } = positionSizingSettings.value
-  if (portfolioValue <= 0) return 0
-  const riskDollars = portfolioValue * (effectiveRiskPercentage.value / 100)
+  const { nAtr } = positionSizingSettings.value
+  const equity = currentEquity.value
+  if (equity <= 0) return 0
+  const riskDollars = equity * (effectiveRiskPercentage.value / 100)
 
   if (isOptionsMode.value && symbol) {
     const contract = optionContracts.value.get(symbol)
@@ -105,6 +107,20 @@ function calculateQuantity(atr: number, symbol?: string): number {
     return Math.floor(riskDollars / (nAtr * atr * delta * 100))
   }
   return Math.floor(riskDollars / (nAtr * atr))
+}
+
+function calculateRiskDollars(atr: number, symbol?: string): number {
+  if (atr <= 0) return 0
+  const { nAtr } = positionSizingSettings.value
+  const qty = calculateQuantity(atr, symbol)
+  if (qty <= 0) return 0
+
+  if (isOptionsMode.value && symbol) {
+    const contract = optionContracts.value.get(symbol)
+    const delta = contract?.delta ?? 0.80
+    return qty * nAtr * atr * delta * 100
+  }
+  return qty * nAtr * atr
 }
 
 const existingCapitalDeployed = computed(() =>
@@ -115,6 +131,21 @@ const existingCapitalDeployed = computed(() =>
     return sum + t.quantity * t.entryPrice
   }, 0)
 )
+
+const totalPortfolioRisk = computed(() => {
+  // Approximation: uses current equity and risk settings for all trades.
+  // Actual risk per trade may differ since trades were entered at different equity levels.
+  const equity = currentEquity.value
+  if (equity <= 0) return 0
+  const riskPerTrade = equity * (effectiveRiskPercentage.value / 100)
+  return riskPerTrade * trades.value.length
+})
+
+const portfolioRiskPct = computed(() => {
+  const equity = currentEquity.value
+  if (equity <= 0) return 0
+  return (totalPortfolioRisk.value / equity) * 100
+})
 
 const maxPositions = computed(() => positionSizingSettings.value.maxPositions ?? 15)
 const availableSlots = computed(() => Math.max(0, maxPositions.value - trades.value.length))
@@ -147,9 +178,9 @@ const selectedCapital = computed(() =>
 )
 
 const portfolioUtilization = computed(() => {
-  const pv = positionSizingSettings.value.portfolioValue
-  if (pv <= 0) return 0
-  return ((existingCapitalDeployed.value + selectedCapital.value) / pv) * 100
+  const equity = currentEquity.value
+  if (equity <= 0) return 0
+  return ((existingCapitalDeployed.value + selectedCapital.value) / equity) * 100
 })
 
 const tabItems = [
@@ -234,7 +265,9 @@ async function loadClosedTrades() {
 
 async function loadDrawdownStats() {
   try {
-    drawdownStats.value = await $fetch<DrawdownStatsResponse>('/udgaard/api/scanner/drawdown-stats')
+    const stats = await $fetch<DrawdownStatsResponse>('/udgaard/api/scanner/drawdown-stats')
+    drawdownStats.value = stats
+    positionSizingSettings.value.peakEquity = stats.peakEquity
   } catch (error) {
     console.error('Error loading drawdown stats:', error)
   }
@@ -361,8 +394,15 @@ function openCloseTrade(trade: ScannerTrade) {
   isCloseTradeModalOpen.value = true
 }
 
+const closeTradeValid = computed(() => {
+  if (!selectedTrade.value) return false
+  if (closeTradePrice.value <= 0) return false
+  if (!closeTradeDate.value || closeTradeDate.value < selectedTrade.value.entryDate) return false
+  return true
+})
+
 async function closeTrade() {
-  if (!selectedTrade.value) return
+  if (!selectedTrade.value || !closeTradeValid.value) return
   try {
     await $fetch(`/udgaard/api/scanner/trades/${selectedTrade.value.id}/close`, {
       method: 'PUT',
@@ -472,6 +512,9 @@ async function addSelectedTrades() {
       color: 'success'
     })
   } catch (error: any) {
+    if (added > 0) {
+      await loadTrades()
+    }
     toast.add({
       title: 'Error',
       description: error.data?.message || `Failed after adding ${added} trades`,
@@ -714,6 +757,8 @@ const tradesTableUi = computed(() => ({
           :effective-risk="effectiveRiskPercentage"
           :base-risk="positionSizingSettings.riskPercentage"
           :drawdown-scaling-active="positionSizingSettings.drawdownScalingEnabled"
+          :total-risk="positionSizingSettings.enabled ? totalPortfolioRisk : undefined"
+          :risk-pct="positionSizingSettings.enabled ? portfolioRiskPct : undefined"
         />
 
         <!-- Position Sizing Config -->
@@ -824,7 +869,7 @@ const tradesTableUi = computed(() => ({
             />
 
             <!-- Drawdown Info Row -->
-            <div class="grid grid-cols-4 gap-4 text-sm">
+            <div class="grid grid-cols-5 gap-4 text-sm items-center">
               <div>
                 <span class="text-muted">Equity:</span>
                 <span class="ml-1 font-medium">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
@@ -853,12 +898,15 @@ const tradesTableUi = computed(() => ({
                     {{ positionSizingSettings.riskPercentage }}%
                   </template>
                 </span>
+              </div>
+              <div class="flex justify-end">
                 <UButton
                   label="Reset Peak"
                   size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  @click="resetPeakEquity"
+                  variant="soft"
+                  color="warning"
+                  icon="i-lucide-rotate-ccw"
+                  @click="isResetPeakModalOpen = true"
                 />
               </div>
             </div>
@@ -949,6 +997,7 @@ const tradesTableUi = computed(() => ({
                     :results="preferredResults"
                     :position-sizing-enabled="positionSizingSettings.enabled"
                     :calculate-quantity="calculateQuantity"
+                    :calculate-risk-dollars="calculateRiskDollars"
                     :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
                     :option-contracts="optionContracts"
                     @add-trade="openAddTrade"
@@ -967,6 +1016,7 @@ const tradesTableUi = computed(() => ({
                     :results="remainingResults"
                     :position-sizing-enabled="positionSizingSettings.enabled"
                     :calculate-quantity="calculateQuantity"
+                    :calculate-risk-dollars="calculateRiskDollars"
                     :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
                     @add-trade="openAddTrade"
                   />
@@ -1114,6 +1164,7 @@ const tradesTableUi = computed(() => ({
           <UInput
             v-model="closeTradeDate"
             type="date"
+            :min="selectedTrade?.entryDate"
           />
         </UFormField>
       </div>
@@ -1130,7 +1181,39 @@ const tradesTableUi = computed(() => ({
           label="Close Trade"
           color="warning"
           icon="i-lucide-circle-x"
+          :disabled="!closeTradeValid"
           @click="closeTrade"
+        />
+      </div>
+    </template>
+  </UModal>
+
+  <!-- Reset Peak Confirmation Modal -->
+  <UModal
+    :open="isResetPeakModalOpen"
+    title="Reset Peak Equity"
+    @update:open="isResetPeakModalOpen = $event"
+  >
+    <template #body>
+      <p class="text-sm">
+        This will reset the peak equity to the current equity of
+        <span class="font-semibold">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>,
+        setting drawdown to 0%. This cannot be undone.
+      </p>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          label="Cancel"
+          color="neutral"
+          variant="outline"
+          @click="isResetPeakModalOpen = false"
+        />
+        <UButton
+          label="Reset Peak"
+          color="warning"
+          icon="i-lucide-rotate-ccw"
+          @click="resetPeakEquity(); isResetPeakModalOpen = false"
         />
       </div>
     </template>

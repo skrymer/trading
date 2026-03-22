@@ -141,6 +141,9 @@ export interface BacktestReport {
   totalTrades: number
   edge: number
   profitFactor: number | null
+  sqn: number | null
+  calmarRatio: number | null
+  tailRatio: number | null
   stockProfits: [string, number][]
   // Missed trades
   missedOpportunitiesCount: number
@@ -1217,6 +1220,10 @@ export interface DrawdownStatsResponse {
   totalRealizedPnl: number
   closedTradeCount: number
   winRate: number
+  totalUnrealizedPnl: number
+  currentEquity: number
+  peakEquity: number
+  currentDrawdownPct: number
 }
 
 export interface AddScannerTradeRequest {

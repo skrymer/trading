@@ -7,6 +7,7 @@ const props = defineProps<{
   results: ScanResult[]
   positionSizingEnabled?: boolean
   calculateQuantity?: (atr: number, symbol?: string) => number
+  calculateRiskDollars?: (atr: number, symbol?: string) => number
   instrumentMode?: 'STOCK' | 'OPTION'
   optionContracts?: Map<string, OptionContractResponse>
 }>()
@@ -138,6 +139,16 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
             return `$${(qty * contract.price * 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
           }
           return `$${(qty * row.original.closePrice).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+        }
+      },
+      {
+        id: 'risk',
+        header: 'Risk Budget',
+        cell: ({ row }) => {
+          if (!props.calculateRiskDollars) return '-'
+          const risk = props.calculateRiskDollars(row.original.atr, row.original.symbol)
+          if (risk <= 0) return 'N/A'
+          return `$${risk.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
         }
       }
     )

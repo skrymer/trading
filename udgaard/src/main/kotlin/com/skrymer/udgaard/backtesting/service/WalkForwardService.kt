@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.backtesting.service
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
 import com.skrymer.udgaard.backtesting.model.WalkForwardResult
 import com.skrymer.udgaard.backtesting.model.WalkForwardWindow
@@ -7,6 +9,12 @@ import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
+import com.skrymer.udgaard.data.repository.MarketBreadthRepository
+import com.skrymer.udgaard.data.repository.SectorBreadthRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -14,6 +22,8 @@ import java.time.LocalDate
 @Service
 class WalkForwardService(
   private val backtestService: BacktestService,
+  private val sectorBreadthRepository: SectorBreadthRepository,
+  private val marketBreadthRepository: MarketBreadthRepository,
 ) {
   private val logger = LoggerFactory.getLogger(WalkForwardService::class.java)
 
@@ -40,6 +50,13 @@ class WalkForwardService(
         "IS=${config.inSampleYears}y, OOS=${config.outOfSampleYears}y",
     )
 
+    val sharedContext = BacktestContext(
+      sectorBreadthMap = sectorBreadthRepository.findAllAsMap(),
+      marketBreadthMap = marketBreadthRepository.findAllAsMap(),
+    )
+    val sharedBreadthByDate = marketBreadthRepository.calculateBreadthByDate()
+    logger.info("Pre-loaded shared context for ${windows.size} windows")
+
     val params = BacktestParams(
       entryStrategy = entryStrategy,
       exitStrategy = exitStrategy,
@@ -52,33 +69,24 @@ class WalkForwardService(
       entryDelayDays = entryDelayDays,
     )
 
-    val results = windows.map { window -> processWindow(window, params) }
+    val results = runBlocking(Dispatchers.Default) {
+      windows.map { window -> async { processWindow(window, params, sharedContext, sharedBreadthByDate) } }.awaitAll()
+    }
     return aggregateResults(results)
   }
 
   private fun processWindow(
     window: WindowDates,
     params: BacktestParams,
+    sharedContext: BacktestContext,
+    sharedBreadthByDate: Map<LocalDate, Double>,
   ): WalkForwardWindow {
     logger.info(
       "Window: IS ${window.isStart} to ${window.isEnd}, " +
         "OOS ${window.oosStart} to ${window.oosEnd}",
     )
 
-    val isReport = backtestService.backtest(
-      entryStrategy = params.entryStrategy,
-      exitStrategy = params.exitStrategy,
-      symbols = params.symbols,
-      after = window.isStart,
-      before = window.isEnd,
-      maxPositions = params.maxPositions,
-      ranker = params.ranker,
-      useUnderlyingAssets = params.useUnderlyingAssets,
-      customUnderlyingMap = params.customUnderlyingMap,
-      cooldownDays = params.cooldownDays,
-      entryDelayDays = params.entryDelayDays,
-    )
-
+    val isReport = runBacktest(params, window.isStart, window.isEnd, sharedContext, sharedBreadthByDate)
     val sectorRanking = isReport.sectorPerformance
       .sortedByDescending { it.avgProfit }
       .map { it.sector }
@@ -89,20 +97,7 @@ class WalkForwardService(
         "sectors=${sectorRanking.take(5).joinToString(",")}",
     )
 
-    val oosReport = backtestService.backtest(
-      entryStrategy = params.entryStrategy,
-      exitStrategy = params.exitStrategy,
-      symbols = params.symbols,
-      after = window.oosStart,
-      before = window.oosEnd,
-      maxPositions = params.maxPositions,
-      ranker = params.ranker,
-      useUnderlyingAssets = params.useUnderlyingAssets,
-      customUnderlyingMap = params.customUnderlyingMap,
-      cooldownDays = params.cooldownDays,
-      entryDelayDays = params.entryDelayDays,
-    )
-
+    val oosReport = runBacktest(params, window.oosStart, window.oosEnd, sharedContext, sharedBreadthByDate)
     logger.info(
       "OOS result: ${oosReport.totalTrades} trades, " +
         "edge=${String.format("%.2f", oosReport.edge)}",
@@ -122,6 +117,28 @@ class WalkForwardService(
       outOfSampleWinRate = oosReport.winRate,
     )
   }
+
+  private fun runBacktest(
+    params: BacktestParams,
+    after: LocalDate,
+    before: LocalDate,
+    sharedContext: BacktestContext,
+    sharedBreadthByDate: Map<LocalDate, Double>,
+  ): BacktestReport = backtestService.backtest(
+    entryStrategy = params.entryStrategy,
+    exitStrategy = params.exitStrategy,
+    symbols = params.symbols,
+    after = after,
+    before = before,
+    maxPositions = params.maxPositions,
+    ranker = params.ranker,
+    useUnderlyingAssets = params.useUnderlyingAssets,
+    customUnderlyingMap = params.customUnderlyingMap,
+    cooldownDays = params.cooldownDays,
+    entryDelayDays = params.entryDelayDays,
+    sharedContext = sharedContext,
+    sharedBreadthByDate = sharedBreadthByDate,
+  )
 
   private fun aggregateResults(results: List<WalkForwardWindow>): WalkForwardResult {
     if (results.isEmpty()) {

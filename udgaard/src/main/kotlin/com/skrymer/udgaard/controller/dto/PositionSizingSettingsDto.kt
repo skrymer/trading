@@ -13,7 +13,7 @@ data class PositionSizingSettingsDto(
   val nAtr: Double = 2.0,
   val instrumentMode: String = "STOCK",
   val maxPositions: Int = 15,
-  val drawdownScalingEnabled: Boolean = false,
+  val drawdownScalingEnabled: Boolean = true,
   val drawdownThresholds: List<DrawdownThresholdDto> = listOf(
     DrawdownThresholdDto(5.0, 0.67),
     DrawdownThresholdDto(10.0, 0.33),

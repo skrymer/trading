@@ -10,6 +10,8 @@ const props = defineProps<{
   effectiveRisk?: number
   baseRisk?: number
   drawdownScalingActive?: boolean
+  totalRisk?: number
+  riskPct?: number
 }>()
 
 const activeTrades = computed(() => props.trades.length)
@@ -37,23 +39,19 @@ const utilizationPct = computed(() => {
   return (props.capitalDeployed / props.portfolioValue) * 100
 })
 
-const showDrawdown = computed(() => props.drawdownScalingActive && props.drawdownPct != null)
+const showDrawdown = computed(() => props.drawdownPct != null)
+const showRisk = computed(() => props.totalRisk != null && props.trades.length > 0)
 
 const drawdownColor = computed(() => {
-  if (props.drawdownPct == null) return ''
+  if (props.drawdownPct == null || props.drawdownPct === 0) return ''
   if (props.drawdownPct >= 10) return 'text-red-600 dark:text-red-400'
   if (props.drawdownPct >= 5) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-green-600 dark:text-green-400'
+  return 'text-red-600 dark:text-red-400'
 })
 </script>
 
 <template>
-  <div
-    :class="[
-      'grid grid-cols-2 gap-4',
-      showDrawdown ? 'lg:grid-cols-6' : utilizationPct !== null ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
-    ]"
-  >
+  <div class="grid grid-cols-2 lg:grid-cols-7 gap-4">
     <div class="p-4 bg-muted/50 rounded-lg border border-default">
       <div class="text-sm text-muted">
         Active Trades
@@ -110,10 +108,22 @@ const drawdownColor = computed(() => {
         Capital Deployed
       </div>
       <div class="text-2xl font-bold mt-1">
-        ${{ capitalDeployed!.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+        ${{ (capitalDeployed ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
       </div>
       <div class="text-xs text-muted mt-1">
-        {{ utilizationPct!.toFixed(1) }}% of ${{ portfolioValue!.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+        {{ (utilizationPct ?? 0).toFixed(1) }}% of ${{ (portfolioValue ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+      </div>
+    </div>
+
+    <div v-if="showRisk" class="p-4 bg-muted/50 rounded-lg border border-default">
+      <div class="text-sm text-muted">
+        Risk Budget
+      </div>
+      <div class="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
+        ${{ (totalRisk ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+      </div>
+      <div class="text-xs text-muted mt-1">
+        {{ (riskPct ?? 0).toFixed(1) }}% of equity
       </div>
     </div>
 
@@ -122,11 +132,11 @@ const drawdownColor = computed(() => {
         Drawdown
       </div>
       <div :class="['text-2xl font-bold mt-1', drawdownColor]">
-        {{ drawdownPct!.toFixed(1) }}%
+        {{ drawdownPct === 0 ? 'None' : (drawdownPct ?? 0).toFixed(1) + '%' }}
       </div>
-      <div v-if="effectiveRisk !== baseRisk" class="text-xs text-muted mt-1">
+      <div v-if="drawdownScalingActive && effectiveRisk !== baseRisk" class="text-xs text-muted mt-1">
         Risk: <span class="line-through">{{ baseRisk }}%</span>
-        <span class="text-warning ml-1">{{ effectiveRisk!.toFixed(2) }}%</span>
+        <span class="text-warning ml-1">{{ (effectiveRisk ?? 0).toFixed(2) }}%</span>
       </div>
     </div>
   </div>

@@ -35,6 +35,7 @@ import com.skrymer.udgaard.scanner.model.ScanResult
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.model.TradeStatus
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
+import com.skrymer.udgaard.service.SettingsService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -118,6 +119,7 @@ class ScannerService(
   private val dynamicStrategyBuilder: DynamicStrategyBuilder,
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
+  private val settingsService: SettingsService,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
 
@@ -286,8 +288,10 @@ class ScannerService(
       } else {
         0.0
       }
+      // Unrealized P&L for options uses delta-based approximation from stock price change
+      // since live option prices are not available. Realized P&L in closeTrade() uses actual option prices.
       val pnlDollars = if (trade.instrumentType == InstrumentType.OPTION) {
-        val delta = trade.delta ?: 0.80
+        val delta = trade.delta ?: DEFAULT_OPTION_DELTA
         val stockPriceChange = currentPrice - trade.entryPrice
         stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
       } else {
@@ -431,11 +435,45 @@ class ScannerService(
     val winners = closedTrades.count { (it.realizedPnl ?: 0.0) > 0.0 }
     val winRate = if (closedTrades.isNotEmpty()) winners.toDouble() / closedTrades.size else 0.0
 
+    val totalUnrealizedPnl = computeOpenTradeUnrealizedPnl()
+
+    val settings = settingsService.getPositionSizingSettings()
+    val portfolioValue = settings.portfolioValue
+    val currentEquity = portfolioValue + totalRealizedPnl + totalUnrealizedPnl
+
+    val peakEquity = maxOf(settings.peakEquity ?: portfolioValue, currentEquity)
+    val drawdownPct = if (peakEquity > 0) maxOf(0.0, (peakEquity - currentEquity) / peakEquity * 100) else 0.0
+
     return DrawdownStatsResponse(
       totalRealizedPnl = totalRealizedPnl,
       closedTradeCount = closedTrades.size,
       winRate = winRate,
+      totalUnrealizedPnl = totalUnrealizedPnl,
+      currentEquity = currentEquity,
+      peakEquity = peakEquity,
+      currentDrawdownPct = drawdownPct,
     )
+  }
+
+  private fun computeOpenTradeUnrealizedPnl(): Double {
+    val openTrades = scannerTradeRepository.findOpen()
+    if (openTrades.isEmpty()) return 0.0
+
+    val symbols = openTrades.map { it.symbol }.distinct()
+    val quotesAfter = LocalDate.now().minusDays(90)
+    val stocksBySymbol = stockRepository.findBySymbols(symbols, quotesAfter = quotesAfter).associateBy { it.symbol }
+
+    return openTrades.sumOf { trade ->
+      val latestQuote = stocksBySymbol[trade.symbol]?.quotes?.lastOrNull() ?: return@sumOf 0.0
+      val currentPrice = latestQuote.closePrice
+      if (trade.instrumentType == InstrumentType.OPTION) {
+        val delta = trade.delta ?: DEFAULT_OPTION_DELTA
+        val stockPriceChange = currentPrice - trade.entryPrice
+        stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
+      } else {
+        (currentPrice - trade.entryPrice) * trade.quantity
+      }
+    }
   }
 
   private fun buildBacktestContext(): BacktestContext {
@@ -494,6 +532,7 @@ class ScannerService(
   companion object {
     private const val BATCH_SIZE = 150
     private const val DEFAULT_NEAR_MISS_LIMIT = 10
+    private const val DEFAULT_OPTION_DELTA = 0.80
 
     private fun toScanResult(stock: Stock, quote: StockQuote, details: EntrySignalDetails?) =
       ScanResult(

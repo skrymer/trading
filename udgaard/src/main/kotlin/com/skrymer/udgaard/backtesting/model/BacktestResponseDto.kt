@@ -85,6 +85,9 @@ data class BacktestResponseDto(
   val averageLossPercent: Double,
   val edge: Double,
   val profitFactor: Double?,
+  val sqn: Double?,
+  val calmarRatio: Double?,
+  val tailRatio: Double?,
   val stockProfits: List<Pair<String, Double>>,
   // Missed trades
   val missedOpportunitiesCount: Int,

@@ -21,6 +21,7 @@ import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
+import com.skrymer.udgaard.service.SettingsService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -43,6 +44,7 @@ class ScannerServiceTest {
   private lateinit var dynamicStrategyBuilder: DynamicStrategyBuilder
   private lateinit var sectorBreadthRepository: SectorBreadthRepository
   private lateinit var marketBreadthRepository: MarketBreadthRepository
+  private lateinit var settingsService: SettingsService
 
   @BeforeEach
   fun setup() {
@@ -54,6 +56,7 @@ class ScannerServiceTest {
     dynamicStrategyBuilder = mock()
     sectorBreadthRepository = mock()
     marketBreadthRepository = mock()
+    settingsService = mock()
 
     service = ScannerService(
       scannerTradeRepository,
@@ -64,6 +67,7 @@ class ScannerServiceTest {
       dynamicStrategyBuilder,
       sectorBreadthRepository,
       marketBreadthRepository,
+      settingsService,
     )
 
     // Default stubs for breadth/context loading

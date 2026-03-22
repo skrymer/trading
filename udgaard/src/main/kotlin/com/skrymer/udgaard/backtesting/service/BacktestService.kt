@@ -35,6 +35,7 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -265,6 +266,8 @@ class BacktestService(
     customUnderlyingMap: Map<String, String>? = null,
     cooldownDays: Int = 0,
     entryDelayDays: Int = 0,
+    sharedContext: BacktestContext? = null,
+    sharedBreadthByDate: Map<LocalDate, Double>? = null,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
@@ -275,19 +278,26 @@ class BacktestService(
       logger.warn("SPY stock not found in database - market conditions will not be tracked")
     }
 
-    // Calculate market breadth from all stocks in DB (% in uptrend per date)
-    val breadthByDate = marketBreadthRepository.calculateBreadthByDate()
-    logger.info("Calculated market breadth for ${breadthByDate.size} trading days")
+    val breadthByDate = sharedBreadthByDate ?: marketBreadthRepository.calculateBreadthByDate()
+    if (sharedBreadthByDate == null) {
+      logger.info("Calculated market breadth for ${breadthByDate.size} trading days")
+    }
 
-    // Load breadth data and SPY quotes for BacktestContext
-    val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
-    val marketBreadthMap = marketBreadthRepository.findAllAsMap()
-    val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
-    val backtestContext = BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap)
-    logger.info(
-      "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
-        "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes",
-    )
+    val backtestContext = if (sharedContext != null) {
+      // Re-use shared context but update SPY quotes for this window's date range
+      val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
+      sharedContext.copy(spyQuoteMap = spyQuoteMap)
+    } else {
+      val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
+      val marketBreadthMap = marketBreadthRepository.findAllAsMap()
+      val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
+      BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap).also {
+        logger.info(
+          "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
+            "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes",
+        )
+      }
+    }
 
     require(symbols.isNotEmpty()) { "No symbols provided for backtest" }
 
@@ -768,6 +778,10 @@ class BacktestService(
     val usedMissedQuotes = HashSet<StockQuote>()
     var lastExitDate: LocalDate? = null
 
+    // O(1) open position tracking instead of scanning all trades each date
+    var openPositionCount = 0
+    val scheduledExits = TreeMap<LocalDate, Int>()
+
     logger.info("Sequential processing: ${stockPairs.size} stocks evaluated per date")
 
     val tradingDateIndex = allTradingDates.withIndex().associate { (i, date) -> date to i }
@@ -775,6 +789,11 @@ class BacktestService(
     var lastLoggedPercent = 0
 
     allTradingDates.forEachIndexed { index, currentDate ->
+      // Drain positions that exited before today (position is open on its exit date, closed the next day)
+      while (scheduledExits.isNotEmpty() && scheduledExits.firstKey() < currentDate) {
+        openPositionCount -= scheduledExits.pollFirstEntry().value
+      }
+
       // Log progress at 5% intervals
       val currentPercent = ((index + 1) * 100) / totalDays
       if (currentPercent >= lastLoggedPercent + 5 && currentPercent < 100) {
@@ -821,15 +840,6 @@ class BacktestService(
               RankedEntry(entry, score)
             }.sortedByDescending { it.score }
 
-        val openPositionCount =
-          if (maxPositions != null) {
-            trades.count { trade ->
-              trade.entryQuote.date <= currentDate &&
-                (trade.quotes.lastOrNull()?.date ?: currentDate) >= currentDate
-            }
-          } else {
-            0
-          }
         val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
         val selectedEntries = rankedEntries.take(availableSlots)
         val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(availableSlots) else emptyList()
@@ -844,8 +854,14 @@ class BacktestService(
               trades.add(trade)
               usedTradeQuotes.addAll(trade.quotes)
 
+              val exitDate = trade.quotes.lastOrNull()?.date
+              if (exitDate != null) {
+                openPositionCount++
+                scheduledExits.merge(exitDate, 1, Int::plus)
+              }
+
               if (cooldownDays > 0) {
-                lastExitDate = trade.quotes.lastOrNull()?.date
+                lastExitDate = exitDate
               }
             }
           }

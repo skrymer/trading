@@ -27,6 +27,24 @@ const formattedEdgeConsistency = computed(() => {
   return `${ecs.score.toFixed(0)} (${ecs.interpretation})`
 })
 
+const formattedSqn = computed(() => {
+  const sqn = props.report?.sqn
+  if (sqn == null) return 'N/A'
+  return sqn.toFixed(2)
+})
+
+const formattedCalmar = computed(() => {
+  const calmar = props.report?.calmarRatio
+  if (calmar == null) return 'N/A'
+  return calmar.toFixed(2)
+})
+
+const formattedTailRatio = computed(() => {
+  const tail = props.report?.tailRatio
+  if (tail == null) return 'N/A'
+  return tail.toFixed(2)
+})
+
 const positionSizing = computed(() => props.report?.positionSizing)
 
 const formatCurrency = (value: number) => {
@@ -41,9 +59,9 @@ const formatCurrency = (value: number) => {
 
 <template>
   <!-- Loading skeleton -->
-  <UPageGrid v-if="loading" class="lg:grid-cols-8 gap-4 sm:gap-6 lg:gap-px w-full">
+  <UPageGrid v-if="loading" class="lg:grid-cols-11 gap-4 sm:gap-6 lg:gap-px w-full">
     <UPageCard
-      v-for="i in 8"
+      v-for="i in 11"
       :key="i"
       variant="subtle"
       :ui="{
@@ -63,7 +81,7 @@ const formatCurrency = (value: number) => {
 
   <!-- Loaded content -->
   <div v-else class="space-y-4">
-    <UPageGrid class="lg:grid-cols-8 gap-4 sm:gap-6 lg:gap-px w-full">
+    <UPageGrid class="lg:grid-cols-11 gap-4 sm:gap-6 lg:gap-px w-full">
       <BacktestingDataCard title="Number of wins" :content="report?.numberOfWinningTrades || 0" />
       <BacktestingDataCard title="Number of losses" :content="report?.numberOfLosingTrades || 0" />
       <BacktestingDataCard title="Win rate" :content="((report?.winRate || 0) * 100).toFixed(2) + '%'" />
@@ -71,6 +89,9 @@ const formatCurrency = (value: number) => {
       <BacktestingDataCard title="Average loss" :content="(report?.averageLossPercent || 0).toFixed(2) + '%'" />
       <BacktestingDataCard title="Edge" :content="(report?.edge || 0).toFixed(2) + '%'" />
       <BacktestingDataCard title="Profit factor" :content="formattedProfitFactor" />
+      <BacktestingDataCard title="SQN" :content="formattedSqn" />
+      <BacktestingDataCard title="Calmar" :content="formattedCalmar" />
+      <BacktestingDataCard title="Tail Ratio" :content="formattedTailRatio" />
       <BacktestingDataCard title="Edge Consistency" :content="formattedEdgeConsistency" />
     </UPageGrid>
 

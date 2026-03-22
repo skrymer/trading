@@ -89,4 +89,8 @@ data class DrawdownStatsResponse(
   val totalRealizedPnl: Double,
   val closedTradeCount: Int,
   val winRate: Double,
+  val totalUnrealizedPnl: Double,
+  val currentEquity: Double,
+  val peakEquity: Double,
+  val currentDrawdownPct: Double,
 )
