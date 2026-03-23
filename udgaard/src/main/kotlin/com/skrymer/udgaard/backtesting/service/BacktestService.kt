@@ -771,6 +771,7 @@ class BacktestService(
     entryDelayDays: Int,
     context: BacktestContext,
     logger: org.slf4j.Logger,
+    tieBreakRandom: kotlin.random.Random = kotlin.random.Random(System.nanoTime()),
   ): Pair<List<Trade>, List<Trade>> {
     val trades = mutableListOf<Trade>()
     val missedTrades = mutableListOf<Trade>()
@@ -838,7 +839,7 @@ class BacktestService(
             .map { entry ->
               val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote, context)
               RankedEntry(entry, score)
-            }.sortedByDescending { it.score }
+            }.sortedByDescending { it.score + tieBreakRandom.nextDouble() * StockRanker.TIE_BREAK_JITTER }
 
         val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
         val selectedEntries = rankedEntries.take(availableSlots)

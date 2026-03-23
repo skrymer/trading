@@ -721,23 +721,25 @@ class BacktestServiceTest {
     // Test that global cooldown works correctly with position limiting
 
     // Two stocks with 5 TRADING day cooldown (not inclusive) and max 1 position:
-    // Trading day 0 (Jan 1): Both trigger, Stock A wins (first in list, equal rank), Stock B blocked by position limit
+    // Trading day 0 (Jan 1): Both trigger, Stock A wins (higher ATR = higher ranker score), Stock B blocked by position limit
     // Trading day 1 (Jan 2): Stock A exits (global cooldown starts)
     // Trading days 2-6 (Jan 3-7): Both BLOCKED by cooldown (only 1-5 trading days since exit, not inclusive)
-    // Trading day 7 (Jan 8): Both can enter (6 trading days passed, more than 5), Stock A wins again (first in list)
+    // Trading day 7 (Jan 8): Both can enter (6 trading days passed, more than 5), Stock A wins again (higher score)
     // Trading day 8 (Jan 9): Stock A exits
 
+    // Stock A has higher ATR so it always scores higher than Stock B in the ranker.
+    // Stock A must win because only it has exit-triggering quotes (openPrice < 100).
     val stockAQuotes =
       mutableListOf(
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1)),
-        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7)),
-        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8)),
-        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 9)),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1), atr = 5.0),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2), atr = 5.0),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 3), atr = 5.0),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 4), atr = 5.0),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 5), atr = 5.0),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 6), atr = 5.0),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 7), atr = 5.0),
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 8), atr = 5.0),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 9), atr = 5.0),
       )
 
     val stockBQuotes =
@@ -761,7 +763,7 @@ class BacktestServiceTest {
         cooldownDays = 5,
       )
 
-    // Should have 2 trades (both Stock A — first in list with equal ranking scores):
+    // Should have 2 trades (both Stock A — higher ATR gives it a higher ranker score):
     // Trade 1: Stock A (Jan 1-2) - wins position limit on trading day 0
     // Trade 2: Stock A (Jan 8-9) - wins position limit on trading day 7 (6 trading days after exit, more than 5)
     Assertions.assertEquals(2, report.totalTrades)
@@ -769,6 +771,42 @@ class BacktestServiceTest {
     Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date)
     Assertions.assertEquals("STOCK_A", report.trades[1].stockSymbol)
     Assertions.assertEquals(LocalDate.of(2025, 1, 8), report.trades[1].entryQuote.date)
+  }
+
+  @Test
+  fun `should randomly break ties between stocks with equal ranker scores`() {
+    // With equal scores and random tie-breaking, running the backtest multiple times
+    // should not always select the same stock. Both stocks have identical quotes and
+    // ATR=0 (equal ranker scores), so selection depends entirely on the random jitter.
+    val quotes =
+      mutableListOf(
+        StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 1, 1)),
+        StockQuote(closePrice = 101.0, openPrice = 99.0, date = LocalDate.of(2025, 1, 2)),
+      )
+
+    val stockA = Stock("STOCK_A", "XLK", quotes = quotes.toMutableList())
+    val stockB = Stock("STOCK_B", "XLK", quotes = quotes.toMutableList())
+
+    mockStocksForLoading(stockA, stockB)
+
+    val selectedSymbols = (1..20).map {
+      val report =
+        backtestService.backtest(
+          closePriceIsGreaterThanOrEqualTo100,
+          openPriceIsLessThan100,
+          listOf("STOCK_A", "STOCK_B"),
+          LocalDate.of(2024, 1, 1),
+          LocalDate.now(),
+          maxPositions = 1,
+        )
+      report.trades.first().stockSymbol
+    }.toSet()
+
+    // With random tie-breaking, we should see both stocks selected across 20 runs
+    Assertions.assertTrue(
+      selectedSymbols.size > 1,
+      "Expected both stocks to be selected at least once across 20 runs, but only saw: $selectedSymbols",
+    )
   }
 
   // ===== POSITION LIMIT (OPEN POSITIONS) TESTS =====
