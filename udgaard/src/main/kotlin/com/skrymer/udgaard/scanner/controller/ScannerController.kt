@@ -131,6 +131,13 @@ class ScannerController(
     return ResponseEntity.noContent().build()
   }
 
+  @DeleteMapping("/trades")
+  fun deleteAllTrades(): ResponseEntity<Map<String, Int>> {
+    logger.info("Deleting all scanner trades")
+    val count = scannerService.deleteAllTrades()
+    return ResponseEntity.ok(mapOf("deleted" to count))
+  }
+
   @GetMapping("/trades/closed")
   fun getClosedTrades(): ResponseEntity<List<ScannerTrade>> {
     val trades = scannerService.getClosedTrades()

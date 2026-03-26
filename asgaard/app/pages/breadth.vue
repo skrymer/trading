@@ -63,7 +63,7 @@
                 </p>
                 <p>
                   <strong class="text-default">Sector indicators:</strong>
-                  Hot/cold badges reflect EMA 10 vs EMA 20 crossover. Trend arrows show whether the breadth percentage is above (uptrend) or below (downtrend) both EMAs.
+                  Hot/cold badges show whether the sector's bull percentage is above (🔥) or below (❄️) the overall market breadth. Trend arrows show whether the breadth percentage is above (uptrend) or below (downtrend) its 10 EMA.
                 </p>
               </div>
             </UCard>
@@ -72,8 +72,14 @@
 
         <!-- Section A: Market Breadth Chart -->
         <div v-if="filteredMarketBreadth.length > 0">
-          <h3 class="text-lg font-semibold mb-2">
+          <h3 class="text-lg font-semibold mb-2 flex items-center gap-2">
             Market Breadth
+            <UBadge v-if="marketUptrendStatus === 'uptrend'" color="success" variant="subtle">
+              <UIcon name="i-heroicons-arrow-trending-up" />
+            </UBadge>
+            <UBadge v-else-if="marketUptrendStatus === 'downtrend'" color="error" variant="subtle">
+              <UIcon name="i-heroicons-arrow-trending-down" />
+            </UBadge>
           </h3>
           <ChartsBreadthChart
             :data="filteredMarketBreadth"
@@ -230,25 +236,41 @@ const sortedSectors = computed(() => {
   })
 })
 
-// Sector EMA status helper
+// Sector heat: hot if sector bull% > market breadth%, cold if below
 function sectorEmaStatus(sector: string): 'hot' | 'cold' | null {
+  const marketData = filteredMarketBreadth.value
+  if (marketData.length === 0) return null
+  const latestMarket = marketData[marketData.length - 1]
+  if (!latestMarket) return null
+
   const filtered = filteredSectorBreadth(sector)
   if (filtered.length === 0) return null
   const latest = filtered[filtered.length - 1]
   if (!latest) return null
-  if (latest.ema10 > latest.ema20) return 'hot'
-  if (latest.ema10 < latest.ema20) return 'cold'
+  if (latest.bullPercentage > latestMarket.breadthPercent) return 'hot'
+  if (latest.bullPercentage < latestMarket.breadthPercent) return 'cold'
   return null
 }
 
-// Sector uptrend status: bullPercentage above both EMAs
+// Market uptrend status: matches backend MarketBreadthDaily.isInUptrend() = breadthPercent > ema10
+const marketUptrendStatus = computed((): 'uptrend' | 'downtrend' | null => {
+  const data = filteredMarketBreadth.value
+  if (data.length === 0) return null
+  const latest = data[data.length - 1]
+  if (!latest) return null
+  if (latest.breadthPercent > latest.ema10) return 'uptrend'
+  if (latest.breadthPercent < latest.ema10) return 'downtrend'
+  return null
+})
+
+// Sector uptrend status: matches backend SectorBreadthDaily.isInUptrend() = bullPercentage > ema10
 function sectorUptrendStatus(sector: string): 'uptrend' | 'downtrend' | null {
   const filtered = filteredSectorBreadth(sector)
   if (filtered.length === 0) return null
   const latest = filtered[filtered.length - 1]
   if (!latest) return null
-  if (latest.bullPercentage > latest.ema10 && latest.bullPercentage > latest.ema20) return 'uptrend'
-  if (latest.bullPercentage < latest.ema10 && latest.bullPercentage < latest.ema20) return 'downtrend'
+  if (latest.bullPercentage > latest.ema10) return 'uptrend'
+  if (latest.bullPercentage < latest.ema10) return 'downtrend'
   return null
 }
 

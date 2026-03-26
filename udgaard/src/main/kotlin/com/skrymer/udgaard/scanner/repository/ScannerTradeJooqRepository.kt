@@ -116,4 +116,9 @@ class ScannerTradeJooqRepository(
       .where(SCANNER_TRADES.ID.eq(id))
       .execute()
   }
+
+  fun deleteAll(): Int =
+    dsl
+      .deleteFrom(SCANNER_TRADES)
+      .execute()
 }

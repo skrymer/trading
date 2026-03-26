@@ -4,7 +4,7 @@
 <template>
   <UDashboardPanel id="home">
     <template #header>
-      <UDashboardNavbar title="Trading Strategy Backtesting Platform">
+      <UDashboardNavbar title="Trading Platform">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -15,10 +15,10 @@
       <div class="max-w-4xl mx-auto py-12 px-6">
         <div class="text-center mb-12">
           <h1 class="text-4xl font-bold mb-4">
-            Trading Strategy Backtesting
+            Trading Platform
           </h1>
           <p class="text-xl text-muted">
-            Advanced backtesting platform for systematic trading strategies
+            Backtest, scan, and manage systematic trading strategies
           </p>
         </div>
 
@@ -26,74 +26,101 @@
           <UCard>
             <template #header>
               <h2 class="text-2xl font-semibold">
-                About This Platform
+                Platform Overview
               </h2>
             </template>
             <div class="prose prose-sm max-w-none space-y-4">
               <p>
-                This platform provides comprehensive backtesting capabilities for trading strategies on QQQ and other instruments.
-                Analyze historical performance, optimize entry and exit strategies, and evaluate risk-adjusted returns with leverage.
+                A full-stack platform for developing, validating, and executing systematic trading strategies.
+                Build strategies with a composable DSL, backtest across 500+ stocks over 20 years of data,
+                validate with Monte Carlo simulations and walk-forward analysis, then track live trades with
+                real-time position management.
               </p>
 
-              <h3 class="text-lg font-semibold mt-6 mb-3">
-                Key Features
-              </h3>
-              <ul class="space-y-2">
-                <li><strong>Strategy Testing:</strong> Backtest multiple entry and exit strategies including PlanEtf, PlanAlpha, and custom strategies</li>
-                <li><strong>Leverage Analysis:</strong> Simulate performance with 1x to 5x leverage to understand risk and return profiles</li>
-                <li><strong>Performance Metrics:</strong> Track CAGR, win rate, max drawdown, edge, and other critical metrics</li>
-                <li><strong>Equity Curve Visualization:</strong> Real-time equity curve charts showing portfolio growth over time</li>
-                <li><strong>Trade Analysis:</strong> Detailed trade-by-trade breakdown with entry/exit dates, profit/loss, and exit reasons</li>
-                <li><strong>Market Context:</strong> Incorporates heatmaps, EMAs, ATR, and order blocks</li>
-              </ul>
-
-              <h3 class="text-lg font-semibold mt-6 mb-3">
-                Strategy Components
-              </h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div class="p-4 bg-elevated rounded-lg">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <NuxtLink to="/backtesting" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
                   <h4 class="font-semibold mb-2">
-                    Entry Strategies
+                    Backtesting
                   </h4>
-                  <ul class="text-sm space-y-1 text-muted">
-                    <li>• PlanEtf - Multi-factor entry with order blocks</li>
-                    <li>• PlanAlpha - Alpha-focused systematic entry</li>
-                    <li>• PlanBeta - Beta-focused market entry</li>
-                    <li>• SimpleBuySignal - Basic signal-based entry</li>
-                  </ul>
-                </div>
-                <div class="p-4 bg-elevated rounded-lg">
+                  <p class="text-sm text-muted">
+                    Test strategies across all stocks with position sizing, entry delay, and position limits.
+                    Analyze edge consistency, sector performance, excursion metrics, and exit reason breakdowns.
+                  </p>
+                </NuxtLink>
+                <NuxtLink to="/scanner" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
                   <h4 class="font-semibold mb-2">
-                    Exit Strategies
+                    Scanner
                   </h4>
-                  <ul class="text-sm space-y-1 text-muted">
-                    <li>• PlanEtf - Composite exit with profit targets</li>
-                    <li>• PlanMoney - Money management exits</li>
-                    <li>• SellSignal - Signal-based exits</li>
-                    <li>• ATR-based stops and trailing exits</li>
-                  </ul>
-                </div>
+                  <p class="text-sm text-muted">
+                    Scan for live entry signals across the market. ATR-based position sizing, drawdown-responsive
+                    risk scaling, option contract lookup, and automated exit monitoring.
+                  </p>
+                </NuxtLink>
+                <NuxtLink to="/portfolio" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
+                  <h4 class="font-semibold mb-2">
+                    Portfolio
+                  </h4>
+                  <p class="text-sm text-muted">
+                    Track live positions with IBKR broker sync, multi-currency FX tracking,
+                    equity curves, and real-time unrealized P&L across stocks and options.
+                  </p>
+                </NuxtLink>
+                <NuxtLink to="/breadth" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
+                  <h4 class="font-semibold mb-2">
+                    Market Breadth
+                  </h4>
+                  <p class="text-sm text-muted">
+                    Monitor market and sector breadth with EMA overlays, Donchian bands,
+                    sector heat comparison, and uptrend/downtrend regime detection.
+                  </p>
+                </NuxtLink>
+                <NuxtLink to="/stock-data" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
+                  <h4 class="font-semibold mb-2">
+                    Stock Data
+                  </h4>
+                  <p class="text-sm text-muted">
+                    Explore individual stocks with interactive charts, technical indicators,
+                    order block detection, and strategy signal evaluation.
+                  </p>
+                </NuxtLink>
+                <NuxtLink to="/data-manager" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
+                  <h4 class="font-semibold mb-2">
+                    Data Manager
+                  </h4>
+                  <p class="text-sm text-muted">
+                    Manage stock data ingestion, refresh OHLCV quotes with pre-computed indicators,
+                    and recalculate market breadth statistics.
+                  </p>
+                </NuxtLink>
               </div>
 
               <h3 class="text-lg font-semibold mt-6 mb-3">
-                Recent Performance
+                Strategy Engine
               </h3>
               <p class="text-sm text-muted">
-                <strong>PlanEtf Strategy (2020-2025):</strong> Starting with $100,000, the PlanEtf strategy achieved
-                $248,248 (+148%) with QQQ (1x) or $1,241,994 (+1,142%) with TQQQ (3x leverage).
-                The strategy maintained exceptional risk management with only -4.22% max drawdown on QQQ and -12.66% on TQQQ,
-                achieving a 67% win rate over 70 trades.
+                Strategies are built with a composable DSL combining entry conditions (uptrend, volatility contraction,
+                order blocks, volume, Donchian breakouts, market/sector breadth) with exit conditions (EMA cross,
+                ATR stop loss, stagnation exits). Strategies are auto-discovered and available via the API and
+                MCP server for Claude AI integration.
               </p>
             </div>
           </UCard>
 
-          <div class="text-center">
+          <div class="flex justify-center gap-3">
             <UButton
               to="/backtesting"
               size="lg"
               icon="i-lucide-trending-up"
             >
               Start Backtesting
+            </UButton>
+            <UButton
+              to="/scanner"
+              size="lg"
+              variant="outline"
+              icon="i-lucide-scan"
+            >
+              Open Scanner
             </UButton>
           </div>
         </div>

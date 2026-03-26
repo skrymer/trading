@@ -12,6 +12,7 @@ const props = defineProps<{
   drawdownScalingActive?: boolean
   totalRisk?: number
   riskPct?: number
+  maxHeatPct?: number
 }>()
 
 const activeTrades = computed(() => props.trades.length)
@@ -41,6 +42,25 @@ const utilizationPct = computed(() => {
 
 const showDrawdown = computed(() => props.drawdownPct != null)
 const showRisk = computed(() => props.totalRisk != null && props.trades.length > 0)
+
+const heatUsagePct = computed(() => {
+  if (!props.riskPct || !props.maxHeatPct || props.maxHeatPct <= 0) return 0
+  return Math.min(100, (props.riskPct / props.maxHeatPct) * 100)
+})
+
+const heatColor = computed(() => {
+  if (!props.riskPct || !props.maxHeatPct) return 'text-red-600 dark:text-red-400'
+  if (props.riskPct >= props.maxHeatPct) return 'text-red-600 dark:text-red-400'
+  if (props.riskPct >= props.maxHeatPct * 0.75) return 'text-yellow-600 dark:text-yellow-400'
+  return 'text-orange-600 dark:text-orange-400'
+})
+
+const heatBarColor = computed(() => {
+  if (!props.riskPct || !props.maxHeatPct) return 'bg-red-500'
+  if (props.riskPct >= props.maxHeatPct) return 'bg-red-500'
+  if (props.riskPct >= props.maxHeatPct * 0.75) return 'bg-yellow-500'
+  return 'bg-orange-500'
+})
 
 const drawdownColor = computed(() => {
   if (props.drawdownPct == null || props.drawdownPct === 0) return ''
@@ -117,13 +137,24 @@ const drawdownColor = computed(() => {
 
     <div v-if="showRisk" class="p-4 bg-muted/50 rounded-lg border border-default">
       <div class="text-sm text-muted">
-        Risk Budget
+        Portfolio Heat
       </div>
-      <div class="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
+      <div :class="['text-2xl font-bold mt-1', heatColor]">
+        {{ (riskPct ?? 0).toFixed(1) }}%
+      </div>
+      <div v-if="maxHeatPct" class="mt-1.5">
+        <div class="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+          <div
+            :class="['h-full rounded-full transition-all', heatBarColor]"
+            :style="{ width: heatUsagePct + '%' }"
+          />
+        </div>
+        <div class="text-xs text-muted mt-1">
+          ${{ (totalRisk ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) }} / {{ maxHeatPct }}% limit
+        </div>
+      </div>
+      <div v-else class="text-xs text-muted mt-1">
         ${{ (totalRisk ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
-      </div>
-      <div class="text-xs text-muted mt-1">
-        {{ (riskPct ?? 0).toFixed(1) }}% of equity
       </div>
     </div>
 

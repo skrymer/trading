@@ -424,9 +424,17 @@ class ScannerService(
   }
 
   fun deleteTrade(id: Long) {
-    findOpenTrade(id)
+    scannerTradeRepository.findById(id)
+      ?: throw IllegalArgumentException("Scanner trade $id not found")
     scannerTradeRepository.delete(id)
     logger.info("Deleted scanner trade $id")
+  }
+
+  @Transactional
+  fun deleteAllTrades(): Int {
+    val count = scannerTradeRepository.deleteAll()
+    logger.info("Deleted all scanner trades ($count trades)")
+    return count
   }
 
   fun getDrawdownStats(): DrawdownStatsResponse {

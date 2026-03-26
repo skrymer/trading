@@ -22,8 +22,10 @@ import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
 import com.skrymer.udgaard.service.SettingsService
+import com.skrymer.udgaard.scanner.model.TradeStatus
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -253,6 +255,60 @@ class ScannerServiceTest {
 
     // Then
     verify(scannerTradeRepository).delete(1L)
+  }
+
+  @Test
+  fun `deleteTrade allows deleting closed trades`() {
+    // Given
+    val closedTrade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 150.0).copy(
+      status = TradeStatus.CLOSED,
+      exitPrice = 160.0,
+      exitDate = LocalDate.of(2024, 2, 15),
+      realizedPnl = 1000.0,
+    )
+    whenever(scannerTradeRepository.findById(1L)).thenReturn(closedTrade)
+
+    // When
+    service.deleteTrade(1L)
+
+    // Then
+    verify(scannerTradeRepository).delete(1L)
+  }
+
+  @Test
+  fun `deleteTrade throws when trade not found`() {
+    // Given
+    whenever(scannerTradeRepository.findById(1L)).thenReturn(null)
+
+    // When / Then
+    assertThrows(IllegalArgumentException::class.java) {
+      service.deleteTrade(1L)
+    }
+  }
+
+  @Test
+  fun `deleteAllTrades removes all trades and returns count`() {
+    // Given
+    whenever(scannerTradeRepository.deleteAll()).thenReturn(5)
+
+    // When
+    val count = service.deleteAllTrades()
+
+    // Then
+    assertEquals(5, count)
+    verify(scannerTradeRepository).deleteAll()
+  }
+
+  @Test
+  fun `deleteAllTrades returns zero when no trades exist`() {
+    // Given
+    whenever(scannerTradeRepository.deleteAll()).thenReturn(0)
+
+    // When
+    val count = service.deleteAllTrades()
+
+    // Then
+    assertEquals(0, count)
   }
 
   @Test

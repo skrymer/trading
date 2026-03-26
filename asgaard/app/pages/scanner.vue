@@ -20,6 +20,7 @@ const isRollTradeModalOpen = ref(false)
 const isTradeDetailsModalOpen = ref(false)
 const isCloseTradeModalOpen = ref(false)
 const isResetPeakModalOpen = ref(false)
+const isResetAllTradesModalOpen = ref(false)
 const selectedScanResult = ref<ScanResult | null>(null)
 const selectedTrade = ref<ScannerTrade | null>(null)
 
@@ -466,6 +467,49 @@ async function deleteTrade() {
   }
 }
 
+async function resetAllTrades() {
+  try {
+    const result = await $fetch<{ deleted: number }>('/udgaard/api/scanner/trades', { method: 'DELETE' })
+    isResetAllTradesModalOpen.value = false
+    positionSizingSettings.value.peakEquity = null
+    await Promise.all([loadTrades(), loadClosedTrades(), loadDrawdownStats()])
+    exitResults.value = new Map()
+    toast.add({
+      title: 'Scanner Reset',
+      description: `Deleted ${result.deleted} trades`,
+      icon: 'i-lucide-check-circle',
+      color: 'success'
+    })
+  } catch (_error: any) {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to reset trades',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  }
+}
+
+async function deleteClosedTrade(trade: ScannerTrade) {
+  try {
+    await $fetch(`/udgaard/api/scanner/trades/${trade.id}`, { method: 'DELETE' })
+    await Promise.all([loadClosedTrades(), loadDrawdownStats()])
+    toast.add({
+      title: 'Trade Deleted',
+      description: `Deleted closed trade ${trade.symbol}`,
+      icon: 'i-lucide-check-circle',
+      color: 'success'
+    })
+  } catch (_error: any) {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to delete closed trade',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  }
+}
+
 async function onTradeAdded() {
   await loadTrades()
   activeTab.value = 'trades'
@@ -718,6 +762,17 @@ const closedTradeColumns: TableColumn<ScannerTrade>[] = [
       const sign = pnl >= 0 ? '+' : ''
       return h('span', { class: color }, `${sign}$${pnl.toFixed(2)}`)
     }
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(resolveComponent('UButton'), {
+      icon: 'i-lucide-trash-2',
+      size: 'xs',
+      variant: 'ghost',
+      color: 'error',
+      onClick: () => deleteClosedTrade(row.original)
+    })
   }
 ]
 
@@ -736,6 +791,13 @@ const tradesTableUi = computed(() => ({
     <template #header>
       <UDashboardNavbar title="Scanner">
         <template #right>
+          <UButton
+            label="Reset"
+            icon="i-lucide-trash-2"
+            color="error"
+            variant="ghost"
+            @click="isResetAllTradesModalOpen = true"
+          />
           <UButton
             label="New Scan"
             icon="i-lucide-scan-search"
@@ -759,6 +821,7 @@ const tradesTableUi = computed(() => ({
           :drawdown-scaling-active="positionSizingSettings.drawdownScalingEnabled"
           :total-risk="positionSizingSettings.enabled ? totalPortfolioRisk : undefined"
           :risk-pct="positionSizingSettings.enabled ? portfolioRiskPct : undefined"
+          :max-heat-pct="positionSizingSettings.enabled ? maxPositions * effectiveRiskPercentage : undefined"
         />
 
         <!-- Position Sizing Config -->
@@ -1214,6 +1277,36 @@ const tradesTableUi = computed(() => ({
           color="warning"
           icon="i-lucide-rotate-ccw"
           @click="resetPeakEquity(); isResetPeakModalOpen = false"
+        />
+      </div>
+    </template>
+  </UModal>
+
+  <!-- Reset All Trades Confirmation Modal -->
+  <UModal
+    :open="isResetAllTradesModalOpen"
+    title="Reset All Scanner Trades"
+    @update:open="isResetAllTradesModalOpen = $event"
+  >
+    <template #body>
+      <p class="text-sm">
+        This will permanently delete <span class="font-semibold">all</span> scanner trades
+        ({{ trades.length }} open, {{ closedTrades.length }} closed). This cannot be undone.
+      </p>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          label="Cancel"
+          color="neutral"
+          variant="outline"
+          @click="isResetAllTradesModalOpen = false"
+        />
+        <UButton
+          label="Delete All Trades"
+          color="error"
+          icon="i-lucide-trash-2"
+          @click="resetAllTrades"
         />
       </div>
     </template>
