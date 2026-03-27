@@ -469,7 +469,7 @@ async function deleteTrade() {
 
 async function resetAllTrades() {
   try {
-    const result = await $fetch<{ deleted: number }>('/udgaard/api/scanner/trades/all', { method: 'DELETE' })
+    const result = await $fetch<{ deleted: number }>('/udgaard/api/scanner/trades/reset', { method: 'POST' })
     isResetAllTradesModalOpen.value = false
     positionSizingSettings.value.peakEquity = null
     await Promise.all([loadTrades(), loadClosedTrades(), loadDrawdownStats()])
