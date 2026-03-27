@@ -48,6 +48,15 @@
         >
           ADX
         </UButton>
+        <UButton
+          :icon="showATR ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+          size="sm"
+          :color="showATR ? 'primary' : 'neutral'"
+          variant="soft"
+          @click="showATR = !showATR"
+        >
+          ATR
+        </UButton>
       </div>
 
       <!-- Date Range Presets -->
@@ -128,9 +137,15 @@
             <span class="text-gray-600 dark:text-gray-400">Vol:</span>
             <span class="font-medium">{{ tooltipData.volume }}</span>
           </div>
-          <div v-if="showADX && tooltipData.adx !== null" class="flex justify-between gap-4 border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
-            <span class="text-purple-600 dark:text-purple-400">ADX:</span>
-            <span class="font-medium text-purple-600 dark:text-purple-400">{{ tooltipData.adx }}</span>
+          <div v-if="(showADX && tooltipData.adx !== null) || (showATR && tooltipData.atr !== null)" class="border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
+            <div v-if="showADX && tooltipData.adx !== null" class="flex justify-between gap-4">
+              <span class="text-purple-600 dark:text-purple-400">ADX:</span>
+              <span class="font-medium text-purple-600 dark:text-purple-400">{{ tooltipData.adx }}</span>
+            </div>
+            <div v-if="showATR && tooltipData.atr !== null" class="flex justify-between gap-4">
+              <span class="text-teal-600 dark:text-teal-400">ATR:</span>
+              <span class="font-medium text-teal-600 dark:text-teal-400">{{ tooltipData.atr }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -161,6 +176,7 @@ let chart: any = null
 let candlestickSeries: any = null
 let volumeSeries: any = null
 let adxSeries: any = null
+let atrSeries: any = null
 let currentOrderBlockPrimitive: any = null
 let seriesMarkersPlugin: any = null
 let ema5Series: any = null
@@ -171,6 +187,7 @@ const dateRange = ref<string>('3M')
 const showOrderBlocks = ref<boolean>(true)
 const showEMA = ref<boolean>(true)
 const showADX = ref<boolean>(true)
+const showATR = ref<boolean>(true)
 
 // Signal details modal state
 const signalDetailsModalOpen = ref(false)
@@ -185,6 +202,7 @@ const tooltipData = ref<{
   close: string
   volume: string | null
   adx: string | null
+  atr: string | null
 } | null>(null)
 
 // Map to store signal data by timestamp for quick lookup
@@ -591,6 +609,25 @@ onMounted(async () => {
     }
   })
 
+  // Add ATR series on same bottom panel as ADX
+  atrSeries = chart.addSeries(LineSeries, {
+    color: '#14b8a6',
+    lineWidth: 2,
+    title: 'ATR',
+    priceScaleId: 'atr',
+    lastValueVisible: true,
+    priceLineVisible: false
+  })
+
+  chart.priceScale('atr').applyOptions({
+    visible: true,
+    borderColor: '#D1D5DB',
+    scaleMargins: {
+      top: 0.6,
+      bottom: 0
+    }
+  })
+
   // Update chart data
   updateChartData()
 
@@ -745,7 +782,8 @@ function handleCrosshairMove(param: any) {
     low: data.low.toFixed(2),
     close: data.close.toFixed(2),
     volume: formatVolume(matchingQuote?.volume),
-    adx: matchingQuote?.adx !== null && matchingQuote?.adx !== undefined ? matchingQuote.adx.toFixed(2) : null
+    adx: matchingQuote?.adx !== null && matchingQuote?.adx !== undefined ? matchingQuote.adx.toFixed(2) : null,
+    atr: matchingQuote?.atr !== null && matchingQuote?.atr !== undefined ? matchingQuote.atr.toFixed(2) : null
   }
 }
 
@@ -835,6 +873,10 @@ watch(showADX, () => {
   updateChartData()
 })
 
+watch(showATR, () => {
+  updateChartData()
+})
+
 function updateChartData() {
   if (!chart || !candlestickSeries) return
 
@@ -901,6 +943,23 @@ function updateChartData() {
       adxSeries.setData(adxData)
     } else {
       adxSeries.setData([])
+    }
+  }
+
+  // Prepare ATR data
+  if (atrSeries) {
+    if (showATR.value) {
+      const atrData = props.quotes
+        .filter(q => q.date && q.atr !== undefined && q.atr !== null && q.atr > 0)
+        .map(quote => ({
+          time: (new Date(quote.date!).getTime() / 1000) as any,
+          value: quote.atr
+        }))
+        .sort((a, b) => a.time - b.time)
+
+      atrSeries.setData(atrData)
+    } else {
+      atrSeries.setData([])
     }
   }
 

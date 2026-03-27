@@ -48,6 +48,9 @@ or exit 1
 echo "Version: $ug_result"
 
 # --- Build JARs ---
+# Clean old JARs first to prevent stale versions being picked up by Docker COPY wildcards
+rm -f "$root/midgaard/build/libs/"*.jar "$root/udgaard/build/libs/"*.jar
+
 echo ""
 echo "Building Midgaard JAR..."
 cd "$root/midgaard"; and ./gradlew bootJar -x test -x generateJooq; or begin

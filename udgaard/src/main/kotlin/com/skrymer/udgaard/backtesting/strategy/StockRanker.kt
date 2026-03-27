@@ -9,15 +9,6 @@ import com.skrymer.udgaard.data.model.StockQuote
  * Used to pick the top N stocks when position limits apply.
  */
 interface StockRanker {
-  companion object {
-    /**
-     * Tiny jitter added to ranking scores to randomly break ties between stocks with equal scores.
-     * Small enough (1e-10) to never affect ordering of meaningfully different scores (typically 0-100 range),
-     * but large enough to shuffle equal scores randomly each run.
-     */
-    const val TIE_BREAK_JITTER = 1e-10
-  }
-
   /**
    * Calculate a score for a stock at entry. Higher score = better.
    * @param stock - the stock
@@ -39,6 +30,15 @@ interface StockRanker {
    * Description of this ranking strategy
    */
   fun description(): String
+
+  companion object {
+    /**
+     * Tiny jitter added to ranking scores to randomly break ties between stocks with equal scores.
+     * Small enough (1e-10) to never affect ordering of meaningfully different scores (typically 0-100 range),
+     * but large enough to shuffle equal scores randomly each run.
+     */
+    const val TIE_BREAK_JITTER = 1e-10
+  }
 }
 
 /**

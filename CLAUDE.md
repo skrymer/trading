@@ -105,7 +105,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Positions:** `GET /api/positions/{portfolioId}`, `GET /api/positions/{portfolioId}/{positionId}`, `POST /api/positions/{portfolioId}`, `PUT /api/positions/{portfolioId}/{positionId}/close`, `PUT /api/positions/{portfolioId}/{positionId}/metadata`, `DELETE /api/positions/{portfolioId}/{positionId}`, `GET /api/positions/{portfolioId}/stats`, `GET /api/positions/{portfolioId}/unrealized-pnl`, `GET /api/positions/{portfolioId}/equity-curve`, `POST /api/positions/{portfolioId}/recalculate-balance`, `GET /api/positions/{portfolioId}/{positionId}/roll-chain`
 
-**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `GET /api/scanner/trades/closed`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
+**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `POST /api/scanner/trades/reset`, `GET /api/scanner/trades/closed`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
 
 **Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
 
@@ -331,4 +331,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-15_
+_Last Updated: 2026-03-27_

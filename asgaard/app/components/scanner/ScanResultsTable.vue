@@ -2,6 +2,7 @@
 import { h } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { ScanResult, OptionContractResponse } from '~/types'
+import { getSectorName } from '~/types/enums'
 
 const props = defineProps<{
   results: ScanResult[]
@@ -97,7 +98,7 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
     {
       id: 'sector',
       header: 'Sector',
-      cell: ({ row }) => row.original.sectorSymbol ?? '-'
+      cell: ({ row }) => row.original.sectorSymbol ? getSectorName(row.original.sectorSymbol) : '-'
     },
     {
       id: 'price',

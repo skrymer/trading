@@ -789,18 +789,19 @@ class BacktestServiceTest {
 
     mockStocksForLoading(stockA, stockB)
 
-    val selectedSymbols = (1..20).map {
-      val report =
-        backtestService.backtest(
-          closePriceIsGreaterThanOrEqualTo100,
-          openPriceIsLessThan100,
-          listOf("STOCK_A", "STOCK_B"),
-          LocalDate.of(2024, 1, 1),
-          LocalDate.now(),
-          maxPositions = 1,
-        )
-      report.trades.first().stockSymbol
-    }.toSet()
+    val selectedSymbols = (1..20)
+      .map {
+        val report =
+          backtestService.backtest(
+            closePriceIsGreaterThanOrEqualTo100,
+            openPriceIsLessThan100,
+            listOf("STOCK_A", "STOCK_B"),
+            LocalDate.of(2024, 1, 1),
+            LocalDate.now(),
+            maxPositions = 1,
+          )
+        report.trades.first().stockSymbol
+      }.toSet()
 
     // With random tie-breaking, we should see both stocks selected across 20 runs
     Assertions.assertTrue(

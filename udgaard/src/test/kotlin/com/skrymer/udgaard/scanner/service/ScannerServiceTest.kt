@@ -20,9 +20,9 @@ import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
 import com.skrymer.udgaard.scanner.model.ScannerTrade
+import com.skrymer.udgaard.scanner.model.TradeStatus
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
 import com.skrymer.udgaard.service.SettingsService
-import com.skrymer.udgaard.scanner.model.TradeStatus
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows

@@ -602,6 +602,11 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
   },
   {
+    id: 'quantity',
+    header: 'Qty',
+    cell: ({ row }) => row.original.quantity.toLocaleString()
+  },
+  {
     id: 'currentPrice',
     header: 'Current Price',
     cell: ({ row }) => {
