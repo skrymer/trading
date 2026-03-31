@@ -23,7 +23,7 @@ data class AlphaVantageHistoricalOptions(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageOptionContract(
-    @JsonProperty("contractID")
+    @param:JsonProperty("contractID")
     val contractID: String? = null,
     val symbol: String? = null,
     val expiration: String? = null,
@@ -32,16 +32,16 @@ data class AlphaVantageOptionContract(
     val last: String? = null,
     val mark: String? = null,
     val bid: String? = null,
-    @JsonProperty("bid_size")
+    @param:JsonProperty("bid_size")
     val bidSize: String? = null,
     val ask: String? = null,
-    @JsonProperty("ask_size")
+    @param:JsonProperty("ask_size")
     val askSize: String? = null,
     val volume: String? = null,
-    @JsonProperty("open_interest")
+    @param:JsonProperty("open_interest")
     val openInterest: String? = null,
     val date: String? = null,
-    @JsonProperty("implied_volatility")
+    @param:JsonProperty("implied_volatility")
     val impliedVolatility: String? = null,
     val delta: String? = null,
     val gamma: String? = null,

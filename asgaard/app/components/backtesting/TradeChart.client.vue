@@ -5,8 +5,10 @@ import type { Trade } from '~/types'
 const props = withDefaults(defineProps<{
   trade: Trade
   height?: number | string
+  overrideProfitPct?: number
 }>(), {
-  height: 350
+  height: 350,
+  overrideProfitPct: undefined
 })
 
 const colorMode = useColorMode()
@@ -58,9 +60,12 @@ const series = computed(() => [
   }
 ])
 
+const profitPct = computed(() => props.overrideProfitPct ?? props.trade?.profitPercentage ?? 0)
+
 const chartOptions = computed<ApexOptions>(() => {
   const isDark = colorMode.value === 'dark'
   const exitQuote = props.trade.quotes[props.trade.quotes.length - 1]!
+  const pct = profitPct.value
 
   return {
     chart: {
@@ -81,10 +86,10 @@ const chartOptions = computed<ApexOptions>(() => {
       foreColor: isDark ? '#d1d5db' : '#6b7280'
     },
     title: {
-      text: `${props.trade.stockSymbol} - ${props.trade.profitPercentage >= 0 ? '+' : ''}${props.trade.profitPercentage.toFixed(2)}%`,
+      text: `${props.trade.stockSymbol} - ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`,
       align: 'left',
       style: {
-        color: props.trade.profitPercentage >= 0 ? '#10b981' : '#ef4444',
+        color: pct >= 0 ? '#10b981' : '#ef4444',
         fontSize: '16px',
         fontWeight: 600
       }
@@ -179,17 +184,17 @@ const chartOptions = computed<ApexOptions>(() => {
           y: exitQuote.closePrice,
           marker: {
             size: 8,
-            fillColor: props.trade.profitPercentage >= 0 ? '#3b82f6' : '#ef4444',
+            fillColor: pct >= 0 ? '#3b82f6' : '#ef4444',
             strokeColor: '#fff',
             strokeWidth: 2,
             shape: 'circle'
           },
           label: {
-            borderColor: props.trade.profitPercentage >= 0 ? '#3b82f6' : '#ef4444',
+            borderColor: pct >= 0 ? '#3b82f6' : '#ef4444',
             offsetY: 0,
             style: {
               color: '#fff',
-              background: props.trade.profitPercentage >= 0 ? '#3b82f6' : '#ef4444',
+              background: pct >= 0 ? '#3b82f6' : '#ef4444',
               fontSize: '11px',
               fontWeight: 600
             },

@@ -31,8 +31,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class IngestionService(
-    @Qualifier("alphaVantageOhlcv") private val alphaVantageOhlcv: OhlcvProvider,
-    @Qualifier("massiveOhlcv") private val massiveOhlcv: OhlcvProvider,
+    @param:Qualifier("alphaVantageOhlcv") private val alphaVantageOhlcv: OhlcvProvider,
+    @param:Qualifier("massiveOhlcv") private val massiveOhlcv: OhlcvProvider,
     private val indicatorProvider: IndicatorProvider,
     private val earningsProvider: EarningsProvider,
     private val companyInfoProvider: CompanyInfoProvider,

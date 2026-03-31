@@ -335,6 +335,7 @@ class BacktestController(
         request.customUnderlyingMap,
         request.cooldownDays,
         request.entryDelayDays,
+        randomSeed = request.randomSeed,
       )
 
     logger.info(

@@ -9,17 +9,21 @@ if test -z "$current_version"
     exit 1
 end
 
+set -l new_version
 if test (count $argv) -ge 1
-    set -l new_version $argv[1]
+    set new_version $argv[1]
 else
     # Auto-increment patch version (e.g., 1.0.4 -> 1.0.5)
     set -l parts (string split "." "$current_version")
     set -l patch (math $parts[3] + 1)
-    set -l new_version "$parts[1].$parts[2].$patch"
+    set new_version "$parts[1].$parts[2].$patch"
 end
 
 sed -i "s/^version = '$current_version'/version = '$new_version'/" "$build_gradle"
 echo "Version: $current_version -> $new_version"
+
+# Clean old JARs first to prevent stale versions being picked up by Docker COPY wildcards
+rm -f "$root/midgaard/build/libs/"*.jar
 
 echo "Building Midgaard JAR..."
 cd "$root/midgaard"; and ./gradlew bootJar -x test -x generateJooq; or begin

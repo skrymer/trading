@@ -2,6 +2,7 @@ package com.skrymer.udgaard.data.integration.midgaard
 
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardExchangeRateDto
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.model.StockQuote
@@ -83,6 +84,22 @@ class MidgaardClient(
         .body(object : ParameterizedTypeReference<List<MidgaardSymbolDto>>() {})
     } catch (e: Exception) {
       logger.error("Failed to fetch symbols from Midgaard: ${e.message}", e)
+      return null
+    }
+  }
+
+  /**
+   * Get the latest real-time quote for a symbol from Midgaard (via Yahoo Finance).
+   */
+  fun getLatestQuote(symbol: String): MidgaardLatestQuoteDto? {
+    try {
+      return restClient
+        .get()
+        .uri("/api/quotes/{symbol}/latest", symbol)
+        .retrieve()
+        .body(MidgaardLatestQuoteDto::class.java)
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch latest quote from Midgaard for $symbol: ${e.message}")
       return null
     }
   }

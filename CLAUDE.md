@@ -40,7 +40,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
-- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian), options data, and FX rates
+- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian), live quotes (Finnhub), options data, and FX rates
 - Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
@@ -91,7 +91,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
 6. **Integration** (`data/integration/`)
-   - **Midgaard**: OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client
+   - **Midgaard**: OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
    - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
@@ -125,13 +125,13 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (61 Vue components):**
+**Key Components (62 Vue components):**
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, BatchEditStrategyModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, BreadthChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
-- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
+- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, BatchAddTradesModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
 - **Settings** (`components/settings/`): MembersList
 - **Root-level**: StockPriceChart.client, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable
 - **Pages**: index, backtesting, portfolio, scanner, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
@@ -176,7 +176,7 @@ trading/
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
 │   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult, ExitCheckResponse
+│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
@@ -193,7 +193,7 @@ trading/
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
 │   ├── src/main/kotlin/com/skrymer/midgaard/
-│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive)
+│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive, Finnhub)
 │   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, ApiKeyService, ScheduledIngestionService
 │   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
@@ -216,6 +216,8 @@ trading/
 │   ├── .dockerignore                 # Docker build exclusions
 │   ├── package.json                  # Dependencies
 │   └── claude.md                     # Nuxt-specific context
+├── pinescripts/                      # TradingView Pine Script strategies
+├── strategy_exploration/             # Strategy research and development notes
 ├── compose.prod.yaml                 # Production Docker Compose (all services: postgres, midgaard, udgaard, asgaard, adminer)
 ├── deploy-prd.fish                   # Production deployment script (version bump, build JARs, deploy containers)
 └── README.md                         # Main project README
@@ -331,4 +333,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-03-27_
+_Last Updated: 2026-03-30_

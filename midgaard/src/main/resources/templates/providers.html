@@ -15,17 +15,22 @@
     <div class="card-body">
       <form method="post" action="/providers">
         <div class="row g-3">
-          <div class="col-md-5">
+          <div class="col-md-4">
             <label class="form-label">AlphaVantage API Key</label>
             <input type="password" class="form-control" name="alphaVantageApiKey"
                    placeholder="Enter new key to update">
           </div>
-          <div class="col-md-5">
+          <div class="col-md-4">
             <label class="form-label">Massive (Polygon) API Key</label>
             <input type="password" class="form-control" name="massiveApiKey"
                    placeholder="Enter new key to update">
           </div>
-          <div class="col-md-2 d-flex align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Finnhub API Key</label>
+            <input type="password" class="form-control" name="finnhubApiKey"
+                   placeholder="Enter new key to update">
+          </div>
+          <div class="col-md-4 col-lg-2 d-flex align-items-end">
             <button type="submit" class="btn btn-primary w-100">Save</button>
           </div>
         </div>

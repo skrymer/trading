@@ -47,6 +47,7 @@ class ScannerServiceTest {
   private lateinit var sectorBreadthRepository: SectorBreadthRepository
   private lateinit var marketBreadthRepository: MarketBreadthRepository
   private lateinit var settingsService: SettingsService
+  private lateinit var midgaardClient: com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 
   @BeforeEach
   fun setup() {
@@ -59,6 +60,7 @@ class ScannerServiceTest {
     sectorBreadthRepository = mock()
     marketBreadthRepository = mock()
     settingsService = mock()
+    midgaardClient = mock()
 
     service = ScannerService(
       scannerTradeRepository,
@@ -70,6 +72,7 @@ class ScannerServiceTest {
       sectorBreadthRepository,
       marketBreadthRepository,
       settingsService,
+      midgaardClient,
     )
 
     // Default stubs for breadth/context loading

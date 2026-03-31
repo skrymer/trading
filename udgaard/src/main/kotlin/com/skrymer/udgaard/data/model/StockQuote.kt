@@ -32,4 +32,12 @@ data class StockQuote(
   fun getClosePriceMinusHalfAtr() = closePrice - (atr / 2)
 
   override fun toString() = "Symbol: $symbol Date: $date Close price: $closePrice"
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is StockQuote) return false
+    return symbol == other.symbol && date == other.date
+  }
+
+  override fun hashCode(): Int = 31 * symbol.hashCode() + date.hashCode()
 }

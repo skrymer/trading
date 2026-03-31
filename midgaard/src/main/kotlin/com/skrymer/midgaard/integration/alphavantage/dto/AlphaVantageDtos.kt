@@ -21,15 +21,15 @@ interface AlphaVantageApiResponse {
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageTimeSeriesDailyAdjusted(
-    @JsonProperty("Meta Data")
+    @param:JsonProperty("Meta Data")
     val metaData: AdjustedMetaData? = null,
-    @JsonProperty("Time Series (Daily)")
+    @param:JsonProperty("Time Series (Daily)")
     val timeSeriesDaily: Map<String, DailyAdjustedData>? = null,
-    @JsonProperty("Error Message")
+    @param:JsonProperty("Error Message")
     val errorMessage: String? = null,
-    @JsonProperty("Note")
+    @param:JsonProperty("Note")
     val note: String? = null,
-    @JsonProperty("Information")
+    @param:JsonProperty("Information")
     val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
@@ -77,23 +77,23 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AdjustedMetaData(
-    @JsonProperty("1. Information") val information: String,
-    @JsonProperty("2. Symbol") val symbol: String,
-    @JsonProperty("3. Last Refreshed") val lastRefreshed: String,
-    @JsonProperty("4. Output Size") val outputSize: String,
-    @JsonProperty("5. Time Zone") val timeZone: String,
+    @param:JsonProperty("1. Information") val information: String,
+    @param:JsonProperty("2. Symbol") val symbol: String,
+    @param:JsonProperty("3. Last Refreshed") val lastRefreshed: String,
+    @param:JsonProperty("4. Output Size") val outputSize: String,
+    @param:JsonProperty("5. Time Zone") val timeZone: String,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class DailyAdjustedData(
-    @JsonProperty("1. open") val open: String,
-    @JsonProperty("2. high") val high: String,
-    @JsonProperty("3. low") val low: String,
-    @JsonProperty("4. close") val close: String,
-    @JsonProperty("5. adjusted close") val adjustedClose: String,
-    @JsonProperty("6. volume") val volume: String,
-    @JsonProperty("7. dividend amount") val dividendAmount: String,
-    @JsonProperty("8. split coefficient") val splitCoefficient: String,
+    @param:JsonProperty("1. open") val open: String,
+    @param:JsonProperty("2. high") val high: String,
+    @param:JsonProperty("3. low") val low: String,
+    @param:JsonProperty("4. close") val close: String,
+    @param:JsonProperty("5. adjusted close") val adjustedClose: String,
+    @param:JsonProperty("6. volume") val volume: String,
+    @param:JsonProperty("7. dividend amount") val dividendAmount: String,
+    @param:JsonProperty("8. split coefficient") val splitCoefficient: String,
 ) {
     fun isEmptyQuote(): Boolean {
         val vol = volume.toLongOrNull() ?: 0L
@@ -105,11 +105,11 @@ data class DailyAdjustedData(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageATR(
-    @JsonProperty("Meta Data") val metaData: IndicatorMetaData? = null,
-    @JsonProperty("Technical Analysis: ATR") val technicalAnalysis: Map<String, ATRData>? = null,
-    @JsonProperty("Error Message") val errorMessage: String? = null,
-    @JsonProperty("Note") val note: String? = null,
-    @JsonProperty("Information") val information: String? = null,
+    @param:JsonProperty("Meta Data") val metaData: IndicatorMetaData? = null,
+    @param:JsonProperty("Technical Analysis: ATR") val technicalAnalysis: Map<String, ATRData>? = null,
+    @param:JsonProperty("Error Message") val errorMessage: String? = null,
+    @param:JsonProperty("Note") val note: String? = null,
+    @param:JsonProperty("Information") val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
@@ -138,18 +138,18 @@ data class AlphaVantageATR(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class ATRData(
-    @JsonProperty("ATR") val atr: String,
+    @param:JsonProperty("ATR") val atr: String,
 )
 
 // ── ADX ──
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageADX(
-    @JsonProperty("Meta Data") val metaData: IndicatorMetaData? = null,
-    @JsonProperty("Technical Analysis: ADX") val technicalAnalysis: Map<String, ADXData>? = null,
-    @JsonProperty("Error Message") val errorMessage: String? = null,
-    @JsonProperty("Note") val note: String? = null,
-    @JsonProperty("Information") val information: String? = null,
+    @param:JsonProperty("Meta Data") val metaData: IndicatorMetaData? = null,
+    @param:JsonProperty("Technical Analysis: ADX") val technicalAnalysis: Map<String, ADXData>? = null,
+    @param:JsonProperty("Error Message") val errorMessage: String? = null,
+    @param:JsonProperty("Note") val note: String? = null,
+    @param:JsonProperty("Information") val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
@@ -178,31 +178,31 @@ data class AlphaVantageADX(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class ADXData(
-    @JsonProperty("ADX") val adx: String,
+    @param:JsonProperty("ADX") val adx: String,
 )
 
 // ── Shared Indicator Metadata ──
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class IndicatorMetaData(
-    @JsonProperty("1: Symbol") val symbol: String,
-    @JsonProperty("2: Indicator") val indicator: String,
-    @JsonProperty("3: Last Refreshed") val lastRefreshed: String,
-    @JsonProperty("4: Interval") val interval: String,
-    @JsonProperty("5: Time Period") val timePeriod: Int,
-    @JsonProperty("6: Time Zone") val timeZone: String,
+    @param:JsonProperty("1: Symbol") val symbol: String,
+    @param:JsonProperty("2: Indicator") val indicator: String,
+    @param:JsonProperty("3: Last Refreshed") val lastRefreshed: String,
+    @param:JsonProperty("4: Interval") val interval: String,
+    @param:JsonProperty("5: Time Period") val timePeriod: Int,
+    @param:JsonProperty("6: Time Zone") val timeZone: String,
 )
 
 // ── Earnings ──
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageEarnings(
-    @JsonProperty("symbol") val symbol: String? = null,
-    @JsonProperty("annualEarnings") val annualEarnings: List<AnnualEarning>? = null,
-    @JsonProperty("quarterlyEarnings") val quarterlyEarnings: List<QuarterlyEarning>? = null,
-    @JsonProperty("Error Message") val errorMessage: String? = null,
-    @JsonProperty("Note") val note: String? = null,
-    @JsonProperty("Information") val information: String? = null,
+    @param:JsonProperty("symbol") val symbol: String? = null,
+    @param:JsonProperty("annualEarnings") val annualEarnings: List<AnnualEarning>? = null,
+    @param:JsonProperty("quarterlyEarnings") val quarterlyEarnings: List<QuarterlyEarning>? = null,
+    @param:JsonProperty("Error Message") val errorMessage: String? = null,
+    @param:JsonProperty("Note") val note: String? = null,
+    @param:JsonProperty("Information") val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
@@ -245,33 +245,33 @@ data class AlphaVantageEarnings(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AnnualEarning(
-    @JsonProperty("fiscalDateEnding") val fiscalDateEnding: String,
-    @JsonProperty("reportedEPS") val reportedEPS: String,
+    @param:JsonProperty("fiscalDateEnding") val fiscalDateEnding: String,
+    @param:JsonProperty("reportedEPS") val reportedEPS: String,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class QuarterlyEarning(
-    @JsonProperty("fiscalDateEnding") val fiscalDateEnding: String,
-    @JsonProperty("reportedDate") val reportedDate: String? = null,
-    @JsonProperty("reportedEPS") val reportedEPS: String? = null,
-    @JsonProperty("estimatedEPS") val estimatedEPS: String? = null,
-    @JsonProperty("surprise") val surprise: String? = null,
-    @JsonProperty("surprisePercentage") val surprisePercentage: String? = null,
-    @JsonProperty("reportTime") val reportTime: String? = null,
+    @param:JsonProperty("fiscalDateEnding") val fiscalDateEnding: String,
+    @param:JsonProperty("reportedDate") val reportedDate: String? = null,
+    @param:JsonProperty("reportedEPS") val reportedEPS: String? = null,
+    @param:JsonProperty("estimatedEPS") val estimatedEPS: String? = null,
+    @param:JsonProperty("surprise") val surprise: String? = null,
+    @param:JsonProperty("surprisePercentage") val surprisePercentage: String? = null,
+    @param:JsonProperty("reportTime") val reportTime: String? = null,
 )
 
 // ── Company Overview ──
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageCompanyOverview(
-    @JsonProperty("Symbol") val symbol: String? = null,
-    @JsonProperty("Name") val name: String? = null,
-    @JsonProperty("Sector") val sector: String? = null,
-    @JsonProperty("Industry") val industry: String? = null,
-    @JsonProperty("MarketCapitalization") val marketCapitalization: String? = null,
-    @JsonProperty("Error Message") val errorMessage: String? = null,
-    @JsonProperty("Note") val note: String? = null,
-    @JsonProperty("Information") val information: String? = null,
+    @param:JsonProperty("Symbol") val symbol: String? = null,
+    @param:JsonProperty("Name") val name: String? = null,
+    @param:JsonProperty("Sector") val sector: String? = null,
+    @param:JsonProperty("Industry") val industry: String? = null,
+    @param:JsonProperty("MarketCapitalization") val marketCapitalization: String? = null,
+    @param:JsonProperty("Error Message") val errorMessage: String? = null,
+    @param:JsonProperty("Note") val note: String? = null,
+    @param:JsonProperty("Information") val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
@@ -294,10 +294,10 @@ data class AlphaVantageCompanyOverview(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageCurrencyExchangeRate(
-    @JsonProperty("Realtime Currency Exchange Rate") val exchangeRate: CurrencyExchangeRateData? = null,
-    @JsonProperty("Error Message") val errorMessage: String? = null,
-    @JsonProperty("Note") val note: String? = null,
-    @JsonProperty("Information") val information: String? = null,
+    @param:JsonProperty("Realtime Currency Exchange Rate") val exchangeRate: CurrencyExchangeRateData? = null,
+    @param:JsonProperty("Error Message") val errorMessage: String? = null,
+    @param:JsonProperty("Note") val note: String? = null,
+    @param:JsonProperty("Information") val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
@@ -316,25 +316,25 @@ data class AlphaVantageCurrencyExchangeRate(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class CurrencyExchangeRateData(
-    @JsonProperty("1. From_Currency Code") val fromCurrency: String? = null,
-    @JsonProperty("2. From_Currency Name") val fromCurrencyName: String? = null,
-    @JsonProperty("3. To_Currency Code") val toCurrency: String? = null,
-    @JsonProperty("4. To_Currency Name") val toCurrencyName: String? = null,
-    @JsonProperty("5. Exchange Rate") val rate: String? = null,
-    @JsonProperty("6. Last Refreshed") val lastRefreshed: String? = null,
-    @JsonProperty("8. Bid Price") val bidPrice: String? = null,
-    @JsonProperty("9. Ask Price") val askPrice: String? = null,
+    @param:JsonProperty("1. From_Currency Code") val fromCurrency: String? = null,
+    @param:JsonProperty("2. From_Currency Name") val fromCurrencyName: String? = null,
+    @param:JsonProperty("3. To_Currency Code") val toCurrency: String? = null,
+    @param:JsonProperty("4. To_Currency Name") val toCurrencyName: String? = null,
+    @param:JsonProperty("5. Exchange Rate") val rate: String? = null,
+    @param:JsonProperty("6. Last Refreshed") val lastRefreshed: String? = null,
+    @param:JsonProperty("8. Bid Price") val bidPrice: String? = null,
+    @param:JsonProperty("9. Ask Price") val askPrice: String? = null,
 )
 
 // ── FX Daily (historical) ──
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AlphaVantageFxDaily(
-    @JsonProperty("Meta Data") val metaData: FxDailyMetaData? = null,
-    @JsonProperty("Time Series FX (Daily)") val timeSeries: Map<String, FxDailyData>? = null,
-    @JsonProperty("Error Message") val errorMessage: String? = null,
-    @JsonProperty("Note") val note: String? = null,
-    @JsonProperty("Information") val information: String? = null,
+    @param:JsonProperty("Meta Data") val metaData: FxDailyMetaData? = null,
+    @param:JsonProperty("Time Series FX (Daily)") val timeSeries: Map<String, FxDailyData>? = null,
+    @param:JsonProperty("Error Message") val errorMessage: String? = null,
+    @param:JsonProperty("Note") val note: String? = null,
+    @param:JsonProperty("Information") val information: String? = null,
 ) : AlphaVantageApiResponse {
     override fun hasError(): Boolean = errorMessage != null || note != null || information != null
 
@@ -363,18 +363,18 @@ data class AlphaVantageFxDaily(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class FxDailyMetaData(
-    @JsonProperty("1. Information") val information: String? = null,
-    @JsonProperty("2. From Symbol") val fromSymbol: String? = null,
-    @JsonProperty("3. To Symbol") val toSymbol: String? = null,
-    @JsonProperty("4. Output Size") val outputSize: String? = null,
-    @JsonProperty("5. Last Refreshed") val lastRefreshed: String? = null,
-    @JsonProperty("6. Time Zone") val timeZone: String? = null,
+    @param:JsonProperty("1. Information") val information: String? = null,
+    @param:JsonProperty("2. From Symbol") val fromSymbol: String? = null,
+    @param:JsonProperty("3. To Symbol") val toSymbol: String? = null,
+    @param:JsonProperty("4. Output Size") val outputSize: String? = null,
+    @param:JsonProperty("5. Last Refreshed") val lastRefreshed: String? = null,
+    @param:JsonProperty("6. Time Zone") val timeZone: String? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class FxDailyData(
-    @JsonProperty("1. open") val open: String? = null,
-    @JsonProperty("2. high") val high: String? = null,
-    @JsonProperty("3. low") val low: String? = null,
-    @JsonProperty("4. close") val close: String? = null,
+    @param:JsonProperty("1. open") val open: String? = null,
+    @param:JsonProperty("2. high") val high: String? = null,
+    @param:JsonProperty("3. low") val low: String? = null,
+    @param:JsonProperty("4. close") val close: String? = null,
 )

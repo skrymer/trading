@@ -35,6 +35,8 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -268,6 +270,7 @@ class BacktestService(
     entryDelayDays: Int = 0,
     sharedContext: BacktestContext? = null,
     sharedBreadthByDate: Map<LocalDate, Double>? = null,
+    randomSeed: Long? = null,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
@@ -336,6 +339,7 @@ class BacktestService(
           entryDelayDays,
           backtestContext,
           logger,
+          randomSeed,
         )
       }
 
@@ -428,6 +432,7 @@ class BacktestService(
     entryDelayDays: Int,
     context: BacktestContext,
     logger: org.slf4j.Logger,
+    randomSeed: Long? = null,
   ): Pair<List<Trade>, List<Trade>> {
     val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
 
@@ -470,6 +475,12 @@ class BacktestService(
 
     logger.info("Pass 2: Running sequential backtest with ${tradingStocks.size} stocks, ${allTradingDates.size} trading days")
 
+    val tieBreakRandom = if (randomSeed != null) {
+      kotlin.random.Random(randomSeed)
+    } else {
+      kotlin.random.Random(System.nanoTime())
+    }
+
     return backtestSequential(
       entryStrategy,
       exitStrategy,
@@ -483,6 +494,7 @@ class BacktestService(
       entryDelayDays,
       context,
       logger,
+      tieBreakRandom,
     )
   }
 
@@ -717,7 +729,7 @@ class BacktestService(
     entryDelayDays: Int = 0,
   ): List<Trade> {
     val trades = mutableListOf<Trade>()
-    val usedTradeQuotes = HashSet<StockQuote>()
+    val usedTradeQuotes = Collections.newSetFromMap<StockQuote>(IdentityHashMap())
 
     for ((index, currentDate) in allTradingDates.withIndex()) {
       // Skip if stock not yet listed or already delisted (survivorship bias filter)
@@ -775,8 +787,8 @@ class BacktestService(
   ): Pair<List<Trade>, List<Trade>> {
     val trades = mutableListOf<Trade>()
     val missedTrades = mutableListOf<Trade>()
-    val usedTradeQuotes = HashSet<StockQuote>()
-    val usedMissedQuotes = HashSet<StockQuote>()
+    val usedTradeQuotes = Collections.newSetFromMap<StockQuote>(IdentityHashMap())
+    val usedMissedQuotes = Collections.newSetFromMap<StockQuote>(IdentityHashMap())
     var lastExitDate: LocalDate? = null
 
     // O(1) open position tracking instead of scanning all trades each date

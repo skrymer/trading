@@ -2,6 +2,7 @@ package com.skrymer.midgaard.integration
 
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
+import com.skrymer.midgaard.model.LatestQuote
 import com.skrymer.midgaard.model.OptionContractDto
 import com.skrymer.midgaard.model.RawBar
 import java.time.LocalDate
@@ -32,6 +33,10 @@ interface EarningsProvider {
 
 interface CompanyInfoProvider {
     suspend fun getCompanyInfo(symbol: String): CompanyInfo?
+}
+
+interface QuoteProvider {
+    suspend fun getLatestQuote(symbol: String): LatestQuote?
 }
 
 interface OptionsProvider {

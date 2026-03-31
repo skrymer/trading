@@ -166,6 +166,82 @@
                 variant="subtle"
                 :description="formulaPreview"
               />
+
+              <!-- Drawdown Scaling Section -->
+              <USeparator class="my-4" />
+
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold">Drawdown Scaling</span>
+                  <UTooltip text="Automatically reduces risk per trade when portfolio is in drawdown. Halts new entries when multiplier is 0.">
+                    <UIcon name="i-lucide-info" class="size-3.5 text-muted cursor-help" />
+                  </UTooltip>
+                </div>
+                <USwitch v-model="positionSizing.drawdownScalingEnabled" size="sm" />
+              </div>
+
+              <div v-if="positionSizing.drawdownScalingEnabled" class="space-y-3 mt-3">
+                <div
+                  v-for="(threshold, index) in positionSizing.drawdownThresholds"
+                  :key="index"
+                  class="flex items-end gap-3"
+                >
+                  <UFormField label="Drawdown %" class="flex-1">
+                    <UInput
+                      v-model.number="threshold.drawdownPercent"
+                      type="number"
+                      :min="1"
+                      :max="50"
+                      :step="1"
+                      placeholder="5"
+                    />
+                  </UFormField>
+                  <UFormField class="flex-1">
+                    <template #label>
+                      <span class="flex items-center gap-1">
+                        Risk Per Trade (%)
+                        <UTooltip :text="threshold.riskMultiplier === 0 ? 'Set to 0 to halt new entries at this drawdown level' : `${(threshold.riskMultiplier * 100).toFixed(0)}% of base risk`">
+                          <UIcon name="i-lucide-info" class="size-3.5 text-muted cursor-help" />
+                        </UTooltip>
+                      </span>
+                    </template>
+                    <UInput
+                      :model-value="(positionSizing.riskPercentage * threshold.riskMultiplier)"
+                      type="number"
+                      :min="0"
+                      :max="positionSizing.riskPercentage"
+                      :step="0.05"
+                      placeholder="0.75"
+                      @update:model-value="(v: number) => threshold.riskMultiplier = positionSizing.riskPercentage > 0 ? Math.min(1, Math.max(0, v / positionSizing.riskPercentage)) : 0"
+                    />
+                  </UFormField>
+                  <UFormField label=" " class="shrink-0">
+                    <UButton
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="ghost"
+                      size="sm"
+                      @click="removeThreshold(index)"
+                    />
+                  </UFormField>
+                </div>
+
+                <UButton
+                  icon="i-lucide-plus"
+                  label="Add Threshold"
+                  variant="soft"
+                  size="sm"
+                  @click="addThreshold"
+                />
+
+                <UAlert
+                  v-if="positionSizing.drawdownThresholds && positionSizing.drawdownThresholds.length > 0"
+                  icon="i-lucide-shield"
+                  color="neutral"
+                  variant="subtle"
+                  :description="drawdownScalingPreview"
+                />
+              </div>
             </div>
 
             <div v-else class="text-sm text-muted">
@@ -197,7 +273,12 @@ const positionSizing = ref<PositionSizingSettings>({
   enabled: true,
   portfolioValue: 100000,
   riskPercentage: 1.5,
-  nAtr: 2.0
+  nAtr: 2.0,
+  drawdownScalingEnabled: true,
+  drawdownThresholds: [
+    { drawdownPercent: 5.0, riskMultiplier: 0.67 },
+    { drawdownPercent: 10.0, riskMultiplier: 0.33 }
+  ]
 })
 
 const saving = ref(false)
@@ -242,6 +323,32 @@ async function loadPositionSizing() {
 const formulaPreview = computed(() => {
   const { portfolioValue, riskPercentage, nAtr } = positionSizing.value
   return `shares = floor($${portfolioValue.toLocaleString()} x ${riskPercentage}% / (${nAtr} x ATR))`
+})
+
+function addThreshold() {
+  if (!positionSizing.value.drawdownThresholds) {
+    positionSizing.value.drawdownThresholds = []
+  }
+  const existing = positionSizing.value.drawdownThresholds
+  const maxPct = existing.length > 0 ? Math.max(...existing.map(t => t.drawdownPercent)) : 0
+  existing.push({ drawdownPercent: maxPct + 5, riskMultiplier: 0 })
+}
+
+function removeThreshold(index: number) {
+  positionSizing.value.drawdownThresholds?.splice(index, 1)
+}
+
+const drawdownScalingPreview = computed(() => {
+  const thresholds = positionSizing.value.drawdownThresholds ?? []
+  const base = positionSizing.value.riskPercentage
+  const sorted = [...thresholds].sort((a, b) => a.drawdownPercent - b.drawdownPercent)
+  const parts = sorted.map((t) => {
+    const eff = (base * t.riskMultiplier).toFixed(2)
+    return t.riskMultiplier === 0
+      ? `>=${t.drawdownPercent}% DD → halt new entries`
+      : `>=${t.drawdownPercent}% DD → ${eff}% risk`
+  })
+  return `Below thresholds: ${base}% risk. ${parts.join(' | ')}`
 })
 
 async function saveSettings() {

@@ -69,6 +69,7 @@ data class ExitCheckResult(
   val currentPrice: Double,
   val unrealizedPnlPercent: Double,
   val unrealizedPnlDollars: Double,
+  val usedLiveData: Boolean = false,
 )
 
 /**

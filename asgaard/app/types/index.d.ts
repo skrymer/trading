@@ -1140,6 +1140,16 @@ export interface ScanResult {
   rankScore?: number
 }
 
+export interface LatestQuote {
+  symbol: string
+  price: number
+  previousClose: number
+  change: number
+  changePercent: number
+  volume: number
+  timestamp: number
+}
+
 export interface ScanResponse {
   scanDate: string
   entryStrategyName: string
@@ -1180,6 +1190,7 @@ export interface ExitCheckResult {
   currentPrice: number
   unrealizedPnlPercent: number
   unrealizedPnlDollars: number
+  usedLiveData?: boolean
 }
 
 export interface ExitCheckResponse {

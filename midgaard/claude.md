@@ -34,7 +34,7 @@ midgaard/
 │   │   ├── GlobalExceptionHandler.kt      # Global exception handler
 │   │   └── VersionAdvice.kt              # Build version info via @ControllerAdvice
 │   ├── controller/
-│   │   ├── QuoteController.kt             # GET /api/quotes/{symbol}, /api/quotes/bulk
+│   │   ├── QuoteController.kt             # GET /api/quotes/{symbol}, /api/quotes/bulk, /api/quotes/{symbol}/latest
 │   │   ├── SymbolController.kt            # GET /api/symbols, /api/symbols/{symbol}
 │   │   ├── EarningsController.kt          # GET /api/earnings/{symbol}
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
@@ -43,9 +43,12 @@ midgaard/
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
 │   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled)
 │   ├── integration/
-│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, etc.)
+│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, QuoteProvider, etc.)
 │   │   ├── alphavantage/
 │   │   │   ├── AlphaVantageProvider.kt    # Implements all 5 provider interfaces
+│   │   │   └── dto/
+│   │   ├── finnhub/
+│   │   │   ├── FinnhubProvider.kt         # Implements QuoteProvider (live quotes)
 │   │   │   └── dto/
 │   │   └── massive/
 │   │       ├── MassiveProvider.kt         # Polygon API - OhlcvProvider (daily updates)
@@ -117,6 +120,7 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 - `IndicatorProvider` - ATR, ADX
 - `EarningsProvider` - Quarterly earnings
 - `CompanyInfoProvider` - Company overview + sector
+- `QuoteProvider` - Live/latest quotes (Finnhub)
 - `OptionsProvider` - Historical options pricing
 
 ### Indicator Computation (`service/IndicatorCalculator.kt`)

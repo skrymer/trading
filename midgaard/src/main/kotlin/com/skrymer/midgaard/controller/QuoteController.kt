@@ -1,5 +1,7 @@
 package com.skrymer.midgaard.controller
 
+import com.skrymer.midgaard.integration.QuoteProvider
+import com.skrymer.midgaard.model.LatestQuote
 import com.skrymer.midgaard.model.Quote
 import com.skrymer.midgaard.repository.QuoteRepository
 import org.springframework.format.annotation.DateTimeFormat
@@ -14,6 +16,7 @@ import java.time.LocalDate
 @RequestMapping("/api/quotes")
 class QuoteController(
     private val quoteRepository: QuoteRepository,
+    private val quoteProvider: QuoteProvider,
 ) {
     @GetMapping("/{symbol}")
     fun getQuotes(
@@ -28,4 +31,13 @@ class QuoteController(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) startDate: LocalDate?,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) endDate: LocalDate?,
     ): Map<String, List<Quote>> = quoteRepository.findBySymbols(symbols.map { it.uppercase() }, startDate, endDate)
+
+    @GetMapping("/{symbol}/latest")
+    suspend fun getLatestQuote(
+        @PathVariable symbol: String,
+    ): LatestQuote {
+        val upperSymbol = symbol.uppercase()
+        return quoteProvider.getLatestQuote(upperSymbol)
+            ?: throw NoSuchElementException("No latest quote available for $upperSymbol")
+    }
 }

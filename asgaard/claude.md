@@ -83,10 +83,11 @@ asgaard/
 │   │   │   ├── SyncPortfolioModal.vue
 │   │   │   ├── RollChainModal.vue
 │   │   │   └── CreateFromBrokerModal.vue
-│   │   ├── scanner/              # Scanner components (9)
+│   │   ├── scanner/              # Scanner components (10)
 │   │   │   ├── ScanConfigModal.vue
 │   │   │   ├── ScanResultsTable.vue
 │   │   │   ├── AddTradeModal.vue
+│   │   │   ├── BatchAddTradesModal.vue
 │   │   │   ├── DeleteTradeModal.vue
 │   │   │   ├── RollTradeModal.vue
 │   │   │   ├── TradeDetailsModal.vue

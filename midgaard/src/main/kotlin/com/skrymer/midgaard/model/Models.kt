@@ -110,3 +110,13 @@ data class IngestionResult(
     val barCount: Int = 0,
     val message: String? = null,
 )
+
+data class LatestQuote(
+    val symbol: String,
+    val price: Double,
+    val previousClose: Double,
+    val change: Double,
+    val changePercent: Double,
+    val volume: Long,
+    val timestamp: Long,
+)

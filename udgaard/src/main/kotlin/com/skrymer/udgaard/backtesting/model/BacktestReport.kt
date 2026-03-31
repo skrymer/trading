@@ -447,7 +447,7 @@ fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
     equityCurveData = buildEquityCurveData(allTrades),
     excursionPoints = buildExcursionPoints(allTrades),
     excursionSummary = buildExcursionSummary(allTrades),
-    dailyProfitSummary = buildDailyProfitSummary(allTrades),
+    dailyProfitSummary = buildDailyProfitSummary(allTrades, positionSizingResult),
     marketConditionStats = buildMarketConditionStats(allTrades),
     underlyingAssetTradeCount = allTrades.count { it.underlyingSymbol != null && it.underlyingSymbol != it.stockSymbol },
     positionSizing = positionSizingResult,
@@ -537,8 +537,24 @@ private fun buildExcursionSummary(trades: List<Trade>): ExcursionSummary? {
 private fun List<Trade>.avgOrZero(selector: (Trade) -> Double): Double =
   if (isNotEmpty()) map(selector).average() else 0.0
 
-private fun buildDailyProfitSummary(trades: List<Trade>): List<DailyProfitSummary> =
-  trades
+private fun buildDailyProfitSummary(
+  trades: List<Trade>,
+  positionSizing: PositionSizingResult?,
+): List<DailyProfitSummary> {
+  if (positionSizing != null) {
+    return positionSizing.trades
+      .groupBy { it.entryDate }
+      .entries
+      .map { (date, dateTrades) ->
+        DailyProfitSummary(
+          date = date,
+          profitPercentage = dateTrades.sumOf { it.portfolioReturnPct },
+          tradeCount = dateTrades.size,
+        )
+      }.sortedBy { it.date }
+  }
+
+  return trades
     .groupBy { it.entryQuote.date }
     .entries
     .map { (date, dateTrades) ->
@@ -548,6 +564,7 @@ private fun buildDailyProfitSummary(trades: List<Trade>): List<DailyProfitSummar
         tradeCount = dateTrades.size,
       )
     }.sortedBy { it.date }
+}
 
 private fun buildSectorStatsDto(sectorStats: List<SectorStats>): List<SectorStatsDto> =
   sectorStats.map {

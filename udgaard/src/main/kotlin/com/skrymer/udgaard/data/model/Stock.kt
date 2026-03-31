@@ -234,6 +234,14 @@ data class Stock(
   fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): Earning? = earnings.find { it.fiscalDateEnding == fiscalDateEnding }
 
   override fun toString() = "Symbol: $symbol"
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is Stock) return false
+    return symbol == other.symbol
+  }
+
+  override fun hashCode(): Int = symbol.hashCode()
 }
 
 /**

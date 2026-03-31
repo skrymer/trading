@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 @Component
 class MassiveProvider(
     private val apiKeyService: ApiKeyService,
-    @Value("\${massive.api.baseUrl:}") private val baseUrl: String,
+    @param:Value("\${massive.api.baseUrl:}") private val baseUrl: String,
 ) : OhlcvProvider {
     private val apiKey: String get() = apiKeyService.getMassiveApiKey()
     private val restClient: RestClient by lazy {

@@ -32,7 +32,7 @@ import java.time.LocalDate
 @Component
 class AlphaVantageProvider(
     private val apiKeyService: ApiKeyService,
-    @Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
+    @param:Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
     EarningsProvider,

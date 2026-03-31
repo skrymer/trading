@@ -9,14 +9,14 @@ import java.time.ZoneId
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class MassiveAggregatesResponse(
-    @JsonProperty("ticker") val ticker: String? = null,
-    @JsonProperty("adjusted") val adjusted: Boolean? = null,
-    @JsonProperty("status") val status: String? = null,
-    @JsonProperty("resultsCount") val resultsCount: Int? = null,
-    @JsonProperty("results") val results: List<AggregateBar>? = null,
-    @JsonProperty("next_url") val nextUrl: String? = null,
-    @JsonProperty("error") val error: String? = null,
-    @JsonProperty("message") val message: String? = null,
+    @param:JsonProperty("ticker") val ticker: String? = null,
+    @param:JsonProperty("adjusted") val adjusted: Boolean? = null,
+    @param:JsonProperty("status") val status: String? = null,
+    @param:JsonProperty("resultsCount") val resultsCount: Int? = null,
+    @param:JsonProperty("results") val results: List<AggregateBar>? = null,
+    @param:JsonProperty("next_url") val nextUrl: String? = null,
+    @param:JsonProperty("error") val error: String? = null,
+    @param:JsonProperty("message") val message: String? = null,
 ) {
     fun hasError(): Boolean = status == "ERROR" || error != null || message != null
 
@@ -57,12 +57,12 @@ data class MassiveAggregatesResponse(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AggregateBar(
-    @JsonProperty("o") val open: Double = 0.0,
-    @JsonProperty("h") val high: Double = 0.0,
-    @JsonProperty("l") val low: Double = 0.0,
-    @JsonProperty("c") val close: Double = 0.0,
-    @JsonProperty("v") val volume: Long = 0L,
-    @JsonProperty("vw") val volumeWeighted: Double = 0.0,
-    @JsonProperty("n") val numberOfTransactions: Int = 0,
-    @JsonProperty("t") val timestamp: Long = 0L,
+    @param:JsonProperty("o") val open: Double = 0.0,
+    @param:JsonProperty("h") val high: Double = 0.0,
+    @param:JsonProperty("l") val low: Double = 0.0,
+    @param:JsonProperty("c") val close: Double = 0.0,
+    @param:JsonProperty("v") val volume: Long = 0L,
+    @param:JsonProperty("vw") val volumeWeighted: Double = 0.0,
+    @param:JsonProperty("n") val numberOfTransactions: Int = 0,
+    @param:JsonProperty("t") val timestamp: Long = 0L,
 )

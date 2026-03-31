@@ -55,3 +55,13 @@ data class MidgaardExchangeRateDto(
   val rate: Double,
   val date: LocalDate,
 )
+
+data class MidgaardLatestQuoteDto(
+  val symbol: String,
+  val price: Double,
+  val previousClose: Double,
+  val change: Double,
+  val changePercent: Double,
+  val volume: Long,
+  val timestamp: Long,
+)

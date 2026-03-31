@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { format } from 'date-fns'
 import { z } from 'zod'
-import type { ScanResult, AddScannerTradeRequest, OptionContractResponse } from '~/types'
+import type { ScanResult, AddScannerTradeRequest, OptionContractResponse, LatestQuote } from '~/types'
 
 const props = defineProps<{
   scanResult: ScanResult | null
@@ -23,6 +24,8 @@ const isOpen = computed({
 
 const toast = useToast()
 const loading = ref(false)
+const liveQuote = ref<LatestQuote | null>(null)
+const quoteFetching = ref(false)
 
 const state = reactive({
   instrumentType: 'STOCK' as string,
@@ -52,8 +55,12 @@ const optionTypeOptions = [
   { label: 'Put', value: 'PUT' }
 ]
 
-// Reset form when modal opens
-watch(isOpen, (newValue) => {
+const entryPrice = computed(() => liveQuote.value?.price ?? props.scanResult?.closePrice ?? 0)
+const priceChange = computed(() => liveQuote.value?.change ?? null)
+const priceChangePercent = computed(() => liveQuote.value?.changePercent ?? null)
+
+// Reset form and fetch live quote when modal opens
+watch(isOpen, async (newValue) => {
   if (newValue) {
     if (props.optionContract) {
       state.instrumentType = 'OPTION'
@@ -70,6 +77,18 @@ watch(isOpen, (newValue) => {
     }
     state.quantity = (props.calculatedQuantity && props.calculatedQuantity > 0) ? props.calculatedQuantity : (props.optionContract ? 1 : 100)
     state.notes = ''
+
+    liveQuote.value = null
+    if (props.scanResult) {
+      quoteFetching.value = true
+      try {
+        liveQuote.value = await $fetch<LatestQuote>(`/udgaard/api/stocks/${props.scanResult.symbol}/latest-quote`)
+      } catch {
+        // Fall back to closePrice — shown in UI as "Prev Close"
+      } finally {
+        quoteFetching.value = false
+      }
+    }
   }
 })
 
@@ -78,13 +97,12 @@ async function onSubmit() {
 
   loading.value = true
   try {
-    const entryPrice = props.scanResult.closePrice
     const body: AddScannerTradeRequest = {
       symbol: props.scanResult.symbol,
       sectorSymbol: props.scanResult.sectorSymbol ?? undefined,
       instrumentType: state.instrumentType,
-      entryPrice,
-      entryDate: props.scanResult.date,
+      entryPrice: entryPrice.value,
+      entryDate: liveQuote.value ? format(new Date(), 'yyyy-MM-dd') : props.scanResult.date,
       quantity: state.quantity,
       entryStrategyName: props.entryStrategyName,
       exitStrategyName: props.exitStrategyName,
@@ -145,8 +163,18 @@ async function onSubmit() {
           </div>
           <div class="grid grid-cols-3 gap-2 mt-2 text-sm">
             <div>
-              <span class="text-muted">Price:</span>
-              <span class="font-medium ml-1">${{ scanResult.closePrice.toFixed(2) }}</span>
+              <span class="text-muted">{{ liveQuote ? 'Live:' : 'Prev Close:' }}</span>
+              <UIcon v-if="quoteFetching" name="i-lucide-loader-2" class="ml-1 size-3.5 animate-spin" />
+              <template v-else>
+                <span class="font-medium ml-1">${{ entryPrice.toFixed(2) }}</span>
+                <span
+                  v-if="priceChange !== null"
+                  class="ml-1 text-xs"
+                  :class="priceChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                >
+                  {{ priceChange >= 0 ? '+' : '' }}{{ priceChange.toFixed(2) }} ({{ priceChangePercent!.toFixed(2) }}%)
+                </span>
+              </template>
             </div>
             <div>
               <span class="text-muted">ATR:</span>

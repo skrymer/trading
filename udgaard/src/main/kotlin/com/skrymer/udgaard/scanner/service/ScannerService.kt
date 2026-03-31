@@ -10,6 +10,8 @@ import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.RandomRanker
 import com.skrymer.udgaard.backtesting.strategy.RankerFactory
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
+import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -120,6 +122,7 @@ class ScannerService(
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
   private val settingsService: SettingsService,
+  private val midgaardClient: MidgaardClient,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
 
@@ -265,48 +268,11 @@ class ScannerService(
         .findBySymbols(uniqueSymbols, quotesAfter = quotesAfter)
         .associateBy { it.symbol }
 
+    val liveQuotesBySymbol = fetchLiveQuotes(uniqueSymbols)
+    logger.info("Fetched live quotes for ${liveQuotesBySymbol.size}/${uniqueSymbols.size} symbols")
+
     val results = trades.mapNotNull { trade ->
-      val exitStrategy = strategyRegistry.createExitStrategy(trade.exitStrategyName)
-      if (exitStrategy == null) {
-        logger.warn("Exit strategy '${trade.exitStrategyName}' not found for trade ${trade.id}")
-        return@mapNotNull null
-      }
-
-      val stock = stocksBySymbol[trade.symbol]
-      if (stock == null) {
-        logger.warn("Stock data not found for ${trade.symbol}")
-        return@mapNotNull null
-      }
-
-      val latestQuote = stock.quotes.lastOrNull() ?: return@mapNotNull null
-      val entryQuote = stock.quotes.find { it.date == trade.entryDate }
-
-      val exitReport = exitStrategy.test(stock, entryQuote, latestQuote, backtestContext)
-      val currentPrice = latestQuote.closePrice
-      val pnlPercent = if (trade.entryPrice != 0.0) {
-        ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
-      } else {
-        0.0
-      }
-      // Unrealized P&L for options uses delta-based approximation from stock price change
-      // since live option prices are not available. Realized P&L in closeTrade() uses actual option prices.
-      val pnlDollars = if (trade.instrumentType == InstrumentType.OPTION) {
-        val delta = trade.delta ?: DEFAULT_OPTION_DELTA
-        val stockPriceChange = currentPrice - trade.entryPrice
-        stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
-      } else {
-        (currentPrice - trade.entryPrice) * trade.quantity
-      }
-
-      ExitCheckResult(
-        tradeId = trade.id ?: 0,
-        symbol = trade.symbol,
-        exitTriggered = exitReport.match,
-        exitReason = exitReport.exitReason,
-        currentPrice = currentPrice,
-        unrealizedPnlPercent = pnlPercent,
-        unrealizedPnlDollars = pnlDollars,
-      )
+      evaluateTradeExit(trade, stocksBySymbol, liveQuotesBySymbol, backtestContext)
     }
 
     val exitsTriggered = results.count { it.exitTriggered }
@@ -318,6 +284,85 @@ class ScannerService(
       exitsTriggered = exitsTriggered,
     )
   }
+
+  private fun evaluateTradeExit(
+    trade: ScannerTrade,
+    stocksBySymbol: Map<String, Stock>,
+    liveQuotesBySymbol: Map<String, MidgaardLatestQuoteDto>,
+    backtestContext: BacktestContext,
+  ): ExitCheckResult? {
+    val exitStrategy = strategyRegistry.createExitStrategy(trade.exitStrategyName)
+    if (exitStrategy == null) {
+      logger.warn("Exit strategy '${trade.exitStrategyName}' not found for trade ${trade.id}")
+      return null
+    }
+
+    val stock = stocksBySymbol[trade.symbol]
+    if (stock == null) {
+      logger.warn("Stock data not found for ${trade.symbol}")
+      return null
+    }
+
+    val lastDbQuote = stock.quotes.lastOrNull() ?: return null
+    val entryQuote = stock.quotes.find { it.date == trade.entryDate }
+
+    val liveQuote = liveQuotesBySymbol[trade.symbol]
+    val usedLiveData = liveQuote != null
+    val latestQuote = if (liveQuote != null) {
+      createSyntheticQuote(lastDbQuote, liveQuote)
+    } else {
+      lastDbQuote
+    }
+
+    val exitReport = exitStrategy.test(stock, entryQuote, latestQuote, backtestContext)
+    val currentPrice = latestQuote.closePrice
+    val pnlPercent = if (trade.entryPrice != 0.0) {
+      ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
+    } else {
+      0.0
+    }
+    // Unrealized P&L for options uses delta-based approximation from stock price change
+    // since live option prices are not available. Realized P&L in closeTrade() uses actual option prices.
+    val pnlDollars = if (trade.instrumentType == InstrumentType.OPTION) {
+      val delta = trade.delta ?: DEFAULT_OPTION_DELTA
+      val stockPriceChange = currentPrice - trade.entryPrice
+      stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
+    } else {
+      (currentPrice - trade.entryPrice) * trade.quantity
+    }
+
+    return ExitCheckResult(
+      tradeId = trade.id ?: 0,
+      symbol = trade.symbol,
+      exitTriggered = exitReport.match,
+      exitReason = exitReport.exitReason,
+      currentPrice = currentPrice,
+      unrealizedPnlPercent = pnlPercent,
+      unrealizedPnlDollars = pnlDollars,
+      usedLiveData = usedLiveData,
+    )
+  }
+
+  private fun fetchLiveQuotes(symbols: List<String>): Map<String, MidgaardLatestQuoteDto> =
+    symbols
+      .mapNotNull { symbol ->
+        try {
+          midgaardClient.getLatestQuote(symbol)?.let { symbol to it }
+        } catch (e: Exception) {
+          logger.warn("Failed to fetch live quote for $symbol: ${e.message}")
+          null
+        }
+      }.toMap()
+
+  private fun createSyntheticQuote(
+    lastDbQuote: StockQuote,
+    liveQuote: MidgaardLatestQuoteDto,
+  ): StockQuote =
+    lastDbQuote.copy(
+      date = LocalDate.now(),
+      closePrice = liveQuote.price,
+      volume = liveQuote.volume,
+    )
 
   /**
    * Roll a scanner trade: delete old, create new with accumulated credits.

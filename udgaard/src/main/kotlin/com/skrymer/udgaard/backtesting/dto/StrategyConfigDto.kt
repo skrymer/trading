@@ -28,6 +28,7 @@ data class BacktestRequest(
   val entryDelayDays: Int = 0, // Delay entry by N trading days after signal (0 = enter on signal day)
   val positionSizing: PositionSizingConfig? = null, // Optional ATR-based position sizing
   val rankerConfig: RankerConfig? = null, // Optional ranker-specific parameters
+  val randomSeed: Long? = null, // Fixed seed for deterministic tie-breaking in ranker (null = random each run)
 )
 
 /**

@@ -29,8 +29,9 @@ class UiController(
     private val ingestionService: IngestionService,
     private val rateLimiterService: RateLimiterService,
     private val apiKeyService: ApiKeyService,
-    @Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
-    @Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
+    @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
+    @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
+    @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
 ) {
     @GetMapping("/")
     fun dashboard(model: Model): String {
@@ -157,6 +158,12 @@ class UiController(
                     maskedApiKey = maskedKeys["massive"] ?: "Not configured",
                     stats = stats["massive"],
                 ),
+                ProviderViewModel(
+                    name = "Finnhub",
+                    baseUrl = finnhubBaseUrl,
+                    maskedApiKey = maskedKeys["finnhub"] ?: "Not configured",
+                    stats = stats["finnhub"],
+                ),
             )
 
         model.addAttribute("providers", providers)
@@ -167,13 +174,15 @@ class UiController(
     fun saveApiKeys(
         @RequestParam alphaVantageApiKey: String?,
         @RequestParam massiveApiKey: String?,
+        @RequestParam finnhubApiKey: String?,
         redirectAttributes: RedirectAttributes,
     ): String {
         val avKey = alphaVantageApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
         val massiveKey = massiveApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+        val fhKey = finnhubApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
 
-        if (avKey != null || massiveKey != null) {
-            apiKeyService.saveApiKeys(avKey, massiveKey)
+        if (avKey != null || massiveKey != null || fhKey != null) {
+            apiKeyService.saveApiKeys(avKey, massiveKey, fhKey)
             redirectAttributes.addFlashAttribute("success", "API keys updated successfully")
         }
 

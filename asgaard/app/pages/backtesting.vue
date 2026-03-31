@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { format, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import type { Trade, BacktestRequest, MonteCarloResult, BacktestReport } from '~/types'
+import type { Trade, BacktestRequest, MonteCarloResult, BacktestReport, PositionSizedTrade } from '~/types'
 import { MonteCarloTechnique, MonteCarloTechniqueDescriptions } from '~/types/enums'
 
 const backtestReport = ref<BacktestReport | null>(null)
@@ -263,6 +263,8 @@ const chartColors = computed(() => {
 // Trade details modal - on-demand trade fetching
 const isModalOpen = ref(false)
 const selectedDateTrades = ref<{ date: string, trades: Trade[] } | null>(null)
+const openPositionsAtDate = ref<PositionSizedTrade[]>([])
+const sizedTradesForDate = ref<Map<string, PositionSizedTrade>>(new Map())
 const tradesFetchStatus = ref<'idle' | 'pending' | 'error'>('idle')
 
 async function handleBarClick(dataPointIndex: number) {
@@ -288,6 +290,28 @@ async function handleBarClick(dataPointIndex: number) {
       date: dateLabel,
       trades
     }
+
+    // Cross-reference with position-sized trades when available
+    const sizedTrades = backtestReport.value?.positionSizing?.trades
+    if (sizedTrades) {
+      // Build lookup for trades entered in this period (symbol+entryDate -> sized trade)
+      const lookup = new Map<string, PositionSizedTrade>()
+      sizedTrades.forEach((t) => {
+        if (t.entryDate >= startDate && t.entryDate <= endDate) {
+          lookup.set(`${t.symbol}:${t.entryDate}`, t)
+        }
+      })
+      sizedTradesForDate.value = lookup
+
+      // Find positions that were already open on the start date (entered before, not yet exited)
+      openPositionsAtDate.value = sizedTrades.filter(
+        t => t.entryDate < startDate && t.exitDate >= startDate
+      )
+    } else {
+      sizedTradesForDate.value = new Map()
+      openPositionsAtDate.value = []
+    }
+
     tradesFetchStatus.value = 'idle'
   } catch (error) {
     console.error('Error fetching trades:', error)
@@ -296,6 +320,8 @@ async function handleBarClick(dataPointIndex: number) {
       date: dateLabel,
       trades: []
     }
+    sizedTradesForDate.value = new Map()
+    openPositionsAtDate.value = []
   }
 }
 
@@ -565,5 +591,7 @@ const hasTrades = computed(() => (backtestReport.value?.totalTrades ?? 0) > 0)
     v-model:open="isModalOpen"
     :date="selectedDateTrades?.date || ''"
     :trades="selectedDateTrades?.trades || []"
+    :sized-trades="sizedTradesForDate"
+    :open-positions="openPositionsAtDate"
   />
 </template>

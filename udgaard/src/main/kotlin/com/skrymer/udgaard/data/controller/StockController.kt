@@ -7,6 +7,8 @@ import com.skrymer.udgaard.backtesting.dto.StockConditionSignals
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
+import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.service.StockIngestionService
 import com.skrymer.udgaard.data.service.StockService
@@ -38,6 +40,7 @@ class StockController(
   private val stockIngestionService: StockIngestionService,
   private val strategySignalService: StrategySignalService,
   private val symbolService: SymbolService,
+  private val midgaardClient: MidgaardClient,
 ) {
   /**
    * Get all stocks that have been loaded into the database.
@@ -287,6 +290,25 @@ class StockController(
       logger.error("Invalid condition configuration: ${e.message}", e)
       ResponseEntity.badRequest().build()
     }
+  }
+
+  /**
+   * Get the latest real-time quote for a stock symbol.
+   * Proxies to Midgaard's Yahoo Finance integration.
+   *
+   * Example: GET /api/stocks/AAPL/latest-quote
+   *
+   * @param symbol Stock symbol (e.g., AAPL, GOOGL)
+   * @return Latest quote with current price, change, volume
+   */
+  @GetMapping("/{symbol}/latest-quote")
+  fun getLatestQuote(
+    @PathVariable symbol: String,
+  ): ResponseEntity<MidgaardLatestQuoteDto> {
+    logger.debug("Fetching latest quote for $symbol")
+    val quote = midgaardClient.getLatestQuote(symbol)
+      ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(quote)
   }
 
   companion object {

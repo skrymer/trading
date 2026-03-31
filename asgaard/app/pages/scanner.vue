@@ -2,7 +2,7 @@
 import { h } from 'vue'
 import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, PositionSizingSettings, AddScannerTradeRequest, OptionContractResponse, DrawdownStatsResponse } from '~/types'
+import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse } from '~/types'
 
 // State
 const scanResponse = ref<ScanResponse | null>(null)
@@ -21,6 +21,7 @@ const isTradeDetailsModalOpen = ref(false)
 const isCloseTradeModalOpen = ref(false)
 const isResetPeakModalOpen = ref(false)
 const isResetAllTradesModalOpen = ref(false)
+const isBatchAddModalOpen = ref(false)
 const selectedScanResult = ref<ScanResult | null>(null)
 const selectedTrade = ref<ScannerTrade | null>(null)
 
@@ -50,7 +51,6 @@ const positionSizingSettings = ref<PositionSizingSettings>({
   peakEquity: null
 })
 const selectedSymbols = ref<Set<string>>(new Set())
-const addingSelectedTrades = ref(false)
 
 // Option contracts
 const optionContracts = ref<Map<string, OptionContractResponse>>(new Map())
@@ -82,11 +82,14 @@ const currentDrawdownPct = computed(() => {
   return Math.max(0, ((peak - currentEquity.value) / peak) * 100)
 })
 
+const sortedThresholds = computed(() => {
+  const thresholds = positionSizingSettings.value.drawdownThresholds ?? []
+  return [...thresholds].sort((a, b) => a.drawdownPercent - b.drawdownPercent)
+})
+
 const activeDrawdownThreshold = computed(() => {
   if (!positionSizingSettings.value.drawdownScalingEnabled) return null
-  const thresholds = positionSizingSettings.value.drawdownThresholds ?? []
-  const sorted = [...thresholds].sort((a, b) => b.drawdownPercent - a.drawdownPercent)
-  return sorted.find(t => currentDrawdownPct.value >= t.drawdownPercent) ?? null
+  return sortedThresholds.value.findLast(t => currentDrawdownPct.value >= t.drawdownPercent) ?? null
 })
 
 const effectiveRiskPercentage = computed(() => {
@@ -519,55 +522,21 @@ async function onTradeRolled() {
   await loadTrades()
 }
 
-async function addSelectedTrades() {
-  if (selectedResults.value.length === 0 || !scanResponse.value) return
-  addingSelectedTrades.value = true
-  let added = 0
-  try {
-    for (const result of selectedResults.value) {
-      const contract = optionContracts.value.get(result.symbol)
-      const qty = calculateQuantity(result.atr, result.symbol) || (isOptionsMode.value ? 1 : 100)
-      const body: AddScannerTradeRequest = {
-        symbol: result.symbol,
-        sectorSymbol: result.sectorSymbol ?? undefined,
-        instrumentType: isOptionsMode.value ? 'OPTION' : 'STOCK',
-        entryPrice: isOptionsMode.value && contract ? contract.price : result.closePrice,
-        entryDate: result.date,
-        quantity: qty,
-        entryStrategyName: lastEntryStrategy.value,
-        exitStrategyName: lastExitStrategy.value
-      }
-      if (isOptionsMode.value && contract) {
-        body.optionType = 'CALL'
-        body.strikePrice = contract.strike
-        body.expirationDate = contract.expiration
-        body.multiplier = 100
-      }
-      await $fetch('/udgaard/api/scanner/trades', { method: 'POST', body })
-      added++
-    }
-    selectedSymbols.value = new Set()
-    await loadTrades()
-    activeTab.value = 'trades'
-    toast.add({
-      title: 'Trades Added',
-      description: `Added ${added} trades to scanner`,
-      icon: 'i-lucide-check-circle',
-      color: 'success'
-    })
-  } catch (error: any) {
-    if (added > 0) {
-      await loadTrades()
-    }
-    toast.add({
-      title: 'Error',
-      description: error.data?.message || `Failed after adding ${added} trades`,
-      icon: 'i-lucide-alert-circle',
-      color: 'error'
-    })
-  } finally {
-    addingSelectedTrades.value = false
-  }
+function openBatchAddModal() {
+  if (selectedResults.value.length === 0) return
+  isBatchAddModalOpen.value = true
+}
+
+async function onBatchTradesAdded() {
+  selectedSymbols.value = new Set()
+  await loadTrades()
+  activeTab.value = 'trades'
+}
+
+function onRemoveSymbol(symbol: string) {
+  const next = new Set(selectedSymbols.value)
+  next.delete(symbol)
+  selectedSymbols.value = next
 }
 
 function daysHeld(entryDate: string): number {
@@ -978,6 +947,27 @@ const tradesTableUi = computed(() => ({
                 />
               </div>
             </div>
+
+            <!-- Drawdown Thresholds Display -->
+            <div v-if="positionSizingSettings.drawdownThresholds?.length" class="flex flex-wrap gap-2">
+              <div
+                v-for="t in sortedThresholds"
+                :key="t.drawdownPercent"
+                class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border"
+                :class="currentDrawdownPct >= t.drawdownPercent
+                  ? 'border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400'
+                  : 'border-default bg-muted/30 text-muted'"
+              >
+                <UIcon
+                  :name="currentDrawdownPct >= t.drawdownPercent ? 'i-lucide-alert-triangle' : 'i-lucide-shield'"
+                  class="size-3"
+                />
+                <span class="font-medium">{{ t.drawdownPercent }}%</span>
+                <span>&rarr;</span>
+                <span v-if="t.riskMultiplier === 0" class="font-semibold">HALT</span>
+                <span v-else>{{ (positionSizingSettings.riskPercentage * t.riskMultiplier).toFixed(2) }}% risk</span>
+              </div>
+            </div>
           </template>
         </div>
         <div v-else class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-default">
@@ -1034,8 +1024,7 @@ const tradesTableUi = computed(() => ({
                     :label="`Add ${selectedSymbols.size} Trade${selectedSymbols.size > 1 ? 's' : ''}`"
                     icon="i-lucide-plus"
                     size="sm"
-                    :loading="addingSelectedTrades"
-                    @click="addSelectedTrades"
+                    @click="openBatchAddModal"
                   />
                 </div>
 
@@ -1188,6 +1177,20 @@ const tradesTableUi = computed(() => ({
     :calculated-quantity="positionSizingSettings.enabled && selectedScanResult ? calculateQuantity(selectedScanResult.atr, selectedScanResult.symbol) : undefined"
     :option-contract="selectedScanResult ? optionContracts.get(selectedScanResult.symbol) : undefined"
     @success="onTradeAdded"
+  />
+
+  <ScannerBatchAddTradesModal
+    v-model="isBatchAddModalOpen"
+    :results="selectedResults"
+    :entry-strategy-name="lastEntryStrategy"
+    :exit-strategy-name="lastExitStrategy"
+    :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
+    :calculate-quantity="calculateQuantity"
+    :option-contracts="optionContracts"
+    :selected-capital="selectedCapital"
+    :portfolio-utilization="portfolioUtilization"
+    @success="onBatchTradesAdded"
+    @remove-symbol="onRemoveSymbol"
   />
 
   <ScannerDeleteTradeModal

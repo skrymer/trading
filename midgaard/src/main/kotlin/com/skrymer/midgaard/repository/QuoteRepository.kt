@@ -5,6 +5,7 @@ import com.skrymer.midgaard.jooq.tables.references.QUOTES
 import com.skrymer.midgaard.model.IndicatorSource
 import com.skrymer.midgaard.model.Quote
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -73,7 +74,7 @@ class QuoteRepository(
 
     fun getLastBarDate(symbol: String): LocalDate? =
         dsl
-            .select(QUOTES.QUOTE_DATE.max())
+            .select(DSL.max(QUOTES.QUOTE_DATE))
             .from(QUOTES)
             .where(QUOTES.SYMBOL.eq(symbol))
             .fetchOne()
