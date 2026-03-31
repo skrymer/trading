@@ -850,8 +850,9 @@ class BacktestService(
           resolvedEntries
             .map { entry ->
               val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote, context)
-              RankedEntry(entry, score)
-            }.sortedByDescending { it.score + tieBreakRandom.nextDouble() * StockRanker.TIE_BREAK_JITTER }
+              val jitteredScore = score + tieBreakRandom.nextDouble() * StockRanker.TIE_BREAK_JITTER
+              RankedEntry(entry, jitteredScore)
+            }.sortedByDescending { it.score }
 
         val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
         val selectedEntries = rankedEntries.take(availableSlots)

@@ -105,8 +105,9 @@ private fun rankResults(
       val stock = eval.stock ?: return@mapNotNull null
       val quote = eval.entryQuote ?: return@mapNotNull null
       val score = ranker.score(stock, quote, backtestContext)
-      eval.scanResult?.copy(rankScore = score)
-    }.sortedByDescending { (it.rankScore ?: 0.0) + kotlin.random.Random.nextDouble() * StockRanker.TIE_BREAK_JITTER }
+      val jitteredScore = score + kotlin.random.Random.nextDouble() * StockRanker.TIE_BREAK_JITTER
+      eval.scanResult?.copy(rankScore = jitteredScore)
+    }.sortedByDescending { it.rankScore ?: 0.0 }
 
   return Triple(ranked, resolvedName, ranker)
 }
