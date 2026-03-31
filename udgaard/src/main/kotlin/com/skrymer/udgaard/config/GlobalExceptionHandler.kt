@@ -21,25 +21,25 @@ class GlobalExceptionHandler {
   @ExceptionHandler(HttpMessageNotReadableException::class)
   fun handleJsonParsing(ex: HttpMessageNotReadableException): ResponseEntity<ErrorResponse> {
     val cause = ex.cause?.message ?: ex.message ?: "Malformed JSON"
-    logger.warn("JSON deserialization failed: $cause")
+    logger.warn("JSON deserialization failed: $cause", ex)
     return ResponseEntity.badRequest().body(ErrorResponse("Invalid request format: $cause"))
   }
 
   @ExceptionHandler(IllegalArgumentException::class)
   fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<ErrorResponse> {
-    logger.warn("Bad request: ${ex.message}")
+    logger.warn("Bad request: ${ex.message}", ex)
     return ResponseEntity.badRequest().body(ErrorResponse(ex.message ?: "Bad request"))
   }
 
   @ExceptionHandler(DateTimeParseException::class)
   fun handleDateTimeParse(ex: DateTimeParseException): ResponseEntity<ErrorResponse> {
-    logger.warn("Invalid date format: ${ex.parsedString}")
+    logger.warn("Invalid date format: ${ex.parsedString}", ex)
     return ResponseEntity.badRequest().body(ErrorResponse("Invalid date format: ${ex.parsedString}"))
   }
 
   @ExceptionHandler(NoSuchElementException::class)
   fun handleNoSuchElement(ex: NoSuchElementException): ResponseEntity<ErrorResponse> {
-    logger.warn("Not found: ${ex.message}")
+    logger.warn("Not found: ${ex.message}", ex)
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse(ex.message ?: "Not found"))
   }
 
