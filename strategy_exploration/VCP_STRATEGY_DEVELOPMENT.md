@@ -83,42 +83,42 @@ exitStrategy {
 - Risk per trade: 1.5% of portfolio
 - ATR multiplier (nAtr): 2.0
 - Leverage: 1.0x (stock only, no options)
+- Random seed: 42 (deterministic tie-breaking)
 - No sector exclusions
 
-**Results (with stagnation exit 3%/15d, SectorEdge ranker, entry delay 1):**
+**Results (with stagnation exit 3%/15d, SectorEdge ranker, entry delay 1, seed 42):**
 
 | Metric | Value |
 |---|---|
 | Starting Capital | $10,000 |
-| Final Capital | **$1,066,691** |
-| Peak Capital | $1,115,622 |
-| Total Return | +10,567% |
-| CAGR | **58.6%** |
-| Max Drawdown | **22.0%** ($132,663) |
-| Total Trades | 1,028 |
-| Win Rate | 51.0% |
-| Edge | +5.05% |
-| Avg Win / Loss | 15.22% / -5.51% |
-| Win/Loss Ratio | 2.76x |
-| Profit Factor | 2.68 |
+| Final Capital | **$1,072,882** |
+| Peak Capital | $1,120,672 |
+| Total Return | +10,629% |
+| Max Drawdown | **21.7%** ($128,012) |
+| Total Trades | 1,025 |
+| Win Rate | 52.1% |
+| Edge | +5.17% |
+| Avg Win / Loss | 15.03% / -5.55% |
+| Win/Loss Ratio | 2.71x |
+| Profit Factor | 3.14 |
 | EC Score | 96.0 (Excellent) |
 
-*Updated 2026-03-20 after position sizing M2M fix. Position sizes now use true portfolio value (cash + unrealized P/L) instead of cash-only, producing more aggressive compounding and higher final capital.*
+*Updated 2026-04-01 with randomSeed: 42 for fully reproducible results. Position sizes use true portfolio value (cash + unrealized P/L).*
 
 **Yearly edge:**
 
-| Year | Trades | Edge | Tradeable? |
-|---|---|---|---|
-| 2016 | ~95 | +2.14% | T |
-| 2017 | ~60 | +7.66% | T |
-| 2018 | ~70 | +3.40% | T |
-| 2019 | ~80 | +4.30% | T |
-| 2020 | ~95 | +10.50% | T |
-| 2021 | ~115 | +4.51% | T |
-| 2022 | ~120 | +1.12% | |
-| 2023 | ~100 | +5.82% | T |
-| 2024 | ~100 | +7.79% | T |
-| 2025 | ~190 | +5.42% | T |
+| Year | Edge | Tradeable? |
+|---|---|---|
+| 2016 | +3.13% | T |
+| 2017 | +9.51% | T |
+| 2018 | +3.37% | T |
+| 2019 | +4.54% | T |
+| 2020 | +10.47% | T |
+| 2021 | +5.16% | T |
+| 2022 | +1.15% | |
+| 2023 | +5.17% | T |
+| 2024 | +6.81% | T |
+| 2025 | +4.69% | T |
 
 **10/10 years profitable.** 9/10 tradeable. $10K → $1.07M (107x) over 10 years.
 
@@ -126,51 +126,65 @@ exitStrategy {
 
 | Reason | Count | % | Avg Profit | WR | Avg Hold |
 |---|---|---|---|---|---|
-| EMA cross (10/20) | 731 | 71.1% | +8.01% | 54.9% | |
-| Stagnation (3%/15d) | 225 | 21.9% | -0.08% | 54.7% | |
-| Stop loss (2.5 ATR) | 72 | 7.0% | -8.90% | 0% | |
+| EMA cross (10/20) | 739 | 72.1% | +8.05% | 55.9% | 52d |
+| Stagnation (3%/15d) | 212 | 20.7% | +0.07% | 57.1% | 22d |
+| Stop loss (2.5 ATR) | 74 | 7.2% | -8.91% | 0% | 10d |
 
 **Risk-adjusted metrics:**
 
 | Metric | Value | Rating |
 |---|---|---|
-| Sharpe Ratio | 2.37 | Excellent (>2.0) |
-| Sortino Ratio | 3.78 | Excellent (>3.0) |
-| Calmar Ratio | 2.67 | Excellent (>1.5) |
-| SPY Correlation | 0.52 | Good (mix of alpha and beta) |
+| CAGR | 58.6% | |
+| Sharpe Ratio | 2.39 | Excellent (>2.0) |
+| Sortino Ratio | 3.85 | Excellent (>3.0) |
+| Calmar Ratio | 2.70 | Excellent (>1.5) |
+| SPY Correlation | 0.53 | Good (mix of alpha and beta) |
 | Beta | 0.66 | Below-market exposure |
-| Alpha (annualized) | 39.2% | Strong independent return |
+| Alpha (annualized) | 39.3% | Strong independent return |
+
+*Updated 2026-04-01 with seed=42 results.*
 
 **Top 5 drawdowns:**
 
-| # | Depth | Period | Total Days |
-|---|---|---|---|
-| 1 | 22.0% | 2022-04 → 2023-01 | 190d |
-| 2 | 22.0% | 2020-02 → 2020-06 | 61d |
-| 3 | 14.6% | 2025-02 → 2025-05 | 61d |
-| 4 | 13.5% | 2025-10 → 2025-12 | 34d |
-| 5 | 13.2% | 2021-03 → 2021-04 | 14d |
+| # | Depth | Decline | Recovery | Total | Peak → Trough |
+|---|---|---|---|---|---|
+| 1 | 21.7% | 112d | 98d | 210d | 2022-04 → 2022-09 |
+| 2 | 18.9% | 43d | 34d | 77d | 2020-02 → 2020-04 |
+| 3 | 16.4% | 38d | 65d | 103d | 2023-03 → 2023-04 |
+| 4 | 12.6% | 5d | 14d | 19d | 2021-03 → 2021-03 |
+| 5 | 12.4% | 19d | 18d | 37d | 2025-03 → 2025-04 |
 
-**Monte Carlo validation (10K iterations):**
+**Monte Carlo validation (10K iterations, seed=42 backtest):**
 
 Bootstrap resampling (edge confidence):
 | Percentile | Edge |
 |---|---|
-| p5 (worst case) | +4.04% |
-| p50 (median) | +5.04% |
-| p95 (best case) | +6.07% |
+| p5 (worst case) | +4.19% |
+| p50 (median) | +5.15% |
+| p95 (best case) | +6.22% |
 | Prob of Profit | 100% |
 
-**Walk-forward validation (5yr IS / 1yr OOS / 1yr step):**
+Trade shuffling (drawdown distribution):
+| Percentile | Max Drawdown |
+|---|---|
+| p5 (best case) | 13.6% |
+| p50 (median) | 17.8% |
+| p95 (worst case) | 24.9% |
+
+Actual DD (21.7%) between p75 (20.3%) and p95 (24.9%) — within expected range. Plan for 25-30% max DD in live trading.
+
+**Walk-forward validation (5yr IS / 1yr OOS / 1yr step, unlimited positions):**
 
 | OOS Year | IS Edge | OOS Edge | IS Trades | OOS Trades |
 |---|---|---|---|---|
-| 2021 | +5.34% | +3.15% | 475 | 115 |
-| 2022 | +6.18% | +1.05% | 468 | 119 |
-| 2023 | +4.14% | +4.69% | 513 | 118 |
-| 2024 | +5.03% | +7.75% | 527 | 99 |
+| 2021 | +6.39% | +1.53% | 3,111 | 571 |
+| 2022 | +5.93% | +0.98% | 3,145 | 662 |
+| 2023 | +4.72% | +6.04% | 3,292 | 1,170 |
+| 2024 | +5.36% | +3.56% | 4,185 | 1,057 |
 
-Aggregate WFE: **0.78** (robust), OOS edge: **+4.01%**, 4/4 OOS windows profitable.
+Aggregate WFE: **0.64** (robust), OOS edge: **+3.57%**, 4/4 OOS windows profitable.
+
+*Updated 2026-04-01 with corrected walk-forward (unlimited positions, full stock universe). Previous values used position-limited backtests which inflated WFE.*
 
 **With drawdown-responsive scaling** (optional, see Drawdown-Responsive Position Sizing section):
 
@@ -180,18 +194,18 @@ Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 
 
 Note: pre-stagnation values are from the old cash-based position sizing. The stagnation column uses corrected M2M-based sizing, so the jump in final capital reflects both the stagnation exit AND the M2M fix.
 
-| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 | + stagnation + M2M fix |
+| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 | + stagnation + M2M fix (seed 42) |
 |---|---|---|---|---|---|---|
-| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | $459,565 | **$1,066,691** |
-| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | 46.4% | **58.6%** |
-| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | 21.2% | **22.0%** |
-| Trades | 855 | 927 | 837 | 899 | 893 | **1,028** |
-| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% | **51.0%** |
-| Edge | +4.86% | +5.46% | +5.74% | +5.24% | +5.74% | **+5.05%** |
-| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 | **2.68** |
+| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | $459,565 | **$1,072,882** |
+| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | 46.4% | — |
+| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | 21.2% | **21.7%** |
+| Trades | 855 | 927 | 837 | 899 | 893 | **1,025** |
+| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% | **52.1%** |
+| Edge | +4.86% | +5.46% | +5.74% | +5.24% | +5.74% | **+5.17%** |
+| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 | **3.14** |
 | EC | 92.0 | 96.0 | 96.0 | 96.0 | 96.0 | **96.0** |
-| Sharpe | — | — | — | 2.04 | 2.21 | **2.37** |
-| Calmar | — | — | — | 1.61 | 2.18 | **2.67** |
+| Sharpe | — | — | — | 2.04 | 2.21 | — |
+| Calmar | — | — | — | 1.61 | 2.18 | — |
 
 **Position sizing notes:**
 - Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
@@ -244,7 +258,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 
 #### Realistic (position-sized with $10K)
 
-Simulates real trading with capital constraints, position sizing, 1-day entry delay, and a 15-position cap. Uses the strategy's preferred SectorEdge ranker for deterministic, reproducible results.
+Simulates real trading with capital constraints, position sizing, 1-day entry delay, and a 15-position cap. Uses the strategy's preferred SectorEdge ranker and a fixed random seed for fully deterministic, reproducible results.
 
 ```bash
 curl -s -X POST http://localhost:8080/udgaard/api/backtest \
@@ -258,6 +272,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
     "endDate": "2025-12-31",
     "maxPositions": 15,
     "entryDelayDays": 1,
+    "randomSeed": 42,
     "positionSizing": {
       "startingCapital": 10000,
       "riskPercentage": 1.5,
@@ -275,6 +290,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 
 **Notes:**
 - Ranker omitted → uses strategy's preferred ranker: SectorEdge (deterministic, reproducible results)
+- `randomSeed: 42` → fixed seed for deterministic tie-breaking when ranker scores are equal
 - `entryDelayDays: 1` → signal fires after Day 0 close, entry at Day 1's close (realistic execution)
 - Requires ~12GB heap (`-Xmx12288m` in `build.gradle` bootRun task) for full 10-year run
 

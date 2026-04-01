@@ -111,7 +111,7 @@ springBoot {
 }
 
 tasks.named('bootRun') {
-	def baseArgs = ['-Xmx12288m', '-Xms4096m']
+	def baseArgs = ['-Xmx20480m', '-Xms4096m']
 	def jfrEnabled = project.hasProperty('jfr')
 	if (jfrEnabled) {
 		def jfrFile = project.findProperty('jfrFile') ?: 'build/backtest-profile.jfr'

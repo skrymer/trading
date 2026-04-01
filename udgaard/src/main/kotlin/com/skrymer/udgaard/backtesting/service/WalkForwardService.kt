@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -69,8 +71,11 @@ class WalkForwardService(
       entryDelayDays = entryDelayDays,
     )
 
+    val concurrency = Semaphore(MAX_CONCURRENT_WINDOWS)
     val results = runBlocking(Dispatchers.Default) {
-      windows.map { window -> async { processWindow(window, params, sharedContext, sharedBreadthByDate) } }.awaitAll()
+      windows.map { window ->
+        async { concurrency.withPermit { processWindow(window, params, sharedContext, sharedBreadthByDate) } }
+      }.awaitAll()
     }
     return aggregateResults(results)
   }
@@ -221,4 +226,8 @@ class WalkForwardService(
     val cooldownDays: Int,
     val entryDelayDays: Int,
   )
+
+  companion object {
+    private const val MAX_CONCURRENT_WINDOWS = 2
+  }
 }
