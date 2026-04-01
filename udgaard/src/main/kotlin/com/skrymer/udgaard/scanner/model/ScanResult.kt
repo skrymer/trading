@@ -80,3 +80,20 @@ data class ExitCheckResponse(
   val checksPerformed: Int,
   val exitsTriggered: Int,
 )
+
+data class EntryValidationResult(
+  val symbol: String,
+  val entryStillValid: Boolean,
+  val exitWouldTrigger: Boolean,
+  val exitReason: String?,
+  val currentPrice: Double,
+  val usedLiveData: Boolean,
+  val entrySignalDetails: EntrySignalDetails?,
+)
+
+data class EntryValidationResponse(
+  val results: List<EntryValidationResult>,
+  val validCount: Int,
+  val invalidCount: Int,
+  val doaCount: Int,
+)

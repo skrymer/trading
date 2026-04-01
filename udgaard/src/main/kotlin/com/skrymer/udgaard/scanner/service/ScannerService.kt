@@ -28,7 +28,10 @@ import com.skrymer.udgaard.scanner.dto.DrawdownStatsResponse
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.ValidateEntriesRequest
 import com.skrymer.udgaard.scanner.model.ConditionFailureSummary
+import com.skrymer.udgaard.scanner.model.EntryValidationResponse
+import com.skrymer.udgaard.scanner.model.EntryValidationResult
 import com.skrymer.udgaard.scanner.model.ExitCheckResponse
 import com.skrymer.udgaard.scanner.model.ExitCheckResult
 import com.skrymer.udgaard.scanner.model.NearMissCandidate
@@ -283,6 +286,82 @@ class ScannerService(
       results = results,
       checksPerformed = results.size,
       exitsTriggered = exitsTriggered,
+    )
+  }
+
+  /**
+   * Validate scan candidates against live quotes.
+   * Re-evaluates entry conditions with current price and checks if exit would trigger immediately.
+   */
+  fun validateEntries(request: ValidateEntriesRequest): EntryValidationResponse {
+    val symbols = request.symbols.take(MAX_VALIDATE_SYMBOLS)
+    val entryStrategy = strategyRegistry.createEntryStrategy(request.entryStrategyName)
+      ?: throw IllegalArgumentException("Entry strategy '${request.entryStrategyName}' not found")
+    val exitStrategy = strategyRegistry.createExitStrategy(request.exitStrategyName)
+      ?: throw IllegalArgumentException("Exit strategy '${request.exitStrategyName}' not found")
+
+    val backtestContext = buildBacktestContext()
+    val quotesAfter = LocalDate.now().minusDays(90)
+    val stocksBySymbol = stockRepository
+      .findBySymbols(symbols, quotesAfter = quotesAfter)
+      .associateBy { it.symbol }
+
+    val liveQuotesBySymbol = fetchLiveQuotes(symbols)
+    logger.info("Validate entries: fetched live quotes for ${liveQuotesBySymbol.size}/${symbols.size} symbols")
+
+    val results = symbols.mapNotNull { symbol ->
+      val stock = stocksBySymbol[symbol] ?: return@mapNotNull null
+      val lastDbQuote = stock.quotes.lastOrNull() ?: return@mapNotNull null
+
+      val liveQuote = liveQuotesBySymbol[symbol]
+      val usedLiveData = liveQuote != null
+      // Only update price — keep original date (for breadth lookups) and volume (after-hours volume is meaningless)
+      val syntheticQuote = if (liveQuote != null) {
+        lastDbQuote.copy(closePrice = liveQuote.price)
+      } else {
+        lastDbQuote
+      }
+
+      val entryStillValid: Boolean
+      val entryDetails: EntrySignalDetails?
+      if (entryStrategy is DetailedEntryStrategy) {
+        val details = entryStrategy
+          .testWithDetails(stock, syntheticQuote, backtestContext)
+          .copy(strategyName = request.entryStrategyName)
+        entryStillValid = details.allConditionsMet
+        entryDetails = details
+        if (!entryStillValid) {
+          val failed = details.conditions.filter { !it.passed }.joinToString { "${it.conditionType}: ${it.message}" }
+          logger.debug("Validate $symbol invalid: $failed")
+        }
+      } else {
+        entryStillValid = entryStrategy.test(stock, syntheticQuote, backtestContext)
+        entryDetails = null
+      }
+
+      val exitReport = exitStrategy.test(stock, syntheticQuote, syntheticQuote, backtestContext)
+
+      EntryValidationResult(
+        symbol = symbol,
+        entryStillValid = entryStillValid,
+        exitWouldTrigger = exitReport.match,
+        exitReason = exitReport.exitReason,
+        currentPrice = syntheticQuote.closePrice,
+        usedLiveData = usedLiveData,
+        entrySignalDetails = entryDetails,
+      )
+    }
+
+    val validCount = results.count { it.entryStillValid && !it.exitWouldTrigger }
+    val invalidCount = results.count { !it.entryStillValid }
+    val doaCount = results.count { it.exitWouldTrigger }
+    logger.info("Validate entries: ${results.size} checked, $validCount valid, $invalidCount invalid, $doaCount DOA")
+
+    return EntryValidationResponse(
+      results = results,
+      validCount = validCount,
+      invalidCount = invalidCount,
+      doaCount = doaCount,
     )
   }
 
@@ -587,6 +666,7 @@ class ScannerService(
     private const val BATCH_SIZE = 150
     private const val DEFAULT_NEAR_MISS_LIMIT = 10
     private const val DEFAULT_OPTION_DELTA = 0.80
+    private const val MAX_VALIDATE_SYMBOLS = 30
 
     private fun toScanResult(stock: Stock, quote: StockQuote, details: EntrySignalDetails?) =
       ScanResult(

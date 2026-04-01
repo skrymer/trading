@@ -1199,6 +1199,23 @@ export interface ExitCheckResponse {
   exitsTriggered: number
 }
 
+export interface EntryValidationResult {
+  symbol: string
+  entryStillValid: boolean
+  exitWouldTrigger: boolean
+  exitReason?: string
+  currentPrice: number
+  usedLiveData: boolean
+  entrySignalDetails?: EntrySignalDetails
+}
+
+export interface EntryValidationResponse {
+  results: EntryValidationResult[]
+  validCount: number
+  invalidCount: number
+  doaCount: number
+}
+
 export interface ScannerTrade {
   id: number
   symbol: string

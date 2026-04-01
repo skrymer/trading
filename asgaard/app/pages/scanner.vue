@@ -2,7 +2,7 @@
 import { h } from 'vue'
 import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse } from '~/types'
+import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse } from '~/types'
 
 // State
 const scanResponse = ref<ScanResponse | null>(null)
@@ -10,11 +10,12 @@ const trades = ref<ScannerTrade[]>([])
 const exitResults = ref<Map<number, ExitCheckResult>>(new Map())
 const scanStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const exitCheckStatus = ref<'idle' | 'pending'>('idle')
+const validationStatus = ref<'idle' | 'pending'>('idle')
+const validationResults = ref<Map<string, EntryValidationResult>>(new Map())
 const activeTab = ref('results')
 
 // Modal states
 const isScanConfigModalOpen = ref(false)
-const isAddTradeModalOpen = ref(false)
 const isDeleteTradeModalOpen = ref(false)
 const isRollTradeModalOpen = ref(false)
 const isTradeDetailsModalOpen = ref(false)
@@ -22,7 +23,6 @@ const isCloseTradeModalOpen = ref(false)
 const isResetPeakModalOpen = ref(false)
 const isResetAllTradesModalOpen = ref(false)
 const isBatchAddModalOpen = ref(false)
-const selectedScanResult = ref<ScanResult | null>(null)
 const selectedTrade = ref<ScannerTrade | null>(null)
 
 // Last scan config (for pre-filling add trade)
@@ -283,6 +283,7 @@ async function runScan(config: ScanRequest) {
   activeTab.value = 'results'
   lastEntryStrategy.value = config.entryStrategyName
   lastExitStrategy.value = config.exitStrategyName
+  validationResults.value = new Map()
 
   try {
     scanResponse.value = await $fetch<ScanResponse>('/udgaard/api/scanner/scan', {
@@ -370,9 +371,42 @@ async function checkExits() {
   }
 }
 
-function openAddTrade(result: ScanResult) {
-  selectedScanResult.value = result
-  isAddTradeModalOpen.value = true
+async function validateEntries() {
+  if (!scanResponse.value) return
+  validationStatus.value = 'pending'
+  try {
+    const symbols = preferredResults.value.map(r => r.symbol)
+    const response = await $fetch<EntryValidationResponse>('/udgaard/api/scanner/validate-entries', {
+      method: 'POST',
+      body: {
+        symbols,
+        entryStrategyName: scanResponse.value.entryStrategyName,
+        exitStrategyName: scanResponse.value.exitStrategyName
+      }
+    })
+
+    const newMap = new Map<string, EntryValidationResult>()
+    for (const result of response.results) {
+      newMap.set(result.symbol, result)
+    }
+    validationResults.value = newMap
+
+    toast.add({
+      title: 'Validation Complete',
+      description: `${response.validCount} valid, ${response.invalidCount} invalid entry, ${response.doaCount} DOA`,
+      icon: 'i-lucide-check-circle',
+      color: response.invalidCount > 0 || response.doaCount > 0 ? 'warning' : 'success'
+    })
+  } catch (error: any) {
+    toast.add({
+      title: 'Error',
+      description: error.data?.message || 'Failed to validate entries',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
+  } finally {
+    validationStatus.value = 'idle'
+  }
 }
 
 function openDeleteTrade(trade: ScannerTrade) {
@@ -511,11 +545,6 @@ async function deleteClosedTrade(trade: ScannerTrade) {
       color: 'error'
     })
   }
-}
-
-async function onTradeAdded() {
-  await loadTrades()
-  activeTab.value = 'trades'
 }
 
 async function onTradeRolled() {
@@ -1019,13 +1048,24 @@ const tradesTableUi = computed(() => ({
                       &middot; Loading option prices...
                     </template>
                   </div>
-                  <UButton
-                    v-if="positionSizingSettings.enabled && selectedSymbols.size > 0"
-                    :label="`Add ${selectedSymbols.size} Trade${selectedSymbols.size > 1 ? 's' : ''}`"
-                    icon="i-lucide-plus"
-                    size="sm"
-                    @click="openBatchAddModal"
-                  />
+                  <div class="flex items-center gap-2">
+                    <UButton
+                      label="Validate"
+                      icon="i-lucide-shield-check"
+                      variant="soft"
+                      size="sm"
+                      :loading="validationStatus === 'pending'"
+                      :disabled="preferredResults.length === 0"
+                      @click="validateEntries"
+                    />
+                    <UButton
+                      v-if="positionSizingSettings.enabled && selectedSymbols.size > 0"
+                      :label="`Add ${selectedSymbols.size} Trade${selectedSymbols.size > 1 ? 's' : ''}`"
+                      icon="i-lucide-plus"
+                      size="sm"
+                      @click="openBatchAddModal"
+                    />
+                  </div>
                 </div>
 
                 <div v-if="scanResponse.results.length === 0 && scanResponse.nearMissCandidates.length === 0" class="text-center py-12">
@@ -1057,7 +1097,7 @@ const tradesTableUi = computed(() => ({
                     :calculate-risk-dollars="calculateRiskDollars"
                     :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
                     :option-contracts="optionContracts"
-                    @add-trade="openAddTrade"
+                    :validation-results="validationResults"
                   />
                 </div>
 
@@ -1075,7 +1115,6 @@ const tradesTableUi = computed(() => ({
                     :calculate-quantity="calculateQuantity"
                     :calculate-risk-dollars="calculateRiskDollars"
                     :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
-                    @add-trade="openAddTrade"
                   />
                 </div>
 
@@ -1167,16 +1206,6 @@ const tradesTableUi = computed(() => ({
   <ScannerScanConfigModal
     v-model:open="isScanConfigModalOpen"
     @run-scan="runScan"
-  />
-
-  <ScannerAddTradeModal
-    v-model="isAddTradeModalOpen"
-    :scan-result="selectedScanResult"
-    :entry-strategy-name="lastEntryStrategy"
-    :exit-strategy-name="lastExitStrategy"
-    :calculated-quantity="positionSizingSettings.enabled && selectedScanResult ? calculateQuantity(selectedScanResult.atr, selectedScanResult.symbol) : undefined"
-    :option-contract="selectedScanResult ? optionContracts.get(selectedScanResult.symbol) : undefined"
-    @success="onTradeAdded"
   />
 
   <ScannerBatchAddTradesModal

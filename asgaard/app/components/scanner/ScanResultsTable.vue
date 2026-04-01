@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanResult, OptionContractResponse } from '~/types'
+import type { ScanResult, OptionContractResponse, EntryValidationResult } from '~/types'
 import { getSectorName } from '~/types/enums'
 
 const props = defineProps<{
@@ -11,10 +11,7 @@ const props = defineProps<{
   calculateRiskDollars?: (atr: number, symbol?: string) => number
   instrumentMode?: 'STOCK' | 'OPTION'
   optionContracts?: Map<string, OptionContractResponse>
-}>()
-
-const emit = defineEmits<{
-  'add-trade': [result: ScanResult]
+  validationResults?: Map<string, EntryValidationResult>
 }>()
 
 const selected = defineModel<Set<string>>({ default: () => new Set() })
@@ -26,6 +23,10 @@ const UBadge = resolveComponent('UBadge')
 const NuxtLink = resolveComponent('NuxtLink')
 
 const isOptionsMode = computed(() => props.instrumentMode === 'OPTION')
+
+function getValidation(symbol: string) {
+  return props.validationResults?.get(symbol)
+}
 
 function toggleSelect(symbol: string) {
   const next = new Set(selected.value)
@@ -201,6 +202,48 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
     }
   }
 
+  if (props.validationResults && props.validationResults.size > 0) {
+    cols.push(
+      {
+        id: 'livePrice',
+        header: 'Live Price',
+        cell: ({ row }) => {
+          const result = props.validationResults?.get(row.original.symbol)
+          if (!result) return '\u2014'
+          const change = ((result.currentPrice - row.original.closePrice) / row.original.closePrice * 100)
+          const prefix = change >= 0 ? '+' : ''
+          return `$${result.currentPrice.toFixed(2)} (${prefix}${change.toFixed(1)}%)`
+        }
+      },
+      {
+        id: 'validation',
+        header: 'Live Check',
+        cell: ({ row }) => {
+          const result = props.validationResults?.get(row.original.symbol)
+          if (!result) return h('span', { class: 'text-muted text-xs' }, '\u2014')
+          if (result.exitWouldTrigger) {
+            return h('div', { class: 'flex flex-col gap-0.5' }, [
+              h(UBadge, { color: 'error', variant: 'subtle', size: 'sm' }, () => 'DOA'),
+              result.exitReason ? h('span', { class: 'text-xs text-red-500' }, result.exitReason) : null
+            ])
+          }
+          if (!result.entryStillValid) {
+            const failed = result.entrySignalDetails?.conditions
+              ?.filter(c => !c.passed)
+              ?.map(c => c.description) ?? []
+            return h('div', { class: 'flex flex-col gap-0.5' }, [
+              h(UBadge, { color: 'warning', variant: 'subtle', size: 'sm' }, () => 'Invalid'),
+              failed.length > 0
+                ? h('span', { class: 'text-xs text-muted' }, failed.join(', '))
+                : null
+            ])
+          }
+          return h(UBadge, { color: 'success', variant: 'subtle', size: 'sm' }, () => 'Valid')
+        }
+      }
+    )
+  }
+
   cols.push(
     {
       id: 'trend',
@@ -210,17 +253,6 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
         const color = trend === 'Uptrend' ? 'success' : trend === 'Downtrend' ? 'error' : 'neutral'
         return h(UBadge, { color, variant: 'subtle', size: 'sm' }, () => trend)
       }
-    },
-    {
-      id: 'actions',
-      header: '',
-      cell: ({ row }) => h(UButton, {
-        label: 'Add Trade',
-        size: 'xs',
-        variant: 'soft',
-        icon: 'i-lucide-plus',
-        onClick: () => emit('add-trade', row.original)
-      })
     }
   )
 
@@ -266,6 +298,43 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
             </span>
           </div>
         </div>
+
+        <template
+          v-for="(validation, vi) in [getValidation(row.original.symbol)]"
+          :key="vi"
+        >
+          <div
+            v-if="validation?.entrySignalDetails"
+            class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700"
+          >
+            <div class="font-medium mb-2 text-xs text-muted">
+              Live Price Re-evaluation
+            </div>
+            <div class="space-y-1">
+              <div
+                v-for="condition in validation.entrySignalDetails.conditions"
+                :key="condition.conditionType"
+                class="flex items-center gap-2"
+              >
+                <UIcon
+                  :name="condition.passed ? 'i-lucide-check-circle' : 'i-lucide-x-circle'"
+                  :class="condition.passed ? 'text-green-500' : 'text-red-500'"
+                  class="w-4 h-4 shrink-0"
+                />
+                <span>{{ condition.description }}</span>
+                <span v-if="condition.message" class="text-muted">
+                  — {{ condition.message }}
+                </span>
+              </div>
+            </div>
+            <div
+              v-if="validation.exitWouldTrigger"
+              class="mt-2 text-red-500 text-sm font-medium"
+            >
+              Exit would trigger: {{ validation.exitReason }}
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </UTable>

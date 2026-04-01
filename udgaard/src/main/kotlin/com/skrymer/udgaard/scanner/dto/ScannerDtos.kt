@@ -94,3 +94,9 @@ data class DrawdownStatsResponse(
   val peakEquity: Double,
   val currentDrawdownPct: Double,
 )
+
+data class ValidateEntriesRequest(
+  val symbols: List<String>,
+  val entryStrategyName: String,
+  val exitStrategyName: String,
+)

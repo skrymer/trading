@@ -79,8 +79,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Options data via Midgaard (`options/MidgaardOptionsProvider.kt`)
 
 4. **Scanner** (`scanner/`)
-   - `ScannerService.kt`: Scan for entry signals, check exits, CRUD trades, roll trades, close trades, drawdown stats
-   - `ScannerController.kt`: REST API for scanner operations (scan, trades CRUD, close, roll, exits, drawdown stats)
+   - `ScannerService.kt`: Scan for entry signals, check exits, validate entries against live quotes, CRUD trades, roll trades, close trades, drawdown stats
+   - `ScannerController.kt`: REST API for scanner operations (scan, validate entries, trades CRUD, close, roll, exits, drawdown stats)
    - `ScannerTradeJooqRepository.kt`: jOOQ persistence for scanner trades
    - Lightweight trade tracking separate from portfolio positions
    - Uses `StrategyRegistry` for predefined strategy lookup
@@ -105,7 +105,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Positions:** `GET /api/positions/{portfolioId}`, `GET /api/positions/{portfolioId}/{positionId}`, `POST /api/positions/{portfolioId}`, `PUT /api/positions/{portfolioId}/{positionId}/close`, `PUT /api/positions/{portfolioId}/{positionId}/metadata`, `DELETE /api/positions/{portfolioId}/{positionId}`, `GET /api/positions/{portfolioId}/stats`, `GET /api/positions/{portfolioId}/unrealized-pnl`, `GET /api/positions/{portfolioId}/equity-curve`, `POST /api/positions/{portfolioId}/recalculate-balance`, `GET /api/positions/{portfolioId}/{positionId}/roll-chain`
 
-**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `POST /api/scanner/trades/reset`, `GET /api/scanner/trades/closed`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
+**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `POST /api/scanner/validate-entries`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `POST /api/scanner/trades/reset`, `GET /api/scanner/trades/closed`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
 
 **Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
 
@@ -176,7 +176,7 @@ trading/
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
 │   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse
+│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)

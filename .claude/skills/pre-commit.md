@@ -53,6 +53,7 @@ After all agents complete, present a unified summary table. Only include rows fo
 | CLAUDE.md files | UP TO DATE / UPDATED |
 | Backend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 | Frontend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
+| Test Coverage (new functionality) | PASS / MISSING TESTS / SKIPPED |
 
 If any check has status FAIL (not auto-fixable), show the relevant error output and highlight what needs manual attention.
 
@@ -65,3 +66,4 @@ If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** s
 - All checks for changed projects MUST pass before committing
 - Docker must be running for backend tests (TestContainers)
 - Follow the clean code principles defined in `.claude/skills/clean_code.md` — review changed code for SRP, DRY, KISS, clear naming, small functions, guard clauses, and no unnecessary comments before committing
+- **Test coverage for new functionality:** If new public service methods or controller endpoints were added, verify that corresponding unit tests exist. If tests are missing, flag this in the summary table as `MISSING TESTS` with the untested methods/endpoints listed. Do NOT auto-generate tests — just report what's missing so it can be addressed before committing.

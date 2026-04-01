@@ -9,6 +9,8 @@ import com.skrymer.udgaard.scanner.dto.OptionContractsRequest
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.ValidateEntriesRequest
+import com.skrymer.udgaard.scanner.model.EntryValidationResponse
 import com.skrymer.udgaard.scanner.model.ExitCheckResponse
 import com.skrymer.udgaard.scanner.model.ScanResponse
 import com.skrymer.udgaard.scanner.model.ScannerTrade
@@ -61,6 +63,24 @@ class ScannerController(
       ResponseEntity.ok(response)
     } catch (e: Exception) {
       logger.error("Error checking exits: ${e.message}", e)
+      ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+    }
+  }
+
+  @PostMapping("/validate-entries")
+  fun validateEntries(
+    @RequestBody request: ValidateEntriesRequest,
+  ): ResponseEntity<EntryValidationResponse> {
+    logger.info("Validating ${request.symbols.size} entries: entry=${request.entryStrategyName}, exit=${request.exitStrategyName}")
+    return try {
+      val response = scannerService.validateEntries(request)
+      logger.info("Validation complete: ${response.validCount} valid, ${response.invalidCount} invalid, ${response.doaCount} DOA")
+      ResponseEntity.ok(response)
+    } catch (e: IllegalArgumentException) {
+      logger.error("Validation failed: ${e.message}", e)
+      ResponseEntity.badRequest().build()
+    } catch (e: Exception) {
+      logger.error("Unexpected error during validation: ${e.message}", e)
       ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
     }
   }

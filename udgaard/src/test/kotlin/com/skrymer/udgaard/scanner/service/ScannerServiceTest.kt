@@ -1,11 +1,15 @@
 package com.skrymer.udgaard.scanner.service
 
+import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
+import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
+import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategyReport
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -19,6 +23,7 @@ import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.ValidateEntriesRequest
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.model.TradeStatus
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
@@ -382,6 +387,221 @@ class ScannerServiceTest {
     assertEquals(0, response.checksPerformed)
     assertEquals(0, response.exitsTriggered)
     assertTrue(response.results.isEmpty())
+  }
+
+  @Test
+  fun `validateEntries returns valid when entry still matches and exit not triggered`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 152.0, 150.0, 2.0, 1.33, 1000000, System.currentTimeMillis()),
+    )
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+
+    // When
+    val response = service.validateEntries(request)
+
+    // Then
+    assertEquals(1, response.results.size)
+    assertEquals(1, response.validCount)
+    assertEquals(0, response.invalidCount)
+    assertEquals(0, response.doaCount)
+    with(response.results[0]) {
+      assertEquals("AAPL", symbol)
+      assertTrue(entryStillValid)
+      assertFalse(exitWouldTrigger)
+      assertEquals(152.0, currentPrice)
+      assertTrue(usedLiveData)
+    }
+  }
+
+  @Test
+  fun `validateEntries returns invalid when entry conditions no longer met`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 140.0, 150.0, -10.0, -6.67, 1000000, System.currentTimeMillis()),
+    )
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(false)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+
+    // When
+    val response = service.validateEntries(request)
+
+    // Then
+    assertEquals(1, response.results.size)
+    assertEquals(0, response.validCount)
+    assertEquals(1, response.invalidCount)
+    assertEquals(0, response.doaCount)
+    assertFalse(response.results[0].entryStillValid)
+  }
+
+  @Test
+  fun `validateEntries returns DOA when exit would trigger immediately`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 145.0, 150.0, -5.0, -3.33, 1000000, System.currentTimeMillis()),
+    )
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = true, exitReason = "Stop loss hit", exitPrice = 145.0))
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+
+    // When
+    val response = service.validateEntries(request)
+
+    // Then
+    assertEquals(1, response.results.size)
+    assertEquals(0, response.validCount)
+    assertEquals(0, response.invalidCount)
+    assertEquals(1, response.doaCount)
+    with(response.results[0]) {
+      assertTrue(entryStillValid)
+      assertTrue(exitWouldTrigger)
+      assertEquals("Stop loss hit", exitReason)
+    }
+  }
+
+  @Test
+  fun `validateEntries falls back to DB quote when live quote unavailable`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(null)
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+
+    // When
+    val response = service.validateEntries(request)
+
+    // Then
+    assertEquals(1, response.results.size)
+    with(response.results[0]) {
+      assertFalse(usedLiveData)
+      assertEquals(150.0, currentPrice)
+      assertTrue(entryStillValid)
+    }
+  }
+
+  @Test
+  fun `validateEntries returns condition details for detailed entry strategy`() {
+    // Given
+    val entryStrategy: DetailedEntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Vcp")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 148.0, 150.0, -2.0, -1.33, 1000000, System.currentTimeMillis()),
+    )
+
+    val details = EntrySignalDetails(
+      strategyName = "Vcp",
+      strategyDescription = "VCP Strategy",
+      conditions = listOf(
+        ConditionEvaluationResult("uptrend", "Stock in uptrend", true, null),
+        ConditionEvaluationResult("priceAboveEma", "Price above 20 EMA", false, "Price 148.0 < EMA 149.5"),
+      ),
+      allConditionsMet = false,
+    )
+    whenever(entryStrategy.testWithDetails(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(details)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "Vcp", "MjolnirExit")
+
+    // When
+    val response = service.validateEntries(request)
+
+    // Then
+    assertEquals(1, response.results.size)
+    with(response.results[0]) {
+      assertFalse(entryStillValid)
+      assertEquals("Vcp", entrySignalDetails?.strategyName)
+      assertEquals(2, entrySignalDetails?.conditions?.size)
+      assertTrue(entrySignalDetails?.conditions?.get(0)?.passed == true)
+      assertFalse(entrySignalDetails?.conditions?.get(1)?.passed == true)
+    }
+  }
+
+  @Test
+  fun `validateEntries throws when entry strategy not found`() {
+    // Given
+    whenever(strategyRegistry.createEntryStrategy("NonExistent")).thenReturn(null)
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "NonExistent", "MjolnirExit")
+
+    // When / Then
+    assertThrows(IllegalArgumentException::class.java) {
+      service.validateEntries(request)
+    }
+  }
+
+  @Test
+  fun `validateEntries throws when exit strategy not found`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("NonExistent")).thenReturn(null)
+
+    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "NonExistent")
+
+    // When / Then
+    assertThrows(IllegalArgumentException::class.java) {
+      service.validateEntries(request)
+    }
   }
 
   private fun createScannerTrade(
