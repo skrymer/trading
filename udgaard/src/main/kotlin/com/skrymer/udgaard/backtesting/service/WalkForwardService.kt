@@ -73,9 +73,10 @@ class WalkForwardService(
 
     val concurrency = Semaphore(MAX_CONCURRENT_WINDOWS)
     val results = runBlocking(Dispatchers.Default) {
-      windows.map { window ->
-        async { concurrency.withPermit { processWindow(window, params, sharedContext, sharedBreadthByDate) } }
-      }.awaitAll()
+      windows
+        .map { window ->
+          async { concurrency.withPermit { processWindow(window, params, sharedContext, sharedBreadthByDate) } }
+        }.awaitAll()
     }
     return aggregateResults(results)
   }

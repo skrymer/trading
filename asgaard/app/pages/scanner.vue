@@ -569,9 +569,14 @@ function onRemoveSymbol(symbol: string) {
 }
 
 function daysHeld(entryDate: string): number {
-  const entry = new Date(entryDate)
+  const parts = entryDate.split('-').map(Number)
+  const year = parts[0] ?? 0
+  const month = parts[1] ?? 1
+  const day = parts[2] ?? 1
+  const entry = new Date(year, month - 1, day)
   const now = new Date()
-  return Math.floor((now.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24))
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.floor((today.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 // Active trades table columns

@@ -94,14 +94,13 @@ class PositionSizingServiceTest {
   }
 
   @Test
-  fun `ATR equals zero should result in zero shares`() {
+  fun `ATR equals zero should result in skipped trade`() {
     val trade = createTrade(profit = 5.0, entryPrice = 50.0, atr = 0.0, entryDate = LocalDate.of(2024, 1, 1))
 
     val result = service.applyPositionSizing(listOf(trade), defaultConfig)
 
-    assertEquals(1, result.trades.size)
-    assertEquals(0, result.trades[0].shares)
-    assertEquals(0.0, result.trades[0].dollarProfit, 0.01)
+    // Zero ATR means zero shares, so the trade is skipped entirely
+    assertEquals(0, result.trades.size)
     assertEquals(100_000.0, result.finalCapital, 0.01)
   }
 
@@ -128,21 +127,20 @@ class PositionSizingServiceTest {
 
     val result = service.applyPositionSizing(listOf(bigLoser, nextTrade), defaultConfig)
 
-    // Second trade should have 0 shares since portfolio is negative
-    assertEquals(2, result.trades.size)
-    assertEquals(0, result.trades[1].shares)
+    // Second trade should be skipped since portfolio is negative (zero shares)
+    assertEquals(1, result.trades.size)
   }
 
   @Test
-  fun `shares less than 1 should result in zero shares`() {
+  fun `shares less than 1 should result in skipped trade`() {
     // Very high ATR relative to portfolio → shares < 1
     // ATR=100000, shares=floor(100000*0.015/200000)=0
     val trade = createTrade(profit = 5.0, entryPrice = 50.0, atr = 100_000.0, entryDate = LocalDate.of(2024, 1, 1))
 
     val result = service.applyPositionSizing(listOf(trade), defaultConfig)
 
-    assertEquals(0, result.trades[0].shares)
-    assertEquals(0.0, result.trades[0].dollarProfit, 0.01)
+    // Zero shares means the trade is skipped entirely
+    assertEquals(0, result.trades.size)
     assertEquals(100_000.0, result.finalCapital, 0.01)
   }
 
@@ -291,7 +289,8 @@ class PositionSizingServiceTest {
 
     assertEquals(375, result.trades[0].shares)
     assertEquals(250, result.trades[1].shares)
-    assertEquals(0, result.trades[2].shares)
+    // Third trade is skipped entirely since leverage cap is fully exhausted (zero shares)
+    assertEquals(2, result.trades.size)
   }
 
   @Test

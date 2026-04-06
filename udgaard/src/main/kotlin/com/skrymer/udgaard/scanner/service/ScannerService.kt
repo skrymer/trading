@@ -7,6 +7,7 @@ import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.RandomRanker
 import com.skrymer.udgaard.backtesting.strategy.RankerFactory
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
@@ -20,6 +21,7 @@ import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.data.service.StockService
 import com.skrymer.udgaard.data.service.SymbolService
+import com.skrymer.udgaard.data.service.TechnicalIndicatorService
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
@@ -50,6 +52,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
+import kotlin.math.abs
 
 private data class EvalResult(
   val scanResult: ScanResult?,
@@ -127,6 +130,7 @@ class ScannerService(
   private val marketBreadthRepository: MarketBreadthRepository,
   private val settingsService: SettingsService,
   private val midgaardClient: MidgaardClient,
+  private val technicalIndicatorService: TechnicalIndicatorService,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
 
@@ -310,45 +314,14 @@ class ScannerService(
     logger.info("Validate entries: fetched live quotes for ${liveQuotesBySymbol.size}/${symbols.size} symbols")
 
     val results = symbols.mapNotNull { symbol ->
-      val stock = stocksBySymbol[symbol] ?: return@mapNotNull null
-      val lastDbQuote = stock.quotes.lastOrNull() ?: return@mapNotNull null
-
-      val liveQuote = liveQuotesBySymbol[symbol]
-      val usedLiveData = liveQuote != null
-      // Only update price — keep original date (for breadth lookups) and volume (after-hours volume is meaningless)
-      val syntheticQuote = if (liveQuote != null) {
-        lastDbQuote.copy(closePrice = liveQuote.price)
-      } else {
-        lastDbQuote
-      }
-
-      val entryStillValid: Boolean
-      val entryDetails: EntrySignalDetails?
-      if (entryStrategy is DetailedEntryStrategy) {
-        val details = entryStrategy
-          .testWithDetails(stock, syntheticQuote, backtestContext)
-          .copy(strategyName = request.entryStrategyName)
-        entryStillValid = details.allConditionsMet
-        entryDetails = details
-        if (!entryStillValid) {
-          val failed = details.conditions.filter { !it.passed }.joinToString { "${it.conditionType}: ${it.message}" }
-          logger.debug("Validate $symbol invalid: $failed")
-        }
-      } else {
-        entryStillValid = entryStrategy.test(stock, syntheticQuote, backtestContext)
-        entryDetails = null
-      }
-
-      val exitReport = exitStrategy.test(stock, syntheticQuote, syntheticQuote, backtestContext)
-
-      EntryValidationResult(
-        symbol = symbol,
-        entryStillValid = entryStillValid,
-        exitWouldTrigger = exitReport.match,
-        exitReason = exitReport.exitReason,
-        currentPrice = syntheticQuote.closePrice,
-        usedLiveData = usedLiveData,
-        entrySignalDetails = entryDetails,
+      validateSingleEntry(
+        symbol,
+        stocksBySymbol,
+        liveQuotesBySymbol,
+        entryStrategy,
+        exitStrategy,
+        backtestContext,
+        request.entryStrategyName,
       )
     }
 
@@ -362,6 +335,57 @@ class ScannerService(
       validCount = validCount,
       invalidCount = invalidCount,
       doaCount = doaCount,
+    )
+  }
+
+  private fun validateSingleEntry(
+    symbol: String,
+    stocksBySymbol: Map<String, Stock>,
+    liveQuotesBySymbol: Map<String, MidgaardLatestQuoteDto>,
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    backtestContext: BacktestContext,
+    entryStrategyName: String,
+  ): EntryValidationResult? {
+    val stock = stocksBySymbol[symbol] ?: return null
+    val lastDbQuote = stock.quotes.lastOrNull() ?: return null
+
+    val liveQuote = liveQuotesBySymbol[symbol]
+    val usedLiveData = liveQuote != null
+    // Only update price -- keep original date (for breadth lookups) and volume (after-hours volume is meaningless)
+    val syntheticQuote = if (liveQuote != null) {
+      lastDbQuote.copy(closePrice = liveQuote.price)
+    } else {
+      lastDbQuote
+    }
+
+    val entryStillValid: Boolean
+    val entryDetails: EntrySignalDetails?
+    if (entryStrategy is DetailedEntryStrategy) {
+      val details = entryStrategy
+        .testWithDetails(stock, syntheticQuote, backtestContext)
+        .copy(strategyName = entryStrategyName)
+      entryStillValid = details.allConditionsMet
+      entryDetails = details
+      if (!entryStillValid) {
+        val failed = details.conditions.filter { !it.passed }.joinToString { "${it.conditionType}: ${it.message}" }
+        logger.debug("Validate $symbol invalid: $failed")
+      }
+    } else {
+      entryStillValid = entryStrategy.test(stock, syntheticQuote, backtestContext)
+      entryDetails = null
+    }
+
+    val exitReport = exitStrategy.test(stock, syntheticQuote, syntheticQuote, backtestContext)
+
+    return EntryValidationResult(
+      symbol = symbol,
+      entryStillValid = entryStillValid,
+      exitWouldTrigger = exitReport.match,
+      exitReason = exitReport.exitReason,
+      currentPrice = syntheticQuote.closePrice,
+      usedLiveData = usedLiveData,
+      entrySignalDetails = entryDetails,
     )
   }
 
@@ -389,7 +413,7 @@ class ScannerService(
     val liveQuote = liveQuotesBySymbol[trade.symbol]
     val usedLiveData = liveQuote != null
     val latestQuote = if (liveQuote != null) {
-      createSyntheticQuote(lastDbQuote, liveQuote)
+      createSyntheticQuote(lastDbQuote, liveQuote, stock)
     } else {
       lastDbQuote
     }
@@ -437,12 +461,47 @@ class ScannerService(
   private fun createSyntheticQuote(
     lastDbQuote: StockQuote,
     liveQuote: MidgaardLatestQuoteDto,
-  ): StockQuote =
-    lastDbQuote.copy(
+    stock: Stock,
+  ): StockQuote {
+    val price = liveQuote.price
+    if (price <= 0.0) return lastDbQuote.copy(date = LocalDate.now(), volume = liveQuote.volume)
+
+    fun incrementalEma(prevEma: Double, period: Int): Double {
+      if (prevEma == 0.0) return 0.0
+      val k = 2.0 / (period + 1)
+      return (price - prevEma) * k + prevEma
+    }
+
+    // Approximate true range using |price - prevClose| (no intraday high/low available)
+    val approximateTR = abs(price - lastDbQuote.closePrice)
+    val newAtr = if (lastDbQuote.atr > 0) {
+      ((lastDbQuote.atr * (ATR_PERIOD - 1)) + approximateTR) / ATR_PERIOD
+    } else {
+      lastDbQuote.atr
+    }
+
+    val donchianUpper = maxOf(
+      stock.quotes.takeLast(DONCHIAN_PERIOD - 1).maxOfOrNull { it.high } ?: 0.0,
+      price,
+    )
+
+    val syntheticQuote = lastDbQuote.copy(
       date = LocalDate.now(),
-      closePrice = liveQuote.price,
+      closePrice = price,
       volume = liveQuote.volume,
     )
+    syntheticQuote.closePriceEMA5 = incrementalEma(lastDbQuote.closePriceEMA5, 5)
+    syntheticQuote.closePriceEMA10 = incrementalEma(lastDbQuote.closePriceEMA10, 10)
+    syntheticQuote.closePriceEMA20 = incrementalEma(lastDbQuote.closePriceEMA20, 20)
+    syntheticQuote.closePriceEMA50 = incrementalEma(lastDbQuote.closePriceEMA50, 50)
+    syntheticQuote.closePriceEMA100 = incrementalEma(lastDbQuote.closePriceEMA100, 100)
+    syntheticQuote.ema200 = incrementalEma(lastDbQuote.ema200, 200)
+    syntheticQuote.atr = newAtr
+    syntheticQuote.donchianUpperBand = donchianUpper
+    syntheticQuote.trend = technicalIndicatorService.determineTrend(syntheticQuote)
+
+    return syntheticQuote
+  }
 
   /**
    * Roll a scanner trade: delete old, create new with accumulated credits.
@@ -667,6 +726,8 @@ class ScannerService(
     private const val DEFAULT_NEAR_MISS_LIMIT = 10
     private const val DEFAULT_OPTION_DELTA = 0.80
     private const val MAX_VALIDATE_SYMBOLS = 30
+    private const val ATR_PERIOD = 14
+    private const val DONCHIAN_PERIOD = 5
 
     private fun toScanResult(stock: Stock, quote: StockQuote, details: EntrySignalDetails?) =
       ScanResult(

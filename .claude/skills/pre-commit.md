@@ -66,4 +66,10 @@ If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** s
 - All checks for changed projects MUST pass before committing
 - Docker must be running for backend tests (TestContainers)
 - Follow the clean code principles defined in `.claude/skills/clean_code.md` — review changed code for SRP, DRY, KISS, clear naming, small functions, guard clauses, and no unnecessary comments before committing
-- **Test coverage for new functionality:** If new public service methods or controller endpoints were added, verify that corresponding unit tests exist. If tests are missing, flag this in the summary table as `MISSING TESTS` with the untested methods/endpoints listed. Do NOT auto-generate tests — just report what's missing so it can be addressed before committing.
+- **Test coverage for new functionality:** Any new or significantly changed logic MUST have test coverage. This includes:
+  - New public service methods or controller endpoints
+  - New private methods with non-trivial logic (complex calculations, branching, data transformations)
+  - Changed behavior in existing methods (new branches, guard clauses, enrichment logic)
+  - Bug fixes (regression test to prevent reintroduction)
+  
+  Verify by reading the test files for the changed services and checking whether the new behavior paths are exercised. If tests are missing, flag this in the summary table as `MISSING TESTS` with a description of the untested logic. Do NOT auto-generate tests — just report what's missing so it can be addressed before committing.

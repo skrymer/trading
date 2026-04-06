@@ -36,6 +36,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -53,6 +54,7 @@ class ScannerServiceTest {
   private lateinit var marketBreadthRepository: MarketBreadthRepository
   private lateinit var settingsService: SettingsService
   private lateinit var midgaardClient: com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
+  private lateinit var technicalIndicatorService: com.skrymer.udgaard.data.service.TechnicalIndicatorService
 
   @BeforeEach
   fun setup() {
@@ -66,6 +68,7 @@ class ScannerServiceTest {
     marketBreadthRepository = mock()
     settingsService = mock()
     midgaardClient = mock()
+    technicalIndicatorService = mock()
 
     service = ScannerService(
       scannerTradeRepository,
@@ -78,6 +81,7 @@ class ScannerServiceTest {
       marketBreadthRepository,
       settingsService,
       midgaardClient,
+      technicalIndicatorService,
     )
 
     // Default stubs for breadth/context loading
@@ -602,6 +606,151 @@ class ScannerServiceTest {
     assertThrows(IllegalArgumentException::class.java) {
       service.validateEntries(request)
     }
+  }
+
+  @Test
+  fun `checkExits enriches synthetic quote with incremental EMAs`() {
+    // Given: a trade with a stock whose last quote has known EMA values
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 150.0,
+      high = 152.0,
+      low = 148.0,
+    ).apply {
+      closePriceEMA5 = 149.0
+      closePriceEMA10 = 147.0
+      closePriceEMA20 = 145.0
+      closePriceEMA50 = 140.0
+      closePriceEMA100 = 135.0
+      ema200 = 130.0
+      atr = 3.0
+      donchianUpperBand = 155.0
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(entryQuote, lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live price = 155.0 (moved up from 150.0)
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 155.0, 150.0, 5.0, 3.33, 2000000, System.currentTimeMillis()),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.checkExits()
+
+    // Then: verify the synthetic quote passed to exit strategy has updated indicators
+    val syntheticQuote = quoteCaptor.firstValue
+    assertEquals(LocalDate.now(), syntheticQuote.date)
+    assertEquals(155.0, syntheticQuote.closePrice)
+
+    // EMA5: (155 - 149) * (2/6) + 149 = 6 * 0.3333 + 149 = 151.0
+    assertEquals(151.0, syntheticQuote.closePriceEMA5, 0.01)
+    // EMA10: (155 - 147) * (2/11) + 147 = 8 * 0.1818 + 147 = 148.4545
+    assertEquals(148.45, syntheticQuote.closePriceEMA10, 0.01)
+    // EMA20: (155 - 145) * (2/21) + 145 = 10 * 0.0952 + 145 = 145.952
+    assertEquals(145.95, syntheticQuote.closePriceEMA20, 0.01)
+
+    // ATR: ((3.0 * 13) + |155 - 150|) / 14 = (39 + 5) / 14 = 3.1429
+    assertEquals(3.14, syntheticQuote.atr, 0.01)
+
+    // Donchian: max of recent highs (152.0) and live price (155.0) = 155.0
+    assertEquals(155.0, syntheticQuote.donchianUpperBand)
+
+    assertEquals("Uptrend", syntheticQuote.trend)
+    verify(technicalIndicatorService).determineTrend(any())
+  }
+
+  @Test
+  fun `checkExits falls back to plain copy when live price is zero`() {
+    // Given: live quote returns price = 0 (API error)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 150.0,
+    ).apply {
+      closePriceEMA5 = 149.0
+      atr = 3.0
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Price = 0.0 simulates API error
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 0.0, 150.0, 0.0, 0.0, 0, System.currentTimeMillis()),
+    )
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.checkExits()
+
+    // Then: indicators should NOT be corrupted — original values preserved
+    val syntheticQuote = quoteCaptor.firstValue
+    assertEquals(149.0, syntheticQuote.closePriceEMA5)
+    assertEquals(3.0, syntheticQuote.atr)
+    assertEquals(150.0, syntheticQuote.closePrice) // falls back to lastDbQuote close
+  }
+
+  @Test
+  fun `checkExits preserves zero EMAs without corrupting them`() {
+    // Given: a stock with zero EMAs (insufficient history for calculation)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 150.0,
+    ).apply {
+      closePriceEMA5 = 149.0
+      closePriceEMA50 = 0.0 // insufficient history
+      ema200 = 0.0 // insufficient history
+      atr = 3.0
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 155.0, 150.0, 5.0, 3.33, 1000000, System.currentTimeMillis()),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.checkExits()
+
+    // Then: zero EMAs stay zero (not pulled toward live price)
+    val syntheticQuote = quoteCaptor.firstValue
+    assertEquals(0.0, syntheticQuote.closePriceEMA50)
+    assertEquals(0.0, syntheticQuote.ema200)
+    // Non-zero EMA5 is updated normally
+    assertEquals(151.0, syntheticQuote.closePriceEMA5, 0.01)
   }
 
   private fun createScannerTrade(

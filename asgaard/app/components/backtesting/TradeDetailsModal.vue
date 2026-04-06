@@ -36,12 +36,22 @@ function findSizedTrade(trade: Trade): PositionSizedTrade | undefined {
   return props.sizedTrades.get(`${trade.stockSymbol}:${entryDate}`)
 }
 
+// When position sizing is active, only include trades that were actually taken (have a sized counterpart)
+// Falls back to all trades if no sized matches found (e.g. lookup key mismatch)
+const activeTrades = computed(() => {
+  if (hasPositionSizing.value) {
+    const matched = props.trades.filter(t => findSizedTrade(t) !== undefined)
+    if (matched.length > 0) return matched
+  }
+  return props.trades
+})
+
 // Summary statistics - use position-sized data when available
 const totalProfit = computed(() => {
   if (hasPositionSizing.value) {
-    return props.trades.reduce((sum, t) => {
-      const sized = findSizedTrade(t)
-      return sum + (sized?.portfolioReturnPct ?? t.profitPercentage)
+    return activeTrades.value.reduce((sum, t) => {
+      const sized = findSizedTrade(t)!
+      return sum + sized.portfolioReturnPct
     }, 0)
   }
   return props.trades.reduce((sum, t) => sum + t.profitPercentage, 0)
@@ -49,21 +59,21 @@ const totalProfit = computed(() => {
 
 const totalProfitDollar = computed(() => {
   if (hasPositionSizing.value) {
-    return props.trades.reduce((sum, t) => {
-      const sized = findSizedTrade(t)
-      return sum + (sized?.dollarProfit ?? t.profit)
+    return activeTrades.value.reduce((sum, t) => {
+      const sized = findSizedTrade(t)!
+      return sum + sized.dollarProfit
     }, 0)
   }
   return props.trades.reduce((sum, t) => sum + t.profit, 0)
 })
 
-const numberOfTrades = computed(() => props.trades.length)
+const numberOfTrades = computed(() => activeTrades.value.length)
 
 const winningTrades = computed(() => {
   if (hasPositionSizing.value) {
-    return props.trades.filter((t) => {
-      const sized = findSizedTrade(t)
-      return (sized?.dollarProfit ?? t.profitPercentage) > 0
+    return activeTrades.value.filter((t) => {
+      const sized = findSizedTrade(t)!
+      return sized.dollarProfit > 0
     })
   }
   return props.trades.filter(t => t.profitPercentage > 0)
@@ -71,9 +81,9 @@ const winningTrades = computed(() => {
 
 const losingTrades = computed(() => {
   if (hasPositionSizing.value) {
-    return props.trades.filter((t) => {
-      const sized = findSizedTrade(t)
-      return (sized?.dollarProfit ?? t.profitPercentage) < 0
+    return activeTrades.value.filter((t) => {
+      const sized = findSizedTrade(t)!
+      return sized.dollarProfit < 0
     })
   }
   return props.trades.filter(t => t.profitPercentage < 0)
@@ -85,8 +95,9 @@ const winRate = computed(() => {
 })
 
 const bestTrade = computed(() => {
-  if (props.trades.length === 0) return null
-  return props.trades.reduce((best, trade) => {
+  const trades = activeTrades.value
+  if (trades.length === 0) return null
+  return trades.reduce((best, trade) => {
     const bestPct = findSizedTrade(best)?.portfolioReturnPct ?? best.profitPercentage
     const tradePct = findSizedTrade(trade)?.portfolioReturnPct ?? trade.profitPercentage
     return tradePct > bestPct ? trade : best
@@ -94,8 +105,9 @@ const bestTrade = computed(() => {
 })
 
 const worstTrade = computed(() => {
-  if (props.trades.length <= 1) return null
-  return props.trades.reduce((worst, trade) => {
+  const trades = activeTrades.value
+  if (trades.length === 0) return null
+  return trades.reduce((worst, trade) => {
     const worstPct = findSizedTrade(worst)?.portfolioReturnPct ?? worst.profitPercentage
     const tradePct = findSizedTrade(trade)?.portfolioReturnPct ?? trade.profitPercentage
     return tradePct < worstPct ? trade : worst
@@ -181,7 +193,7 @@ const openPositionData = computed(() => {
 })
 
 const tableData = computed(() => {
-  return props.trades.map((trade) => {
+  return activeTrades.value.map((trade) => {
     const exitQuote = trade.quotes?.[trade.quotes.length - 1]
     const exitDate = exitQuote?.date ? format(new Date(exitQuote.date), 'MMM dd, yyyy') : 'N/A'
     const p = getTradeProfit(trade)

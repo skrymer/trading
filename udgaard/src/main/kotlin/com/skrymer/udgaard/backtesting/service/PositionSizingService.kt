@@ -127,6 +127,8 @@ class PositionSizingService {
       }
     }
 
+    if (shares <= 0) return
+
     state.openNotional += shares * entryPrice
     openPositions[event.trade] = OpenPosition(
       shares = shares,
