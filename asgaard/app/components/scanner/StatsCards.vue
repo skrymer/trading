@@ -31,6 +31,14 @@ const avgPnl = computed(() => {
   return results.reduce((sum, r) => sum + r.unrealizedPnlPercent, 0) / results.length
 })
 
+const totalUnrealizedDollars = computed(() => {
+  let total = 0
+  for (const [, result] of props.exitResults) {
+    total += result.unrealizedPnlDollars ?? 0
+  }
+  return total
+})
+
 const totalRolledCredits = computed(() => {
   return props.trades.reduce((sum, t) => sum + t.rolledCredits, 0)
 })
@@ -97,7 +105,7 @@ const drawdownColor = computed(() => {
 
     <div class="p-4 bg-muted/50 rounded-lg border border-default">
       <div class="text-sm text-muted">
-        Avg Unrealized P&L
+        Unrealized P&L
       </div>
       <div
         :class="[
@@ -105,7 +113,10 @@ const drawdownColor = computed(() => {
           avgPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
         ]"
       >
-        {{ avgPnl >= 0 ? '+' : '' }}{{ avgPnl.toFixed(1) }}%
+        {{ totalUnrealizedDollars >= 0 ? '+' : '' }}${{ totalUnrealizedDollars.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+        <span class="text-base font-semibold">
+          (avg {{ avgPnl >= 0 ? '+' : '' }}{{ avgPnl.toFixed(1) }}%)
+        </span>
       </div>
     </div>
 

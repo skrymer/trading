@@ -13,7 +13,7 @@ const scanStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const exitCheckStatus = ref<'idle' | 'pending'>('idle')
 const validationStatus = ref<'idle' | 'pending'>('idle')
 const validationResults = ref<Map<string, EntryValidationResult>>(new Map())
-const activeTab = ref('results')
+const activeTab = ref('trades')
 
 // Modal states
 const isScanConfigModalOpen = ref(false)
@@ -68,6 +68,20 @@ const totalUnrealizedPnlDollars = computed(() => {
     total += result.unrealizedPnlDollars ?? 0
   }
   return total
+})
+
+const todayPnlDollars = computed(() => {
+  let total = 0
+  for (const [, result] of exitResults.value) {
+    total += result.dailyPnlDollars ?? 0
+  }
+  return total
+})
+
+const exitTriggeredSymbols = computed(() => {
+  return trades.value
+    .filter(t => exitResults.value.get(t.id)?.exitTriggered)
+    .map(t => t.symbol)
 })
 
 const currentEquity = computed(() => {
@@ -152,7 +166,7 @@ const portfolioRiskPct = computed(() => {
 })
 
 const maxPositions = computed(() => positionSizingSettings.value.maxPositions ?? 15)
-const availableSlots = computed(() => Math.max(0, maxPositions.value - trades.value.length))
+const availableSlots = computed(() => maxPositions.value)
 const activeTradeSymbols = computed(() => new Set(trades.value.map(t => t.symbol)))
 
 const filteredResults = computed(() => {
@@ -189,12 +203,6 @@ const portfolioUtilization = computed(() => {
 
 const tabItems = [
   {
-    label: 'Scan Results',
-    icon: 'i-lucide-search',
-    value: 'results',
-    slot: 'results'
-  },
-  {
     label: 'Active Trades',
     icon: 'i-lucide-list',
     value: 'trades',
@@ -205,6 +213,12 @@ const tabItems = [
     icon: 'i-lucide-archive',
     value: 'closed',
     slot: 'closed'
+  },
+  {
+    label: 'Candidates',
+    icon: 'i-lucide-crosshair',
+    value: 'results',
+    slot: 'results'
   }
 ]
 
@@ -214,7 +228,6 @@ const EXIT_CHECK_COOLDOWN_MS = 5 * 60 * 1000
 onMounted(async () => {
   await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades()])
   if (trades.value.length > 0) {
-    activeTab.value = 'trades'
     const now = Date.now()
     if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
       lastExitCheckAt.value = now
@@ -810,10 +823,19 @@ const tradesTableUi = computed(() => ({
 </script>
 
 <template>
-  <UDashboardPanel id="scanner">
+  <UDashboardPanel id="mission-control">
     <template #header>
-      <UDashboardNavbar title="Scanner">
+      <UDashboardNavbar title="Mission Control">
         <template #right>
+          <div v-if="exitResults.size > 0" class="flex items-center gap-1.5 mr-4">
+            <span class="text-xs text-muted">Today</span>
+            <span
+              class="text-sm font-semibold tabular-nums"
+              :class="todayPnlDollars >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+            >
+              {{ todayPnlDollars >= 0 ? '+' : '' }}${{ todayPnlDollars.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+            </span>
+          </div>
           <UButton
             label="Reset"
             icon="i-lucide-trash-2"
@@ -822,8 +844,8 @@ const tradesTableUi = computed(() => ({
             @click="isResetAllTradesModalOpen = true"
           />
           <UButton
-            label="New Scan"
-            icon="i-lucide-scan-search"
+            label="Find Candidates"
+            icon="i-lucide-crosshair"
             @click="isScanConfigModalOpen = true"
           />
         </template>
@@ -847,178 +869,194 @@ const tradesTableUi = computed(() => ({
           :max-heat-pct="positionSizingSettings.enabled ? maxPositions * effectiveRiskPercentage : undefined"
         />
 
-        <!-- Position Sizing Config -->
-        <div v-if="positionSizingSettings.enabled" class="p-4 bg-muted/50 rounded-lg border border-default space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-calculator" class="w-4 h-4 text-muted" />
-              <span class="text-sm font-semibold">Position Sizing</span>
-            </div>
-            <USwitch v-model="positionSizingSettings.enabled" size="sm" />
-          </div>
-          <div class="grid grid-cols-4 gap-4">
-            <UFormField label="Instrument">
-              <div class="flex w-full">
-                <UButton
-                  label="Stock"
-                  size="sm"
-                  :variant="positionSizingSettings.instrumentMode === 'STOCK' ? 'solid' : 'outline'"
-                  class="flex-1 rounded-r-none"
-                  @click="positionSizingSettings.instrumentMode = 'STOCK'"
-                />
-                <UButton
-                  label="Options"
-                  size="sm"
-                  :variant="positionSizingSettings.instrumentMode === 'OPTION' ? 'solid' : 'outline'"
-                  class="flex-1 rounded-l-none"
-                  @click="positionSizingSettings.instrumentMode = 'OPTION'"
-                />
+        <!-- Drawdown Alert (always visible when active) -->
+        <UAlert
+          v-if="positionSizingSettings.enabled && positionSizingSettings.drawdownScalingEnabled && activeDrawdownThreshold"
+          :color="currentDrawdownPct >= 10 ? 'error' : 'warning'"
+          :title="`Drawdown: ${currentDrawdownPct.toFixed(1)}%`"
+          :description="`Risk scaled to ${effectiveRiskPercentage.toFixed(2)}% (${activeDrawdownThreshold.riskMultiplier}x of ${positionSizingSettings.riskPercentage}%)`"
+          icon="i-lucide-trending-down"
+        />
+
+        <!-- Position Sizing Config (collapsed by default) -->
+        <UCollapsible v-if="positionSizingSettings.enabled">
+          <UButton
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-lucide-calculator"
+            class="w-full justify-start"
+          >
+            <span class="text-sm">
+              {{ positionSizingSettings.instrumentMode === 'OPTION' ? 'Options' : 'Stock' }}
+              &middot; ${{ positionSizingSettings.portfolioValue.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+              &middot; {{ effectiveRiskPercentage.toFixed(2) }}% risk
+              &middot; {{ positionSizingSettings.nAtr }}x ATR
+              &middot; {{ portfolioUtilization.toFixed(0) }}% utilized
+            </span>
+          </UButton>
+          <template #content>
+            <div class="p-4 bg-muted/50 rounded-lg border border-default space-y-3 mt-1">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-semibold">Position Sizing</span>
+                <USwitch v-model="positionSizingSettings.enabled" size="sm" />
               </div>
-            </UFormField>
-            <UFormField label="Portfolio Value ($)">
-              <UInput
-                v-model.number="positionSizingSettings.portfolioValue"
-                type="number"
-                :min="1000"
-                :step="1000"
-              />
-            </UFormField>
-            <UFormField label="Risk Per Trade (%)">
-              <UInput
-                v-model.number="positionSizingSettings.riskPercentage"
-                type="number"
-                :min="0.1"
-                :max="10"
-                :step="0.1"
-              />
-            </UFormField>
-            <UFormField>
-              <template #label>
-                <span class="flex items-center gap-1">
-                  ATR Multiplier
-                  <UTooltip :text="isOptionsMode ? 'Contracts = Risk$ / (nATR × ATR × delta × 100)' : 'Shares = Risk$ / (nATR × ATR). Lower = more shares, tighter stop.'">
+              <div class="grid grid-cols-4 gap-4">
+                <UFormField label="Instrument">
+                  <div class="flex w-full">
+                    <UButton
+                      label="Stock"
+                      size="sm"
+                      :variant="positionSizingSettings.instrumentMode === 'STOCK' ? 'solid' : 'outline'"
+                      class="flex-1 rounded-r-none"
+                      @click="positionSizingSettings.instrumentMode = 'STOCK'"
+                    />
+                    <UButton
+                      label="Options"
+                      size="sm"
+                      :variant="positionSizingSettings.instrumentMode === 'OPTION' ? 'solid' : 'outline'"
+                      class="flex-1 rounded-l-none"
+                      @click="positionSizingSettings.instrumentMode = 'OPTION'"
+                    />
+                  </div>
+                </UFormField>
+                <UFormField label="Portfolio Value ($)">
+                  <UInput
+                    v-model.number="positionSizingSettings.portfolioValue"
+                    type="number"
+                    :min="1000"
+                    :step="1000"
+                  />
+                </UFormField>
+                <UFormField label="Risk Per Trade (%)">
+                  <UInput
+                    v-model.number="positionSizingSettings.riskPercentage"
+                    type="number"
+                    :min="0.1"
+                    :max="10"
+                    :step="0.1"
+                  />
+                </UFormField>
+                <UFormField>
+                  <template #label>
+                    <span class="flex items-center gap-1">
+                      ATR Multiplier
+                      <UTooltip :text="isOptionsMode ? 'Contracts = Risk$ / (nATR × ATR × delta × 100)' : 'Shares = Risk$ / (nATR × ATR). Lower = more shares, tighter stop.'">
+                        <UIcon name="i-lucide-info" class="size-3.5 text-muted" />
+                      </UTooltip>
+                    </span>
+                  </template>
+                  <UInput
+                    v-model.number="positionSizingSettings.nAtr"
+                    type="number"
+                    :min="0.5"
+                    :max="10"
+                    :step="0.5"
+                  />
+                </UFormField>
+              </div>
+              <!-- Portfolio Utilization -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-xs text-muted">
+                  <span>
+                    Existing: ${{ existingCapitalDeployed.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+                    <template v-if="selectedCapital > 0">
+                      + Selected: ${{ selectedCapital.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+                    </template>
+                  </span>
+                  <span :class="portfolioUtilization > 100 ? 'text-red-500 font-semibold' : ''">
+                    {{ portfolioUtilization.toFixed(1) }}% utilized
+                  </span>
+                </div>
+                <div class="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all"
+                    :class="portfolioUtilization > 100 ? 'bg-red-500' : portfolioUtilization > 80 ? 'bg-yellow-500' : 'bg-primary'"
+                    :style="{ width: `${Math.min(portfolioUtilization, 100)}%` }"
+                  />
+                </div>
+              </div>
+
+              <!-- Drawdown Scaling -->
+              <div class="flex items-center justify-between pt-2 border-t border-default">
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-shield-alert" class="w-4 h-4 text-muted" />
+                  <span class="text-sm font-semibold">Drawdown Scaling</span>
+                  <UTooltip text="Automatically reduces risk per trade when portfolio is in drawdown">
                     <UIcon name="i-lucide-info" class="size-3.5 text-muted" />
                   </UTooltip>
-                </span>
+                </div>
+                <USwitch v-model="positionSizingSettings.drawdownScalingEnabled" size="sm" />
+              </div>
+
+              <template v-if="positionSizingSettings.drawdownScalingEnabled">
+                <!-- Drawdown Info Row -->
+                <div class="grid grid-cols-5 gap-4 text-sm items-center">
+                  <div>
+                    <span class="text-muted">Equity:</span>
+                    <span class="ml-1 font-medium">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
+                  </div>
+                  <div>
+                    <span class="text-muted">Peak:</span>
+                    <span class="ml-1 font-medium">${{ (positionSizingSettings.peakEquity ?? positionSizingSettings.portfolioValue).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
+                  </div>
+                  <div>
+                    <span class="text-muted">Drawdown:</span>
+                    <span
+                      class="ml-1 font-medium"
+                      :class="currentDrawdownPct >= 10 ? 'text-red-600 dark:text-red-400' : currentDrawdownPct >= 5 ? 'text-yellow-600 dark:text-yellow-400' : ''"
+                    >
+                      {{ currentDrawdownPct.toFixed(1) }}%
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-muted">Risk:</span>
+                    <span class="font-medium">
+                      <template v-if="activeDrawdownThreshold">
+                        <span class="line-through text-muted">{{ positionSizingSettings.riskPercentage }}%</span>
+                        <span class="ml-1 text-warning">{{ effectiveRiskPercentage.toFixed(2) }}%</span>
+                      </template>
+                      <template v-else>
+                        {{ positionSizingSettings.riskPercentage }}%
+                      </template>
+                    </span>
+                  </div>
+                  <div class="flex justify-end">
+                    <UButton
+                      label="Reset Peak"
+                      size="xs"
+                      variant="soft"
+                      color="warning"
+                      icon="i-lucide-rotate-ccw"
+                      @click="isResetPeakModalOpen = true"
+                    />
+                  </div>
+                </div>
+
+                <!-- Drawdown Thresholds Display -->
+                <div v-if="positionSizingSettings.drawdownThresholds?.length" class="flex flex-wrap gap-2">
+                  <div
+                    v-for="t in sortedThresholds"
+                    :key="t.drawdownPercent"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border"
+                    :class="currentDrawdownPct >= t.drawdownPercent
+                      ? 'border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400'
+                      : 'border-default bg-muted/30 text-muted'"
+                  >
+                    <UIcon
+                      :name="currentDrawdownPct >= t.drawdownPercent ? 'i-lucide-alert-triangle' : 'i-lucide-shield'"
+                      class="size-3"
+                    />
+                    <span class="font-medium">{{ t.drawdownPercent }}%</span>
+                    <span>&rarr;</span>
+                    <span v-if="t.riskMultiplier === 0" class="font-semibold">HALT</span>
+                    <span v-else>{{ (positionSizingSettings.riskPercentage * t.riskMultiplier).toFixed(2) }}% risk</span>
+                  </div>
+                </div>
               </template>
-              <UInput
-                v-model.number="positionSizingSettings.nAtr"
-                type="number"
-                :min="0.5"
-                :max="10"
-                :step="0.5"
-              />
-            </UFormField>
-          </div>
-          <!-- Portfolio Utilization -->
-          <div class="space-y-1">
-            <div class="flex items-center justify-between text-xs text-muted">
-              <span>
-                Existing: ${{ existingCapitalDeployed.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
-                <template v-if="selectedCapital > 0">
-                  + Selected: ${{ selectedCapital.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
-                </template>
-              </span>
-              <span :class="portfolioUtilization > 100 ? 'text-red-500 font-semibold' : ''">
-                {{ portfolioUtilization.toFixed(1) }}% utilized
-              </span>
-            </div>
-            <div class="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-              <div
-                class="h-full rounded-full transition-all"
-                :class="portfolioUtilization > 100 ? 'bg-red-500' : portfolioUtilization > 80 ? 'bg-yellow-500' : 'bg-primary'"
-                :style="{ width: `${Math.min(portfolioUtilization, 100)}%` }"
-              />
-            </div>
-          </div>
-
-          <!-- Drawdown Scaling -->
-          <div class="flex items-center justify-between pt-2 border-t border-default">
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-shield-alert" class="w-4 h-4 text-muted" />
-              <span class="text-sm font-semibold">Drawdown Scaling</span>
-              <UTooltip text="Automatically reduces risk per trade when portfolio is in drawdown">
-                <UIcon name="i-lucide-info" class="size-3.5 text-muted" />
-              </UTooltip>
-            </div>
-            <USwitch v-model="positionSizingSettings.drawdownScalingEnabled" size="sm" />
-          </div>
-
-          <template v-if="positionSizingSettings.drawdownScalingEnabled">
-            <!-- Drawdown Alert -->
-            <UAlert
-              v-if="activeDrawdownThreshold"
-              :color="currentDrawdownPct >= 10 ? 'error' : 'warning'"
-              :title="`Drawdown: ${currentDrawdownPct.toFixed(1)}%`"
-              :description="`Risk scaled to ${effectiveRiskPercentage.toFixed(2)}% (${activeDrawdownThreshold.riskMultiplier}x of ${positionSizingSettings.riskPercentage}%)`"
-              icon="i-lucide-trending-down"
-            />
-
-            <!-- Drawdown Info Row -->
-            <div class="grid grid-cols-5 gap-4 text-sm items-center">
-              <div>
-                <span class="text-muted">Equity:</span>
-                <span class="ml-1 font-medium">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
-              </div>
-              <div>
-                <span class="text-muted">Peak:</span>
-                <span class="ml-1 font-medium">${{ (positionSizingSettings.peakEquity ?? positionSizingSettings.portfolioValue).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
-              </div>
-              <div>
-                <span class="text-muted">Drawdown:</span>
-                <span
-                  class="ml-1 font-medium"
-                  :class="currentDrawdownPct >= 10 ? 'text-red-600 dark:text-red-400' : currentDrawdownPct >= 5 ? 'text-yellow-600 dark:text-yellow-400' : ''"
-                >
-                  {{ currentDrawdownPct.toFixed(1) }}%
-                </span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-muted">Risk:</span>
-                <span class="font-medium">
-                  <template v-if="activeDrawdownThreshold">
-                    <span class="line-through text-muted">{{ positionSizingSettings.riskPercentage }}%</span>
-                    <span class="ml-1 text-warning">{{ effectiveRiskPercentage.toFixed(2) }}%</span>
-                  </template>
-                  <template v-else>
-                    {{ positionSizingSettings.riskPercentage }}%
-                  </template>
-                </span>
-              </div>
-              <div class="flex justify-end">
-                <UButton
-                  label="Reset Peak"
-                  size="xs"
-                  variant="soft"
-                  color="warning"
-                  icon="i-lucide-rotate-ccw"
-                  @click="isResetPeakModalOpen = true"
-                />
-              </div>
-            </div>
-
-            <!-- Drawdown Thresholds Display -->
-            <div v-if="positionSizingSettings.drawdownThresholds?.length" class="flex flex-wrap gap-2">
-              <div
-                v-for="t in sortedThresholds"
-                :key="t.drawdownPercent"
-                class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border"
-                :class="currentDrawdownPct >= t.drawdownPercent
-                  ? 'border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400'
-                  : 'border-default bg-muted/30 text-muted'"
-              >
-                <UIcon
-                  :name="currentDrawdownPct >= t.drawdownPercent ? 'i-lucide-alert-triangle' : 'i-lucide-shield'"
-                  class="size-3"
-                />
-                <span class="font-medium">{{ t.drawdownPercent }}%</span>
-                <span>&rarr;</span>
-                <span v-if="t.riskMultiplier === 0" class="font-semibold">HALT</span>
-                <span v-else>{{ (positionSizingSettings.riskPercentage * t.riskMultiplier).toFixed(2) }}% risk</span>
-              </div>
             </div>
           </template>
-        </div>
+        </UCollapsible>
         <div v-else class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-default">
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-calculator" class="w-4 h-4 text-muted" />
@@ -1033,12 +1071,12 @@ const tradesTableUi = computed(() => ({
           <template #results>
             <div class="pt-4">
               <div v-if="scanStatus === 'idle'" class="text-center py-12">
-                <UIcon name="i-lucide-scan-search" class="w-12 h-12 text-muted mb-3" />
+                <UIcon name="i-lucide-crosshair" class="w-12 h-12 text-muted mb-3" />
                 <p class="text-muted">
-                  Run a scan to find entry signals
+                  Scan the market to find new trade candidates
                 </p>
                 <UButton
-                  label="Configure Scan"
+                  label="Find Candidates"
                   variant="soft"
                   class="mt-3"
                   @click="isScanConfigModalOpen = true"
@@ -1048,7 +1086,7 @@ const tradesTableUi = computed(() => ({
               <div v-else-if="scanStatus === 'pending'" class="text-center py-12">
                 <UIcon name="i-lucide-loader-2" class="w-8 h-8 text-primary animate-spin mb-3" />
                 <p class="text-muted">
-                  Scanning stocks...
+                  Finding candidates...
                 </p>
               </div>
 
@@ -1094,8 +1132,8 @@ const tradesTableUi = computed(() => ({
                     No matches found
                   </p>
                   <UButton
-                    label="New Scan"
-                    icon="i-lucide-scan-search"
+                    label="Find Candidates"
+                    icon="i-lucide-crosshair"
                     variant="soft"
                     class="mt-3"
                     @click="isScanConfigModalOpen = true"
@@ -1106,7 +1144,7 @@ const tradesTableUi = computed(() => ({
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-semibold">Preferred Trades</span>
                     <UBadge variant="subtle" size="sm">
-                      {{ preferredResults.length }} of {{ availableSlots }} slots
+                      {{ preferredResults.length }} of {{ maxPositions }} max
                     </UBadge>
                   </div>
                   <ScannerScanResultsTable
@@ -1153,6 +1191,14 @@ const tradesTableUi = computed(() => ({
           <!-- Active Trades Tab -->
           <template #trades>
             <div class="pt-4">
+              <UAlert
+                v-if="exitTriggeredSymbols.length > 0"
+                color="error"
+                :title="`${exitTriggeredSymbols.length} exit signal${exitTriggeredSymbols.length > 1 ? 's' : ''} triggered`"
+                :description="`${exitTriggeredSymbols.join(', ')} — review and close`"
+                icon="i-lucide-alert-triangle"
+                class="mb-3"
+              />
               <div class="flex justify-end gap-2 mb-3">
                 <UButton
                   label="Export Watchlist"
@@ -1181,7 +1227,7 @@ const tradesTableUi = computed(() => ({
                   <div class="flex flex-col items-center justify-center py-8">
                     <UIcon name="i-lucide-inbox" class="w-10 h-10 text-muted mb-2" />
                     <p class="text-muted text-sm">
-                      No active scanner trades. Run a scan and add trades to track.
+                      No active trades. Find candidates and add trades to track.
                     </p>
                   </div>
                 </template>

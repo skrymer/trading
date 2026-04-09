@@ -420,6 +420,7 @@ class ScannerService(
 
     val exitReport = exitStrategy.test(stock, entryQuote, latestQuote, backtestContext)
     val currentPrice = latestQuote.closePrice
+    val priorClose = lastDbQuote.closePrice
     val pnlPercent = if (trade.entryPrice != 0.0) {
       ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
     } else {
@@ -434,6 +435,12 @@ class ScannerService(
     } else {
       (currentPrice - trade.entryPrice) * trade.quantity
     }
+    val dailyPnlDollars = if (trade.instrumentType == InstrumentType.OPTION) {
+      val delta = trade.delta ?: DEFAULT_OPTION_DELTA
+      (currentPrice - priorClose) * delta * trade.quantity * trade.multiplier
+    } else {
+      (currentPrice - priorClose) * trade.quantity
+    }
 
     return ExitCheckResult(
       tradeId = trade.id ?: 0,
@@ -441,8 +448,10 @@ class ScannerService(
       exitTriggered = exitReport.match,
       exitReason = exitReport.exitReason,
       currentPrice = currentPrice,
+      priorClose = priorClose,
       unrealizedPnlPercent = pnlPercent,
       unrealizedPnlDollars = pnlDollars,
+      dailyPnlDollars = dailyPnlDollars,
       usedLiveData = usedLiveData,
     )
   }

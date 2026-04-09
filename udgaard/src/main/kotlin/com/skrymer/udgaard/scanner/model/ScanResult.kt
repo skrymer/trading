@@ -67,8 +67,10 @@ data class ExitCheckResult(
   val exitTriggered: Boolean,
   val exitReason: String?,
   val currentPrice: Double,
+  val priorClose: Double,
   val unrealizedPnlPercent: Double,
   val unrealizedPnlDollars: Double,
+  val dailyPnlDollars: Double,
   val usedLiveData: Boolean = false,
 )
 

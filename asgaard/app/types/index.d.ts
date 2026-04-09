@@ -1188,8 +1188,10 @@ export interface ExitCheckResult {
   exitTriggered: boolean
   exitReason?: string
   currentPrice: number
+  priorClose: number
   unrealizedPnlPercent: number
   unrealizedPnlDollars: number
+  dailyPnlDollars: number
   usedLiveData?: boolean
 }
 
