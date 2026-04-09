@@ -7,6 +7,7 @@ import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResp
 // State
 const scanResponse = ref<ScanResponse | null>(null)
 const trades = ref<ScannerTrade[]>([])
+const sortedTrades = computed(() => [...trades.value].sort((a, b) => a.symbol.localeCompare(b.symbol)))
 const exitResults = ref<Map<number, ExitCheckResult>>(new Map())
 const scanStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const exitCheckStatus = ref<'idle' | 'pending'>('idle')
@@ -57,7 +58,6 @@ const optionContracts = ref<Map<string, OptionContractResponse>>(new Map())
 const optionFetchStatus = ref<'idle' | 'pending'>('idle')
 
 const toast = useToast()
-const NuxtLink = resolveComponent('NuxtLink')
 
 const isOptionsMode = computed(() => positionSizingSettings.value.instrumentMode === 'OPTION')
 
@@ -339,6 +339,17 @@ async function fetchOptionContracts(results: ScanResult[]) {
   }
 }
 
+function downloadWatchlist() {
+  const symbols = trades.value.map(t => t.symbol).join('\n')
+  const blob = new Blob([symbols + '\n'], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'tradingview_watchlist.txt'
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 async function checkExits() {
   exitCheckStatus.value = 'pending'
   try {
@@ -585,11 +596,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     id: 'symbol',
     header: 'Symbol',
     cell: ({ row }) => h('div', { class: 'flex items-center gap-1.5' }, [
-      h(NuxtLink, {
-        to: `/stock-data/${row.original.symbol.toLowerCase()}`,
-        target: '_blank',
-        class: 'font-semibold text-primary hover:underline'
-      }, () => row.original.symbol),
+      h(resolveComponent('SymbolLink'), { symbol: row.original.symbol }),
       h(resolveComponent('UButton'), {
         icon: 'i-lucide-info',
         size: 'xs',
@@ -605,11 +612,6 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
   },
   {
-    id: 'quantity',
-    header: 'Qty',
-    cell: ({ row }) => row.original.quantity.toLocaleString()
-  },
-  {
     id: 'currentPrice',
     header: 'Current Price',
     cell: ({ row }) => {
@@ -617,6 +619,23 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
       if (!result) return '-'
       return `$${result.currentPrice.toFixed(2)}`
     }
+  },
+  {
+    id: 'value',
+    header: 'Value',
+    cell: ({ row }) => {
+      const result = exitResults.value.get(row.original.id)
+      if (!result) return '-'
+      const trade = row.original
+      const multiplier = trade.instrumentType === 'OPTION' ? (trade.multiplier || 100) : 1
+      const value = result.currentPrice * trade.quantity * multiplier
+      return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+    }
+  },
+  {
+    id: 'quantity',
+    header: 'Qty',
+    cell: ({ row }) => row.original.quantity.toLocaleString()
   },
   {
     id: 'optionPrice',
@@ -724,11 +743,7 @@ const closedTradeColumns: TableColumn<ScannerTrade>[] = [
   {
     id: 'symbol',
     header: 'Symbol',
-    cell: ({ row }) => h(NuxtLink, {
-      to: `/stock-data/${row.original.symbol.toLowerCase()}`,
-      target: '_blank',
-      class: 'font-semibold text-primary hover:underline'
-    }, () => row.original.symbol)
+    cell: ({ row }) => h(resolveComponent('SymbolLink'), { symbol: row.original.symbol })
   },
   {
     id: 'instrumentType',
@@ -1138,7 +1153,15 @@ const tradesTableUi = computed(() => ({
           <!-- Active Trades Tab -->
           <template #trades>
             <div class="pt-4">
-              <div class="flex justify-end mb-3">
+              <div class="flex justify-end gap-2 mb-3">
+                <UButton
+                  label="Export Watchlist"
+                  icon="i-lucide-download"
+                  variant="soft"
+                  size="sm"
+                  :disabled="trades.length === 0"
+                  @click="downloadWatchlist"
+                />
                 <UButton
                   label="Check Status"
                   icon="i-lucide-shield-alert"
@@ -1150,7 +1173,7 @@ const tradesTableUi = computed(() => ({
                 />
               </div>
               <UTable
-                :data="trades"
+                :data="sortedTrades"
                 :columns="tradeColumns"
                 :ui="tradesTableUi"
               >

@@ -20,7 +20,6 @@ const expanded = ref<Record<number, boolean>>({})
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
-const NuxtLink = resolveComponent('NuxtLink')
 
 const columns: TableColumn<NearMissCandidate>[] = [
   {
@@ -41,11 +40,7 @@ const columns: TableColumn<NearMissCandidate>[] = [
   {
     id: 'symbol',
     header: 'Symbol',
-    cell: ({ row }) => h(NuxtLink, {
-      to: `/stock-data/${row.original.symbol.toLowerCase()}`,
-      target: '_blank',
-      class: 'font-semibold text-primary hover:underline'
-    }, () => row.original.symbol)
+    cell: ({ row }) => h(resolveComponent('SymbolLink'), { symbol: row.original.symbol })
   },
   {
     id: 'sector',

@@ -26,5 +26,7 @@ data class FinnhubQuoteResponse(
             changePercent = changePercent ?: 0.0,
             volume = 0L,
             timestamp = timestamp,
+            high = highPrice,
+            low = lowPrice,
         )
 }

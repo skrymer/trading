@@ -637,9 +637,19 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(entryQuote, lastQuote))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
 
-    // Live price = 155.0 (moved up from 150.0)
+    // Live quote: price=155, high=157, low=153 (moved up from 150.0)
     whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 155.0, 150.0, 5.0, 3.33, 2000000, System.currentTimeMillis()),
+      MidgaardLatestQuoteDto(
+        "AAPL",
+        155.0,
+        150.0,
+        5.0,
+        3.33,
+        2000000,
+        System.currentTimeMillis(),
+        high = 157.0,
+        low = 153.0
+      ),
     )
     whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
 
@@ -654,6 +664,8 @@ class ScannerServiceTest {
     val syntheticQuote = quoteCaptor.firstValue
     assertEquals(LocalDate.now(), syntheticQuote.date)
     assertEquals(155.0, syntheticQuote.closePrice)
+    assertEquals(157.0, syntheticQuote.high)
+    assertEquals(153.0, syntheticQuote.low)
 
     // EMA5: (155 - 149) * (2/6) + 149 = 6 * 0.3333 + 149 = 151.0
     assertEquals(151.0, syntheticQuote.closePriceEMA5, 0.01)
@@ -662,11 +674,12 @@ class ScannerServiceTest {
     // EMA20: (155 - 145) * (2/21) + 145 = 10 * 0.0952 + 145 = 145.952
     assertEquals(145.95, syntheticQuote.closePriceEMA20, 0.01)
 
-    // ATR: ((3.0 * 13) + |155 - 150|) / 14 = (39 + 5) / 14 = 3.1429
-    assertEquals(3.14, syntheticQuote.atr, 0.01)
+    // ATR: TR = max(157-153, |157-150|, |153-150|) = max(4, 7, 3) = 7
+    // ATR = ((3.0 * 13) + 7) / 14 = 46 / 14 = 3.2857
+    assertEquals(3.29, syntheticQuote.atr, 0.01)
 
-    // Donchian: max of recent highs (152.0) and live price (155.0) = 155.0
-    assertEquals(155.0, syntheticQuote.donchianUpperBand)
+    // Donchian: max of recent highs (152.0) and live high (157.0) = 157.0
+    assertEquals(157.0, syntheticQuote.donchianUpperBand)
 
     assertEquals("Uptrend", syntheticQuote.trend)
     verify(technicalIndicatorService).determineTrend(any())
@@ -751,6 +764,98 @@ class ScannerServiceTest {
     assertEquals(0.0, syntheticQuote.ema200)
     // Non-zero EMA5 is updated normally
     assertEquals(151.0, syntheticQuote.closePriceEMA5, 0.01)
+  }
+
+  @Test
+  fun `checkExits fetches live quotes concurrently for multiple symbols`() {
+    // Given: two trades with different symbols
+    val trade1 = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    val trade2 = createScannerTrade(id = 2, symbol = "MSFT", entryPrice = 200.0)
+      .copy(symbol = "MSFT")
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade1, trade2))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val aaplQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 100.0)
+    val msftQuote = StockQuote(symbol = "MSFT", date = LocalDate.now(), closePrice = 200.0)
+    val aaplStock = Stock(symbol = "AAPL", quotes = listOf(aaplQuote))
+    val msftStock = Stock(symbol = "MSFT", quotes = listOf(msftQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(aaplStock, msftStock))
+
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 110.0, 100.0, 10.0, 10.0, 1000000, System.currentTimeMillis()),
+    )
+    whenever(midgaardClient.getLatestQuote("MSFT")).thenReturn(
+      MidgaardLatestQuoteDto("MSFT", 210.0, 200.0, 10.0, 5.0, 2000000, System.currentTimeMillis()),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    val response = service.checkExits()
+
+    // Then: both symbols fetched and results returned
+    assertEquals(2, response.checksPerformed)
+    val results = response.results.associateBy { it.symbol }
+    assertEquals(110.0, results["AAPL"]?.currentPrice)
+    assertEquals(210.0, results["MSFT"]?.currentPrice)
+    assertTrue(results.values.all { it.usedLiveData })
+  }
+
+  @Test
+  fun `getDrawdownStats uses live quotes for unrealized PnL`() {
+    // Given: one open trade, no closed trades
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+    whenever(scannerTradeRepository.findClosed()).thenReturn(emptyList())
+
+    val dbQuote = StockQuote(symbol = "AAPL", date = LocalDate.now().minusDays(1), closePrice = 105.0)
+    val stock = Stock(symbol = "AAPL", quotes = listOf(dbQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live price is 110 (higher than DB close of 105)
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
+      MidgaardLatestQuoteDto("AAPL", 110.0, 105.0, 5.0, 4.76, 1000000, System.currentTimeMillis()),
+    )
+    whenever(settingsService.getPositionSizingSettings()).thenReturn(
+      com.skrymer.udgaard.controller.dto
+        .PositionSizingSettingsDto(portfolioValue = 100000.0),
+    )
+
+    // When
+    val stats = service.getDrawdownStats()
+
+    // Then: unrealized P&L uses live price (110 - 100) * 100 = 1000, not DB price (105 - 100) * 100 = 500
+    assertEquals(1000.0, stats.totalUnrealizedPnl)
+    assertEquals(101000.0, stats.currentEquity)
+  }
+
+  @Test
+  fun `getDrawdownStats falls back to DB quote when live quote unavailable`() {
+    // Given: one open trade, live quote fails
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+    whenever(scannerTradeRepository.findClosed()).thenReturn(emptyList())
+
+    val dbQuote = StockQuote(symbol = "AAPL", date = LocalDate.now().minusDays(1), closePrice = 105.0)
+    val stock = Stock(symbol = "AAPL", quotes = listOf(dbQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live quote returns null (API unavailable)
+    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(null)
+    whenever(settingsService.getPositionSizingSettings()).thenReturn(
+      com.skrymer.udgaard.controller.dto
+        .PositionSizingSettingsDto(portfolioValue = 100000.0),
+    )
+
+    // When
+    val stats = service.getDrawdownStats()
+
+    // Then: falls back to DB price (105 - 100) * 100 = 500
+    assertEquals(500.0, stats.totalUnrealizedPnl)
+    assertEquals(100500.0, stats.currentEquity)
   }
 
   private fun createScannerTrade(

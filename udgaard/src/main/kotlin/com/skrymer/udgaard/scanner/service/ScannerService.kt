@@ -448,15 +448,21 @@ class ScannerService(
   }
 
   private fun fetchLiveQuotes(symbols: List<String>): Map<String, MidgaardLatestQuoteDto> =
-    symbols
-      .mapNotNull { symbol ->
-        try {
-          midgaardClient.getLatestQuote(symbol)?.let { symbol to it }
-        } catch (e: Exception) {
-          logger.warn("Failed to fetch live quote for $symbol: ${e.message}")
-          null
-        }
-      }.toMap()
+    runBlocking(Dispatchers.IO) {
+      symbols
+        .map { symbol ->
+          async {
+            try {
+              midgaardClient.getLatestQuote(symbol)?.let { symbol to it }
+            } catch (e: Exception) {
+              logger.warn("Failed to fetch live quote for $symbol: ${e.message}")
+              null
+            }
+          }
+        }.awaitAll()
+        .filterNotNull()
+        .toMap()
+    }
 
   private fun createSyntheticQuote(
     lastDbQuote: StockQuote,
@@ -472,22 +478,26 @@ class ScannerService(
       return (price - prevEma) * k + prevEma
     }
 
-    // Approximate true range using |price - prevClose| (no intraday high/low available)
-    val approximateTR = abs(price - lastDbQuote.closePrice)
+    val high = if (liveQuote.high > 0) liveQuote.high else price
+    val low = if (liveQuote.low > 0) liveQuote.low else price
+    val prevClose = lastDbQuote.closePrice
+    val trueRange = maxOf(high - low, abs(high - prevClose), abs(low - prevClose))
     val newAtr = if (lastDbQuote.atr > 0) {
-      ((lastDbQuote.atr * (ATR_PERIOD - 1)) + approximateTR) / ATR_PERIOD
+      ((lastDbQuote.atr * (ATR_PERIOD - 1)) + trueRange) / ATR_PERIOD
     } else {
       lastDbQuote.atr
     }
 
     val donchianUpper = maxOf(
       stock.quotes.takeLast(DONCHIAN_PERIOD - 1).maxOfOrNull { it.high } ?: 0.0,
-      price,
+      high,
     )
 
     val syntheticQuote = lastDbQuote.copy(
       date = LocalDate.now(),
       closePrice = price,
+      high = high,
+      low = low,
       volume = liveQuote.volume,
     )
     syntheticQuote.closePriceEMA5 = incrementalEma(lastDbQuote.closePriceEMA5, 5)
@@ -652,12 +662,14 @@ class ScannerService(
     if (openTrades.isEmpty()) return 0.0
 
     val symbols = openTrades.map { it.symbol }.distinct()
+    val liveQuotesBySymbol = fetchLiveQuotes(symbols)
     val quotesAfter = LocalDate.now().minusDays(90)
     val stocksBySymbol = stockRepository.findBySymbols(symbols, quotesAfter = quotesAfter).associateBy { it.symbol }
 
     return openTrades.sumOf { trade ->
-      val latestQuote = stocksBySymbol[trade.symbol]?.quotes?.lastOrNull() ?: return@sumOf 0.0
-      val currentPrice = latestQuote.closePrice
+      val currentPrice = liveQuotesBySymbol[trade.symbol]?.price
+        ?: stocksBySymbol[trade.symbol]?.quotes?.lastOrNull()?.closePrice
+        ?: return@sumOf 0.0
       if (trade.instrumentType == InstrumentType.OPTION) {
         val delta = trade.delta ?: DEFAULT_OPTION_DELTA
         val stockPriceChange = currentPrice - trade.entryPrice

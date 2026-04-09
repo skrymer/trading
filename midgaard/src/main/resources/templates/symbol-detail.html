@@ -62,6 +62,7 @@
             <th>High</th>
             <th>Low</th>
             <th>Close</th>
+            <th>Volume</th>
             <th>ATR</th>
             <th>ADX</th>
             <th>EMA20</th>
@@ -76,6 +77,7 @@
             <td th:text="${q.high}">0.00</td>
             <td th:text="${q.low}">0.00</td>
             <td th:text="${q.close}">0.00</td>
+            <td th:text="${#numbers.formatInteger(q.volume, 1, 'COMMA')}">0</td>
             <td th:text="${q.atr ?: '-'}">-</td>
             <td th:text="${q.adx ?: '-'}">-</td>
             <td th:text="${q.ema20 ?: '-'}">-</td>

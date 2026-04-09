@@ -1,4 +1,8 @@
-# Pre-Commit Checks
+---
+name: pre-commit
+description: Run pre-commit checks for changed projects (udgaard, midgaard, asgaard) and verify CLAUDE.md files. Use before committing code changes.
+disable-model-invocation: true
+---
 
 Run all code quality checks before committing. Only run checks for projects that have changes. This ensures backend tests, linting, static analysis, frontend validation all pass, and documentation is up to date.
 
@@ -65,7 +69,7 @@ If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** s
 
 - All checks for changed projects MUST pass before committing
 - Docker must be running for backend tests (TestContainers)
-- Follow the clean code principles defined in `.claude/skills/clean_code.md` — review changed code for SRP, DRY, KISS, clear naming, small functions, guard clauses, and no unnecessary comments before committing
+- Follow the clean code principles defined in `.claude/skills/clean-code/SKILL.md` — review changed code for SRP, DRY, KISS, clear naming, small functions, guard clauses, and no unnecessary comments before committing
 - **Test coverage for new functionality:** Any new or significantly changed logic MUST have test coverage. This includes:
   - New public service methods or controller endpoints
   - New private methods with non-trivial logic (complex calculations, branching, data transformations)

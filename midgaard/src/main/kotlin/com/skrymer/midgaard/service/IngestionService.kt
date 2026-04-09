@@ -80,13 +80,15 @@ class IngestionService(
             if (freshBars == null) {
                 IngestionResult(symbol, true, 0, "No new bars available")
             } else {
-                val seedQuotes = quoteRepository.getLastNQuotes(symbol, SEED_LOOKBACK)
+                val allSeedQuotes = quoteRepository.getLastNQuotes(symbol, SEED_LOOKBACK)
+                val firstFreshDate = freshBars.minOf { it.date }
+                val seedQuotes = allSeedQuotes.filter { it.date.isBefore(firstFreshDate) }
                 if (seedQuotes.isEmpty()) {
                     IngestionResult(symbol, false, message = "No seed data for indicators")
                 } else {
                     val quotes = buildUpdateQuotes(seedQuotes, freshBars)
                     quoteRepository.upsertQuotes(quotes)
-                    logger.info("Saved ${quotes.size} new quotes for $symbol")
+                    logger.info("Upserted ${quotes.size} quotes for $symbol")
                     val totalCount = quoteRepository.countBySymbol(symbol)
                     updateStatus(symbol, totalCount, quotes.maxByOrNull { it.date }?.date, IngestionState.COMPLETE)
                     IngestionResult(symbol, true, quotes.size)
@@ -190,11 +192,12 @@ class IngestionService(
             logger.warn("No existing data for $symbol, use initialIngest instead")
             return null
         }
+        val fetchFrom = lastBarDate.minusDays(OVERLAP_DAYS)
         rateLimiterService.acquirePermit("massive")
         val freshBars =
             massiveOhlcv
-                .getDailyBars(symbol, "compact", lastBarDate.minusDays(5))
-                ?.filter { it.date.isAfter(lastBarDate) }
+                .getDailyBars(symbol, "compact", fetchFrom)
+                ?.filter { !it.date.isBefore(fetchFrom) }
                 ?.ifEmpty { null }
         if (freshBars == null) logger.info("No new bars for $symbol")
         return freshBars
@@ -306,6 +309,7 @@ class IngestionService(
         private val logger = LoggerFactory.getLogger(IngestionService::class.java)
         private val MIN_DATE: LocalDate = LocalDate.of(2000, 1, 1)
         private const val SEED_LOOKBACK = 250
+        private const val OVERLAP_DAYS = 5L
         private const val BULK_UPDATE_PARALLELISM = 10
     }
 }

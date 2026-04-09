@@ -119,4 +119,6 @@ data class LatestQuote(
     val changePercent: Double,
     val volume: Long,
     val timestamp: Long,
+    val high: Double = 0.0,
+    val low: Double = 0.0,
 )

@@ -101,6 +101,7 @@ asgaard/
 │   │   │   ├── StrategySelector.vue
 │   │   │   └── ConditionCard.vue
 │   │   ├── StockPriceChart.client.vue  # Standalone stock chart
+│   │   ├── SymbolLink.vue        # Symbol link with NuxtLink + TradingView link
 │   │   ├── SymbolSearch.vue      # Symbol search autocomplete
 │   │   ├── UserMenu.vue          # User menu dropdown
 │   │   ├── ConditionConfigModal.vue   # Condition configuration modal

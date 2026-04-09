@@ -4,6 +4,7 @@ import com.skrymer.midgaard.integration.QuoteProvider
 import com.skrymer.midgaard.integration.finnhub.dto.FinnhubQuoteResponse
 import com.skrymer.midgaard.model.LatestQuote
 import com.skrymer.midgaard.service.ApiKeyService
+import com.skrymer.midgaard.service.RateLimiterService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -16,6 +17,7 @@ import java.time.Duration
 @Component
 class FinnhubProvider(
     private val apiKeyService: ApiKeyService,
+    private val rateLimiterService: RateLimiterService,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val baseUrl: String,
 ) : QuoteProvider {
     private val apiKey: String get() = apiKeyService.getFinnhubApiKey()
@@ -31,8 +33,9 @@ class FinnhubProvider(
             ).build()
     }
 
-    override suspend fun getLatestQuote(symbol: String): LatestQuote? =
-        withContext(Dispatchers.IO) {
+    override suspend fun getLatestQuote(symbol: String): LatestQuote? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response =
                     restClient
@@ -54,8 +57,10 @@ class FinnhubProvider(
                 logger.error("Failed to fetch latest quote from Finnhub for $symbol: ${e.message}")
             }.getOrNull()
         }
+    }
 
     companion object {
         private val logger = LoggerFactory.getLogger(FinnhubProvider::class.java)
+        private const val PROVIDER_ID = "finnhub"
     }
 }

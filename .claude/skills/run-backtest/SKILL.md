@@ -1,6 +1,7 @@
 ---
 name: run-backtest
-description: This skill shows how to run backtests using the apis and how to verify backtest results using monte carlo simulations
+description: Run backtests using the Udgaard API, analyze results, run Monte Carlo simulations, and walk-forward validation. Use when the user asks to backtest a strategy or analyze trading performance.
+argument-hint: "[strategy-name] [options]"
 ---
 
 # Run Trading Backtest
