@@ -10,6 +10,8 @@ const portfolios = ref<Portfolio[]>([])
 const stats = ref<PortfolioStats | null>(null)
 const openPositions = ref<Position[]>([])
 const closedPositions = ref<Position[]>([])
+const sortedOpenPositions = computed(() => [...openPositions.value].sort((a, b) => b.openedDate.localeCompare(a.openedDate)))
+const sortedClosedPositions = computed(() => [...closedPositions.value].sort((a, b) => (b.closedDate ?? '').localeCompare(a.closedDate ?? '')))
 const equityCurveData = ref<EquityCurveData | null>(null)
 const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const isLoadingPortfolios = ref(true)
@@ -1333,7 +1335,7 @@ const forexDisposalColumns = [
               <div v-if="openPositions.length === 0" class="text-center py-8 text-gray-500">
                 No open positions
               </div>
-              <UTable v-else :data="openPositions" :columns="openPositionsColumns" />
+              <UTable v-else :data="sortedOpenPositions" :columns="openPositionsColumns" />
             </UCard>
           </template>
 
@@ -1368,7 +1370,7 @@ const forexDisposalColumns = [
               <div v-if="closedPositions.length === 0" class="text-center py-8 text-gray-500">
                 No closed positions
               </div>
-              <UTable v-else :data="closedPositions" :columns="closedPositionsColumns" />
+              <UTable v-else :data="sortedClosedPositions" :columns="closedPositionsColumns" />
             </UCard>
           </template>
 

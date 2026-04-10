@@ -26,7 +26,7 @@ class CacheConfig {
       "backtestResults",
       Caffeine
         .newBuilder()
-        .maximumSize(10)
+        .maximumSize(1)
         .expireAfterAccess(1, TimeUnit.HOURS)
         .recordStats()
         .build(),

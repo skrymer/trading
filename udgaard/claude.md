@@ -72,8 +72,8 @@ udgaard/
 │   │   │   ├── BreadthController.kt
 │   │   │   └── DataManagementController.kt
 │   │   ├── integration/              # External API integrations
-│   │   │   ├── StockProvider.kt      # Interface for OHLCV data
-│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators from Midgaard service
+│   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes (LatestQuote, getLatestQuote, getLatestQuotes)
+│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators from Midgaard service (implements StockProvider)
 │   │   │   │   ├── MidgaardClient.kt
 │   │   │   │   └── dto/
 │   │   │   └── ovtlyr/              # Legacy (being removed)
@@ -142,7 +142,7 @@ udgaard/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/
 │   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt)
-│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
+│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   ├── repository/
 │   │   │   └── ScannerTradeJooqRepository.kt
 │   │   └── service/

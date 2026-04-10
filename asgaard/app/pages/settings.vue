@@ -106,8 +106,8 @@
                 <UFormField>
                   <template #label>
                     <span class="flex items-center gap-1">
-                      Portfolio Value ($)
-                      <UTooltip text="Total capital allocated for trading. Used to calculate dollar risk and position sizes.">
+                      Starting Capital ($)
+                      <UTooltip text="Initial capital allocated for trading. Used to calculate dollar risk and position sizes.">
                         <UIcon name="i-lucide-info" class="size-3.5 text-muted cursor-help" />
                       </UTooltip>
                     </span>

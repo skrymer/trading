@@ -47,13 +47,13 @@
                     Analyze edge consistency, sector performance, excursion metrics, and exit reason breakdowns.
                   </p>
                 </NuxtLink>
-                <NuxtLink to="/scanner" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
+                <NuxtLink to="/mission-control" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
                   <h4 class="font-semibold mb-2">
-                    Scanner
+                    Mission Control
                   </h4>
                   <p class="text-sm text-muted">
-                    Scan for live entry signals across the market. ATR-based position sizing, drawdown-responsive
-                    risk scaling, option contract lookup, and automated exit monitoring.
+                    Manage active trades, monitor exits, and find new candidates. ATR-based position sizing,
+                    drawdown-responsive risk scaling, and automated exit monitoring.
                   </p>
                 </NuxtLink>
                 <NuxtLink to="/portfolio" class="p-4 bg-elevated rounded-lg hover:bg-muted/50 transition-colors block no-underline">
@@ -115,12 +115,12 @@
               Start Backtesting
             </UButton>
             <UButton
-              to="/scanner"
+              to="/mission-control"
               size="lg"
               variant="outline"
-              icon="i-lucide-scan"
+              icon="i-lucide-radar"
             >
-              Open Scanner
+              Mission Control
             </UButton>
           </div>
         </div>

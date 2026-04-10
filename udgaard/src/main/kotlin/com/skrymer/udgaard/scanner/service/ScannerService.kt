@@ -11,8 +11,8 @@ import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.RandomRanker
 import com.skrymer.udgaard.backtesting.strategy.RankerFactory
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
-import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
-import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
+import com.skrymer.udgaard.data.integration.LatestQuote
+import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -129,7 +129,7 @@ class ScannerService(
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
   private val settingsService: SettingsService,
-  private val midgaardClient: MidgaardClient,
+  private val stockProvider: StockProvider,
   private val technicalIndicatorService: TechnicalIndicatorService,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
@@ -177,6 +177,7 @@ class ScannerService(
 
     return ScanResponse(
       scanDate = scanDate,
+      latestDataDate = currentMarketDate,
       entryStrategyName = request.entryStrategyName,
       exitStrategyName = request.exitStrategyName,
       results = rankedResults,
@@ -276,7 +277,7 @@ class ScannerService(
         .findBySymbols(uniqueSymbols, quotesAfter = quotesAfter)
         .associateBy { it.symbol }
 
-    val liveQuotesBySymbol = fetchLiveQuotes(uniqueSymbols)
+    val liveQuotesBySymbol = stockProvider.getLatestQuotes(uniqueSymbols)
     logger.info("Fetched live quotes for ${liveQuotesBySymbol.size}/${uniqueSymbols.size} symbols")
 
     val results = trades.mapNotNull { trade ->
@@ -310,7 +311,7 @@ class ScannerService(
       .findBySymbols(symbols, quotesAfter = quotesAfter)
       .associateBy { it.symbol }
 
-    val liveQuotesBySymbol = fetchLiveQuotes(symbols)
+    val liveQuotesBySymbol = stockProvider.getLatestQuotes(symbols)
     logger.info("Validate entries: fetched live quotes for ${liveQuotesBySymbol.size}/${symbols.size} symbols")
 
     val results = symbols.mapNotNull { symbol ->
@@ -341,7 +342,7 @@ class ScannerService(
   private fun validateSingleEntry(
     symbol: String,
     stocksBySymbol: Map<String, Stock>,
-    liveQuotesBySymbol: Map<String, MidgaardLatestQuoteDto>,
+    liveQuotesBySymbol: Map<String, LatestQuote>,
     entryStrategy: EntryStrategy,
     exitStrategy: ExitStrategy,
     backtestContext: BacktestContext,
@@ -392,7 +393,7 @@ class ScannerService(
   private fun evaluateTradeExit(
     trade: ScannerTrade,
     stocksBySymbol: Map<String, Stock>,
-    liveQuotesBySymbol: Map<String, MidgaardLatestQuoteDto>,
+    liveQuotesBySymbol: Map<String, LatestQuote>,
     backtestContext: BacktestContext,
   ): ExitCheckResult? {
     val exitStrategy = strategyRegistry.createExitStrategy(trade.exitStrategyName)
@@ -408,6 +409,7 @@ class ScannerService(
     }
 
     val lastDbQuote = stock.quotes.lastOrNull() ?: return null
+    val previousDayQuote = stock.quotes.getOrNull(stock.quotes.size - 2)
     val entryQuote = stock.quotes.find { it.date == trade.entryDate }
 
     val liveQuote = liveQuotesBySymbol[trade.symbol]
@@ -420,20 +422,14 @@ class ScannerService(
 
     val exitReport = exitStrategy.test(stock, entryQuote, latestQuote, backtestContext)
     val currentPrice = latestQuote.closePrice
+    val priorClose = if (usedLiveData) lastDbQuote.closePrice else previousDayQuote?.closePrice ?: lastDbQuote.closePrice
     val pnlPercent = if (trade.entryPrice != 0.0) {
       ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
     } else {
       0.0
     }
-    // Unrealized P&L for options uses delta-based approximation from stock price change
-    // since live option prices are not available. Realized P&L in closeTrade() uses actual option prices.
-    val pnlDollars = if (trade.instrumentType == InstrumentType.OPTION) {
-      val delta = trade.delta ?: DEFAULT_OPTION_DELTA
-      val stockPriceChange = currentPrice - trade.entryPrice
-      stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
-    } else {
-      (currentPrice - trade.entryPrice) * trade.quantity
-    }
+    val pnlDollars = calculatePnlDollars(trade, currentPrice - trade.entryPrice, includeRolledCredits = true)
+    val dailyPnlDollars = calculatePnlDollars(trade, currentPrice - priorClose)
 
     return ExitCheckResult(
       tradeId = trade.id ?: 0,
@@ -441,32 +437,17 @@ class ScannerService(
       exitTriggered = exitReport.match,
       exitReason = exitReport.exitReason,
       currentPrice = currentPrice,
+      priorClose = priorClose,
       unrealizedPnlPercent = pnlPercent,
       unrealizedPnlDollars = pnlDollars,
+      dailyPnlDollars = dailyPnlDollars,
       usedLiveData = usedLiveData,
     )
   }
 
-  private fun fetchLiveQuotes(symbols: List<String>): Map<String, MidgaardLatestQuoteDto> =
-    runBlocking(Dispatchers.IO) {
-      symbols
-        .map { symbol ->
-          async {
-            try {
-              midgaardClient.getLatestQuote(symbol)?.let { symbol to it }
-            } catch (e: Exception) {
-              logger.warn("Failed to fetch live quote for $symbol: ${e.message}")
-              null
-            }
-          }
-        }.awaitAll()
-        .filterNotNull()
-        .toMap()
-    }
-
   private fun createSyntheticQuote(
     lastDbQuote: StockQuote,
-    liveQuote: MidgaardLatestQuoteDto,
+    liveQuote: LatestQuote,
     stock: Stock,
   ): StockQuote {
     val price = liveQuote.price
@@ -662,7 +643,7 @@ class ScannerService(
     if (openTrades.isEmpty()) return 0.0
 
     val symbols = openTrades.map { it.symbol }.distinct()
-    val liveQuotesBySymbol = fetchLiveQuotes(symbols)
+    val liveQuotesBySymbol = stockProvider.getLatestQuotes(symbols)
     val quotesAfter = LocalDate.now().minusDays(90)
     val stocksBySymbol = stockRepository.findBySymbols(symbols, quotesAfter = quotesAfter).associateBy { it.symbol }
 
@@ -670,13 +651,7 @@ class ScannerService(
       val currentPrice = liveQuotesBySymbol[trade.symbol]?.price
         ?: stocksBySymbol[trade.symbol]?.quotes?.lastOrNull()?.closePrice
         ?: return@sumOf 0.0
-      if (trade.instrumentType == InstrumentType.OPTION) {
-        val delta = trade.delta ?: DEFAULT_OPTION_DELTA
-        val stockPriceChange = currentPrice - trade.entryPrice
-        stockPriceChange * delta * trade.quantity * trade.multiplier + trade.rolledCredits
-      } else {
-        (currentPrice - trade.entryPrice) * trade.quantity
-      }
+      calculatePnlDollars(trade, currentPrice - trade.entryPrice, includeRolledCredits = true)
     }
   }
 
@@ -740,6 +715,14 @@ class ScannerService(
     private const val MAX_VALIDATE_SYMBOLS = 30
     private const val ATR_PERIOD = 14
     private const val DONCHIAN_PERIOD = 5
+
+    private fun calculatePnlDollars(trade: ScannerTrade, priceChange: Double, includeRolledCredits: Boolean = false): Double =
+      if (trade.instrumentType == InstrumentType.OPTION) {
+        val delta = trade.delta ?: DEFAULT_OPTION_DELTA
+        priceChange * delta * trade.quantity * trade.multiplier + if (includeRolledCredits) trade.rolledCredits else 0.0
+      } else {
+        priceChange * trade.quantity
+      }
 
     private fun toScanResult(stock: Stock, quote: StockQuote, details: EntrySignalDetails?) =
       ScanResult(

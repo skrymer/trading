@@ -1,0 +1,236 @@
+// This Pine Script source code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+
+//@version=6
+indicator("VCP Exit Strategy", overlay=true, max_labels_count=500)
+
+// === SHARED EXIT PARAMETERS ===
+atrMult   = input.float(2.5,   "Stop Loss ATR Multiplier", minval=0.5, maxval=5.0, group="Exit Parameters")
+fastLen   = input.int(10,      "Fast EMA Length",          minval=2,               group="Exit Parameters")
+slowLen   = input.int(20,      "Slow EMA Length",          minval=2,               group="Exit Parameters")
+stagnPct  = input.float(3.0,   "Stagnation Threshold (%)", minval=0.0,             group="Exit Parameters")
+stagnDays = input.int(15,      "Stagnation Window (bars)",  minval=1,              group="Exit Parameters")
+
+// === POSITION INPUTS (15 slots with symbol matching) ===
+// Generated from scanner active trades on 2026-04-07
+p1Sym   = input.string("FLY",  "Symbol", group="Position 1")
+p1Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 1")
+p1Price = input.float(29.86,   "Entry Price ($)", minval=0.0, group="Position 1")
+p1ATR   = input.float(2.9346,  "ATR at Entry",    minval=0.0, group="Position 1")
+
+p2Sym   = input.string("NPK",  "Symbol", group="Position 2")
+p2Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 2")
+p2Price = input.float(141.61,  "Entry Price ($)", minval=0.0, group="Position 2")
+p2ATR   = input.float(5.9978,  "ATR at Entry",    minval=0.0, group="Position 2")
+
+p3Sym   = input.string("MYRG", "Symbol", group="Position 3")
+p3Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 3")
+p3Price = input.float(291.54,  "Entry Price ($)", minval=0.0, group="Position 3")
+p3ATR   = input.float(13.8436, "ATR at Entry",    minval=0.0, group="Position 3")
+
+p4Sym   = input.string("ANDG", "Symbol", group="Position 4")
+p4Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 4")
+p4Price = input.float(29.38,   "Entry Price ($)", minval=0.0, group="Position 4")
+p4ATR   = input.float(1.9175,  "ATR at Entry",    minval=0.0, group="Position 4")
+
+p5Sym   = input.string("KRT",  "Symbol", group="Position 5")
+p5Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 5")
+p5Price = input.float(28.34,   "Entry Price ($)", minval=0.0, group="Position 5")
+p5ATR   = input.float(0.8740,  "ATR at Entry",    minval=0.0, group="Position 5")
+
+p6Sym   = input.string("RUSHB","Symbol", group="Position 6")
+p6Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 6")
+p6Price = input.float(65.08,   "Entry Price ($)", minval=0.0, group="Position 6")
+p6ATR   = input.float(2.2229,  "ATR at Entry",    minval=0.0, group="Position 6")
+
+p7Sym   = input.string("TGTX", "Symbol", group="Position 7")
+p7Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 7")
+p7Price = input.float(33.86,   "Entry Price ($)", minval=0.0, group="Position 7")
+p7ATR   = input.float(1.3751,  "ATR at Entry",    minval=0.0, group="Position 7")
+
+p8Sym   = input.string("ANRO", "Symbol", group="Position 8")
+p8Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 8")
+p8Price = input.float(23.37,   "Entry Price ($)", minval=0.0, group="Position 8")
+p8ATR   = input.float(1.9707,  "ATR at Entry",    minval=0.0, group="Position 8")
+
+p9Sym   = input.string("PHVS", "Symbol", group="Position 9")
+p9Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 9")
+p9Price = input.float(29.74,   "Entry Price ($)", minval=0.0, group="Position 9")
+p9ATR   = input.float(1.4420,  "ATR at Entry",    minval=0.0, group="Position 9")
+
+p10Sym   = input.string("NFLX","Symbol", group="Position 10")
+p10Date  = input.time(timestamp("2026-04-02"), "Entry Date", group="Position 10")
+p10Price = input.float(95.90,  "Entry Price ($)", minval=0.0, group="Position 10")
+p10ATR   = input.float(2.8366, "ATR at Entry",    minval=0.0, group="Position 10")
+
+p11Sym   = input.string("", "Symbol", group="Position 11")
+p11Date  = input.time(0,   "Entry Date",      group="Position 11")
+p11Price = input.float(0.0,"Entry Price ($)",  minval=0.0, group="Position 11")
+p11ATR   = input.float(0.0,"ATR at Entry",    minval=0.0, group="Position 11")
+
+p12Sym   = input.string("", "Symbol", group="Position 12")
+p12Date  = input.time(0,   "Entry Date",      group="Position 12")
+p12Price = input.float(0.0,"Entry Price ($)",  minval=0.0, group="Position 12")
+p12ATR   = input.float(0.0,"ATR at Entry",    minval=0.0, group="Position 12")
+
+p13Sym   = input.string("", "Symbol", group="Position 13")
+p13Date  = input.time(0,   "Entry Date",      group="Position 13")
+p13Price = input.float(0.0,"Entry Price ($)",  minval=0.0, group="Position 13")
+p13ATR   = input.float(0.0,"ATR at Entry",    minval=0.0, group="Position 13")
+
+p14Sym   = input.string("", "Symbol", group="Position 14")
+p14Date  = input.time(0,   "Entry Date",      group="Position 14")
+p14Price = input.float(0.0,"Entry Price ($)",  minval=0.0, group="Position 14")
+p14ATR   = input.float(0.0,"ATR at Entry",    minval=0.0, group="Position 14")
+
+p15Sym   = input.string("", "Symbol", group="Position 15")
+p15Date  = input.time(0,   "Entry Date",      group="Position 15")
+p15Price = input.float(0.0,"Entry Price ($)",  minval=0.0, group="Position 15")
+p15ATR   = input.float(0.0,"ATR at Entry",    minval=0.0, group="Position 15")
+
+// === SYMBOL MATCHING ===
+// Extract base ticker from chart (strip exchange prefix like "NASDAQ:AAPL" -> "AAPL")
+chartTicker = syminfo.ticker
+
+// Case-insensitive match: compare uppercase versions
+matchesSym(string inputSym) =>
+    inputSym != "" and str.upper(str.replace_all(inputSym, " ", "")) == str.upper(chartTicker)
+
+m1  = matchesSym(p1Sym)
+m2  = matchesSym(p2Sym)
+m3  = matchesSym(p3Sym)
+m4  = matchesSym(p4Sym)
+m5  = matchesSym(p5Sym)
+m6  = matchesSym(p6Sym)
+m7  = matchesSym(p7Sym)
+m8  = matchesSym(p8Sym)
+m9  = matchesSym(p9Sym)
+m10 = matchesSym(p10Sym)
+m11 = matchesSym(p11Sym)
+m12 = matchesSym(p12Sym)
+m13 = matchesSym(p13Sym)
+m14 = matchesSym(p14Sym)
+m15 = matchesSym(p15Sym)
+
+hasMatch = m1 or m2 or m3 or m4 or m5 or m6 or m7 or m8 or m9 or m10 or m11 or m12 or m13 or m14 or m15
+
+// Pick the matched slot's values (first match wins)
+activeDate  = m1 ? p1Date  : m2 ? p2Date  : m3 ? p3Date  : m4 ? p4Date  : m5 ? p5Date  : m6 ? p6Date  : m7 ? p7Date  : m8 ? p8Date  : m9 ? p9Date  : m10 ? p10Date  : m11 ? p11Date  : m12 ? p12Date  : m13 ? p13Date  : m14 ? p14Date  : m15 ? p15Date  : 0
+activePrice = m1 ? p1Price : m2 ? p2Price : m3 ? p3Price : m4 ? p4Price : m5 ? p5Price : m6 ? p6Price : m7 ? p7Price : m8 ? p8Price : m9 ? p9Price : m10 ? p10Price : m11 ? p11Price : m12 ? p12Price : m13 ? p13Price : m14 ? p14Price : m15 ? p15Price : 0.0
+activeATR   = m1 ? p1ATR   : m2 ? p2ATR   : m3 ? p3ATR   : m4 ? p4ATR   : m5 ? p5ATR   : m6 ? p6ATR   : m7 ? p7ATR   : m8 ? p8ATR   : m9 ? p9ATR   : m10 ? p10ATR   : m11 ? p11ATR   : m12 ? p12ATR   : m13 ? p13ATR   : m14 ? p14ATR   : m15 ? p15ATR   : 0.0
+
+// === ENTRY DATE BAR COUNTING ===
+hasEntry = hasMatch and activePrice > 0 and activeATR > 0
+hasDate  = hasMatch and activeDate > 0
+
+isEntryBar = hasDate and dayofmonth(time) == dayofmonth(activeDate) and month(time) == month(activeDate) and year(time) == year(activeDate)
+
+var int barsSinceEntry = 0
+var bool entryFound = false
+var bool exitFound  = false
+
+// Reset state when symbol changes (handles switching between charts)
+var string lastTicker = ""
+if chartTicker != lastTicker
+    barsSinceEntry := 0
+    entryFound     := false
+    exitFound      := false
+    lastTicker     := chartTicker
+
+if hasDate
+    if isEntryBar
+        barsSinceEntry := 0
+        entryFound     := true
+        exitFound      := false
+    else if entryFound and not exitFound
+        barsSinceEntry := barsSinceEntry + 1
+
+// === CALCULATIONS ===
+fastEMA = ta.ema(close, fastLen)
+slowEMA = ta.ema(close, slowLen)
+
+// 1. EMA Crossover Exit (only while in trade)
+emaCrossExit = ta.crossunder(fastEMA, slowEMA) and entryFound and not exitFound
+
+// 2. Stop Loss Exit
+stopLevel    = activePrice - (atrMult * activeATR)
+stopLossExit = hasEntry and entryFound and not exitFound and close < stopLevel
+
+// 3. Stagnation Exit
+gainPct        = hasEntry ? ((close - activePrice) / activePrice) * 100.0 : 0.0
+stagnationExit = hasEntry and entryFound and not exitFound and barsSinceEntry == stagnDays and gainPct < stagnPct
+
+// Combined
+exitSignal = emaCrossExit or stopLossExit or stagnationExit
+
+// Freeze bar count on first exit
+if exitSignal
+    exitFound := true
+
+// === PLOTS ===
+plot(fastEMA, "Fast EMA", color=color.new(color.blue, 0), linewidth=1)
+plot(slowEMA, "Slow EMA", color=color.new(color.orange, 0), linewidth=1)
+
+plot(hasEntry and entryFound ? stopLevel : na, "Stop Loss", color=color.new(color.red, 30), linewidth=1, style=plot.style_linebr)
+plot(hasEntry and entryFound ? activePrice : na, "Entry Price", color=color.new(color.gray, 50), linewidth=1, style=plot.style_linebr)
+
+// === EXIT / ENTRY SHAPES ===
+plotshape(emaCrossExit, "EMA Cross Exit", shape.triangledown, location.abovebar,
+     color=color.new(color.purple, 0), size=size.large, text="EMA", textcolor=color.white)
+
+plotshape(stopLossExit, "Stop Loss Exit", shape.triangledown, location.abovebar,
+     color=color.new(color.red, 0), size=size.large, text="STOP", textcolor=color.white)
+
+plotshape(stagnationExit, "Stagnation Exit", shape.triangledown, location.abovebar,
+     color=color.new(color.orange, 0), size=size.large, text="STAG", textcolor=color.white)
+
+plotshape(isEntryBar, "Entry", shape.triangleup, location.belowbar,
+     color=color.new(color.green, 0), size=size.large, text="ENTRY", textcolor=color.white)
+
+// === ALERTS ===
+alertcondition(emaCrossExit,   "EMA Cross Exit",  "VCP Exit: EMA cross triggered")
+alertcondition(stopLossExit,   "Stop Loss Exit",  "VCP Exit: Stop loss triggered")
+alertcondition(stagnationExit, "Stagnation Exit",  "VCP Exit: Stagnation detected")
+alertcondition(exitSignal,     "Any Exit Signal",  "VCP Exit: Exit signal triggered")
+
+// === INFO TABLE ===
+var table infoTable = table.new(position.top_right, 2, 7, bgcolor=color.new(color.gray, 85), border_width=1)
+
+if barstate.islast
+    table.cell(infoTable, 0, 0, "VCP Exit — " + chartTicker, text_color=color.white, text_size=size.normal, bgcolor=hasMatch ? color.new(color.blue, 50) : color.new(color.gray, 50), text_halign=text.align_center)
+    table.merge_cells(infoTable, 0, 0, 1, 0)
+
+    if not hasMatch
+        table.cell(infoTable, 0, 1, "No position for " + chartTicker, text_color=color.orange, text_size=size.small)
+        table.merge_cells(infoTable, 0, 1, 1, 1)
+        table.cell(infoTable, 0, 2, "", text_size=size.small)
+        table.cell(infoTable, 1, 2, "", text_size=size.small)
+        table.cell(infoTable, 0, 3, "", text_size=size.small)
+        table.cell(infoTable, 1, 3, "", text_size=size.small)
+        table.cell(infoTable, 0, 4, "", text_size=size.small)
+        table.cell(infoTable, 1, 4, "", text_size=size.small)
+        table.cell(infoTable, 0, 5, "", text_size=size.small)
+        table.cell(infoTable, 1, 5, "", text_size=size.small)
+        table.cell(infoTable, 0, 6, "", text_size=size.small)
+        table.cell(infoTable, 1, 6, "", text_size=size.small)
+    else
+        table.cell(infoTable, 0, 1, "EMA " + str.tostring(fastLen) + "/" + str.tostring(slowLen), text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 1, emaCrossExit ? "CROSSED — EXIT" : "OK", text_color=emaCrossExit ? color.red : color.green, text_size=size.small)
+
+        table.cell(infoTable, 0, 2, "Stop Loss", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 2, hasEntry ? "$" + str.tostring(stopLevel, "#.##") + (stopLossExit ? " — EXIT" : "") : "N/A",
+             text_color=stopLossExit ? color.red : color.white, text_size=size.small)
+
+        table.cell(infoTable, 0, 3, "Entry Price", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 3, hasEntry ? "$" + str.tostring(activePrice, "#.##") : "N/A", text_color=color.white, text_size=size.small)
+
+        table.cell(infoTable, 0, 4, "Current P/L", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 4, hasEntry ? str.tostring(gainPct, "#.##") + "%" : "N/A",
+             text_color=gainPct >= 0 ? color.green : color.red, text_size=size.small)
+
+        table.cell(infoTable, 0, 5, "Days in Trade", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 5, entryFound ? str.tostring(barsSinceEntry) + "/" + str.tostring(stagnDays) + (stagnationExit ? " — EXIT" : "") : "N/A",
+             text_color=stagnationExit ? color.orange : barsSinceEntry >= stagnDays ? color.orange : color.white, text_size=size.small)
+
+        table.cell(infoTable, 0, 6, "EMAs", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 6, str.tostring(fastEMA, "#.##") + " / " + str.tostring(slowEMA, "#.##"), text_color=color.white, text_size=size.small)

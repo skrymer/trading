@@ -6,10 +6,6 @@ import com.skrymer.udgaard.portfolio.integration.options.OptionsDataProvider
 import com.skrymer.udgaard.portfolio.model.Execution
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.PositionStatus
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -97,113 +93,107 @@ class UnrealizedPnlService(
     }
   }
 
-  fun calculateUnrealizedPnl(portfolioId: Long): List<PositionUnrealizedPnlResponse> =
-    runBlocking(Dispatchers.IO) {
-      val openPositions = positionService.getPositions(portfolioId, PositionStatus.OPEN)
+  fun calculateUnrealizedPnl(portfolioId: Long): List<PositionUnrealizedPnlResponse> {
+    val openPositions = positionService.getPositions(portfolioId, PositionStatus.OPEN)
 
-      logger.info("Calculating unrealized P&L for ${openPositions.size} open positions in portfolio $portfolioId")
+    logger.info("Calculating unrealized P&L for ${openPositions.size} open positions in portfolio $portfolioId")
 
-      // Process all positions in parallel
-      openPositions
-        .map { position ->
-          async {
-            try {
-              // Calculate rolled credits and determine effective entry price
-              val (rolledCredits, effectiveEntryPrice) =
-                calculateRolledCreditsAndEntryPrice(
-                  position.id!!,
-                  position.multiplier,
-                  position.averageEntryPrice,
-                )
+    // Batch-fetch live quotes for all stock/ETF positions in parallel
+    val stockSymbols = openPositions
+      .filter { it.instrumentType in listOf(InstrumentType.STOCK, InstrumentType.ETF, InstrumentType.LEVERAGED_ETF) }
+      .map { it.symbol }
+      .distinct()
+    val liveQuotes = stockProvider.getLatestQuotes(stockSymbols)
+    logger.info("Fetched live quotes for ${liveQuotes.size}/${stockSymbols.size} symbols")
 
-              val currentPrice =
-                when (position.instrumentType) {
-                  InstrumentType.OPTION -> {
-                    // Fetch current option price
-                    if (position.strikePrice == null ||
-                      position.expirationDate == null ||
-                      position.optionType == null ||
-                      position.underlyingSymbol == null
-                    ) {
-                      logger.warn("Position ${position.id} is missing required option fields")
-                      null
-                    } else {
-                      val lastTradingDay = getLastTradingDay().toString()
-                      logger.debug("Using last trading day: $lastTradingDay for position ${position.id}")
-                      val contract =
-                        optionsDataProvider.findOptionContract(
-                          symbol = position.underlyingSymbol,
-                          strike = position.strikePrice,
-                          expiration = position.expirationDate.toString(),
-                          optionType = position.optionType,
-                          date = lastTradingDay,
-                        )
-                      contract?.price
-                    }
-                  }
-                  InstrumentType.STOCK, InstrumentType.ETF, InstrumentType.LEVERAGED_ETF -> {
-                    // Fetch latest stock price
-                    val quotes = stockProvider.getDailyAdjustedTimeSeries(position.symbol)
-                    quotes?.firstOrNull()?.closePrice
-                  }
-                }
+    return openPositions.map { position ->
+      try {
+        val (rolledCredits, effectiveEntryPrice) =
+          calculateRolledCreditsAndEntryPrice(
+            position.id!!,
+            position.multiplier,
+            position.averageEntryPrice,
+          )
 
-              // Calculate unrealized P&L if we have current price
-              // Use effectiveEntryPrice (from most recent roll) instead of position.averageEntryPrice
-              val currentPositionUnrealizedPnl =
-                if (currentPrice != null) {
-                  val priceDiff = currentPrice - effectiveEntryPrice
-                  val quantity = position.currentQuantity
-                  val multiplier = position.multiplier
-                  priceDiff * quantity * multiplier
-                } else {
-                  null
-                }
-
-              // Total unrealized P&L includes current position unrealized P&L + rolled credits
-              val totalUnrealizedPnl =
-                if (currentPositionUnrealizedPnl != null) {
-                  currentPositionUnrealizedPnl + rolledCredits
-                } else {
-                  null
-                }
-
-              val unrealizedPnlPercentage =
-                if (totalUnrealizedPnl != null && position.totalCost > 0) {
-                  (totalUnrealizedPnl / position.totalCost) * 100
-                } else {
-                  null
-                }
-
-              logger.debug(
-                "Position ${position.id} (${position.symbol}): " +
-                  "effectiveEntry=$effectiveEntryPrice, current=$currentPrice, " +
-                  "unrealized P&L=$totalUnrealizedPnl (current: $currentPositionUnrealizedPnl + rolled: $rolledCredits)",
-              )
-
-              PositionUnrealizedPnlResponse(
-                positionId = position.id,
-                symbol = position.symbol,
-                currentPrice = currentPrice,
-                averageEntryPrice = effectiveEntryPrice,
-                unrealizedPnl = totalUnrealizedPnl,
-                unrealizedPnlPercentage = unrealizedPnlPercentage,
-              )
-            } catch (e: Exception) {
-              logger.error("Error calculating unrealized P&L for position ${position.id}: ${e.message}", e)
-              // Return position with null values on error
-              PositionUnrealizedPnlResponse(
-                positionId = position.id!!,
-                symbol = position.symbol,
-                currentPrice = null,
-                averageEntryPrice = position.averageEntryPrice,
-                unrealizedPnl = null,
-                unrealizedPnlPercentage = null,
-              )
+        val currentPrice =
+          when (position.instrumentType) {
+            InstrumentType.OPTION -> {
+              if (position.strikePrice == null ||
+                position.expirationDate == null ||
+                position.optionType == null ||
+                position.underlyingSymbol == null
+              ) {
+                logger.warn("Position ${position.id} is missing required option fields")
+                null
+              } else {
+                val lastTradingDay = getLastTradingDay().toString()
+                val contract =
+                  optionsDataProvider.findOptionContract(
+                    symbol = position.underlyingSymbol,
+                    strike = position.strikePrice,
+                    expiration = position.expirationDate.toString(),
+                    optionType = position.optionType,
+                    date = lastTradingDay,
+                  )
+                contract?.price
+              }
+            }
+            InstrumentType.STOCK, InstrumentType.ETF, InstrumentType.LEVERAGED_ETF -> {
+              liveQuotes[position.symbol]?.price
             }
           }
-        }.awaitAll()
+
+        val currentPositionUnrealizedPnl =
+          if (currentPrice != null) {
+            val priceDiff = currentPrice - effectiveEntryPrice
+            val quantity = position.currentQuantity
+            val multiplier = position.multiplier
+            priceDiff * quantity * multiplier
+          } else {
+            null
+          }
+
+        val totalUnrealizedPnl =
+          if (currentPositionUnrealizedPnl != null) {
+            currentPositionUnrealizedPnl + rolledCredits
+          } else {
+            null
+          }
+
+        val unrealizedPnlPercentage =
+          if (totalUnrealizedPnl != null && position.totalCost > 0) {
+            (totalUnrealizedPnl / position.totalCost) * 100
+          } else {
+            null
+          }
+
+        logger.debug(
+          "Position ${position.id} (${position.symbol}): " +
+            "effectiveEntry=$effectiveEntryPrice, current=$currentPrice, " +
+            "unrealized P&L=$totalUnrealizedPnl (current: $currentPositionUnrealizedPnl + rolled: $rolledCredits)",
+        )
+
+        PositionUnrealizedPnlResponse(
+          positionId = position.id,
+          symbol = position.symbol,
+          currentPrice = currentPrice,
+          averageEntryPrice = effectiveEntryPrice,
+          unrealizedPnl = totalUnrealizedPnl,
+          unrealizedPnlPercentage = unrealizedPnlPercentage,
+        )
+      } catch (e: Exception) {
+        logger.error("Error calculating unrealized P&L for position ${position.id}: ${e.message}", e)
+        PositionUnrealizedPnlResponse(
+          positionId = position.id!!,
+          symbol = position.symbol,
+          currentPrice = null,
+          averageEntryPrice = position.averageEntryPrice,
+          unrealizedPnl = null,
+          unrealizedPnlPercentage = null,
+        )
+      }
     }
+  }
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(UnrealizedPnlService::class.java)

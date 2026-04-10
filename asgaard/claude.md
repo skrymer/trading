@@ -29,7 +29,7 @@ asgaard/
 │   │   ├── index.vue             # Home/dashboard
 │   │   ├── backtesting.vue       # Backtesting UI with strategy builder
 │   │   ├── portfolio.vue         # Portfolio management
-│   │   ├── scanner.vue           # Stock scanner
+│   │   ├── mission-control.vue   # Mission control (active trades, candidates, exits)
 │   │   ├── stock-data/            # Stock data explorer with charts
 │   │   │   └── [[symbol]].vue    #   Dynamic route: /stock-data/:symbol?
 │   │   ├── breadth.vue           # Market/sector breadth analysis

@@ -31,9 +31,9 @@ const links = [[{
   }
 },
 {
-  label: 'Scanner',
-  icon: 'i-lucide-scan-search',
-  to: '/scanner',
+  label: 'Mission Control',
+  icon: 'i-lucide-radar',
+  to: '/mission-control',
   onSelect: () => {
     open.value = false
   }

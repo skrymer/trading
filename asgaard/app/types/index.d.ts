@@ -1152,6 +1152,7 @@ export interface LatestQuote {
 
 export interface ScanResponse {
   scanDate: string
+  latestDataDate?: string
   entryStrategyName: string
   exitStrategyName: string
   results: ScanResult[]
@@ -1188,8 +1189,10 @@ export interface ExitCheckResult {
   exitTriggered: boolean
   exitReason?: string
   currentPrice: number
+  priorClose: number
   unrealizedPnlPercent: number
   unrealizedPnlDollars: number
+  dailyPnlDollars: number
   usedLiveData?: boolean
 }
 

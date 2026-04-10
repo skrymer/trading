@@ -7,8 +7,8 @@ import com.skrymer.udgaard.backtesting.dto.StockConditionSignals
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
-import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
-import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
+import com.skrymer.udgaard.data.integration.LatestQuote
+import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.service.StockIngestionService
 import com.skrymer.udgaard.data.service.StockService
@@ -40,7 +40,7 @@ class StockController(
   private val stockIngestionService: StockIngestionService,
   private val strategySignalService: StrategySignalService,
   private val symbolService: SymbolService,
-  private val midgaardClient: MidgaardClient,
+  private val stockProvider: StockProvider,
 ) {
   /**
    * Get all stocks that have been loaded into the database.
@@ -304,9 +304,9 @@ class StockController(
   @GetMapping("/{symbol}/latest-quote")
   fun getLatestQuote(
     @PathVariable symbol: String,
-  ): ResponseEntity<MidgaardLatestQuoteDto> {
+  ): ResponseEntity<LatestQuote> {
     logger.debug("Fetching latest quote for $symbol")
-    val quote = midgaardClient.getLatestQuote(symbol)
+    val quote = stockProvider.getLatestQuote(symbol)
       ?: return ResponseEntity.notFound().build()
     return ResponseEntity.ok(quote)
   }

@@ -155,34 +155,13 @@ class BrokerIntegrationService(
     // Get adapter for this portfolio's broker
     val adapter = adapterFactory.getAdapter(portfolio.broker)
 
-    // Fetch trades since last sync
-    val lastSync = portfolio.lastSyncDate?.toLocalDate() ?: portfolio.createdDate.toLocalDate()
+    // Fetch trades from 3 months ago to ensure long-running positions have their open side
+    val startDate = LocalDate.now().minusMonths(3)
     val endDate = LocalDate.now().minusDays(1)
-
-    // Validate date range (IBKR limit: 366 days)
-    val daysBetween = java.time.temporal.ChronoUnit.DAYS
-      .between(lastSync, endDate)
-    if (daysBetween > 366) {
-      throw IllegalArgumentException(
-        "Sync date range exceeds IBKR's 366 day limit. " +
-          "Last sync was $daysBetween days ago (on $lastSync). " +
-          "Portfolio must be synced at least once every 366 days.",
-      )
-    }
-    if (lastSync.isAfter(endDate)) {
-      logger.info("Portfolio already up to date. Last sync: $lastSync, latest data available: $endDate")
-      return PortfolioSyncResult(
-        tradesAdded = 0,
-        tradesUpdated = 0,
-        rollsDetected = 0,
-        lastSyncDate = LocalDateTime.now(),
-        errors = listOf("Portfolio is already up to date. No new data available."),
-      )
-    }
 
     // Fetch trades AND account info
     // If yesterday's data isn't available yet, fall back to 2 days ago
-    val brokerData = fetchWithDateFallback(adapter, credentials, lastSync, endDate, portfolio.brokerAccountId ?: "")
+    val brokerData = fetchWithDateFallback(adapter, credentials, startDate, endDate, portfolio.brokerAccountId ?: "")
     val standardizedTrades = brokerData.trades
 
     // Process trades
@@ -289,6 +268,11 @@ class BrokerIntegrationService(
     lots: List<TradeLot>,
   ): RegularLotImportResult {
     if (lots.isEmpty()) {
+      return RegularLotImportResult(0, 0, 0)
+    }
+
+    if (allBrokerTradeIdsExist(lots)) {
+      logger.debug("Skipping lot group for ${lots.first().symbol}: all executions already imported")
       return RegularLotImportResult(0, 0, 0)
     }
 
@@ -419,6 +403,11 @@ class BrokerIntegrationService(
     portfolioId: Long,
     chain: RollChain,
   ): ChainImportResult {
+    if (allBrokerTradeIdsExist(chain.lots)) {
+      logger.debug("Skipping roll chain for ${chain.underlying}: all executions already imported")
+      return ChainImportResult(0, 0, 0)
+    }
+
     var executionsCreated = 0
 
     // Find existing position for this underlying, or create new one
@@ -702,6 +691,16 @@ class BrokerIntegrationService(
     val strike: Double?,
     val expiry: java.time.LocalDate?,
   )
+
+  private fun allBrokerTradeIdsExist(lots: List<TradeLot>): Boolean {
+    val brokerTradeIds = lots
+      .flatMap { lot ->
+        listOfNotNull(lot.openTrade.brokerTradeId, lot.closeTrade?.brokerTradeId)
+      }.distinct()
+    if (brokerTradeIds.isEmpty()) return false
+    val existing = executionRepository.findExistingBrokerTradeIds(brokerTradeIds)
+    return existing.containsAll(brokerTradeIds)
+  }
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(BrokerIntegrationService::class.java)

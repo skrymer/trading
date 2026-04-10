@@ -56,6 +56,17 @@ class ExecutionJooqRepository(
     return mapper.toDomain(execution)
   }
 
+  fun findExistingBrokerTradeIds(brokerTradeIds: Collection<String>): Set<String> {
+    if (brokerTradeIds.isEmpty()) return emptySet()
+    return dsl
+      .select(EXECUTIONS.BROKER_TRADE_ID)
+      .from(EXECUTIONS)
+      .where(EXECUTIONS.BROKER_TRADE_ID.`in`(brokerTradeIds))
+      .fetchSet(EXECUTIONS.BROKER_TRADE_ID)
+      .filterNotNull()
+      .toSet()
+  }
+
   /**
    * Save execution (insert only - executions are immutable)
    */
