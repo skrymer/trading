@@ -95,6 +95,26 @@ data class DrawdownStatsResponse(
   val currentDrawdownPct: Double,
 )
 
+data class StrategyClosedStats(
+  val strategy: String,
+  val trades: Int,
+  val wins: Int,
+  val losses: Int,
+  val winRate: Double,
+  val edge: Double,
+  val profitFactor: Double?,
+  val avgWinPct: Double,
+  val avgLossPct: Double,
+  val avgWinDollars: Double,
+  val avgLossDollars: Double,
+  val totalPnl: Double,
+)
+
+data class ClosedTradeStatsResponse(
+  val overall: StrategyClosedStats?,
+  val byStrategy: List<StrategyClosedStats>,
+)
+
 data class ValidateEntriesRequest(
   val symbols: List<String>,
   val entryStrategyName: String,

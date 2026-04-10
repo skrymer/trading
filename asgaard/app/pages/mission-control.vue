@@ -2,7 +2,7 @@
 import { h } from 'vue'
 import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse } from '~/types'
+import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse, ClosedTradeStatsResponse } from '~/types'
 
 // State
 const scanResponse = ref<ScanResponse | null>(null)
@@ -15,6 +15,7 @@ const exitCheckStatus = ref<'idle' | 'pending'>('idle')
 const validationStatus = ref<'idle' | 'pending'>('idle')
 const validationResults = ref<Map<string, EntryValidationResult>>(new Map())
 const activeTab = ref('trades')
+const closedTradeStats = ref<ClosedTradeStatsResponse | null>(null)
 
 // Modal states
 const isScanConfigModalOpen = ref(false)
@@ -237,7 +238,7 @@ const EXIT_CHECK_COOLDOWN_MS = 5 * 60 * 1000
 
 onMounted(async () => {
   void loadDataFreshness()
-  await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades()])
+  await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats()])
   if (trades.value.length > 0) {
     const now = Date.now()
     if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
@@ -297,6 +298,14 @@ async function loadClosedTrades() {
     closedTrades.value = await $fetch<ScannerTrade[]>('/udgaard/api/scanner/trades/closed')
   } catch (error) {
     console.error('Error loading closed trades:', error)
+  }
+}
+
+async function loadClosedTradeStats() {
+  try {
+    closedTradeStats.value = await $fetch<ClosedTradeStatsResponse>('/udgaard/api/scanner/trades/closed/stats')
+  } catch (error) {
+    console.error('Error loading closed trade stats:', error)
   }
 }
 
@@ -494,7 +503,7 @@ async function closeTrade() {
       }
     })
     isCloseTradeModalOpen.value = false
-    await Promise.all([loadTrades(), loadClosedTrades(), loadDrawdownStats()])
+    await Promise.all([loadTrades(), loadClosedTrades(), loadClosedTradeStats(), loadDrawdownStats()])
     updatePeakEquity()
     toast.add({
       title: 'Trade Closed',
@@ -553,7 +562,7 @@ async function resetAllTrades() {
     const result = await $fetch<{ deleted: number }>('/udgaard/api/scanner/trades/reset', { method: 'POST' })
     isResetAllTradesModalOpen.value = false
     positionSizingSettings.value.peakEquity = null
-    await Promise.all([loadTrades(), loadClosedTrades(), loadDrawdownStats()])
+    await Promise.all([loadTrades(), loadClosedTrades(), loadClosedTradeStats(), loadDrawdownStats()])
     exitResults.value = new Map()
     toast.add({
       title: 'Scanner Reset',
@@ -574,7 +583,7 @@ async function resetAllTrades() {
 async function deleteClosedTrade(trade: ScannerTrade) {
   try {
     await $fetch(`/udgaard/api/scanner/trades/${trade.id}`, { method: 'DELETE' })
-    await Promise.all([loadClosedTrades(), loadDrawdownStats()])
+    await Promise.all([loadClosedTrades(), loadClosedTradeStats(), loadDrawdownStats()])
     toast.add({
       title: 'Trade Deleted',
       description: `Deleted closed trade ${trade.symbol}`,
@@ -642,7 +651,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   {
     id: 'entryPrice',
     header: 'Entry Price',
-    cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
+    cell: ({ row }) => formatUsd(row.original.entryPrice)
   },
   {
     id: 'currentPrice',
@@ -650,7 +659,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => {
       const result = exitResults.value.get(row.original.id)
       if (!result) return '-'
-      return `$${result.currentPrice.toFixed(2)}`
+      return formatUsd(result.currentPrice)
     }
   },
   {
@@ -662,7 +671,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
       const trade = row.original
       const multiplier = trade.instrumentType === 'OPTION' ? (trade.multiplier || 100) : 1
       const value = result.currentPrice * trade.quantity * multiplier
-      return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+      return formatUsd(value, false)
     }
   },
   {
@@ -676,7 +685,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => {
       const t = row.original
       if (t.instrumentType !== 'OPTION') return '-'
-      return t.optionPrice ? `$${t.optionPrice.toFixed(2)}` : '-'
+      return t.optionPrice ? formatUsd(t.optionPrice) : '-'
     }
   },
   {
@@ -686,7 +695,7 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
       const t = row.original
       if (t.instrumentType !== 'OPTION') return '-'
       const delta = t.delta ? ` Δ${t.delta.toFixed(2)}` : ''
-      return `${t.optionType} $${t.strikePrice?.toFixed(0)} ${t.expirationDate}${delta}`
+      return `${t.optionType} ${formatUsd(t.strikePrice ?? 0, false)} ${t.expirationDate}${delta}`
     }
   },
   {
@@ -786,12 +795,12 @@ const closedTradeColumns: TableColumn<ScannerTrade>[] = [
   {
     id: 'entryPrice',
     header: 'Entry',
-    cell: ({ row }) => `$${row.original.entryPrice.toFixed(2)}`
+    cell: ({ row }) => formatUsd(row.original.entryPrice)
   },
   {
     id: 'exitPrice',
     header: 'Exit',
-    cell: ({ row }) => row.original.exitPrice ? `$${row.original.exitPrice.toFixed(2)}` : '-'
+    cell: ({ row }) => row.original.exitPrice ? formatUsd(row.original.exitPrice) : '-'
   },
   {
     id: 'entryDate',
@@ -815,8 +824,7 @@ const closedTradeColumns: TableColumn<ScannerTrade>[] = [
       const pnl = row.original.realizedPnl
       if (pnl == null) return '-'
       const color = pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-      const sign = pnl >= 0 ? '+' : ''
-      return h('span', { class: color }, `${sign}$${pnl.toFixed(2)}`)
+      return h('span', { class: color }, formatSignedUsd(pnl))
     }
   },
   {
@@ -859,7 +867,7 @@ const tradesTableUi = computed(() => ({
               class="text-sm font-semibold tabular-nums"
               :class="todayPnlDollars >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
             >
-              {{ todayPnlDollars >= 0 ? '+' : '' }}${{ todayPnlDollars.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+              {{ formatSignedUsd(todayPnlDollars, false) }}
             </span>
           </div>
           <UButton
@@ -915,7 +923,7 @@ const tradesTableUi = computed(() => ({
           >
             <span class="text-sm">
               {{ positionSizingSettings.instrumentMode === 'OPTION' ? 'Options' : 'Stock' }}
-              &middot; ${{ positionSizingSettings.portfolioValue.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+              &middot; {{ formatUsd(positionSizingSettings.portfolioValue, false) }}
               &middot; {{ effectiveRiskPercentage.toFixed(2) }}% risk
               &middot; {{ positionSizingSettings.nAtr }}x ATR
               &middot; {{ portfolioUtilization.toFixed(0) }}% utilized
@@ -985,9 +993,9 @@ const tradesTableUi = computed(() => ({
               <div class="space-y-1">
                 <div class="flex items-center justify-between text-xs text-muted">
                   <span>
-                    Existing: ${{ existingCapitalDeployed.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+                    Existing: {{ formatUsd(existingCapitalDeployed, false) }}
                     <template v-if="selectedCapital > 0">
-                      + Selected: ${{ selectedCapital.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}
+                      + Selected: {{ formatUsd(selectedCapital, false) }}
                     </template>
                   </span>
                   <span :class="portfolioUtilization > 100 ? 'text-red-500 font-semibold' : ''">
@@ -1020,11 +1028,11 @@ const tradesTableUi = computed(() => ({
                 <div class="grid grid-cols-5 gap-4 text-sm items-center">
                   <div>
                     <span class="text-muted">Equity:</span>
-                    <span class="ml-1 font-medium">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
+                    <span class="ml-1 font-medium">{{ formatUsd(currentEquity, false) }}</span>
                   </div>
                   <div>
                     <span class="text-muted">Peak:</span>
-                    <span class="ml-1 font-medium">${{ (positionSizingSettings.peakEquity ?? positionSizingSettings.portfolioValue).toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>
+                    <span class="ml-1 font-medium">{{ formatUsd(positionSizingSettings.peakEquity ?? positionSizingSettings.portfolioValue, false) }}</span>
                   </div>
                   <div>
                     <span class="text-muted">Drawdown:</span>
@@ -1276,25 +1284,155 @@ const tradesTableUi = computed(() => ({
 
           <!-- Closed Trades Tab -->
           <template #closed>
-            <div class="pt-4">
-              <div v-if="drawdownStats && drawdownStats.closedTradeCount > 0" class="flex items-center gap-4 mb-3 text-sm text-muted">
-                <span>
-                  Total P&L:
-                  <span
-                    class="font-semibold"
-                    :class="drawdownStats.totalRealizedPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
-                  >
-                    {{ drawdownStats.totalRealizedPnl >= 0 ? '+' : '' }}${{ drawdownStats.totalRealizedPnl.toFixed(2) }}
-                  </span>
-                </span>
-                <span>
-                  Win Rate:
-                  <span class="font-semibold">{{ (drawdownStats.winRate * 100).toFixed(0) }}%</span>
-                </span>
-                <span>
-                  Trades: <span class="font-semibold">{{ drawdownStats.closedTradeCount }}</span>
-                </span>
+            <div class="pt-4 space-y-4">
+              <!-- Overall Stats Cards -->
+              <div v-if="closedTradeStats?.overall" class="text-sm text-muted">
+                {{ closedTradeStats!.byStrategy.length === 1 ? closedTradeStats!.byStrategy[0]?.strategy : 'All Strategies' }}
+                &middot; {{ closedTradeStats!.overall!.trades }} closed trades
               </div>
+              <div v-if="closedTradeStats?.overall" class="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                <div class="p-3 bg-muted/50 rounded-lg border border-default">
+                  <div class="text-xs text-muted">
+                    Total P&L
+                  </div>
+                  <div
+                    class="text-xl font-bold mt-1"
+                    :class="closedTradeStats.overall.totalPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                  >
+                    {{ formatSignedUsd(closedTradeStats.overall.totalPnl, false) }}
+                  </div>
+                </div>
+                <div class="p-3 bg-muted/50 rounded-lg border border-default">
+                  <div class="text-xs text-muted">
+                    Edge
+                  </div>
+                  <div
+                    class="text-xl font-bold mt-1"
+                    :class="closedTradeStats.overall.edge >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                  >
+                    {{ closedTradeStats.overall.edge >= 0 ? '+' : '' }}{{ closedTradeStats.overall.edge.toFixed(2) }}%
+                  </div>
+                </div>
+                <div class="p-3 bg-muted/50 rounded-lg border border-default">
+                  <div class="text-xs text-muted">
+                    Win Rate
+                  </div>
+                  <div class="text-xl font-bold mt-1">
+                    {{ closedTradeStats.overall.winRate.toFixed(0) }}%
+                    <span class="text-sm font-normal text-muted">
+                      ({{ closedTradeStats.overall.wins }}W / {{ closedTradeStats.overall.losses }}L)
+                    </span>
+                  </div>
+                </div>
+                <div class="p-3 bg-muted/50 rounded-lg border border-default">
+                  <div class="text-xs text-muted">
+                    Profit Factor
+                  </div>
+                  <div class="text-xl font-bold mt-1">
+                    {{ closedTradeStats.overall.profitFactor === null ? '∞' : closedTradeStats.overall.profitFactor.toFixed(2) }}
+                  </div>
+                </div>
+                <div class="p-3 bg-muted/50 rounded-lg border border-default">
+                  <div class="text-xs text-muted">
+                    Avg Win / Loss
+                  </div>
+                  <div class="mt-1">
+                    <span class="text-base font-bold text-green-600 dark:text-green-400">
+                      {{ formatSignedUsd(closedTradeStats.overall.avgWinDollars, false) }}
+                    </span>
+                    <span class="text-muted mx-0.5">/</span>
+                    <span class="text-base font-bold text-red-600 dark:text-red-400">
+                      -{{ formatUsd(closedTradeStats.overall.avgLossDollars, false) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="p-3 bg-muted/50 rounded-lg border border-default">
+                  <div class="text-xs text-muted">
+                    Trades
+                  </div>
+                  <div class="text-xl font-bold mt-1">
+                    {{ closedTradeStats.overall.trades }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Strategy Breakdown Table -->
+              <div v-if="closedTradeStats && closedTradeStats.byStrategy.length > 1">
+                <h3 class="text-sm font-semibold mb-2">
+                  Performance by Entry Strategy
+                </h3>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="border-b border-default text-muted">
+                        <th class="text-left py-2 pr-4">
+                          Strategy
+                        </th>
+                        <th class="text-right py-2 px-2">
+                          Trades
+                        </th>
+                        <th class="text-right py-2 px-2">
+                          Win Rate
+                        </th>
+                        <th class="text-right py-2 px-2">
+                          Edge
+                        </th>
+                        <th class="text-right py-2 px-2">
+                          PF
+                        </th>
+                        <th class="text-right py-2 px-2">
+                          Avg Win
+                        </th>
+                        <th class="text-right py-2 px-2">
+                          Avg Loss
+                        </th>
+                        <th class="text-right py-2 pl-2">
+                          Total P&L
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="s in closedTradeStats.byStrategy" :key="s.strategy" class="border-b border-default/50">
+                        <td class="py-2 pr-4">
+                          {{ s.strategy }}
+                          <UBadge
+                            v-if="s.trades < 5"
+                            variant="subtle"
+                            color="warning"
+                            size="xs"
+                            class="ml-1"
+                          >
+                            &lt; 5
+                          </UBadge>
+                        </td>
+                        <td class="text-right py-2 px-2">
+                          {{ s.trades }}
+                        </td>
+                        <td class="text-right py-2 px-2" :class="s.winRate >= 50 ? 'text-green-600' : 'text-red-600'">
+                          {{ s.winRate.toFixed(0) }}%
+                        </td>
+                        <td class="text-right py-2 px-2" :class="s.edge >= 0 ? 'text-green-600' : 'text-red-600'">
+                          {{ s.edge >= 0 ? '+' : '' }}{{ s.edge.toFixed(2) }}%
+                        </td>
+                        <td class="text-right py-2 px-2">
+                          {{ s.profitFactor === null ? '∞' : s.profitFactor.toFixed(2) }}
+                        </td>
+                        <td class="text-right py-2 px-2 text-green-600">
+                          {{ formatSignedUsd(s.avgWinDollars, false) }}
+                        </td>
+                        <td class="text-right py-2 px-2 text-red-600">
+                          -{{ formatUsd(s.avgLossDollars, false) }}
+                        </td>
+                        <td class="text-right py-2 pl-2" :class="s.totalPnl >= 0 ? 'text-green-600' : 'text-red-600'">
+                          {{ formatSignedUsd(s.totalPnl, false) }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Closed Trades Table -->
               <UTable
                 :data="sortedClosedTrades"
                 :columns="closedTradeColumns"
@@ -1410,7 +1548,7 @@ const tradesTableUi = computed(() => ({
     <template #body>
       <p class="text-sm">
         This will reset the peak equity to the current equity of
-        <span class="font-semibold">${{ currentEquity.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</span>,
+        <span class="font-semibold">{{ formatUsd(currentEquity, false) }}</span>,
         setting drawdown to 0%. This cannot be undone.
       </p>
     </template>

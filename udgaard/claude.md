@@ -137,7 +137,7 @@ udgaard/
 │   │   ├── controller/
 │   │   │   └── ScannerController.kt
 │   │   ├── dto/
-│   │   │   └── ScannerDtos.kt        # ScanRequest, AddScannerTradeRequest, RollScannerTradeRequest, UpdateScannerTradeRequest, CloseScannerTradeRequest, OptionContractsRequest, OptionContractResponse, DrawdownStatsResponse, ValidateEntriesRequest
+│   │   │   └── ScannerDtos.kt        # ScanRequest, AddScannerTradeRequest, RollScannerTradeRequest, UpdateScannerTradeRequest, CloseScannerTradeRequest, OptionContractsRequest, OptionContractResponse, DrawdownStatsResponse, ValidateEntriesRequest, StrategyClosedStats, ClosedTradeStatsResponse
 │   │   ├── mapper/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/

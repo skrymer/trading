@@ -870,4 +870,179 @@ class ScannerServiceTest {
       exitStrategyName = "MjolnirExit",
       notes = null,
     )
+
+  private fun createClosedTrade(
+    id: Long,
+    symbol: String,
+    entryPrice: Double,
+    exitPrice: Double,
+    quantity: Int = 100,
+    entryStrategyName: String = "Vcp",
+    instrumentType: InstrumentType = InstrumentType.STOCK,
+    optionPrice: Double? = null,
+    multiplier: Int = 1,
+  ): ScannerTrade {
+    val pnl = if (instrumentType == InstrumentType.OPTION) {
+      (exitPrice - (optionPrice ?: entryPrice)) * quantity * multiplier
+    } else {
+      (exitPrice - entryPrice) * quantity
+    }
+    return ScannerTrade(
+      id = id,
+      symbol = symbol,
+      sectorSymbol = "XLK",
+      instrumentType = instrumentType,
+      entryPrice = entryPrice,
+      entryDate = LocalDate.of(2024, 1, 15),
+      quantity = quantity,
+      optionType = if (instrumentType == InstrumentType.OPTION) OptionType.CALL else null,
+      strikePrice = null,
+      expirationDate = null,
+      multiplier = multiplier,
+      optionPrice = optionPrice,
+      entryStrategyName = entryStrategyName,
+      exitStrategyName = "VcpExitStrategy",
+      notes = null,
+      status = TradeStatus.CLOSED,
+      exitPrice = exitPrice,
+      exitDate = LocalDate.of(2024, 2, 15),
+      realizedPnl = pnl,
+    )
+  }
+
+  // --- Closed Trade Stats Tests ---
+
+  @Test
+  fun `getClosedTradeStats returns null overall when no closed trades`() {
+    whenever(scannerTradeRepository.findClosed()).thenReturn(emptyList())
+
+    val result = service.getClosedTradeStats()
+
+    assertEquals(null, result.overall)
+    assertEquals(0, result.byStrategy.size)
+  }
+
+  @Test
+  fun `getClosedTradeStats computes correct stats for single strategy`() {
+    val trades = listOf(
+      createClosedTrade(1, "AAPL", 100.0, 115.0), // +15% win
+      createClosedTrade(2, "MSFT", 200.0, 190.0), // -5% loss
+      createClosedTrade(3, "GOOGL", 150.0, 165.0), // +10% win
+    )
+    whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
+
+    val result = service.getClosedTradeStats()
+
+    val overall = result.overall!!
+    assertEquals(3, overall.trades)
+    assertEquals(2, overall.wins)
+    assertEquals(1, overall.losses)
+    assertEquals(66.7, overall.winRate, 0.1)
+    assertTrue(overall.edge > 0)
+    assertTrue(overall.profitFactor!! > 1.0)
+    assertEquals(2000.0, overall.totalPnl, 0.01) // (1500 - 1000 + 1500)
+
+    assertEquals(1, result.byStrategy.size)
+    assertEquals("Vcp", result.byStrategy[0].strategy)
+  }
+
+  @Test
+  fun `getClosedTradeStats groups by entry strategy`() {
+    val trades = listOf(
+      createClosedTrade(1, "AAPL", 100.0, 110.0, entryStrategyName = "Vcp"),
+      createClosedTrade(2, "MSFT", 200.0, 220.0, entryStrategyName = "Vcp"),
+      createClosedTrade(3, "GOOGL", 150.0, 140.0, entryStrategyName = "Mjolnir"),
+    )
+    whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
+
+    val result = service.getClosedTradeStats()
+
+    assertEquals(3, result.overall!!.trades)
+    assertEquals(2, result.byStrategy.size)
+
+    val vcp = result.byStrategy.find { it.strategy == "Vcp" }!!
+    assertEquals(2, vcp.trades)
+    assertEquals(2, vcp.wins)
+    assertEquals(0, vcp.losses)
+    assertEquals(100.0, vcp.winRate, 0.1)
+
+    val mjolnir = result.byStrategy.find { it.strategy == "Mjolnir" }!!
+    assertEquals(1, mjolnir.trades)
+    assertEquals(0, mjolnir.wins)
+    assertEquals(1, mjolnir.losses)
+    assertEquals(0.0, mjolnir.winRate, 0.1)
+  }
+
+  @Test
+  fun `getClosedTradeStats handles option trades with correct P&L percent`() {
+    val trades = listOf(
+      createClosedTrade(
+        1,
+        "AAPL",
+        150.0,
+        5.0,
+        quantity = 1,
+        instrumentType = InstrumentType.OPTION,
+        optionPrice = 3.0,
+        multiplier = 100,
+      ),
+    )
+    whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
+
+    val result = service.getClosedTradeStats()
+
+    val overall = result.overall!!
+    assertEquals(1, overall.trades)
+    assertEquals(1, overall.wins)
+    // P&L = (5.0 - 3.0) * 1 * 100 = 200
+    assertEquals(200.0, overall.totalPnl, 0.01)
+    // P&L % = 200 / (3.0 * 1 * 100) * 100 = 66.67%
+    assertEquals(66.67, overall.avgWinPct, 0.1)
+  }
+
+  @Test
+  fun `getClosedTradeStats handles all winners with null profit factor`() {
+    val trades = listOf(
+      createClosedTrade(1, "AAPL", 100.0, 110.0),
+      createClosedTrade(2, "MSFT", 200.0, 220.0),
+    )
+    whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
+
+    val result = service.getClosedTradeStats()
+
+    assertEquals(null, result.overall!!.profitFactor) // infinity
+    assertEquals(100.0, result.overall!!.winRate, 0.1)
+  }
+
+  @Test
+  fun `getClosedTradeStats handles all losers with zero profit factor`() {
+    val trades = listOf(
+      createClosedTrade(1, "AAPL", 100.0, 90.0),
+      createClosedTrade(2, "MSFT", 200.0, 180.0),
+    )
+    whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
+
+    val result = service.getClosedTradeStats()
+
+    assertEquals(0.0, result.overall!!.profitFactor)
+    assertEquals(0.0, result.overall!!.winRate, 0.1)
+  }
+
+  @Test
+  fun `getClosedTradeStats treats breakeven trades as neither win nor loss`() {
+    val trades = listOf(
+      createClosedTrade(1, "AAPL", 100.0, 110.0), // win
+      createClosedTrade(2, "MSFT", 200.0, 200.0), // breakeven
+      createClosedTrade(3, "GOOGL", 150.0, 140.0), // loss
+    )
+    whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
+
+    val result = service.getClosedTradeStats()
+
+    assertEquals(3, result.overall!!.trades)
+    assertEquals(1, result.overall!!.wins)
+    assertEquals(1, result.overall!!.losses)
+    // Win rate: 1/3 = 33.3%
+    assertEquals(33.3, result.overall!!.winRate, 0.1)
+  }
 }

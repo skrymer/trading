@@ -1163,6 +1163,26 @@ export interface ScanResponse {
   rankerName?: string
 }
 
+export interface StrategyClosedStats {
+  strategy: string
+  trades: number
+  wins: number
+  losses: number
+  winRate: number
+  edge: number
+  profitFactor: number | null
+  avgWinPct: number
+  avgLossPct: number
+  avgWinDollars: number
+  avgLossDollars: number
+  totalPnl: number
+}
+
+export interface ClosedTradeStatsResponse {
+  overall: StrategyClosedStats | null
+  byStrategy: StrategyClosedStats[]
+}
+
 export interface NearMissCandidate {
   symbol: string
   sectorSymbol?: string

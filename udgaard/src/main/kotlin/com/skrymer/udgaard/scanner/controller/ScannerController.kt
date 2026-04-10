@@ -164,6 +164,9 @@ class ScannerController(
     return ResponseEntity.ok(trades)
   }
 
+  @GetMapping("/trades/closed/stats")
+  fun getClosedTradeStats() = ResponseEntity.ok(scannerService.getClosedTradeStats())
+
   @GetMapping("/drawdown-stats")
   fun getDrawdownStats(): ResponseEntity<DrawdownStatsResponse> =
     ResponseEntity.ok(scannerService.getDrawdownStats())

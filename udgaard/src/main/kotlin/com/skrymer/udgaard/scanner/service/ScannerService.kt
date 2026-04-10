@@ -26,9 +26,11 @@ import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.CloseScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.ClosedTradeStatsResponse
 import com.skrymer.udgaard.scanner.dto.DrawdownStatsResponse
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
+import com.skrymer.udgaard.scanner.dto.StrategyClosedStats
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ValidateEntriesRequest
 import com.skrymer.udgaard.scanner.model.ConditionFailureSummary
@@ -636,6 +638,71 @@ class ScannerService(
       peakEquity = peakEquity,
       currentDrawdownPct = drawdownPct,
     )
+  }
+
+  fun getClosedTradeStats(): ClosedTradeStatsResponse {
+    val closedTrades = scannerTradeRepository.findClosed()
+    if (closedTrades.isEmpty()) {
+      return ClosedTradeStatsResponse(overall = null, byStrategy = emptyList())
+    }
+
+    val overall = computeClosedStats("Overall", closedTrades)
+
+    val byStrategy = closedTrades
+      .groupBy { it.entryStrategyName }
+      .map { (strategy, trades) -> computeClosedStats(strategy, trades) }
+      .sortedByDescending { it.trades }
+
+    return ClosedTradeStatsResponse(overall = overall, byStrategy = byStrategy)
+  }
+
+  private fun computeClosedStats(strategy: String, trades: List<ScannerTrade>): StrategyClosedStats {
+    val wins = trades.filter { (it.realizedPnl ?: 0.0) > 0.0 }
+    val losses = trades.filter { (it.realizedPnl ?: 0.0) < 0.0 }
+    val winRate = if (trades.isNotEmpty()) (wins.size.toDouble() / trades.size) * 100 else 0.0
+
+    val avgWinDollars = if (wins.isNotEmpty()) wins.sumOf { it.realizedPnl ?: 0.0 } / wins.size else 0.0
+    val avgLossDollars = if (losses.isNotEmpty()) kotlin.math.abs(losses.sumOf { it.realizedPnl ?: 0.0 } / losses.size) else 0.0
+
+    val avgWinPct = if (wins.isNotEmpty()) wins.sumOf { tradePnlPercent(it) } / wins.size else 0.0
+    val avgLossPct = if (losses.isNotEmpty()) kotlin.math.abs(losses.sumOf { tradePnlPercent(it) } / losses.size) else 0.0
+
+    val grossProfit = wins.sumOf { it.realizedPnl ?: 0.0 }
+    val grossLoss = kotlin.math.abs(losses.sumOf { it.realizedPnl ?: 0.0 })
+
+    val wr = winRate / 100
+    val edge = (avgWinPct * wr) - (avgLossPct * (1 - wr))
+
+    return StrategyClosedStats(
+      strategy = strategy,
+      trades = trades.size,
+      wins = wins.size,
+      losses = losses.size,
+      winRate = winRate,
+      edge = edge,
+      profitFactor = if (grossLoss > 0) {
+        grossProfit / grossLoss
+      } else if (grossProfit > 0) {
+        null
+      } else {
+        0.0
+      },
+      avgWinPct = avgWinPct,
+      avgLossPct = avgLossPct,
+      avgWinDollars = avgWinDollars,
+      avgLossDollars = avgLossDollars,
+      totalPnl = trades.sumOf { it.realizedPnl ?: 0.0 },
+    )
+  }
+
+  private fun tradePnlPercent(trade: ScannerTrade): Double {
+    val pnl = trade.realizedPnl ?: 0.0
+    val costBasis = if (trade.instrumentType == InstrumentType.OPTION) {
+      (trade.optionPrice ?: trade.entryPrice) * trade.quantity * trade.multiplier
+    } else {
+      trade.entryPrice * trade.quantity
+    }
+    return if (costBasis > 0) (pnl / costBasis) * 100 else 0.0
   }
 
   private fun computeOpenTradeUnrealizedPnl(): Double {

@@ -14,14 +14,7 @@ export function usePositionFormatters() {
     return `${position.optionType} $${position.strikePrice?.toFixed(2)} ${format(new Date(position.expirationDate!), 'MMM d, yyyy')}`
   }
 
-  const formatCurrency = (value: number, currency = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value)
-  }
+  const formatCurrency = (value: number) => formatUsd(value)
 
   const formatDate = (date: string) => {
     return format(new Date(date), 'MMM d, yyyy')

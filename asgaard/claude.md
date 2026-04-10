@@ -111,7 +111,9 @@ asgaard/
 │   │   └── auth-interceptor.client.ts  # Auth interceptor plugin (client-only)
 │   ├── composables/
 │   │   ├── useAuth.ts            # Authentication composable
-│   │   └── usePositionFormatters.ts  # Position formatting utilities
+│   │   └── usePositionFormatters.ts  # Position formatting utilities (delegates to formatUsd)
+│   ├── utils/
+│   │   └── index.ts              # Shared utility functions (formatUsd, formatSignedUsd)
 │   ├── middleware/
 │   │   └── auth.global.ts        # Global auth middleware
 │   ├── types/
