@@ -7,7 +7,8 @@ import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResp
 // State
 const scanResponse = ref<ScanResponse | null>(null)
 const trades = ref<ScannerTrade[]>([])
-const sortedTrades = computed(() => [...trades.value].sort((a, b) => a.symbol.localeCompare(b.symbol)))
+const sortedTrades = computed(() => [...trades.value].sort((a, b) => b.entryDate.localeCompare(a.entryDate)))
+const sortedClosedTrades = computed(() => [...closedTrades.value].sort((a, b) => (b.exitDate ?? '').localeCompare(a.exitDate ?? '')))
 const exitResults = ref<Map<number, ExitCheckResult>>(new Map())
 const scanStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 const exitCheckStatus = ref<'idle' | 'pending'>('idle')
@@ -1257,7 +1258,7 @@ const tradesTableUi = computed(() => ({
                 </span>
               </div>
               <UTable
-                :data="closedTrades"
+                :data="sortedClosedTrades"
                 :columns="closedTradeColumns"
               >
                 <template #empty-state>
