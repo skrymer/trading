@@ -22,6 +22,7 @@ data class ScanResult(
  */
 data class ScanResponse(
   val scanDate: LocalDate,
+  val latestDataDate: LocalDate? = null,
   val entryStrategyName: String,
   val exitStrategyName: String,
   val results: List<ScanResult>,

@@ -91,7 +91,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
 
 6. **Integration** (`data/integration/`)
-   - **Midgaard**: OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks
+   - `StockProvider.kt`: Interface for OHLCV data + live quotes (`LatestQuote`, `getLatestQuote`, `getLatestQuotes`); used by ScannerService, StockController, and UnrealizedPnlService
+   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
    - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
@@ -109,7 +110,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
 
-**Data Management:** `GET /api/data-management/stats`, `POST /api/data-management/refresh/stocks`, `POST /api/data-management/refresh/all-stocks`, `POST /api/data-management/refresh/recalculate-breadth`, `GET /api/data-management/breadth-coverage`, `GET /api/data-management/refresh/progress`, `POST /api/data-management/refresh/clear`
+**Data Management:** `GET /api/data-management/stats`, `GET /api/data-management/latest-date`, `POST /api/data-management/refresh/stocks`, `POST /api/data-management/refresh/all-stocks`, `POST /api/data-management/refresh/recalculate-breadth`, `GET /api/data-management/breadth-coverage`, `GET /api/data-management/refresh/progress`, `POST /api/data-management/refresh/clear`
 
 **Monte Carlo:** `POST /api/monte-carlo/simulate`
 
@@ -159,7 +160,7 @@ trading/
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
-│   │   │   ├── integration/          # Midgaard, Ovtlyr clients + StockProvider interface
+│   │   │   ├── integration/          # Midgaard, Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes)
 │   │   │   ├── mapper/               # StockMapper
 │   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, AssetType
 │   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
@@ -176,7 +177,7 @@ trading/
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request DTOs
 │   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse, NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
+│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
@@ -334,4 +335,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-04-07_
+_Last Updated: 2026-04-10_

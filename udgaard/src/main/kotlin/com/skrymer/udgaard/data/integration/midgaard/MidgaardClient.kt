@@ -1,11 +1,16 @@
 package com.skrymer.udgaard.data.integration.midgaard
 
+import com.skrymer.udgaard.data.integration.LatestQuote
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardExchangeRateDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.model.StockQuote
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.ParameterizedTypeReference
@@ -88,21 +93,42 @@ class MidgaardClient(
     }
   }
 
-  /**
-   * Get the latest real-time quote for a symbol from Midgaard (via Yahoo Finance).
-   */
-  fun getLatestQuote(symbol: String): MidgaardLatestQuoteDto? {
+  override fun getLatestQuote(symbol: String): LatestQuote? {
     try {
-      return restClient
+      val dto = restClient
         .get()
         .uri("/api/quotes/{symbol}/latest", symbol)
         .retrieve()
         .body(MidgaardLatestQuoteDto::class.java)
+      return dto?.let {
+        LatestQuote(
+          symbol = it.symbol,
+          price = it.price,
+          previousClose = it.previousClose,
+          change = it.change,
+          changePercent = it.changePercent,
+          volume = it.volume,
+          high = it.high,
+          low = it.low,
+        )
+      }
     } catch (e: Exception) {
       logger.warn("Failed to fetch latest quote from Midgaard for $symbol: ${e.message}")
       return null
     }
   }
+
+  override fun getLatestQuotes(symbols: List<String>): Map<String, LatestQuote> =
+    runBlocking(Dispatchers.IO) {
+      symbols
+        .map { symbol ->
+          async {
+            getLatestQuote(symbol)?.let { symbol to it }
+          }
+        }.awaitAll()
+        .filterNotNull()
+        .toMap()
+    }
 
   /**
    * Get current exchange rate from Midgaard (e.g., USD to AUD).

@@ -36,6 +36,15 @@ class DataManagementController(
   private val logger = LoggerFactory.getLogger(DataManagementController::class.java)
 
   /**
+   * Get the latest quote date in the database. Lightweight check for data freshness.
+   */
+  @GetMapping("/latest-date")
+  fun getLatestDataDate(): Map<String, String?> {
+    val latestDate = stockRepository.getLatestQuoteTimestamp()?.toLocalDate()
+    return mapOf("latestDataDate" to latestDate?.toString())
+  }
+
+  /**
    * Get comprehensive database statistics
    */
   @GetMapping("/stats")

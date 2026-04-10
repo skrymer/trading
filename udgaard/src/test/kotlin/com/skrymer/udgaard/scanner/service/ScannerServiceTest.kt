@@ -9,7 +9,8 @@ import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategyReport
-import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
+import com.skrymer.udgaard.data.integration.LatestQuote
+import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -53,7 +54,7 @@ class ScannerServiceTest {
   private lateinit var sectorBreadthRepository: SectorBreadthRepository
   private lateinit var marketBreadthRepository: MarketBreadthRepository
   private lateinit var settingsService: SettingsService
-  private lateinit var midgaardClient: com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
+  private lateinit var stockProvider: StockProvider
   private lateinit var technicalIndicatorService: com.skrymer.udgaard.data.service.TechnicalIndicatorService
 
   @BeforeEach
@@ -67,7 +68,7 @@ class ScannerServiceTest {
     sectorBreadthRepository = mock()
     marketBreadthRepository = mock()
     settingsService = mock()
-    midgaardClient = mock()
+    stockProvider = mock()
     technicalIndicatorService = mock()
 
     service = ScannerService(
@@ -80,7 +81,7 @@ class ScannerServiceTest {
       sectorBreadthRepository,
       marketBreadthRepository,
       settingsService,
-      midgaardClient,
+      stockProvider,
       technicalIndicatorService,
     )
 
@@ -406,8 +407,8 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
 
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 152.0, 150.0, 2.0, 1.33, 1000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 152.0, volume = 1000000, high = 152.0, low = 150.0)),
     )
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
@@ -445,8 +446,8 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
 
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 140.0, 150.0, -10.0, -6.67, 1000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 140.0, volume = 1000000)),
     )
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(false)
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
@@ -478,8 +479,8 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
 
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 145.0, 150.0, -5.0, -3.33, 1000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 145.0, volume = 1000000)),
     )
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
@@ -515,7 +516,7 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
 
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(null)
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(emptyMap())
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
       .thenReturn(ExitStrategyReport(match = false))
@@ -547,8 +548,8 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
 
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 148.0, 150.0, -2.0, -1.33, 1000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 148.0, volume = 1000000)),
     )
 
     val details = EntrySignalDetails(
@@ -638,18 +639,8 @@ class ScannerServiceTest {
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
 
     // Live quote: price=155, high=157, low=153 (moved up from 150.0)
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto(
-        "AAPL",
-        155.0,
-        150.0,
-        5.0,
-        3.33,
-        2000000,
-        System.currentTimeMillis(),
-        high = 157.0,
-        low = 153.0
-      ),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 155.0, volume = 2000000, high = 157.0, low = 153.0)),
     )
     whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
 
@@ -706,8 +697,8 @@ class ScannerServiceTest {
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
 
     // Price = 0.0 simulates API error
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 0.0, 150.0, 0.0, 0.0, 0, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 0.0, volume = 0)),
     )
 
     val quoteCaptor = argumentCaptor<StockQuote>()
@@ -746,8 +737,8 @@ class ScannerServiceTest {
     val stock = Stock(symbol = "AAPL", quotes = listOf(lastQuote))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
 
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 155.0, 150.0, 5.0, 3.33, 1000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 155.0, volume = 1000000)),
     )
     whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
 
@@ -783,11 +774,11 @@ class ScannerServiceTest {
     val msftStock = Stock(symbol = "MSFT", quotes = listOf(msftQuote))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(aaplStock, msftStock))
 
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 110.0, 100.0, 10.0, 10.0, 1000000, System.currentTimeMillis()),
-    )
-    whenever(midgaardClient.getLatestQuote("MSFT")).thenReturn(
-      MidgaardLatestQuoteDto("MSFT", 210.0, 200.0, 10.0, 5.0, 2000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf(
+        "AAPL" to LatestQuote("AAPL", 110.0, volume = 1000000),
+        "MSFT" to LatestQuote("MSFT", 210.0, volume = 2000000),
+      ),
     )
     whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
@@ -816,8 +807,8 @@ class ScannerServiceTest {
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
 
     // Live price is 110 (higher than DB close of 105)
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(
-      MidgaardLatestQuoteDto("AAPL", 110.0, 105.0, 5.0, 4.76, 1000000, System.currentTimeMillis()),
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote("AAPL", 110.0, volume = 1000000)),
     )
     whenever(settingsService.getPositionSizingSettings()).thenReturn(
       com.skrymer.udgaard.controller.dto
@@ -844,7 +835,7 @@ class ScannerServiceTest {
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
 
     // Live quote returns null (API unavailable)
-    whenever(midgaardClient.getLatestQuote("AAPL")).thenReturn(null)
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(emptyMap())
     whenever(settingsService.getPositionSizingSettings()).thenReturn(
       com.skrymer.udgaard.controller.dto
         .PositionSizingSettingsDto(portfolioValue = 100000.0),

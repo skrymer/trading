@@ -223,10 +223,20 @@ const tabItems = [
   }
 ]
 
+const latestDataDate = ref<string | null>(null)
+const dataIsStale = computed(() => {
+  if (!latestDataDate.value) return false
+  const now = new Date()
+  const dataDate = new Date(latestDataDate.value + 'T00:00:00')
+  const diffDays = Math.floor((now.getTime() - dataDate.getTime()) / (1000 * 60 * 60 * 24))
+  return diffDays > 2
+})
+
 const lastExitCheckAt = ref<number>(0)
 const EXIT_CHECK_COOLDOWN_MS = 5 * 60 * 1000
 
 onMounted(async () => {
+  void loadDataFreshness()
   await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades()])
   if (trades.value.length > 0) {
     const now = Date.now()
@@ -236,6 +246,15 @@ onMounted(async () => {
     }
   }
 })
+
+async function loadDataFreshness() {
+  try {
+    const data = await $fetch<{ latestDataDate: string | null }>('/udgaard/api/data-management/latest-date')
+    latestDataDate.value = data.latestDataDate
+  } catch (error) {
+    console.error('Failed to load data freshness:', error)
+  }
+}
 
 async function loadPositionSizingSettings() {
   try {
@@ -828,6 +847,12 @@ const tradesTableUi = computed(() => ({
     <template #header>
       <UDashboardNavbar title="Mission Control">
         <template #right>
+          <UTooltip v-if="dataIsStale" :text="`Stock data last updated: ${latestDataDate}`">
+            <UBadge color="warning" variant="subtle" class="mr-4 cursor-help">
+              <UIcon name="i-lucide-alert-triangle" class="w-3.5 h-3.5 mr-1" />
+              Data stale ({{ latestDataDate }})
+            </UBadge>
+          </UTooltip>
           <div v-if="exitResults.size > 0" class="flex items-center gap-1.5 mr-4">
             <span class="text-xs text-muted">Today</span>
             <span
@@ -860,7 +885,7 @@ const tradesTableUi = computed(() => ({
           :trades="trades"
           :exit-results="exitResults"
           :capital-deployed="positionSizingSettings.enabled ? existingCapitalDeployed : undefined"
-          :portfolio-value="positionSizingSettings.enabled ? positionSizingSettings.portfolioValue : undefined"
+          :portfolio-value="positionSizingSettings.enabled ? currentEquity : undefined"
           :drawdown-pct="currentDrawdownPct"
           :effective-risk="effectiveRiskPercentage"
           :base-risk="positionSizingSettings.riskPercentage"
@@ -1117,13 +1142,26 @@ const tradesTableUi = computed(() => ({
                       :disabled="preferredResults.length === 0"
                       @click="validateEntries"
                     />
-                    <UButton
-                      v-if="positionSizingSettings.enabled && selectedSymbols.size > 0"
-                      :label="`Add ${selectedSymbols.size} Trade${selectedSymbols.size > 1 ? 's' : ''}`"
-                      icon="i-lucide-plus"
-                      size="sm"
-                      @click="openBatchAddModal"
-                    />
+                    <template v-if="positionSizingSettings.enabled && selectedSymbols.size > 0">
+                      <span
+                        class="text-xs tabular-nums"
+                        :class="portfolioUtilization > 100 ? 'text-red-500 font-semibold' : portfolioUtilization > 80 ? 'text-yellow-500' : 'text-muted'"
+                      >
+                        {{ portfolioUtilization.toFixed(0) }}% utilized
+                      </span>
+                      <UTooltip
+                        :text="portfolioUtilization > 100 ? 'Not enough equity to fund selected trades' : ''"
+                        :disabled="portfolioUtilization <= 100"
+                      >
+                        <UButton
+                          :label="`Add ${selectedSymbols.size} Trade${selectedSymbols.size > 1 ? 's' : ''}`"
+                          icon="i-lucide-plus"
+                          size="sm"
+                          :disabled="portfolioUtilization > 100"
+                          @click="openBatchAddModal"
+                        />
+                      </UTooltip>
+                    </template>
                   </div>
                 </div>
 

@@ -1152,6 +1152,7 @@ export interface LatestQuote {
 
 export interface ScanResponse {
   scanDate: string
+  latestDataDate?: string
   entryStrategyName: string
   exitStrategyName: string
   results: ScanResult[]
