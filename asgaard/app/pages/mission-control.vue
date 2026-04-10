@@ -920,7 +920,7 @@ const tradesTableUi = computed(() => ({
                     />
                   </div>
                 </UFormField>
-                <UFormField label="Portfolio Value ($)">
+                <UFormField label="Starting Capital ($)">
                   <UInput
                     v-model.number="positionSizingSettings.portfolioValue"
                     type="number"

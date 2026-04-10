@@ -10,7 +10,7 @@ plugins {
 }
 
 group = 'com.skrymer'
-version = '1.0.21'
+version = '1.0.24'
 
 java {
 	toolchain {

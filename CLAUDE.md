@@ -134,7 +134,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, BatchAddTradesModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
 - **Settings** (`components/settings/`): MembersList
 - **Root-level**: StockPriceChart.client, SymbolLink, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable
-- **Pages**: index, backtesting, portfolio, scanner, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
+- **Pages**: index, backtesting, portfolio, mission-control, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 

@@ -408,6 +408,7 @@ class ScannerService(
     }
 
     val lastDbQuote = stock.quotes.lastOrNull() ?: return null
+    val previousDayQuote = stock.quotes.getOrNull(stock.quotes.size - 2)
     val entryQuote = stock.quotes.find { it.date == trade.entryDate }
 
     val liveQuote = liveQuotesBySymbol[trade.symbol]
@@ -420,7 +421,7 @@ class ScannerService(
 
     val exitReport = exitStrategy.test(stock, entryQuote, latestQuote, backtestContext)
     val currentPrice = latestQuote.closePrice
-    val priorClose = lastDbQuote.closePrice
+    val priorClose = previousDayQuote?.closePrice ?: lastDbQuote.closePrice
     val pnlPercent = if (trade.entryPrice != 0.0) {
       ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
     } else {
