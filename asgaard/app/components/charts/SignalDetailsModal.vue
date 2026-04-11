@@ -34,10 +34,15 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <UModal :open="open" title="Entry Signal Details" @update:open="emit('update:open', $event)">
+  <UModal
+    :open="open"
+    title="Entry Signal Details"
+    :ui="{ content: 'max-w-5xl' }"
+    @update:open="emit('update:open', $event)"
+  >
     <template #body>
       <div v-if="signal" class="space-y-4">
-        <!-- Quote Info -->
+        <!-- Quote & Strategy Info -->
         <div class="flex justify-between items-center pb-3 border-b border-default">
           <div>
             <p class="text-sm text-muted">
@@ -47,7 +52,7 @@ const emit = defineEmits<{
               {{ format(new Date(signal.date), 'MMM dd, yyyy') }}
             </p>
           </div>
-          <div class="text-right">
+          <div class="text-center">
             <p class="text-sm text-muted">
               Price
             </p>
@@ -55,57 +60,58 @@ const emit = defineEmits<{
               ${{ signal.price.toFixed(2) }}
             </p>
           </div>
+          <div class="text-right">
+            <p class="text-sm text-muted">
+              Strategy
+            </p>
+            <p class="font-semibold">
+              {{ signal.entryDetails?.strategyName ?? 'N/A' }}
+            </p>
+          </div>
         </div>
 
         <!-- Strategy Info -->
         <div v-if="signal.entryDetails" class="space-y-4">
-          <div>
-            <p class="text-xs text-muted mb-1">
-              Strategy
-            </p>
-            <p class="font-medium">
-              {{ signal.entryDetails.strategyName }}
-            </p>
-          </div>
-
           <!-- Conditions List -->
           <div class="space-y-3">
             <p class="text-xs text-muted uppercase tracking-wide">
               Conditions
             </p>
 
-            <div
-              v-for="(condition, index) in signal.entryDetails.conditions"
-              :key="index"
-              class="p-3 rounded-lg border"
-              :class="condition.passed ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'"
-            >
-              <!-- Condition Header -->
-              <div class="flex items-start gap-2">
-                <UIcon
-                  :name="condition.passed ? 'i-lucide-check-circle' : 'i-lucide-x-circle'"
-                  :class="condition.passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
-                  class="w-5 h-5 flex-shrink-0 mt-0.5"
-                />
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium text-sm" :class="condition.passed ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'">
-                    {{ condition.description }}
-                  </p>
+            <div class="grid grid-cols-3 gap-2">
+              <div
+                v-for="(condition, index) in signal.entryDetails.conditions"
+                :key="index"
+                class="p-3 rounded-lg border"
+                :class="condition.passed ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'"
+              >
+                <!-- Condition Header -->
+                <div class="flex items-start gap-2">
+                  <UIcon
+                    :name="condition.passed ? 'i-lucide-check-circle' : 'i-lucide-x-circle'"
+                    :class="condition.passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                    class="w-5 h-5 flex-shrink-0 mt-0.5"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-sm" :class="condition.passed ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'">
+                      {{ condition.description }}
+                    </p>
 
-                  <!-- Actual Value vs Threshold -->
-                  <div v-if="condition.actualValue || condition.threshold" class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                    <span v-if="condition.actualValue" class="text-muted">
-                      <span class="font-medium">Actual:</span> {{ condition.actualValue }}
-                    </span>
-                    <span v-if="condition.threshold" class="text-muted">
-                      <span class="font-medium">Threshold:</span> {{ condition.threshold }}
-                    </span>
+                    <!-- Actual Value vs Threshold -->
+                    <div v-if="condition.actualValue || condition.threshold" class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      <span v-if="condition.actualValue" class="text-muted">
+                        <span class="font-medium">Actual:</span> {{ condition.actualValue }}
+                      </span>
+                      <span v-if="condition.threshold" class="text-muted">
+                        <span class="font-medium">Threshold:</span> {{ condition.threshold }}
+                      </span>
+                    </div>
+
+                    <!-- Message -->
+                    <p v-if="condition.message" class="mt-2 text-sm" :class="condition.passed ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'">
+                      {{ condition.message }}
+                    </p>
                   </div>
-
-                  <!-- Message -->
-                  <p v-if="condition.message" class="mt-2 text-sm" :class="condition.passed ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'">
-                    {{ condition.message }}
-                  </p>
                 </div>
               </div>
             </div>

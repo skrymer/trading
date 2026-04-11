@@ -5,6 +5,8 @@ import type { TableColumn } from '@nuxt/ui'
 import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse, ClosedTradeStatsResponse } from '~/types'
 
 // State
+const pageLoading = ref(true)
+const loadingMessage = ref('Loading trades...')
 const scanResponse = ref<ScanResponse | null>(null)
 const trades = ref<ScannerTrade[]>([])
 const sortedTrades = computed(() => [...trades.value].sort((a, b) => b.entryDate.localeCompare(a.entryDate)))
@@ -238,13 +240,19 @@ const EXIT_CHECK_COOLDOWN_MS = 5 * 60 * 1000
 
 onMounted(async () => {
   void loadDataFreshness()
-  await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats()])
-  if (trades.value.length > 0) {
-    const now = Date.now()
-    if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
-      lastExitCheckAt.value = now
-      checkExits()
+  try {
+    loadingMessage.value = 'Loading trades and settings...'
+    await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats()])
+    if (trades.value.length > 0) {
+      const now = Date.now()
+      if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
+        lastExitCheckAt.value = now
+        loadingMessage.value = `Checking status for ${trades.value.length} trade${trades.value.length > 1 ? 's' : ''}...`
+        await checkExits()
+      }
     }
+  } finally {
+    pageLoading.value = false
   }
 })
 
@@ -266,24 +274,16 @@ async function loadPositionSizingSettings() {
   }
 }
 
-let saveTimeout: ReturnType<typeof setTimeout> | null = null
-function debouncedSavePositionSizing() {
-  if (saveTimeout) clearTimeout(saveTimeout)
-  saveTimeout = setTimeout(async () => {
-    try {
-      await $fetch('/udgaard/api/settings/position-sizing', {
-        method: 'POST',
-        body: positionSizingSettings.value
-      })
-    } catch (error) {
-      console.error('Failed to save position sizing settings:', error)
-    }
-  }, 500)
+async function savePositionSizingSettings() {
+  try {
+    await $fetch('/udgaard/api/settings/position-sizing', {
+      method: 'POST',
+      body: positionSizingSettings.value
+    })
+  } catch (error) {
+    console.error('Failed to save position sizing settings:', error)
+  }
 }
-
-watch(positionSizingSettings, () => {
-  debouncedSavePositionSizing()
-}, { deep: true })
 
 async function loadTrades() {
   try {
@@ -887,7 +887,13 @@ const tradesTableUi = computed(() => ({
     </template>
 
     <template #body>
-      <div class="p-4 space-y-4">
+      <div v-if="pageLoading" class="flex flex-col items-center justify-center py-24">
+        <UIcon name="i-lucide-loader-2" class="w-12 h-12 text-primary animate-spin mb-4" />
+        <p class="text-muted">
+          {{ loadingMessage }}
+        </p>
+      </div>
+      <div v-else class="p-4 space-y-4">
         <!-- Stats Cards -->
         <ScannerStatsCards
           :trades="trades"
@@ -912,7 +918,7 @@ const tradesTableUi = computed(() => ({
           icon="i-lucide-trending-down"
         />
 
-        <!-- Position Sizing Config (collapsed by default) -->
+        <!-- Position Sizing (read-only) -->
         <UCollapsible v-if="positionSizingSettings.enabled">
           <UButton
             variant="ghost"
@@ -933,61 +939,54 @@ const tradesTableUi = computed(() => ({
             <div class="p-4 bg-muted/50 rounded-lg border border-default space-y-3 mt-1">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-semibold">Position Sizing</span>
-                <USwitch v-model="positionSizingSettings.enabled" size="sm" />
+                <NuxtLink to="/settings">
+                  <UButton
+                    label="Settings"
+                    icon="i-lucide-settings"
+                    size="xs"
+                    variant="soft"
+                    color="neutral"
+                  />
+                </NuxtLink>
               </div>
-              <div class="grid grid-cols-4 gap-4">
-                <UFormField label="Instrument">
-                  <div class="flex w-full">
+              <div class="grid grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span class="text-muted">Instrument</span>
+                  <div class="flex mt-1">
                     <UButton
                       label="Stock"
-                      size="sm"
+                      size="xs"
                       :variant="positionSizingSettings.instrumentMode === 'STOCK' ? 'solid' : 'outline'"
                       class="flex-1 rounded-r-none"
-                      @click="positionSizingSettings.instrumentMode = 'STOCK'"
+                      @click="positionSizingSettings.instrumentMode = 'STOCK'; savePositionSizingSettings()"
                     />
                     <UButton
                       label="Options"
-                      size="sm"
+                      size="xs"
                       :variant="positionSizingSettings.instrumentMode === 'OPTION' ? 'solid' : 'outline'"
                       class="flex-1 rounded-l-none"
-                      @click="positionSizingSettings.instrumentMode = 'OPTION'"
+                      @click="positionSizingSettings.instrumentMode = 'OPTION'; savePositionSizingSettings()"
                     />
                   </div>
-                </UFormField>
-                <UFormField label="Starting Capital ($)">
-                  <UInput
-                    v-model.number="positionSizingSettings.portfolioValue"
-                    type="number"
-                    :min="1000"
-                    :step="1000"
-                  />
-                </UFormField>
-                <UFormField label="Risk Per Trade (%)">
-                  <UInput
-                    v-model.number="positionSizingSettings.riskPercentage"
-                    type="number"
-                    :min="0.1"
-                    :max="10"
-                    :step="0.1"
-                  />
-                </UFormField>
-                <UFormField>
-                  <template #label>
-                    <span class="flex items-center gap-1">
-                      ATR Multiplier
-                      <UTooltip :text="isOptionsMode ? 'Contracts = Risk$ / (nATR × ATR × delta × 100)' : 'Shares = Risk$ / (nATR × ATR). Lower = more shares, tighter stop.'">
-                        <UIcon name="i-lucide-info" class="size-3.5 text-muted" />
-                      </UTooltip>
-                    </span>
-                  </template>
-                  <UInput
-                    v-model.number="positionSizingSettings.nAtr"
-                    type="number"
-                    :min="0.5"
-                    :max="10"
-                    :step="0.5"
-                  />
-                </UFormField>
+                </div>
+                <div>
+                  <span class="text-muted">Starting Capital</span>
+                  <p class="font-medium">
+                    {{ formatUsd(positionSizingSettings.portfolioValue, false) }}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-muted">Risk Per Trade</span>
+                  <p class="font-medium">
+                    {{ positionSizingSettings.riskPercentage }}%
+                  </p>
+                </div>
+                <div>
+                  <span class="text-muted">ATR Multiplier</span>
+                  <p class="font-medium">
+                    {{ positionSizingSettings.nAtr }}x
+                  </p>
+                </div>
               </div>
               <!-- Portfolio Utilization -->
               <div class="space-y-1">
@@ -1012,18 +1011,12 @@ const tradesTableUi = computed(() => ({
               </div>
 
               <!-- Drawdown Scaling -->
-              <div class="flex items-center justify-between pt-2 border-t border-default">
-                <div class="flex items-center gap-2">
+              <template v-if="positionSizingSettings.drawdownScalingEnabled">
+                <div class="flex items-center gap-2 pt-2 border-t border-default">
                   <UIcon name="i-lucide-shield-alert" class="w-4 h-4 text-muted" />
                   <span class="text-sm font-semibold">Drawdown Scaling</span>
-                  <UTooltip text="Automatically reduces risk per trade when portfolio is in drawdown">
-                    <UIcon name="i-lucide-info" class="size-3.5 text-muted" />
-                  </UTooltip>
                 </div>
-                <USwitch v-model="positionSizingSettings.drawdownScalingEnabled" size="sm" />
-              </div>
 
-              <template v-if="positionSizingSettings.drawdownScalingEnabled">
                 <!-- Drawdown Info Row -->
                 <div class="grid grid-cols-5 gap-4 text-sm items-center">
                   <div>
@@ -1091,13 +1084,6 @@ const tradesTableUi = computed(() => ({
             </div>
           </template>
         </UCollapsible>
-        <div v-else class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-default">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-calculator" class="w-4 h-4 text-muted" />
-            <span class="text-sm text-muted">Position Sizing</span>
-          </div>
-          <USwitch v-model="positionSizingSettings.enabled" size="sm" />
-        </div>
 
         <!-- Tabs -->
         <UTabs v-model="activeTab" :items="tabItems">

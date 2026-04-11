@@ -1668,6 +1668,81 @@ Deploy $5K on the 1st of every month, mechanically. With a validated 35%+ CAGR s
 
 ---
 
+### Drawdown Scaling Threshold Sweep (2026-04-11)
+
+Tested 6 drawdown scaling configurations against baseline (no scaling) to find optimal thresholds. All runs: VCP/MjolnirExitStrategy, STOCK, 2016-2025, $10K, 15 max positions, entry delay 1, seed 42, 890 trades, 49.1% WR, 5.85% edge, EC 100.
+
+#### Results
+
+| # | Config | Final Capital | CAGR | Max DD | Calmar | Sharpe | Sortino |
+|---|--------|--------------|------|--------|--------|--------|---------|
+| Baseline | No scaling | $692,490 | 51.9% | 20.3% | 2.55 | 2.21 | 3.45 |
+| V1 | 5%/10% → 0.67/0.33 | $620,388 | 50.2% | 16.0% | 3.14 | 2.29 | 3.56 |
+| **V2** | **3%/8% → 0.67/0.33** | **$633,605** | **50.5%** | **15.7%** | **3.23** | **2.33** | **3.64** |
+| V3 | 7%/15% → 0.67/0.33 | $520,786 | 48.5% | 20.0% | 2.42 | -- | -- |
+| V4 | Single 5% → 0.50 | $597,813 | 50.5% | 18.4% | 2.75 | -- | -- |
+| V5 | Single 10% → 0.50 | $644,087 | 50.8% | 18.0% | 2.82 | 2.21 | 2.24 |
+| V6 | Gentle 5%/10% → 0.80/0.60 | $685,841 | 51.7% | 19.4% | 2.66 | 2.24 | 3.52 |
+
+#### Risk Sensitivity (V2 with different base risk)
+
+| Base Risk | Final Capital | CAGR | Max DD | Calmar |
+|-----------|--------------|------|--------|--------|
+| 1.5% | $633,605 | 50.5% | 15.7% | 3.23 |
+| 1.0% | $390,576 | 44.3% | 14.7% | 3.01 |
+| 0.75% | $270,740 | 39.1% | 14.6% | 2.68 |
+
+Diminishing returns on DD reduction below 1.5% risk — going to 1.0% shaves only 1pp of DD but costs 7pp of CAGR. The drawdown scaling already handles DD control.
+
+#### Monte Carlo Validation (V2, 10K iterations)
+
+**Bootstrap Resampling (Edge Confidence):**
+
+| Percentile | Edge |
+|------------|------|
+| p5 | 4.70% |
+| p50 | 5.83% |
+| p95 | 7.01% |
+
+Probability of profit: 100%. The p5 edge of 4.70% is well above the 1.5% tradeable threshold. Actual backtest edge (5.85%) sits at the median — representative, not lucky.
+
+**Trade Shuffling (Drawdown Distribution):**
+
+| Percentile | Max DD |
+|------------|--------|
+| p5 | 14.3% |
+| p50 | 18.8% |
+| p95 | 26.3% |
+
+Actual 15.7% DD sits below p25 — the historical trade ordering was somewhat favorable. Realistic expectation: ~19% median DD, 26% stress-test ceiling.
+
+#### Walk-Forward Validation (V2)
+
+| Metric | Value |
+|---|---|
+| WFE | 0.71 (robust) |
+| OOS Edge | 4.39% (75% retention) |
+| OOS Trades | 408 |
+
+Per-window detail:
+
+| Window | OOS Year | OOS Edge | WFE |
+|---|---|---|---|
+| 1 | 2021 | 4.21% | 0.61 |
+| 2 | 2022 | 0.77% | 0.11 |
+| 3 | 2023 | 5.97% | 1.19 |
+| 4 | 2024 | 7.54% | 1.23 |
+
+2022 bear market is the stress year (edge barely positive), but drawdown scaling limited damage. 2023-2024 OOS edge exceeded in-sample.
+
+#### Conclusion
+
+**V2 (3%/8% → 0.67/0.33) is the recommended drawdown scaling config.** It trades 1.4pp of CAGR (51.9% → 50.5%) for a 4.6pp reduction in max DD (20.3% → 15.7%), pushing all three risk-adjusted ratios to sweep highs. The early 3% trigger catches drawdowns before they compound. Monte Carlo confirms edge is robust (p5 = 4.70%, 100% profit probability). Walk-forward WFE of 0.71 validates out-of-sample performance.
+
+V3 (late trigger 7%/15%) is the worst — barely reduces DD but still costs CAGR. V6 (gentle multipliers) preserves the most capital but only shaves 0.9pp off DD. Single-threshold variants (V4, V5) are middling.
+
+---
+
 ### Potential Next Steps
 - ~~Entry condition ablation study~~ — Done. `priceAbove(50)` removed as redundant (see Ablation Study)
 - ~~Parameter sensitivity on `volatilityContracted`~~ — Done. maxAtrMultiple changed from 2.5 to 3.5 (see VC Sweep)
@@ -1681,7 +1756,7 @@ Deploy $5K on the 1st of every month, mechanically. With a validated 35%+ CAGR s
 - ~~Test with different exit strategies~~ — Done. Trailing stop, faster EMA, and stagnation exit tested (see ATR Trailing Stop & Faster EMA Sweep, Stagnation Exit Sweep)
 - ~~Drawdown-responsive position sizing~~ — Done. Calmar +33%, max DD -36%, CAGR -6.6pp (see Drawdown-Responsive Position Sizing)
 - ~~Stagnation exit~~ — Done. 15d/3% selected: Calmar +17%, max DD -3.4pp, EC 100/100, WFE 0.69 (see Stagnation Exit Sweep)
-- Drawdown scaling threshold sweep — test different threshold levels (e.g., 7%/15%, 3%/8%, single threshold)
+- ~~Drawdown scaling threshold sweep~~ — Done. V2 (3%/8% → 0.67/0.33) selected: Calmar 3.23, MaxDD 15.7%, CAGR 50.5% (see Drawdown Scaling Threshold Sweep)
 - Stagnation exit + drawdown-responsive scaling — test combined effect
 - Combined portfolio simulation — run VCP + Mjolnir together to measure diversification benefit
 - **Options-based position sizing** — With $10K and 1.5% risk, stock positions cost ~$1,875 each, so only 4-5 fit before 100% capital utilization. Options (calls or debit spreads) would use ~$200-400 per position, enabling the full 15 concurrent positions at small account sizes. Explore: delta target (e.g., 0.70 calls), expiration selection (45-60 DTE to cover avg 54-day hold), stop-loss translation (% of premium vs ATR-based)
