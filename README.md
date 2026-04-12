@@ -210,6 +210,7 @@ Model realistic execution lag (e.g., seeing signal after market close, entering 
 ```
 
 - Signal fires on Day 0, actual entry at Day 0+N's close price
+- Entry conditions are **not** re-checked on the delayed day — once a signal fires, the trade is queued and entered at the delayed date's price. This matches real-time execution where you commit to the trade on signal day
 - Skips entry if delayed day has no data
 
 ### 7. Monte Carlo Simulation

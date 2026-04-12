@@ -324,6 +324,7 @@ VolatilityRanker()          // ATR as % of price (higher volatility = better)
 DistanceFrom10EmaRanker()   // Distance from 10 EMA (closer = better)
 CompositeRanker()           // Combines Vol (40%) + Dist10EMA (30%) + Sector (30%)
 SectorStrengthRanker()      // Rank by sector bull percentage
+SectorEdgeRanker()          // Rank by IS-derived sector performance (used by walk-forward)
 RandomRanker()              // Random selection (baseline)
 AdaptiveRanker()            // Volatility in trends, DistanceFrom10Ema in chop
 ```

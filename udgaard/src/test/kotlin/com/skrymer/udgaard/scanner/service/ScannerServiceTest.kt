@@ -1010,8 +1010,9 @@ class ScannerServiceTest {
 
     val result = service.getClosedTradeStats()
 
-    assertEquals(null, result.overall!!.profitFactor) // infinity
-    assertEquals(100.0, result.overall!!.winRate, 0.1)
+    val overall = result.overall!!
+    assertEquals(null, overall.profitFactor) // infinity
+    assertEquals(100.0, overall.winRate, 0.1)
   }
 
   @Test
@@ -1024,8 +1025,9 @@ class ScannerServiceTest {
 
     val result = service.getClosedTradeStats()
 
-    assertEquals(0.0, result.overall!!.profitFactor)
-    assertEquals(0.0, result.overall!!.winRate, 0.1)
+    val overall = result.overall!!
+    assertEquals(0.0, overall.profitFactor)
+    assertEquals(0.0, overall.winRate, 0.1)
   }
 
   @Test
@@ -1039,10 +1041,11 @@ class ScannerServiceTest {
 
     val result = service.getClosedTradeStats()
 
-    assertEquals(3, result.overall!!.trades)
-    assertEquals(1, result.overall!!.wins)
-    assertEquals(1, result.overall!!.losses)
+    val overall = result.overall!!
+    assertEquals(3, overall.trades)
+    assertEquals(1, overall.wins)
+    assertEquals(1, overall.losses)
     // Win rate: 1/3 = 33.3%
-    assertEquals(33.3, result.overall!!.winRate, 0.1)
+    assertEquals(33.3, overall.winRate, 0.1)
   }
 }

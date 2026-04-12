@@ -8,6 +8,7 @@ import com.skrymer.udgaard.backtesting.model.WalkForwardWindow
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.SectorEdgeRanker
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
@@ -103,7 +104,13 @@ class WalkForwardService(
         "sectors=${sectorRanking.take(5).joinToString(",")}",
     )
 
-    val oosReport = runBacktest(params, window.oosStart, window.oosEnd, sharedContext, sharedBreadthByDate)
+    // Use IS-derived sector ranking for OOS to prevent look-ahead bias
+    val oosParams = if (params.ranker is SectorEdgeRanker && sectorRanking.isNotEmpty()) {
+      params.copy(ranker = SectorEdgeRanker(sectorRanking))
+    } else {
+      params
+    }
+    val oosReport = runBacktest(oosParams, window.oosStart, window.oosEnd, sharedContext, sharedBreadthByDate)
     logger.info(
       "OOS result: ${oosReport.totalTrades} trades, " +
         "edge=${String.format("%.2f", oosReport.edge)}",
