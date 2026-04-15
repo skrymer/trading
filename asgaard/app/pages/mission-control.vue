@@ -2,7 +2,7 @@
 import { h } from 'vue'
 import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse, ClosedTradeStatsResponse } from '~/types'
+import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse, ClosedTradeStatsResponse, EquityCurvePoint } from '~/types'
 
 // State
 const pageLoading = ref(true)
@@ -203,6 +203,22 @@ const portfolioUtilization = computed(() => {
   const equity = currentEquity.value
   if (equity <= 0) return 0
   return ((existingCapitalDeployed.value + selectedCapital.value) / equity) * 100
+})
+
+const equityCurveData = computed<EquityCurvePoint[]>(() => {
+  const closed = closedTrades.value.filter(t => t.exitDate && t.realizedPnl != null)
+  if (closed.length === 0) return []
+
+  const sorted = [...closed].sort((a, b) => a.exitDate!.localeCompare(b.exitDate!))
+  const startingCapital = positionSizingSettings.value.portfolioValue
+  if (startingCapital <= 0) return []
+
+  let equity = startingCapital
+  return sorted.map((trade) => {
+    const profitPct = (trade.realizedPnl! / equity) * 100
+    equity += trade.realizedPnl!
+    return { date: trade.exitDate!, profitPercentage: profitPct }
+  })
 })
 
 const tabItems = [
@@ -877,11 +893,6 @@ const tradesTableUi = computed(() => ({
             variant="ghost"
             @click="isResetAllTradesModalOpen = true"
           />
-          <UButton
-            label="Find Candidates"
-            icon="i-lucide-crosshair"
-            @click="isScanConfigModalOpen = true"
-          />
         </template>
       </UDashboardNavbar>
     </template>
@@ -1085,6 +1096,30 @@ const tradesTableUi = computed(() => ({
           </template>
         </UCollapsible>
 
+        <!-- Equity Curve -->
+        <UCollapsible v-if="equityCurveData.length > 0">
+          <UButton
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-lucide-trending-up"
+            class="w-full justify-start"
+          >
+            <span class="text-sm">
+              Equity Curve &middot; {{ equityCurveData.length }} closed trades
+            </span>
+          </UButton>
+          <template #content>
+            <div class="mt-2">
+              <EquityCurve
+                :equity-curve-data="equityCurveData"
+                :initial-capital="positionSizingSettings.portfolioValue"
+                :loading="false"
+              />
+            </div>
+          </template>
+        </UCollapsible>
+
         <!-- Tabs -->
         <UTabs v-model="activeTab" :items="tabItems">
           <!-- Scan Results Tab -->
@@ -1127,6 +1162,12 @@ const tradesTableUi = computed(() => ({
                     </template>
                   </div>
                   <div class="flex items-center gap-2">
+                    <UButton
+                      label="Find Candidates"
+                      icon="i-lucide-crosshair"
+                      size="sm"
+                      @click="isScanConfigModalOpen = true"
+                    />
                     <UButton
                       label="Validate"
                       icon="i-lucide-shield-check"

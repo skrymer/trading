@@ -2016,3 +2016,123 @@ Win rate (52.1%) and average loss (-5.55%) are reported, but the longest losing 
 The quant recommendations mention capping total open risk at 10-15%, but it has never been backtested. With 15 concurrent positions, a sector-correlated selloff can hit 10+ positions simultaneously. The SPY correlation of 0.50 and beta of 0.56 partially capture this, but intra-portfolio position correlation is never measured.
 
 **Action:** Compute average pairwise correlation of concurrent position returns during the worst drawdown episodes.
+
+---
+
+## Exit Strategy Enhancement Testing (2026-04-15)
+
+### Methodology
+
+All exit enhancements tested using the quant's principle: **only pursue changes that don't degrade unlimited (no position cap) per-trade edge.** If a change hurts unlimited edge, it's curve-fitting the slot allocation — fragile and likely to degrade OOS.
+
+Baseline config: position-sized, 2016-2025, 15 max positions, 1-day entry delay, $10K starting capital, 1.5% risk, 2x ATR, DD scaling 3%/8%, randomSeed=42.
+
+**Position-sized baseline:** 998 trades, 5.45% edge, $510,238 final, 48.2% CAGR, 16.2% max DD, Calmar 2.97.
+
+### 1. Bearish Order Block Exit
+
+**Concept:** Exit when price enters a bearish order block (overhead resistance) that's at least X days old. Frees position slots by cutting trades approaching established resistance.
+
+**Position-sized results:**
+
+| Config | Trades | Edge | Final | CAGR | Max DD | Calmar |
+|--------|--------|------|-------|------|--------|--------|
+| Baseline | 998 | 5.45% | $510,238 | 48.2% | 16.2% | 2.97 |
+| OB exit age=30 | 1,338 | 3.74% | $819,548 | 55.4% | 19.1% | 2.90 |
+| OB exit age=60 | 1,276 | 4.02% | $934,953 | 57.4% | 18.4% | 3.12 |
+| OB exit age=120 | 1,196 | 4.44% | $916,196 | 57.1% | 17.2% | 3.32 |
+
+Impressive position-sized improvement ($510K → $935K). However, the unlimited mode diagnostic revealed the improvement is **purely slot allocation, not intrinsic alpha:**
+
+**Unlimited results:**
+
+| Config | Trades | Edge | Delta | PF | EC |
+|--------|--------|------|-------|-----|-----|
+| Baseline | 8,513 | 5.06% | — | 2.50 | 96 |
+| OB exit age=120 | 8,604 | 4.42% | -0.64pp | 2.42 | 92 |
+| OB exit age=200 | 8,574 | 4.55% | -0.51pp | 2.44 | 92 |
+| OB exit age=300 | 8,556 | 4.74% | -0.32pp | 2.47 | 96 |
+
+The OB exit degrades per-trade edge at every age parameter. It cuts trades that would have broken through resistance and continued higher. The position-sized improvement comes entirely from freeing slots faster, not from better exit timing.
+
+**Conclusion:** Not adopted. The improvement is fragile — depends on the 15-position cap creating a binding constraint and freed slots being filled with profitable entries. Could vanish or reverse if market conditions reduce signal density.
+
+### 2. ATR Trailing Stop
+
+**Concept A — Add alongside EMA cross:** Keep EMA 10/20 cross and add trailing stop as additional exit.
+
+| Config | Trades | Edge | Final | CAGR | Max DD | Calmar |
+|--------|--------|------|-------|------|--------|--------|
+| Baseline | 998 | 5.45% | $510,238 | 48.2% | 16.2% | 2.97 |
+| + Trail 2.5x | 1,197 | 4.06% | $530,262 | 48.7% | 16.1% | 3.03 |
+| + Trail 3.0x | 1,096 | 4.66% | $477,872 | 47.2% | 16.4% | 2.88 |
+| + Trail 3.5x | 1,046 | 4.88% | $379,747 | 43.9% | 19.2% | 2.28 |
+
+Trail 2.5x marginally better, 3.0x and 3.5x worse. Adding a trailing stop alongside EMA cross doesn't help — the trailing stop exits winners that EMA cross would have handled better.
+
+**Concept B — Replace EMA cross:** Use trailing stop as the sole trend exit (no EMA cross).
+
+**Unlimited results:**
+
+| Config | Trades | Edge | Delta | WR | PF | EC |
+|--------|--------|------|-------|-----|-----|-----|
+| Baseline (EMA 10/20) | 8,513 | 5.06% | — | 51.9% | 2.50 | 96 |
+| Trail 2.5x (no EMA) | 8,536 | 4.25% | -0.81 | 55.1% | 2.25 | 92 |
+| Trail 2.7x (no EMA) | 8,475 | 4.56% | -0.50 | 54.6% | 2.26 | 92 |
+| Trail 3.0x (no EMA) | 8,386 | 5.07% | +0.01 | 54.2% | 2.36 | 92 |
+| Trail 3.5x (no EMA) | 8,248 | 5.85% | +0.79 | 52.6% | 2.49 | 92 |
+
+Trail 3.5x **improves** unlimited edge to 5.85% (+0.79pp) — the first exit change to do so. It catches large reversals faster than EMA cross while still letting winners run.
+
+**Position-sized results (Trail 3.5x replacing EMA):**
+
+| Config | Trades | Edge | Final | CAGR | Max DD | Calmar |
+|--------|--------|------|-------|------|--------|--------|
+| Baseline (EMA 10/20) | 998 | 5.45% | $510,238 | 48.2% | 16.2% | 2.97 |
+| Trail 3.5x (no EMA) | 805 | 6.36% | $247,265 | 37.8% | 20.4% | 1.85 |
+
+Higher per-trade edge but far worse position-sized results. The trailing stop holds positions longer than EMA cross (805 vs 998 trades), reducing turnover and compounding. The EMA cross is faster at freeing slots.
+
+**Conclusion:** Not adopted. Trail 3.5x improves unlimited edge but severely hurts position-sized returns due to slower capital turnover. The EMA 10/20 cross is the optimal exit for the position-capped regime.
+
+### 3. Tiered Stagnation Checkpoints
+
+**Concept:** Add a second stagnation checkpoint (e.g., 8%/30d) after the existing 3%/15d to cut "zombie" trades that are alive but mediocre.
+
+**Unlimited results:**
+
+| Config | Trades | Edge | Delta | PF | EC |
+|--------|--------|------|-------|-----|-----|
+| Baseline | 8,513 | 5.06% | — | 2.50 | 96 |
+| + 8%/30d | 8,592 | 4.87% | -0.19 | 2.41 | 92 |
+| + 10%/35d | 8,585 | 4.86% | -0.20 | 2.41 | 92 |
+| + 15%/45d | 8,572 | 4.89% | -0.17 | 2.41 | 96 |
+
+All variants degrade unlimited edge by 0.17-0.20pp. The second checkpoint cuts trades that would have recovered and exited profitably via EMA cross.
+
+**Conclusion:** Not adopted. Same pattern as OB exit — any "faster exit" approach reduces per-trade edge because the EMA cross handles trend exhaustion better than time-based rules.
+
+### 4. Max Positions Increase
+
+**Concept:** Increase position cap from 15 to 20 or 25. Changes nothing about entry/exit logic — purely relaxes the slot constraint.
+
+**Position-sized results:**
+
+| Config | Trades | Edge | Final | CAGR | Max DD | Calmar |
+|--------|--------|------|-------|------|--------|--------|
+| Max 15 (current) | 998 | 5.45% | $510,238 | 48.2% | 16.2% | 2.97 |
+| **Max 20** | **1,344** | **5.12%** | **$694,880** | **52.8%** | **16.3%** | **3.24** |
+| Max 25 | 1,664 | 5.11% | $650,510 | 51.8% | 16.2% | 3.20 |
+
+**Max 20 is the clear winner.** +$185K final capital (+36%), +4.6pp CAGR, same drawdown, Calmar improves from 2.97 to 3.24. Diminishing returns at 25 — capital spread too thin, each position smaller, marginal trades don't compound enough.
+
+**Why it works:** No entry/exit logic changes, so no edge degradation risk. The additional 5 slots accept slightly lower-ranked stocks (edge drops 5.45% → 5.12%), but 35% more trades compound dramatically over 10 years. The `leverageRatio: 1.0` cap doesn't prevent filling 20 slots because position sizes are ATR-based (high-ATR stocks get small positions, leaving capital for more slots).
+
+**Conclusion: Adopted.** Max positions increased from 15 to 20. The cleanest improvement found — no curve-fitting, no parameter sensitivity, guaranteed no unlimited edge degradation.
+
+### Key Insight: The EMA Cross Is Optimal
+
+Every "faster exit" approach tested (OB exit, trailing stop alongside EMA, tiered stagnation) degraded unlimited per-trade edge. The EMA 10/20 cross is the sweet spot for this strategy:
+- Fast enough to free slots for compounding (998 trades in 10 years)
+- Slow enough to capture the bulk of trend moves (5.45% per-trade edge)
+- The only exit change that improved position-sized returns without degrading unlimited edge was **increasing max positions** — changing the constraint, not the exits.

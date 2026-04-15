@@ -15,9 +15,9 @@ const links = [[{
   }
 },
 {
-  label: 'Backtesting',
-  icon: 'i-lucide-bar-chart-3',
-  to: '/backtesting',
+  label: 'Mission Control',
+  icon: 'i-lucide-radar',
+  to: '/mission-control',
   onSelect: () => {
     open.value = false
   }
@@ -31,9 +31,9 @@ const links = [[{
   }
 },
 {
-  label: 'Mission Control',
-  icon: 'i-lucide-radar',
-  to: '/mission-control',
+  label: 'Backtesting',
+  icon: 'i-lucide-bar-chart-3',
+  to: '/backtesting',
   onSelect: () => {
     open.value = false
   }
@@ -63,17 +63,17 @@ const links = [[{
   }
 },
 {
-  label: 'App Metrics',
-  icon: 'i-lucide-gauge',
-  to: '/app-metrics',
+  label: 'Settings',
+  icon: 'i-lucide-settings',
+  to: '/settings',
   onSelect: () => {
     open.value = false
   }
 },
 {
-  label: 'Settings',
-  icon: 'i-lucide-settings',
-  to: '/settings',
+  label: 'App Metrics',
+  icon: 'i-lucide-gauge',
+  to: '/app-metrics',
   onSelect: () => {
     open.value = false
   }

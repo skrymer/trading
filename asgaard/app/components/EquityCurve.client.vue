@@ -14,7 +14,7 @@
               Portfolio Value ({{ formatCurrency(positionSizing!.startingCapital) }} starting capital)
             </p>
           </div>
-          <div v-if="!hasPositionSizing" class="flex items-center gap-2">
+          <div v-if="!hasPositionSizing && showLeverage" class="flex items-center gap-2">
             <span class="text-sm text-muted">Leverage:</span>
             <USelect
               v-model="leverage"
@@ -118,10 +118,12 @@ const props = defineProps<{
   equityCurveData: EquityCurvePoint[]
   loading?: boolean
   positionSizing?: PositionSizingResult | null
+  initialCapital?: number
+  showLeverage?: boolean
 }>()
 
 const hasPositionSizing = computed(() => !!props.positionSizing && props.positionSizing.equityCurve.length > 0)
-const startingCapital = computed(() => props.positionSizing?.startingCapital ?? 100000)
+const startingCapital = computed(() => props.positionSizing?.startingCapital ?? props.initialCapital ?? 100000)
 
 // Leverage selection
 const leverage = ref(1)

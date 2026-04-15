@@ -194,7 +194,7 @@ alertcondition(stagnationExit, "Stagnation Exit",  "VCP Exit: Stagnation detecte
 alertcondition(exitSignal,     "Any Exit Signal",  "VCP Exit: Exit signal triggered")
 
 // === INFO TABLE ===
-var table infoTable = table.new(position.top_right, 2, 7, bgcolor=color.new(color.gray, 85), border_width=1)
+var table infoTable = table.new(position.bottom_right, 2, 7, bgcolor=color.new(color.gray, 85), border_width=1)
 
 if barstate.islast
     table.cell(infoTable, 0, 0, "VCP Exit — " + chartTicker, text_color=color.white, text_size=size.normal, bgcolor=hasMatch ? color.new(color.blue, 50) : color.new(color.gray, 50), text_halign=text.align_center)

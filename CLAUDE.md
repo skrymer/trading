@@ -127,15 +127,15 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
 **Key Components (63 Vue components):**
-- **Backtesting** (`components/backtesting/`): Cards, ConfigModal, EquityCurve.client, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
+- **Backtesting** (`components/backtesting/`): Cards, ConfigModal, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, BatchEditStrategyModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, BreadthChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
 - **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, BatchAddTradesModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
 - **Settings** (`components/settings/`): MembersList
-- **Root-level**: StockPriceChart.client, SymbolLink, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable
-- **Pages**: index, backtesting, portfolio, mission-control, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
+- **Root-level**: EquityCurve.client, StockPriceChart.client, SymbolLink, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable
+- **Pages**: index, backtesting, portfolio, portfolio-old, mission-control, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -207,7 +207,7 @@ trading/
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (11 pages + 1 dynamic route)
+│   │   ├── pages/                    # File-based routing (12 pages + 1 dynamic route)
 │   │   ├── plugins/                  # Nuxt plugins (apexcharts.client, auth-interceptor.client)
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component

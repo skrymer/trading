@@ -437,11 +437,12 @@ const hasTrades = computed(() => (backtestReport.value?.totalTrades ?? 0) > 0)
           <!-- Equity Curve Tab -->
           <template #equity-curve>
             <div class="grid gap-4 mt-4">
-              <BacktestingEquityCurve
+              <EquityCurve
                 v-if="hasTrades"
                 :equity-curve-data="backtestReport!.equityCurveData"
                 :position-sizing="backtestReport?.positionSizing"
                 :loading="false"
+                show-leverage
               />
             </div>
           </template>

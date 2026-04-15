@@ -3,7 +3,7 @@ import { h, resolveComponent, type Ref } from 'vue'
 import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal, CashTransaction, CashTransactionSummary } from '~/types'
 import { usePositionFormatters } from '~/composables/usePositionFormatters'
 
-const { formatPositionName, formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
+const { formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
 
 const portfolio = ref<Portfolio | null>(null)
 const portfolios = ref<Portfolio[]>([])
@@ -758,11 +758,10 @@ const openPositionsColumns = computed(() => {
       header: 'Symbol',
       cell: ({ row }: { row: any }) => {
         const position = row.original
-        const name = formatPositionName(position)
         const details = formatOptionDetails(position)
 
         return h('div', {}, [
-          h('div', { class: 'font-medium' }, name),
+          h(resolveComponent('SymbolLink'), { symbol: position.symbol }),
           details ? h('div', { class: 'text-xs text-gray-500' }, details) : null
         ].filter(Boolean))
       }
@@ -861,11 +860,10 @@ const closedPositionsColumns = computed(() => {
       header: 'Symbol',
       cell: ({ row }: { row: any }) => {
         const position = row.original
-        const name = formatPositionName(position)
         const details = formatOptionDetails(position)
 
         return h('div', {}, [
-          h('div', { class: 'font-medium' }, name),
+          h(resolveComponent('SymbolLink'), { symbol: position.symbol }),
           details ? h('div', { class: 'text-xs text-gray-500' }, details) : null
         ].filter(Boolean))
       }

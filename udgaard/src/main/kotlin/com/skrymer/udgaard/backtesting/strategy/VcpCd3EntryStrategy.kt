@@ -49,6 +49,7 @@ class VcpCd3EntryStrategy : DetailedEntryStrategy {
   ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote, context)
 
   override fun preferredRanker(): StockRanker = SectorEdgeRanker(
-    listOf("XLC", "XLI", "XLK", "XLY", "XLV", "XLF", "XLE", "XLU", "XLP", "XLB", "XLRE"),
+    // Derived from trailing 3-year backtest (2023-04-13 to 2026-04-13). Recalibrate annually.
+    listOf("XLC", "XLU", "XLI", "XLK", "XLE", "XLB", "XLV", "XLF", "XLY", "XLP", "XLRE"),
   )
 }

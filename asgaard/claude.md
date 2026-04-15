@@ -29,6 +29,7 @@ asgaard/
 │   │   ├── index.vue             # Home/dashboard
 │   │   ├── backtesting.vue       # Backtesting UI with strategy builder
 │   │   ├── portfolio.vue         # Portfolio management
+│   │   ├── portfolio-old.vue     # Legacy portfolio page
 │   │   ├── mission-control.vue   # Mission control (active trades, candidates, exits)
 │   │   ├── stock-data/            # Stock data explorer with charts
 │   │   │   └── [[symbol]].vue    #   Dynamic route: /stock-data/:symbol?
@@ -39,10 +40,9 @@ asgaard/
 │   │   ├── login.vue             # Authentication login page
 │   │   └── test-chart.vue        # Chart component testing
 │   ├── components/
-│   │   ├── backtesting/          # Backtesting components (16)
+│   │   ├── backtesting/          # Backtesting components (15)
 │   │   │   ├── Cards.vue         # Summary stat cards
 │   │   │   ├── ConfigModal.vue   # Strategy configuration modal
-│   │   │   ├── EquityCurve.client.vue  # Equity curve visualization (client-only)
 │   │   │   ├── SectorAnalysis.vue
 │   │   │   ├── StockPerformance.vue
 │   │   │   ├── ATRDrawdownStats.vue
@@ -100,6 +100,7 @@ asgaard/
 │   │   │   ├── StrategyBuilder.vue
 │   │   │   ├── StrategySelector.vue
 │   │   │   └── ConditionCard.vue
+│   │   ├── EquityCurve.client.vue # Shared equity curve visualization (client-only)
 │   │   ├── StockPriceChart.client.vue  # Standalone stock chart
 │   │   ├── SymbolLink.vue        # Symbol link with NuxtLink + TradingView link
 │   │   ├── SymbolSearch.vue      # Symbol search autocomplete
