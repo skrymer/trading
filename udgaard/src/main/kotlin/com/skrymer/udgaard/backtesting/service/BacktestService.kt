@@ -10,6 +10,10 @@ import com.skrymer.udgaard.backtesting.model.ExitStats
 import com.skrymer.udgaard.backtesting.model.LosingTradesATRStats
 import com.skrymer.udgaard.backtesting.model.MarketConditionSnapshot
 import com.skrymer.udgaard.backtesting.model.PeriodStats
+import com.skrymer.udgaard.backtesting.model.PortfolioEquityPoint
+import com.skrymer.udgaard.backtesting.model.PositionSizedTrade
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
+import com.skrymer.udgaard.backtesting.model.PositionSizingResult
 import com.skrymer.udgaard.backtesting.model.PotentialEntry
 import com.skrymer.udgaard.backtesting.model.RankedEntry
 import com.skrymer.udgaard.backtesting.model.SectorPerformance
@@ -39,6 +43,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.floor
 
 /**
  * Service for running backtests on trading strategies.
@@ -271,6 +276,7 @@ class BacktestService(
     sharedContext: BacktestContext? = null,
     sharedBreadthByDate: Map<LocalDate, Double>? = null,
     randomSeed: Long? = null,
+    positionSizingConfig: PositionSizingConfig? = null,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
@@ -310,9 +316,9 @@ class BacktestService(
     logger.info("Backtest: ${symbols.size} symbols, $positionInfo$cooldownInfo$delayInfo")
 
     // Dispatch to batched-parallel (Path 1) or two-pass (Path 2) based on constraints
-    val (trades, missedTrades) =
+    val sequentialResult: SequentialBacktestResult =
       if (maxPositions == null && cooldownDays == 0) {
-        backtestBatchedParallel(
+        val (trades, missedTrades) = backtestBatchedParallel(
           symbols,
           after,
           before,
@@ -324,6 +330,7 @@ class BacktestService(
           entryDelayDays,
           logger,
         )
+        SequentialBacktestResult(trades, missedTrades, positionSizingResult = null)
       } else {
         backtestTwoPass(
           symbols,
@@ -340,9 +347,12 @@ class BacktestService(
           backtestContext,
           logger,
           randomSeed,
+          positionSizingConfig,
         )
       }
 
+    val trades = sequentialResult.trades
+    val missedTrades = sequentialResult.missedTrades
     val mainLoopDuration = System.currentTimeMillis() - backtestStartTime
 
     if (trades.isEmpty() && missedTrades.isEmpty()) {
@@ -357,7 +367,7 @@ class BacktestService(
 
     logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed in ${mainLoopDuration}ms")
 
-    return buildReport(trades, missedTrades, spyStock, breadthByDate, backtestStartTime, logger)
+    return buildReport(trades, missedTrades, spyStock, breadthByDate, backtestStartTime, logger, sequentialResult.positionSizingResult)
   }
 
   /**
@@ -433,7 +443,8 @@ class BacktestService(
     context: BacktestContext,
     logger: org.slf4j.Logger,
     randomSeed: Long? = null,
-  ): Pair<List<Trade>, List<Trade>> {
+    positionSizingConfig: PositionSizingConfig? = null,
+  ): SequentialBacktestResult {
     val effectiveMaxPositions = maxPositions ?: Int.MAX_VALUE
 
     // --- Pass 1: Collect entry signals (batched, low memory) ---
@@ -453,7 +464,7 @@ class BacktestService(
     logger.info("Pass 1 complete: ${entrySignals.size} entry signals from $signalStockCount stocks")
 
     if (entrySignals.isEmpty()) {
-      return Pair(emptyList(), emptyList())
+      return SequentialBacktestResult(emptyList(), emptyList(), positionSizingResult = null)
     }
 
     // --- Pass 2: Load signal stocks + run sequential ---
@@ -495,6 +506,7 @@ class BacktestService(
       context,
       logger,
       tieBreakRandom,
+      positionSizingConfig,
     )
   }
 
@@ -599,6 +611,7 @@ class BacktestService(
     breadthByDate: Map<LocalDate, Double>,
     backtestStartTime: Long,
     logger: org.slf4j.Logger,
+    positionSizingResult: PositionSizingResult? = null,
   ): BacktestReport {
     logger.info("Calculating trade excursion metrics and market conditions...")
 
@@ -662,6 +675,7 @@ class BacktestService(
       atrDrawdownStats = atrDrawdown,
       marketConditionAverages = marketAvgs,
       edgeConsistencyScore = edgeConsistency,
+      positionSizingResult = positionSizingResult,
     )
   }
 
@@ -784,7 +798,8 @@ class BacktestService(
     context: BacktestContext,
     logger: org.slf4j.Logger,
     tieBreakRandom: kotlin.random.Random = kotlin.random.Random(System.nanoTime()),
-  ): Pair<List<Trade>, List<Trade>> {
+    positionSizingConfig: PositionSizingConfig? = null,
+  ): SequentialBacktestResult {
     val trades = mutableListOf<Trade>()
     val missedTrades = mutableListOf<Trade>()
     val usedTradeQuotes = Collections.newSetFromMap<StockQuote>(IdentityHashMap())
@@ -793,19 +808,26 @@ class BacktestService(
 
     // O(1) open position tracking instead of scanning all trades each date
     var openPositionCount = 0
-    val scheduledExits = TreeMap<LocalDate, Int>()
+    val scheduledExits = TreeMap<LocalDate, MutableList<Trade>>()
 
-    logger.info("Sequential processing: ${stockPairs.size} stocks evaluated per date")
+    // Capital-aware selection state (only active when positionSizingConfig is provided)
+    val sizingConfig = positionSizingConfig
+    val selectionState = sizingConfig?.let { SelectionPortfolioState(it) }
+
+    logger.info(
+      "Sequential processing: ${stockPairs.size} stocks evaluated per date" +
+        if (selectionState != null) " (capital-aware)" else ""
+    )
 
     val tradingDateIndex = allTradingDates.withIndex().associate { (i, date) -> date to i }
     val totalDays = allTradingDates.size
     var lastLoggedPercent = 0
+    val diagnostics = if (selectionState != null) SelectionDiagnostics() else null
 
     allTradingDates.forEachIndexed { index, currentDate ->
-      // Drain positions that exited before today (position is open on its exit date, closed the next day)
-      while (scheduledExits.isNotEmpty() && scheduledExits.firstKey() < currentDate) {
-        openPositionCount -= scheduledExits.pollFirstEntry().value
-      }
+      val drained = drainExitedPositions(scheduledExits, currentDate, selectionState)
+      openPositionCount -= drained
+      selectionState?.markToMarket(currentDate, quoteIndexes, drained)
 
       // Log progress at 5% intervals
       val currentPercent = ((index + 1) * 100) / totalDays
@@ -814,28 +836,16 @@ class BacktestService(
         lastLoggedPercent = currentPercent
       }
 
-      val entriesForThisDate =
-        stockPairs
-          .mapNotNull { stockPair ->
-            val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
-            val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
-
-            if (strategyQuote != null && tradingQuote != null) {
-              val inCooldown = isInCooldown(currentDate, lastExitDate, tradingDateIndex, cooldownDays)
-
-              if (inCooldown) {
-                null
-              } else {
-                if (entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) {
-                  PotentialEntry(stockPair, strategyQuote, tradingQuote)
-                } else {
-                  null
-                }
-              }
-            } else {
-              null
-            }
-          }
+      val entriesForThisDate = findEntriesForDate(
+        stockPairs,
+        quoteIndexes,
+        currentDate,
+        lastExitDate,
+        tradingDateIndex,
+        cooldownDays,
+        entryStrategy,
+        context,
+      )
 
       if (entriesForThisDate.isNotEmpty()) {
         val resolvedEntries = resolveDelayedEntries(
@@ -854,9 +864,21 @@ class BacktestService(
               RankedEntry(entry, jitteredScore)
             }.sortedByDescending { it.score }
 
-        val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
-        val selectedEntries = rankedEntries.take(availableSlots)
-        val notSelectedEntries = if (maxPositions != null) rankedEntries.drop(availableSlots) else emptyList()
+        // Scale max positions during drawdowns to prevent more concurrent exposure
+        val scaledMaxPositions = if (selectionState != null && sizingConfig != null) {
+          val ddMultiplier = getDrawdownMultiplier(sizingConfig, selectionState)
+          if (ddMultiplier < 1.0) {
+            floor(effectiveMaxPositions * ddMultiplier).toInt().coerceAtLeast(1)
+          } else {
+            effectiveMaxPositions
+          }
+        } else {
+          effectiveMaxPositions
+        }
+        val availableSlots = (scaledMaxPositions - openPositionCount).coerceAtLeast(0)
+
+        val (selectedEntries, notSelectedEntries, estimatedSharesCache) =
+          selectEntries(rankedEntries, availableSlots, maxPositions, selectionState, sizingConfig, diagnostics)
 
         selectedEntries.forEach { rankedEntry ->
           val entry = rankedEntry.entry
@@ -871,7 +893,20 @@ class BacktestService(
               val exitDate = trade.quotes.lastOrNull()?.date
               if (exitDate != null) {
                 openPositionCount++
-                scheduledExits.merge(exitDate, 1, Int::plus)
+                scheduledExits.getOrPut(exitDate) { mutableListOf() }.add(trade)
+
+                // Track position in capital-aware state (single source of truth for sizing)
+                if (selectionState != null) {
+                  val shares = estimatedSharesCache[rankedEntry] ?: 0
+                  val entryPrice = entry.tradingEntryQuote.closePrice
+                  val notional = shares * entryPrice
+                  selectionState.trackPosition(
+                    trade, shares, notional, entry.stockPair.tradingStock, entryPrice,
+                    portfolioValueAtEntry = selectionState.lastPortfolioValue,
+                    entryDate = entry.tradingEntryQuote.date,
+                    symbol = trade.stockSymbol,
+                  )
+                }
               }
 
               if (cooldownDays > 0) {
@@ -898,7 +933,318 @@ class BacktestService(
       }
     }
 
-    return Pair(trades, missedTrades)
+    // Add final equity curve point if positions are still open at backtest end
+    if (selectionState != null && selectionState.hasOpenPositions()) {
+      val lastDate = allTradingDates.lastOrNull()
+      if (lastDate != null) {
+        selectionState.markToMarket(lastDate, quoteIndexes)
+      }
+    }
+
+    val sizingResult = selectionState?.toResult()
+
+    if (diagnostics != null && selectionState != null) {
+      logger.info(
+        "Capital-aware diagnostics: " +
+          "slotFullSkips=${diagnostics.slotFullSkips.get()}, " +
+          "unfundableSkips=${diagnostics.unfundableSkips.get()}, " +
+          "sizedTrades=${selectionState.sizedTrades.size}, " +
+          "finalCapital=${String.format("%.2f", selectionState.cash)}"
+      )
+    }
+
+    return SequentialBacktestResult(trades, missedTrades, sizingResult)
+  }
+
+  private data class SequentialBacktestResult(
+    val trades: List<Trade>,
+    val missedTrades: List<Trade>,
+    val positionSizingResult: PositionSizingResult?,
+  )
+
+  private data class SelectionResult(
+    val selected: List<RankedEntry>,
+    val notSelected: List<RankedEntry>,
+    val estimatedSharesCache: Map<RankedEntry, Int>,
+  )
+
+  /**
+   * Select entries with capital awareness: iterate ranked entries, skip unfundable ones.
+   */
+  private fun selectEntries(
+    rankedEntries: List<RankedEntry>,
+    availableSlots: Int,
+    maxPositions: Int?,
+    selectionState: SelectionPortfolioState?,
+    sizingConfig: PositionSizingConfig?,
+    diagnostics: SelectionDiagnostics? = null,
+  ): SelectionResult {
+    val selected = mutableListOf<RankedEntry>()
+    val notSelected = mutableListOf<RankedEntry>()
+    val sharesCache = mutableMapOf<RankedEntry, Int>()
+    var slotsRemaining = availableSlots
+
+    for (rankedEntry in rankedEntries) {
+      if (slotsRemaining <= 0) {
+        if (maxPositions != null) notSelected.add(rankedEntry)
+        diagnostics?.slotFullSkips?.incrementAndGet()
+        continue
+      }
+
+      if (selectionState != null && sizingConfig != null) {
+        val entryPrice = rankedEntry.entry.tradingEntryQuote.closePrice
+        val atr = rankedEntry.entry.tradingEntryQuote.atr
+        val estimatedShares = estimateSharesCapped(selectionState, atr, entryPrice, sizingConfig)
+        if (estimatedShares <= 0) {
+          notSelected.add(rankedEntry)
+          diagnostics?.unfundableSkips?.incrementAndGet()
+          continue
+        }
+        sharesCache[rankedEntry] = estimatedShares
+      }
+
+      selected.add(rankedEntry)
+      slotsRemaining--
+    }
+
+    return SelectionResult(selected, notSelected, sharesCache)
+  }
+
+  private class SelectionDiagnostics {
+    val slotFullSkips = AtomicInteger(0)
+    val unfundableSkips = AtomicInteger(0)
+  }
+
+  /**
+   * Drain positions that exited on or before the given date, releasing capital in selection state.
+   * Returns the number of positions drained.
+   */
+  private fun drainExitedPositions(
+    scheduledExits: TreeMap<LocalDate, MutableList<Trade>>,
+    currentDate: LocalDate,
+    selectionState: SelectionPortfolioState?,
+  ): Int {
+    var drained = 0
+    while (scheduledExits.isNotEmpty() && scheduledExits.firstKey() <= currentDate) {
+      val exitingTrades = scheduledExits.pollFirstEntry().value
+      drained += exitingTrades.size
+      if (selectionState != null) {
+        for (exitedTrade in exitingTrades) {
+          selectionState.releasePosition(exitedTrade)
+        }
+      }
+    }
+    return drained
+  }
+
+  /**
+   * Find potential entries for a given date, filtering by cooldown and entry strategy.
+   */
+  private fun findEntriesForDate(
+    stockPairs: List<StockPair>,
+    quoteIndexes: Map<Stock, StockQuoteIndex>,
+    currentDate: LocalDate,
+    lastExitDate: LocalDate?,
+    tradingDateIndex: Map<LocalDate, Int>,
+    cooldownDays: Int,
+    entryStrategy: EntryStrategy,
+    context: BacktestContext,
+  ): List<PotentialEntry> {
+    val inCooldown = isInCooldown(currentDate, lastExitDate, tradingDateIndex, cooldownDays)
+    if (inCooldown) return emptyList()
+
+    return stockPairs.mapNotNull { stockPair ->
+      val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate)
+      val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate)
+
+      if (strategyQuote != null &&
+        tradingQuote != null &&
+        entryStrategy.test(stockPair.strategyStock, strategyQuote, context)
+      ) {
+        PotentialEntry(stockPair, strategyQuote, tradingQuote)
+      } else {
+        null
+      }
+    }
+  }
+
+  /**
+   * Single source of truth for capital-aware trade selection and position sizing.
+   * Tracks daily mark-to-market value (cash + unrealized P/L), produces
+   * PositionSizingResult inline — no post-hoc sizing pass needed.
+   */
+  private class SelectionPortfolioState(
+    config: PositionSizingConfig
+  ) {
+    val startingCapital: Double = config.startingCapital
+    var cash: Double = config.startingCapital
+    var openNotional: Double = 0.0
+    var lastPortfolioValue: Double = config.startingCapital
+    var peakPortfolioValue: Double = config.startingCapital
+    var maxDrawdownDollars: Double = 0.0
+    var maxDrawdownPct: Double = 0.0
+    val leverageRatio: Double? = config.leverageRatio
+    val sizedTrades: MutableList<PositionSizedTrade> = mutableListOf()
+    val equityCurve: MutableList<PortfolioEquityPoint> = mutableListOf()
+    private val positionByTrade = mutableMapOf<Trade, PositionEstimate>()
+
+    fun trackPosition(
+      trade: Trade,
+      shares: Int,
+      notional: Double,
+      stock: Stock,
+      entryPrice: Double,
+      portfolioValueAtEntry: Double,
+      entryDate: LocalDate,
+      symbol: String,
+    ) {
+      openNotional += notional
+      positionByTrade[trade] = PositionEstimate(shares, notional, stock, entryPrice, portfolioValueAtEntry, entryDate, symbol)
+    }
+
+    fun releasePosition(trade: Trade) {
+      val pos = positionByTrade.remove(trade) ?: return
+      openNotional = (openNotional - pos.notional).coerceAtLeast(0.0)
+      val dollarProfit = pos.shares * trade.profit
+      cash += dollarProfit
+      val exitDate = trade.quotes.lastOrNull()?.date ?: pos.entryDate
+      val exitPrice = pos.entryPrice + trade.profit
+      val portfolioReturnPct = if (pos.portfolioValueAtEntry > 0.0) {
+        (dollarProfit / pos.portfolioValueAtEntry) * 100.0
+      } else {
+        0.0
+      }
+      sizedTrades.add(
+        PositionSizedTrade(
+          symbol = pos.symbol,
+          entryDate = pos.entryDate,
+          exitDate = exitDate,
+          shares = pos.shares,
+          entryPrice = pos.entryPrice,
+          exitPrice = exitPrice,
+          dollarProfit = dollarProfit,
+          portfolioValueAtEntry = pos.portfolioValueAtEntry,
+          portfolioReturnPct = portfolioReturnPct,
+        ),
+      )
+    }
+
+    fun markToMarket(date: LocalDate, quoteIndexes: Map<Stock, StockQuoteIndex>, drainedCount: Int = 0) {
+      if (positionByTrade.isEmpty()) {
+        lastPortfolioValue = cash
+        // Record cash-only point when positions just drained to zero
+        if (drainedCount > 0) {
+          updateDrawdown()
+          equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = lastPortfolioValue))
+        }
+      } else {
+        val unrealizedPnl = positionByTrade.values.sumOf { pos ->
+          val currentPrice = quoteIndexes[pos.stock]?.getQuote(date)?.closePrice ?: pos.entryPrice
+          pos.shares * (currentPrice - pos.entryPrice)
+        }
+        lastPortfolioValue = cash + unrealizedPnl
+        updateDrawdown()
+        equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = lastPortfolioValue))
+      }
+    }
+
+    private fun updateDrawdown() {
+      if (lastPortfolioValue > peakPortfolioValue) peakPortfolioValue = lastPortfolioValue
+      val drawdownDollars = peakPortfolioValue - lastPortfolioValue
+      val drawdownPct = if (peakPortfolioValue > 0.0) (drawdownDollars / peakPortfolioValue) * 100.0 else 0.0
+      if (drawdownDollars > maxDrawdownDollars) maxDrawdownDollars = drawdownDollars
+      if (drawdownPct > maxDrawdownPct) maxDrawdownPct = drawdownPct
+    }
+
+    fun hasOpenPositions(): Boolean = positionByTrade.isNotEmpty()
+
+    fun toResult(): PositionSizingResult {
+      val finalCapital = cash
+      val totalReturnPct = if (startingCapital > 0.0) {
+        ((finalCapital - startingCapital) / startingCapital) * 100.0
+      } else {
+        0.0
+      }
+      return PositionSizingResult(
+        startingCapital = startingCapital,
+        finalCapital = finalCapital,
+        totalReturnPct = totalReturnPct,
+        maxDrawdownPct = maxDrawdownPct,
+        maxDrawdownDollars = maxDrawdownDollars,
+        peakCapital = peakPortfolioValue,
+        trades = sizedTrades,
+        equityCurve = equityCurve,
+      )
+    }
+
+    private data class PositionEstimate(
+      val shares: Int,
+      val notional: Double,
+      val stock: Stock,
+      val entryPrice: Double,
+      val portfolioValueAtEntry: Double,
+      val entryDate: LocalDate,
+      val symbol: String,
+    )
+  }
+
+  /**
+   * Estimate fundable share count for a candidate entry, respecting leverage ratio.
+   * Returns 0 if the trade can't be funded.
+   */
+  private fun estimateSharesCapped(
+    state: SelectionPortfolioState,
+    atr: Double,
+    entryPrice: Double,
+    config: PositionSizingConfig,
+  ): Int {
+    val portfolioValue = state.lastPortfolioValue
+    if (portfolioValue <= 0.0) return 0
+
+    val effectiveConfig = applySelectionDrawdownScaling(config, state)
+    var shares = PositionSizingService.calculateShares(portfolioValue, atr, effectiveConfig)
+    if (shares <= 0) return 0
+
+    if (state.leverageRatio != null && entryPrice > 0.0) {
+      val maxNotional = portfolioValue * state.leverageRatio
+      val availableNotional = maxNotional - state.openNotional
+      if (availableNotional <= 0.0) return 0
+      val cappedShares = floor(availableNotional / entryPrice).toInt()
+      shares = minOf(shares, cappedShares)
+    }
+
+    return shares
+  }
+
+  /**
+   * Apply drawdown scaling thresholds to reduce risk during drawdowns.
+   * Simplified version for selection-time estimation.
+   */
+  /**
+   * Returns the active drawdown scaling multiplier (1.0 = no scaling, < 1.0 = in drawdown).
+   * Used for both risk scaling and dynamic max positions.
+   */
+  private fun getDrawdownMultiplier(
+    config: PositionSizingConfig,
+    state: SelectionPortfolioState,
+  ): Double {
+    val scaling = config.drawdownScaling ?: return 1.0
+    if (state.peakPortfolioValue <= 0.0) return 1.0
+
+    val drawdownPct = ((state.peakPortfolioValue - state.lastPortfolioValue) / state.peakPortfolioValue) * 100.0
+    return scaling.thresholds
+      .sortedByDescending { it.drawdownPercent }
+      .firstOrNull { drawdownPct > 0.0 && drawdownPct >= it.drawdownPercent }
+      ?.riskMultiplier
+      ?: 1.0
+  }
+
+  private fun applySelectionDrawdownScaling(
+    config: PositionSizingConfig,
+    state: SelectionPortfolioState,
+  ): PositionSizingConfig {
+    val multiplier = getDrawdownMultiplier(config, state)
+    return if (multiplier < 1.0) config.copy(riskPercentage = config.riskPercentage * multiplier) else config
   }
 
   /**

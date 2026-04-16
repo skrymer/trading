@@ -39,6 +39,13 @@ class Trade(
   var excursionMetrics: ExcursionMetrics? = null
 
   /**
+   * Why this trade was missed (null = trade was taken).
+   * Set during capital-aware trade selection in sequential backtesting.
+   */
+  @Transient
+  var missedReason: String? = null
+
+  /**
    * Calculate the profit percentage of this trade: (profit/entry close price) * 100
    * @return
    */

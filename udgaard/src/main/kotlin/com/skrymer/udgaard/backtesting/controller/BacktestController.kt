@@ -336,6 +336,7 @@ class BacktestController(
         request.cooldownDays,
         request.entryDelayDays,
         randomSeed = request.randomSeed,
+        positionSizingConfig = request.positionSizing,
       )
 
     logger.info(
@@ -346,25 +347,38 @@ class BacktestController(
 
     val finalReport =
       if (request.positionSizing != null) {
-        val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
-        logger.info(
-          "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
-            "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
-            "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%",
-        )
-        BacktestReport(
-          winningTrades = backtestReport.winningTrades,
-          losingTrades = backtestReport.losingTrades,
-          missedTrades = backtestReport.missedTrades,
-          timeBasedStats = backtestReport.timeBasedStats,
-          exitReasonAnalysis = backtestReport.exitReasonAnalysis,
-          sectorPerformance = backtestReport.sectorPerformance,
-          stockPerformance = backtestReport.stockPerformance,
-          atrDrawdownStats = backtestReport.atrDrawdownStats,
-          marketConditionAverages = backtestReport.marketConditionAverages,
-          edgeConsistencyScore = backtestReport.edgeConsistencyScore,
-          positionSizingResult = sizingResult,
-        )
+        if (backtestReport.positionSizingResult != null) {
+          // Inline sizing already produced results (capital-aware sequential path)
+          val sr = backtestReport.positionSizingResult
+          logger.info(
+            "Inline position sizing: ${sr.startingCapital} → ${String.format("%.2f", sr.finalCapital)}, " +
+              "return=${String.format("%.2f", sr.totalReturnPct)}%, " +
+              "maxDD=${String.format("%.2f", sr.maxDrawdownPct)}%, " +
+              "sizedTrades=${sr.trades.size}",
+          )
+          backtestReport
+        } else {
+          // Unlimited path — apply post-hoc sizing
+          val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
+          logger.info(
+            "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
+              "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
+              "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%",
+          )
+          BacktestReport(
+            winningTrades = backtestReport.winningTrades,
+            losingTrades = backtestReport.losingTrades,
+            missedTrades = backtestReport.missedTrades,
+            timeBasedStats = backtestReport.timeBasedStats,
+            exitReasonAnalysis = backtestReport.exitReasonAnalysis,
+            sectorPerformance = backtestReport.sectorPerformance,
+            stockPerformance = backtestReport.stockPerformance,
+            atrDrawdownStats = backtestReport.atrDrawdownStats,
+            marketConditionAverages = backtestReport.marketConditionAverages,
+            edgeConsistencyScore = backtestReport.edgeConsistencyScore,
+            positionSizingResult = sizingResult,
+          )
+        }
       } else {
         backtestReport
       }

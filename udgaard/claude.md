@@ -313,7 +313,8 @@ val report = backtestService.backtest(
 - **Position limits** - Rank and select best N stocks per day
 - **Cooldown periods** - Prevent overtrading after exits
 - **BacktestContext** - Provides market/sector breadth data to strategies and rankers
-- **Missed trades tracking** - Track opportunities that were skipped
+- **Capital-aware trade selection** - Optional `positionSizingConfig` parameter skips entries that exceed available capital (tracks simulated portfolio state during the backtest loop)
+- **Missed trades tracking** - Track opportunities that were skipped (with `missedReason` on Trade)
 
 ### 4. Stock Rankers
 

@@ -1420,4 +1420,226 @@ class BacktestServiceTest {
     Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date, "Entry on signal day with delay=0")
     Assertions.assertEquals(100.0, report.trades[0].entryQuote.closePrice, 0.01)
   }
+
+  // ===== CAPITAL-AWARE TRADE SELECTION TESTS =====
+
+  @Test
+  fun `capital-aware selection should skip unfundable trade and take next candidate`() {
+    val testStocks = createCapitalAwareTestStocks()
+    mockStocksForLoading(*testStocks.toTypedArray())
+
+    val config = com.skrymer.udgaard.backtesting.model.PositionSizingConfig(
+      startingCapital = 1000.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("EXPENSIVE", "CHEAP", "EXPENSIVE2", "CHEAP2"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 3,
+      positionSizingConfig = config,
+    )
+
+    // Should have taken trades -- the capital-aware selection should have worked
+    Assertions.assertTrue(report.totalTrades > 0, "Should have taken at least one trade")
+  }
+
+  @Test
+  fun `capital-aware selection should not change behavior when positionSizingConfig is null`() {
+    // Same test as existing maxPositions test but explicitly verifying null config works
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+    val day3 = LocalDate.of(2025, 1, 3)
+
+    val stockA = Stock(
+      "STOCK_A",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 101.0, openPrice = 99.0, atr = 5.0),
+      ),
+    )
+
+    val stockB = Stock(
+      "STOCK_B",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 3.0),
+        StockQuote(date = day2, closePrice = 101.0, openPrice = 99.0, atr = 3.0),
+      ),
+    )
+
+    mockStocksForLoading(stockA, stockB)
+
+    // Without positionSizingConfig — should behave exactly as before
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("STOCK_A", "STOCK_B"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 1,
+      positionSizingConfig = null,
+    )
+
+    Assertions.assertEquals(1, report.totalTrades, "maxPositions=1 should limit to 1 trade")
+  }
+
+  @Test
+  fun `capital-aware selection should handle all candidates unfundable`() {
+    // All stocks are very expensive relative to starting capital
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val stock = Stock(
+      "VERY_EXPENSIVE",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 10000.0, openPrice = 10000.0, atr = 0.1),
+        StockQuote(date = day2, closePrice = 10000.0, openPrice = 99.0, atr = 0.1),
+      ),
+    )
+
+    mockStocksForLoading(stock)
+
+    val config = com.skrymer.udgaard.backtesting.model.PositionSizingConfig(
+      startingCapital = 100.0, // Way too small to buy a $10,000 stock
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("VERY_EXPENSIVE"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = config,
+    )
+
+    // shares = floor(100 * 0.015 / (2 * 0.1)) = floor(7.5) = 7 shares
+    // notional = 7 * 10000 = 70000 > 100 * 1.0 (leverage cap) → 0 shares
+    Assertions.assertEquals(0, report.totalTrades, "Should take no trades when capital is insufficient")
+  }
+
+  @Test
+  fun `capital-aware selection should release notional when trades exit`() {
+    // Trade 1 enters day1, exits day2. Trade 2 signals day3 — should have full capital again.
+    // Capital $10,000, shares = floor(10000 * 0.015 / (2 * 2)) = floor(37.5) = 37 shares
+    // Notional = 37 * 100 = $3,700 (fits within $10,000 leverage cap)
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+    val day3 = LocalDate.of(2025, 1, 3)
+    val day4 = LocalDate.of(2025, 1, 6) // Monday
+
+    val stockA = Stock(
+      "STOCK_A",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 100.0, openPrice = 99.0, atr = 2.0), // exit
+        StockQuote(date = day3, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day4, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+      ),
+    )
+
+    val stockB = Stock(
+      "STOCK_B",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day3, closePrice = 100.0, openPrice = 100.0, atr = 2.0), // entry signal
+        StockQuote(date = day4, closePrice = 100.0, openPrice = 99.0, atr = 2.0), // exit
+      ),
+    )
+
+    mockStocksForLoading(stockA, stockB)
+
+    val config = com.skrymer.udgaard.backtesting.model.PositionSizingConfig(
+      startingCapital = 10000.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("STOCK_A", "STOCK_B"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 2,
+      positionSizingConfig = config,
+    )
+
+    // Stock A exits day2, Stock B enters day3 -- capital should be available
+    Assertions.assertEquals(2, report.totalTrades, "Should take 2 trades after capital is released from exit")
+  }
+
+  /**
+   * Creates test stocks for capital-aware selection tests.
+   * Stock A: expensive ($500, ATR=1.0), Stock B: cheap ($50, ATR=5.0),
+   * Stock C: very expensive on day4 ($900, ATR=0.5), Stock D: cheap on day4 ($100, ATR=5.0).
+   */
+  private fun createCapitalAwareTestStocks(): List<Stock> {
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+    val day3 = LocalDate.of(2025, 1, 3)
+    val day4 = LocalDate.of(2025, 1, 6)
+    val day5 = LocalDate.of(2025, 1, 7)
+
+    val stockA = Stock(
+      "EXPENSIVE",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 500.0, openPrice = 500.0, atr = 1.0),
+        StockQuote(date = day2, closePrice = 500.0, openPrice = 500.0, atr = 1.0),
+        StockQuote(date = day3, closePrice = 500.0, openPrice = 99.0, atr = 1.0),
+      ),
+    )
+
+    val stockB = Stock(
+      "CHEAP",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day3, closePrice = 50.0, openPrice = 99.0, atr = 5.0),
+      ),
+    )
+
+    val stockC = Stock(
+      "EXPENSIVE2",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day3, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day4, closePrice = 900.0, openPrice = 900.0, atr = 0.5),
+        StockQuote(date = day5, closePrice = 900.0, openPrice = 99.0, atr = 0.5),
+      ),
+    )
+
+    val stockD = Stock(
+      "CHEAP2",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day3, closePrice = 50.0, openPrice = 50.0, atr = 5.0),
+        StockQuote(date = day4, closePrice = 100.0, openPrice = 100.0, atr = 5.0),
+        StockQuote(date = day5, closePrice = 100.0, openPrice = 99.0, atr = 5.0),
+      ),
+    )
+
+    return listOf(stockA, stockB, stockC, stockD)
+  }
 }

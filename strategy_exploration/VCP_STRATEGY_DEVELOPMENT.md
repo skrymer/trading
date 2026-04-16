@@ -36,41 +36,41 @@ exitStrategy {
 
 | Metric | Value |
 |---|---|
-| Total Trades | 8,324 |
+| Total Trades | 8,450 |
 | Win Rate | 52.4% |
-| Edge | 5.15% |
-| Avg Win / Loss | 15.22% / -5.95% |
-| Win/Loss Ratio | 2.56x |
-| Profit Factor | 2.41 |
+| Edge | 5.21% |
+| Avg Win / Loss | 15.33% / -5.94% |
+| Win/Loss Ratio | 2.58x |
+| Profit Factor | 2.38 |
 | Edge Consistency | **96.0/100 (Excellent)** |
 
-*Updated 2026-03-20 after backtesting code review fixes (position sizing M2M, VolumeAboveAverage calendar day correction).*
+*Updated 2026-04-16 after capital-aware trade selection engine update.*
 
 ### Yearly Edge
 | Year | Edge | Tradeable (>=1.5%)? |
 |---|---|---|
-| 2016 | +4.11% | T |
-| 2017 | +7.36% | T |
-| 2018 | +2.33% | T |
+| 2016 | +4.20% | T |
+| 2017 | +7.46% | T |
+| 2018 | +2.41% | T |
 | 2019 | +5.70% | T |
-| 2020 | +9.69% | T |
-| 2021 | +1.92% | T |
-| 2022 | +1.05% | |
-| 2023 | +6.23% | T |
-| 2024 | +3.46% | T |
-| 2025 | +6.11% | T |
+| 2020 | +9.82% | T |
+| 2021 | +1.64% | T |
+| 2022 | +1.00% | |
+| 2023 | +6.31% | T |
+| 2024 | +3.54% | T |
+| 2025 | +6.32% | T |
 
 **10/10 years profitable**, 9/10 years have tradeable edge (>=1.5%).
 
 ### Exit Reasons
-- EMA cross (10/20): 5,945 exits (71.4%), +8.34% avg, 57.5% WR
-- Stagnation (3%/15d): 1,662 exits (20.0%), -0.13% avg, 56.8% WR
-- Stop loss (2.5 ATR): 717 exits (8.6%), -9.02% avg, 0% WR
+- EMA cross (10/20): 6,035 exits (71.4%), +8.42% avg, 57.5% WR
+- Stagnation (3%/15d): 1,689 exits (20.0%), -0.12% avg, 56.8% WR
+- Stop loss (2.5 ATR): 726 exits (8.6%), -9.09% avg, 0% WR
 
 ### EC Score Breakdown
 - Profitable Periods: 100% (10/10 years positive, weight 40%)
 - Stability (Tradeable Edge): 90% (9/10 years >= 1.5%, weight 40%)
-- Downside: 100% (worst year +1.05%, weight 20%)
+- Downside: 100% (worst year +1.00%, weight 20%)
 - **Total: 96.0 (Excellent)**
 
 ### Position-Sized Results ($10K Starting Capital)
@@ -86,131 +86,159 @@ exitStrategy {
 - Random seed: 42 (deterministic tie-breaking)
 - No sector exclusions
 
-**Results (with stagnation exit 3%/15d, SectorEdge ranker, entry delay 1, seed 42):**
+**Results (with stagnation exit 3%/15d, SectorEdge ranker, entry delay 1, seed 42, capital-aware selection + M2M tracking):**
 
 | Metric | Value |
 |---|---|
 | Starting Capital | $10,000 |
-| Final Capital | **$1,072,882** |
-| Peak Capital | $1,120,672 |
-| Total Return | +10,629% |
-| Max Drawdown | **21.7%** ($128,012) |
-| Total Trades | 1,025 |
-| Win Rate | 52.1% |
-| Edge | +5.17% |
-| Avg Win / Loss | 15.03% / -5.55% |
-| Win/Loss Ratio | 2.71x |
-| Profit Factor | 3.14 |
+| Final Capital | **$1,348,581** |
+| Peak Capital | $1,392,053 |
+| Total Return | +13,386% |
+| Max Drawdown | **16.8%** ($120,417) |
+| Total Trades | 697 |
+| Win Rate | 54.2% |
+| Edge | +6.13% |
+| Avg Win / Loss | 15.67% / -5.19% |
+| Win/Loss Ratio | 3.02x |
+| Profit Factor | 3.91 |
 | EC Score | 96.0 (Excellent) |
 
-*Updated 2026-04-01 with randomSeed: 42 for fully reproducible results. Position sizes use true portfolio value (cash + unrealized P/L).*
+*Updated 2026-04-16. Capital-aware trade selection with daily mark-to-market portfolio tracking. Selection state computes cash + unrealized P/L each trading day, aligning with PositionSizingService's M2M behavior. No drawdown scaling — see DD Scaling Analysis below.*
 
 **Yearly edge:**
 
 | Year | Edge | Tradeable? |
 |---|---|---|
-| 2016 | +3.13% | T |
-| 2017 | +9.51% | T |
-| 2018 | +3.37% | T |
-| 2019 | +4.54% | T |
-| 2020 | +10.47% | T |
-| 2021 | +5.16% | T |
-| 2022 | +1.15% | |
-| 2023 | +5.17% | T |
-| 2024 | +6.81% | T |
-| 2025 | +4.69% | T |
+| 2016 | +2.26% | T |
+| 2017 | +5.19% | T |
+| 2018 | +6.37% | T |
+| 2019 | +5.69% | T |
+| 2020 | +12.71% | T |
+| 2021 | +4.91% | T |
+| 2022 | +1.19% | |
+| 2023 | +6.97% | T |
+| 2024 | +8.78% | T |
+| 2025 | +8.97% | T |
 
-**10/10 years profitable.** 9/10 tradeable. $10K → $1.07M (107x) over 10 years.
+**10/10 years profitable.** 9/10 tradeable. $10K → $1.35M (135x) over 10 years.
 
 **Exit reasons:**
 
 | Reason | Count | % | Avg Profit | WR | Avg Hold |
 |---|---|---|---|---|---|
-| EMA cross (10/20) | 739 | 72.1% | +8.05% | 55.9% | 52d |
-| Stagnation (3%/15d) | 212 | 20.7% | +0.07% | 57.1% | 22d |
-| Stop loss (2.5 ATR) | 74 | 7.2% | -8.91% | 0% | 10d |
+| EMA cross (10/20) | 507 | 72.7% | +9.14% | 57.0% | 55d |
+| Stagnation (3%/15d) | 147 | 21.1% | +0.33% | 60.5% | 22d |
+| Stop loss (2.5 ATR) | 43 | 6.2% | -9.68% | 0% | 10d |
 
 **Risk-adjusted metrics:**
 
 | Metric | Value | Rating |
 |---|---|---|
-| CAGR | 58.6% | |
-| Sharpe Ratio | 2.39 | Excellent (>2.0) |
-| Sortino Ratio | 3.85 | Excellent (>3.0) |
-| Calmar Ratio | 2.70 | Excellent (>1.5) |
-| SPY Correlation | 0.53 | Good (mix of alpha and beta) |
-| Beta | 0.66 | Below-market exposure |
-| Alpha (annualized) | 39.3% | Strong independent return |
+| CAGR | 59.0% | |
+| Sharpe Ratio | 2.43 | Excellent (>2.0) |
+| Sortino Ratio | 3.88 | Excellent (>3.0) |
+| Calmar Ratio | 3.51 | Excellent (>1.5) |
+| SPY Correlation | 0.50 | Good (mix of alpha and beta) |
+| Beta | 0.63 | Below-market exposure |
+| Alpha (annualized) | 35.9% | Strong independent return |
 
-*Updated 2026-04-01 with seed=42 results.*
+*Updated 2026-04-16 with M2M-corrected capital-aware selection results.*
 
 **Top 5 drawdowns:**
 
-| # | Depth | Decline | Recovery | Total | Peak → Trough |
-|---|---|---|---|---|---|
-| 1 | 21.7% | 112d | 98d | 210d | 2022-04 → 2022-09 |
-| 2 | 18.9% | 43d | 34d | 77d | 2020-02 → 2020-04 |
-| 3 | 16.4% | 38d | 65d | 103d | 2023-03 → 2023-04 |
-| 4 | 12.6% | 5d | 14d | 19d | 2021-03 → 2021-03 |
-| 5 | 12.4% | 19d | 18d | 37d | 2025-03 → 2025-04 |
+*Pending post-analytics run on final results.*
 
-**Monte Carlo validation (10K iterations, seed=42 backtest):**
+**Monte Carlo validation (10K iterations, backtest ID 0f5bec74):**
 
-Bootstrap resampling (edge confidence):
-| Percentile | Edge |
-|---|---|
-| p5 (worst case) | +4.19% |
-| p50 (median) | +5.15% |
-| p95 (best case) | +6.22% |
-| Prob of Profit | 100% |
+Bootstrap resampling (edge confidence, 697 trades):
+| Percentile | Edge | Win Rate |
+|---|---|---|
+| p5 (worst case) | +4.93% | 51.2% |
+| p25 | +5.62% | 53.1% |
+| p50 (median) | +6.12% | 54.2% |
+| p75 | +6.63% | 55.5% |
+| p95 (best case) | +7.41% | 57.4% |
+| Prob of Profit | 100% | — |
 
-Trade shuffling (drawdown distribution):
+Trade shuffling (drawdown distribution, position-sized):
 | Percentile | Max Drawdown |
 |---|---|
-| p5 (best case) | 13.6% |
-| p50 (median) | 17.8% |
-| p95 (worst case) | 24.9% |
+| p5 (best case) | 10.8% |
+| p25 | 12.7% |
+| p50 (median) | 14.3% |
+| p75 | 16.4% |
+| p95 (worst case) | 20.5% |
 
-Actual DD (21.7%) between p75 (20.3%) and p95 (24.9%) — within expected range. Plan for 25-30% max DD in live trading.
+Actual DD (16.8%) between p75 (16.4%) and p95 (20.5%) — slightly unfavorable trade ordering but well within expected range. Plan for 20-25% max DD in live trading.
 
-**Walk-forward validation (5yr IS / 1yr OOS / 1yr step, unlimited positions):**
+**Walk-forward validation (5yr IS / 1yr OOS / 1yr step, 15 max positions, IS-derived sector rankings):**
 
-| OOS Year | IS Edge | OOS Edge | IS Trades | OOS Trades |
-|---|---|---|---|---|
-| 2021 | +6.39% | +1.53% | 3,111 | 571 |
-| 2022 | +5.93% | +0.98% | 3,145 | 662 |
-| 2023 | +4.72% | +6.04% | 3,292 | 1,170 |
-| 2024 | +5.36% | +3.56% | 4,185 | 1,057 |
+| OOS Year | OOS Edge | IS Edge | WFE | Trades | IS Top-3 Sectors |
+|:-:|:-:|:-:|:-:|:-:|:--|
+| 2005 | +5.95% | 2.93% | 2.03 | 90 | XLY, XLF, XLV |
+| 2006 | +2.36% | 3.37% | 0.70 | 83 | XLY, XLB, XLV |
+| 2007 | +0.44% | 3.40% | 0.13 | 88 | XLY, XLB, XLRE |
+| 2008 | -2.37% | 3.44% | -0.69 | 101 | XLY, XLE, XLRE |
+| 2009 | +3.28% | 1.47% | 2.23 | 106 | XLE, XLU, XLV |
+| 2010 | +6.49% | 1.35% | 4.80 | 71 | XLE, XLU, XLV |
+| 2011 | +3.27% | 1.21% | 2.71 | 111 | XLU, XLE, XLY |
+| 2012 | +3.98% | 1.33% | 2.99 | 110 | XLE, XLU, XLY |
+| 2013 | +6.12% | 1.96% | 3.13 | 94 | XLE, XLY, XLU |
+| 2014 | +2.72% | 3.40% | 0.80 | 102 | XLE, XLY, XLC |
+| 2015 | +2.31% | 3.75% | 0.62 | 104 | XLE, XLC, XLY |
+| 2016 | +3.50% | 3.13% | 1.12 | 110 | XLE, XLC, XLF |
+| 2017 | +9.22% | 3.47% | 2.66 | 85 | XLE, XLRE, XLF |
+| 2018 | +2.72% | 4.79% | 0.57 | 110 | XLV, XLP, XLF |
+| 2019 | +4.93% | 4.21% | 1.17 | 108 | XLP, XLV, XLF |
+| 2020 | +10.25% | 4.50% | 2.28 | 95 | XLV, XLP, XLK |
+| 2021 | +3.02% | 6.14% | 0.49 | 120 | XLY, XLV, XLK |
+| 2022 | +2.39% | 6.59% | 0.36 | 112 | XLY, XLV, XLK |
+| 2023 | +4.23% | 4.43% | 0.96 | 120 | XLY, XLE, XLK |
+| 2024 | +7.23% | 5.17% | 1.40 | 93 | XLY, XLK, XLE |
 
-Aggregate WFE: **0.64** (robust), OOS edge: **+3.57%**, 4/4 OOS windows profitable.
+Aggregate WFE: **1.13** (OOS edge exceeds IS edge), OOS edge: **+3.98%**, 2,013 OOS trades. **19/20 OOS windows positive** (95%), **18/20 tradeable** (90%). Only losing year: 2008 (-2.37%, GFC). 2022 now positive (+2.39%) with IS-derived sector rankings.
 
-*Updated 2026-04-01 with corrected walk-forward (unlimited positions, full stock universe). Previous values used position-limited backtests which inflated WFE.*
+*Updated 2026-04-16 with capital-aware engine (M2M + dynamic max positions). WFE improved from 0.64 to 1.13.*
 
-**With drawdown-responsive scaling** (optional, see Drawdown-Responsive Position Sizing section):
+**Drawdown-responsive scaling: NOT recommended**
 
-Drawdown scaling reduces risk per trade when in drawdown (5% DD → 0.67x risk, 10% DD → 0.33x risk). Can be combined with the stagnation exit for further DD reduction. Should be re-tested with the corrected M2M-based position sizing. See the Drawdown-Responsive Position Sizing section for full details and API usage.
+DD scaling V2 (3%/8% → 0.67x/0.33x risk) was tested with the corrected capital-aware engine (M2M + dynamic max positions). Results:
+
+| Metric | No Scaling | DD Scaling V2 | Delta |
+|---|---|---|---|
+| Final Capital | $1,348,581 | $304,543 | -$1.04M (-77%) |
+| Max Drawdown | 16.8% | 16.0% | -0.8pp |
+| Total Trades | 697 | 582 | -115 |
+| Win Rate | 54.2% | 54.3% | same |
+| Edge | +6.13% | +5.56% | -0.57pp |
+| EC Score | 96.0 | 90.6 | -5.4 |
+
+DD scaling costs 77% of terminal wealth for 0.8pp of DD reduction — catastrophic compounding drag. The triple penalty (smaller risk + fewer positions via dynamic scaling + reduced compounding base) compounds destructively over 10 years. The strategy already has natural DD protection via exit rules (EMA cross, ATR stop, stagnation filter) and sector rotation. The 16.8% max DD with Sharpe 2.43 and Calmar 3.51 is already an excellent risk-adjusted profile.
+
+**Recommendation:** Deploy without DD scaling. For additional live trading protection, use a market regime filter (pause entries) or hard DD circuit breaker rather than continuous position sizing throttling.
 
 **Evolution across optimizations:**
 
-Note: pre-stagnation values are from the old cash-based position sizing. The stagnation column uses corrected M2M-based sizing, so the jump in final capital reflects both the stagnation exit AND the M2M fix.
+Note: pre-stagnation values are from the old cash-based position sizing. The M2M column uses corrected capital-aware selection with daily mark-to-market tracking.
 
-| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 | + stagnation + M2M fix (seed 42) |
-|---|---|---|---|---|---|---|
-| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | $459,565 | **$1,072,882** |
-| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | 46.4% | — |
-| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | 21.2% | **21.7%** |
-| Trades | 855 | 927 | 837 | 899 | 893 | **1,025** |
-| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% | **52.1%** |
-| Edge | +4.86% | +5.46% | +5.74% | +5.24% | +5.74% | **+5.17%** |
-| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 | **3.14** |
-| EC | 92.0 | 96.0 | 96.0 | 96.0 | 96.0 | **96.0** |
-| Sharpe | — | — | — | 2.04 | 2.21 | — |
-| Calmar | — | — | — | 1.61 | 2.18 | — |
+| Metric | VC 2.5 (original) | VC 3.5 | + sectorUptrend | + SectorEdge + delay 1 | + uptrend 5>10>20 | + stagnation + M2M fix (seed 42) | + capital-aware + M2M |
+|---|---|---|---|---|---|---|---|
+| Final Capital | $148,124 | $224,840 | $317,756 | $395,432 | $459,565 | $1,072,882 | **$1,348,581** |
+| CAGR | 30.9% | 36.5% | 41.3% | 44.4% | 46.4% | — | **59.0%** |
+| Max Drawdown | 15.2% | 19.7% | 20.7% | 16.7% | 21.2% | 21.7% | **16.8%** |
+| Trades | 855 | 927 | 837 | 899 | 893 | 1,025 | **697** |
+| Win Rate | 46.3% | 49.1% | 49.5% | 47.3% | 48.7% | 52.1% | **54.2%** |
+| Edge | +4.86% | +5.46% | +5.74% | +5.24% | +5.74% | +5.17% | **+6.13%** |
+| Profit Factor | — | 2.04 | 4.72 | 2.79 | 2.46 | 3.14 | **3.91** |
+| EC | 92.0 | 96.0 | 96.0 | 96.0 | 96.0 | 96.0 | **96.0** |
+| Sharpe | — | — | — | 2.04 | 2.21 | — | **2.43** |
+| Calmar | — | — | — | 1.61 | 2.18 | — | **3.51** |
 
 **Position sizing notes:**
 - Initial run without leverage cap blew up — ATR-based sizing allowed 59x leverage on a single trade, leading to -$1.27M final capital
 - Adding `leverageRatio: 1.0` caps total notional exposure to 1x portfolio value, producing realistic results
 - SectorEdge ranker is deterministic — results are reproducible across runs (unlike Random ranker)
+- Capital-aware selection with M2M tracking uses daily portfolio value (cash + unrealized P/L) for sizing decisions, matching the real PositionSizingService
 
 ### Comparison to Mjolnir Strategy
 
@@ -1324,6 +1352,66 @@ Re-tested with the current VcpExitStrategy and corrected M2M-based position sizi
 5. **All sectors profitable in unlimited mode**, but XLP turns negative (-1.07%) in position-sized mode (only 36 trades — small sample).
 
 6. **Addresses quant analyst gap.** "Pre-2016 regimes: Never tested in 2008-style crash" is now resolved. The strategy survives the GFC with a manageable drawdown and preserves positive edge across the full period.
+
+#### With Capital-Aware Engine + M2M (2026-04-16)
+
+Re-tested with capital-aware trade selection and daily M2M portfolio tracking.
+
+| Metric | Post-Fix VcpExitStrategy (2026-03-20) | Capital-Aware + M2M (2026-04-16) | Delta |
+|---|---|---|---|
+| Starting → Final | $10K → $121K | $10K → **$104K** | -$17K (-14%) |
+| Max Drawdown | **27.0%** | **16.6%** | **-10.4pp** |
+| Total Trades | 958 | 617 | -341 |
+| Win Rate | 49.4% | 48.0% | -1.4pp |
+| Edge | 2.38% | 2.30% | -0.08pp |
+| EC Score | 83.0 | **84.2** | +1.2 |
+
+**Yearly edge (capital-aware + M2M):**
+
+| Year | Edge | Tradeable? |
+|---|---|---|
+| 2006 | +2.79% | T |
+| 2007 | +1.48% | |
+| **2008** | **-1.88%** | |
+| 2009 | +2.55% | T |
+| 2010 | +7.49% | T |
+| 2011 | +2.27% | T |
+| 2012 | +2.22% | T |
+| 2013 | +4.29% | T |
+| 2014 | +3.39% | T |
+| 2015 | +1.51% | T |
+
+**9/10 profitable, 8/10 tradeable.** Exit reasons: EMA cross 404 (65.5%, +4.42% avg), stagnation 166 (26.9%, -0.20% avg), stop loss 47 (7.6%, -7.10% avg).
+
+**Key improvement:** Max DD dropped dramatically from 27.0% to 16.6% (-10.4pp). Capital-aware selection skips unfundable trades instead of taking them with 0 shares, and M2M tracking ensures sizing decisions reflect true portfolio value. The GFC drawdown is now well-contained despite a -56% SPY crash. Final capital slightly lower ($104K vs $121K) because fewer trades are taken (617 vs 958), but the risk-adjusted profile is far superior.
+
+---
+
+### Seed Sensitivity Analysis (2026-04-16)
+
+#### Goal
+Verify that the position-sized results are not fragile to the random seed used for tie-breaking when ranked entries have equal scores.
+
+#### Results (2016-2025, $10K, 15 max, VcpExitStrategy, no DD scaling)
+
+| Seed | Final Capital | Max DD | Trades | WR | Edge | PF | EC |
+|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| 42 | $1,348,581 | 16.8% | 697 | 54.2% | +6.13% | 3.91 | 96 |
+| 123 | $1,210,458 | 13.8% | 709 | 53.9% | +5.79% | 3.10 | 96 |
+| 456 | $1,033,965 | 19.7% | 691 | 53.8% | +6.04% | 3.75 | 96 |
+| 789 | $1,170,442 | 21.7% | 709 | 53.3% | +5.81% | 3.59 | 96 |
+| 1000 | $1,073,136 | 21.0% | 709 | 53.9% | +5.74% | 3.58 | 96 |
+
+**Summary:**
+
+| Metric | Mean | Std Dev | CV | Range |
+|---|---|---|---|---|
+| Final Capital | $1,167,316 | $123,875 | **10.6%** | $1.03M - $1.35M |
+| Max Drawdown | 18.6% | — | — | 13.8% - 21.7% |
+| Edge | +5.90% | — | — | +5.74% - +6.13% |
+| EC Score | 96.0 | 0.0 | 0% | All identical |
+
+**CV of 10.6% is well below the 15% concern threshold.** The strategy is not seed-fragile. EC 96 is perfectly stable across all seeds. Edge varies by only 0.39pp. Trade counts are very tight (691-709, 2.6% range). The strategy's results are driven by genuine signal quality, not tie-breaking luck.
 
 ---
 

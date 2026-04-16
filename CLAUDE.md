@@ -46,7 +46,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
 
 1. **Backtesting** (`backtesting/`)
-   - `BacktestService.kt`: Core backtesting engine
+   - `BacktestService.kt`: Core backtesting engine with capital-aware trade selection
    - `StrategyRegistry.kt`: Dynamic strategy discovery via `@RegisteredStrategy`
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
