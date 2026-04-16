@@ -189,22 +189,7 @@ class PositionSizingService {
   private fun applyDrawdownScaling(
     config: PositionSizingConfig,
     state: PortfolioState,
-  ): PositionSizingConfig {
-    val scaling = config.drawdownScaling ?: return config
-    val currentDrawdownPct =
-      if (state.peakCapital > 0.0) {
-        ((state.peakCapital - state.lastPortfolioValue) / state.peakCapital) * 100.0
-      } else {
-        0.0
-      }
-
-    val multiplier = scaling.thresholds
-      .sortedByDescending { it.drawdownPercent }
-      .firstOrNull { currentDrawdownPct >= it.drawdownPercent }
-      ?.riskMultiplier ?: return config
-
-    return config.copy(riskPercentage = config.riskPercentage * multiplier)
-  }
+  ): PositionSizingConfig = Companion.applyDrawdownScaling(config, state.peakCapital, state.lastPortfolioValue)
 
   private fun computeUnrealizedPnl(
     openPositions: Map<Trade, OpenPosition>,
@@ -333,5 +318,24 @@ class PositionSizingService {
       } else {
         floor(portfolioValue * (config.riskPercentage / 100.0) / (config.nAtr * atr)).toInt()
       }
+
+    /**
+     * Apply drawdown scaling to a config based on current vs peak portfolio value.
+     * Returns the config with scaled riskPercentage, or the original if no scaling applies.
+     */
+    fun applyDrawdownScaling(
+      config: PositionSizingConfig,
+      peakValue: Double,
+      currentValue: Double,
+    ): PositionSizingConfig {
+      val scaling = config.drawdownScaling ?: return config
+      if (peakValue <= 0.0) return config
+      val ddPct = ((peakValue - currentValue) / peakValue) * 100.0
+      val multiplier = scaling.thresholds
+        .sortedByDescending { it.drawdownPercent }
+        .firstOrNull { ddPct >= it.drawdownPercent }
+        ?.riskMultiplier ?: return config
+      return config.copy(riskPercentage = config.riskPercentage * multiplier)
+    }
   }
 }

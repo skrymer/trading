@@ -336,6 +336,7 @@ class BacktestController(
         request.cooldownDays,
         request.entryDelayDays,
         randomSeed = request.randomSeed,
+        positionSizingConfig = request.positionSizing,
       )
 
     logger.info(
@@ -347,10 +348,12 @@ class BacktestController(
     val finalReport =
       if (request.positionSizing != null) {
         val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
+        val postHocZeroed = backtestReport.trades.size - sizingResult.trades.size
         logger.info(
           "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
             "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
-            "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%",
+            "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%, " +
+            "postHocZeroed=$postHocZeroed",
         )
         BacktestReport(
           winningTrades = backtestReport.winningTrades,

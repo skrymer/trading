@@ -42,7 +42,7 @@ udgaard/
 │   │   │   ├── WalkForwardResult.kt
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── service/                  # Business logic
-│   │   │   ├── BacktestService.kt    # Core backtesting engine
+│   │   │   ├── BacktestService.kt    # Core backtesting engine with capital-aware trade selection
 │   │   │   ├── StrategyRegistry.kt   # Strategy discovery/management
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
@@ -197,6 +197,7 @@ udgaard/
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
 │       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator
 │       ├── BacktestApiE2ETest.kt       # Backtest API E2E tests
+│       ├── BacktestPositionSizingE2ETest.kt  # Capital-aware position sizing E2E tests
 │       ├── CashTransactionE2ETest.kt   # Cash transaction E2E tests
 │       ├── ForexTrackingE2ETest.kt     # Forex tracking E2E tests
 │       ├── IBKRBrokerImportE2ETest.kt  # IBKR broker import E2E tests

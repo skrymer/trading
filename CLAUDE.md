@@ -46,7 +46,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
 
 1. **Backtesting** (`backtesting/`)
-   - `BacktestService.kt`: Core backtesting engine
+   - `BacktestService.kt`: Core backtesting engine with capital-aware trade selection
    - `StrategyRegistry.kt`: Dynamic strategy discovery via `@RegisteredStrategy`
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
@@ -100,7 +100,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`
 
-**Stocks:** `GET /api/stocks`, `GET /api/stocks/symbols`, `GET /api/stocks/symbols/search`, `GET /api/stocks/{symbol}`, `GET /api/stocks/{symbol}/signals`, `GET /api/stocks/{symbol}/evaluate-date/{date}`, `GET /api/stocks/{symbol}/evaluate-exit/{date}`, `POST /api/stocks/{symbol}/condition-signals`
+**Stocks:** `GET /api/stocks`, `GET /api/stocks/symbols`, `GET /api/stocks/symbols/search`, `GET /api/stocks/{symbol}`, `GET /api/stocks/{symbol}/signals`, `GET /api/stocks/{symbol}/evaluate-date/{date}`, `GET /api/stocks/{symbol}/evaluate-exit/{date}`, `POST /api/stocks/{symbol}/condition-signals`, `GET /api/stocks/{symbol}/latest-quote`
 
 **Portfolio:** `GET/POST /api/portfolio`, `GET/PUT/DELETE /api/portfolio/{id}`, `POST /api/portfolio/import`, `POST /api/portfolio/{id}/sync`, `GET /api/portfolio/{id}/forex/lots`, `GET /api/portfolio/{id}/forex/disposals`, `GET /api/portfolio/{id}/forex/summary`, `GET /api/portfolio/{id}/cash-transactions`, `GET /api/portfolio/{id}/cash-transactions/summary`, `POST /api/portfolio/broker/test`
 
@@ -335,4 +335,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-04-12_
+_Last Updated: 2026-04-16_

@@ -9,8 +9,13 @@ data class PositionSizingConfig(
 ) {
   init {
     require(startingCapital > 0.0) { "startingCapital must be positive, got $startingCapital" }
+    require(startingCapital <= 1_000_000_000.0) { "startingCapital must be <= 1B, got $startingCapital" }
     require(riskPercentage > 0.0) { "riskPercentage must be positive, got $riskPercentage" }
+    require(riskPercentage <= 100.0) { "riskPercentage must be <= 100, got $riskPercentage" }
     require(nAtr > 0.0) { "nAtr must be positive, got $nAtr" }
+    if (leverageRatio != null) {
+      require(leverageRatio in 0.1..100.0) { "leverageRatio must be in 0.1..100, got $leverageRatio" }
+    }
   }
 }
 

@@ -1,6 +1,8 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
+import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.data.model.Stock
@@ -1419,5 +1421,402 @@ class BacktestServiceTest {
     // Entry should be on Day 1 (signal day, no delay)
     Assertions.assertEquals(LocalDate.of(2025, 1, 1), report.trades[0].entryQuote.date, "Entry on signal day with delay=0")
     Assertions.assertEquals(100.0, report.trades[0].entryQuote.closePrice, 0.01)
+  }
+
+  // ===== CAPITAL-AWARE TRADE SELECTION TESTS =====
+
+  @Test
+  fun `capital-aware should skip unfundable trade and take next affordable candidate`() {
+    // Two candidates on same day: EXPENSIVE ($2000, ATR=1.0) and CHEAP ($100, ATR=5.0)
+    // With $1000 capital and leverageRatio=1.0:
+    //   EXPENSIVE: shares = floor(1000 * 0.015 / (2 * 1.0)) = 7, but price $2000 > $1000 cap → 0 shares
+    //   CHEAP: shares = floor(1000 * 0.015 / (2 * 5.0)) = 1, notional = 1 * 100 = 100 ≤ 1000 → fundable
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val expensive = Stock(
+      "EXPENSIVE",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 2000.0, openPrice = 2000.0, atr = 1.0),
+        StockQuote(date = day2, closePrice = 2000.0, openPrice = 99.0, atr = 1.0),
+      ),
+    )
+
+    val cheap = Stock(
+      "CHEAP",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 100.0, openPrice = 99.0, atr = 5.0),
+      ),
+    )
+
+    mockStocksForLoading(expensive, cheap)
+
+    val config = PositionSizingConfig(
+      startingCapital = 1000.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("EXPENSIVE", "CHEAP"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 2,
+      positionSizingConfig = config,
+    )
+
+    // CHEAP should be taken, EXPENSIVE should be missed
+    Assertions.assertEquals(1, report.totalTrades, "Should take 1 trade (the affordable one)")
+    Assertions.assertEquals("CHEAP", report.trades[0].stockSymbol, "Should take CHEAP, not EXPENSIVE")
+    Assertions.assertTrue(report.missedTrades.isNotEmpty(), "EXPENSIVE should be in missed trades")
+  }
+
+  @Test
+  fun `capital-aware should not change behavior when positionSizingConfig is null`() {
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val stockA = Stock(
+      "STOCK_A",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 101.0, openPrice = 99.0, atr = 5.0),
+      ),
+    )
+
+    mockStocksForLoading(stockA)
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("STOCK_A"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 1,
+      positionSizingConfig = null,
+    )
+
+    Assertions.assertEquals(1, report.totalTrades, "Should take 1 trade without capital gate")
+  }
+
+  @Test
+  fun `capital-aware should take zero trades when all candidates are unfundable`() {
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val stock = Stock(
+      "VERY_EXPENSIVE",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 10000.0, openPrice = 10000.0, atr = 0.1),
+        StockQuote(date = day2, closePrice = 10000.0, openPrice = 99.0, atr = 0.1),
+      ),
+    )
+
+    mockStocksForLoading(stock)
+
+    // shares = floor(100 * 0.015 / (2 * 0.1)) = 7, notional = 7 * 10000 = 70000 > 100 leverage cap → 0
+    val config = PositionSizingConfig(
+      startingCapital = 100.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("VERY_EXPENSIVE"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = config,
+    )
+
+    Assertions.assertEquals(0, report.totalTrades, "Should take no trades when capital is insufficient")
+  }
+
+  @Test
+  fun `capital-aware should release capital when trades exit`() {
+    // Trade 1 enters day1, exits day2. Trade 2 signals day3 — should have capital again.
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+    val day3 = LocalDate.of(2025, 1, 3)
+    val day4 = LocalDate.of(2025, 1, 6)
+
+    val stockA = Stock(
+      "STOCK_A",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 100.0, openPrice = 99.0, atr = 2.0),
+        StockQuote(date = day3, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day4, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+      ),
+    )
+
+    val stockB = Stock(
+      "STOCK_B",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day3, closePrice = 100.0, openPrice = 100.0, atr = 2.0),
+        StockQuote(date = day4, closePrice = 100.0, openPrice = 99.0, atr = 2.0),
+      ),
+    )
+
+    mockStocksForLoading(stockA, stockB)
+
+    val config = PositionSizingConfig(
+      startingCapital = 10000.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("STOCK_A", "STOCK_B"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 2,
+      positionSizingConfig = config,
+    )
+
+    Assertions.assertEquals(2, report.totalTrades, "Should take 2 trades after capital is released from exit")
+  }
+
+  @Test
+  fun `capital-aware should set missedReason on capital-skipped trades`() {
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val expensive = Stock(
+      "EXPENSIVE",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 500.0, openPrice = 500.0, atr = 1.0),
+        StockQuote(date = day2, closePrice = 500.0, openPrice = 99.0, atr = 1.0),
+      ),
+    )
+
+    mockStocksForLoading(expensive)
+
+    val config = PositionSizingConfig(
+      startingCapital = 100.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("EXPENSIVE"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = config,
+    )
+
+    Assertions.assertEquals(0, report.totalTrades, "Should take no trades")
+    Assertions.assertTrue(report.missedTrades.isNotEmpty(), "Should have missed trades")
+    Assertions.assertEquals(
+      Trade.MISSED_INSUFFICIENT_CAPITAL,
+      report.missedTrades[0].missedReason,
+      "Missed trade should have reason set",
+    )
+  }
+
+  @Test
+  fun `capital-aware should deplete budget across multiple same-day entries`() {
+    // Two cheap stocks signal on same day, but combined notional exceeds leverage cap
+    // $200 capital, leverageRatio=1.0
+    // STOCK_A: shares = floor(200 * 0.015 / (2 * 1.0)) = 1, notional = 1 * 150 = 150 ≤ 200 → fundable
+    // STOCK_B: remaining notional = 200 - 150 = 50, price $150 > 50 → 0 shares → skipped
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val stockA = Stock(
+      "STOCK_A",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 150.0, openPrice = 150.0, atr = 1.0),
+        StockQuote(date = day2, closePrice = 150.0, openPrice = 99.0, atr = 1.0),
+      ),
+    )
+
+    val stockB = Stock(
+      "STOCK_B",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 150.0, openPrice = 150.0, atr = 1.0),
+        StockQuote(date = day2, closePrice = 150.0, openPrice = 99.0, atr = 1.0),
+      ),
+    )
+
+    mockStocksForLoading(stockA, stockB)
+
+    val config = PositionSizingConfig(
+      startingCapital = 200.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("STOCK_A", "STOCK_B"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = config,
+    )
+
+    Assertions.assertEquals(1, report.totalTrades, "Should only take 1 trade — second depletes budget")
+  }
+
+  @Test
+  fun `capital-aware should work without leverage ratio`() {
+    // leverageRatio=null skips notional cap — only ATR share calc matters
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val stock = Stock(
+      "TEST",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 500.0, openPrice = 500.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 500.0, openPrice = 99.0, atr = 2.0),
+      ),
+    )
+
+    mockStocksForLoading(stock)
+
+    // shares = floor(100 * 0.015 / (2 * 2.0)) = floor(0.375) = 0 → unfundable
+    val configTooSmall = PositionSizingConfig(
+      startingCapital = 100.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = null,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("TEST"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = configTooSmall,
+    )
+
+    Assertions.assertEquals(0, report.totalTrades, "Should skip when ATR sizing gives 0 shares even without leverage cap")
+  }
+
+  @Test
+  fun `capital-aware should skip stock with zero ATR gracefully`() {
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val stock = Stock(
+      "ZERO_ATR",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 0.0),
+        StockQuote(date = day2, closePrice = 100.0, openPrice = 99.0, atr = 0.0),
+      ),
+    )
+
+    mockStocksForLoading(stock)
+
+    val config = PositionSizingConfig(
+      startingCapital = 10000.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("ZERO_ATR"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = config,
+    )
+
+    Assertions.assertEquals(0, report.totalTrades, "Zero ATR should give 0 shares and be skipped")
+  }
+
+  @Test
+  fun `capital-aware should reduce budget after losing trade`() {
+    // Trade 1 enters day1, exits day2 with a loss. Trade 2 signals day3.
+    // The loss reduces estimatedCash, potentially blocking Trade 2.
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+    val day3 = LocalDate.of(2025, 1, 3)
+    val day4 = LocalDate.of(2025, 1, 6)
+
+    // STOCK_A: enters at 100, exits at 50 → profit = -50 per share
+    val stockA = Stock(
+      "LOSER",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 99.0, atr = 2.0),
+        StockQuote(date = day3, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+      ),
+    )
+
+    // STOCK_B: signals day3, price $800 — needs large capital
+    val stockB = Stock(
+      "EXPENSIVE_AFTER_LOSS",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day2, closePrice = 50.0, openPrice = 50.0, atr = 2.0),
+        StockQuote(date = day3, closePrice = 800.0, openPrice = 800.0, atr = 2.0),
+        StockQuote(date = day4, closePrice = 800.0, openPrice = 99.0, atr = 2.0),
+      ),
+    )
+
+    mockStocksForLoading(stockA, stockB)
+
+    // Starting capital $500, leverageRatio=1.0
+    // LOSER: shares = floor(500 * 0.015 / (2 * 2)) = floor(1.875) = 1
+    // After loss: estimatedCash = 500 + 1 * (-50) = 450
+    // STOCK_B: shares = floor(450 * 0.015 / (2 * 2)) = floor(1.6875) = 1
+    //   notional = 1 * 800 = 800 > 450 leverage cap → 0 shares → skipped
+    val config = PositionSizingConfig(
+      startingCapital = 500.0,
+      riskPercentage = 1.5,
+      nAtr = 2.0,
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("LOSER", "EXPENSIVE_AFTER_LOSS"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 5,
+      positionSizingConfig = config,
+    )
+
+    Assertions.assertEquals(1, report.totalTrades, "Should only take LOSER — loss reduces capital blocking STOCK_B")
+    Assertions.assertEquals("LOSER", report.trades[0].stockSymbol)
   }
 }

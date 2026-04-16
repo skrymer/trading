@@ -38,6 +38,9 @@ class Trade(
   @Transient
   var excursionMetrics: ExcursionMetrics? = null
 
+  @Transient
+  var missedReason: String? = null
+
   /**
    * Calculate the profit percentage of this trade: (profit/entry close price) * 100
    * @return
@@ -57,4 +60,8 @@ class Trade(
   fun containsQuote(stockQuote: StockQuote) = quotes.contains(stockQuote)
 
   override fun toString(): String = "Start date $startDate"
+
+  companion object {
+    const val MISSED_INSUFFICIENT_CAPITAL = "insufficient capital"
+  }
 }

@@ -13,6 +13,7 @@ import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Random
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -26,6 +27,7 @@ import kotlin.math.min
 @Suppress("LongMethod")
 object BacktestTestDataGenerator {
   private val random = Random(42) // Fixed seed for reproducibility
+  private val populated = AtomicBoolean(false)
 
   private val SECTOR_STOCKS = mapOf(
     "XLK" to listOf("AAPL", "MSFT", "NVDA", "AVGO", "CRM"),
@@ -45,6 +47,8 @@ object BacktestTestDataGenerator {
   val ALL_SYMBOLS = SECTOR_STOCKS.values.flatten()
 
   fun populate(dsl: DSLContext) {
+    if (!populated.compareAndSet(false, true)) return
+
     val tradingDays = generateTradingDays(
       LocalDate.of(2024, 1, 2),
       LocalDate.of(2024, 3, 29),
