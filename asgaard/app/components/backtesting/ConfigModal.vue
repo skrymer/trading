@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod'
-import type { BacktestRequest, StrategyConfig, AvailableConditions, PositionSizingConfig } from '~/types'
+import type { BacktestRequest, StrategyConfig, AvailableConditions, PositionSizingConfig, SizerConfig } from '~/types'
 import { AssetTypeOptions, SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
 
 const SectorOptions = Object.values(SectorSymbol).map(s => ({
@@ -45,9 +45,8 @@ const state = reactive<{
   customOverrides: Array<{ symbol: string, underlying: string }>
   positionSizingEnabled: boolean
   positionSizingStartingCapital: number
-  positionSizingRiskPercentage: number
-  positionSizingNAtr: number
   positionSizingLeverageRatio: number | null
+  positionSizingSizer: SizerConfig
 }>({
   stockSelection: 'all',
   specificStocks: [],
@@ -68,10 +67,21 @@ const state = reactive<{
   customOverrides: [],
   positionSizingEnabled: false,
   positionSizingStartingCapital: 100000,
-  positionSizingRiskPercentage: 1.5,
-  positionSizingNAtr: 2.0,
-  positionSizingLeverageRatio: null
+  positionSizingLeverageRatio: null,
+  positionSizingSizer: { type: 'atrRisk', riskPercentage: 1.25, nAtr: 2.0 }
 })
+
+const SIZER_DEFAULTS: Record<SizerConfig['type'], SizerConfig> = {
+  atrRisk: { type: 'atrRisk', riskPercentage: 1.25, nAtr: 2.0 },
+  percentEquity: { type: 'percentEquity', percent: 12.5 },
+  kelly: { type: 'kelly', winRate: 0.52, winLossRatio: 1.5, fractionMultiplier: 0.25 },
+  volTarget: { type: 'volTarget', targetVolPct: 0.5, kAtr: 1.0 }
+}
+
+function changeSizerType(type: SizerConfig['type']) {
+  // Spread-copy so subsequent v-model edits don't mutate SIZER_DEFAULTS.
+  state.positionSizingSizer = { ...SIZER_DEFAULTS[type] }
+}
 
 // Validation schema
 const schema = z.object({
@@ -91,9 +101,8 @@ const schema = z.object({
   maxPositions: z.number().optional(),
   positionSizingEnabled: z.boolean(),
   positionSizingStartingCapital: z.number().optional(),
-  positionSizingRiskPercentage: z.number().optional(),
-  positionSizingNAtr: z.number().optional(),
-  positionSizingLeverageRatio: z.number().nullable().optional()
+  positionSizingLeverageRatio: z.number().nullable().optional(),
+  positionSizingSizer: z.object({ type: z.string() }).passthrough()
 }).passthrough().superRefine((data, ctx) => {
   // Specific stocks required when in specific mode
   if (data.stockSelection === 'specific' && data.specificStocks.length === 0) {
@@ -149,25 +158,12 @@ const schema = z.object({
 
   // Position sizing validation
   if (data.positionSizingEnabled) {
-    if (!data.positionSizingStartingCapital || data.positionSizingStartingCapital < 1000) {
+    const cap = data.positionSizingStartingCapital
+    if (!cap || cap < 1000 || cap > 1_000_000_000) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Must be at least $1,000',
+        message: 'Must be between $1,000 and $1B',
         path: ['positionSizingStartingCapital']
-      })
-    }
-    if (!data.positionSizingRiskPercentage || data.positionSizingRiskPercentage < 0.1 || data.positionSizingRiskPercentage > 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Must be between 0.1% and 10%',
-        path: ['positionSizingRiskPercentage']
-      })
-    }
-    if (!data.positionSizingNAtr || data.positionSizingNAtr < 0.5 || data.positionSizingNAtr > 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Must be between 0.5 and 10',
-        path: ['positionSizingNAtr']
       })
     }
     if (data.positionSizingLeverageRatio != null && (data.positionSizingLeverageRatio < 0.1 || data.positionSizingLeverageRatio > 20)) {
@@ -176,6 +172,27 @@ const schema = z.object({
         message: 'Must be between 0.1 and 20',
         path: ['positionSizingLeverageRatio']
       })
+    }
+
+    const sizer = data.positionSizingSizer as SizerConfig
+    const fail = (message: string, field: string) => ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message,
+      path: ['positionSizingSizer', field]
+    })
+    if (sizer.type === 'atrRisk') {
+      if (!sizer.riskPercentage || sizer.riskPercentage < 0.1 || sizer.riskPercentage > 10) fail('Must be between 0.1% and 10%', 'riskPercentage')
+      if (!sizer.nAtr || sizer.nAtr < 0.5 || sizer.nAtr > 10) fail('Must be between 0.5 and 10', 'nAtr')
+    } else if (sizer.type === 'percentEquity') {
+      if (!sizer.percent || sizer.percent < 0.5 || sizer.percent > 100) fail('Must be between 0.5% and 100%', 'percent')
+    } else if (sizer.type === 'kelly') {
+      if (sizer.winRate == null || sizer.winRate <= 0 || sizer.winRate >= 1) fail('Must be between 0 and 1', 'winRate')
+      if (!sizer.winLossRatio || sizer.winLossRatio <= 0 || sizer.winLossRatio > 100) fail('Must be between 0 and 100', 'winLossRatio')
+      const m = sizer.fractionMultiplier
+      if (m == null || m <= 0 || m > 1) fail('Must be between 0 and 1', 'fractionMultiplier')
+    } else if (sizer.type === 'volTarget') {
+      if (!sizer.targetVolPct || sizer.targetVolPct < 0.05 || sizer.targetVolPct > 100) fail('Must be between 0.05% and 100%', 'targetVolPct')
+      if (!sizer.kAtr || sizer.kAtr <= 0 || sizer.kAtr > 10) fail('Must be between 0 and 10', 'kAtr')
     }
   }
 })
@@ -191,9 +208,8 @@ const fieldToSection: Record<string, SectionId> = {
   exitStrategy: 'strategies',
   maxPositions: 'position-limits',
   positionSizingStartingCapital: 'position-sizing',
-  positionSizingRiskPercentage: 'position-sizing',
-  positionSizingNAtr: 'position-sizing',
-  positionSizingLeverageRatio: 'position-sizing'
+  positionSizingLeverageRatio: 'position-sizing',
+  positionSizingSizer: 'position-sizing'
 }
 
 function sectionHasErrors(sectionId: SectionId): boolean {
@@ -350,8 +366,7 @@ function onSubmit() {
   const positionSizing: PositionSizingConfig | undefined = state.positionSizingEnabled
     ? {
         startingCapital: state.positionSizingStartingCapital,
-        riskPercentage: state.positionSizingRiskPercentage,
-        nAtr: state.positionSizingNAtr,
+        sizer: state.positionSizingSizer,
         ...(state.positionSizingLeverageRatio != null ? { leverageRatio: state.positionSizingLeverageRatio } : {})
       }
     : undefined
@@ -430,7 +445,18 @@ const sections = computed(() => [
     label: 'Position Sizing',
     icon: 'i-lucide-trending-up',
     subtitle: state.positionSizingEnabled
-      ? `$${state.positionSizingStartingCapital.toLocaleString()}, ${state.positionSizingRiskPercentage}% risk`
+      ? (() => {
+          const cap = `$${state.positionSizingStartingCapital.toLocaleString()}`
+          const s = state.positionSizingSizer
+          const desc = s.type === 'atrRisk'
+            ? `${s.riskPercentage}% risk`
+            : s.type === 'percentEquity'
+              ? `${s.percent}% equity`
+              : s.type === 'kelly'
+                ? `Kelly W=${s.winRate}, R=${s.winLossRatio}`
+                : `${s.targetVolPct}% vol target`
+          return `${cap}, ${desc}`
+        })()
       : 'Disabled'
   },
   {
@@ -745,56 +771,139 @@ const sections = computed(() => [
                         Position Sizing
                       </h3>
                       <p class="text-xs text-muted mt-1">
-                        ATR-based position sizing for realistic portfolio simulation
+                        Pluggable position sizing for realistic portfolio simulation
                       </p>
                     </div>
                     <USwitch v-model="state.positionSizingEnabled" />
                   </div>
                 </template>
 
-                <div v-if="state.positionSizingEnabled" class="grid grid-cols-2 gap-4">
-                  <UFormField label="Starting Capital ($)" name="positionSizingStartingCapital">
-                    <UInput
-                      v-model.number="state.positionSizingStartingCapital"
-                      type="number"
-                      min="1000"
-                      step="1000"
-                      placeholder="100000"
+                <div v-if="state.positionSizingEnabled" class="space-y-4">
+                  <div class="grid grid-cols-2 gap-4">
+                    <UFormField label="Starting Capital ($)" name="positionSizingStartingCapital">
+                      <UInput
+                        v-model.number="state.positionSizingStartingCapital"
+                        type="number"
+                        min="1000"
+                        step="1000"
+                        placeholder="100000"
+                      />
+                    </UFormField>
+
+                    <UFormField label="Leverage Ratio" name="positionSizingLeverageRatio" help="Max notional as multiple of portfolio (empty = no cap)">
+                      <UInput
+                        v-model.number="state.positionSizingLeverageRatio"
+                        type="number"
+                        min="0.1"
+                        max="20"
+                        step="0.1"
+                        placeholder="No cap"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <UFormField label="Sizer" name="positionSizingSizer" help="Determines how per-position share count is computed">
+                    <USelect
+                      :model-value="state.positionSizingSizer.type"
+                      :items="[
+                        { label: 'ATR Risk (risk % per trade with ATR stop)', value: 'atrRisk' },
+                        { label: 'Percent Equity (fixed % of equity per position)', value: 'percentEquity' },
+                        { label: 'Kelly (size from win rate + win/loss ratio)', value: 'kelly' },
+                        { label: 'Vol Target (equal-vol contribution)', value: 'volTarget' }
+                      ]"
+                      @update:model-value="changeSizerType($event as SizerConfig['type'])"
                     />
                   </UFormField>
 
-                  <UFormField label="Risk Per Trade (%)" name="positionSizingRiskPercentage" help="% of portfolio risked per trade">
-                    <UInput
-                      v-model.number="state.positionSizingRiskPercentage"
-                      type="number"
-                      min="0.1"
-                      max="10"
-                      step="0.1"
-                      placeholder="1.5"
-                    />
-                  </UFormField>
+                  <div v-if="state.positionSizingSizer.type === 'atrRisk'" class="grid grid-cols-2 gap-4">
+                    <UFormField label="Risk Per Trade (%)" help="% of portfolio risked per trade">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.riskPercentage"
+                        type="number"
+                        min="0.1"
+                        max="10"
+                        step="0.05"
+                        placeholder="1.25"
+                      />
+                    </UFormField>
+                    <UFormField label="ATR Multiplier" help="Stop distance in ATR units">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.nAtr"
+                        type="number"
+                        min="0.5"
+                        max="10"
+                        step="0.1"
+                        placeholder="2.0"
+                      />
+                    </UFormField>
+                  </div>
 
-                  <UFormField label="ATR Multiplier" name="positionSizingNAtr" help="Expected adverse move in ATR units">
-                    <UInput
-                      v-model.number="state.positionSizingNAtr"
-                      type="number"
-                      min="0.5"
-                      max="10"
-                      step="0.1"
-                      placeholder="2.0"
-                    />
-                  </UFormField>
+                  <div v-else-if="state.positionSizingSizer.type === 'percentEquity'" class="grid grid-cols-2 gap-4">
+                    <UFormField label="Percent of Equity (%)" help="% of equity allocated per position">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.percent"
+                        type="number"
+                        min="0.5"
+                        max="100"
+                        step="0.5"
+                        placeholder="12.5"
+                      />
+                    </UFormField>
+                  </div>
 
-                  <UFormField label="Leverage Ratio" name="positionSizingLeverageRatio" help="Max notional as multiple of portfolio (empty = no cap)">
-                    <UInput
-                      v-model.number="state.positionSizingLeverageRatio"
-                      type="number"
-                      min="0.1"
-                      max="20"
-                      step="0.1"
-                      placeholder="No cap"
-                    />
-                  </UFormField>
+                  <div v-else-if="state.positionSizingSizer.type === 'kelly'" class="grid grid-cols-3 gap-4">
+                    <UFormField label="Win Rate (0-1)" help="Historical win rate">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.winRate"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        placeholder="0.52"
+                      />
+                    </UFormField>
+                    <UFormField label="Win/Loss Ratio" help="avgWin / avgLoss">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.winLossRatio"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        placeholder="1.5"
+                      />
+                    </UFormField>
+                    <UFormField label="Fraction Multiplier" help="0.25 = quarter-Kelly (recommended)">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.fractionMultiplier"
+                        type="number"
+                        min="0.01"
+                        max="1"
+                        step="0.05"
+                        placeholder="0.25"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <div v-else-if="state.positionSizingSizer.type === 'volTarget'" class="grid grid-cols-2 gap-4">
+                    <UFormField label="Target Vol (%)" help="Target per-position vol contribution">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.targetVolPct"
+                        type="number"
+                        min="0.05"
+                        max="100"
+                        step="0.05"
+                        placeholder="0.5"
+                      />
+                    </UFormField>
+                    <UFormField label="ATR → stdev factor (k)" help="k × ATR proxy for daily stdev">
+                      <UInput
+                        v-model.number="state.positionSizingSizer.kAtr"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        placeholder="1.0"
+                      />
+                    </UFormField>
+                  </div>
                 </div>
                 <div v-else class="text-sm text-muted">
                   Disabled: Backtest will report per-trade percentage returns without position sizing

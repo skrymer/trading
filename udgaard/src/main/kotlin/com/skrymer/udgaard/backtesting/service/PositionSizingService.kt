@@ -5,9 +5,11 @@ import com.skrymer.udgaard.backtesting.model.PositionSizedTrade
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.PositionSizingResult
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.sizer.PositionSizer
+import com.skrymer.udgaard.backtesting.service.sizer.SizingContext
+import com.skrymer.udgaard.backtesting.service.sizer.applyLeverageCap
 import org.springframework.stereotype.Service
 import java.time.LocalDate
-import kotlin.math.floor
 import kotlin.math.max
 
 @Service
@@ -111,21 +113,18 @@ class PositionSizingService {
     if (openPositions.isEmpty()) {
       state.lastPortfolioValue = state.cash
     }
-    val effectiveConfig = applyDrawdownScaling(config, state)
     val portfolioValue = state.lastPortfolioValue
-    var shares = calculateShares(portfolioValue, event.trade.entryQuote.atr, effectiveConfig)
     val entryPrice = event.trade.entryQuote.closePrice
-
-    if (effectiveConfig.leverageRatio != null && shares > 0 && entryPrice > 0.0) {
-      val maxNotional = portfolioValue * effectiveConfig.leverageRatio
-      val availableNotional = maxNotional - state.openNotional
-      if (availableNotional <= 0.0) {
-        shares = 0
-      } else {
-        val cappedShares = floor(availableNotional / entryPrice).toInt()
-        shares = minOf(shares, cappedShares)
-      }
-    }
+    val sizer = scaledSizer(config, state.peakCapital, portfolioValue)
+    val ctx = SizingContext(
+      portfolioValue = portfolioValue,
+      entryPrice = entryPrice,
+      atr = event.trade.entryQuote.atr,
+      symbol = event.trade.stockSymbol,
+      sector = event.trade.sector,
+    )
+    val rawShares = sizer.calculateShares(ctx)
+    val shares = applyLeverageCap(rawShares, entryPrice, portfolioValue, state.openNotional, config.leverageRatio)
 
     if (shares <= 0) return
 
@@ -177,19 +176,6 @@ class PositionSizingService {
     // Do NOT track drawdown here from cash alone — it would compare against a peak
     // that includes unrealized gains, creating a phantom drawdown.
   }
-
-  /**
-   * Returns a config with risk scaled down based on current drawdown depth.
-   * Thresholds are evaluated deepest-first; the first match applies.
-   * If no drawdown scaling is configured, returns the original config unchanged.
-   *
-   * Uses [PortfolioState.lastPortfolioValue] (cash + unrealized P/L) for consistent
-   * comparison with [PortfolioState.peakCapital], which is also computed from full portfolio value.
-   */
-  private fun applyDrawdownScaling(
-    config: PositionSizingConfig,
-    state: PortfolioState,
-  ): PositionSizingConfig = Companion.applyDrawdownScaling(config, state.peakCapital, state.lastPortfolioValue)
 
   private fun computeUnrealizedPnl(
     openPositions: Map<Trade, OpenPosition>,
@@ -305,37 +291,31 @@ class PositionSizingService {
 
   companion object {
     /**
-     * Calculate position size for a single trade given current portfolio value and config.
-     * Reusable by Monte Carlo techniques for sequential position sizing.
+     * Build the effective sizer for a trade entry given the config and current portfolio state.
+     * Applies drawdown scaling if configured: the matched threshold's multiplier is passed to
+     * [PositionSizer.scale], and each sizer decides how to interpret it (which parameter scales).
+     *
+     * If no drawdown scaling applies, returns the base sizer derived from `config.sizer`.
      */
-    fun calculateShares(
-      portfolioValue: Double,
-      atr: Double,
-      config: PositionSizingConfig,
-    ): Int =
-      if (atr <= 0.0 || portfolioValue <= 0.0) {
-        0
-      } else {
-        floor(portfolioValue * (config.riskPercentage / 100.0) / (config.nAtr * atr)).toInt()
-      }
-
-    /**
-     * Apply drawdown scaling to a config based on current vs peak portfolio value.
-     * Returns the config with scaled riskPercentage, or the original if no scaling applies.
-     */
-    fun applyDrawdownScaling(
+    fun scaledSizer(
       config: PositionSizingConfig,
       peakValue: Double,
       currentValue: Double,
-    ): PositionSizingConfig {
-      val scaling = config.drawdownScaling ?: return config
-      if (peakValue <= 0.0) return config
+    ): PositionSizer {
+      val multiplier = drawdownMultiplier(config, peakValue, currentValue)
+        ?: return config.baseSizer
+      return config.baseSizer.scale(multiplier)
+    }
+
+    private fun drawdownMultiplier(
+      config: PositionSizingConfig,
+      peakValue: Double,
+      currentValue: Double,
+    ): Double? {
+      val scaling = config.drawdownScaling ?: return null
+      if (peakValue <= 0.0) return null
       val ddPct = ((peakValue - currentValue) / peakValue) * 100.0
-      val multiplier = scaling.thresholds
-        .sortedByDescending { it.drawdownPercent }
-        .firstOrNull { ddPct >= it.drawdownPercent }
-        ?.riskMultiplier ?: return config
-      return config.copy(riskPercentage = config.riskPercentage * multiplier)
+      return scaling.findMatch(ddPct)?.riskMultiplier
     }
   }
 }

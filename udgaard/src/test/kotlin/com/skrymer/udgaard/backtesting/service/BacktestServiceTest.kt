@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.service
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.data.model.Stock
@@ -1456,8 +1457,7 @@ class BacktestServiceTest {
 
     val config = PositionSizingConfig(
       startingCapital = 1000.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1525,8 +1525,7 @@ class BacktestServiceTest {
     // shares = floor(100 * 0.015 / (2 * 0.1)) = 7, notional = 7 * 10000 = 70000 > 100 leverage cap → 0
     val config = PositionSizingConfig(
       startingCapital = 100.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1577,8 +1576,7 @@ class BacktestServiceTest {
 
     val config = PositionSizingConfig(
       startingCapital = 10000.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1613,8 +1611,7 @@ class BacktestServiceTest {
 
     val config = PositionSizingConfig(
       startingCapital = 100.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1668,8 +1665,7 @@ class BacktestServiceTest {
 
     val config = PositionSizingConfig(
       startingCapital = 200.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1706,8 +1702,7 @@ class BacktestServiceTest {
     // shares = floor(100 * 0.015 / (2 * 2.0)) = floor(0.375) = 0 → unfundable
     val configTooSmall = PositionSizingConfig(
       startingCapital = 100.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = null,
     )
 
@@ -1742,8 +1737,7 @@ class BacktestServiceTest {
 
     val config = PositionSizingConfig(
       startingCapital = 10000.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1801,8 +1795,7 @@ class BacktestServiceTest {
     //   notional = 1 * 800 = 800 > 450 leverage cap → 0 shares → skipped
     val config = PositionSizingConfig(
       startingCapital = 500.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
 
@@ -1818,5 +1811,62 @@ class BacktestServiceTest {
 
     Assertions.assertEquals(1, report.totalTrades, "Should only take LOSER — loss reduces capital blocking STOCK_B")
     Assertions.assertEquals("LOSER", report.trades[0].stockSymbol)
+  }
+
+  @Test
+  fun `capital-aware should populate entryContext on selected and missed trades`() {
+    val day1 = LocalDate.of(2025, 1, 1)
+    val day2 = LocalDate.of(2025, 1, 2)
+
+    val expensive = Stock(
+      "EXPENSIVE",
+      "XLK",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 2000.0, openPrice = 2000.0, atr = 1.0),
+        StockQuote(date = day2, closePrice = 2000.0, openPrice = 99.0, atr = 1.0),
+      ),
+    )
+
+    val cheap = Stock(
+      "CHEAP",
+      "XLF",
+      quotes = listOf(
+        StockQuote(date = day1, closePrice = 100.0, openPrice = 100.0, atr = 5.0),
+        StockQuote(date = day2, closePrice = 100.0, openPrice = 99.0, atr = 5.0),
+      ),
+    )
+
+    mockStocksForLoading(expensive, cheap)
+
+    val config = PositionSizingConfig(
+      startingCapital = 1000.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+      leverageRatio = 1.0,
+    )
+
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("EXPENSIVE", "CHEAP"),
+      LocalDate.of(2024, 1, 1),
+      LocalDate.now(),
+      maxPositions = 2,
+      positionSizingConfig = config,
+    )
+
+    val taken = report.trades[0]
+    Assertions.assertNotNull(taken.entryContext, "Selected trade should have entryContext")
+    val takenCtx = taken.entryContext!!
+    Assertions.assertEquals(2, takenCtx.cohortSize, "Cohort size should match candidate count")
+    Assertions.assertTrue(takenCtx.sharesReserved > 0, "Selected trade should have shares reserved")
+    Assertions.assertEquals(2, takenCtx.availableSlots, "Should have all slots available on first decision")
+    Assertions.assertEquals(0, takenCtx.openPositionCount, "No open positions at first decision")
+
+    val missed = report.missedTrades.first { it.stockSymbol == "EXPENSIVE" }
+    Assertions.assertNotNull(missed.entryContext, "Missed trade should have entryContext")
+    val missedCtx = missed.entryContext!!
+    Assertions.assertEquals(0, missedCtx.sharesReserved, "Capital-skipped trade should have 0 shares reserved")
+    Assertions.assertEquals(2, missedCtx.cohortSize)
+    Assertions.assertEquals(Trade.MISSED_INSUFFICIENT_CAPITAL, missed.missedReason)
   }
 }

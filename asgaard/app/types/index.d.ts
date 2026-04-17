@@ -456,11 +456,19 @@ export interface BacktestRequest {
 }
 
 // Position Sizing Types
+export type SizerConfig
+  = | { type: 'atrRisk', riskPercentage: number, nAtr: number }
+    | { type: 'percentEquity', percent: number }
+    | { type: 'kelly', winRate: number, winLossRatio: number, fractionMultiplier?: number }
+    | { type: 'volTarget', targetVolPct: number, kAtr?: number }
+
 export interface PositionSizingConfig {
   startingCapital: number
-  riskPercentage: number
-  nAtr: number
+  sizer: SizerConfig
   leverageRatio?: number
+  drawdownScaling?: {
+    thresholds: DrawdownThreshold[]
+  }
 }
 
 export interface PositionSizingSettings {

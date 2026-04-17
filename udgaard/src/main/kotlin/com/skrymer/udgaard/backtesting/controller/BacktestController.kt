@@ -144,6 +144,32 @@ class BacktestController(
   }
 
   /**
+   * Fetch missed (not-selected) trades for a date range. Includes capital-skipped and slot-limit skipped.
+   * Each trade carries its entryContext snapshot for post-hoc selection-bias analysis.
+   *
+   * Example: GET /api/backtest/{backtestId}/missed-trades?startDate=2020-01-01&endDate=2020-12-31
+   */
+  @GetMapping("/{backtestId}/missed-trades")
+  fun getMissedTrades(
+    @PathVariable backtestId: String,
+    @RequestParam startDate: String,
+    @RequestParam(required = false) endDate: String?,
+  ): ResponseEntity<List<Trade>> {
+    val report = backtestResultStore.get(backtestId) ?: return ResponseEntity.notFound().build()
+
+    val start = LocalDate.parse(startDate)
+    val end = endDate?.let { LocalDate.parse(it) } ?: start
+
+    val matching = report.missedTrades.filter { trade ->
+      val d = trade.entryQuote.date
+      !d.isBefore(start) && !d.isAfter(end)
+    }
+
+    logger.info("Returning ${matching.size} missed trades for backtest $backtestId, dates $start to $end")
+    return ResponseEntity.ok(matching)
+  }
+
+  /**
    * Get available entry and exit strategies.
    *
    * Example: GET /api/backtest/strategies

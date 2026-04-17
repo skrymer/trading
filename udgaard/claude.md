@@ -39,15 +39,25 @@ udgaard/
 │   │   ├── model/                    # Domain models
 │   │   │   ├── BacktestReport.kt
 │   │   │   ├── BacktestContext.kt
+│   │   │   ├── Trade.kt              # Trade + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
+│   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── service/                  # Business logic
-│   │   │   ├── BacktestService.kt    # Core backtesting engine with capital-aware trade selection
+│   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades
 │   │   │   ├── StrategyRegistry.kt   # Strategy discovery/management
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
 │   │   │   ├── MonteCarloService.kt
-│   │   │   ├── PositionSizingService.kt  # Position sizing with daily M2M drawdown + drawdown-responsive scaling
+│   │   │   ├── PositionSizingService.kt  # Orchestrator: daily M2M drawdown + drawdown-responsive scaling via PositionSizer.scale()
+│   │   │   ├── sizer/                # Pluggable position sizers
+│   │   │   │   ├── PositionSizer.kt          # Interface + SizingContext
+│   │   │   │   ├── SizerConfig.kt           # Polymorphic DTO (atrRisk|percentEquity|kelly|volTarget)
+│   │   │   │   ├── AtrRiskSizer.kt          # Risk = riskPct * equity / (nAtr * ATR)
+│   │   │   │   ├── PercentEquitySizer.kt    # Notional = pct * equity
+│   │   │   │   ├── KellySizer.kt            # Fractional Kelly from win rate + win/loss ratio
+│   │   │   │   ├── VolatilityTargetSizer.kt # Target daily vol% with kATR proxy
+│   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
 │   │   │   ├── BacktestResultStore.kt    # In-memory backtest result store
 │   │   │   └── ConditionRegistry.kt

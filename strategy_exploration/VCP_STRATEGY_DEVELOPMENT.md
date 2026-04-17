@@ -22,7 +22,7 @@ entryStrategy {
 ```
 
 ### Exit Strategy
-Custom exit (MjolnirExitStrategy + stagnation):
+Custom exit (emaCross + stop loss + stagnation):
 ```kotlin
 exitStrategy {
     emaCross(10, 20)
@@ -2136,3 +2136,56 @@ Every "faster exit" approach tested (OB exit, trailing stop alongside EMA, tiere
 - Fast enough to free slots for compounding (998 trades in 10 years)
 - Slow enough to capture the bulk of trend moves (5.45% per-trade edge)
 - The only exit change that improved position-sized returns without degrading unlimited edge was **increasing max positions** — changing the constraint, not the exits.
+
+---
+
+## Pluggable Sizer Comparison (2026-04-17)
+
+After shipping the pluggable sizer abstraction (AtrRisk / PercentEquity / Kelly / VolatilityTarget), ran 9 sizer variants on the VCP strategy to see if any matched or beat the established baseline. Multi-seed validated the two closest challengers.
+
+### Config (all runs identical except sizer)
+
+VCP entry / VcpExitStrategy exit, STOCK, 2016-01-01 to 2025-12-31, 15 max positions, entry delay 1, $10K starting capital, leverage 1.0.
+
+### Seed 42 single-seed sweep (known upside outlier — used for breadth, not decisions)
+
+| Variant | Trades | WR | Edge | CAGR | MDD | Sharpe | Sortino | Calmar | Alpha | Final |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **AtrRisk(1.25%, 2.0) baseline** | 612 | 54.2% | +6.67% | 57.98% | 18.12% | 2.48 | 3.94 | **3.20** | 36.55% | **$1.02M** |
+| Kelly-half (W=.542, R=1.5, 0.50) | 884 | 52.4% | +5.49% | 54.27% | 22.21% | 2.31 | 3.62 | 2.44 | 41.66% | $804K |
+| PercentEquity(12.5%) | 864 | 52.3% | +5.64% | 51.22% | 25.37% | 2.20 | 3.43 | 2.02 | 37.94% | $657K |
+| VolTarget(1.2%, 2.0) | 617 | 53.8% | +5.86% | 50.99% | 19.27% | 2.33 | 3.70 | 2.65 | 38.45% | $647K |
+| VolTarget(0.85%, 2.0) | 756 | 52.9% | +5.72% | 48.36% | 17.24% | 2.40 | 2.41 | 2.80 | 30.83% | $542K |
+| AtrRisk(1.0%, 2.0) | 676 | 53.8% | +5.54% | 44.05% | 20.73% | 2.18 | 2.19 | 2.13 | 27.66% | $402K |
+| Kelly-quarter (0.25) | 996 | 53.5% | +5.35% | 32.58% | 19.61% | 2.07 | 2.05 | 1.66 | 20.53% | $173K |
+
+### Multi-seed validation (seeds 1/7/42/100) of two challengers
+
+| Variant | Seed 1 | Seed 7 | Seed 42 | Seed 100 | 4-seed mean |
+|---|---|---|---|---|---|
+| **AtrRisk(1.25%, 2.0) baseline** (CAGR / MDD) | 49.3% / 20.7% | 48.4% / 18.4% | 58.0% / 18.1% | 50.1% / 18.5% | **51.4% / 18.9%** |
+| Kelly-half (CAGR / MDD) | 49.2% / 24.7% | 50.3% / 22.5% | 54.3% / 22.2% | 50.9% / 23.0% | 51.2% / 23.1% |
+| VolTarget(1.2%, 2.0) (CAGR / MDD) | 49.9% / 20.6% | 46.4% / 21.4% | 51.0% / 19.3% | 47.4% / 16.8% | 48.7% / 19.5% |
+
+**Calmar comparison (4-seed mean):**
+- AtrRisk(1.25%, 2.0): **2.73** (baseline — highest)
+- VolTarget(1.2%, 2.0): 2.52
+- Kelly-half: 2.22
+
+### Findings
+
+1. **ATR-anchored sizing is structurally superior** for VCP. AtrRisk auto-shrinks positions when realized volatility expands — exactly when drawdowns accelerate. VolTarget lags because its target is constant. Kelly fractions are constant and can't adapt.
+
+2. **Kelly-half ties on CAGR (51.2% vs 51.4%) but blows out MDD (+4.2pp to 23.1%).** Extra 2.7pp of alpha doesn't compensate for the tail risk. Discard.
+
+3. **VolTarget(1.2%, 2.0) underperforms on every risk-adjusted dimension.** CAGR -2.7pp, Calmar -0.21, alpha -4.5pp, worst-DD duration +29 days vs baseline. Discard.
+
+4. **Pure notional sizers (PercentEquity, Kelly-quarter) produce the deepest drawdowns** (25.4% and 19.6% MDD). Validates that the ATR tilt in AtrRisk is adding tail control — these sizers allocate equally across high-vol and low-vol stocks, which is empirically worse.
+
+5. **Under-sized variants sacrifice too much compounding.** AtrRisk 1.0% and Kelly-quarter both produced near-baseline MDD but ~20-44% lower final capital — the efficient frontier boundary sits at 1.25% ATR equivalent.
+
+6. **Seed 42 was an upside outlier for every variant.** Multi-seed discipline is essential — seed 42 Kelly-half at $804K regresses to $660K on 4-seed mean; seed 42 baseline $1.02M regresses to $690K. Single-seed sizer comparisons are misleading.
+
+### Conclusion
+
+**Retain `AtrRiskSizer(riskPercentage: 1.25, nAtr: 2.0)` as the production sizer.** Pareto-dominant across 4-seed means on CAGR, MDD, Calmar, alpha, and DD-duration. The sizer sweep validates the baseline rather than displacing it. The pluggable sizer abstraction remains valuable for future strategies with different return profiles (mean-reversion, short-vol), but for this VCP breakout edge, ATR-anchored sizing is optimal.

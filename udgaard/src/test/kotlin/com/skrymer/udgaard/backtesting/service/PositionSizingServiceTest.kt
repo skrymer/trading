@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.model.DrawdownScaling
 import com.skrymer.udgaard.backtesting.model.DrawdownThreshold
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -13,7 +14,10 @@ import kotlin.math.floor
 
 class PositionSizingServiceTest {
   private val service = PositionSizingService()
-  private val defaultConfig = PositionSizingConfig(startingCapital = 100_000.0, riskPercentage = 1.5, nAtr = 2.0)
+  private val defaultConfig = PositionSizingConfig(
+    startingCapital = 100_000.0,
+    sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+  )
 
   @Test
   fun `single winning trade should calculate shares and dollar profit correctly`() {
@@ -355,22 +359,8 @@ class PositionSizingServiceTest {
     assertEquals(375, result.trades[2].shares)
   }
 
-  @Test
-  fun `calculateShares companion should match service calculation`() {
-    val shares = PositionSizingService.calculateShares(100_000.0, 2.0, defaultConfig)
-
-    assertEquals(375, shares)
-  }
-
-  @Test
-  fun `calculateShares with zero ATR should return zero`() {
-    assertEquals(0, PositionSizingService.calculateShares(100_000.0, 0.0, defaultConfig))
-  }
-
-  @Test
-  fun `calculateShares with negative portfolio should return zero`() {
-    assertEquals(0, PositionSizingService.calculateShares(-1000.0, 2.0, defaultConfig))
-  }
+  // Companion `calculateShares` tests removed — superseded by AtrRiskSizerTest which exercises
+  // the same edge cases (zero ATR, negative portfolio) against the extracted sizer.
 
   @Test
   fun `drawdown scaling should reduce shares when in drawdown`() {

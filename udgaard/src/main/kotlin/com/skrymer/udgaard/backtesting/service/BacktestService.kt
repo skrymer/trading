@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.model.ATRDrawdownStats
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.DrawdownBucket
+import com.skrymer.udgaard.backtesting.model.EntryDecisionContext
 import com.skrymer.udgaard.backtesting.model.ExcursionMetrics
 import com.skrymer.udgaard.backtesting.model.ExitReasonAnalysis
 import com.skrymer.udgaard.backtesting.model.ExitStats
@@ -19,6 +20,8 @@ import com.skrymer.udgaard.backtesting.model.StockPerformance
 import com.skrymer.udgaard.backtesting.model.TimeBasedStats
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.calculateEdgeConsistency
+import com.skrymer.udgaard.backtesting.service.sizer.SizingContext
+import com.skrymer.udgaard.backtesting.service.sizer.applyLeverageCap
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
@@ -40,7 +43,6 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.math.floor
 
 /**
  * Service for running backtests on trading strategies.
@@ -781,6 +783,7 @@ class BacktestService(
     val notSelected: List<RankedEntry>,
     val reservedSharesMap: Map<RankedEntry, Int>,
     val capitalSkips: Int,
+    val contextMap: Map<RankedEntry, EntryDecisionContext>,
   )
 
   private fun backtestSequential(
@@ -865,7 +868,7 @@ class BacktestService(
 
         val availableSlots = (effectiveMaxPositions - openPositionCount).coerceAtLeast(0)
 
-        val selection = selectEntries(rankedEntries, availableSlots, maxPositions, budget)
+        val selection = selectEntries(rankedEntries, availableSlots, maxPositions, budget, openPositionCount)
         capitalSkips += selection.capitalSkips
 
         selection.selected.forEach { rankedEntry ->
@@ -879,6 +882,7 @@ class BacktestService(
             budget,
           )
           if (result != null) {
+            result.trade.entryContext = selection.contextMap[rankedEntry]
             trades.add(result.trade)
             usedTradeQuotes.addAll(result.trade.quotes)
             if (result.exitDate != null) {
@@ -897,6 +901,7 @@ class BacktestService(
           quoteIndexes,
           context,
           budget,
+          selection.contextMap,
           missedTrades,
         )
       }
@@ -939,6 +944,7 @@ class BacktestService(
     availableSlots: Int,
     maxPositions: Int?,
     budget: SelectionBudget?,
+    openPositionCount: Int,
   ): SelectionResult {
     if (budget == null) {
       return SelectionResult(
@@ -946,34 +952,54 @@ class BacktestService(
         notSelected = if (maxPositions != null) rankedEntries.drop(availableSlots) else emptyList(),
         reservedSharesMap = emptyMap(),
         capitalSkips = 0,
+        contextMap = emptyMap(),
       )
     }
 
     val selected = mutableListOf<RankedEntry>()
     val notSelected = mutableListOf<RankedEntry>()
     val reservedSharesMap = mutableMapOf<RankedEntry, Int>()
+    val contextMap = mutableMapOf<RankedEntry, EntryDecisionContext>()
+    val cohortSize = rankedEntries.size
     var slotsRemaining = availableSlots
     var skips = 0
 
-    for (rankedEntry in rankedEntries) {
+    rankedEntries.forEachIndexed { idx, rankedEntry ->
+      val cashBefore = budget.cash()
+      val notionalBefore = budget.openNotional()
+      val rank = idx + 1
+      val slotsBefore = slotsRemaining
+
+      val shares: Int
       if (slotsRemaining <= 0) {
         if (maxPositions != null) notSelected.add(rankedEntry)
-        continue
+        shares = 0
+      } else {
+        val reservedShares = budget.tryReserve(rankedEntry.entry)
+        if (reservedShares <= 0) {
+          notSelected.add(rankedEntry)
+          skips++
+          shares = 0
+        } else {
+          selected.add(rankedEntry)
+          reservedSharesMap[rankedEntry] = reservedShares
+          slotsRemaining--
+          shares = reservedShares
+        }
       }
-      val atr = rankedEntry.entry.tradingEntryQuote.atr
-      val price = rankedEntry.entry.tradingEntryQuote.closePrice
-      val reservedShares = budget.tryReserve(atr, price)
-      if (reservedShares <= 0) {
-        notSelected.add(rankedEntry)
-        skips++
-        continue
-      }
-      selected.add(rankedEntry)
-      reservedSharesMap[rankedEntry] = reservedShares
-      slotsRemaining--
+
+      contextMap[rankedEntry] = EntryDecisionContext(
+        cashAtDecision = cashBefore,
+        openNotionalAtDecision = notionalBefore,
+        openPositionCount = openPositionCount,
+        cohortSize = cohortSize,
+        rankInCohort = rank,
+        availableSlots = slotsBefore,
+        sharesReserved = shares,
+      )
     }
 
-    return SelectionResult(selected, notSelected, reservedSharesMap, skips)
+    return SelectionResult(selected, notSelected, reservedSharesMap, skips, contextMap)
   }
 
   /** Result of processing a single selected entry into a trade. */
@@ -1023,6 +1049,7 @@ class BacktestService(
     quoteIndexes: Map<Stock, StockQuoteIndex>,
     context: BacktestContext,
     budget: SelectionBudget?,
+    contextMap: Map<RankedEntry, EntryDecisionContext>,
     missedTrades: MutableList<Trade>,
   ) {
     notSelectedEntries.forEach { rankedEntry ->
@@ -1030,9 +1057,11 @@ class BacktestService(
 
       if (entry.tradingEntryQuote !in usedMissedQuotes && entry.tradingEntryQuote !in usedTradeQuotes) {
         val trade = createTradeFromEntry(entry, exitStrategy, quoteIndexes, context) ?: return@forEach
-        if (budget != null && !budget.canFund(entry.tradingEntryQuote.atr, entry.tradingEntryQuote.closePrice)) {
+        val ctx = contextMap[rankedEntry]
+        if (budget != null && ctx?.isCapitalSkip() == true) {
           trade.missedReason = Trade.MISSED_INSUFFICIENT_CAPITAL
         }
+        trade.entryContext = ctx
         missedTrades.add(trade)
         usedMissedQuotes.addAll(trade.quotes)
       }
@@ -1504,45 +1533,53 @@ class BacktestService(
   )
 
   /**
-   * Lightweight capital gate for trade selection. Tracks estimated cash and open notional
-   * to answer "can this candidate be funded?" without duplicating M2M/equity-curve logic.
-   * Delegates to [PositionSizingService.calculateShares] for share calculation.
+   * Capital gate for trade selection. Tracks estimated cash + open notional per bar to answer
+   * "can this candidate be funded?" without duplicating the M2M/equity-curve logic owned by
+   * [PositionSizingService]. Sizing is delegated to the configured [PositionSizer].
    */
   private class SelectionBudget(
-    private val config: PositionSizingConfig
+    private val config: PositionSizingConfig,
   ) {
     private var estimatedCash: Double = config.startingCapital
     private var estimatedOpenNotional: Double = 0.0
     private var peakCash: Double = config.startingCapital
     private val openPositions = mutableMapOf<Trade, BudgetPosition>()
 
-    private fun estimateShares(atr: Double, entryPrice: Double): Int {
-      val pv = estimatedCash
+    private fun buildContext(entry: PotentialEntry): SizingContext {
+      val quote = entry.tradingEntryQuote
+      val stock = entry.stockPair.tradingStock
+      return SizingContext(
+        portfolioValue = estimatedCash,
+        entryPrice = quote.closePrice,
+        atr = quote.atr,
+        symbol = stock.symbol,
+        sector = stock.sectorSymbol.orEmpty(),
+      )
+    }
+
+    private fun estimateShares(ctx: SizingContext): Int {
+      val pv = ctx.portfolioValue
       if (pv <= 0.0) return 0
-      val effectiveConfig = PositionSizingService.applyDrawdownScaling(config, peakCash, pv)
-      var shares = PositionSizingService.calculateShares(pv, atr, effectiveConfig)
+      val sizer = PositionSizingService.scaledSizer(config, peakCash, pv)
+      val shares = sizer.calculateShares(ctx)
       if (shares <= 0) return 0
-      if (effectiveConfig.leverageRatio != null && entryPrice > 0.0) {
-        val available = pv * effectiveConfig.leverageRatio - estimatedOpenNotional
-        if (available <= 0.0) return 0
-        shares = minOf(shares, floor(available / entryPrice).toInt())
-      }
-      return shares
+      return applyLeverageCap(shares, ctx.entryPrice, pv, estimatedOpenNotional, config.leverageRatio)
     }
 
     /**
-     * Attempt to reserve notional for a candidate. Returns shares > 0 if funded, 0 if not.
-     * Combines the fundability check and reservation into a single call to avoid
-     * state drift between separate canFund/reserve calls.
+     * Combined fundability check + reservation. Returns shares > 0 if funded, 0 if not.
+     * Merged so separate canFund/reserve calls cannot drift — the budget mutates on success only.
      */
-    fun tryReserve(atr: Double, entryPrice: Double): Int {
-      val shares = estimateShares(atr, entryPrice)
+    fun tryReserve(entry: PotentialEntry): Int {
+      val shares = estimateShares(buildContext(entry))
       if (shares <= 0) return 0
-      estimatedOpenNotional += shares * entryPrice
+      estimatedOpenNotional += shares * entry.tradingEntryQuote.closePrice
       return shares
     }
 
-    fun canFund(atr: Double, entryPrice: Double): Boolean = estimateShares(atr, entryPrice) > 0
+    fun cash(): Double = estimatedCash
+
+    fun openNotional(): Double = estimatedOpenNotional
 
     fun confirmEntry(trade: Trade, shares: Int, entryPrice: Double) {
       if (shares <= 0) return

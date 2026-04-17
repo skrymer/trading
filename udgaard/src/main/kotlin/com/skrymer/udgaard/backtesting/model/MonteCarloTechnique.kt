@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.model
 
 import com.skrymer.udgaard.backtesting.service.PositionSizingService
+import com.skrymer.udgaard.backtesting.service.sizer.SizingContext
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -102,7 +103,15 @@ abstract class MonteCarloTechnique {
     var peakValue = config.startingCapital
 
     trades.forEachIndexed { index, trade ->
-      val shares = PositionSizingService.calculateShares(portfolioValue, trade.entryQuote.atr, config)
+      val sizer = PositionSizingService.scaledSizer(config, peakValue, portfolioValue)
+      val ctx = SizingContext(
+        portfolioValue = portfolioValue,
+        entryPrice = trade.entryQuote.closePrice,
+        atr = trade.entryQuote.atr,
+        symbol = trade.stockSymbol,
+        sector = trade.sector,
+      )
+      val shares = sizer.calculateShares(ctx)
       val dollarProfit = shares * trade.profit
       portfolioValue += dollarProfit
       peakValue = max(peakValue, portfolioValue)

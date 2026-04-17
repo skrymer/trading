@@ -255,30 +255,52 @@ Available sector symbols: XLK (Technology), XLF (Financials), XLV (Health Care),
 
 **Note:** When `ranker` is omitted, the strategy's preferred ranker is used if it has one. The Vcp strategy defaults to its preferred SectorEdge ranker with a built-in sector ordering.
 
-#### 5. Position Sizing (ATR-Based)
+#### 5. Position Sizing (Pluggable Sizers)
 
-Position sizing calculates **how many shares to buy** for each trade based on the stock's volatility (ATR) and a risk budget. The equity curve tracks daily mark-to-market portfolio value.
-
-**Formula:** `shares = floor(portfolioValue * (riskPct / 100) / (nAtr * ATR))`
+Position sizing calculates **how many shares to buy** for each trade. The equity curve tracks daily mark-to-market portfolio value. Four sizers are available: `atrRisk` (default, risk-based), `percentEquity` (notional-based), `kelly` (Kelly criterion), `volTarget` (equal-vol contribution).
 
 ```json
 {
   "positionSizing": {
     "startingCapital": 10000,
-    "riskPercentage": 1.5,
-    "nAtr": 2.0,
+    "sizer": {
+      "type": "atrRisk",
+      "riskPercentage": 1.25,
+      "nAtr": 2.0
+    },
     "leverageRatio": 1.0
   }
 }
 ```
 
-**Parameters:**
+**Top-level parameters:**
 - `startingCapital` - Starting portfolio value in dollars (default: 100,000)
-- `riskPercentage` - Percentage of portfolio risked per trade (default: 1.5%)
-- `nAtr` - ATR multiplier for expected adverse move (default: 2.0)
-- `leverageRatio` - Max total open notional as multiple of portfolio value (optional, null = no cap). `1.0` = cash account (notional <= portfolio), `5.0` = deep ITM options. When cap is reached, new positions get 0 shares.
+- `sizer` - Polymorphic sizer config (see below)
+- `leverageRatio` - Max total open notional as multiple of portfolio value (optional, null = no cap). `1.0` = cash account (notional <= portfolio). When cap is reached, candidates get 0 shares and are recorded as capital-skipped.
 
-**IMPORTANT:** Always include `leverageRatio: 1.0` for stock backtests. Without it, ATR-based sizing can produce extreme leverage (50x+) on low-ATR stocks, leading to unrealistic results.
+**Available sizers:**
+
+1. **`atrRisk`** — classical ATR-based risk sizing. `shares = floor(equity × risk% / (nAtr × ATR))`
+   ```json
+   {"type": "atrRisk", "riskPercentage": 1.25, "nAtr": 2.0}
+   ```
+
+2. **`percentEquity`** — equal-notional baseline, ignores ATR. `shares = floor(equity × percent% / price)`
+   ```json
+   {"type": "percentEquity", "percent": 12.5}
+   ```
+
+3. **`kelly`** — Kelly-criterion sizing. `shares = floor(equity × f × fractionMultiplier / price)` where `f = W - (1-W)/R`. Default `fractionMultiplier=0.25` (quarter-Kelly recommended — W/R estimates have wide CIs).
+   ```json
+   {"type": "kelly", "winRate": 0.52, "winLossRatio": 1.5, "fractionMultiplier": 0.25}
+   ```
+
+4. **`volTarget`** — equal-vol-contribution. `shares = floor(equity × targetVolPct% / (kAtr × ATR))`
+   ```json
+   {"type": "volTarget", "targetVolPct": 0.5, "kAtr": 1.0}
+   ```
+
+**IMPORTANT:** Always include `leverageRatio: 1.0` for stock backtests. Without it, `atrRisk` or `volTarget` with small ATR can produce extreme leverage on low-ATR stocks, leading to unrealistic results.
 
 #### 6. Drawdown-Responsive Position Sizing (Optional)
 
@@ -288,8 +310,7 @@ Reduces risk per trade when the portfolio is in drawdown, scaling back up as equ
 {
   "positionSizing": {
     "startingCapital": 10000,
-    "riskPercentage": 1.5,
-    "nAtr": 2.0,
+    "sizer": {"type": "atrRisk", "riskPercentage": 1.25, "nAtr": 2.0},
     "leverageRatio": 1.0,
     "drawdownScaling": {
       "thresholds": [
@@ -303,9 +324,9 @@ Reduces risk per trade when the portfolio is in drawdown, scaling back up as equ
 
 **How it works:**
 - At each entry, current drawdown % is computed from peak capital vs cash
-- Thresholds are evaluated deepest-first; the first match applies its `riskMultiplier` to the base `riskPercentage`
-- Example: at 7% drawdown with the above config, effective risk = 1.5% × 0.67 = 1.005%
-- When drawdown < all thresholds, full risk is used
+- Thresholds are evaluated deepest-first; the first match applies its `riskMultiplier` via the sizer's `scale()` method
+- Each sizer decides which of its parameters scales (`atrRisk` scales `riskPercentage`; `percentEquity` scales `percent`; `kelly` scales `fractionMultiplier`; `volTarget` scales `targetVolPct`)
+- Example at 7% drawdown with `atrRisk` at 1.25%: effective risk = 1.25% × 0.67 = 0.84%
 - Omit `drawdownScaling` entirely to disable (default behavior)
 
 **Impact (VCP 2016-2025):** Max DD 21.2% → 13.6% (-36%), CAGR 46.4% → 39.8% (-6.6pp), Calmar 2.18 → 2.90 (+33%). All risk-adjusted ratios improve (Sharpe, Sortino, Calmar) at the cost of lower absolute returns from compounding drag during recovery phases.
@@ -342,8 +363,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
     "entryDelayDays": 1,
     "positionSizing": {
       "startingCapital": 10000,
-      "riskPercentage": 1.5,
-      "nAtr": 2.0,
+      "sizer": {"type": "atrRisk", "riskPercentage": 1.25, "nAtr": 2.0},
       "leverageRatio": 1.0
     }
   }' > /tmp/backtest_sized.json
@@ -390,8 +410,7 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
     "entryDelayDays": 1,
     "positionSizing": {
       "startingCapital": 10000,
-      "riskPercentage": 1.5,
-      "nAtr": 2.0,
+      "sizer": {"type": "atrRisk", "riskPercentage": 1.25, "nAtr": 2.0},
       "leverageRatio": 1.0
     }
   }'

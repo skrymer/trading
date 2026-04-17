@@ -8,6 +8,7 @@ import com.skrymer.udgaard.backtesting.model.DrawdownThreshold
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.PositionSizingResult
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
 import org.jooq.DSLContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -53,8 +54,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
     )
@@ -96,8 +96,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = null,
       ),
     )
@@ -150,8 +149,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 5_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
     )
@@ -186,8 +184,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = null,
       ),
     )
@@ -215,8 +212,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.0,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.0, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
     )
@@ -328,8 +324,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
     )
@@ -355,8 +350,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       randomSeed = 42L,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
     )
@@ -378,8 +372,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
     // given two backtests: one without drawdown scaling and one with aggressive scaling
     val base = PositionSizingConfig(
       startingCapital = 100_000.0,
-      riskPercentage = 1.5,
-      nAtr = 2.0,
+      sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     )
     val withScaling = base.copy(
@@ -418,8 +411,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
       entryDelayDays = 1,
       positionSizing = PositionSizingConfig(
         startingCapital = 100_000.0,
-        riskPercentage = 1.5,
-        nAtr = 2.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
     )

@@ -41,6 +41,9 @@ class Trade(
   @Transient
   var missedReason: String? = null
 
+  @Transient
+  var entryContext: EntryDecisionContext? = null
+
   /**
    * Calculate the profit percentage of this trade: (profit/entry close price) * 100
    * @return
@@ -64,4 +67,21 @@ class Trade(
   companion object {
     const val MISSED_INSUFFICIENT_CAPITAL = "insufficient capital"
   }
+}
+
+/**
+ * Snapshot of budget state at the moment a trade selection decision was made.
+ * Enables post-hoc validation of capital-aware selection logic.
+ */
+data class EntryDecisionContext(
+  val cashAtDecision: Double,
+  val openNotionalAtDecision: Double,
+  val openPositionCount: Int,
+  val cohortSize: Int,
+  val rankInCohort: Int,
+  val availableSlots: Int,
+  val sharesReserved: Int,
+) {
+  /** True if a slot was available but the sizer/leverage returned 0 shares (vs slot-limit skip). */
+  fun isCapitalSkip(): Boolean = availableSlots > 0 && sharesReserved == 0
 }

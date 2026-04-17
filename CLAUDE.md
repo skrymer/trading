@@ -46,12 +46,13 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
 
 1. **Backtesting** (`backtesting/`)
-   - `BacktestService.kt`: Core backtesting engine with capital-aware trade selection
+   - `BacktestService.kt`: Core backtesting engine with capital-aware trade selection; records `EntryDecisionContext` on every trade (including skipped/missed) for post-hoc analysis
    - `StrategyRegistry.kt`: Dynamic strategy discovery via `@RegisteredStrategy`
    - `DynamicStrategyBuilder.kt`: Runtime strategy creation from API config
    - `StrategySignalService.kt`: Signal evaluation for individual stocks
    - `MonteCarloService.kt`: Monte Carlo simulations
-   - `PositionSizingService.kt`: Position sizing with daily mark-to-market drawdown and drawdown-responsive risk scaling
+   - `PositionSizingService.kt`: Position sizing orchestrator with daily mark-to-market drawdown tracking; delegates share calculation to pluggable `PositionSizer` implementations
+   - `service/sizer/`: Pluggable sizer package — `PositionSizer` interface + polymorphic `SizerConfig` DTO; implementations: `AtrRiskSizer`, `PercentEquitySizer`, `KellySizer`, `VolatilityTargetSizer`; `LeverageCap` helper applies portfolio-level leverage constraint outside sizer
    - `WalkForwardService.kt`: Walk-forward validation with rolling IS/OOS windows and IS-derived sector ranking for OOS
    - `BacktestResultStore.kt`: In-memory store for backtest results
    - DSL-based strategy builder (`StrategyDsl.kt`)
@@ -98,7 +99,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **API Endpoints:**
 
-**Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`
+**Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/{backtestId}/missed-trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`
 
 **Stocks:** `GET /api/stocks`, `GET /api/stocks/symbols`, `GET /api/stocks/symbols/search`, `GET /api/stocks/{symbol}`, `GET /api/stocks/{symbol}/signals`, `GET /api/stocks/{symbol}/evaluate-date/{date}`, `GET /api/stocks/{symbol}/evaluate-exit/{date}`, `POST /api/stocks/{symbol}/condition-signals`, `GET /api/stocks/{symbol}/latest-quote`
 
@@ -154,9 +155,9 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport, Trade, BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
+│   │   │   ├── model/                # BacktestReport, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
 │   │   │   ├── dto/                  # DTOs (StrategyConfigDto, MonteCarloRequestDto, ConditionSignalDtos, etc.)
-│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService, WalkForwardService
+│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
@@ -335,4 +336,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-04-16_
+_Last Updated: 2026-04-17_
