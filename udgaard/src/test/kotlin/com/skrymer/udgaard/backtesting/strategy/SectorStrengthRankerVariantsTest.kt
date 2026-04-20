@@ -139,6 +139,26 @@ class SectorStrengthRankerVariantsTest {
   // --- Factory wiring ---
 
   @Test
+  fun `rollingSectorStrength rejects windowDays less than 1`() {
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      RollingSectorStrengthRanker(windowDays = 0)
+    }
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      RollingSectorStrengthRanker(windowDays = -3)
+    }
+  }
+
+  @Test
+  fun `sectorStrengthMomentum rejects windowDays less than 1`() {
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      SectorStrengthMomentumRanker(windowDays = 0)
+    }
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      SectorStrengthMomentumRanker(windowDays = -1)
+    }
+  }
+
+  @Test
   fun `factory wires new rankers by name`() {
     assertEquals(
       RollingSectorStrengthRanker::class,

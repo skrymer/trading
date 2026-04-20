@@ -432,6 +432,16 @@ class BreadthEntryConditionsTest {
   }
 
   @Test
+  fun `market breadth increasing rejects days less than 1`() {
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      MarketBreadthIncreasingCondition(days = 0)
+    }
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      MarketBreadthIncreasingCondition(days = -1)
+    }
+  }
+
+  @Test
   fun `market breadth increasing metadata exposes days parameter`() {
     val metadata = MarketBreadthIncreasingCondition().getMetadata()
     assertTrue(metadata.type == "marketBreadthIncreasing")
@@ -527,6 +537,16 @@ class BreadthEntryConditionsTest {
       marketBreadthMap = emptyMap(),
     )
     assertFalse(SectorBreadthIncreasingCondition(days = 3, sectorSymbol = "XLK").evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `sector breadth increasing rejects days less than 1`() {
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      SectorBreadthIncreasingCondition(days = 0)
+    }
+    org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+      SectorBreadthIncreasingCondition(days = -5)
+    }
   }
 
   @Test

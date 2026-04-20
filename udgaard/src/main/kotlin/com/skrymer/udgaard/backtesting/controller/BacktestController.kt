@@ -2,6 +2,9 @@ package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
+import com.skrymer.udgaard.backtesting.dto.CustomStrategyConfig
+import com.skrymer.udgaard.backtesting.dto.PredefinedStrategyConfig
+import com.skrymer.udgaard.backtesting.dto.StrategyConfig
 import com.skrymer.udgaard.backtesting.dto.WalkForwardRequest
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
@@ -69,7 +72,30 @@ class BacktestController(
   fun runBacktestWithConfig(
     @RequestBody request: BacktestRequest,
   ): ResponseEntity<BacktestResponseDto> {
-    logger.info("Running backtest with config: {}", request)
+    logger.info(
+      "Running backtest: entry={}, exit={}, symbols={}, assetTypes={}, " +
+        "includeSectors={}, excludeSectors={}, dates={}..{}, " +
+        "maxPositions={}, ranker={}, rankerConfig={}, randomSeed={}, " +
+        "useUnderlyingAssets={}, cooldownDays={}, entryDelayDays={}, " +
+        "positionSizing={}",
+      summarizeStrategy(request.entryStrategy),
+      summarizeStrategy(request.exitStrategy),
+      request.stockSymbols?.size ?: "all",
+      request.assetTypes?.joinToString(",") ?: "all",
+      request.includeSectors?.joinToString(",") ?: "all",
+      request.excludeSectors?.joinToString(",") ?: "none",
+      request.startDate,
+      request.endDate,
+      request.maxPositions,
+      request.ranker,
+      request.rankerConfig,
+      request.randomSeed,
+      request.useUnderlyingAssets,
+      request.cooldownDays,
+      request.entryDelayDays,
+      request.positionSizing,
+    )
+    logger.debug("Full backtest request: {}", request)
 
     val entryStrategy =
       dynamicStrategyBuilder.buildEntryStrategy(request.entryStrategy)
@@ -394,5 +420,11 @@ class BacktestController(
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)
+
+    private fun summarizeStrategy(cfg: StrategyConfig): String =
+      when (cfg) {
+        is PredefinedStrategyConfig -> "predefined:${cfg.name}"
+        is CustomStrategyConfig -> "custom(${cfg.conditions.size} conditions, op=${cfg.operator.ifBlank { "default" }})"
+      }
   }
 }

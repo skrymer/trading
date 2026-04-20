@@ -23,6 +23,10 @@ import org.springframework.stereotype.Component
 class MarketBreadthIncreasingCondition(
   private val days: Int = 3,
 ) : EntryCondition {
+  init {
+    require(days >= 1) { "days must be >= 1, got $days" }
+  }
+
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,

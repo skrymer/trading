@@ -26,6 +26,10 @@ class SectorBreadthIncreasingCondition(
   private val days: Int = 3,
   private val sectorSymbol: String = "XLK",
 ) : EntryCondition {
+  init {
+    require(days >= 1) { "days must be >= 1, got $days" }
+  }
+
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,

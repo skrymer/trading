@@ -157,6 +157,10 @@ class SectorStrengthRanker : StockRanker {
 class RollingSectorStrengthRanker(
   private val windowDays: Int = 10,
 ) : StockRanker {
+  init {
+    require(windowDays >= 1) { "windowDays must be >= 1, got $windowDays" }
+  }
+
   override fun score(
     stock: Stock,
     entryQuote: StockQuote,
@@ -195,6 +199,10 @@ class RollingSectorStrengthRanker(
 class SectorStrengthMomentumRanker(
   private val windowDays: Int = 10,
 ) : StockRanker {
+  init {
+    require(windowDays >= 1) { "windowDays must be >= 1, got $windowDays" }
+  }
+
   override fun score(
     stock: Stock,
     entryQuote: StockQuote,
