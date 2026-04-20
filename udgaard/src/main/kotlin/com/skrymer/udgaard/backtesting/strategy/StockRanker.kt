@@ -147,6 +147,81 @@ class SectorStrengthRanker : StockRanker {
 }
 
 /**
+ * Ranks stocks by rolling average of their sector's bull percentage over a window.
+ * Theory: Persistent sector strength is a better edge predictor than spot strength.
+ *
+ * Uses available readings in the sector breadth map ≤ entryQuote.date (gap-tolerant).
+ *
+ * @param windowDays Number of trailing trading-day readings to average (>= 1).
+ */
+class RollingSectorStrengthRanker(
+  private val windowDays: Int = 10,
+) : StockRanker {
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double = score(stock, entryQuote, BacktestContext.EMPTY)
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
+  ): Double {
+    val sector = stock.sectorSymbol ?: return 0.0
+    val sectorMap = context.sectorBreadthMap[sector] ?: return 0.0
+    val recent = sectorMap
+      .filterKeys { !it.isAfter(entryQuote.date) }
+      .toSortedMap()
+      .values
+      .toList()
+      .takeLast(windowDays)
+    if (recent.isEmpty()) return 0.0
+    return recent.sumOf { it.bullPercentage } / recent.size
+  }
+
+  override fun description() = "Rolling sector strength (avg sector bull % over $windowDays days)"
+}
+
+/**
+ * Ranks stocks by change in their sector's bull percentage over a window.
+ * Theory: Sectors *gaining* breadth leadership have stronger follow-through than
+ * sectors already at peak strength.
+ *
+ * Score = sectorBull(today) − sectorBull(N trading days ago).
+ * Falls back to 0 when insufficient history.
+ *
+ * @param windowDays Number of trading-day readings back to compare against (>= 1).
+ */
+class SectorStrengthMomentumRanker(
+  private val windowDays: Int = 10,
+) : StockRanker {
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double = score(stock, entryQuote, BacktestContext.EMPTY)
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
+  ): Double {
+    val sector = stock.sectorSymbol ?: return 0.0
+    val sectorMap = context.sectorBreadthMap[sector] ?: return 0.0
+    val recent = sectorMap
+      .filterKeys { !it.isAfter(entryQuote.date) }
+      .toSortedMap()
+      .values
+      .toList()
+    if (recent.size < windowDays + 1) return 0.0
+    val today = recent.last().bullPercentage
+    val past = recent[recent.size - 1 - windowDays].bullPercentage
+    return today - past
+  }
+
+  override fun description() = "Sector strength momentum (Δ sector bull % over $windowDays days)"
+}
+
+/**
  * Simple random ranker for baseline comparison.
  */
 class RandomRanker : StockRanker {

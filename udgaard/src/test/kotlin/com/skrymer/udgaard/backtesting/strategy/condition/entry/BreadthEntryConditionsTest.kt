@@ -293,6 +293,254 @@ class BreadthEntryConditionsTest {
     assertFalse(SpyPriceUptrendCondition().evaluate(stock, quote, context))
   }
 
+  // --- MarketBreadthIncreasingCondition ---
+
+  @Test
+  fun `market breadth increasing passes for N consecutive up days`() {
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        d0 to marketBreadth(d0, 40.0),
+        d1 to marketBreadth(d1, 45.0),
+        d2 to marketBreadth(d2, 50.0),
+        today to marketBreadth(today, 55.0),
+      ),
+    )
+    assertTrue(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing fails when a single day is flat`() {
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        d0 to marketBreadth(d0, 40.0),
+        d1 to marketBreadth(d1, 45.0),
+        d2 to marketBreadth(d2, 45.0),
+        today to marketBreadth(today, 50.0),
+      ),
+    )
+    assertFalse(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing fails when a single day is down`() {
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        d0 to marketBreadth(d0, 40.0),
+        d1 to marketBreadth(d1, 50.0),
+        d2 to marketBreadth(d2, 45.0),
+        today to marketBreadth(today, 55.0),
+      ),
+    )
+    assertFalse(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing passes when streak longer than required`() {
+    // 5 ascending readings but only last N+1 matter for days=3
+    val d0 = today.minusDays(4)
+    val d1 = today.minusDays(3)
+    val d2 = today.minusDays(2)
+    val d3 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        d0 to marketBreadth(d0, 30.0),
+        d1 to marketBreadth(d1, 35.0),
+        d2 to marketBreadth(d2, 40.0),
+        d3 to marketBreadth(d3, 50.0),
+        today to marketBreadth(today, 55.0),
+      ),
+    )
+    assertTrue(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing fails when insufficient history`() {
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        yesterday to marketBreadth(yesterday, 40.0),
+        today to marketBreadth(today, 55.0),
+      ),
+    )
+    // days=3 requires 4 readings, only 2 exist
+    assertFalse(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing handles weekend gap`() {
+    // Friday → Monday → Tuesday → Wednesday, non-consecutive calendar dates
+    val friday = LocalDate.of(2024, 5, 31)
+    val monday = LocalDate.of(2024, 6, 3)
+    val tuesday = LocalDate.of(2024, 6, 4)
+    val wednesday = LocalDate.of(2024, 6, 5)
+    val wedQuote = StockQuote(date = wednesday)
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        friday to marketBreadth(friday, 40.0),
+        monday to marketBreadth(monday, 45.0),
+        tuesday to marketBreadth(tuesday, 50.0),
+        wednesday to marketBreadth(wednesday, 55.0),
+      ),
+    )
+    assertTrue(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, wedQuote, context))
+  }
+
+  @Test
+  fun `market breadth increasing ignores future readings after quote date`() {
+    // Only the 4 readings up to and including quote.date should be considered
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val tomorrow = today.plusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        d0 to marketBreadth(d0, 40.0),
+        d1 to marketBreadth(d1, 45.0),
+        d2 to marketBreadth(d2, 50.0),
+        today to marketBreadth(today, 55.0),
+        tomorrow to marketBreadth(tomorrow, 30.0), // in future — must be ignored
+      ),
+    )
+    assertTrue(MarketBreadthIncreasingCondition(days = 3).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing with days=1 compares today vs previous trading day`() {
+    val context = BacktestContext(
+      sectorBreadthMap = emptyMap(),
+      marketBreadthMap = mapOf(
+        yesterday to marketBreadth(yesterday, 40.0),
+        today to marketBreadth(today, 41.0),
+      ),
+    )
+    assertTrue(MarketBreadthIncreasingCondition(days = 1).evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `market breadth increasing metadata exposes days parameter`() {
+    val metadata = MarketBreadthIncreasingCondition().getMetadata()
+    assertTrue(metadata.type == "marketBreadthIncreasing")
+    assertTrue(metadata.category == "Market")
+    assertTrue(metadata.parameters.size == 1)
+    assertTrue(metadata.parameters[0].name == "days")
+    assertTrue(metadata.parameters[0].type == "number")
+  }
+
+  // --- SectorBreadthIncreasingCondition ---
+
+  @Test
+  fun `sector breadth increasing passes for N consecutive up days for configured sector`() {
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = mapOf(
+        "XLK" to mapOf(
+          d0 to sectorBreadth(d0, 30.0),
+          d1 to sectorBreadth(d1, 40.0),
+          d2 to sectorBreadth(d2, 50.0),
+          today to sectorBreadth(today, 60.0),
+        ),
+      ),
+      marketBreadthMap = emptyMap(),
+    )
+    assertTrue(SectorBreadthIncreasingCondition(days = 3, sectorSymbol = "XLK").evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `sector breadth increasing fails when configured sector not in map`() {
+    val context = BacktestContext(
+      sectorBreadthMap = mapOf(
+        "XLK" to mapOf(today to sectorBreadth(today, 60.0)),
+      ),
+      marketBreadthMap = emptyMap(),
+    )
+    // Asking about XLF but only XLK data exists
+    assertFalse(SectorBreadthIncreasingCondition(days = 3, sectorSymbol = "XLF").evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `sector breadth increasing ignores stock's own sector`() {
+    // Stock is in XLE, but condition is configured for XLK (macro filter)
+    val energyStock = Stock("XOM", sectorSymbol = "XLE")
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = mapOf(
+        "XLK" to mapOf(
+          d0 to sectorBreadth(d0, 30.0),
+          d1 to sectorBreadth(d1, 40.0),
+          d2 to sectorBreadth(d2, 50.0),
+          today to sectorBreadth(today, 60.0),
+        ),
+      ),
+      marketBreadthMap = emptyMap(),
+    )
+    // XLK is rising → true, even though energyStock.sectorSymbol = XLE
+    assertTrue(SectorBreadthIncreasingCondition(days = 3, sectorSymbol = "XLK").evaluate(energyStock, quote, context))
+  }
+
+  @Test
+  fun `sector breadth increasing fails when a reading decreases`() {
+    val d0 = today.minusDays(3)
+    val d1 = today.minusDays(2)
+    val d2 = today.minusDays(1)
+    val context = BacktestContext(
+      sectorBreadthMap = mapOf(
+        "XLK" to mapOf(
+          d0 to sectorBreadth(d0, 30.0),
+          d1 to sectorBreadth(d1, 50.0),
+          d2 to sectorBreadth(d2, 40.0),
+          today to sectorBreadth(today, 60.0),
+        ),
+      ),
+      marketBreadthMap = emptyMap(),
+    )
+    assertFalse(SectorBreadthIncreasingCondition(days = 3, sectorSymbol = "XLK").evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `sector breadth increasing fails when insufficient history for configured sector`() {
+    val context = BacktestContext(
+      sectorBreadthMap = mapOf(
+        "XLK" to mapOf(
+          yesterday to sectorBreadth(yesterday, 40.0),
+          today to sectorBreadth(today, 55.0),
+        ),
+      ),
+      marketBreadthMap = emptyMap(),
+    )
+    assertFalse(SectorBreadthIncreasingCondition(days = 3, sectorSymbol = "XLK").evaluate(stock, quote, context))
+  }
+
+  @Test
+  fun `sector breadth increasing metadata exposes days and sectorSymbol parameters`() {
+    val metadata = SectorBreadthIncreasingCondition().getMetadata()
+    assertTrue(metadata.type == "sectorBreadthIncreasing")
+    assertTrue(metadata.category == "Sector")
+    assertTrue(metadata.parameters.size == 2)
+    val names = metadata.parameters.map { it.name }.toSet()
+    assertTrue(names == setOf("days", "sectorSymbol"))
+    val sectorParam = metadata.parameters.first { it.name == "sectorSymbol" }
+    assertTrue(sectorParam.type == "string")
+  }
+
   // --- All conditions return false with empty context ---
 
   @Test
@@ -302,9 +550,11 @@ class BreadthEntryConditionsTest {
     assertFalse(MarketBreadthRecoveringCondition().evaluate(stock, quote, emptyContext))
     assertFalse(MarketBreadthNearDonchianLowCondition().evaluate(stock, quote, emptyContext))
     assertFalse(MarketBreadthTrendingCondition().evaluate(stock, quote, emptyContext))
+    assertFalse(MarketBreadthIncreasingCondition().evaluate(stock, quote, emptyContext))
     assertFalse(SectorBreadthAboveCondition().evaluate(stock, quote, emptyContext))
     assertFalse(SectorBreadthEmaAlignmentCondition().evaluate(stock, quote, emptyContext))
     assertFalse(SectorBreadthAcceleratingCondition().evaluate(stock, quote, emptyContext))
+    assertFalse(SectorBreadthIncreasingCondition().evaluate(stock, quote, emptyContext))
     assertFalse(SpyPriceUptrendCondition().evaluate(stock, quote, emptyContext))
   }
 }

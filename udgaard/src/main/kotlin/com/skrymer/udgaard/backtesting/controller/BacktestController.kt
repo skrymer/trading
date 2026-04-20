@@ -69,17 +69,7 @@ class BacktestController(
   fun runBacktestWithConfig(
     @RequestBody request: BacktestRequest,
   ): ResponseEntity<BacktestResponseDto> {
-    logger.info(
-      "Running backtest with config: entry=${request.entryStrategy}, exit=${request.exitStrategy}, " +
-        "symbols=${request.stockSymbols?.joinToString(",") ?: "all"}, " +
-        "assetTypes=${request.assetTypes?.joinToString(",") ?: "all"}, " +
-        "includeSectors=${request.includeSectors?.joinToString(",") ?: "all"}, " +
-        "excludeSectors=${request.excludeSectors?.joinToString(",") ?: "none"}, " +
-        "startDate=${request.startDate}, " +
-        "endDate=${request.endDate}, maxPositions=${request.maxPositions}, ranker=${request.ranker}, " +
-        "useUnderlyingAssets=${request.useUnderlyingAssets}, cooldownDays=${request.cooldownDays}, " +
-        "entryDelayDays=${request.entryDelayDays}",
-    )
+    logger.info("Running backtest with config: {}", request)
 
     val entryStrategy =
       dynamicStrategyBuilder.buildEntryStrategy(request.entryStrategy)

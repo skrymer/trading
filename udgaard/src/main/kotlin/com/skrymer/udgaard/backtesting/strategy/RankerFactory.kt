@@ -9,6 +9,8 @@ object RankerFactory {
     "DistanceFrom10Ema",
     "Composite",
     "SectorStrength",
+    "RollingSectorStrength",
+    "SectorStrengthMomentum",
     "SectorEdge",
     "Random",
   )
@@ -21,6 +23,8 @@ object RankerFactory {
       "distancefrom10ema" -> DistanceFrom10EmaRanker()
       "composite" -> CompositeRanker()
       "sectorstrength" -> SectorStrengthRanker()
+      "rollingsectorstrength" -> RollingSectorStrengthRanker()
+      "sectorstrengthmomentum" -> SectorStrengthMomentumRanker()
       "sectoredge" -> {
         val ranking = rankerConfig?.sectorRanking
         if (ranking.isNullOrEmpty()) null else SectorEdgeRanker(ranking)

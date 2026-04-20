@@ -22,6 +22,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaSpreadConditi
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthAboveCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthEmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthIncreasingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthNearDonchianLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthRecoveringCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthTrendingCondition
@@ -38,6 +39,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAbo
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAcceleratingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEmaAlignmentCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanMarketCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthIncreasingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SpyPriceUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
@@ -186,6 +188,10 @@ class DynamicStrategyBuilder(
         MarketBreadthEmaAlignmentCondition(periods)
       }
       "marketbreadthrecovering" -> MarketBreadthRecoveringCondition()
+      "marketbreadthincreasing" ->
+        MarketBreadthIncreasingCondition(
+          days = (config.parameters["days"] as? Number)?.toInt() ?: 3,
+        )
       "marketbreadthneardonchianlow" ->
         MarketBreadthNearDonchianLowCondition(
           percentile = (config.parameters["percentile"] as? Number)?.toDouble() ?: 0.10,
@@ -204,6 +210,11 @@ class DynamicStrategyBuilder(
           threshold = (config.parameters["threshold"] as? Number)?.toDouble() ?: 5.0,
         )
       "sectorbreadthgreaterthanmarket" -> SectorBreadthGreaterThanMarketCondition()
+      "sectorbreadthincreasing" ->
+        SectorBreadthIncreasingCondition(
+          days = (config.parameters["days"] as? Number)?.toInt() ?: 3,
+          sectorSymbol = (config.parameters["sectorSymbol"] as? String) ?: "XLK",
+        )
       "volumeaboveaverage" ->
         VolumeAboveAverageCondition(
           multiplier = (config.parameters["multiplier"] as? Number)?.toDouble() ?: 1.3,
