@@ -205,9 +205,10 @@ udgaard/
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
-│       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator
+│       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator (per-range fixtures via populate(dsl, startDate, endDate); ConcurrentHashMap-keyed dedup)
 │       ├── BacktestApiE2ETest.kt       # Backtest API E2E tests
 │       ├── BacktestPositionSizingE2ETest.kt  # Capital-aware position sizing E2E tests
+│       ├── WalkForwardE2ETest.kt       # Walk-forward validation E2E tests
 │       ├── CashTransactionE2ETest.kt   # Cash transaction E2E tests
 │       ├── ForexTrackingE2ETest.kt     # Forex tracking E2E tests
 │       ├── IBKRBrokerImportE2ETest.kt  # IBKR broker import E2E tests

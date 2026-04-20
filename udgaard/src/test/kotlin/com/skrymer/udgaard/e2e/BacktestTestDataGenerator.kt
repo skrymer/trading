@@ -13,7 +13,7 @@ import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Random
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -26,8 +26,13 @@ import kotlin.math.min
  */
 @Suppress("LongMethod")
 object BacktestTestDataGenerator {
-  private val random = Random(42) // Fixed seed for reproducibility
-  private val populated = AtomicBoolean(false)
+  // RNG seed is reset at the top of each populate() call so each range is reproducible
+  // independent of which other ranges have been populated first in the JVM. Without this
+  // reset, running a larger-range fixture before a smaller one would leave Random in a
+  // different state and silently flip any pinned assertions in tests that use the smaller
+  // range.
+  private val random = Random(42)
+  private val populatedRanges = ConcurrentHashMap<String, Unit>()
 
   private val SECTOR_STOCKS = mapOf(
     "XLK" to listOf("AAPL", "MSFT", "NVDA", "AVGO", "CRM"),
@@ -47,19 +52,24 @@ object BacktestTestDataGenerator {
   val ALL_SYMBOLS = SECTOR_STOCKS.values.flatten()
 
   fun populate(dsl: DSLContext) {
-    if (!populated.compareAndSet(false, true)) return
+    populate(dsl, LocalDate.of(2024, 1, 2), LocalDate.of(2024, 3, 29))
+  }
 
-    val tradingDays = generateTradingDays(
-      LocalDate.of(2024, 1, 2),
-      LocalDate.of(2024, 3, 29),
-    )
+  fun populate(dsl: DSLContext, startDate: LocalDate, endDate: LocalDate) {
+    val key = "$startDate..$endDate"
+    // computeIfAbsent locks per-key: prevents a concurrent second caller from returning
+    // before inserts are committed (closes a race under parallel test classes).
+    populatedRanges.computeIfAbsent(key) {
+      random.setSeed(42L)
 
-    insertSymbols(dsl)
-    insertStocksAndQuotes(dsl, tradingDays)
-    insertEarnings(dsl, tradingDays)
-    insertOrderBlocks(dsl, tradingDays)
-    insertMarketBreadth(dsl, tradingDays)
-    insertSectorBreadth(dsl, tradingDays)
+      val tradingDays = generateTradingDays(startDate, endDate)
+      insertSymbols(dsl)
+      insertStocksAndQuotes(dsl, tradingDays)
+      insertEarnings(dsl, tradingDays)
+      insertOrderBlocks(dsl, tradingDays)
+      insertMarketBreadth(dsl, tradingDays)
+      insertSectorBreadth(dsl, tradingDays)
+    }
   }
 
   private fun generateTradingDays(start: LocalDate, end: LocalDate): List<LocalDate> =
@@ -114,6 +124,8 @@ object BacktestTestDataGenerator {
       .insertInto(STOCKS)
       .set(STOCKS.SYMBOL, symbol)
       .set(STOCKS.SECTOR, sector)
+      .onConflict(STOCKS.SYMBOL)
+      .doNothing()
       .execute()
 
     val quotes = generateQuotes(symbol, tradingDays, basePrice, volatility)
