@@ -258,15 +258,28 @@ class BacktestController(
     val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
     val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
 
+    val inSampleMonths = request.inSampleMonths ?: (request.inSampleYears * MONTHS_PER_YEAR)
+    val outOfSampleMonths = request.outOfSampleMonths ?: (request.outOfSampleYears * MONTHS_PER_YEAR)
+    val stepMonths = request.stepMonths ?: (request.stepYears * MONTHS_PER_YEAR)
+
     val config = WalkForwardConfig(
-      inSampleYears = request.inSampleYears,
-      outOfSampleYears = request.outOfSampleYears,
-      stepYears = request.stepYears,
+      inSampleMonths = inSampleMonths,
+      outOfSampleMonths = outOfSampleMonths,
+      stepMonths = stepMonths,
       startDate = start,
       endDate = end,
     )
 
-    logger.info("Running walk-forward: IS=${config.inSampleYears}y, OOS=${config.outOfSampleYears}y, step=${config.stepYears}y")
+    logger.info(
+      "Running walk-forward: IS={}mo, OOS={}mo, step={}mo, ranker={}, randomSeed={}, positionSized={}",
+      config.inSampleMonths,
+      config.outOfSampleMonths,
+      config.stepMonths,
+      request.ranker,
+      request.randomSeed,
+      request.positionSizing != null,
+    )
+    logger.debug("Full walk-forward request: {}", request)
 
     val result = walkForwardService.runWalkForward(
       config = config,
@@ -279,6 +292,8 @@ class BacktestController(
       customUnderlyingMap = request.customUnderlyingMap,
       cooldownDays = request.cooldownDays,
       entryDelayDays = request.entryDelayDays,
+      randomSeed = request.randomSeed,
+      positionSizingConfig = request.positionSizing,
     )
 
     logger.info(
@@ -420,6 +435,7 @@ class BacktestController(
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)
+    private const val MONTHS_PER_YEAR = 12
 
     private fun summarizeStrategy(cfg: StrategyConfig): String =
       when (cfg) {

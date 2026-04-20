@@ -92,6 +92,18 @@ data class ParameterMetadata(
   val options: List<String>? = null, // For enum-like parameters
 )
 
+/**
+ * Walk-forward validation request.
+ *
+ * Window sizes and step can be expressed in years (existing defaults 5/1/1) or months
+ * (optional, finer-grained). If a `*Months` field is set, it overrides the corresponding
+ * `*Years` field. Month-based fields enable sub-year stepping (e.g. quarterly step = 3)
+ * without breaking existing year-based callers.
+ *
+ * `positionSizing` and `randomSeed` are forwarded verbatim to each IS/OOS backtest. Absent →
+ * walk-forward runs unlimited-mode as before. Set → walk-forward runs position-sized with
+ * deterministic tie-breaking, matching how a live trader actually sizes trades.
+ */
 data class WalkForwardRequest(
   val entryStrategy: StrategyConfig,
   val exitStrategy: StrategyConfig,
@@ -104,6 +116,9 @@ data class WalkForwardRequest(
   val inSampleYears: Int = 5,
   val outOfSampleYears: Int = 1,
   val stepYears: Int = 1,
+  val inSampleMonths: Int? = null,
+  val outOfSampleMonths: Int? = null,
+  val stepMonths: Int? = null,
   val maxPositions: Int? = null,
   val ranker: String? = null,
   val rankerConfig: RankerConfig? = null,
@@ -111,4 +126,6 @@ data class WalkForwardRequest(
   val customUnderlyingMap: Map<String, String>? = null,
   val cooldownDays: Int = 0,
   val entryDelayDays: Int = 0,
+  val randomSeed: Long? = null,
+  val positionSizing: PositionSizingConfig? = null,
 )

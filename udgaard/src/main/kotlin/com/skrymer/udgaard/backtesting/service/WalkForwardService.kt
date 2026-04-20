@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.BacktestReport
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
 import com.skrymer.udgaard.backtesting.model.WalkForwardResult
 import com.skrymer.udgaard.backtesting.model.WalkForwardWindow
@@ -41,16 +42,13 @@ class WalkForwardService(
     customUnderlyingMap: Map<String, String>? = null,
     cooldownDays: Int = 0,
     entryDelayDays: Int = 0,
+    randomSeed: Long? = null,
+    positionSizingConfig: PositionSizingConfig? = null,
   ): WalkForwardResult {
-    require(config.inSampleYears > 0) { "inSampleYears must be positive" }
-    require(config.outOfSampleYears > 0) { "outOfSampleYears must be positive" }
-    require(config.stepYears > 0) { "stepYears must be positive" }
-    require(config.startDate.isBefore(config.endDate)) { "startDate must be before endDate" }
-
     val windows = generateWindows(config)
     logger.info(
       "Walk-forward: ${windows.size} windows, " +
-        "IS=${config.inSampleYears}y, OOS=${config.outOfSampleYears}y",
+        "IS=${config.inSampleMonths}mo, OOS=${config.outOfSampleMonths}mo, step=${config.stepMonths}mo",
     )
 
     val sharedContext = BacktestContext(
@@ -70,6 +68,8 @@ class WalkForwardService(
       customUnderlyingMap = customUnderlyingMap,
       cooldownDays = cooldownDays,
       entryDelayDays = entryDelayDays,
+      randomSeed = randomSeed,
+      positionSizingConfig = positionSizingConfig,
     )
 
     val concurrency = Semaphore(MAX_CONCURRENT_WINDOWS)
@@ -151,6 +151,8 @@ class WalkForwardService(
     entryDelayDays = params.entryDelayDays,
     sharedContext = sharedContext,
     sharedBreadthByDate = sharedBreadthByDate,
+    randomSeed = params.randomSeed,
+    positionSizingConfig = params.positionSizingConfig,
   )
 
   private fun aggregateResults(results: List<WalkForwardWindow>): WalkForwardResult {
@@ -198,25 +200,36 @@ class WalkForwardService(
     )
   }
 
-  private fun generateWindows(config: WalkForwardConfig): List<WindowDates> {
+  internal fun generateWindows(config: WalkForwardConfig): List<WindowDates> {
+    require(config.inSampleMonths > 0) { "inSampleMonths must be positive, got ${config.inSampleMonths}" }
+    require(config.outOfSampleMonths > 0) { "outOfSampleMonths must be positive, got ${config.outOfSampleMonths}" }
+    require(config.stepMonths > 0) { "stepMonths must be positive, got ${config.stepMonths}" }
+    require(config.stepMonths >= config.outOfSampleMonths) {
+      "stepMonths (${config.stepMonths}) must be >= outOfSampleMonths (${config.outOfSampleMonths}); " +
+        "smaller step produces overlapping OOS windows, which would double-count trades in WFE aggregation"
+    }
+    require(config.startDate.isBefore(config.endDate)) {
+      "startDate (${config.startDate}) must be before endDate (${config.endDate})"
+    }
+
     val windows = mutableListOf<WindowDates>()
     var isStart = config.startDate
 
     while (true) {
-      val isEnd = isStart.plusYears(config.inSampleYears.toLong())
+      val isEnd = isStart.plusMonths(config.inSampleMonths.toLong())
       val oosStart = isEnd.plusDays(1)
-      val oosEnd = oosStart.plusYears(config.outOfSampleYears.toLong()).minusDays(1)
+      val oosEnd = oosStart.plusMonths(config.outOfSampleMonths.toLong()).minusDays(1)
 
       if (oosEnd.isAfter(config.endDate)) break
 
       windows.add(WindowDates(isStart, isEnd, oosStart, oosEnd))
-      isStart = isStart.plusYears(config.stepYears.toLong())
+      isStart = isStart.plusMonths(config.stepMonths.toLong())
     }
 
     return windows
   }
 
-  private data class WindowDates(
+  internal data class WindowDates(
     val isStart: LocalDate,
     val isEnd: LocalDate,
     val oosStart: LocalDate,
@@ -233,6 +246,8 @@ class WalkForwardService(
     val customUnderlyingMap: Map<String, String>?,
     val cooldownDays: Int,
     val entryDelayDays: Int,
+    val randomSeed: Long?,
+    val positionSizingConfig: PositionSizingConfig?,
   )
 
   companion object {

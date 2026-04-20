@@ -2,10 +2,14 @@ package com.skrymer.udgaard.backtesting.model
 
 import java.time.LocalDate
 
+/**
+ * Walk-forward window configuration. All sizes are in months; the controller
+ * resolves year-based request fields to months before constructing this.
+ */
 data class WalkForwardConfig(
-  val inSampleYears: Int = 5,
-  val outOfSampleYears: Int = 1,
-  val stepYears: Int = 1,
+  val inSampleMonths: Int,
+  val outOfSampleMonths: Int,
+  val stepMonths: Int,
   val startDate: LocalDate,
   val endDate: LocalDate,
 )
