@@ -207,6 +207,7 @@ udgaard/
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
 │       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator (per-range fixtures via populate(dsl, startDate, endDate); ConcurrentHashMap-keyed dedup)
 │       ├── BacktestApiE2ETest.kt       # Backtest API E2E tests
+│       ├── BacktestInvariantsE2ETest.kt # Engine invariant E2E tests
 │       ├── BacktestPositionSizingE2ETest.kt  # Capital-aware position sizing E2E tests
 │       ├── WalkForwardE2ETest.kt       # Walk-forward validation E2E tests
 │       ├── CashTransactionE2ETest.kt   # Cash transaction E2E tests

@@ -12,6 +12,7 @@ const props = defineProps<{
   instrumentMode?: 'STOCK' | 'OPTION'
   optionContracts?: Map<string, OptionContractResponse>
   validationResults?: Map<string, EntryValidationResult>
+  fundableSymbols?: Set<string>
 }>()
 
 const selected = defineModel<Set<string>>({ default: () => new Set() })
@@ -20,6 +21,11 @@ const expanded = ref<Record<number, boolean>>({})
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
+const UIcon = resolveComponent('UIcon')
+
+function isFundable(symbol: string): boolean {
+  return props.fundableSymbols?.has(symbol) ?? false
+}
 
 const isOptionsMode = computed(() => props.instrumentMode === 'OPTION')
 
@@ -113,6 +119,22 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
     }
   )
 
+  if (props.fundableSymbols) {
+    cols.push({
+      id: 'fundable',
+      header: 'Fund',
+      cell: ({ row }) => {
+        if (isFundable(row.original.symbol)) {
+          return h('div', { class: 'flex items-center gap-1 text-green-600 dark:text-green-400 font-medium' }, [
+            h(UIcon, { name: 'i-lucide-check-circle', class: 'w-4 h-4' }),
+            h('span', { class: 'text-xs' }, 'Funded')
+          ])
+        }
+        return h('span', { class: 'text-muted text-xs' }, '\u2014')
+      }
+    })
+  }
+
   if (props.positionSizingEnabled && props.calculateQuantity) {
     const calcFn = props.calculateQuantity
     cols.push(
@@ -130,12 +152,18 @@ const columns = computed<TableColumn<ScanResult>[]>(() => {
         cell: ({ row }) => {
           const qty = calcFn(row.original.atr, row.original.symbol)
           if (qty <= 0) return 'N/A'
+          let costLabel: string
           if (isOptionsMode.value) {
             const contract = props.optionContracts?.get(row.original.symbol)
             if (!contract) return '-'
-            return `$${(qty * contract.price * 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+            costLabel = `$${(qty * contract.price * 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+          } else {
+            costLabel = `$${(qty * row.original.closePrice).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
           }
-          return `$${(qty * row.original.closePrice).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+          if (isFundable(row.original.symbol)) {
+            return h('span', { class: 'text-green-600 dark:text-green-400 font-medium' }, costLabel)
+          }
+          return costLabel
         }
       },
       {

@@ -220,6 +220,7 @@ trading/
 │   └── claude.md                     # Nuxt-specific context
 ├── pinescripts/                      # TradingView Pine Script strategies
 ├── strategy_exploration/             # Strategy research and development notes
+├── reference_check/                  # Python cross-validators for Midgaard/Udgaard calculations (EMA/Donchian diff, VCP condition verifier)
 ├── compose.prod.yaml                 # Production Docker Compose (all services: postgres, midgaard, udgaard, asgaard, adminer)
 ├── deploy-prd.fish                   # Production deployment script (version bump, build JARs, deploy containers)
 ├── deploy-dev.fish                   # Development deployment script
@@ -336,4 +337,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-04-17_
+_Last Updated: 2026-04-21_

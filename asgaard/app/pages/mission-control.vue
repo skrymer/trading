@@ -182,6 +182,31 @@ const preferredResults = computed(() => filteredResults.value.slice(0, available
 
 const remainingResults = computed(() => filteredResults.value.slice(availableSlots.value))
 
+const fundableSymbols = computed(() => {
+  const set = new Set<string>()
+  const equity = currentEquity.value
+  if (equity <= 0) return set
+  let remaining = equity - existingCapitalDeployed.value
+  if (remaining <= 0) return set
+  for (const r of filteredResults.value) {
+    const qty = calculateQuantity(r.atr, r.symbol)
+    if (qty <= 0) continue
+    let cost: number
+    if (isOptionsMode.value) {
+      const contract = optionContracts.value.get(r.symbol)
+      if (!contract) continue
+      cost = qty * contract.price * 100
+    } else {
+      cost = qty * r.closePrice
+    }
+    if (cost <= remaining) {
+      set.add(r.symbol)
+      remaining -= cost
+    }
+  }
+  return set
+})
+
 const selectedResults = computed(() => {
   if (!scanResponse.value) return []
   return scanResponse.value.results.filter(r => selectedSymbols.value.has(r.symbol))
@@ -1230,6 +1255,7 @@ const tradesTableUi = computed(() => ({
                     :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
                     :option-contracts="optionContracts"
                     :validation-results="validationResults"
+                    :fundable-symbols="fundableSymbols"
                   />
                 </div>
 
@@ -1247,6 +1273,7 @@ const tradesTableUi = computed(() => ({
                     :calculate-quantity="calculateQuantity"
                     :calculate-risk-dollars="calculateRiskDollars"
                     :instrument-mode="positionSizingSettings.instrumentMode ?? 'STOCK'"
+                    :fundable-symbols="fundableSymbols"
                   />
                 </div>
 

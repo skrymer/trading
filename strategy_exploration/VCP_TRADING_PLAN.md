@@ -32,7 +32,11 @@ Volatility Contraction Pattern (VCP) — trend-following breakout strategy that 
 | SPY Correlation / Beta / Alpha | 0.55 / 0.68 / ~37.9% |
 | Edge Consistency Score | 96.0 (Excellent) |
 
-**Walk-forward (measured at 1.5% baseline, 4 windows):** WFE 0.667, aggregate OOS edge +3.64% on 447 trades. WF not yet re-run at 1.25%.
+**Walk-forward — primary reference (1.5% baseline, 4 year-length windows):** WFE 0.667, aggregate OOS edge +3.64% on 447 trades. Reproduced 2026-04-21 within rounding (WFE 0.679, +3.74% on 449 trades) as a regression guard.
+
+**Walk-forward — confirmatory at the production config (2026-04-21):** 27 disjoint 3-month OOS quarters, 36-month IS, at 1.25% ATR-risk with position-sizing and capital-aware engine. Aggregate WFE 0.830, OOS edge +5.03%, 481 trades. **Do not treat as a replacement for the 0.667 headline** — the +1.08% OOS-edge improvement is not statistically distinguishable from the baseline (Welch t=0.59 on per-window OOS edges); the higher aggregate WFE is partly mechanical (trade-weighted OOS numerator vs simple-mean IS denominator). Cite as confirmation that edge persists under real trading constraints, not as a stronger edge claim. Median per-window WFE 0.48; 7/27 negative quarters.
+
+**Reproduced 2026-04-18** on DEV with the Appendix config across seeds 1 / 7 / 42 / 100 — every headline metric above matched to within rounding (CAGR 51.42%, MaxDD 18.92%, Calmar 2.730, edge +6.38%, WR 52.98%, 612.5 mean trades). Per-seed Calmar 2.38 / 2.63 / 3.20 / 2.71 — seed 42 confirmed as the upside outlier noted in Section 2.
 
 ### Why 1.25% beat 1.5%
 
@@ -103,7 +107,7 @@ At constant sizing, trade composition is nearly identical across capital tiers. 
 | Starting | CAGR | MaxDD | Sharpe | Calmar | Alpha | Final | Sample |
 |---|---|---|---|---|---|---|---|
 | $10K | 51.4% | 18.9% | 2.29 | 2.73 | 37.9% | ~$690K | 4-seed mean |
-| $20K | 51.7% | 20.2% | 2.33 | 2.56 | 39.2% | $1.36M | seed 42 only |
+| $20K | 50.7% | 19.4% | 2.28 | 2.62 | 33.3% | $1.28M | 4-seed mean |
 | $50K | 50.5% | 18.4% | 2.25 | 2.75 | 34.6% | $3.18M | 4-seed mean |
 
 ### At 1.5% risk (prior baseline, seed 42 only)
@@ -116,7 +120,7 @@ At constant sizing, trade composition is nearly identical across capital tiers. 
 
 **Key findings:**
 - **1.25% dominates at $10K and $50K** — Calmar +0.35 and +0.23 over 1.5% respectively. The advantage is stable across capital tiers.
-- **1.25% is essentially tied with 1.5% at $20K** on single-seed data — Calmar 2.56 vs 2.58. Multi-seed $20K run pending.
+- **1.25% leads 1.5% at $20K on 4-seed mean** — Calmar 2.62 vs 2.58. Advantage narrower than at $10K/$50K but consistent in direction.
 - **CAGR is stable in a 50-52% band** across 5× capital range at 1.25%.
 - **MaxDD is consistently 18-20% at 1.25%** (vs 19-21% at 1.5%).
 - **Alpha vs SPY is 34-39% across all tiers** — independent edge, not scaled beta.
@@ -329,15 +333,58 @@ The 2022-2023 backtest went through this sequence and ended positive OOS edge (+
 
 **Pluggable sizer comparison (2026-04-17).** After shipping the pluggable sizer abstraction (AtrRisk / PercentEquity / Kelly / VolatilityTarget), ran 9 variants including multi-seed validation of the two closest challengers. `AtrRisk(1.25%, 2.0)` remains Pareto-dominant on 4-seed mean: Calmar 2.73 vs VolTarget(1.2%, 2.0) 2.52 and Kelly-half 2.22. ATR-anchored sizing auto-shrinks positions when realized volatility expands — exactly when drawdowns accelerate. See `VCP_STRATEGY_DEVELOPMENT.md` section "Pluggable Sizer Comparison" for the full sweep.
 
+**Quarterly walk-forward at the production config (2026-04-21, commits `c273780` + `d0b07aa`).** Added month-based IS/OOS/step with `positionSizing` + `randomSeed` threading to `/api/backtest/walk-forward`, then ran a 36-month IS / 3-month OOS / 3-month step sweep (27 disjoint OOS windows, 2019-01 through 2025-10) at the production trading config: $10K, AtrRisk(1.25%, 2.0), leverage 1.0, seed 42. Aggregate WFE 0.830, OOS edge +5.03%, 481 trades. The year-based 5y/1y baseline was reproduced in the same session at WFE 0.679 (~0.667 headline) as a regression check. The two measurements are consistent within noise — Welch t=0.59 on per-window OOS edges — but the quarterly run surfaces a per-window distribution the 4-window sample could not: OOS-edge SD 7.00% (vs baseline 2.48%), median per-window WFE 0.48 (half of quarters under-realize 50% of IS edge), and 7/27 negative OOS quarters (four of them outside known bear regimes: 2019-Q2, 2019-Q3, 2023-Q3, plus Covid 2020-Q1).
+
+**IS-edge decay — open monitoring item (2026-04-21).** Across the quarterly WF, mean IS edge by training-window vintage: 2019-2021 windows **7.01%**, 2022-2023 windows **6.56%**, 2024-2025 windows **4.17%**. OOS kept pace with IS in 2024-2025 only because IS also fell. Unclear whether this reflects crowding, regime change, or Mag-7 breadth compression; worth tracking a rolling 3-year IS-analog once live to see whether the decay continues.
+
 ## Follow-Ups
 
-- **$20K multi-seed validation at 1.25%** — current $20K row is seed-42 only. At $10K and $50K, seed 42 was an upside outlier; true $20K 4-seed Calmar may differ from the 2.56 single-seed figure.
-- **Monte Carlo** needs re-running under the capital-aware engine at 1.25%. The pre-merge MC values (p5 edge +4.93%, 100% prob of profit) relied on a trade-shuffling methodology that assumes an i.i.d. trade set; under path-dependent capital-aware selection the trade set depends on realized equity. Bootstrap-of-signals with engine re-simulation is the methodologically valid approach.
-- **Walk-forward at 1.25%** — current 0.667 WFE was measured at 1.5% risk, no position sizing.
-- **Walk-forward with quarterly stepping (20 windows)** for a tighter WFE estimate — current 4-window estimate is a small sample.
 - **Live paper-trade validation** — 15-20 paper trades tracking scanner recommendations to ensure real execution matches backtest assumptions.
+- **Track IS-edge decay live** — see Methodology Notes. Compute a rolling 3-year IS-analog edge once live and compare to the 2019-2021 (7.0%) / 2022-2023 (6.6%) / 2024-2025 (4.2%) vintages. Further decay is a soft kill-switch input.
 
-*Resolved:* ~~Sizer comparison~~ — 9-variant sweep completed 2026-04-17. AtrRisk(1.25%, 2.0) retained. See `VCP_STRATEGY_DEVELOPMENT.md` section "Pluggable Sizer Comparison".
+*Resolved:*
+- ~~Sizer comparison~~ — 9-variant sweep completed 2026-04-17. AtrRisk(1.25%, 2.0) retained. See `VCP_STRATEGY_DEVELOPMENT.md` section "Pluggable Sizer Comparison".
+- ~~Walk-forward at 1.25% + quarterly stepping~~ — combined run completed 2026-04-21 via the new month-based stepping. 27 disjoint OOS quarters at the production config (1.25% ATR-risk, $10K, seed 42). Confirms the 5y/1y baseline within noise (Welch t=0.59). See Methodology Notes.
+- ~~$20K multi-seed validation at 1.25%~~ — 4-seed run completed 2026-04-21 (seeds 1/7/42/100). 4-seed mean: CAGR 50.7%, MaxDD 19.4%, Sharpe 2.28, Calmar 2.62, Alpha 33.3%, final $1.28M. Seed 42 only modestly above mean on CAGR/Sharpe but **inflated the prior Alpha figure by ~6pp** (39.2% → 33.3%). Capital-invariance of the "1.25% dominates" claim holds: $20K mean sits squarely between $10K and $50K 4-seed means on every risk-adjusted metric.
+
+*Dropped:*
+- ~~Monte Carlo re-run under capital-aware engine at 1.25%~~ — removed 2026-04-21. The prior MC value (pre-merge p5 edge +4.93%) isn't load-bearing anywhere in the plan (not in Kill Criteria, monitoring thresholds, or return expectations). What MC was meant to show — edge stability and tail-risk framing — is now covered more directly by the 27-window quarterly WF (empirical OOS distribution over the historical period) plus the 4-seed runs at $10K/$20K/$50K (tie-breaking variance). Seed-based MC would only tighten those bounds on a variance axis that doesn't capture the dominant risk (regime change). If kill-switch thresholds ever need probability framing, revisit with a proper bootstrap-of-signals implementation — not the current trade-shuffling code, which is path-dependently biased.
+
+---
+
+## Appendix: Reproducing the Baseline Backtest
+
+The config that produced the "Validated Performance" numbers (single-seed run; the 4-seed mean requires repeating with `randomSeed` 1 / 7 / 42 / 100):
+
+```bash
+curl -s -X POST http://localhost:8080/udgaard/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assetTypes": ["STOCK"],
+    "useUnderlyingAssets": false,
+    "entryStrategy": {"type": "predefined", "name": "Vcp"},
+    "exitStrategy": {"type": "predefined", "name": "VcpExitStrategy"},
+    "startDate": "2016-01-01",
+    "endDate": "2025-12-31",
+    "maxPositions": 15,
+    "entryDelayDays": 1,
+    "randomSeed": 42,
+    "positionSizing": {
+      "startingCapital": 10000,
+      "sizer": {"type": "atrRisk", "riskPercentage": 1.25, "nAtr": 2.0},
+      "leverageRatio": 1.0
+    }
+  }' > /tmp/vcp_baseline.json
+```
+
+**Notes:**
+- **Ranker omitted** — VCP's preferred `SectorEdge` with its built-in IS-derived sector ranking is used by default.
+- **`randomSeed`** controls tie-breaking within the ranker when multiple candidates share the same sector rank. `SectorEdge` itself is deterministic, but cohort-level ties still exist.
+- **Runtime:** 10-15 minutes; requires ~12GB JVM heap (`-Xmx12288m` already configured in `bootRun`).
+- **Against production:** swap host for `http://localhost:9080/udgaard/api/backtest` and add `-H "X-API-Key: <your-key>"`. Run one heavy backtest at a time.
+- **Expected output:** the `backtestId` in the response can be fed to `/api/backtest/{id}/missed-trades` (selection-bias analysis) and the Monte Carlo endpoint.
+
+To vary capital or risk, change `startingCapital` and `sizer.riskPercentage` only — everything else is fixed by the plan.
 
 ---
 

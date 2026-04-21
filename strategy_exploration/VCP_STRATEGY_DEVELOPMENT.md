@@ -1757,7 +1757,7 @@ V3 (late trigger 7%/15%) is the worst — barely reduces DD but still costs CAGR
 - ~~Drawdown-responsive position sizing~~ — Done. Calmar +33%, max DD -36%, CAGR -6.6pp (see Drawdown-Responsive Position Sizing)
 - ~~Stagnation exit~~ — Done. 15d/3% selected: Calmar +17%, max DD -3.4pp, EC 100/100, WFE 0.69 (see Stagnation Exit Sweep)
 - ~~Drawdown scaling threshold sweep~~ — Done. V2 (3%/8% → 0.67/0.33) selected: Calmar 3.23, MaxDD 15.7%, CAGR 50.5% (see Drawdown Scaling Threshold Sweep)
-- Stagnation exit + drawdown-responsive scaling — test combined effect
+- ~~Stagnation exit + drawdown-responsive scaling~~ — Shelved 2026-04-18. DD scaling re-probed under the capital-aware engine at 1.25% baseline (Variant 6, gentle 5%/10% → 0.80/0.60, seed 42): Calmar 2.899 vs baseline 3.200 (-9.4%), CAGR -6.7pp, MDD -0.43pp. Capital-aware gating already provides implicit DD scaling; explicit scaling now burns compounding without buying tail protection.
 - Combined portfolio simulation — run VCP + Mjolnir together to measure diversification benefit
 - **Options-based position sizing** — With $10K and 1.5% risk, stock positions cost ~$1,875 each, so only 4-5 fit before 100% capital utilization. Options (calls or debit spreads) would use ~$200-400 per position, enabling the full 15 concurrent positions at small account sizes. Explore: delta target (e.g., 0.70 calls), expiration selection (45-60 DTE to cover avg 54-day hold), stop-loss translation (% of premium vs ATR-based)
 

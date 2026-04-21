@@ -514,6 +514,143 @@ class OrderBlockCalculatorTest {
     )
   }
 
+  /**
+   * Walkback lower bound (LOOKBACK_MIN = 4): origin candle at exactly `triggerIndex - 4`
+   * must be selected. Covers a branch that the broader momentum tests exercise only
+   * incidentally — here the lookback window intentionally contains zero other
+   * opposite-color candles, so if the MIN-boundary logic misfires we'd get no block.
+   *
+   * Fixture shape for a bearish block (requires bullish origin):
+   *   Bars 0-14: tiny bearish candles (close < open) — no bullish origin candidates
+   *   Bar 15: the single bullish candle, positioned exactly 4 bars before trigger
+   *   Bars 16-18: bearish candles again
+   *   Bar 19: bearish ROC crossing fires → looks back 4..15 → finds bar 15 (bullish) → OB
+   */
+  @Test
+  fun `origin candle at lookback lower bound (trigger - 4) is selected`() {
+    val baseDate = LocalDate.of(2025, 1, 1)
+    val quotes = mutableListOf<StockQuote>()
+
+    for (i in 0..14) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 99.9, 100.5, 99.5))
+    }
+    // Bar 15: the lone bullish candle, exactly `trigger - 4` away from the crossunder at bar 19.
+    quotes.add(createQuote(baseDate.plusDays(15), 100.0, 102.0, 102.5, 99.5))
+    // Bars 16-18: bearish, no other bullish candidates in the 4..15 walkback window
+    for (i in 16..18) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 99.9, 100.5, 99.5))
+    }
+    // Bar 19: crossunder. ROC = (70-100)/100*100 = -30%, prevROC ≈ 0%.
+    quotes.add(createQuote(baseDate.plusDays(19), 70.0, 69.0, 71.0, 68.0))
+    quotes.add(createQuote(baseDate.plusDays(20), 69.0, 68.0, 70.0, 67.0))
+    quotes.add(createQuote(baseDate.plusDays(21), 68.0, 67.0, 69.0, 66.0))
+
+    val blocks = calculator.calculateOrderBlocks(quotes = quotes)
+    val bearish = blocks.filter { it.orderBlockType == OrderBlockType.BEARISH }
+
+    assertEquals(1, bearish.size, "Expected exactly one bearish OB anchored on bar 15")
+    assertEquals(baseDate.plusDays(15), bearish.first().startDate)
+    assertEquals(102.5, bearish.first().high, "OB high must equal origin candle high (bar 15)")
+  }
+
+  /**
+   * Walkback upper bound (LOOKBACK_MAX = 15) is **inclusive**. Origin at exactly
+   * `triggerIndex - 15` must be selected; at `triggerIndex - 16` must NOT be
+   * (even if no other opposite-color candle exists in the window).
+   *
+   * Two parts in one test, fresh fixture each part, so a regression in either
+   * boundary (off-by-one either way) fails loudly.
+   */
+  @Test
+  fun `origin at lookback upper bound (trigger - 15) is selected but trigger - 16 is not`() {
+    // Part 1: bullish origin at bar 16 → trigger at bar 31 (distance 15, at MAX). Must produce OB.
+    run {
+      val baseDate = LocalDate.of(2025, 2, 1)
+      val quotes = mutableListOf<StockQuote>()
+      // Bars 0-15: bearish, so the only bullish candidate in the 4..15 lookback is bar 16 below
+      for (i in 0..15) {
+        quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 99.9, 100.5, 99.5))
+      }
+      // Bar 16: the lone bullish candle — becomes origin because trigger-15 = 31-15 = 16
+      quotes.add(createQuote(baseDate.plusDays(16), 100.0, 102.0, 102.5, 99.5))
+      // Bars 17-30: bearish only
+      for (i in 17..30) {
+        quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 99.9, 100.5, 99.5))
+      }
+      // Bar 31: bearish ROC crossunder. ROC = (70-100)/100*100 = -30%.
+      quotes.add(createQuote(baseDate.plusDays(31), 70.0, 69.0, 71.0, 68.0))
+      quotes.add(createQuote(baseDate.plusDays(32), 69.0, 68.0, 70.0, 67.0))
+
+      val blocks = calculator.calculateOrderBlocks(quotes = quotes).filter { it.orderBlockType == OrderBlockType.BEARISH }
+      assertEquals(1, blocks.size, "Origin at trigger-15 (MAX inclusive) must be selected")
+      assertEquals(baseDate.plusDays(16), blocks.first().startDate)
+    }
+
+    // Part 2: bullish origin at bar 16 → trigger at bar 32 (distance 16, beyond MAX). Must produce NO OB.
+    run {
+      val baseDate = LocalDate.of(2025, 6, 1)
+      val quotes = mutableListOf<StockQuote>()
+      for (i in 0..15) {
+        quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 99.9, 100.5, 99.5))
+      }
+      quotes.add(createQuote(baseDate.plusDays(16), 100.0, 102.0, 102.5, 99.5))
+      // Bars 17-31: bearish only — window 4..15 around bar 32 contains no bullish candle
+      for (i in 17..31) {
+        quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 99.9, 100.5, 99.5))
+      }
+      // Bar 32: bearish crossunder. Walkback spans bars 17..28, all bearish → no origin found.
+      quotes.add(createQuote(baseDate.plusDays(32), 70.0, 69.0, 71.0, 68.0))
+      quotes.add(createQuote(baseDate.plusDays(33), 69.0, 68.0, 70.0, 67.0))
+
+      val blocks = calculator.calculateOrderBlocks(quotes = quotes).filter { it.orderBlockType == OrderBlockType.BEARISH }
+      assertTrue(
+        blocks.isEmpty(),
+        "Origin at trigger-16 is beyond the walkback MAX; no bearish OB should be produced",
+      )
+    }
+  }
+
+  /**
+   * Mirror of `should detect bearish order block on strong downward momentum` but
+   * asserts the bullish branch explicitly — including the exact origin date and
+   * high/low. Without this, bullish-block logic is only indirectly exercised by
+   * sensitivity and spacing tests, which don't pin the origin candle.
+   */
+  @Test
+  fun `should detect bullish order block with origin at last bearish candle in lookback`() {
+    val baseDate = LocalDate.of(2025, 3, 1)
+    val quotes = mutableListOf<StockQuote>()
+
+    // Bars 0-14: gentle bullish candles (no bearish candidates yet)
+    for (i in 0..14) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 100.1, 100.5, 99.5))
+    }
+    // Bar 15: the lone bearish candle — will become the bullish block origin
+    quotes.add(createQuote(baseDate.plusDays(15), 100.0, 99.0, 100.8, 98.5))
+    // Bars 16-18: bullish again, so no other bearish candidates in the 4..15 walkback window
+    for (i in 16..18) {
+      quotes.add(createQuote(baseDate.plusDays(i.toLong()), 100.0, 100.1, 100.5, 99.5))
+    }
+    // Bar 19: bullish crossover. ROC = (140-100)/100*100 = 40%, prevROC ≈ 0%.
+    quotes.add(createQuote(baseDate.plusDays(19), 140.0, 141.0, 142.0, 139.0))
+    quotes.add(createQuote(baseDate.plusDays(20), 141.0, 142.0, 143.0, 140.0))
+    quotes.add(createQuote(baseDate.plusDays(21), 142.0, 143.0, 144.0, 141.0))
+
+    val blocks = calculator.calculateOrderBlocks(quotes = quotes)
+    val bullish = blocks.filter { it.orderBlockType == OrderBlockType.BULLISH }
+
+    assertEquals(1, bullish.size, "Expected exactly one bullish OB anchored on bar 15")
+    val ob = bullish.first()
+    assertEquals(baseDate.plusDays(15), ob.startDate, "Origin must be the last bearish candle in the 4..15 window")
+    assertEquals(baseDate.plusDays(19), ob.triggerDate, "Trigger is the crossing bar")
+    assertEquals(98.5, ob.low, "OB low must equal origin candle low")
+    assertEquals(100.8, ob.high, "OB high must equal origin candle high")
+    assertTrue(
+      ob.rateOfChange >= OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0,
+      "ROC ${ob.rateOfChange} should be >= +${OrderBlockCalculator.DEFAULT_SENSITIVITY / 100.0}",
+    )
+  }
+
   private fun createQuote(
     date: LocalDate,
     open: Double,
