@@ -662,17 +662,6 @@ function onRemoveSymbol(symbol: string) {
   selectedSymbols.value = next
 }
 
-function daysHeld(entryDate: string): number {
-  const parts = entryDate.split('-').map(Number)
-  const year = parts[0] ?? 0
-  const month = parts[1] ?? 1
-  const day = parts[2] ?? 1
-  const entry = new Date(year, month - 1, day)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  return Math.floor((today.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24))
-}
-
 // Active trades table columns
 const tradeColumns: TableColumn<ScannerTrade>[] = [
   {
@@ -721,33 +710,14 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
     cell: ({ row }) => row.original.quantity.toLocaleString()
   },
   {
-    id: 'optionPrice',
-    header: 'Premium',
-    cell: ({ row }) => {
-      const t = row.original
-      if (t.instrumentType !== 'OPTION') return '-'
-      return t.optionPrice ? formatUsd(t.optionPrice) : '-'
-    }
-  },
-  {
-    id: 'optionDetails',
-    header: 'Option',
-    cell: ({ row }) => {
-      const t = row.original
-      if (t.instrumentType !== 'OPTION') return '-'
-      const delta = t.delta ? ` Δ${t.delta.toFixed(2)}` : ''
-      return `${t.optionType} ${formatUsd(t.strikePrice ?? 0, false)} ${t.expirationDate}${delta}`
-    }
-  },
-  {
     id: 'entryDate',
-    header: 'Date',
+    header: 'Entry Date',
     cell: ({ row }) => row.original.entryDate
   },
   {
     id: 'daysHeld',
     header: 'Days',
-    cell: ({ row }) => daysHeld(row.original.entryDate).toString()
+    cell: ({ row }) => row.original.tradingDaysHeld?.toString() ?? '-'
   },
   {
     id: 'strategy',

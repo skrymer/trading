@@ -208,6 +208,178 @@ class ScannerServiceTest {
   }
 
   @Test
+  fun `getTrades enriches each open trade with tradingDaysHeld from its stock quote series`() {
+    // Given: a trade entered at day E and a stock with stored quotes on E through E+4
+    // (entry bar + 4 post-entry bars). countTradingDaysBetween counts quotes in the
+    // half-open interval (entry, today], so exactly 4 post-entry bars should be counted.
+    val entryDate = LocalDate.of(2024, 1, 2)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 150.0).copy(entryDate = entryDate)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+    val stock = Stock(
+      symbol = "AAPL",
+      quotes = (0..4).map { i ->
+        StockQuote(symbol = "AAPL", date = entryDate.plusDays(i.toLong()), closePrice = 150.0)
+      },
+    )
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // When
+    val result = service.getTrades()
+
+    // Then
+    assertEquals(1, result.size)
+    assertEquals(4, result[0].tradingDaysHeld, "should count 4 stored quotes after entry (exclusive start, inclusive end)")
+  }
+
+  @Test
+  fun `getTrades returns null tradingDaysHeld when the stock is missing from the repository`() {
+    // Given: a trade references a symbol with no stored data (unknown or stale). Null is
+    // expected so the frontend can render "-", distinguishing data-missing from a
+    // legitimate 0 trading days elapsed.
+    val trade = createScannerTrade(id = 1, symbol = "GHOST", entryPrice = 10.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(emptyList())
+
+    // When
+    val result = service.getTrades()
+
+    // Then
+    assertEquals(1, result.size)
+    assertEquals(null, result[0].tradingDaysHeld)
+  }
+
+  @Test
+  fun `getTrades counts only stored quotes strictly after entryDate`() {
+    // Given: a trade with a quote series that has a gap right after entry (e.g., sparse
+    // ingestion or a stock that came online after entry). Only the 2 actually-stored
+    // post-entry bars should be counted — not the calendar distance from entry.
+    val entryDate = LocalDate.of(2024, 1, 2)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 150.0).copy(entryDate = entryDate)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+    val stock = Stock(
+      symbol = "AAPL",
+      quotes = listOf(3, 4).map { offset ->
+        StockQuote(symbol = "AAPL", date = entryDate.plusDays(offset.toLong()), closePrice = 150.0)
+      },
+    )
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // When
+    val result = service.getTrades()
+
+    // Then
+    assertEquals(2, result[0].tradingDaysHeld, "only the 2 post-entry stored quotes count")
+  }
+
+  @Test
+  fun `addTrade uses the stored date when the live quote describes the same bar`() {
+    // Given: a trade request whose client-supplied entryDate is one day off (e.g., a
+    // timezone artifact from a browser in a forward timezone), but the live quote and the
+    // latest stored bar agree on the real market date. The live quote's indicators were
+    // built from that stored bar, so using the stored date guarantees the entryQuote
+    // lookup in evaluateTradeExit succeeds.
+    val latestStored = LocalDate.of(2026, 4, 1)
+    val request = addTradeRequest(symbol = "NFLX", entryDate = "2026-04-02")
+    whenever(stockRepository.getLatestQuoteDate("NFLX")).thenReturn(latestStored)
+    whenever(stockProvider.getLatestQuote("NFLX"))
+      .thenReturn(LatestQuote(symbol = "NFLX", price = 93.24, previousClose = 92.58, date = latestStored))
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then: the trade is stored against the real market date, not the client's timezone-
+    // influenced one.
+    assertEquals(latestStored, saved.entryDate, "should anchor to the stored bar, ignoring the client's wrong date")
+  }
+
+  @Test
+  fun `addTrade uses the live quote date when it is ahead of the latest stored bar`() {
+    // Given: the live quote describes today's bar but EOD ingestion hasn't run yet (stored
+    // stops at yesterday). The user's real entry is today, so the recorded entry should be
+    // today even though no stored quote will match until ingestion catches up.
+    val today = LocalDate.of(2026, 4, 2)
+    val yesterday = today.minusDays(1)
+    val request = addTradeRequest(symbol = "AAPL", entryDate = today.toString())
+    whenever(stockRepository.getLatestQuoteDate("AAPL")).thenReturn(yesterday)
+    whenever(stockProvider.getLatestQuote("AAPL"))
+      .thenReturn(LatestQuote(symbol = "AAPL", price = 150.5, previousClose = 149.0, date = today))
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then
+    assertEquals(today, saved.entryDate, "should use live date when ingestion hasn't caught up")
+  }
+
+  @Test
+  fun `addTrade falls back to latest stored when live quote is unavailable`() {
+    // Given: the live-quote provider errored or returned null (outage), but we have
+    // stored history. The latest stored bar is the safer choice than a possibly-wrong
+    // client timezone date.
+    val latestStored = LocalDate.of(2026, 4, 1)
+    val request = addTradeRequest(symbol = "AAPL", entryDate = "2026-04-03")
+    whenever(stockRepository.getLatestQuoteDate("AAPL")).thenReturn(latestStored)
+    whenever(stockProvider.getLatestQuote("AAPL")).thenReturn(null)
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then
+    assertEquals(latestStored, saved.entryDate, "should anchor to latest stored when live unavailable")
+  }
+
+  @Test
+  fun `addTrade uses the live quote date when the symbol has no stored history`() {
+    // Given: a freshly-added symbol with no ingested quotes yet. Live quote is available
+    // and carries today's date.
+    val today = LocalDate.of(2026, 4, 2)
+    val request = addTradeRequest(symbol = "NEW", entryDate = today.toString())
+    whenever(stockRepository.getLatestQuoteDate("NEW")).thenReturn(null)
+    whenever(stockProvider.getLatestQuote("NEW"))
+      .thenReturn(LatestQuote(symbol = "NEW", price = 10.0, date = today))
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then
+    assertEquals(today, saved.entryDate)
+  }
+
+  @Test
+  fun `addTrade falls back to the client date when both live quote and stored history are unavailable`() {
+    // Given: worst-case degradation — provider unavailable AND no stored history. The
+    // client's date is the only signal left. Pins the terminal branch of resolveEntryDate
+    // so a future reshuffle of branch order can't silently change this policy.
+    val clientDate = "2026-04-03"
+    val request = addTradeRequest(symbol = "GHOST", entryDate = clientDate)
+    whenever(stockRepository.getLatestQuoteDate("GHOST")).thenReturn(null)
+    whenever(stockProvider.getLatestQuote("GHOST")).thenReturn(null)
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then
+    assertEquals(LocalDate.parse(clientDate), saved.entryDate)
+  }
+
+  private fun addTradeRequest(symbol: String, entryDate: String) = AddScannerTradeRequest(
+    symbol = symbol,
+    sectorSymbol = "XLK",
+    instrumentType = "STOCK",
+    entryPrice = 150.0,
+    entryDate = entryDate,
+    quantity = 10,
+    entryStrategyName = "Vcp",
+    exitStrategyName = "VcpExitStrategy",
+    notes = null,
+  )
+
+  @Test
   fun `addTrade creates and returns scanner trade`() {
     // Given
     val request = AddScannerTradeRequest(
@@ -741,6 +913,169 @@ class ScannerServiceTest {
     // determineTrend is only invoked when a synthetic quote is constructed; on the early-return
     // path it must not be called.
     verify(technicalIndicatorService, never()).determineTrend(any())
+  }
+
+  @Test
+  fun `checkExits appends the synthetic quote so today counts as a trading day for exit predicates`() {
+    // Exit predicates that depend on trading-days-since-entry call
+    // stock.countTradingDaysBetween(entryDate, latestQuote.date). If the synthetic quote
+    // representing today's live bar isn't treated as a real entry in stock.quotes, the
+    // count stops at the last stored bar (yesterday) — any such predicate will therefore
+    // fire one bar late (only after today's EOD ingestion). Live exit-checking during the
+    // session is the primary use case, so this is unacceptable.
+    //
+    // This test pins the contract: the Stock passed to ExitStrategy.test has the synthetic
+    // quote at its tail, and Stock.countTradingDaysBetween from the stored entry date up
+    // to today reflects that extra bar.
+    val today = LocalDate.now()
+    val entryDate = today.minusDays(20)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0).copy(entryDate = entryDate)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    // Entry bar + 14 post-entry stored bars. Dates don't need to be consecutive trading
+    // days — the test only asserts the count relationship between stored bars and the
+    // appended synthetic.
+    fun bar(date: LocalDate) = StockQuote(symbol = "AAPL", date = date, closePrice = 100.0).apply {
+      atr = 2.0
+      closePriceEMA5 = 100.0
+      closePriceEMA10 = 100.0
+      closePriceEMA20 = 100.0
+      closePriceEMA50 = 100.0
+    }
+    val storedQuotes = (0..14).map { offset -> bar(entryDate.plusDays(offset.toLong())) }
+    val stock = Stock(symbol = "AAPL", quotes = storedQuotes)
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live quote describes a bar later than the last stored — a price move triggers synthesis.
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote(symbol = "AAPL", price = 100.5, previousClose = 100.0, high = 101.0, low = 100.0)),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+
+    val stockCaptor = argumentCaptor<Stock>()
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(stockCaptor.capture(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    service.checkExits()
+
+    val receivedStock = stockCaptor.firstValue
+    val receivedLatest = quoteCaptor.firstValue
+
+    assertEquals(
+      storedQuotes.size + 1,
+      receivedStock.quotes.size,
+      "synthetic must be appended to stock.quotes for exit evaluation",
+    )
+    assertEquals(today, receivedStock.quotes.last().date, "appended bar is today")
+    assertEquals(today, receivedLatest.date, "latestQuote passed to exit predicate is the synthetic")
+
+    // Core contract: 14 stored post-entry bars + 1 synthetic = 15 trading days since entry.
+    // Without the append, this would be 14 and any since-entry day count would be one low.
+    assertEquals(
+      15,
+      receivedStock.countTradingDaysBetween(entryDate, today),
+      "today must be counted so since-entry day counts land on the correct bar",
+    )
+  }
+
+  @Test
+  fun `checkExits stamps the synthetic quote with the live quote's market date, not server wall-clock`() {
+    // Given: a live quote that carries an authoritative market date from the provider.
+    // Older code stamped the synthetic with LocalDate.now() (server wall-clock), which
+    // can diverge from the US market day by +/-1 around midnight or in non-US timezones.
+    // The synthetic must instead anchor to liveQuote.date so downstream since-entry
+    // counts align with the real market calendar regardless of server TZ.
+    val marketDate = LocalDate.of(2026, 4, 23)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = marketDate.minusDays(1),
+      closePrice = 150.0,
+      high = 151.0,
+      low = 149.0,
+    ).apply {
+      closePriceEMA5 = 149.0
+      closePriceEMA10 = 147.0
+      atr = 2.5
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live quote carries a market-clock date different from LocalDate.now().
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote(symbol = "AAPL", price = 155.0, previousClose = 150.0, high = 157.0, low = 153.0, date = marketDate)),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.checkExits()
+
+    // Then: the synthetic quote's date is the provider's market date, NOT LocalDate.now().
+    assertEquals(marketDate, quoteCaptor.firstValue.date, "synthetic must anchor to live quote's date, not server wall-clock")
+  }
+
+  @Test
+  fun `checkExits does not append when synthetic quote date equals the last stored bar`() {
+    // Given: the live quote describes the same bar already stored (price and previousClose
+    // both match). The same-bar guard in createSyntheticQuote returns lastDbQuote as-is,
+    // so syntheticQuote.date == lastDbQuote.date. The strict-isAfter guard in
+    // evaluateTradeExit must therefore NOT append — appending would introduce a duplicate
+    // date and break the strictly-ascending tail invariant.
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val previousDayQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(2),
+      closePrice = 99.0,
+    )
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 100.0,
+    ).apply {
+      atr = 2.0
+      closePriceEMA10 = 100.0
+      closePriceEMA20 = 100.0
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(previousDayQuote, lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live quote matches the last stored bar exactly (same-bar guard fires inside
+    // createSyntheticQuote, returning lastDbQuote).
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote(symbol = "AAPL", price = 100.0, previousClose = 99.0)),
+    )
+
+    val stockCaptor = argumentCaptor<Stock>()
+    whenever(exitStrategy.test(stockCaptor.capture(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.checkExits()
+
+    // Then
+    assertEquals(
+      stock.quotes.size,
+      stockCaptor.firstValue.quotes.size,
+      "no append when synthetic date equals stored date — preserves strictly-ascending tail",
+    )
   }
 
   @Test

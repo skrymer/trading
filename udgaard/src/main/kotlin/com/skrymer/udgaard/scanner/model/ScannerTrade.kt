@@ -33,4 +33,7 @@ data class ScannerTrade(
   val exitDate: LocalDate? = null,
   val realizedPnl: Double? = null,
   val closedAt: LocalDateTime? = null,
+  // Populated by ScannerService.getTrades() for open-trade responses; null on DB reads and
+  // write-path responses where the number of trading days since entry is not relevant.
+  val tradingDaysHeld: Int? = null,
 )

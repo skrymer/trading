@@ -35,7 +35,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: trading
       APP_SECURITY_ENABLED: "false"
       APP_UI_ENABLED: "true"
-      APP_SCHEDULED_INGESTION_ENABLED: "true"
     env_file:
       - path: .env.prod
         required: false
@@ -66,7 +65,6 @@ services:
       MIDGAARD_BASE_URL: http://midgaard:8081
       SPRING_FLYWAY_ENABLED: "true"
       APP_SECURITY_ENABLED: "true"
-      APP_SCHEDULED_REFRESH_ENABLED: "true"
     env_file:
       - path: .env.prod
         required: false

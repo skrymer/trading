@@ -1273,6 +1273,7 @@ export interface ScannerTrade {
   exitDate?: string
   realizedPnl?: number
   closedAt?: string
+  tradingDaysHeld?: number
 }
 
 export interface DrawdownStatsResponse {

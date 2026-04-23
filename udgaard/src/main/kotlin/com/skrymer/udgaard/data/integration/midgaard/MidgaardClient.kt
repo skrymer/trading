@@ -16,7 +16,9 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Client for the Midgaard reference data service.
@@ -110,6 +112,14 @@ class MidgaardClient(
           volume = it.volume,
           high = it.high,
           low = it.low,
+          // The upstream timestamp is Unix seconds from the market's clock; interpret it as
+          // a trading-day date in America/New_York so downstream consumers don't have to
+          // re-translate timezones. 0 means the provider didn't supply one.
+          date = if (it.timestamp > 0) {
+            Instant.ofEpochSecond(it.timestamp).atZone(NY_ZONE).toLocalDate()
+          } else {
+            null
+          },
         )
       }
     } catch (e: Exception) {
@@ -173,5 +183,9 @@ class MidgaardClient(
       logger.warn("Failed to fetch historical exchange rate $from/$to for $date from Midgaard: ${e.message}")
       return null
     }
+  }
+
+  private companion object {
+    private val NY_ZONE: ZoneId = ZoneId.of("America/New_York")
   }
 }

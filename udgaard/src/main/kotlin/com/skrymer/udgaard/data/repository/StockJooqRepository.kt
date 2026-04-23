@@ -375,6 +375,18 @@ class StockJooqRepository(
       ?.atStartOfDay()
 
   /**
+   * Scalar query: the most recent quote date for a single symbol. Avoids materializing
+   * the entire quote history (years of rows) when callers only need the max date — e.g.
+   * ScannerService.resolveEntryDate during trade creation.
+   */
+  fun getLatestQuoteDate(symbol: String): LocalDate? =
+    dsl
+      .select(DSL.max(STOCK_QUOTES.QUOTE_DATE))
+      .from(STOCK_QUOTES)
+      .where(STOCK_QUOTES.STOCK_SYMBOL.eq(symbol))
+      .fetchOne(0, LocalDate::class.java)
+
+  /**
    * Delete multiple stocks by symbols in a single transaction
    * Cascades to quotes, order blocks, and earnings
    */

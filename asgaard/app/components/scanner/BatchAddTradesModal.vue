@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { format } from 'date-fns'
 import type { ScanResult, AddScannerTradeRequest, LatestQuote, OptionContractResponse } from '~/types'
 
 type QuoteStatus = 'loading' | 'loaded' | 'error'
@@ -31,6 +30,11 @@ const toast = useToast()
 const submitting = ref(false)
 const quoteStatuses = ref<Map<string, QuoteStatus>>(new Map())
 const liveQuotes = ref<Map<string, LatestQuote>>(new Map())
+const entryPriceOverrides = ref<Record<string, number | undefined>>({})
+
+function validOverride(value: number | undefined | null): number | undefined {
+  return typeof value === 'number' && isFinite(value) && value > 0 ? value : undefined
+}
 
 const isOptionsMode = computed(() => props.instrumentMode === 'OPTION')
 
@@ -67,6 +71,7 @@ watch(isOpen, async (newValue) => {
 
   liveQuotes.value = new Map()
   quoteStatuses.value = new Map(props.results.map(r => [r.symbol, 'loading' as QuoteStatus]))
+  entryPriceOverrides.value = {}
 
   await Promise.allSettled(
     props.results.map(async (r) => {
@@ -85,14 +90,19 @@ async function onSubmit() {
   submitting.value = true
   let added = 0
   try {
-    const today = format(new Date(), 'yyyy-MM-dd')
     for (const trade of tradesWithPrices.value) {
       const body: AddScannerTradeRequest = {
         symbol: trade.result.symbol,
         sectorSymbol: trade.result.sectorSymbol ?? undefined,
         instrumentType: isOptionsMode.value ? 'OPTION' : 'STOCK',
-        entryPrice: trade.entryPrice,
-        entryDate: trade.isLive ? today : trade.result.date,
+        // Guard against cleared / NaN / zero overrides — `??` only catches undefined/null,
+        // so an empty-then-typed-then-cleared input or a negative value would otherwise
+        // submit an invalid price. Fall back to the live/close value in those cases.
+        entryPrice: validOverride(entryPriceOverrides.value[trade.result.symbol]) ?? trade.entryPrice,
+        // Backend authoritatively resolves entryDate from the live quote + stored data,
+        // so this value is just a last-resort fallback. Sending the scan result's date
+        // (always a real trading day from stored data) avoids the timezone pitfalls of new Date().
+        entryDate: trade.result.date,
         quantity: trade.quantity,
         entryStrategyName: props.entryStrategyName,
         exitStrategyName: props.exitStrategyName
@@ -189,16 +199,27 @@ async function onSubmit() {
                 </td>
                 <td class="py-2 pr-3 text-right">
                   <UIcon v-if="trade.status === 'loading'" name="i-lucide-loader-2" class="size-3.5 animate-spin" />
-                  <template v-else>
-                    ${{ trade.entryPrice.toFixed(2) }}
+                  <div v-else class="flex items-center justify-end gap-1">
+                    <UInput
+                      v-model.number="entryPriceOverrides[trade.result.symbol]"
+                      type="number"
+                      step="0.01"
+                      :min="0.01"
+                      :placeholder="trade.entryPrice.toFixed(2)"
+                      size="xs"
+                      class="w-24"
+                    >
+                      <template #leading>
+                        <span class="text-muted">$</span>
+                      </template>
+                    </UInput>
                     <UBadge
                       :label="trade.isLive ? 'LIVE' : 'CLOSE'"
                       :color="trade.isLive ? 'success' : 'warning'"
                       variant="subtle"
                       size="xs"
-                      class="ml-1"
                     />
-                  </template>
+                  </div>
                 </td>
                 <td class="py-2 pr-3 text-right">
                   <span

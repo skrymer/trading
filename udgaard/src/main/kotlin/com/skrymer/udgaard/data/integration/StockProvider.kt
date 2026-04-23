@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.data.integration
 
 import com.skrymer.udgaard.data.model.StockQuote
+import java.time.LocalDate
 
 data class LatestQuote(
   val symbol: String,
@@ -11,6 +12,10 @@ data class LatestQuote(
   val volume: Long = 0,
   val high: Double = 0.0,
   val low: Double = 0.0,
+  // Trading day the quote belongs to, in America/New_York (US market calendar).
+  // Nullable because legacy call sites and providers that don't carry a timestamp
+  // will omit it — consumers should fall back to stored data when null.
+  val date: LocalDate? = null,
 )
 
 /**

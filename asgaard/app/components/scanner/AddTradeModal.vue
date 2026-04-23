@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { format } from 'date-fns'
 import { z } from 'zod'
 import type { ScanResult, AddScannerTradeRequest, OptionContractResponse, LatestQuote } from '~/types'
 
@@ -30,6 +29,7 @@ const quoteFetching = ref(false)
 const state = reactive({
   instrumentType: 'STOCK' as string,
   quantity: 100,
+  entryPriceOverride: undefined as number | undefined,
   optionType: '' as string,
   strikePrice: undefined as number | undefined,
   expirationDate: '',
@@ -56,6 +56,10 @@ const optionTypeOptions = [
 ]
 
 const entryPrice = computed(() => liveQuote.value?.price ?? props.scanResult?.closePrice ?? 0)
+
+function validOverride(value: number | undefined | null): number | undefined {
+  return typeof value === 'number' && isFinite(value) && value > 0 ? value : undefined
+}
 const priceChange = computed(() => liveQuote.value?.change ?? null)
 const priceChangePercent = computed(() => liveQuote.value?.changePercent ?? null)
 
@@ -76,6 +80,7 @@ watch(isOpen, async (newValue) => {
       state.optionPrice = undefined
     }
     state.quantity = (props.calculatedQuantity && props.calculatedQuantity > 0) ? props.calculatedQuantity : (props.optionContract ? 1 : 100)
+    state.entryPriceOverride = undefined
     state.notes = ''
 
     liveQuote.value = null
@@ -101,8 +106,14 @@ async function onSubmit() {
       symbol: props.scanResult.symbol,
       sectorSymbol: props.scanResult.sectorSymbol ?? undefined,
       instrumentType: state.instrumentType,
-      entryPrice: entryPrice.value,
-      entryDate: liveQuote.value ? format(new Date(), 'yyyy-MM-dd') : props.scanResult.date,
+      // Guard against cleared / NaN / zero overrides — `??` only catches undefined/null,
+      // so an empty-then-typed-then-cleared input or a negative value would otherwise
+      // submit an invalid price. Fall back to the live/close value in those cases.
+      entryPrice: validOverride(state.entryPriceOverride) ?? entryPrice.value,
+      // Backend authoritatively resolves entryDate from the live quote + stored data,
+      // so this value is just a last-resort fallback. Sending the scan result's date
+      // (always a real trading day from stored data) avoids the timezone pitfalls of new Date().
+      entryDate: props.scanResult.date,
       quantity: state.quantity,
       entryStrategyName: props.entryStrategyName,
       exitStrategyName: props.exitStrategyName,
@@ -217,6 +228,20 @@ async function onSubmit() {
 
             <UFormField label="Quantity" name="quantity" required>
               <UInput v-model.number="state.quantity" type="number" :min="1" />
+            </UFormField>
+
+            <UFormField label="Entry Price (optional)" name="entryPriceOverride" help="Leave blank to use the live/fallback price shown above.">
+              <UInput
+                v-model.number="state.entryPriceOverride"
+                type="number"
+                step="0.01"
+                :min="0.01"
+                :placeholder="entryPrice.toFixed(2)"
+              >
+                <template #leading>
+                  <span class="text-muted">$</span>
+                </template>
+              </UInput>
             </UFormField>
 
             <!-- Option fields -->

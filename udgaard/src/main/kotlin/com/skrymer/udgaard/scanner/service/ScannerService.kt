@@ -54,6 +54,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
 private data class EvalResult(
@@ -412,18 +413,31 @@ class ScannerService(
 
     val lastDbQuote = stock.quotes.lastOrNull() ?: return null
     val previousDayQuote = stock.quotes.getOrNull(stock.quotes.size - 2)
-    val entryQuote = stock.quotes.find { it.date == trade.entryDate }
 
     val liveQuote = liveQuotesBySymbol[trade.symbol]
     val usedLiveData = liveQuote != null
-    val latestQuote = if (liveQuote != null) {
+    val syntheticQuote = if (liveQuote != null) {
       createSyntheticQuote(lastDbQuote, liveQuote, stock)
     } else {
       lastDbQuote
     }
 
-    val exitReport = exitStrategy.test(stock, entryQuote, latestQuote, backtestContext)
-    val currentPrice = latestQuote.closePrice
+    // When the synthetic quote represents a later bar than anything stored, append it so
+    // the strategy's date-arithmetic (Stock.countTradingDaysBetween) and entryQuote lookup
+    // both count today. Without this, a user clicking "check exits" mid-session on the
+    // final day of a since-entry window condition would see it NOT fire until today's EOD
+    // ingestion runs — defeating the whole point of live exit checks. Only appends when
+    // the synthetic bar is genuinely newer than the stored tail (preserves the
+    // sorted-ascending invariant on Stock.quotes).
+    val stockForEvaluation = if (syntheticQuote.date.isAfter(lastDbQuote.date)) {
+      stock.copy(quotes = stock.quotes + syntheticQuote)
+    } else {
+      stock
+    }
+    val entryQuote = stockForEvaluation.quotes.find { it.date == trade.entryDate }
+
+    val exitReport = exitStrategy.test(stockForEvaluation, entryQuote, syntheticQuote, backtestContext)
+    val currentPrice = syntheticQuote.closePrice
     val priorClose = if (usedLiveData) lastDbQuote.closePrice else previousDayQuote?.closePrice ?: lastDbQuote.closePrice
     val pnlPercent = if (trade.entryPrice != 0.0) {
       ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
@@ -466,8 +480,14 @@ class ScannerService(
       return lastDbQuote
     }
 
+    // Anchor the synthetic bar's date to the provider's market-clock timestamp when
+    // available; fall back to server wall-clock only if the provider didn't supply one.
+    // Using LocalDate.now() unconditionally would pick the server's calendar day, which
+    // can diverge from the US market day by +/-1 around midnight or in non-US timezones —
+    // re-introducing the same timezone bug the LatestQuote.date field was added to solve.
+    val syntheticDate = liveQuote.date ?: LocalDate.now()
     val price = liveQuote.price
-    if (price <= 0.0) return lastDbQuote.copy(date = LocalDate.now(), volume = liveQuote.volume)
+    if (price <= 0.0) return lastDbQuote.copy(date = syntheticDate, volume = liveQuote.volume)
 
     fun incrementalEma(prevEma: Double, period: Int): Double {
       if (prevEma == 0.0) return 0.0
@@ -491,7 +511,7 @@ class ScannerService(
     )
 
     val syntheticQuote = lastDbQuote.copy(
-      date = LocalDate.now(),
+      date = syntheticDate,
       closePrice = price,
       high = high,
       low = low,
@@ -561,7 +581,7 @@ class ScannerService(
       sectorSymbol = request.sectorSymbol,
       instrumentType = InstrumentType.valueOf(request.instrumentType),
       entryPrice = request.entryPrice,
-      entryDate = LocalDate.parse(request.entryDate),
+      entryDate = resolveEntryDate(request.symbol, LocalDate.parse(request.entryDate)),
       quantity = request.quantity,
       optionType = request.optionType?.let { OptionType.valueOf(it) },
       strikePrice = request.strikePrice,
@@ -574,8 +594,48 @@ class ScannerService(
       notes = request.notes,
     )
     val saved = scannerTradeRepository.save(trade)
-    logger.info("Added scanner trade ${saved.id} for ${saved.symbol}")
+    logger.info(
+      "Added scanner trade ${saved.id} for ${saved.symbol} with entryDate=${saved.entryDate} " +
+        "(client sent ${request.entryDate})",
+    )
     return saved
+  }
+
+  /**
+   * Authoritative entry-date resolution. Browser-supplied dates are unreliable — a user in
+   * a timezone ahead of the US market (e.g. Australia) can stamp a date one calendar day
+   * after the real US trading day. Instead anchor to:
+   *   1. The live quote's date (from the provider's market timestamp — always the real
+   *      trading day), preferring the stored date when both refer to the same bar so the
+   *      entryQuote lookup in evaluateTradeExit is guaranteed against stored data.
+   *   2. The latest stored bar for the symbol.
+   *   3. The client-supplied date as a last-resort fallback (no live quote, no stored data).
+   */
+  private fun resolveEntryDate(symbol: String, clientDate: LocalDate): LocalDate {
+    val liveDate = runCatching { stockProvider.getLatestQuote(symbol)?.date }
+      .onFailure { logger.warn("Live quote fetch failed while resolving entryDate for $symbol: ${it.message}") }
+      .getOrNull()
+    // Scalar query rather than loading the full quote history — addTrade is a write path
+    // and loading years of rows just to compute the max date was a latency hit.
+    val latestStored = stockRepository.getLatestQuoteDate(symbol)
+
+    // Observability: if the market-authoritative signals disagree with the client's date
+    // by more than a few days, something is likely stale (provider cache, ingestion stuck)
+    // or the client clock is badly wrong. Log so a future anomaly is investigable.
+    val chosen = when {
+      liveDate != null && latestStored != null && liveDate == latestStored -> latestStored
+      liveDate != null && latestStored != null && liveDate > latestStored -> liveDate
+      latestStored != null -> latestStored
+      liveDate != null -> liveDate
+      else -> clientDate
+    }
+    if (chosen != clientDate && abs(ChronoUnit.DAYS.between(chosen, clientDate)) > STALE_DATE_WARN_DAYS) {
+      logger.warn(
+        "entryDate divergence for $symbol: resolved=$chosen (live=$liveDate, stored=$latestStored) " +
+          "vs client=$clientDate — possible provider/ingestion staleness or client clock drift",
+      )
+    }
+    return chosen
   }
 
   @Transactional
@@ -602,7 +662,31 @@ class ScannerService(
     return saved
   }
 
-  fun getTrades(): List<ScannerTrade> = scannerTradeRepository.findOpen()
+  @Suppress("ForbiddenComment") // Tracked follow-up: inject a Clock — see TODO below.
+  fun getTrades(): List<ScannerTrade> {
+    val trades = scannerTradeRepository.findOpen()
+    if (trades.isEmpty()) return trades
+
+    // Count trading days via the stored quote series. All US-listed symbols share the same
+    // trading calendar, so Stock.countTradingDaysBetween on the per-symbol quote index gives
+    // an accurate business-day count including market holidays — something client-side
+    // calendar-day math can't produce.
+    // TODO: inject a Clock across ScannerService (also used by checkExits) so wall-clock
+    // reads become deterministic — removes a class of midnight-boundary test flakiness.
+    val today = LocalDate.now()
+    val earliestEntry = trades.minOf { it.entryDate }
+    val stocksBySymbol = stockRepository
+      .findBySymbols(trades.map { it.symbol }.distinct(), quotesAfter = earliestEntry)
+      .associateBy { it.symbol }
+
+    return trades.map { trade ->
+      // Preserve null when the stock has no stored quotes — the frontend renders "-",
+      // which is more informative than collapsing "data missing" and "0 days elapsed"
+      // into the same display value.
+      val days = stocksBySymbol[trade.symbol]?.countTradingDaysBetween(trade.entryDate, today)
+      trade.copy(tradingDaysHeld = days)
+    }
+  }
 
   fun getClosedTrades(): List<ScannerTrade> = scannerTradeRepository.findClosed()
 
@@ -799,6 +883,11 @@ class ScannerService(
 
     // Stored prices round to 4 decimals; anything tighter than this is rounding noise, not a real price move.
     private const val QUOTE_MATCH_TOLERANCE = 1e-4
+
+    // Log a warning when the market-authoritative entry date differs from the client's
+    // by more than this many days — suggests provider staleness, ingestion lag, or a
+    // client with a badly wrong clock.
+    private const val STALE_DATE_WARN_DAYS = 7L
 
     private fun calculatePnlDollars(trade: ScannerTrade, priceChange: Double, includeRolledCredits: Boolean = false): Double =
       if (trade.instrumentType == InstrumentType.OPTION) {
