@@ -39,6 +39,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
@@ -673,6 +674,219 @@ class ScannerServiceTest {
     assertEquals(157.0, syntheticQuote.donchianUpperBand)
 
     assertEquals("Uptrend", syntheticQuote.trend)
+    verify(technicalIndicatorService).determineTrend(any())
+  }
+
+  @Test
+  fun `checkExits uses stored quote unchanged when live bar matches the last stored bar`() {
+    // When the live quote describes the same bar already stored — price matches the last
+    // stored close AND previousClose matches the prior stored close — the service must
+    // return the stored quote unchanged instead of advancing indicators by one step.
+    // Without this guard, running checkExits after EOD (live quote reports today's close,
+    // DB already has it) produces phantom forward-stepped EMAs that can fire false exits.
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 95.9)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val previousDayQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(2),
+      closePrice = 92.58,
+    )
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 93.24,
+      high = 93.85,
+      low = 92.77,
+    ).apply {
+      closePriceEMA10 = 98.14
+      closePriceEMA20 = 97.92
+      closePriceEMA50 = 95.33
+      atr = 3.29
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(previousDayQuote, lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live quote: price and previousClose both match the stored bars — same underlying bar.
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf(
+        "AAPL" to LatestQuote(
+          symbol = "AAPL",
+          price = 93.24,
+          previousClose = 92.58,
+          volume = 0,
+          high = 93.85,
+          low = 92.77,
+        )
+      ),
+    )
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.checkExits()
+
+    // Then: strategy sees the stored quote — stored date, stored EMAs, no forward projection.
+    val receivedQuote = quoteCaptor.firstValue
+    assertEquals(lastQuote.date, receivedQuote.date, "should not be replaced with LocalDate.now()")
+    assertEquals(98.14, receivedQuote.closePriceEMA10, 0.001, "EMA10 must equal stored value, not advanced")
+    assertEquals(97.92, receivedQuote.closePriceEMA20, 0.001, "EMA20 must equal stored value, not advanced")
+    assertEquals(95.33, receivedQuote.closePriceEMA50, 0.001)
+    assertEquals(3.29, receivedQuote.atr, 0.001, "ATR must not be Wilder-advanced on a phantom bar")
+    // determineTrend is only invoked when a synthetic quote is constructed; on the early-return
+    // path it must not be called.
+    verify(technicalIndicatorService, never()).determineTrend(any())
+  }
+
+  @Test
+  fun `checkExits projects synthetic quote when live price matches but previousClose differs`() {
+    // Both conditions must hold for the same-bar guard to fire. If only the live price
+    // happens to equal yesterday's stored close but previousClose is different, the live
+    // bar is genuinely new data — the guard must NOT fire.
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val previousDayQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(2),
+      closePrice = 148.0,
+    )
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 150.0,
+      high = 151.0,
+      low = 149.0,
+    ).apply {
+      closePriceEMA5 = 149.0
+      closePriceEMA10 = 147.0
+      atr = 3.0
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(previousDayQuote, lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // price matches lastQuote (150.0) but previousClose (140.0) differs from the
+    // prior stored close (148.0) — bar is genuinely new.
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf(
+        "AAPL" to LatestQuote(
+          symbol = "AAPL",
+          price = 150.0,
+          previousClose = 140.0,
+          volume = 1000,
+          high = 151.0,
+          low = 149.0,
+        ),
+      ),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    service.checkExits()
+
+    // Strategy receives a synthetic quote (date advanced, trend re-evaluated).
+    val receivedQuote = quoteCaptor.firstValue
+    assertEquals(LocalDate.now(), receivedQuote.date, "should advance to today — guard must not fire")
+    verify(technicalIndicatorService).determineTrend(any())
+  }
+
+  @Test
+  fun `checkExits uses stored quote unchanged when stock has only one stored bar and live price matches`() {
+    // previousDbQuote == null (first bar ever in the DB). The guard accepts this — if the
+    // live quote's price matches the single stored close, there's no new bar to project.
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val onlyQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 93.24,
+    ).apply {
+      closePriceEMA10 = 98.14
+      closePriceEMA20 = 97.92
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(onlyQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf("AAPL" to LatestQuote(symbol = "AAPL", price = 93.24, previousClose = 50.0)),
+    )
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    service.checkExits()
+
+    assertEquals(onlyQuote.date, quoteCaptor.firstValue.date, "should use stored date")
+    assertEquals(98.14, quoteCaptor.firstValue.closePriceEMA10, 0.001)
+    verify(technicalIndicatorService, never()).determineTrend(any())
+  }
+
+  @Test
+  fun `checkExits projects synthetic quote when price diff exactly equals the tolerance`() {
+    // Guard uses strict `<` on both price and previousClose diffs. A diff exactly at
+    // QUOTE_MATCH_TOLERANCE (1e-4) must therefore fall through to projection. Pins the
+    // boundary so an accidental `<=` change would trip this test.
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val previousDayQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(2),
+      closePrice = 148.0,
+    )
+    val lastQuote = StockQuote(
+      symbol = "AAPL",
+      date = LocalDate.now().minusDays(1),
+      closePrice = 150.0,
+      high = 151.0,
+      low = 149.0,
+    ).apply {
+      closePriceEMA10 = 147.0
+      atr = 3.0
+    }
+    val stock = Stock(symbol = "AAPL", quotes = listOf(previousDayQuote, lastQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+
+    // Live price is exactly 1e-4 above the stored close — diff equals the tolerance.
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf(
+        "AAPL" to LatestQuote(
+          symbol = "AAPL",
+          price = 150.0 + 1e-4,
+          previousClose = 148.0,
+          high = 151.0,
+          low = 149.0,
+        ),
+      ),
+    )
+    whenever(technicalIndicatorService.determineTrend(any())).thenReturn("Uptrend")
+
+    val quoteCaptor = argumentCaptor<StockQuote>()
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), quoteCaptor.capture(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    service.checkExits()
+
+    assertEquals(LocalDate.now(), quoteCaptor.firstValue.date, "diff at tolerance must fall through to synthesis")
     verify(technicalIndicatorService).determineTrend(any())
   }
 

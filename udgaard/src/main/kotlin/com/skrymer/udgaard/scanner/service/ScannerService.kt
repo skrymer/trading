@@ -452,6 +452,20 @@ class ScannerService(
     liveQuote: LatestQuote,
     stock: Stock,
   ): StockQuote {
+    // When the live quote describes the same bar already stored — price matches the last
+    // stored close AND previousClose matches the prior stored close — there's no new data
+    // to project. Applying the EMA recurrence anyway advances indicators by a phantom
+    // forward step and can produce false exit signals (e.g., a marginal EMA10/EMA20 cross
+    // that doesn't exist at the actual bar). Common whenever checkExits runs after EOD:
+    // the DB has today's close and the live-quote provider reports the same close.
+    val previousDbQuote = stock.getPreviousQuote(lastDbQuote)
+    val priceMatchesStoredClose = abs(liveQuote.price - lastDbQuote.closePrice) < QUOTE_MATCH_TOLERANCE
+    val previousCloseMatches = previousDbQuote == null ||
+      abs(liveQuote.previousClose - previousDbQuote.closePrice) < QUOTE_MATCH_TOLERANCE
+    if (priceMatchesStoredClose && previousCloseMatches) {
+      return lastDbQuote
+    }
+
     val price = liveQuote.price
     if (price <= 0.0) return lastDbQuote.copy(date = LocalDate.now(), volume = liveQuote.volume)
 
@@ -782,6 +796,9 @@ class ScannerService(
     private const val MAX_VALIDATE_SYMBOLS = 30
     private const val ATR_PERIOD = 14
     private const val DONCHIAN_PERIOD = 5
+
+    // Stored prices round to 4 decimals; anything tighter than this is rounding noise, not a real price move.
+    private const val QUOTE_MATCH_TOLERANCE = 1e-4
 
     private fun calculatePnlDollars(trade: ScannerTrade, priceChange: Double, includeRolledCredits: Boolean = false): Double =
       if (trade.instrumentType == InstrumentType.OPTION) {
