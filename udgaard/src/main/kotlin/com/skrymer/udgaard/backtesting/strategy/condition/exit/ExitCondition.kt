@@ -6,6 +6,22 @@ import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
 /**
+ * How close an exit condition is to triggering on the current bar.
+ *
+ * @property conditionType stable identifier (e.g. "stopLoss", "emaCross", "stagnation")
+ * @property proximity 0.0 = far from triggering, 1.0 = would trigger now. Clamped into [0, 1].
+ *   Invariant: whenever the corresponding condition's `shouldExit` returns true, proximity
+ *   must be >= 1.0.
+ * @property detail human-readable single-line explanation (e.g.
+ *   "ema10=98.14, ema20=97.92, gap 0.21 (0.06 ATR)").
+ */
+data class ExitProximity(
+  val conditionType: String,
+  val proximity: Double,
+  val detail: String,
+)
+
+/**
  * Represents an exit condition that can be evaluated.
  *
  * All implementations must be annotated with @Component to be auto-discovered by Spring.
@@ -84,4 +100,20 @@ interface ExitCondition {
     quote: StockQuote,
     context: BacktestContext,
   ): ConditionEvaluationResult = evaluateWithDetails(stock, entryQuote, quote)
+
+  /**
+   * How close this condition is to triggering on the given bar.
+   *
+   * Returning null means the proximity is not meaningful or not computable for this input
+   * (e.g. `entryQuote` is null, the condition is not a proximity-aware one, or required
+   * fields like entry ATR are missing/zero). Consumers should treat null as "no signal"
+   * rather than 0.0 — 0.0 is a real value meaning "as far from triggering as possible".
+   *
+   * Default is null so existing non-proximity-aware conditions stay silent.
+   */
+  fun proximity(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): ExitProximity? = null
 }

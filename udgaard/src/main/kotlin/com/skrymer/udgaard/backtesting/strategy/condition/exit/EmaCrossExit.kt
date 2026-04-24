@@ -119,6 +119,41 @@ class EmaCrossExit(
       category = "Trend",
     )
 
+  override fun proximity(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): ExitProximity? {
+    if (entryQuote == null || entryQuote.atr <= 0.0) return null
+
+    val fast = getEmaValue(quote, fastEma)
+    val slow = getEmaValue(quote, slowEma)
+
+    // Suppress over-warning after the cross has already happened. `shouldExit` only
+    // returns true on the single crossover bar; on subsequent bars the exit has passed
+    // (either acted on or ignored) and reporting proximity=1.0 every day is noise, not
+    // a signal. Detect "already crossed" via the previous bar: if it too had fast<slow,
+    // we're in a sustained inversion, not approaching a trigger.
+    val previousQuote = stock.getPreviousQuote(quote)
+    val alreadyCrossed = previousQuote != null &&
+      fast < slow &&
+      getEmaValue(previousQuote, fastEma) < getEmaValue(previousQuote, slowEma)
+    if (alreadyCrossed) return null
+
+    val gap = fast - slow
+    val prox = (1.0 - gap / entryQuote.atr).coerceIn(0.0, 1.0)
+    return ExitProximity(
+      conditionType = "emaCross",
+      proximity = prox,
+      detail = "ema$fastEma=%.2f, ema$slowEma=%.2f, gap %.2f (%.2f ATR)".format(
+        fast,
+        slow,
+        gap,
+        gap / entryQuote.atr,
+      ),
+    )
+  }
+
   private fun getEmaValue(
     quote: StockQuote,
     period: Int,

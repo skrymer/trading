@@ -178,7 +178,7 @@ trading/
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request/response DTOs (incl. StrategyClosedStats, ClosedTradeStatsResponse)
 │   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
+│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields), ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   │   ├── repository/           # ScannerTradeJooqRepository
 │   │   │   └── service/              # ScannerService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)

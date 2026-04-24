@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.scanner.model
 
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import java.time.LocalDate
 
 /**
@@ -73,6 +74,12 @@ data class ExitCheckResult(
   val unrealizedPnlDollars: Double,
   val dailyPnlDollars: Double,
   val usedLiveData: Boolean = false,
+  // Highest proximity across exit conditions that report one, or null when the strategy's
+  // conditions don't expose proximity. UI uses this to surface a "nearing exit" warning.
+  val maxProximity: Double? = null,
+  // All exit-condition proximities the strategy reported (non-null only), sorted with
+  // highest first for straightforward consumption in the UI tooltip.
+  val nearExits: List<ExitProximity> = emptyList(),
 )
 
 /**

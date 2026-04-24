@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy
 
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -33,4 +34,10 @@ class PlanAlphaExitStrategy : ExitStrategy {
   ): String? = compositeStrategy.reason(stock, entryQuote, quote)
 
   override fun description() = "Plan Alpha exit strategy"
+
+  override fun exitProximities(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): List<ExitProximity> = compositeStrategy.exitProximities(stock, entryQuote, quote)
 }

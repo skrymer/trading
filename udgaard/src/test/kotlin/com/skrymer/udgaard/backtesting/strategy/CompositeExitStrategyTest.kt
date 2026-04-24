@@ -1,6 +1,9 @@
 package com.skrymer.udgaard.backtesting.strategy
+import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
 import com.skrymer.udgaard.data.model.Stock
@@ -262,4 +265,93 @@ class CompositeExitStrategyTest {
       "Strategy should return false when no conditions provided",
     )
   }
+
+  // ===== exitProximities aggregation =====
+
+  @Test
+  fun `exitProximities collects non-null values from each condition in declaration order`() {
+    // Given: three proximity-aware fake conditions, each reporting a distinct value.
+    val first = fakeConditionWithProximity(ExitProximity("first", 0.2, "first detail"))
+    val second = fakeConditionWithProximity(ExitProximity("second", 0.7, "second detail"))
+    val third = fakeConditionWithProximity(ExitProximity("third", 0.9, "third detail"))
+    val strategy = CompositeExitStrategy(
+      exitConditions = listOf(first, second, third),
+      operator = LogicalOperator.OR,
+    )
+    val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
+
+    // When
+    val proximities = strategy.exitProximities(stock, null, quote)
+
+    // Then
+    assertEquals(listOf("first", "second", "third"), proximities.map { it.conditionType })
+    assertEquals(listOf(0.2, 0.7, 0.9), proximities.map { it.proximity })
+  }
+
+  @Test
+  fun `exitProximities returns empty list when every condition returns null`() {
+    // Given: all conditions use the default proximity() == null.
+    val strategy = CompositeExitStrategy(
+      exitConditions = listOf(fakeConditionWithProximity(null), fakeConditionWithProximity(null)),
+      operator = LogicalOperator.OR,
+    )
+    val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
+
+    // When
+    val proximities = strategy.exitProximities(stock, null, quote)
+
+    // Then
+    assertTrue(proximities.isEmpty(), "no proximity data expected when every condition opts out")
+  }
+
+  @Test
+  fun `exitProximities returns empty list when the operator is NOT to avoid inverted-semantics warnings`() {
+    // Given: a NOT-composite wrapping a proximity-aware condition. Under NOT, high
+    // inner proximity means "far from the composite triggering" — the opposite of
+    // what a "nearing exit" warning should represent. Stay silent rather than mislead.
+    val strategy = CompositeExitStrategy(
+      exitConditions = listOf(fakeConditionWithProximity(ExitProximity("inner", 0.95, "inner detail"))),
+      operator = LogicalOperator.NOT,
+    )
+    val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
+
+    // When
+    val proximities = strategy.exitProximities(stock, null, quote)
+
+    // Then
+    assertTrue(proximities.isEmpty(), "NOT-composites must not surface inner proximity")
+  }
+
+  @Test
+  fun `exitProximities with mixed overriding and non-overriding conditions yields only the overrides`() {
+    // Given: proximity-aware first and third conditions, opt-out second.
+    val first = fakeConditionWithProximity(ExitProximity("first", 0.3, "first detail"))
+    val second = fakeConditionWithProximity(null)
+    val third = fakeConditionWithProximity(ExitProximity("third", 0.8, "third detail"))
+    val strategy = CompositeExitStrategy(
+      exitConditions = listOf(first, second, third),
+      operator = LogicalOperator.OR,
+    )
+    val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
+
+    // When
+    val proximities = strategy.exitProximities(stock, null, quote)
+
+    // Then
+    assertEquals(listOf("first", "third"), proximities.map { it.conditionType })
+  }
+
+  private fun fakeConditionWithProximity(result: ExitProximity?): ExitCondition =
+    object : ExitCondition {
+      override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean = false
+
+      override fun exitReason(): String = "fake"
+
+      override fun description(): String = "fake"
+
+      override fun getMetadata(): ConditionMetadata =
+        ConditionMetadata(type = "fake", displayName = "fake", description = "fake", parameters = emptyList(), category = "Test")
+
+      override fun proximity(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): ExitProximity? = result
+    }
 }

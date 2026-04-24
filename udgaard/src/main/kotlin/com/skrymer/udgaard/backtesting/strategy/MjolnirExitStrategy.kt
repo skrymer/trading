@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.strategy
 
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -46,6 +47,12 @@ class MjolnirExitStrategy : ExitStrategy {
     } else {
       quote.closePrice
     }
+
+  override fun exitProximities(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): List<ExitProximity> = compositeStrategy.exitProximities(stock, entryQuote, quote)
 
   /**
    * Get the underlying composite strategy for metadata extraction.

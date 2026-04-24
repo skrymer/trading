@@ -1211,6 +1211,12 @@ export interface ConditionFailureSummary {
   totalStocksEvaluated: number
 }
 
+export interface ExitProximity {
+  conditionType: string
+  proximity: number
+  detail: string
+}
+
 export interface ExitCheckResult {
   tradeId: number
   symbol: string
@@ -1222,6 +1228,8 @@ export interface ExitCheckResult {
   unrealizedPnlDollars: number
   dailyPnlDollars: number
   usedLiveData?: boolean
+  maxProximity?: number | null
+  nearExits?: ExitProximity[]
 }
 
 export interface ExitCheckResponse {

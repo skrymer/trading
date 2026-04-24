@@ -152,7 +152,7 @@ udgaard/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/
 │   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt)
-│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData), ExitCheckResponse, EntryValidationResult, EntryValidationResponse
+│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   ├── repository/
 │   │   │   └── ScannerTradeJooqRepository.kt
 │   │   └── service/

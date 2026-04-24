@@ -741,6 +741,36 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
         ])
       }
 
+      // Warn when any exit condition is nearing its trigger. Backend returns nearExits
+      // sorted by proximity desc, so nearExits[0] drives the chip; the full list goes
+      // into the tooltip so the user can see every near-trigger condition at once.
+      const top = result.nearExits?.[0]
+      const maxProx = result.maxProximity ?? 0
+      if (top && maxProx >= 0.75) {
+        const isUrgent = maxProx >= 0.9
+        const chip = h(
+          UBadge,
+          {
+            color: 'warning',
+            variant: isUrgent ? 'solid' : 'subtle',
+            size: 'sm',
+            class: 'gap-1'
+          },
+          () => [
+            h(UIcon, { name: 'i-lucide-alert-triangle', class: 'size-3.5 shrink-0' }),
+            `${top.conditionType} ${Math.round(maxProx * 100)}%`
+          ]
+        )
+        const tooltipText = result.nearExits!
+          .map(p => `${p.conditionType} ${Math.round(p.proximity * 100)}%: ${p.detail}`)
+          .join('\n')
+        return h(
+          resolveComponent('UTooltip'),
+          { text: tooltipText, ui: { content: 'whitespace-pre-line' } },
+          () => chip
+        )
+      }
+
       const pnl = result.unrealizedPnlPercent
       const hasSignificantPnl = Math.abs(pnl) >= 0.05
       const pnlColor = pnl > 0 ? 'success' : pnl < -0.05 ? 'error' : 'neutral'

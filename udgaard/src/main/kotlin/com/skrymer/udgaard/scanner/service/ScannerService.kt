@@ -447,6 +447,16 @@ class ScannerService(
     val pnlDollars = calculatePnlDollars(trade, currentPrice - trade.entryPrice, includeRolledCredits = true)
     val dailyPnlDollars = calculatePnlDollars(trade, currentPrice - priorClose)
 
+    // Non-short-circuited proximity evaluation — every proximity-aware condition reports,
+    // even if an earlier condition already triggered `exitStrategy.test()`. Drop zero-
+    // proximity entries so the UI tooltip isn't padded with "condition 0%: …" lines, and
+    // sort by proximity desc so nearExits[0] is the top-of-tooltip headline.
+    val proximities = exitStrategy
+      .exitProximities(stockForEvaluation, entryQuote, syntheticQuote)
+      .filter { it.proximity > 0.0 }
+      .sortedByDescending { it.proximity }
+    val maxProximity = proximities.firstOrNull()?.proximity
+
     return ExitCheckResult(
       tradeId = trade.id ?: 0,
       symbol = trade.symbol,
@@ -458,6 +468,8 @@ class ScannerService(
       unrealizedPnlDollars = pnlDollars,
       dailyPnlDollars = dailyPnlDollars,
       usedLiveData = usedLiveData,
+      maxProximity = maxProximity,
+      nearExits = proximities,
     )
   }
 

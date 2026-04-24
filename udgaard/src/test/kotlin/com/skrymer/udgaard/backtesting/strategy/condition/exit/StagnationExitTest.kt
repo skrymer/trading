@@ -4,6 +4,8 @@ import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -213,5 +215,131 @@ class StagnationExitTest {
     val result = condition.evaluateWithDetails(stock, entryQuote, stock.quotes[5])
     assertFalse(result.passed)
     assertTrue(result.message?.contains("Window not reached") == true)
+  }
+
+  // ===== proximity =====
+
+  @Test
+  fun `proximity is 1_0 on the trigger day with zero gain`() {
+    // Given: flat price through the entire 15-day window. On day 15 stagnation fires.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+    )
+
+    // When: evaluating on the day exactly at the window boundary.
+    val proximity = condition.proximity(stock, entryQuote, stock.quotes[15])
+
+    // Then: invariant — whenever shouldExit returns true, proximity must be >= 1.0.
+    assertNotNull(proximity)
+    assertEquals(1.0, proximity!!.proximity, 1e-9)
+    assertEquals("stagnation", proximity.conditionType)
+  }
+
+  @Test
+  fun `proximity is about 0_93 on day 14 of a 15-day window with zero gain`() {
+    // Given: one day shy of the window, still no gain. Bar factor 14/15, gain factor 1.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+    )
+
+    // When
+    val proximity = condition.proximity(stock, entryQuote, stock.quotes[14])
+
+    // Then
+    assertNotNull(proximity)
+    assertEquals(14.0 / 15.0, proximity!!.proximity, 1e-9)
+  }
+
+  @Test
+  fun `proximity is 0_0 on the trigger day when gain already exceeds threshold`() {
+    // Given: on day 15, but price is up 5% — well above the 3% threshold. Gain factor 0.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+      priceGenerator = { day -> if (day == 15) 105.0 else 100.0 },
+    )
+
+    // When
+    val proximity = condition.proximity(stock, entryQuote, stock.quotes[15])
+
+    // Then: bar factor is 1.0, but gain-shortfall is 0 — product is 0.
+    assertNotNull(proximity)
+    assertEquals(0.0, proximity!!.proximity, 1e-9)
+  }
+
+  @Test
+  fun `proximity is 0_93 on day 14 when gain is below threshold regardless of magnitude`() {
+    // Given: day 14, gain +1.5% (below the 3% threshold). The gain side is a binary
+    // gate — any below-threshold gain produces full "would fire tomorrow" proximity.
+    // This matches the actual stagnation trigger semantics (discrete below/above, not
+    // a gradient) and surfaces every near-imminent stagnation exit to the user.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+      priceGenerator = { day -> if (day == 14) 101.5 else 100.0 },
+    )
+
+    // When
+    val proximity = condition.proximity(stock, entryQuote, stock.quotes[14])
+
+    // Then
+    assertNotNull(proximity)
+    assertEquals(14.0 / 15.0, proximity!!.proximity, 1e-9)
+  }
+
+  @Test
+  fun `proximity is 0_0 on day 0 of the window`() {
+    // Given: the entry bar itself — barsSinceEntry is 0, so the window factor is 0.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+    )
+
+    // When
+    val proximity = condition.proximity(stock, entryQuote, stock.quotes[0])
+
+    // Then
+    assertNotNull(proximity)
+    assertEquals(0.0, proximity!!.proximity, 1e-9)
+  }
+
+  @Test
+  fun `proximity returns null when entryQuote is null`() {
+    // Given: no entry reference — gain and days-since-entry can't be computed.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, _) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+    )
+
+    // When / Then
+    assertNull(condition.proximity(stock, null, stock.quotes[5]))
+  }
+
+  @Test
+  fun `proximity returns null when windowDays is zero`() {
+    // Given: invalid config — window factor would divide by zero.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 0)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 20,
+      priceAtEntry = 100.0,
+    )
+
+    // When / Then
+    assertNull(condition.proximity(stock, entryQuote, stock.quotes[5]))
   }
 }

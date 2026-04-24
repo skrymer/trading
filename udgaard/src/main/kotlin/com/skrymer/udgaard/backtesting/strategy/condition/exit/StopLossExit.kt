@@ -32,6 +32,29 @@ class StopLossExit(
 
   override fun description(): String = "Stop loss ($atrMultiplier ATR)"
 
+  override fun proximity(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): ExitProximity? {
+    if (entryQuote == null || entryQuote.atr <= 0.0) return null
+
+    val room = atrMultiplier * entryQuote.atr
+    val drop = entryQuote.closePrice - quote.closePrice
+    val prox = (drop / room).coerceIn(0.0, 1.0)
+    val stopLevel = entryQuote.closePrice - room
+    return ExitProximity(
+      conditionType = "stopLoss",
+      proximity = prox,
+      detail = "close=%.2f, stop=%.2f (%.1f ATR below entry of %.2f)".format(
+        quote.closePrice,
+        stopLevel,
+        atrMultiplier,
+        entryQuote.closePrice,
+      ),
+    )
+  }
+
   override fun getMetadata() =
     ConditionMetadata(
       type = "stopLoss",

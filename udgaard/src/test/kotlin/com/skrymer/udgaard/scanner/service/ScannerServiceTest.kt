@@ -9,6 +9,7 @@ import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategyReport
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.data.integration.LatestQuote
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.model.Stock
@@ -31,6 +32,7 @@ import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
 import com.skrymer.udgaard.service.SettingsService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -205,6 +207,67 @@ class ScannerServiceTest {
     assertEquals(0, response.exitsTriggered)
     assertFalse(response.results[0].exitTriggered)
     assertEquals(10.0, response.results[0].unrealizedPnlPercent)
+  }
+
+  @Test
+  fun `checkExits populates maxProximity and nearExits from the exit strategy's proximity aggregator`() {
+    // Given: the exit strategy reports two proximity values — one near-trigger and one mid-range.
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
+    val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 100.0, atr = 3.0)
+    val stock = Stock(symbol = "AAPL", quotes = listOf(entryQuote, latestQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+    whenever(exitStrategy.exitProximities(any<Stock>(), anyOrNull(), any<StockQuote>()))
+      .thenReturn(
+        listOf(
+          ExitProximity("stagnation", 0.40, "day 6 of 15, gain 1.00%"),
+          ExitProximity("emaCross", 0.85, "ema10=99.50, ema20=100.00"),
+        ),
+      )
+
+    // When
+    val response = service.checkExits()
+
+    // Then: maxProximity is the top value, nearExits is sorted desc so the UI can read index 0.
+    val result = response.results[0]
+    assertEquals(0.85, result.maxProximity)
+    assertEquals(listOf("emaCross", "stagnation"), result.nearExits.map { it.conditionType })
+    assertEquals(0.85, result.nearExits[0].proximity)
+  }
+
+  @Test
+  fun `checkExits returns null maxProximity and empty nearExits when the strategy reports no proximities`() {
+    // Given: strategy omits proximity (default empty-list behavior for proximity-unaware strategies).
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
+    val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 100.0, atr = 3.0)
+    val stock = Stock(symbol = "AAPL", quotes = listOf(entryQuote, latestQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+    whenever(exitStrategy.exitProximities(any<Stock>(), anyOrNull(), any<StockQuote>()))
+      .thenReturn(emptyList())
+
+    // When
+    val response = service.checkExits()
+
+    // Then: maxProximity is null, nearExits is empty, other fields unaffected.
+    val result = response.results[0]
+    assertNull(result.maxProximity)
+    assertTrue(result.nearExits.isEmpty())
+    assertFalse(result.exitTriggered)
   }
 
   @Test

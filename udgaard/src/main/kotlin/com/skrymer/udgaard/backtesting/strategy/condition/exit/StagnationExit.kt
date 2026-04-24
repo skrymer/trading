@@ -44,6 +44,35 @@ class StagnationExit(
 
   override fun description(): String = "Stagnation ($thresholdPercent% / ${windowDays}d)"
 
+  override fun proximity(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): ExitProximity? {
+    if (entryQuote == null || windowDays <= 0) return null
+
+    val tradingDaysSinceEntry = stock.countTradingDaysBetween(entryQuote.date, quote.date)
+    val gainPercent = ((quote.closePrice - entryQuote.closePrice) / entryQuote.closePrice) * 100.0
+    val barFactor = (tradingDaysSinceEntry.toDouble() / windowDays).coerceIn(0.0, 1.0)
+    // Stagnation fires on a discrete threshold — the gain is either below the cutoff
+    // (trigger) or above it (no trigger). Treat the gain-side as a binary gate so a trade
+    // below threshold on the penultimate bar surfaces as "imminent" regardless of how
+    // close the gain sits to the cutoff. A graduated factor here would silently mute
+    // warnings for trades that will definitely fire tomorrow.
+    val belowThreshold = if (gainPercent < thresholdPercent) 1.0 else 0.0
+    val prox = (barFactor * belowThreshold).coerceIn(0.0, 1.0)
+    return ExitProximity(
+      conditionType = "stagnation",
+      proximity = prox,
+      detail = "day %d of %d, gain %.2f%% vs %.1f%% threshold".format(
+        tradingDaysSinceEntry,
+        windowDays,
+        gainPercent,
+        thresholdPercent,
+      ),
+    )
+  }
+
   override fun evaluateWithDetails(
     stock: Stock,
     entryQuote: StockQuote?,

@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.strategy
 
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -82,4 +83,21 @@ interface ExitStrategy {
     entryQuote: StockQuote?,
     quote: StockQuote,
   ) = quote.closePrice
+
+  /**
+   * Proximity to triggering for every condition in the strategy that reports one.
+   *
+   * Unlike `test()`/`match()` which short-circuit on the first triggering condition,
+   * this MUST evaluate every condition and return non-null results in declaration order.
+   * Scanner UI uses this to warn users when a trade is close to any exit, not just the
+   * one that would fire first.
+   *
+   * Default returns empty — strategies opt in by overriding. `CompositeExitStrategy`
+   * overrides to delegate to its composed conditions.
+   */
+  fun exitProximities(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+  ): List<ExitProximity> = emptyList()
 }
