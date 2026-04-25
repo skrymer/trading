@@ -42,23 +42,32 @@ class IngestionServiceProviderToggleTest {
     }
 
     @Test
-    fun `eodhd toggle routes initial ingest to EODHD beans and acquires the eodhd rate-limit permit`() {
-        // Given: a service explicitly configured for `eodhd`
+    fun `eodhd toggle routes OHLCV to EODHD, computes indicators locally, and keeps fundamentals on AV`() {
+        // Given: a service explicitly configured for `eodhd`. Per the access we have today,
+        // OHLCV is the only thing that switches; ATR/ADX must be recomputed locally
+        // (EODHD's /api/technical/ mishandles split events and is gated by tier on $29
+        // EOD-only plans), and fundamentals stay on AlphaVantage because the same EODHD
+        // tier doesn't include /api/fundamentals/.
         val fixture = fixture(ingestProviderName = "eodhd")
 
         // When
         runBlocking { fixture.service.initialIngest("AAPL") }
 
-        // Then: EODHD providers were called and the rate limiter was asked for the eodhd permit
+        // Then: OHLCV from EODHD, fundamentals from AV, and EODHD's indicator API never touched
         verifyBlocking(fixture.eodhdOhlcv) { getDailyBars(eq("AAPL"), any(), any()) }
-        verifyBlocking(fixture.eodhdIndicators) { getATR(eq("AAPL"), any()) }
-        verifyBlocking(fixture.eodhdIndicators) { getADX(eq("AAPL"), any()) }
-        verifyBlocking(fixture.eodhdEarnings) { getEarnings(eq("AAPL")) }
-        verifyBlocking(fixture.eodhdCompanyInfo) { getCompanyInfo(eq("AAPL")) }
-        verifyBlocking(fixture.alphaVantageOhlcv, never()) { getDailyBars(any(), any(), any()) }
+        verifyBlocking(fixture.alphaVantageEarnings) { getEarnings(eq("AAPL")) }
+        verifyBlocking(fixture.alphaVantageCompanyInfo) { getCompanyInfo(eq("AAPL")) }
+        verifyBlocking(fixture.eodhdIndicators, never()) { getATR(any(), any()) }
+        verifyBlocking(fixture.eodhdIndicators, never()) { getADX(any(), any()) }
         verifyBlocking(fixture.alphaVantageIndicators, never()) { getATR(any(), any()) }
+        verifyBlocking(fixture.alphaVantageIndicators, never()) { getADX(any(), any()) }
+        verifyBlocking(fixture.alphaVantageOhlcv, never()) { getDailyBars(any(), any(), any()) }
+        verifyBlocking(fixture.eodhdEarnings, never()) { getEarnings(any()) }
+        verifyBlocking(fixture.eodhdCompanyInfo, never()) { getCompanyInfo(any()) }
+
+        // OHLCV permit acquired against eodhd; fundamentals against alphavantage
         verifyBlocking(fixture.rateLimiterService, atLeastOnce()) { acquirePermit(eq("eodhd")) }
-        verifyBlocking(fixture.rateLimiterService, never()) { acquirePermit(eq("alphavantage")) }
+        verifyBlocking(fixture.rateLimiterService, atLeastOnce()) { acquirePermit(eq("alphavantage")) }
     }
 
     @Test

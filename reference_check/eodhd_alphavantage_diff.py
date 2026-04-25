@@ -31,6 +31,12 @@ DEFAULT_SYMBOLS = [
 
 PRICE_TOLERANCE = 1e-3
 INDICATOR_TOLERANCE_PCT = 1.0
+# EODHD computes Wilder-smoothed indicators from the requested `from` date
+# forward, so the first ~3×period bars haven't fully converged. AlphaVantage
+# always has years of history seeding the same calculation. Pull EODHD with a
+# generous warmup buffer and skip the first WARMUP_TRADING_DAYS from the
+# comparison so we are diffing converged values, not warmup transients.
+INDICATOR_WARMUP_DAYS = 90
 
 
 def fetch_eodhd_eod(symbol: str, api_key: str, start: date, end: date) -> dict[str, float]:
@@ -48,19 +54,25 @@ def fetch_eodhd_eod(symbol: str, api_key: str, start: date, end: date) -> dict[s
 
 
 def fetch_eodhd_indicator(symbol: str, api_key: str, function: str, start: date, end: date) -> dict[str, float]:
-    """Fetch a single indicator series (atr|adx) from EODHD `/technical`."""
+    """Fetch a single indicator series (atr|adx) from EODHD `/technical`.
+
+    Pulls from `start - INDICATOR_WARMUP_DAYS` so Wilder smoothing has time
+    to converge before the comparison window begins.
+    """
     url = f"https://eodhd.com/api/technical/{symbol}.US"
+    fetch_start = start - timedelta(days=INDICATOR_WARMUP_DAYS)
     params = {
         "api_token": api_key,
         "fmt": "json",
         "function": function,
         "period": 14,
-        "from": start.isoformat(),
+        "from": fetch_start.isoformat(),
         "to": end.isoformat(),
     }
     resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
-    return {row["date"]: float(row[function]) for row in resp.json() if row.get(function) is not None}
+    rows = {row["date"]: float(row[function]) for row in resp.json() if row.get(function) is not None}
+    return {d: v for d, v in rows.items() if date.fromisoformat(d) >= start}
 
 
 def fetch_av_ohlcv(symbol: str, api_key: str) -> dict[str, float]:
