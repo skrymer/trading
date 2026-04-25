@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -30,32 +31,78 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 @Service
+@Suppress("LongParameterList")
 class IngestionService(
     @param:Qualifier("alphaVantageOhlcv") private val alphaVantageOhlcv: OhlcvProvider,
     @param:Qualifier("massiveOhlcv") private val massiveOhlcv: OhlcvProvider,
-    private val indicatorProvider: IndicatorProvider,
-    private val earningsProvider: EarningsProvider,
-    private val companyInfoProvider: CompanyInfoProvider,
+    @param:Qualifier("eodhdOhlcv") private val eodhdOhlcv: OhlcvProvider,
+    @param:Qualifier("alphaVantageIndicators") private val alphaVantageIndicators: IndicatorProvider,
+    @param:Qualifier("eodhdIndicators") private val eodhdIndicators: IndicatorProvider,
+    @param:Qualifier("alphaVantageEarnings") private val alphaVantageEarnings: EarningsProvider,
+    @param:Qualifier("eodhdEarnings") private val eodhdEarnings: EarningsProvider,
+    @param:Qualifier("alphaVantageCompanyInfo") private val alphaVantageCompanyInfo: CompanyInfoProvider,
+    @param:Qualifier("eodhdCompanyInfo") private val eodhdCompanyInfo: CompanyInfoProvider,
     private val rateLimiterService: RateLimiterService,
     private val indicatorCalculator: IndicatorCalculator,
     private val quoteRepository: QuoteRepository,
     private val earningsRepository: EarningsRepository,
     private val symbolRepository: SymbolRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
+    @param:Value("\${app.ingest.provider:alphavantage}") private val ingestProviderName: String,
 ) {
+    /**
+     * Selected ingestion source — wraps the provider quad plus the rate-limit
+     * key used by `RateLimiterService.acquirePermit`. Picked once at construction
+     * based on `app.ingest.provider`; default is `alphavantage` so existing
+     * deployments are unaffected until they explicitly switch.
+     */
+    private data class IngestSource(
+        val name: String,
+        val ohlcv: OhlcvProvider,
+        val indicators: IndicatorProvider,
+        val earnings: EarningsProvider,
+        val companyInfo: CompanyInfoProvider,
+        val indicatorSource: IndicatorSource,
+    )
+
+    private val source: IngestSource by lazy {
+        when (ingestProviderName.lowercase()) {
+            "eodhd" ->
+                IngestSource(
+                    name = "eodhd",
+                    ohlcv = eodhdOhlcv,
+                    indicators = eodhdIndicators,
+                    earnings = eodhdEarnings,
+                    companyInfo = eodhdCompanyInfo,
+                    indicatorSource = IndicatorSource.EODHD,
+                )
+            else ->
+                IngestSource(
+                    name = "alphavantage",
+                    ohlcv = alphaVantageOhlcv,
+                    indicators = alphaVantageIndicators,
+                    earnings = alphaVantageEarnings,
+                    companyInfo = alphaVantageCompanyInfo,
+                    indicatorSource = IndicatorSource.ALPHAVANTAGE,
+                )
+        }
+    }
+
     @Volatile
     var bulkProgress: BulkProgress? = null
 
     /**
-     * Initial ingest — uses AlphaVantage for OHLCV + ATR + ADX, computes EMAs + Donchian locally.
+     * Initial ingest — fetches OHLCV + ATR + ADX from the configured ingest source
+     * (AlphaVantage by default, EODHD when `app.ingest.provider=eodhd`) and computes
+     * EMAs + Donchian locally.
      */
     suspend fun initialIngest(symbol: String): IngestionResult =
         try {
-            logger.info("Starting initial ingest for $symbol")
+            logger.info("Starting initial ingest for $symbol via ${source.name}")
             val bars = fetchInitialBars(symbol)
             if (bars == null) {
                 updateStatus(symbol, 0, null, IngestionState.FAILED)
-                IngestionResult(symbol, false, message = "No OHLCV data from AlphaVantage")
+                IngestionResult(symbol, false, message = "No OHLCV data from ${source.name}")
             } else {
                 val quotes = buildInitialQuotes(symbol, bars)
                 quoteRepository.upsertQuotes(quotes)
@@ -133,10 +180,10 @@ class IngestionService(
     }
 
     private suspend fun fetchInitialBars(symbol: String): List<RawBar>? {
-        rateLimiterService.acquirePermit("alphavantage")
-        val bars = alphaVantageOhlcv.getDailyBars(symbol, "full", MIN_DATE)
+        rateLimiterService.acquirePermit(source.name)
+        val bars = source.ohlcv.getDailyBars(symbol, "full", MIN_DATE)
         if (!bars.isNullOrEmpty()) {
-            logger.info("Fetched ${bars.size} OHLCV bars for $symbol from AlphaVantage")
+            logger.info("Fetched ${bars.size} OHLCV bars for $symbol from ${source.name}")
         }
         return bars?.ifEmpty { null }
     }
@@ -145,10 +192,10 @@ class IngestionService(
         symbol: String,
         bars: List<RawBar>,
     ): List<Quote> {
-        rateLimiterService.acquirePermit("alphavantage")
-        val atrMap = indicatorProvider.getATR(symbol, MIN_DATE) ?: emptyMap()
-        rateLimiterService.acquirePermit("alphavantage")
-        val adxMap = indicatorProvider.getADX(symbol, MIN_DATE) ?: emptyMap()
+        rateLimiterService.acquirePermit(source.name)
+        val atrMap = source.indicators.getATR(symbol, MIN_DATE) ?: emptyMap()
+        rateLimiterService.acquirePermit(source.name)
+        val adxMap = source.indicators.getADX(symbol, MIN_DATE) ?: emptyMap()
         val emas = indicatorCalculator.calculateAllEMAs(bars)
         val donchian = indicatorCalculator.calculateDonchianUpper(bars)
         return bars.mapIndexed { index, bar ->
@@ -159,20 +206,20 @@ class IngestionService(
                 emas = emas,
                 index = index,
                 donchianUpper5 = donchian.getOrNull(index),
-                indicatorSource = if (atrMap.containsKey(bar.date)) IndicatorSource.ALPHAVANTAGE else IndicatorSource.CALCULATED,
+                indicatorSource = if (atrMap.containsKey(bar.date)) source.indicatorSource else IndicatorSource.CALCULATED,
             )
         }
     }
 
     private suspend fun fetchAndSaveSupplementaryData(symbol: String) {
-        rateLimiterService.acquirePermit("alphavantage")
-        val earnings = earningsProvider.getEarnings(symbol)
+        rateLimiterService.acquirePermit(source.name)
+        val earnings = source.earnings.getEarnings(symbol)
         if (!earnings.isNullOrEmpty()) {
             earningsRepository.upsertEarnings(earnings)
             logger.info("Saved ${earnings.size} earnings for $symbol")
         }
-        rateLimiterService.acquirePermit("alphavantage")
-        val companyInfo = companyInfoProvider.getCompanyInfo(symbol)
+        rateLimiterService.acquirePermit(source.name)
+        val companyInfo = source.companyInfo.getCompanyInfo(symbol)
         if (companyInfo?.sector != null) {
             val existingSymbol = symbolRepository.findBySymbol(symbol)
             if (existingSymbol != null) {

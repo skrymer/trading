@@ -36,6 +36,7 @@ data class Quote(
 
 enum class IndicatorSource {
     ALPHAVANTAGE,
+    EODHD,
     CALCULATED,
 }
 
