@@ -7,6 +7,7 @@ import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.OptionsProvider
 import com.skrymer.midgaard.integration.QuoteProvider
 import com.skrymer.midgaard.integration.alphavantage.AlphaVantageProvider
+import com.skrymer.midgaard.integration.eodhd.EodhdProvider
 import com.skrymer.midgaard.integration.finnhub.FinnhubProvider
 import com.skrymer.midgaard.integration.massive.MassiveProvider
 import com.skrymer.midgaard.service.RateLimiterService
@@ -14,12 +15,15 @@ import jakarta.annotation.PostConstruct
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Primary
 
 @Configuration
+@Suppress("LongParameterList")
 class ProviderConfiguration(
     private val alphaVantageProvider: AlphaVantageProvider,
     private val massiveProvider: MassiveProvider,
     private val finnhubProvider: FinnhubProvider,
+    private val eodhdProvider: EodhdProvider,
     private val rateLimiterService: RateLimiterService,
     @param:Value("\${provider.alphavantage.requestsPerSecond:5}") private val avReqPerSec: Int,
     @param:Value("\${provider.alphavantage.requestsPerMinute:75}") private val avReqPerMin: Int,
@@ -30,12 +34,16 @@ class ProviderConfiguration(
     @param:Value("\${provider.finnhub.requestsPerSecond:30}") private val finnhubReqPerSec: Int,
     @param:Value("\${provider.finnhub.requestsPerMinute:60}") private val finnhubReqPerMin: Int,
     @param:Value("\${provider.finnhub.requestsPerDay:50000}") private val finnhubReqPerDay: Int,
+    @param:Value("\${provider.eodhd.requestsPerSecond:10}") private val eodhdReqPerSec: Int,
+    @param:Value("\${provider.eodhd.requestsPerMinute:1000}") private val eodhdReqPerMin: Int,
+    @param:Value("\${provider.eodhd.requestsPerDay:100000}") private val eodhdReqPerDay: Int,
 ) {
     @PostConstruct
     fun init() {
         rateLimiterService.registerProvider("alphavantage", avReqPerSec, avReqPerMin, avReqPerDay)
         rateLimiterService.registerProvider("massive", massiveReqPerSec, massiveReqPerMin, massiveReqPerDay)
         rateLimiterService.registerProvider("finnhub", finnhubReqPerSec, finnhubReqPerMin, finnhubReqPerDay)
+        rateLimiterService.registerProvider("eodhd", eodhdReqPerSec, eodhdReqPerMin, eodhdReqPerDay)
     }
 
     @Bean("alphaVantageOhlcv")
@@ -44,13 +52,37 @@ class ProviderConfiguration(
     @Bean("massiveOhlcv")
     fun massiveOhlcv(): OhlcvProvider = massiveProvider
 
+    @Bean("eodhdOhlcv")
+    fun eodhdOhlcv(): OhlcvProvider = eodhdProvider
+
+    @Bean("alphaVantageIndicators")
+    fun alphaVantageIndicators(): IndicatorProvider = alphaVantageProvider
+
+    @Bean("eodhdIndicators")
+    fun eodhdIndicators(): IndicatorProvider = eodhdProvider
+
+    @Bean("alphaVantageEarnings")
+    fun alphaVantageEarnings(): EarningsProvider = alphaVantageProvider
+
+    @Bean("eodhdEarnings")
+    fun eodhdEarnings(): EarningsProvider = eodhdProvider
+
+    @Bean("alphaVantageCompanyInfo")
+    fun alphaVantageCompanyInfo(): CompanyInfoProvider = alphaVantageProvider
+
+    @Bean("eodhdCompanyInfo")
+    fun eodhdCompanyInfo(): CompanyInfoProvider = eodhdProvider
+
     @Bean
+    @Primary
     fun indicatorProvider(): IndicatorProvider = alphaVantageProvider
 
     @Bean
+    @Primary
     fun earningsProvider(): EarningsProvider = alphaVantageProvider
 
     @Bean
+    @Primary
     fun companyInfoProvider(): CompanyInfoProvider = alphaVantageProvider
 
     @Bean

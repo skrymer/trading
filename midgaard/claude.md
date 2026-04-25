@@ -50,8 +50,11 @@ midgaard/
 │   │   ├── finnhub/
 │   │   │   ├── FinnhubProvider.kt         # Implements QuoteProvider (live quotes)
 │   │   │   └── dto/
-│   │   └── massive/
-│   │       ├── MassiveProvider.kt         # Polygon API - OhlcvProvider (daily updates)
+│   │   ├── massive/
+│   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider (daily updates)
+│   │   │   └── dto/
+│   │   └── eodhd/
+│   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider (wired but not yet selected by IngestionService)
 │   │       └── dto/
 │   ├── model/
 │   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, enums
@@ -116,12 +119,14 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 ### Provider Interfaces (`integration/Providers.kt`)
 
-- `OhlcvProvider` - Daily bars (AlphaVantage for initial, Massive for updates)
-- `IndicatorProvider` - ATR, ADX
-- `EarningsProvider` - Quarterly earnings
-- `CompanyInfoProvider` - Company overview + sector
+- `OhlcvProvider` - Daily bars (AlphaVantage for initial, Massive for updates; EODHD wired but not yet selected by IngestionService)
+- `IndicatorProvider` - ATR, ADX (AlphaVantage; EODHD wired)
+- `EarningsProvider` - Quarterly earnings (AlphaVantage; EODHD wired)
+- `CompanyInfoProvider` - Company overview + sector (AlphaVantage; EODHD wired)
 - `QuoteProvider` - Live/latest quotes (Finnhub)
 - `OptionsProvider` - Historical options pricing
+
+Implementations: AlphaVantage, Massive (Polygon), Finnhub, EODHD. The EODHD provider is configurable via the admin UI (`ApiKeyService.getEodhdApiKey()`, `eodhd.api.*` properties) but IngestionService does not yet route to it — that toggle lands in a follow-up commit.
 
 ### Indicator Computation (`service/IndicatorCalculator.kt`)
 

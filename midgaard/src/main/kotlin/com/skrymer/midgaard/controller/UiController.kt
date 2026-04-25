@@ -32,6 +32,7 @@ class UiController(
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
+    @param:Value("\${eodhd.api.baseUrl:https://eodhd.com/api}") private val eodhdBaseUrl: String,
 ) {
     @GetMapping("/")
     fun dashboard(model: Model): String {
@@ -164,6 +165,12 @@ class UiController(
                     maskedApiKey = maskedKeys["finnhub"] ?: "Not configured",
                     stats = stats["finnhub"],
                 ),
+                ProviderViewModel(
+                    name = "EODHD",
+                    baseUrl = eodhdBaseUrl,
+                    maskedApiKey = maskedKeys["eodhd"] ?: "Not configured",
+                    stats = stats["eodhd"],
+                ),
             )
 
         model.addAttribute("providers", providers)
@@ -175,14 +182,17 @@ class UiController(
         @RequestParam alphaVantageApiKey: String?,
         @RequestParam massiveApiKey: String?,
         @RequestParam finnhubApiKey: String?,
+        @RequestParam eodhdApiKey: String?,
         redirectAttributes: RedirectAttributes,
     ): String {
         val avKey = alphaVantageApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
         val massiveKey = massiveApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
         val fhKey = finnhubApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+        val eodhdKey = eodhdApiKey?.takeIf { it.isNotBlank() && !it.startsWith("•") }
 
-        if (avKey != null || massiveKey != null || fhKey != null) {
-            apiKeyService.saveApiKeys(avKey, massiveKey, fhKey)
+        val anyProvided = listOf(avKey, massiveKey, fhKey, eodhdKey).any { it != null }
+        if (anyProvided) {
+            apiKeyService.saveApiKeys(avKey, massiveKey, fhKey, eodhdKey)
             redirectAttributes.addFlashAttribute("success", "API keys updated successfully")
         }
 
