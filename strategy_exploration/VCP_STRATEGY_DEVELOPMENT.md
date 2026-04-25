@@ -1981,6 +1981,27 @@ Tested 2026-04-12. Extended walk-forward from 2000-2025 with IS-derived sector r
 - **Sector leadership rotates** — early windows favour XLE/XLU/XLC, mid-period shifts to XLV/XLP, recent to XLY/XLK, confirming the value of periodic sector ranking recalibration
 - **Bear market pattern:** Strategy loses money only during severe financial crises (2008) or pre-crisis topping patterns (2007). Rate-driven bears (2022) produce near-zero but positive edge
 
+**Capital-aware re-run (2026-04-25).** Re-ran the long-range WF under the current production engine and config (AtrRisk 1.25% / 2.0 ATR stop, $10K starting, leverage 1.0, 15 max positions, seed 42) over the same 2000–2026 range to confirm the 2026-04-12 unlimited-mode finding holds when real capital constraints bind. 3yr IS / 1yr OOS / annual step (23 windows). IS length reduced from 5yr to 3yr to match the quant recommendation for regime-reactivity in a long-range WF.
+
+| | 2026-04-12 (unlimited) | 2026-04-25 (capital-aware) |
+|---|---|---|
+| Range | 2000–2025 | 2000–2026 |
+| Windows | 20 (5yr IS) | 23 (3yr IS) |
+| OOS trades | 2,017 | 1,253 |
+| WFE | 1.13 | **1.084** |
+| Aggregate OOS edge | +3.96% | **+3.70%** |
+| Negative OOS | 2/20 (2007 −0.11%, 2008 −2.30%) | 2/23 (2007 −2.32%, 2008 −1.75%) |
+
+**Reproduces the key findings:** same two bear years (2007, 2008) come up negative, WFE >1 in both, aggregate edge within 0.3pp. Per-OOS-year trade count is ~40% lower under capital-aware mode because the portfolio is leverage-saturated on most high-signal days (~90% of candidates skipped). The per-trade edge is comparable, so aggregate edge tracks.
+
+**Interesting divergences at the GFC:**
+- **2008 OOS is ~0.5pp *less bad* under capital-aware** (−1.75% vs −2.30%). The capital constraint appears to skip some of the riskiest early-2008 signals before they become losers.
+- **2007 OOS is ~2.2pp *worse* under capital-aware** (−2.32% vs −0.11%). The worse outcome when fewer trades are taken indicates the rank-agnostic "take whatever fits" behaviour documented in the capital-aware selection-bias study (`VCP_TRADING_PLAN.md` Methodology Notes) — in pre-crisis topping, the skipped candidates included some of the year's better trades.
+
+**New soft data point — 2025 OOS +1.53%.** Outside GFC, this is now the second-weakest year in the extended series after 2022 (+1.06% in the unlimited run, +1.94% capital-aware). Consistent with the IS-edge decay monitoring flag in `VCP_TRADING_PLAN.md` — below-threshold OOS in 2025 is not yet a kill signal but is the continuation of the declining-IS-edge vintage trend.
+
+Raw output: `~/trading_wf_progress/wf_26yr_2000_2026.json`.
+
 ### Additional Gaps
 
 #### Regime-Conditional Performance
@@ -2189,3 +2210,30 @@ VCP entry / VcpExitStrategy exit, STOCK, 2016-01-01 to 2025-12-31, 15 max positi
 ### Conclusion
 
 **Retain `AtrRiskSizer(riskPercentage: 1.25, nAtr: 2.0)` as the production sizer.** Pareto-dominant across 4-seed means on CAGR, MDD, Calmar, alpha, and DD-duration. The sizer sweep validates the baseline rather than displacing it. The pluggable sizer abstraction remains valuable for future strategies with different return profiles (mean-reversion, short-vol), but for this VCP breakout edge, ATR-anchored sizing is optimal.
+
+### Market-Regime Exit Sweep (2026-04-23 → 2026-04-24)
+
+Tested whether adding a market-regime-based exit (cut all positions when the broad market rolls over) improves VCP risk-adjusted returns. Three strictness levels evaluated; none adopted.
+
+**Config (all runs identical except the appended exit condition):**
+- Base exit: VCP's three defaults (`stopLoss 2.5 ATR`, `emaCross 10/20`, `stagnation 3%/15d`)
+- `$10K` start, `AtrRisk(1.25%, 2.0)`, `leverageRatio 1.0`, `maxPositions 15`, `entryDelayDays 1`, `randomSeed 42`, 2016-01-01 to 2025-12-31
+
+| Variant | Predicate | Edge | PF | CAGR | MaxDD | Calmar | Final |
+|---|---|---:|---:|---:|---:|---:|---:|
+| **Baseline** (VCP as-is) | — | **5.93%** | **4.25** | **52.6%** | **17.3%** | **3.04** | **$685K** |
+| + `marketBreadthDeteriorating` | triple EMA inversion on breadth (`ema5 < ema10 < ema20`) | 3.06% | 3.00 | 46.5%† | 14.0%† | 3.32† | $458K† |
+| + `marketAndSectorDowntrend` | market AND sector breadth both below ema10 | 1.92% | 2.14 | 40.9% | **9.6%** | **4.25** | $308K |
+| — *market alone below ema10 (loosest)* | — | — | — | — | — | — | *not tested — see inference below* |
+
+† = 2026-04-23 run against slightly different stored data than the 2026-04-24 run (dev data shifted between days); directionally valid, absolute numbers not strictly comparable.
+
+**Mechanism (consistent across both tested variants):** the new exit fires **70–80% of all exits**, replacing what would otherwise be EMA-cross exits. EMA-cross exits average +8.96% per trade in baseline; the market-regime exit averages +3.62% (medium variant) — **~5 pp of winner cut per trade**. Trade count rises 30–50% (capital cycles faster) but per-trade profitability collapses. Avg win size drops from 16.2% → 7.4% in the medium variant.
+
+**Risk-adjusted nuance worth noting:** the `marketAndSectorDowntrend` variant is the only exit modification tested that *improves* Calmar (3.04 → 4.25, +40%) while nearly halving MaxDD. Users optimizing for absolute drawdown protection rather than CAGR might find this trade acceptable. For the production VCP thesis (maximize alpha on a size-appropriate drawdown budget), the 12 pp CAGR loss outweighs the drawdown improvement.
+
+**Inference about the untested loosest variant ("market alone below ema10"):** not tested. Would fire strictly *more often* than `marketAndSectorDowntrend` (drops the sector conjunction), so the edge collapse would amplify while the Calmar gain likely caps or reverses. Three strictness levels sampled, monotonic worsening on CAGR — no reason to invest in the fourth.
+
+**Conclusion — do not add any market-regime-based exit to VCP's production exit strategy.** The individual stock's own EMA cross is already the correct granularity for trend-following — broad-market gates cut winners too aggressively. If this is ever revisited, `marketAndSectorDowntrend` is the strictness point to start from (the only Calmar-positive variant), not the looser alternatives.
+
+Raw results: `~/trading_wf_progress/breadth_exit_ab/` (2026-04-23) and `~/trading_wf_progress/market_sector_exit_ab/` (2026-04-24).

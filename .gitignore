@@ -60,3 +60,10 @@ logs/
 # IDE
 .idea/
 .vscode/
+
+# Claude scheduled tasks runtime lock
+.claude/scheduled_tasks.lock
+
+# Python bytecode
+__pycache__/
+*.pyc
