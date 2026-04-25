@@ -29,6 +29,17 @@ Exits 0 when every indicator's max-abs-diff is ≤ 1e-4 (Midgaard stores at 4-de
 
 To verify the harness actually discriminates, temporarily change `midgaard/.../IndicatorCalculator.kt` — e.g. `multiplier = 2.0 / (period + 1)` → `2.0 / period` — re-run Midgaard ingest, then run the harness. It must fail.
 
+### `eodhd_alphavantage_diff.py`
+
+Independent cross-check of EODHD vs AlphaVantage on a sample of mega-cap symbols. Diffs adjusted_close (1e-3 tolerance), ATR (1% tolerance), and ADX (1% tolerance). Run before promoting EODHD to default ingest source.
+
+```bash
+python3 eodhd_alphavantage_diff.py --eodhd-key <key> --av-key <key>
+python3 eodhd_alphavantage_diff.py --eodhd-key <key> --av-key <key> --symbols AAPL TSLA --days 50
+```
+
+Exits 0 when every series is within tolerance, non-zero otherwise. ATR/ADX disagreement above 1% usually points to a Wilder vs RMA smoothing difference — investigate before flipping `app.ingest.provider=eodhd`.
+
 ### `vcp_condition_verifier.py`
 
 Per-trade re-verifier for VCP entry conditions. For every trade the engine took, independently re-evaluates 7 of the 8 VCP entry conditions on the signal day using raw Midgaard quote data and Udgaard breadth endpoints.

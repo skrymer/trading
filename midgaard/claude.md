@@ -119,14 +119,16 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 ### Provider Interfaces (`integration/Providers.kt`)
 
-- `OhlcvProvider` - Daily bars (AlphaVantage for initial, Massive for updates; EODHD wired but not yet selected by IngestionService)
-- `IndicatorProvider` - ATR, ADX (AlphaVantage; EODHD wired)
-- `EarningsProvider` - Quarterly earnings (AlphaVantage; EODHD wired)
-- `CompanyInfoProvider` - Company overview + sector (AlphaVantage; EODHD wired)
+- `OhlcvProvider` - Daily bars (initial: AlphaVantage or EODHD via the `app.ingest.provider` toggle; updates: Massive)
+- `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle)
+- `EarningsProvider` - Quarterly earnings (AlphaVantage or EODHD via the toggle)
+- `CompanyInfoProvider` - Company overview + sector (AlphaVantage or EODHD via the toggle)
 - `QuoteProvider` - Live/latest quotes (Finnhub)
-- `OptionsProvider` - Historical options pricing
+- `OptionsProvider` - Historical options pricing (AlphaVantage)
 
-Implementations: AlphaVantage, Massive (Polygon), Finnhub, EODHD. The EODHD provider is configurable via the admin UI (`ApiKeyService.getEodhdApiKey()`, `eodhd.api.*` properties) but IngestionService does not yet route to it — that toggle lands in a follow-up commit.
+**Selecting the ingestion source.** Set `app.ingest.provider=eodhd` in `application.properties` (or the matching env var) to route initial ingest through `EodhdProvider`. Default is `alphavantage`; unknown values fall back to AlphaVantage. The toggle does not affect the daily-update path — that still calls Massive (Polygon).
+
+API keys for all providers (including EODHD) live in the `provider_config` table and are managed through the admin UI at `/providers`. `ApiKeyService` exposes `getEodhdApiKey()` and falls back to the `eodhd.api.key` property when the row is absent.
 
 ### Indicator Computation (`service/IndicatorCalculator.kt`)
 
