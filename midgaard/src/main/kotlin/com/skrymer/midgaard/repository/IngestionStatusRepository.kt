@@ -82,6 +82,32 @@ class IngestionStatusRepository(
 
     fun countTotal(): Int = dsl.fetchCount(INGESTION_STATUS)
 
+    /**
+     * Returns symbols that haven't successfully completed initial ingest yet:
+     *  - rows where `ingestion_status.status != COMPLETE` (PENDING, FAILED, PARTIAL)
+     *  - symbols present in `symbols` but absent from `ingestion_status` (e.g. just
+     *    added via the V6 delisted-bootstrap migration)
+     *
+     * Used by the "Retry Not Complete" path so a single button can backfill new
+     * symbols + retry past failures without re-ingesting the whole universe.
+     */
+    fun findNotCompleteSymbols(): List<String> =
+        dsl
+            .select(SYMBOLS.SYMBOL)
+            .from(SYMBOLS)
+            .leftJoin(INGESTION_STATUS)
+            .on(INGESTION_STATUS.SYMBOL.eq(SYMBOLS.SYMBOL))
+            .where(
+                INGESTION_STATUS.STATUS
+                    .ne(IngestionState.COMPLETE.name)
+                    .or(INGESTION_STATUS.SYMBOL.isNull),
+            ).orderBy(SYMBOLS.SYMBOL.asc())
+            .fetch(SYMBOLS.SYMBOL)
+            .filterNotNull()
+
+    /** Count of symbols that haven't completed initial ingest yet — for UI display. */
+    fun countNotComplete(): Int = findNotCompleteSymbols().size
+
     fun getLastUpdated(): LocalDateTime? =
         dsl
             .select(

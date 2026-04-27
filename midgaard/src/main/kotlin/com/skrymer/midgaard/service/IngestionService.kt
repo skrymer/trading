@@ -132,6 +132,18 @@ class IngestionService(
     }
 
     /**
+     * Runs initial ingest for every symbol that hasn't successfully completed yet:
+     * FAILED, PENDING, PARTIAL, or symbols freshly added to `symbols` without an
+     * `ingestion_status` row (e.g. the delisted-bootstrap V6 migration adds 1k+
+     * rows with no ingestion state). Single button covers the whole "left to do"
+     * pile so a partial ingest run can be resumed in one click.
+     */
+    fun retryNotComplete(): Job {
+        val symbols = ingestionStatusRepository.findNotCompleteSymbols()
+        return runParallelInitialIngest("retry-not-complete", symbols)
+    }
+
+    /**
      * Runs the initial-ingest pipeline in parallel for an arbitrary symbol list.
      * Exposed so the delisted-ingest path can reuse the same pipeline after
      * persisting its enriched symbol rows.

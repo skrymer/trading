@@ -18,6 +18,12 @@
           Retry Failed (<span th:text="${failedCount}">0</span>)
         </button>
       </form>
+      <form method="post" action="/ingestion/initial/not-complete" class="d-inline" th:if="${notCompleteCount > 0}">
+        <button type="submit" class="btn btn-info me-2"
+                title="Run initial ingest for symbols that haven't successfully completed yet — covers FAILED, PENDING, and newly-added symbols (e.g. delisted-bootstrap rows without ingestion_status).">
+          Retry Not Complete (<span th:text="${notCompleteCount}">0</span>)
+        </button>
+      </form>
       <form method="post" action="/ingestion/delisted/discover" class="d-inline">
         <button type="submit" class="btn btn-outline-secondary"
                 title="Discover ~1,500 delisted symbols across all sectors and add them to the symbol catalogue. OHLCV ingest happens separately via Initial Ingest All.">

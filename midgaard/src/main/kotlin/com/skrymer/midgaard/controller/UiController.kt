@@ -112,6 +112,7 @@ class UiController(
         model.addAttribute("progress", progress)
         model.addAttribute("active", progress != null)
         model.addAttribute("failedCount", ingestionStatusRepository.countByStatus(IngestionState.FAILED))
+        model.addAttribute("notCompleteCount", ingestionStatusRepository.countNotComplete())
         model.addAttribute("delistedRunStats", delistedIngestionService.lastRunStats)
         return "ingestion"
     }
@@ -125,6 +126,12 @@ class UiController(
     @PostMapping("/ingestion/initial/failed")
     fun startRetryFailedIngests(): String {
         ingestionService.retryFailedIngests()
+        return "redirect:/ingestion"
+    }
+
+    @PostMapping("/ingestion/initial/not-complete")
+    fun startRetryNotComplete(): String {
+        ingestionService.retryNotComplete()
         return "redirect:/ingestion"
     }
 

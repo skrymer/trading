@@ -40,6 +40,12 @@ class IngestionController(
         return ResponseEntity.ok(mapOf("message" to "Retry of failed ingests started"))
     }
 
+    @PostMapping("/initial/not-complete")
+    fun triggerInitialIngestNotComplete(): ResponseEntity<Map<String, String>> {
+        ingestionService.retryNotComplete()
+        return ResponseEntity.ok(mapOf("message" to "Retry of not-complete ingests started"))
+    }
+
     @PostMapping("/update/{symbol}")
     fun triggerUpdate(
         @PathVariable symbol: String,
