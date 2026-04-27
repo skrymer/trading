@@ -131,7 +131,12 @@ class IngestionService(
         return runParallelInitialIngest("retry-failed", failed)
     }
 
-    private fun runParallelInitialIngest(
+    /**
+     * Runs the initial-ingest pipeline in parallel for an arbitrary symbol list.
+     * Exposed so the delisted-ingest path can reuse the same pipeline after
+     * persisting its enriched symbol rows.
+     */
+    fun runParallelInitialIngest(
         label: String,
         symbols: List<String>,
     ): Job {
@@ -155,7 +160,9 @@ class IngestionService(
     }
 
     fun updateAll(): Job {
-        val symbols = ingestionStatusRepository.findByStatus(IngestionState.COMPLETE)
+        // Skip delisted symbols — daily fetches against EODHD return empty bar
+        // arrays past the delisting date but still consume weighted quota.
+        val symbols = ingestionStatusRepository.findActiveByStatus(IngestionState.COMPLETE)
         logger.info("Starting bulk update for ${symbols.size} symbols")
         val progress = BulkProgress(total = symbols.size)
         bulkProgress = progress

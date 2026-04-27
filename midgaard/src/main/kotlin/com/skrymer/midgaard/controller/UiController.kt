@@ -6,6 +6,7 @@ import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.repository.QuoteRepository
 import com.skrymer.midgaard.repository.SymbolRepository
 import com.skrymer.midgaard.service.ApiKeyService
+import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
 import com.skrymer.midgaard.service.ProviderRateLimitStats
 import com.skrymer.midgaard.service.RateLimiterService
@@ -27,6 +28,7 @@ class UiController(
     private val quoteRepository: QuoteRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val ingestionService: IngestionService,
+    private val delistedIngestionService: DelistedIngestionService,
     private val rateLimiterService: RateLimiterService,
     private val apiKeyService: ApiKeyService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
@@ -110,6 +112,7 @@ class UiController(
         model.addAttribute("progress", progress)
         model.addAttribute("active", progress != null)
         model.addAttribute("failedCount", ingestionStatusRepository.countByStatus(IngestionState.FAILED))
+        model.addAttribute("delistedRunStats", delistedIngestionService.lastRunStats)
         return "ingestion"
     }
 
@@ -128,6 +131,12 @@ class UiController(
     @PostMapping("/ingestion/update/all")
     fun startUpdateAll(): String {
         ingestionService.updateAll()
+        return "redirect:/ingestion"
+    }
+
+    @PostMapping("/ingestion/delisted/ingest")
+    fun startDelistedIngest(): String {
+        delistedIngestionService.ingestDelisted()
         return "redirect:/ingestion"
     }
 

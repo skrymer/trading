@@ -214,7 +214,20 @@ data class EodhdFundamentalsResponse(
 data class EodhdGeneralSection(
     @param:JsonProperty("Sector") val sector: String? = null,
     @param:JsonProperty("Industry") val industry: String? = null,
-)
+    // EODHD returns CIK with variable padding ("0000320193" or "320193"); we
+    // store the raw string and let `EdgarClient` re-pad to the 10-digit form.
+    @param:JsonProperty("CIK") val cik: String? = null,
+    // `IsDelisted` arrives as the integer 0/1 (rendered as a JSON number)
+    // for most symbols, but EODHD has historically returned strings on a
+    // small slice of the universe. Use String? so Jackson tolerates both
+    // shapes, and resolve via `isDelisted` below.
+    @param:JsonProperty("IsDelisted") val isDelistedRaw: String? = null,
+    @param:JsonProperty("DelistedDate") val delistedDate: String? = null,
+) {
+    val isDelisted: Boolean get() = isDelistedRaw?.let { it == "1" || it.equals("true", ignoreCase = true) } ?: false
+
+    val parsedDelistedDate: LocalDate? get() = delistedDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class EodhdHighlightsSection(

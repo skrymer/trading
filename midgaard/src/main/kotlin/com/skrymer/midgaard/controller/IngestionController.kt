@@ -3,6 +3,7 @@ package com.skrymer.midgaard.controller
 import com.skrymer.midgaard.model.IngestionResult
 import com.skrymer.midgaard.model.IngestionStatus
 import com.skrymer.midgaard.repository.IngestionStatusRepository
+import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
 import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/ingestion")
 class IngestionController(
     private val ingestionService: IngestionService,
+    private val delistedIngestionService: DelistedIngestionService,
     private val ingestionStatusRepository: IngestionStatusRepository,
 ) {
     @GetMapping("/status")
@@ -47,6 +49,12 @@ class IngestionController(
     fun triggerUpdateAll(): ResponseEntity<Map<String, String>> {
         ingestionService.updateAll()
         return ResponseEntity.ok(mapOf("message" to "Bulk update started"))
+    }
+
+    @PostMapping("/delisted/ingest")
+    fun triggerDelistedIngest(): ResponseEntity<Map<String, String>> {
+        delistedIngestionService.ingestDelisted()
+        return ResponseEntity.ok(mapOf("message" to "Delisted ingest started"))
     }
 
     @GetMapping("/progress")

@@ -363,4 +363,65 @@ class EodhdDtosTest {
             adjustedClose = adjustedClose,
             volume = volume,
         )
+
+    // ── EodhdGeneralSection delisted fields ──
+
+    @Test
+    fun `isDelisted is true when IsDelisted is the string 1`() {
+        // Given: EODHD's typical "1"-as-string representation
+        val section = EodhdGeneralSection(isDelistedRaw = "1")
+
+        // When / Then
+        assertTrue(section.isDelisted)
+    }
+
+    @Test
+    fun `isDelisted is false when IsDelisted is the string 0`() {
+        // Given: EODHD's typical "0"-as-string representation
+        val section = EodhdGeneralSection(isDelistedRaw = "0")
+
+        // When / Then
+        assertFalse(section.isDelisted)
+    }
+
+    @Test
+    fun `isDelisted is false when IsDelisted is missing`() {
+        // Given: a section without the IsDelisted field (currently-listed symbol)
+        val section = EodhdGeneralSection(sector = "Technology")
+
+        // When / Then: caller treats absence as not-delisted
+        assertFalse(section.isDelisted)
+    }
+
+    @Test
+    fun `parsedDelistedDate parses ISO date strings`() {
+        // Given: a delisting date string in EODHD's standard ISO format
+        val section = EodhdGeneralSection(delistedDate = "2020-06-15")
+
+        // When
+        val parsed = section.parsedDelistedDate
+
+        // Then
+        assertEquals(LocalDate.of(2020, 6, 15), parsed)
+    }
+
+    @Test
+    fun `parsedDelistedDate is null when DelistedDate is missing or unparseable`() {
+        // Given: missing or malformed dates
+        val missing = EodhdGeneralSection(delistedDate = null)
+        val malformed = EodhdGeneralSection(delistedDate = "not-a-date")
+
+        // When / Then
+        assertNull(missing.parsedDelistedDate)
+        assertNull(malformed.parsedDelistedDate)
+    }
+
+    @Test
+    fun `cik is preserved as-is so the EDGAR client can re-pad it`() {
+        // Given: a CIK that arrives without leading zeros (EODHD's common shape)
+        val section = EodhdGeneralSection(cik = "320193")
+
+        // When / Then: client receives the raw form
+        assertEquals("320193", section.cik)
+    }
 }

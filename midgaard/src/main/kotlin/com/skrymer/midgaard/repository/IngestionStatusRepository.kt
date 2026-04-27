@@ -1,6 +1,7 @@
 package com.skrymer.midgaard.repository
 
 import com.skrymer.midgaard.jooq.tables.references.INGESTION_STATUS
+import com.skrymer.midgaard.jooq.tables.references.SYMBOLS
 import com.skrymer.midgaard.model.IngestionState
 import com.skrymer.midgaard.model.IngestionStatus
 import org.jooq.DSLContext
@@ -30,6 +31,26 @@ class IngestionStatusRepository(
         dsl
             .selectFrom(INGESTION_STATUS)
             .where(INGESTION_STATUS.STATUS.eq(status.name))
+            .orderBy(INGESTION_STATUS.SYMBOL.asc())
+            .fetch()
+            .map { it.toModel() }
+
+    /**
+     * Like `findByStatus` but excludes symbols that have a `delisted_at` set.
+     * Used by the daily-update path so we don't waste EODHD weighted calls
+     * fetching empty bar lists for tickers that no longer trade.
+     *
+     * Symbols absent from the `symbols` table (orphaned `ingestion_status`
+     * rows) are still returned — outer-join + null-delisted-at predicate.
+     */
+    fun findActiveByStatus(status: IngestionState): List<IngestionStatus> =
+        dsl
+            .select(*INGESTION_STATUS.fields())
+            .from(INGESTION_STATUS)
+            .leftJoin(SYMBOLS)
+            .on(SYMBOLS.SYMBOL.eq(INGESTION_STATUS.SYMBOL))
+            .where(INGESTION_STATUS.STATUS.eq(status.name))
+            .and(SYMBOLS.DELISTED_AT.isNull)
             .orderBy(INGESTION_STATUS.SYMBOL.asc())
             .fetch()
             .map { it.toModel() }

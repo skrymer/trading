@@ -14,10 +14,32 @@
         <button type="submit" class="btn btn-outline-primary me-2">Start Update All</button>
       </form>
       <form method="post" action="/ingestion/initial/failed" class="d-inline" th:if="${failedCount > 0}">
-        <button type="submit" class="btn btn-warning">
+        <button type="submit" class="btn btn-warning me-2">
           Retry Failed (<span th:text="${failedCount}">0</span>)
         </button>
       </form>
+      <form method="post" action="/ingestion/delisted/ingest" class="d-inline">
+        <button type="submit" class="btn btn-outline-secondary"
+                title="Bootstrap the delisted-symbol catalogue for survivorship-bias-free backtests (~1,500 symbols, ~30min)">
+          Ingest Delisted
+        </button>
+      </form>
+    </div>
+
+    <div th:if="${delistedRunStats != null}" class="card mt-4">
+      <div class="card-header">Last Delisted-Ingest Run</div>
+      <div class="card-body">
+        <div th:if="${delistedRunStats.failed}" class="alert alert-danger mb-0">
+          Last delisted ingest failed — check application logs.
+        </div>
+        <table th:if="${!delistedRunStats.failed}" class="table table-sm mb-0">
+          <tr><th>Catalogue size</th><td th:text="${delistedRunStats.catalogueSize}">0</td></tr>
+          <tr><th>Common Stock</th><td th:text="${delistedRunStats.commonStockCount}">0</td></tr>
+          <tr><th>Enriched (had delisting date)</th><td th:text="${delistedRunStats.enrichedCount}">0</td></tr>
+          <tr><th>Survived liquidity filter</th><td th:text="${delistedRunStats.survivorCount}">0</td></tr>
+          <tr><th>Persisted</th><td th:text="${delistedRunStats.persistedCount}">0</td></tr>
+        </table>
+      </div>
     </div>
   </div>
 
