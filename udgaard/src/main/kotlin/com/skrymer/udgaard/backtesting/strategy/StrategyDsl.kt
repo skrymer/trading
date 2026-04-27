@@ -18,6 +18,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthNea
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthRecoveringCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthTrendingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumHistoryDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
@@ -85,6 +86,11 @@ class EntryStrategyBuilder {
   fun minimumPrice(dollars: Double = 10.0) =
     apply {
       conditions.add(MinimumPriceCondition(dollars))
+    }
+
+  fun minimumHistoryDays(days: Int = 180) =
+    apply {
+      conditions.add(MinimumHistoryDaysCondition(days))
     }
 
   // Market conditions

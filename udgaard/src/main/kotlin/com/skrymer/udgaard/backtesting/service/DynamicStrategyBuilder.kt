@@ -27,6 +27,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthNea
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthRecoveringCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketBreadthTrendingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MarketUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumHistoryDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
@@ -175,6 +176,10 @@ class DynamicStrategyBuilder(
       "minimumprice" ->
         MinimumPriceCondition(
           minimumPrice = (config.parameters["minimumPrice"] as? Number)?.toDouble() ?: 10.0,
+        )
+      "minimumhistorydays" ->
+        MinimumHistoryDaysCondition(
+          days = (config.parameters["days"] as? Number)?.toInt() ?: 180,
         )
       "orderblockrejection" ->
         OrderBlockRejectionCondition(
