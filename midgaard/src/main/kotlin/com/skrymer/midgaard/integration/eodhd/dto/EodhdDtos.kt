@@ -2,6 +2,12 @@ package com.skrymer.midgaard.integration.eodhd.dto
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.JsonToken
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.RawBar
@@ -120,6 +126,47 @@ data class EodhdAdxRowDto(
     }
 }
 
+// ── Lenient section deserializers ──
+//
+// EODHD returns the literal string `"NA"` (not null, not an empty object)
+// for entire fundamentals sections when a symbol has no data — typically
+// leveraged / international ETFs. Without this, Jackson throws
+// MismatchedInputException trying to deserialize a string into an object,
+// killing the whole fundamentals fetch for that symbol.
+
+private inline fun <reified T> readSectionOrNull(p: JsonParser): T? =
+    when (p.currentToken) {
+        JsonToken.START_OBJECT -> {
+            val node: JsonNode = p.codec.readTree(p)
+            p.codec.treeToValue(node, T::class.java)
+        }
+        else -> {
+            p.skipChildren()
+            null
+        }
+    }
+
+class LenientHighlightsDeserializer : JsonDeserializer<EodhdHighlightsSection?>() {
+    override fun deserialize(
+        p: JsonParser,
+        ctx: DeserializationContext,
+    ): EodhdHighlightsSection? = readSectionOrNull(p)
+}
+
+class LenientGeneralDeserializer : JsonDeserializer<EodhdGeneralSection?>() {
+    override fun deserialize(
+        p: JsonParser,
+        ctx: DeserializationContext,
+    ): EodhdGeneralSection? = readSectionOrNull(p)
+}
+
+class LenientEarningsDeserializer : JsonDeserializer<EodhdEarningsSection?>() {
+    override fun deserialize(
+        p: JsonParser,
+        ctx: DeserializationContext,
+    ): EodhdEarningsSection? = readSectionOrNull(p)
+}
+
 // ── Fundamentals (company info + earnings) ──
 
 /**
@@ -131,9 +178,15 @@ data class EodhdAdxRowDto(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class EodhdFundamentalsResponse(
-    @param:JsonProperty("General") val general: EodhdGeneralSection? = null,
-    @param:JsonProperty("Highlights") val highlights: EodhdHighlightsSection? = null,
-    @param:JsonProperty("Earnings") val earnings: EodhdEarningsSection? = null,
+    @param:JsonProperty("General")
+    @param:JsonDeserialize(using = LenientGeneralDeserializer::class)
+    val general: EodhdGeneralSection? = null,
+    @param:JsonProperty("Highlights")
+    @param:JsonDeserialize(using = LenientHighlightsDeserializer::class)
+    val highlights: EodhdHighlightsSection? = null,
+    @param:JsonProperty("Earnings")
+    @param:JsonDeserialize(using = LenientEarningsDeserializer::class)
+    val earnings: EodhdEarningsSection? = null,
     @param:JsonProperty("error") val errorMessage: String? = null,
 ) : EodhdApiResponse {
     override fun hasError(): Boolean = errorMessage != null
