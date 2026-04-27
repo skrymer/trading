@@ -134,9 +134,9 @@ class UiController(
         return "redirect:/ingestion"
     }
 
-    @PostMapping("/ingestion/delisted/ingest")
-    fun startDelistedIngest(): String {
-        delistedIngestionService.ingestDelisted()
+    @PostMapping("/ingestion/delisted/discover")
+    fun startDelistedDiscovery(): String {
+        delistedIngestionService.discoverDelisted()
         return "redirect:/ingestion"
     }
 

@@ -51,10 +51,10 @@ class IngestionController(
         return ResponseEntity.ok(mapOf("message" to "Bulk update started"))
     }
 
-    @PostMapping("/delisted/ingest")
-    fun triggerDelistedIngest(): ResponseEntity<Map<String, String>> {
-        delistedIngestionService.ingestDelisted()
-        return ResponseEntity.ok(mapOf("message" to "Delisted ingest started"))
+    @PostMapping("/delisted/discover")
+    fun triggerDelistedDiscovery(): ResponseEntity<Map<String, String>> {
+        delistedIngestionService.discoverDelisted()
+        return ResponseEntity.ok(mapOf("message" to "Delisted symbol discovery started"))
     }
 
     @GetMapping("/progress")
