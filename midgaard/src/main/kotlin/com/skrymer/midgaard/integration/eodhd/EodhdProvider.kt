@@ -4,6 +4,8 @@ import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integration.ProviderIds
+import com.skrymer.midgaard.integration.SafeLogging
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAdxResponse
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAdxRowDto
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdApiResponse
@@ -16,6 +18,7 @@ import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.service.ApiKeyService
+import com.skrymer.midgaard.service.RateLimiterService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -30,6 +33,7 @@ import java.time.LocalDate
 @Component
 class EodhdProvider(
     private val apiKeyService: ApiKeyService,
+    private val rateLimiterService: RateLimiterService,
     @param:Value("\${eodhd.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
@@ -52,8 +56,9 @@ class EodhdProvider(
         symbol: String,
         outputSize: String,
         minDate: LocalDate,
-    ): List<RawBar>? =
-        withContext(Dispatchers.IO) {
+    ): List<RawBar>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val bars =
                     restClient
@@ -69,32 +74,37 @@ class EodhdProvider(
                         .body(BAR_LIST_TYPE)
                 val response = EodhdEodResponse(bars = bars ?: emptyList())
                 validateAndTransform(response, symbol, "EOD") { it.toRawBars(symbol, minDate) }
-            }.onFailure { e -> logSafe("EOD bars", symbol, e) }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "EOD bars", symbol, e) }.getOrNull()
         }
+    }
 
     override suspend fun getATR(
         symbol: String,
         minDate: LocalDate,
-    ): Map<LocalDate, Double>? =
-        withContext(Dispatchers.IO) {
+    ): Map<LocalDate, Double>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val rows = fetchTechnical(symbol, FUNCTION_ATR, minDate, ATR_LIST_TYPE)
                 val response = EodhdAtrResponse(rows = rows ?: emptyList())
                 validateAndTransform(response, symbol, "ATR") { it.toAtrMap(minDate) }
-            }.onFailure { e -> logSafe("ATR", symbol, e) }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "ATR", symbol, e) }.getOrNull()
         }
+    }
 
     override suspend fun getADX(
         symbol: String,
         minDate: LocalDate,
-    ): Map<LocalDate, Double>? =
-        withContext(Dispatchers.IO) {
+    ): Map<LocalDate, Double>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val rows = fetchTechnical(symbol, FUNCTION_ADX, minDate, ADX_LIST_TYPE)
                 val response = EodhdAdxResponse(rows = rows ?: emptyList())
                 validateAndTransform(response, symbol, "ADX") { it.toAdxMap(minDate) }
-            }.onFailure { e -> logSafe("ADX", symbol, e) }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "ADX", symbol, e) }.getOrNull()
         }
+    }
 
     private fun <T> fetchTechnical(
         symbol: String,
@@ -116,23 +126,27 @@ class EodhdProvider(
             }.retrieve()
             .body(type)
 
-    override suspend fun getEarnings(symbol: String): List<Earning>? =
-        withContext(Dispatchers.IO) {
+    override suspend fun getEarnings(symbol: String): List<Earning>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 fetchFundamentals(symbol)?.let { response ->
                     validateAndTransform(response, symbol, "earnings") { it.toEarnings(symbol) }
                 }
-            }.onFailure { e -> logSafe("earnings", symbol, e) }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "earnings", symbol, e) }.getOrNull()
         }
+    }
 
-    override suspend fun getCompanyInfo(symbol: String): CompanyInfo? =
-        withContext(Dispatchers.IO) {
+    override suspend fun getCompanyInfo(symbol: String): CompanyInfo? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 fetchFundamentals(symbol)?.let { response ->
                     validateAndTransform(response, symbol, "company info") { it.toCompanyInfo() }
                 }
-            }.onFailure { e -> logSafe("company info", symbol, e) }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "company info", symbol, e) }.getOrNull()
         }
+    }
 
     private fun fetchFundamentals(symbol: String): EodhdFundamentalsResponse? =
         restClient
@@ -174,26 +188,8 @@ class EodhdProvider(
         return replace('.', '-') + ".US"
     }
 
-    /**
-     * Log fetch failures without leaking the API key.
-     *
-     * Spring's `RestClientResponseException` embeds the request URI (with the
-     * `api_token` query param) in both `message` and stacktrace lines, so we
-     * scrub the message and skip passing the throwable as the second logger
-     * argument (which would print the unscrubbed stack). Stack lines are
-     * available at DEBUG for local debugging.
-     */
-    private fun logSafe(
-        label: String,
-        symbol: String,
-        e: Throwable,
-    ) {
-        val sanitized = (e.message ?: e.javaClass.simpleName).replace(API_TOKEN_PATTERN, "api_token=***")
-        logger.error("Failed to fetch $label from EODHD for $symbol: $sanitized")
-        logger.debug("Stack trace for EODHD $label fetch failure ($symbol)", e)
-    }
-
     companion object {
+        private const val PROVIDER_ID = ProviderIds.EODHD
         private val logger = LoggerFactory.getLogger(EodhdProvider::class.java)
         private val BAR_LIST_TYPE = object : ParameterizedTypeReference<List<EodhdBarDto>>() {}
         private val ATR_LIST_TYPE = object : ParameterizedTypeReference<List<EodhdAtrRowDto>>() {}
@@ -214,6 +210,5 @@ class EodhdProvider(
         private const val FUNDAMENTALS_FILTER = "General,Highlights,Earnings"
         private val KNOWN_EXCHANGE_SUFFIXES =
             setOf(".US", ".LSE", ".XETRA", ".PA", ".HK", ".TO", ".AX", ".V", ".F", ".FOREX")
-        private val API_TOKEN_PATTERN = Regex("api_token=[^&\\s\"]*")
     }
 }

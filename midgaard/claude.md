@@ -44,17 +44,18 @@ midgaard/
 │   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled)
 │   ├── integration/
 │   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, QuoteProvider, etc.)
+│   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
 │   │   ├── alphavantage/
-│   │   │   ├── AlphaVantageProvider.kt    # Implements all 5 provider interfaces
+│   │   │   ├── AlphaVantageProvider.kt    # Implements all 5 provider interfaces; self-rate-limits
 │   │   │   └── dto/
 │   │   ├── finnhub/
-│   │   │   ├── FinnhubProvider.kt         # Implements QuoteProvider (live quotes)
+│   │   │   ├── FinnhubProvider.kt         # Implements QuoteProvider (live quotes); self-rate-limits
 │   │   │   └── dto/
 │   │   ├── massive/
-│   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider (daily updates)
+│   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider (daily updates); self-rate-limits
 │   │   │   └── dto/
 │   │   └── eodhd/
-│   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider (wired but not yet selected by IngestionService)
+│   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider; self-rate-limits
 │   │       └── dto/
 │   ├── model/
 │   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, enums
@@ -66,9 +67,10 @@ midgaard/
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
 │   │   └── ProviderConfigRepository.kt    # Provider configuration data
 │   └── service/
-│       ├── IngestionService.kt            # Orchestrates initial + daily ingestion (async, semaphore)
-│       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation
-│       ├── RateLimiterService.kt          # Token bucket per provider
+│       ├── IngestionService.kt            # Provider-agnostic orchestrator; injects bare OhlcvProvider/IndicatorProvider/EarningsProvider/CompanyInfoProvider beans (no per-provider branching)
+│       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
+│       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation (used by LOCAL indicator mode)
+│       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── ApiKeyService.kt              # API key management
 │       └── ScheduledIngestionService.kt  # Scheduled automatic data ingestion
 ├── src/main/resources/
@@ -120,13 +122,17 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 ### Provider Interfaces (`integration/Providers.kt`)
 
 - `OhlcvProvider` - Daily bars (initial: AlphaVantage or EODHD via the `app.ingest.provider` toggle; updates: Massive)
-- `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle)
+- `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle; only used when `app.ingest.indicators=API`)
 - `EarningsProvider` - Quarterly earnings (AlphaVantage or EODHD via the toggle)
 - `CompanyInfoProvider` - Company overview + sector (AlphaVantage or EODHD via the toggle)
 - `QuoteProvider` - Live/latest quotes (Finnhub)
 - `OptionsProvider` - Historical options pricing (AlphaVantage)
 
-**Selecting the ingestion source.** Set `app.ingest.provider=eodhd` in `application.properties` (or the matching env var) to route initial ingest through `EodhdProvider`. Default is `alphavantage`; unknown values fall back to AlphaVantage. The toggle does not affect the daily-update path — that still calls Massive (Polygon).
+**Provider selection is centralized in `ProviderConfiguration`.** `IngestionService` injects bare interface beans (`@Bean("ohlcv")`, `@Bean("indicators")`, `@Bean("earnings")`, `@Bean("companyInfo")`) — no per-provider branching inside the service. `@ConditionalOnProperty` on each bean reads `app.ingest.provider` to pick the active implementation. When `app.ingest.provider=eodhd` is set, **all four** roles (OHLCV + indicators + earnings + company info) route to EODHD via its All-In-One plan; the daily-update path still uses Massive (Polygon). Default is `alphavantage`.
+
+**Indicator computation mode.** `app.ingest.indicators=LOCAL` (default) recomputes ATR/ADX from raw OHLCV via `IndicatorCalculator`. Set `app.ingest.indicators=API` to call the indicator provider's API instead.
+
+**Rate limiting.** Each provider self-rate-limits via `rateLimiterService.acquirePermit(PROVIDER_ID)` using the shared `ProviderIds` constants ("alphavantage", "eodhd", "massive", "finnhub"). `IngestionService` no longer acquires permits.
 
 API keys for all providers (including EODHD) live in the `provider_config` table and are managed through the admin UI at `/providers`. `ApiKeyService` exposes `getEodhdApiKey()` and falls back to the `eodhd.api.key` property when the row is absent.
 

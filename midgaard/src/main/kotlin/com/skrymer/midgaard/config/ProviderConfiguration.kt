@@ -5,6 +5,7 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.OptionsProvider
+import com.skrymer.midgaard.integration.ProviderIds
 import com.skrymer.midgaard.integration.QuoteProvider
 import com.skrymer.midgaard.integration.alphavantage.AlphaVantageProvider
 import com.skrymer.midgaard.integration.eodhd.EodhdProvider
@@ -13,10 +14,29 @@ import com.skrymer.midgaard.integration.massive.MassiveProvider
 import com.skrymer.midgaard.service.RateLimiterService
 import jakarta.annotation.PostConstruct
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Primary
 
+/**
+ * Wires the four data-provider interfaces (`OhlcvProvider`, `IndicatorProvider`,
+ * `EarningsProvider`, `CompanyInfoProvider`) to a concrete implementation chosen
+ * by the `app.ingest.provider` property:
+ *
+ *   `alphavantage` (default) → AlphaVantage backs all four interfaces.
+ *   `eodhd`                  → EODHD backs all four interfaces.
+ *
+ * `IngestionService` injects the bare interfaces with no qualifier, so swapping
+ * providers is a single config change with zero code edits.
+ *
+ * The daily-update OHLCV path (`@Qualifier("dailyUpdateOhlcv")`) always uses
+ * Massive — that's a different concern from the toggleable initial-ingest
+ * provider and lives under its own qualifier.
+ *
+ * Live quotes always come from Finnhub; options always from AlphaVantage. Add
+ * matching `@ConditionalOnProperty` blocks if/when those become toggleable.
+ */
 @Configuration
 @Suppress("LongParameterList")
 class ProviderConfiguration(
@@ -40,50 +60,56 @@ class ProviderConfiguration(
 ) {
     @PostConstruct
     fun init() {
-        rateLimiterService.registerProvider("alphavantage", avReqPerSec, avReqPerMin, avReqPerDay)
-        rateLimiterService.registerProvider("massive", massiveReqPerSec, massiveReqPerMin, massiveReqPerDay)
-        rateLimiterService.registerProvider("finnhub", finnhubReqPerSec, finnhubReqPerMin, finnhubReqPerDay)
-        rateLimiterService.registerProvider("eodhd", eodhdReqPerSec, eodhdReqPerMin, eodhdReqPerDay)
+        rateLimiterService.registerProvider(ProviderIds.ALPHAVANTAGE, avReqPerSec, avReqPerMin, avReqPerDay)
+        rateLimiterService.registerProvider(ProviderIds.MASSIVE, massiveReqPerSec, massiveReqPerMin, massiveReqPerDay)
+        rateLimiterService.registerProvider(ProviderIds.FINNHUB, finnhubReqPerSec, finnhubReqPerMin, finnhubReqPerDay)
+        rateLimiterService.registerProvider(ProviderIds.EODHD, eodhdReqPerSec, eodhdReqPerMin, eodhdReqPerDay)
     }
 
-    @Bean("alphaVantageOhlcv")
-    fun alphaVantageOhlcv(): OhlcvProvider = alphaVantageProvider
+    // ── Toggleable: app.ingest.provider picks which implementation backs each interface.
+    //
+    // Beans are named exactly the same as the corresponding `IngestionService`
+    // constructor parameters (`ohlcv`, `indicators`, `earnings`, `companyInfo`),
+    // so Spring's autowire-by-parameter-name resolves the right one. Avoids the
+    // @Primary-with-multi-interface ambiguity that crops up when one provider
+    // class implements several interfaces.
 
-    @Bean("massiveOhlcv")
-    fun massiveOhlcv(): OhlcvProvider = massiveProvider
+    @Bean("ohlcv")
+    @ConditionalOnProperty(name = ["app.ingest.provider"], havingValue = ProviderIds.EODHD)
+    fun ohlcvFromEodhd(): OhlcvProvider = eodhdProvider
 
-    @Bean("eodhdOhlcv")
-    fun eodhdOhlcv(): OhlcvProvider = eodhdProvider
+    @Bean("ohlcv")
+    @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
+    fun ohlcvFromAlphaVantage(): OhlcvProvider = alphaVantageProvider
 
-    @Bean("alphaVantageIndicators")
-    fun alphaVantageIndicators(): IndicatorProvider = alphaVantageProvider
+    @Bean("indicators")
+    @ConditionalOnProperty(name = ["app.ingest.provider"], havingValue = ProviderIds.EODHD)
+    fun indicatorsFromEodhd(): IndicatorProvider = eodhdProvider
 
-    @Bean("eodhdIndicators")
-    fun eodhdIndicators(): IndicatorProvider = eodhdProvider
+    @Bean("indicators")
+    @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
+    fun indicatorsFromAlphaVantage(): IndicatorProvider = alphaVantageProvider
 
-    @Bean("alphaVantageEarnings")
-    fun alphaVantageEarnings(): EarningsProvider = alphaVantageProvider
+    @Bean("earnings")
+    @ConditionalOnProperty(name = ["app.ingest.provider"], havingValue = ProviderIds.EODHD)
+    fun earningsFromEodhd(): EarningsProvider = eodhdProvider
 
-    @Bean("eodhdEarnings")
-    fun eodhdEarnings(): EarningsProvider = eodhdProvider
+    @Bean("earnings")
+    @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
+    fun earningsFromAlphaVantage(): EarningsProvider = alphaVantageProvider
 
-    @Bean("alphaVantageCompanyInfo")
-    fun alphaVantageCompanyInfo(): CompanyInfoProvider = alphaVantageProvider
+    @Bean("companyInfo")
+    @ConditionalOnProperty(name = ["app.ingest.provider"], havingValue = ProviderIds.EODHD)
+    fun companyInfoFromEodhd(): CompanyInfoProvider = eodhdProvider
 
-    @Bean("eodhdCompanyInfo")
-    fun eodhdCompanyInfo(): CompanyInfoProvider = eodhdProvider
+    @Bean("companyInfo")
+    @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
+    fun companyInfoFromAlphaVantage(): CompanyInfoProvider = alphaVantageProvider
 
-    @Bean
-    @Primary
-    fun indicatorProvider(): IndicatorProvider = alphaVantageProvider
+    // ── Non-toggleable: orthogonal concerns, kept under their own qualifiers.
 
-    @Bean
-    @Primary
-    fun earningsProvider(): EarningsProvider = alphaVantageProvider
-
-    @Bean
-    @Primary
-    fun companyInfoProvider(): CompanyInfoProvider = alphaVantageProvider
+    @Bean("dailyUpdateOhlcv")
+    fun dailyUpdateOhlcv(): OhlcvProvider = massiveProvider
 
     @Bean
     fun optionsProvider(): OptionsProvider = alphaVantageProvider

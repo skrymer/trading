@@ -1,9 +1,12 @@
 package com.skrymer.midgaard.integration.massive
 
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integration.ProviderIds
+import com.skrymer.midgaard.integration.SafeLogging
 import com.skrymer.midgaard.integration.massive.dto.MassiveAggregatesResponse
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.service.ApiKeyService
+import com.skrymer.midgaard.service.RateLimiterService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -18,6 +21,7 @@ import java.time.format.DateTimeFormatter
 @Component
 class MassiveProvider(
     private val apiKeyService: ApiKeyService,
+    private val rateLimiterService: RateLimiterService,
     @param:Value("\${massive.api.baseUrl:}") private val baseUrl: String,
 ) : OhlcvProvider {
     private val apiKey: String get() = apiKeyService.getMassiveApiKey()
@@ -37,17 +41,17 @@ class MassiveProvider(
         symbol: String,
         outputSize: String,
         minDate: LocalDate,
-    ): List<RawBar>? =
-        withContext(Dispatchers.IO) {
+    ): List<RawBar>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response = fetchFirstPage(symbol, minDate) ?: return@runCatching null
                 val firstBars = response.toRawBars(symbol, minDate)
                 val remainingBars = fetchRemainingPages(symbol, response.nextUrl, minDate)
                 (firstBars + remainingBars).sortedBy { it.date }
-            }.onFailure { e ->
-                logger.error("Failed to fetch aggregates from Massive API for $symbol: ${e.message}", e)
-            }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "Massive", "aggregates", symbol, e) }.getOrNull()
         }
+    }
 
     private fun fetchFirstPage(
         symbol: String,
@@ -109,6 +113,7 @@ class MassiveProvider(
     }
 
     companion object {
+        private const val PROVIDER_ID = ProviderIds.MASSIVE
         private val logger = LoggerFactory.getLogger(MassiveProvider::class.java)
         private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
         private const val MAX_RESULTS_PER_PAGE = 50000

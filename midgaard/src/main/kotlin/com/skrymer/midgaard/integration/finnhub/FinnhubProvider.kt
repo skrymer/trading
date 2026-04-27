@@ -1,5 +1,6 @@
 package com.skrymer.midgaard.integration.finnhub
 
+import com.skrymer.midgaard.integration.ProviderIds
 import com.skrymer.midgaard.integration.QuoteProvider
 import com.skrymer.midgaard.integration.finnhub.dto.FinnhubQuoteResponse
 import com.skrymer.midgaard.model.LatestQuote
@@ -61,6 +62,6 @@ class FinnhubProvider(
 
     companion object {
         private val logger = LoggerFactory.getLogger(FinnhubProvider::class.java)
-        private const val PROVIDER_ID = "finnhub"
+        private const val PROVIDER_ID = ProviderIds.FINNHUB
     }
 }

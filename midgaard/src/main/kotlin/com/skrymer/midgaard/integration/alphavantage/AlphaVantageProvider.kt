@@ -5,6 +5,8 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.OptionsProvider
+import com.skrymer.midgaard.integration.ProviderIds
+import com.skrymer.midgaard.integration.SafeLogging
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageADX
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageApiResponse
@@ -19,6 +21,7 @@ import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.OptionContractDto
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.service.ApiKeyService
+import com.skrymer.midgaard.service.RateLimiterService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -32,6 +35,7 @@ import java.time.LocalDate
 @Component
 class AlphaVantageProvider(
     private val apiKeyService: ApiKeyService,
+    private val rateLimiterService: RateLimiterService,
     @param:Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
@@ -55,8 +59,9 @@ class AlphaVantageProvider(
         symbol: String,
         outputSize: String,
         minDate: LocalDate,
-    ): List<RawBar>? =
-        withContext(Dispatchers.IO) {
+    ): List<RawBar>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response =
                     restClient
@@ -72,16 +77,16 @@ class AlphaVantageProvider(
                         .toEntity(AlphaVantageTimeSeriesDailyAdjusted::class.java)
                         .body
                 validateAndTransform(response, symbol, "daily adjusted") { it.toRawBars(minDate) }
-            }.onFailure { e ->
-                logger.error("Failed to fetch daily adjusted from AlphaVantage for $symbol: ${e.message}", e)
-            }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "daily adjusted", symbol, e) }.getOrNull()
         }
+    }
 
     override suspend fun getATR(
         symbol: String,
         minDate: LocalDate,
-    ): Map<LocalDate, Double>? =
-        withContext(Dispatchers.IO) {
+    ): Map<LocalDate, Double>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response =
                     restClient
@@ -98,16 +103,16 @@ class AlphaVantageProvider(
                         .toEntity(AlphaVantageATR::class.java)
                         .body
                 validateAndTransform(response, symbol, "ATR") { it.toATRMap(minDate) }
-            }.onFailure { e ->
-                logger.error("Failed to fetch ATR from AlphaVantage for $symbol: ${e.message}", e)
-            }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "ATR", symbol, e) }.getOrNull()
         }
+    }
 
     override suspend fun getADX(
         symbol: String,
         minDate: LocalDate,
-    ): Map<LocalDate, Double>? =
-        withContext(Dispatchers.IO) {
+    ): Map<LocalDate, Double>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response =
                     restClient
@@ -124,13 +129,13 @@ class AlphaVantageProvider(
                         .toEntity(AlphaVantageADX::class.java)
                         .body
                 validateAndTransform(response, symbol, "ADX") { it.toADXMap(minDate) }
-            }.onFailure { e ->
-                logger.error("Failed to fetch ADX from AlphaVantage for $symbol: ${e.message}", e)
-            }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "ADX", symbol, e) }.getOrNull()
         }
+    }
 
-    override suspend fun getEarnings(symbol: String): List<Earning>? =
-        withContext(Dispatchers.IO) {
+    override suspend fun getEarnings(symbol: String): List<Earning>? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response =
                     restClient
@@ -145,13 +150,13 @@ class AlphaVantageProvider(
                         .toEntity(AlphaVantageEarnings::class.java)
                         .body
                 validateAndTransform(response, symbol, "earnings") { it.toEarnings() }
-            }.onFailure { e ->
-                logger.error("Failed to fetch earnings from AlphaVantage for $symbol: ${e.message}", e)
-            }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "earnings", symbol, e) }.getOrNull()
         }
+    }
 
-    override suspend fun getCompanyInfo(symbol: String): CompanyInfo? =
-        withContext(Dispatchers.IO) {
+    override suspend fun getCompanyInfo(symbol: String): CompanyInfo? {
+        rateLimiterService.acquirePermit(PROVIDER_ID)
+        return withContext(Dispatchers.IO) {
             runCatching {
                 val response =
                     restClient
@@ -168,10 +173,9 @@ class AlphaVantageProvider(
                 validateAndTransform(response, symbol, "overview") {
                     CompanyInfo(sector = it.toSector(), marketCap = it.toMarketCap())
                 }
-            }.onFailure { e ->
-                logger.error("Failed to fetch company overview from AlphaVantage for $symbol: ${e.message}", e)
-            }.getOrNull()
+            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "company overview", symbol, e) }.getOrNull()
         }
+    }
 
     override fun getHistoricalOptions(
         symbol: String,
@@ -193,9 +197,7 @@ class AlphaVantageProvider(
                     .toEntity(AlphaVantageHistoricalOptions::class.java)
                     .body
             validateAndTransform(response, symbol, "options") { it.toOptionContracts() }
-        }.onFailure { e ->
-            logger.error("Failed to fetch historical options for $symbol: ${e.message}", e)
-        }.getOrNull()
+        }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "historical options", symbol, e) }.getOrNull()
 
     override fun findOptionContract(
         symbol: String,
@@ -228,9 +230,7 @@ class AlphaVantageProvider(
                     .toEntity(AlphaVantageHistoricalOptions::class.java)
                     .body
             validateAndTransform(response, symbol, "realtime options") { it.toOptionContracts() }
-        }.onFailure { e ->
-            logger.error("Failed to fetch realtime options for $symbol: ${e.message}", e)
-        }.getOrNull()
+        }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "realtime options", symbol, e) }.getOrNull()
 
     override fun findRealtimeOptionContract(
         symbol: String,
@@ -266,7 +266,7 @@ class AlphaVantageProvider(
                     .body
             validateAndTransform(response, "$fromCurrency/$toCurrency", "exchange rate") { it.toRate() }
         }.onFailure { e ->
-            logger.error("Failed to fetch exchange rate $fromCurrency/$toCurrency: ${e.message}", e)
+            SafeLogging.logFetchFailure(logger, "AlphaVantage", "exchange rate", "$fromCurrency/$toCurrency", e)
         }.getOrNull()
 
     fun getHistoricalExchangeRate(
@@ -291,7 +291,7 @@ class AlphaVantageProvider(
                     .body
             validateAndTransform(response, "$fromCurrency/$toCurrency", "FX daily") { it.closestRateForDate(date) }
         }.onFailure { e ->
-            logger.error("Failed to fetch historical FX rate $fromCurrency/$toCurrency for $date: ${e.message}", e)
+            SafeLogging.logFetchFailure(logger, "AlphaVantage", "historical FX rate $date", "$fromCurrency/$toCurrency", e)
         }.getOrNull()
 
     private fun <T : AlphaVantageApiResponse, R> validateAndTransform(
@@ -308,6 +308,7 @@ class AlphaVantageProvider(
         }
 
     companion object {
+        private const val PROVIDER_ID = ProviderIds.ALPHAVANTAGE
         private val logger = LoggerFactory.getLogger(AlphaVantageProvider::class.java)
         private const val FUNCTION_DAILY_ADJUSTED = "TIME_SERIES_DAILY_ADJUSTED"
         private const val FUNCTION_ATR = "ATR"

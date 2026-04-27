@@ -5,14 +5,9 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.model.RawBar
-import com.skrymer.midgaard.repository.EarningsRepository
-import com.skrymer.midgaard.repository.IngestionStatusRepository
-import com.skrymer.midgaard.repository.QuoteRepository
-import com.skrymer.midgaard.repository.SymbolRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
-import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -21,83 +16,77 @@ import org.mockito.kotlin.stub
 import org.mockito.kotlin.verifyBlocking
 import java.time.LocalDate
 
+/**
+ * Behaviour tests for `IngestionService` independent of which provider backs
+ * each interface. Provider selection is `ProviderConfiguration`'s concern;
+ * this test verifies what the service does given some provider.
+ */
 class IngestionServiceProviderToggleTest {
     @Test
-    fun `default provider name routes initial ingest to AlphaVantage beans`() {
-        // Given: a service constructed with the default `alphavantage` toggle
-        val fixture = fixture(ingestProviderName = "alphavantage")
-
-        // When: kicking off an initial ingest for a single symbol
-        runBlocking { fixture.service.initialIngest("AAPL") }
-
-        // Then: AlphaVantage providers were called, EODHD providers were not
-        verifyBlocking(fixture.alphaVantageOhlcv) { getDailyBars(eq("AAPL"), any(), any()) }
-        verifyBlocking(fixture.alphaVantageIndicators) { getATR(eq("AAPL"), any()) }
-        verifyBlocking(fixture.alphaVantageIndicators) { getADX(eq("AAPL"), any()) }
-        verifyBlocking(fixture.alphaVantageEarnings) { getEarnings(eq("AAPL")) }
-        verifyBlocking(fixture.alphaVantageCompanyInfo) { getCompanyInfo(eq("AAPL")) }
-        verifyBlocking(fixture.eodhdOhlcv, never()) { getDailyBars(any(), any(), any()) }
-        verifyBlocking(fixture.eodhdIndicators, never()) { getATR(any(), any()) }
-        verifyBlocking(fixture.eodhdEarnings, never()) { getEarnings(any()) }
-    }
-
-    @Test
-    fun `eodhd toggle routes OHLCV to EODHD, computes indicators locally, and keeps fundamentals on AV`() {
-        // Given: a service explicitly configured for `eodhd`. Per the access we have today,
-        // OHLCV is the only thing that switches; ATR/ADX must be recomputed locally
-        // (EODHD's /api/technical/ mishandles split events and is gated by tier on $29
-        // EOD-only plans), and fundamentals stay on AlphaVantage because the same EODHD
-        // tier doesn't include /api/fundamentals/.
-        val fixture = fixture(ingestProviderName = "eodhd")
+    fun `initial ingest fetches OHLCV from the configured ohlcv provider and falls through to fundamentals`() {
+        // Given: an ingest service in default `LOCAL` indicator mode
+        val fixture = fixture(indicatorsMode = IndicatorsMode.LOCAL)
 
         // When
         runBlocking { fixture.service.initialIngest("AAPL") }
 
-        // Then: OHLCV from EODHD, fundamentals from AV, and EODHD's indicator API never touched
-        verifyBlocking(fixture.eodhdOhlcv) { getDailyBars(eq("AAPL"), any(), any()) }
-        verifyBlocking(fixture.alphaVantageEarnings) { getEarnings(eq("AAPL")) }
-        verifyBlocking(fixture.alphaVantageCompanyInfo) { getCompanyInfo(eq("AAPL")) }
-        verifyBlocking(fixture.eodhdIndicators, never()) { getATR(any(), any()) }
-        verifyBlocking(fixture.eodhdIndicators, never()) { getADX(any(), any()) }
-        verifyBlocking(fixture.alphaVantageIndicators, never()) { getATR(any(), any()) }
-        verifyBlocking(fixture.alphaVantageIndicators, never()) { getADX(any(), any()) }
-        verifyBlocking(fixture.alphaVantageOhlcv, never()) { getDailyBars(any(), any(), any()) }
-        verifyBlocking(fixture.eodhdEarnings, never()) { getEarnings(any()) }
-        verifyBlocking(fixture.eodhdCompanyInfo, never()) { getCompanyInfo(any()) }
-
-        // OHLCV permit acquired against eodhd; fundamentals against alphavantage
-        verifyBlocking(fixture.rateLimiterService, atLeastOnce()) { acquirePermit(eq("eodhd")) }
-        verifyBlocking(fixture.rateLimiterService, atLeastOnce()) { acquirePermit(eq("alphavantage")) }
+        // Then: OHLCV provider was asked for bars; fundamentals + the daily-update path were not consulted
+        verifyBlocking(fixture.ohlcv) { getDailyBars(eq("AAPL"), any(), any()) }
+        verifyBlocking(fixture.dailyUpdateOhlcv, never()) { getDailyBars(any(), any(), any()) }
+        verifyBlocking(fixture.earnings) { getEarnings(eq("AAPL")) }
+        verifyBlocking(fixture.companyInfo) { getCompanyInfo(eq("AAPL")) }
     }
 
     @Test
-    fun `unknown ingest provider value falls back to AlphaVantage routing`() {
-        // Given: a misconfigured value — guard against typos / future provider names not yet wired
-        val fixture = fixture(ingestProviderName = "definitely-not-real")
+    fun `local indicators mode skips the indicators provider`() {
+        // Given: indicators mode set to `LOCAL` (default)
+        val fixture = fixture(indicatorsMode = IndicatorsMode.LOCAL)
 
         // When
         runBlocking { fixture.service.initialIngest("AAPL") }
 
-        // Then: defaults to AlphaVantage rather than refusing to ingest
-        verifyBlocking(fixture.alphaVantageOhlcv) { getDailyBars(eq("AAPL"), any(), any()) }
-        verifyBlocking(fixture.eodhdOhlcv, never()) { getDailyBars(any(), any(), any()) }
+        // Then: ATR/ADX never fetched from the API; recomputation happens via IndicatorCalculator
+        verifyBlocking(fixture.indicators, never()) { getATR(any(), any()) }
+        verifyBlocking(fixture.indicators, never()) { getADX(any(), any()) }
+    }
+
+    @Test
+    fun `api indicators mode calls the indicators provider`() {
+        // Given: indicators mode set to `API`
+        val fixture = fixture(indicatorsMode = IndicatorsMode.API)
+
+        // When
+        runBlocking { fixture.service.initialIngest("AAPL") }
+
+        // Then: ATR + ADX both fetched from the indicator provider
+        verifyBlocking(fixture.indicators) { getATR(eq("AAPL"), any()) }
+        verifyBlocking(fixture.indicators) { getADX(eq("AAPL"), any()) }
+    }
+
+    @Test
+    fun `skipSupplementary disables the earnings + company info fetch`() {
+        // Given
+        val fixture = fixture(indicatorsMode = IndicatorsMode.LOCAL)
+
+        // When
+        runBlocking { fixture.service.initialIngest("AAPL", skipSupplementary = true) }
+
+        // Then
+        verifyBlocking(fixture.earnings, never()) { getEarnings(any()) }
+        verifyBlocking(fixture.companyInfo, never()) { getCompanyInfo(any()) }
     }
 
     private data class Fixture(
         val service: IngestionService,
-        val alphaVantageOhlcv: OhlcvProvider,
-        val eodhdOhlcv: OhlcvProvider,
-        val alphaVantageIndicators: IndicatorProvider,
-        val eodhdIndicators: IndicatorProvider,
-        val alphaVantageEarnings: EarningsProvider,
-        val eodhdEarnings: EarningsProvider,
-        val alphaVantageCompanyInfo: CompanyInfoProvider,
-        val eodhdCompanyInfo: CompanyInfoProvider,
-        val rateLimiterService: RateLimiterService,
+        val ohlcv: OhlcvProvider,
+        val dailyUpdateOhlcv: OhlcvProvider,
+        val indicators: IndicatorProvider,
+        val earnings: EarningsProvider,
+        val companyInfo: CompanyInfoProvider,
     )
 
     @Suppress("LongMethod")
-    private fun fixture(ingestProviderName: String): Fixture {
+    private fun fixture(indicatorsMode: IndicatorsMode): Fixture {
         val sampleBars =
             listOf(
                 RawBar(
@@ -111,76 +100,46 @@ class IngestionServiceProviderToggleTest {
                 ),
             )
 
-        val alphaVantageOhlcv =
+        val ohlcv =
             mock<OhlcvProvider>().apply {
                 stub { onBlocking { getDailyBars(any(), any(), any()) }.doReturn(sampleBars) }
             }
-        val massiveOhlcv = mock<OhlcvProvider>()
-        val eodhdOhlcv =
-            mock<OhlcvProvider>().apply {
-                stub { onBlocking { getDailyBars(any(), any(), any()) }.doReturn(sampleBars) }
-            }
-        val alphaVantageIndicators =
+        val dailyUpdateOhlcv = mock<OhlcvProvider>()
+        val indicators =
             mock<IndicatorProvider>().apply {
                 stub {
                     onBlocking { getATR(any(), any()) }.doReturn(emptyMap())
                     onBlocking { getADX(any(), any()) }.doReturn(emptyMap())
                 }
             }
-        val eodhdIndicators =
-            mock<IndicatorProvider>().apply {
-                stub {
-                    onBlocking { getATR(any(), any()) }.doReturn(emptyMap())
-                    onBlocking { getADX(any(), any()) }.doReturn(emptyMap())
-                }
-            }
-        val alphaVantageEarnings = mock<EarningsProvider>().apply { stub { onBlocking { getEarnings(any()) }.doReturn(emptyList()) } }
-        val eodhdEarnings = mock<EarningsProvider>().apply { stub { onBlocking { getEarnings(any()) }.doReturn(emptyList()) } }
-        val alphaVantageCompanyInfo = mock<CompanyInfoProvider>().apply { stub { onBlocking { getCompanyInfo(any()) }.doReturn(null) } }
-        val eodhdCompanyInfo = mock<CompanyInfoProvider>().apply { stub { onBlocking { getCompanyInfo(any()) }.doReturn(null) } }
+        val earnings =
+            mock<EarningsProvider>().apply { stub { onBlocking { getEarnings(any()) }.doReturn(emptyList()) } }
+        val companyInfo =
+            mock<CompanyInfoProvider>().apply { stub { onBlocking { getCompanyInfo(any()) }.doReturn(null) } }
 
-        val rateLimiterService = mock<RateLimiterService>()
         val indicatorCalculator =
             mock<IndicatorCalculator> {
                 on { calculateAllEMAs(any()) } doReturn emptyMap()
                 on { calculateDonchianUpper(any(), any()) } doReturn emptyList()
+                on { calculateATR(any(), any()) } doReturn emptyList()
+                on { calculateADX(any(), any()) } doReturn emptyList()
             }
-        val quoteRepository = mock<QuoteRepository>()
-        val earningsRepository = mock<EarningsRepository>()
-        val symbolRepository = mock<SymbolRepository>()
-        val ingestionStatusRepository = mock<IngestionStatusRepository>()
 
         val service =
             IngestionService(
-                alphaVantageOhlcv = alphaVantageOhlcv,
-                massiveOhlcv = massiveOhlcv,
-                eodhdOhlcv = eodhdOhlcv,
-                alphaVantageIndicators = alphaVantageIndicators,
-                eodhdIndicators = eodhdIndicators,
-                alphaVantageEarnings = alphaVantageEarnings,
-                eodhdEarnings = eodhdEarnings,
-                alphaVantageCompanyInfo = alphaVantageCompanyInfo,
-                eodhdCompanyInfo = eodhdCompanyInfo,
-                rateLimiterService = rateLimiterService,
+                ohlcv = ohlcv,
+                dailyUpdateOhlcv = dailyUpdateOhlcv,
+                indicators = indicators,
+                earnings = earnings,
+                companyInfo = companyInfo,
                 indicatorCalculator = indicatorCalculator,
-                quoteRepository = quoteRepository,
-                earningsRepository = earningsRepository,
-                symbolRepository = symbolRepository,
-                ingestionStatusRepository = ingestionStatusRepository,
-                ingestProviderName = ingestProviderName,
+                quoteRepository = mock(),
+                earningsRepository = mock(),
+                symbolRepository = mock(),
+                ingestionStatusRepository = mock(),
+                indicatorsMode = indicatorsMode,
             )
 
-        return Fixture(
-            service = service,
-            alphaVantageOhlcv = alphaVantageOhlcv,
-            eodhdOhlcv = eodhdOhlcv,
-            alphaVantageIndicators = alphaVantageIndicators,
-            eodhdIndicators = eodhdIndicators,
-            alphaVantageEarnings = alphaVantageEarnings,
-            eodhdEarnings = eodhdEarnings,
-            alphaVantageCompanyInfo = alphaVantageCompanyInfo,
-            eodhdCompanyInfo = eodhdCompanyInfo,
-            rateLimiterService = rateLimiterService,
-        )
+        return Fixture(service, ohlcv, dailyUpdateOhlcv, indicators, earnings, companyInfo)
     }
 }

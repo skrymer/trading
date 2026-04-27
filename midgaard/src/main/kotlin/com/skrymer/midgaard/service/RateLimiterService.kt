@@ -54,26 +54,30 @@ class ProviderRateLimiter(
     private val mutex = Mutex()
 
     suspend fun acquirePermit() {
-        mutex.withLock {
-            while (true) {
-                cleanOldRequests()
-                val now = Instant.now()
+        // Hold the mutex only while checking + enqueuing. Releasing before
+        // `delay` lets other coroutines also run their check (and queue if
+        // capacity is available) instead of being blocked behind one waiter
+        // sleeping out the rate window. Without this, BULK_INITIAL_PARALLELISM
+        // collapses to 1 under sustained limit pressure.
+        while (true) {
+            val waitMs =
+                mutex.withLock {
+                    cleanOldRequests()
+                    val now = Instant.now()
+                    val lastSecond = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.SECONDS)) }
+                    val lastMinute = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.MINUTES)) }
+                    val lastDay = requestQueue.count { it.isAfter(now.minus(24, ChronoUnit.HOURS)) }
 
-                val lastSecond = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.SECONDS)) }
-                val lastMinute = requestQueue.count { it.isAfter(now.minus(1, ChronoUnit.MINUTES)) }
-                val lastDay = requestQueue.count { it.isAfter(now.minus(24, ChronoUnit.HOURS)) }
-
-                if (lastSecond < requestsPerSecond &&
-                    lastMinute < requestsPerMinute &&
-                    lastDay < requestsPerDay
-                ) {
-                    requestQueue.add(Instant.now())
-                    return
+                    if (lastSecond < requestsPerSecond &&
+                        lastMinute < requestsPerMinute &&
+                        lastDay < requestsPerDay
+                    ) {
+                        requestQueue.add(now)
+                        return
+                    }
+                    calculateWaitTime(now, lastSecond, lastMinute, lastDay)
                 }
-
-                val waitMs = calculateWaitTime(now, lastSecond, lastMinute, lastDay)
-                kotlinx.coroutines.delay(waitMs)
-            }
+            kotlinx.coroutines.delay(waitMs)
         }
     }
 

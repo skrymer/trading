@@ -30,99 +30,56 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * Bulk + per-symbol ingest pipeline. Provider-agnostic: providers are picked
+ * by `ProviderConfiguration` based on `app.ingest.provider`, this service just
+ * receives the chosen interfaces. Each provider self-rate-limits internally
+ * (caller doesn't know or care which permit key to ask for).
+ *
+ * Two orthogonal config knobs:
+ *   - `app.ingest.provider` — chooses the provider behind ohlcv/indicators/
+ *     earnings/companyInfo. Wired in `ProviderConfiguration`.
+ *   - `app.ingest.indicators` — `local` recomputes ATR/ADX from raw bars via
+ *     `IndicatorCalculator`; `api` calls the indicator provider's API. Default
+ *     is `local` (provider-neutral; safe across split events).
+ */
 @Service
 @Suppress("LongParameterList", "TooManyFunctions")
 class IngestionService(
-    @param:Qualifier("alphaVantageOhlcv") private val alphaVantageOhlcv: OhlcvProvider,
-    @param:Qualifier("massiveOhlcv") private val massiveOhlcv: OhlcvProvider,
-    @param:Qualifier("eodhdOhlcv") private val eodhdOhlcv: OhlcvProvider,
-    @param:Qualifier("alphaVantageIndicators") private val alphaVantageIndicators: IndicatorProvider,
-    @param:Qualifier("eodhdIndicators") private val eodhdIndicators: IndicatorProvider,
-    @param:Qualifier("alphaVantageEarnings") private val alphaVantageEarnings: EarningsProvider,
-    @param:Qualifier("eodhdEarnings") private val eodhdEarnings: EarningsProvider,
-    @param:Qualifier("alphaVantageCompanyInfo") private val alphaVantageCompanyInfo: CompanyInfoProvider,
-    @param:Qualifier("eodhdCompanyInfo") private val eodhdCompanyInfo: CompanyInfoProvider,
-    private val rateLimiterService: RateLimiterService,
+    private val ohlcv: OhlcvProvider,
+    @param:Qualifier("dailyUpdateOhlcv") private val dailyUpdateOhlcv: OhlcvProvider,
+    private val indicators: IndicatorProvider,
+    private val earnings: EarningsProvider,
+    private val companyInfo: CompanyInfoProvider,
     private val indicatorCalculator: IndicatorCalculator,
     private val quoteRepository: QuoteRepository,
     private val earningsRepository: EarningsRepository,
     private val symbolRepository: SymbolRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
-    @param:Value("\${app.ingest.provider:alphavantage}") private val ingestProviderName: String,
+    @param:Value("\${app.ingest.indicators:LOCAL}") private val indicatorsMode: IndicatorsMode,
 ) {
-    /**
-     * Selected ingestion source. Each interface is wired separately so we can
-     * route OHLCV through one provider while keeping fundamentals on another:
-     *
-     *   `app.ingest.provider=eodhd` → OHLCV from EODHD, ATR/ADX recomputed
-     *   locally (EODHD's `/api/technical/` endpoint mishandles split events),
-     *   earnings + company info still from AlphaVantage (the $29 EODHD tier
-     *   doesn't include the fundamentals API; revisit on upgrade).
-     *
-     *   `app.ingest.provider=alphavantage` (default) → everything from AV via
-     *   their existing endpoints, matching pre-EODHD behaviour exactly.
-     */
-    private data class IngestSource(
-        val name: String,
-        val ohlcv: OhlcvProvider,
-        val useLocalIndicators: Boolean,
-        val indicators: IndicatorProvider,
-        val earnings: EarningsProvider,
-        val earningsRateLimit: String,
-        val companyInfo: CompanyInfoProvider,
-        val companyInfoRateLimit: String,
-        val indicatorSource: IndicatorSource,
-    )
-
-    private val source: IngestSource by lazy {
-        when (ingestProviderName.lowercase()) {
-            "eodhd" ->
-                IngestSource(
-                    name = "eodhd",
-                    ohlcv = eodhdOhlcv,
-                    useLocalIndicators = true,
-                    indicators = alphaVantageIndicators,
-                    earnings = alphaVantageEarnings,
-                    earningsRateLimit = "alphavantage",
-                    companyInfo = alphaVantageCompanyInfo,
-                    companyInfoRateLimit = "alphavantage",
-                    indicatorSource = IndicatorSource.CALCULATED,
-                )
-            else ->
-                IngestSource(
-                    name = "alphavantage",
-                    ohlcv = alphaVantageOhlcv,
-                    useLocalIndicators = false,
-                    indicators = alphaVantageIndicators,
-                    earnings = alphaVantageEarnings,
-                    earningsRateLimit = "alphavantage",
-                    companyInfo = alphaVantageCompanyInfo,
-                    companyInfoRateLimit = "alphavantage",
-                    indicatorSource = IndicatorSource.ALPHAVANTAGE,
-                )
-        }
-    }
-
     @Volatile
     var bulkProgress: BulkProgress? = null
 
     /**
      * Initial ingest — fetches OHLCV + ATR + ADX from the configured ingest source
-     * (AlphaVantage by default, EODHD when `app.ingest.provider=eodhd`) and computes
-     * EMAs + Donchian locally.
+     * and computes EMAs + Donchian locally.
      */
-    suspend fun initialIngest(symbol: String): IngestionResult =
+    suspend fun initialIngest(
+        symbol: String,
+        skipSupplementary: Boolean = false,
+    ): IngestionResult =
         try {
-            logger.info("Starting initial ingest for $symbol via ${source.name}")
+            logger.info("Starting initial ingest for $symbol")
             val bars = fetchInitialBars(symbol)
             if (bars == null) {
                 updateStatus(symbol, 0, null, IngestionState.FAILED)
-                IngestionResult(symbol, false, message = "No OHLCV data from ${source.name}")
+                IngestionResult(symbol, false, message = "No OHLCV data available")
             } else {
                 val quotes = buildInitialQuotes(symbol, bars)
                 quoteRepository.upsertQuotes(quotes)
                 logger.info("Saved ${quotes.size} quotes for $symbol")
-                fetchAndSaveSupplementaryData(symbol)
+                if (!skipSupplementary) fetchAndSaveSupplementaryData(symbol)
                 updateStatus(symbol, quotes.size, quotes.maxByOrNull { it.date }?.date, IngestionState.COMPLETE)
                 IngestionResult(symbol, true, quotes.size)
             }
@@ -161,17 +118,24 @@ class IngestionService(
             IngestionResult(symbol, false, message = e.message)
         }
 
-    fun initialIngestAll(): Job {
+    fun initialIngestAll(skipSupplementary: Boolean = false): Job {
         val symbols = symbolRepository.findAll()
-        logger.info("Starting bulk initial ingest for ${symbols.size} symbols")
+        logger.info("Starting bulk initial ingest for ${symbols.size} symbols (skipSupplementary=$skipSupplementary)")
         val progress = BulkProgress(total = symbols.size)
         bulkProgress = progress
         val job = Job()
-        kotlinx.coroutines.CoroutineScope(Dispatchers.IO + job).launch {
-            for (symbol in symbols) {
-                if (!job.isActive) break
-                processSymbolIngest(symbol.symbol, progress, ::initialIngest)
-            }
+        val semaphore = Semaphore(BULK_INITIAL_PARALLELISM)
+        val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + job)
+        scope.launch {
+            symbols
+                .map { symbol ->
+                    launch {
+                        if (!job.isActive) return@launch
+                        semaphore.withPermit {
+                            processSymbolIngest(symbol.symbol, progress) { initialIngest(it, skipSupplementary) }
+                        }
+                    }
+                }.forEach { it.join() }
             logger.info("Bulk initial ingest: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
         }
         return job
@@ -195,10 +159,9 @@ class IngestionService(
     }
 
     private suspend fun fetchInitialBars(symbol: String): List<RawBar>? {
-        rateLimiterService.acquirePermit(source.name)
-        val bars = source.ohlcv.getDailyBars(symbol, "full", MIN_DATE)
+        val bars = ohlcv.getDailyBars(symbol, "full", MIN_DATE)
         if (!bars.isNullOrEmpty()) {
-            logger.info("Fetched ${bars.size} OHLCV bars for $symbol from ${source.name}")
+            logger.info("Fetched ${bars.size} OHLCV bars for $symbol")
         }
         return bars?.ifEmpty { null }
     }
@@ -218,7 +181,7 @@ class IngestionService(
                 emas = emas,
                 index = index,
                 donchianUpper5 = donchian.getOrNull(index),
-                indicatorSource = if (atrMap.containsKey(bar.date)) source.indicatorSource else IndicatorSource.CALCULATED,
+                indicatorSource = IndicatorSource.CALCULATED,
             )
         }
     }
@@ -226,20 +189,19 @@ class IngestionService(
     private suspend fun fetchOrComputeIndicators(
         symbol: String,
         bars: List<RawBar>,
-    ): Pair<Map<LocalDate, Double>, Map<LocalDate, Double>> {
-        if (source.useLocalIndicators) {
-            // No API call — compute from the OHLCV we just fetched. Avoids EODHD's
-            // split-related errors in /api/technical/ and works across all tiers.
-            val atrSeries = indicatorCalculator.calculateATR(bars)
-            val adxSeries = indicatorCalculator.calculateADX(bars)
-            return mapByDate(bars, atrSeries) to mapByDate(bars, adxSeries)
+    ): Pair<Map<LocalDate, Double>, Map<LocalDate, Double>> =
+        when (indicatorsMode) {
+            IndicatorsMode.LOCAL -> {
+                val atrSeries = indicatorCalculator.calculateATR(bars)
+                val adxSeries = indicatorCalculator.calculateADX(bars)
+                mapByDate(bars, atrSeries) to mapByDate(bars, adxSeries)
+            }
+            IndicatorsMode.API -> {
+                val atrMap = indicators.getATR(symbol, MIN_DATE) ?: emptyMap()
+                val adxMap = indicators.getADX(symbol, MIN_DATE) ?: emptyMap()
+                atrMap to adxMap
+            }
         }
-        rateLimiterService.acquirePermit(source.name)
-        val atrMap = source.indicators.getATR(symbol, MIN_DATE) ?: emptyMap()
-        rateLimiterService.acquirePermit(source.name)
-        val adxMap = source.indicators.getADX(symbol, MIN_DATE) ?: emptyMap()
-        return atrMap to adxMap
-    }
 
     private fun mapByDate(
         bars: List<RawBar>,
@@ -251,21 +213,19 @@ class IngestionService(
             .associate { (bar, value) -> bar.date to value }
 
     private suspend fun fetchAndSaveSupplementaryData(symbol: String) {
-        rateLimiterService.acquirePermit(source.earningsRateLimit)
-        val earnings = source.earnings.getEarnings(symbol)
-        if (!earnings.isNullOrEmpty()) {
-            earningsRepository.upsertEarnings(earnings)
-            logger.info("Saved ${earnings.size} earnings for $symbol")
+        val earningsList = earnings.getEarnings(symbol)
+        if (!earningsList.isNullOrEmpty()) {
+            earningsRepository.upsertEarnings(earningsList)
+            logger.info("Saved ${earningsList.size} earnings for $symbol")
         }
-        rateLimiterService.acquirePermit(source.companyInfoRateLimit)
-        val companyInfo = source.companyInfo.getCompanyInfo(symbol)
-        if (companyInfo?.sector != null) {
+        val info = companyInfo.getCompanyInfo(symbol)
+        if (info?.sector != null) {
             val existingSymbol = symbolRepository.findBySymbol(symbol)
             if (existingSymbol != null) {
                 symbolRepository.upsertSymbol(
                     existingSymbol.copy(
-                        sector = companyInfo.sector,
-                        sectorSymbol = SectorMapping.toSectorSymbol(companyInfo.sector),
+                        sector = info.sector,
+                        sectorSymbol = SectorMapping.toSectorSymbol(info.sector),
                     ),
                 )
             }
@@ -279,9 +239,8 @@ class IngestionService(
             return null
         }
         val fetchFrom = lastBarDate.minusDays(OVERLAP_DAYS)
-        rateLimiterService.acquirePermit("massive")
         val freshBars =
-            massiveOhlcv
+            dailyUpdateOhlcv
                 .getDailyBars(symbol, "compact", fetchFrom)
                 ?.filter { !it.date.isBefore(fetchFrom) }
                 ?.ifEmpty { null }
@@ -400,6 +359,7 @@ class IngestionService(
         private const val SEED_LOOKBACK = 250
         private const val OVERLAP_DAYS = 5L
         private const val BULK_UPDATE_PARALLELISM = 10
+        private const val BULK_INITIAL_PARALLELISM = 10
     }
 }
 

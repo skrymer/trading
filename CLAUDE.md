@@ -195,7 +195,7 @@ trading/
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
 │   ├── src/main/kotlin/com/skrymer/midgaard/
-│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive, Finnhub, EODHD)
+│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive, Finnhub, EODHD); self-rate-limiting; selection via ProviderConfiguration @ConditionalOnProperty
 │   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, ApiKeyService, ScheduledIngestionService
 │   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
