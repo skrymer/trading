@@ -65,10 +65,7 @@ class IngestionService(
      * Initial ingest — fetches OHLCV + ATR + ADX from the configured ingest source
      * and computes EMAs + Donchian locally.
      */
-    suspend fun initialIngest(
-        symbol: String,
-        skipSupplementary: Boolean = false,
-    ): IngestionResult =
+    suspend fun initialIngest(symbol: String): IngestionResult =
         try {
             logger.info("Starting initial ingest for $symbol")
             val bars = fetchInitialBars(symbol)
@@ -79,7 +76,7 @@ class IngestionService(
                 val quotes = buildInitialQuotes(symbol, bars)
                 quoteRepository.upsertQuotes(quotes)
                 logger.info("Saved ${quotes.size} quotes for $symbol")
-                if (!skipSupplementary) fetchAndSaveSupplementaryData(symbol)
+                fetchAndSaveSupplementaryData(symbol)
                 updateStatus(symbol, quotes.size, quotes.maxByOrNull { it.date }?.date, IngestionState.COMPLETE)
                 IngestionResult(symbol, true, quotes.size)
             }
@@ -118,9 +115,9 @@ class IngestionService(
             IngestionResult(symbol, false, message = e.message)
         }
 
-    fun initialIngestAll(skipSupplementary: Boolean = false): Job {
+    fun initialIngestAll(): Job {
         val symbols = symbolRepository.findAll()
-        logger.info("Starting bulk initial ingest for ${symbols.size} symbols (skipSupplementary=$skipSupplementary)")
+        logger.info("Starting bulk initial ingest for ${symbols.size} symbols")
         val progress = BulkProgress(total = symbols.size)
         bulkProgress = progress
         val job = Job()
@@ -131,9 +128,7 @@ class IngestionService(
                 .map { symbol ->
                     launch {
                         if (!job.isActive) return@launch
-                        semaphore.withPermit {
-                            processSymbolIngest(symbol.symbol, progress) { initialIngest(it, skipSupplementary) }
-                        }
+                        semaphore.withPermit { processSymbolIngest(symbol.symbol, progress, ::initialIngest) }
                     }
                 }.forEach { it.join() }
             logger.info("Bulk initial ingest: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")

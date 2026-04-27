@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -25,14 +24,11 @@ class IngestionController(
     @PostMapping("/initial/{symbol}")
     fun triggerInitialIngest(
         @PathVariable symbol: String,
-        @RequestParam(defaultValue = "false") skipSupplementary: Boolean,
-    ): IngestionResult = runBlocking { ingestionService.initialIngest(symbol.uppercase(), skipSupplementary) }
+    ): IngestionResult = runBlocking { ingestionService.initialIngest(symbol.uppercase()) }
 
     @PostMapping("/initial/all")
-    fun triggerInitialIngestAll(
-        @RequestParam(defaultValue = "false") skipSupplementary: Boolean,
-    ): ResponseEntity<Map<String, String>> {
-        ingestionService.initialIngestAll(skipSupplementary)
+    fun triggerInitialIngestAll(): ResponseEntity<Map<String, String>> {
+        ingestionService.initialIngestAll()
         return ResponseEntity.ok(mapOf("message" to "Bulk initial ingest started"))
     }
 

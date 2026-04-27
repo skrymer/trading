@@ -63,19 +63,6 @@ class IngestionServiceProviderToggleTest {
         verifyBlocking(fixture.indicators) { getADX(eq("AAPL"), any()) }
     }
 
-    @Test
-    fun `skipSupplementary disables the earnings + company info fetch`() {
-        // Given
-        val fixture = fixture(indicatorsMode = IndicatorsMode.LOCAL)
-
-        // When
-        runBlocking { fixture.service.initialIngest("AAPL", skipSupplementary = true) }
-
-        // Then
-        verifyBlocking(fixture.earnings, never()) { getEarnings(any()) }
-        verifyBlocking(fixture.companyInfo, never()) { getCompanyInfo(any()) }
-    }
-
     private data class Fixture(
         val service: IngestionService,
         val ohlcv: OhlcvProvider,
