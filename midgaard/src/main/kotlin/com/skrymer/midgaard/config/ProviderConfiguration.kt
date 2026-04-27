@@ -57,6 +57,9 @@ class ProviderConfiguration(
     @param:Value("\${provider.eodhd.requestsPerSecond:10}") private val eodhdReqPerSec: Int,
     @param:Value("\${provider.eodhd.requestsPerMinute:1000}") private val eodhdReqPerMin: Int,
     @param:Value("\${provider.eodhd.requestsPerDay:100000}") private val eodhdReqPerDay: Int,
+    @param:Value("\${provider.edgar.requestsPerSecond:10}") private val edgarReqPerSec: Int,
+    @param:Value("\${provider.edgar.requestsPerMinute:600}") private val edgarReqPerMin: Int,
+    @param:Value("\${provider.edgar.requestsPerDay:100000}") private val edgarReqPerDay: Int,
 ) {
     @PostConstruct
     fun init() {
@@ -64,6 +67,7 @@ class ProviderConfiguration(
         rateLimiterService.registerProvider(ProviderIds.MASSIVE, massiveReqPerSec, massiveReqPerMin, massiveReqPerDay)
         rateLimiterService.registerProvider(ProviderIds.FINNHUB, finnhubReqPerSec, finnhubReqPerMin, finnhubReqPerDay)
         rateLimiterService.registerProvider(ProviderIds.EODHD, eodhdReqPerSec, eodhdReqPerMin, eodhdReqPerDay)
+        rateLimiterService.registerProvider(ProviderIds.EDGAR, edgarReqPerSec, edgarReqPerMin, edgarReqPerDay)
     }
 
     // ── Toggleable: app.ingest.provider picks which implementation backs each interface.

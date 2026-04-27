@@ -22,6 +22,8 @@ class SymbolRepository(
                     assetType = AssetType.valueOf(record.assetType),
                     sector = record.sector,
                     sectorSymbol = record.sectorSymbol,
+                    delistedAt = record.delistedAt,
+                    cik = record.cik,
                 )
             }
 
@@ -36,6 +38,8 @@ class SymbolRepository(
                     assetType = AssetType.valueOf(record.assetType),
                     sector = record.sector,
                     sectorSymbol = record.sectorSymbol,
+                    delistedAt = record.delistedAt,
+                    cik = record.cik,
                 )
             }
 
@@ -47,11 +51,15 @@ class SymbolRepository(
             .set(SYMBOLS.ASSET_TYPE, symbol.assetType.name)
             .set(SYMBOLS.SECTOR, symbol.sector)
             .set(SYMBOLS.SECTOR_SYMBOL, symbol.sectorSymbol)
+            .set(SYMBOLS.DELISTED_AT, symbol.delistedAt)
+            .set(SYMBOLS.CIK, symbol.cik)
             .onConflict(SYMBOLS.SYMBOL)
             .doUpdate()
             .set(SYMBOLS.ASSET_TYPE, symbol.assetType.name)
             .set(SYMBOLS.SECTOR, symbol.sector)
             .set(SYMBOLS.SECTOR_SYMBOL, symbol.sectorSymbol)
+            .set(SYMBOLS.DELISTED_AT, symbol.delistedAt)
+            .set(SYMBOLS.CIK, symbol.cik)
             .execute()
     }
 

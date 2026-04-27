@@ -10,4 +10,5 @@ object ProviderIds {
     const val EODHD = "eodhd"
     const val MASSIVE = "massive"
     const val FINNHUB = "finnhub"
+    const val EDGAR = "edgar"
 }

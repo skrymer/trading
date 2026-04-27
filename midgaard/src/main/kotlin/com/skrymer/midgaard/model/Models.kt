@@ -56,6 +56,8 @@ data class Symbol(
     val assetType: AssetType,
     val sector: String? = null,
     val sectorSymbol: String? = null,
+    val delistedAt: LocalDate? = null,
+    val cik: String? = null,
 )
 
 object SectorMapping {
