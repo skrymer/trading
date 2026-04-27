@@ -66,6 +66,15 @@ class Trade(
 
   companion object {
     const val MISSED_INSUFFICIENT_CAPITAL = "insufficient capital"
+
+    /**
+     * Tags trades that were force-closed because the trading symbol delisted
+     * before the entry strategy's natural exit. Without this, the trade would
+     * silently disappear from `BacktestService.createTradeFromEntry()` —
+     * causing pre-2010 backtests to under-report real losses from late-cycle
+     * delistings.
+     */
+    const val EXIT_REASON_DELISTED = "delisted"
   }
 }
 

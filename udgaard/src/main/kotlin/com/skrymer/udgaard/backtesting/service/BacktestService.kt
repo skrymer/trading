@@ -205,29 +205,83 @@ class BacktestService(
         val exitDate = strategyExitQuote.date
         val tradingExitQuote = quoteIndexes[entry.stockPair.tradingStock]?.getQuote(exitDate)
 
-        if (tradingExitQuote != null) {
-          val exitPrice = exitStrategy.exitPrice(entry.stockPair.tradingStock, entry.tradingEntryQuote, tradingExitQuote)
-          val profit = exitPrice - entry.tradingEntryQuote.closePrice
-
-          // Get all trading quotes between entry and exit
-          val entryDate = entry.tradingEntryQuote.date
-          val tradingQuotes = entry.stockPair.tradingStock.quotesInRange(entryDate, exitDate)
-
-          return Trade(
-            entry.stockPair.tradingStock.symbol,
-            entry.stockPair.underlyingSymbol, // Store which underlying was used
-            entry.tradingEntryQuote, // Use trading stock prices
-            tradingQuotes,
-            exitReport.exitReason,
-            profit,
-            entry.tradingEntryQuote.date,
-            entry.stockPair.tradingStock.sectorSymbol ?: "",
-          )
+        return if (tradingExitQuote != null) {
+          buildTradeWithStrategyExit(entry, exitStrategy, exitReport, tradingExitQuote, exitDate)
+        } else {
+          // Trading stock has no quote on the strategy's exit date — almost always
+          // because it delisted before that date. Force-close on the trading stock's
+          // last available bar so the loss surfaces in the backtest instead of
+          // vanishing via a silent drop. Returning null here is what caused
+          // pre-2010 walk-forwards to under-report drawdown.
+          buildForceClosedTradeOnDelisting(entry, exitDate)
         }
       }
     }
 
-    return null
+    // Exit strategy never matched. If the trading stock is known-delisted, the
+    // strategy ran out of bars without ever signalling — force-close on the last
+    // available bar with the DELISTED reason instead of dropping. Without this
+    // guard, late-cycle losses on delisted symbols vanish from the report.
+    return forceCloseIfDelisted(entry)
+  }
+
+  private fun forceCloseIfDelisted(entry: PotentialEntry): Trade? {
+    val tradingStock = entry.stockPair.tradingStock
+    val delistingDate = tradingStock.delistingDate ?: return null
+    val entryDate = entry.tradingEntryQuote.date
+    if (!delistingDate.isAfter(entryDate)) return null
+    return buildForceClosedTradeOnDelisting(entry, delistingDate)
+  }
+
+  private fun buildTradeWithStrategyExit(
+    entry: PotentialEntry,
+    exitStrategy: ExitStrategy,
+    exitReport: com.skrymer.udgaard.data.model.ExitReport,
+    tradingExitQuote: StockQuote,
+    exitDate: LocalDate,
+  ): Trade {
+    val exitPrice = exitStrategy.exitPrice(entry.stockPair.tradingStock, entry.tradingEntryQuote, tradingExitQuote)
+    val profit = exitPrice - entry.tradingEntryQuote.closePrice
+    val entryDate = entry.tradingEntryQuote.date
+    val tradingQuotes = entry.stockPair.tradingStock.quotesInRange(entryDate, exitDate)
+    return Trade(
+      entry.stockPair.tradingStock.symbol,
+      entry.stockPair.underlyingSymbol,
+      entry.tradingEntryQuote,
+      tradingQuotes,
+      exitReport.exitReason,
+      profit,
+      entry.tradingEntryQuote.date,
+      entry.stockPair.tradingStock.sectorSymbol ?: "",
+    )
+  }
+
+  private fun buildForceClosedTradeOnDelisting(
+    entry: PotentialEntry,
+    strategyExitDate: LocalDate,
+  ): Trade? {
+    val entryDate = entry.tradingEntryQuote.date
+    // Last bar between the day after entry and the strategy's intended exit date.
+    // Drops candidates whose trading stock had no bars at all post-entry —
+    // shouldn't happen given an entry quote was found, but guard it anyway.
+    val lastAvailableBar =
+      entry.stockPair.tradingStock
+        .quotesInRange(entryDate.plusDays(1), strategyExitDate)
+        .lastOrNull()
+        ?: return null
+    val exitPrice = lastAvailableBar.closePrice
+    val profit = exitPrice - entry.tradingEntryQuote.closePrice
+    val tradingQuotes = entry.stockPair.tradingStock.quotesInRange(entryDate, lastAvailableBar.date)
+    return Trade(
+      entry.stockPair.tradingStock.symbol,
+      entry.stockPair.underlyingSymbol,
+      entry.tradingEntryQuote,
+      tradingQuotes,
+      Trade.EXIT_REASON_DELISTED,
+      profit,
+      entryDate,
+      entry.stockPair.tradingStock.sectorSymbol ?: "",
+    )
   }
 
   /**

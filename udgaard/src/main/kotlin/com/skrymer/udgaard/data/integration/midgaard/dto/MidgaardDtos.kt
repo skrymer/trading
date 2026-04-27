@@ -47,6 +47,11 @@ data class MidgaardSymbolDto(
   val assetType: String,
   val sector: String?,
   val sectorSymbol: String? = null,
+  // Authoritative delisting date from midgaard's `symbols.delisted_at`. When
+  // present, prefer this over the local 90-day-without-data heuristic in
+  // `StockIngestionService` — the heuristic was a stop-gap that flagged
+  // delisted symbols a quarter late and missed mid-quarter delistings.
+  val delistedAt: LocalDate? = null,
 )
 
 data class MidgaardExchangeRateDto(

@@ -101,20 +101,31 @@ class StockIngestionService(
       val enrichedQuotes = enrichWithTrend(quotes, symbol)
       val orderBlocks = calculateOrderBlocks(enrichedQuotes)
       val sortedQuotes = enrichedQuotes.sortedBy { it.date }
+      val symbolInfo = midgaardClient.getSymbolInfo(symbol)
       Stock(
         symbol = symbol,
-        sectorSymbol = midgaardClient.getSymbolInfo(symbol)?.sectorSymbol,
+        sectorSymbol = symbolInfo?.sectorSymbol,
         quotes = sortedQuotes,
         orderBlocks = orderBlocks.toMutableList(),
         listingDate = sortedQuotes.firstOrNull()?.date,
-        delistingDate = sortedQuotes.lastOrNull()?.date?.let { lastDate ->
-          val cutoff = LocalDate.now().minusDays(90)
-          if (lastDate.isBefore(cutoff)) lastDate else null
-        },
+        delistingDate = resolveDelistingDate(symbolInfo?.delistedAt, sortedQuotes.lastOrNull()?.date),
       )
     }.onFailure { error ->
       logger.error("✗ $symbol failed: ${error.message ?: error::class.simpleName}", error)
     }.getOrNull()
+
+  /**
+   * Authoritative delisting date if midgaard knows one (the symbol came in
+   * through the delisted-bootstrap path). Falls back to the
+   * 90-days-without-data heuristic for symbols that delisted between bulk
+   * runs without midgaard noticing yet.
+   */
+  private fun resolveDelistingDate(midgaardDelistedAt: LocalDate?, lastQuoteDate: LocalDate?): LocalDate? =
+    midgaardDelistedAt
+      ?: lastQuoteDate?.let { lastDate ->
+        val cutoff = LocalDate.now().minusDays(90)
+        if (lastDate.isBefore(cutoff)) lastDate else null
+      }
 
   private fun fetchQuotes(symbol: String): List<StockQuote> =
     stockProvider.getDailyAdjustedTimeSeries(symbol)
