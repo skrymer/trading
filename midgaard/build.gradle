@@ -26,6 +26,7 @@ repositories {
 dependencies {
 	// Database - PostgreSQL with jOOQ
 	implementation 'org.springframework.boot:spring-boot-starter-jooq'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	implementation 'org.jooq:jooq-kotlin'
 	runtimeOnly 'org.postgresql:postgresql'
 

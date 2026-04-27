@@ -11,7 +11,12 @@
         <button type="submit" class="btn btn-primary me-2">Start Initial Ingest All</button>
       </form>
       <form method="post" action="/ingestion/update/all" class="d-inline">
-        <button type="submit" class="btn btn-outline-primary">Start Update All</button>
+        <button type="submit" class="btn btn-outline-primary me-2">Start Update All</button>
+      </form>
+      <form method="post" action="/ingestion/initial/failed" class="d-inline" th:if="${failedCount > 0}">
+        <button type="submit" class="btn btn-warning">
+          Retry Failed (<span th:text="${failedCount}">0</span>)
+        </button>
       </form>
     </div>
   </div>

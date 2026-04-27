@@ -32,6 +32,12 @@ class IngestionController(
         return ResponseEntity.ok(mapOf("message" to "Bulk initial ingest started"))
     }
 
+    @PostMapping("/initial/failed")
+    fun triggerInitialIngestFailed(): ResponseEntity<Map<String, String>> {
+        ingestionService.retryFailedIngests()
+        return ResponseEntity.ok(mapOf("message" to "Retry of failed ingests started"))
+    }
+
     @PostMapping("/update/{symbol}")
     fun triggerUpdate(
         @PathVariable symbol: String,

@@ -13,7 +13,6 @@ import com.skrymer.midgaard.integration.eodhd.dto.EodhdAtrResponse
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAtrRowDto
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdBarDto
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdEodResponse
-import com.skrymer.midgaard.integration.eodhd.dto.EodhdFundamentalsResponse
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.RawBar
@@ -34,6 +33,7 @@ import java.time.LocalDate
 class EodhdProvider(
     private val apiKeyService: ApiKeyService,
     private val rateLimiterService: RateLimiterService,
+    private val fundamentalsClient: EodhdFundamentalsClient,
     @param:Value("\${eodhd.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
@@ -126,39 +126,11 @@ class EodhdProvider(
             }.retrieve()
             .body(type)
 
-    override suspend fun getEarnings(symbol: String): List<Earning>? {
-        rateLimiterService.acquirePermit(PROVIDER_ID)
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                fetchFundamentals(symbol)?.let { response ->
-                    validateAndTransform(response, symbol, "earnings") { it.toEarnings(symbol) }
-                }
-            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "earnings", symbol, e) }.getOrNull()
-        }
-    }
+    override suspend fun getEarnings(symbol: String): List<Earning>? =
+        fundamentalsClient.fetch(symbol, symbol.toEodhdSymbol())?.toEarnings(symbol)
 
-    override suspend fun getCompanyInfo(symbol: String): CompanyInfo? {
-        rateLimiterService.acquirePermit(PROVIDER_ID)
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                fetchFundamentals(symbol)?.let { response ->
-                    validateAndTransform(response, symbol, "company info") { it.toCompanyInfo() }
-                }
-            }.onFailure { e -> SafeLogging.logFetchFailure(logger, "EODHD", "company info", symbol, e) }.getOrNull()
-        }
-    }
-
-    private fun fetchFundamentals(symbol: String): EodhdFundamentalsResponse? =
-        restClient
-            .get()
-            .uri { uriBuilder ->
-                uriBuilder
-                    .path(PATH_FUNDAMENTALS)
-                    .queryParam(QUERY_API_TOKEN, apiKey)
-                    .queryParam(QUERY_FILTER, FUNDAMENTALS_FILTER)
-                    .build(symbol.toEodhdSymbol())
-            }.retrieve()
-            .body(EodhdFundamentalsResponse::class.java)
+    override suspend fun getCompanyInfo(symbol: String): CompanyInfo? =
+        fundamentalsClient.fetch(symbol, symbol.toEodhdSymbol())?.toCompanyInfo()
 
     private fun <T : EodhdApiResponse, R> validateAndTransform(
         response: T?,
@@ -196,18 +168,15 @@ class EodhdProvider(
         private val ADX_LIST_TYPE = object : ParameterizedTypeReference<List<EodhdAdxRowDto>>() {}
         private const val PATH_EOD = "/eod/{symbol}"
         private const val PATH_TECHNICAL = "/technical/{symbol}"
-        private const val PATH_FUNDAMENTALS = "/fundamentals/{symbol}"
         private const val QUERY_API_TOKEN = "api_token"
         private const val QUERY_FMT = "fmt"
         private const val QUERY_FROM = "from"
         private const val QUERY_FUNCTION = "function"
         private const val QUERY_PERIOD = "period"
-        private const val QUERY_FILTER = "filter"
         private const val FMT_JSON = "json"
         private const val FUNCTION_ATR = "atr"
         private const val FUNCTION_ADX = "adx"
         private const val INDICATOR_PERIOD = 14
-        private const val FUNDAMENTALS_FILTER = "General,Highlights,Earnings"
         private val KNOWN_EXCHANGE_SUFFIXES =
             setOf(".US", ".LSE", ".XETRA", ".PA", ".HK", ".TO", ".AX", ".V", ".F", ".FOREX")
     }

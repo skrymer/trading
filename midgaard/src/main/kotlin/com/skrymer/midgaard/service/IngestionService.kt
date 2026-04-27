@@ -116,8 +116,26 @@ class IngestionService(
         }
 
     fun initialIngestAll(): Job {
-        val symbols = symbolRepository.findAll()
-        logger.info("Starting bulk initial ingest for ${symbols.size} symbols")
+        val symbols = symbolRepository.findAll().map { it.symbol }
+        return runParallelInitialIngest("bulk initial", symbols)
+    }
+
+    /**
+     * Re-runs `initialIngest` only for symbols whose previous attempt left them
+     * in `IngestionState.FAILED`. Useful after a partial bulk ingest (e.g. when
+     * the upstream daily quota was exhausted mid-run) — finishes the long tail
+     * without paying for the symbols that already succeeded.
+     */
+    fun retryFailedIngests(): Job {
+        val failed = ingestionStatusRepository.findByStatus(IngestionState.FAILED).map { it.symbol }
+        return runParallelInitialIngest("retry-failed", failed)
+    }
+
+    private fun runParallelInitialIngest(
+        label: String,
+        symbols: List<String>,
+    ): Job {
+        logger.info("Starting $label ingest for ${symbols.size} symbols")
         val progress = BulkProgress(total = symbols.size)
         bulkProgress = progress
         val job = Job()
@@ -128,10 +146,10 @@ class IngestionService(
                 .map { symbol ->
                     launch {
                         if (!job.isActive) return@launch
-                        semaphore.withPermit { processSymbolIngest(symbol.symbol, progress, ::initialIngest) }
+                        semaphore.withPermit { processSymbolIngest(symbol, progress, ::initialIngest) }
                     }
                 }.forEach { it.join() }
-            logger.info("Bulk initial ingest: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
+            logger.info("$label ingest: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
         }
         return job
     }

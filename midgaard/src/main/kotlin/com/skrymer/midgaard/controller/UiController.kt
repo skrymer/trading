@@ -109,12 +109,19 @@ class UiController(
         val progress = ingestionService.bulkProgress
         model.addAttribute("progress", progress)
         model.addAttribute("active", progress != null)
+        model.addAttribute("failedCount", ingestionStatusRepository.countByStatus(IngestionState.FAILED))
         return "ingestion"
     }
 
     @PostMapping("/ingestion/initial/all")
     fun startInitialIngestAll(): String {
         ingestionService.initialIngestAll()
+        return "redirect:/ingestion"
+    }
+
+    @PostMapping("/ingestion/initial/failed")
+    fun startRetryFailedIngests(): String {
+        ingestionService.retryFailedIngests()
         return "redirect:/ingestion"
     }
 
