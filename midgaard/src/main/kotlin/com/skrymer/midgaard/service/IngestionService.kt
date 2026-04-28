@@ -191,11 +191,14 @@ class IngestionService(
     }
 
     private suspend fun fetchInitialBars(symbol: String): List<RawBar>? {
-        val bars = ohlcv.getDailyBars(symbol, "full", MIN_DATE)
-        if (!bars.isNullOrEmpty()) {
-            logger.info("Fetched ${bars.size} OHLCV bars for $symbol")
+        val raw = ohlcv.getDailyBars(symbol, "full", MIN_DATE) ?: return null
+        val tradingBars = raw.filter { it.volume > 0L }
+        val skipped = raw.size - tradingBars.size
+        if (tradingBars.isNotEmpty()) {
+            val skippedNote = if (skipped > 0) " (skipped $skipped synthetic-filler bars)" else ""
+            logger.info("Fetched ${tradingBars.size} OHLCV bars for $symbol$skippedNote")
         }
-        return bars?.ifEmpty { null }
+        return tradingBars.ifEmpty { null }
     }
 
     private suspend fun buildInitialQuotes(
@@ -271,10 +274,14 @@ class IngestionService(
             return null
         }
         val fetchFrom = lastBarDate.minusDays(OVERLAP_DAYS)
+        // Drop synthetic-filler bars (volume=0) at the ingest boundary so they
+        // never reach `quotes` and the downstream backtest. See VCP_STRATEGY_V2
+        // §3.9 — provider data on delisted issuers can include zero-volume
+        // bars that repeat the prior close.
         val freshBars =
             dailyUpdateOhlcv
                 .getDailyBars(symbol, "compact", fetchFrom)
-                ?.filter { !it.date.isBefore(fetchFrom) }
+                ?.filter { !it.date.isBefore(fetchFrom) && it.volume > 0L }
                 ?.ifEmpty { null }
         if (freshBars == null) logger.info("No new bars for $symbol")
         return freshBars

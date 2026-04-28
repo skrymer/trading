@@ -42,13 +42,19 @@ class StockJooqRepository(
         .where(STOCKS.SYMBOL.eq(symbol))
         .fetchOneInto(Stocks::class.java) ?: return null
 
-    // Load quotes (with optional date filtering)
-    val quotesQuery =
+    // Load quotes (with optional date filtering). Volume=0 bars are
+    // synthetic fillers some upstream providers emit for non-trading days
+    // on delisted issuers — they repeat the prior close and break entry/
+    // exit signals (EMAs lock, ATR collapses, exits never fire). Filter
+    // them at the boundary so the strategy never sees them.
+    // See VCP_STRATEGY_V2.md §3.9.
+    var quotesQuery =
       dsl
         .selectFrom(STOCK_QUOTES)
         .where(STOCK_QUOTES.STOCK_SYMBOL.eq(symbol))
+        .and(STOCK_QUOTES.VOLUME.gt(0L))
     if (quotesAfter != null) {
-      quotesQuery.and(STOCK_QUOTES.QUOTE_DATE.ge(quotesAfter))
+      quotesQuery = quotesQuery.and(STOCK_QUOTES.QUOTE_DATE.ge(quotesAfter))
     }
     val quotes =
       quotesQuery
@@ -151,13 +157,15 @@ class StockJooqRepository(
 
     if (stocks.isEmpty()) return emptyList()
 
-    // Load all quotes for these stocks in one query (with optional date filtering)
-    val quotesQuery =
+    // Load all quotes for these stocks in one query (with optional date filtering).
+    // Volume=0 filter excludes synthetic-filler bars — see findBySymbol().
+    var quotesQuery =
       dsl
         .selectFrom(STOCK_QUOTES)
         .where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols))
+        .and(STOCK_QUOTES.VOLUME.gt(0L))
     if (quotesAfter != null) {
-      quotesQuery.and(STOCK_QUOTES.QUOTE_DATE.ge(quotesAfter))
+      quotesQuery = quotesQuery.and(STOCK_QUOTES.QUOTE_DATE.ge(quotesAfter))
     }
     val quotes =
       quotesQuery

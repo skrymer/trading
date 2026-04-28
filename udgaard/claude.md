@@ -184,7 +184,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V17)
+│   └── db/migration/                 # Flyway migrations (V1-V18)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -201,7 +201,8 @@ udgaard/
 │       ├── V14__Add_converted_amount_to_cash_transactions.sql
 │       ├── V15__Add_order_block_trigger_date.sql
 │       ├── V16__Add_listing_dates.sql
-│       └── V17__Add_close_fields_to_scanner_trades.sql
+│       ├── V17__Add_close_fields_to_scanner_trades.sql
+│       └── V18__Add_delisted_symbols.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

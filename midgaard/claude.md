@@ -80,7 +80,9 @@ midgaard/
 │   │   ├── V1__Create_schema.sql          # quotes, earnings, symbols, ingestion_status tables
 │   │   ├── V2__Populate_symbols.sql       # 3,128 symbols
 │   │   ├── V3__Add_sector_symbol.sql      # Add sector to symbols
-│   │   └── V4__Add_provider_config.sql    # Provider config table
+│   │   ├── V4__Add_provider_config.sql    # Provider config table
+│   │   ├── V5__Add_delisted_columns_to_symbols.sql
+│   │   └── V6__Add_delisted_symbols.sql
 │   └── templates/                         # Thymeleaf admin UI (6 templates)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
