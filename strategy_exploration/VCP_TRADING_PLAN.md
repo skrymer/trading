@@ -1,6 +1,6 @@
 # VCP Production Trading Plan
 
-*Generated 2026-04-17 based on validated backtest results under the capital-aware backtest engine (commit 15c9fe2), which simulates real-world capital constraints by skipping unfundable signals.*
+*Generated 2026-04-17. Headline numbers re-baselined 2026-04-28 against the survivorship-bias-corrected universe (1,091 historically-delisted symbols added; provider-emitted volume=0 synthetic-filler bars filtered at the ingest + backtest boundaries). The 1.25% risk recommendation was independently re-verified at 8 seeds × clean data — see "Validated Performance" below.*
 
 ## Strategy Summary
 
@@ -16,27 +16,28 @@ Volatility Contraction Pattern (VCP) — trend-following breakout strategy that 
 
 ## Validated Performance (2016-2025, $10K start, **1.25% risk**, leverage 1.0, 15 max positions)
 
-**Primary sizing recommendation: 1.25% risk per trade.** Selected after a 4-cell risk sweep (0.75% / 1.0% / 1.25% / 1.5%) and 4-seed validation at 1.25%. All numbers below are the 4-seed mean.
+**Primary sizing recommendation: 1.25% risk per trade.** Selected after a 4-cell risk sweep (0.75% / 1.0% / 1.25% / 1.5%) on the survivors-only universe, then re-verified 2026-04-28 on the corrected universe (8 seeds × 1.25% vs 1.0% head-to-head — 1.25% won mean Calmar 2.52 vs 2.42, lower worst-seed MDD 27.10% vs 28.46%, and lower Calmar SE 0.119 vs 0.139). Numbers below are the 8-seed clean-data baseline.
 
-| Metric | Value (4-seed mean) |
+| Metric | Value (8-seed clean, 2026-04-28) |
 |---|---|
-| Final Capital | ~$690K (~69x) |
-| CAGR | 51.4% |
-| Max Drawdown | 18.9% (range 18.1-20.7% across seeds) |
-| Max DD Duration | 241 days (worst seed: 294d) |
-| Total Trades | ~612 |
-| Win Rate | 52.9% |
-| Edge | +6.4% |
-| Profit Factor | ~4.2 |
-| Sharpe / Sortino / Calmar | 2.29 / ~2.75 / **2.73** |
-| SPY Correlation / Beta / Alpha | 0.55 / 0.68 / ~37.9% |
-| Edge Consistency Score | 96.0 (Excellent) |
+| Final Capital | ~$870K mean / ~$615K worst-seed |
+| CAGR | **56.3%** mean / 49.2% worst-seed |
+| Max Drawdown | **22.6% mean** / range 19.2–27.1% across seeds |
+| Total Trades | 653 mean (range 636–672) |
+| Win Rate | 50.1% |
+| Edge | +5.29% per-trade / **+6.47% ex-2018** |
+| Profit Factor | 3.67 mean / 3.12 worst-seed |
+| Calmar | **2.52 mean** / 2.57 median / 1.82 worst-seed |
+| Edge Consistency Score | 88.4 (Excellent) |
+| Calmar SE (8 seeds) | 0.119 — within institutional gate (<0.15) |
+
+*Note on 2018 freak: a single position on AFX with bogus ($52→$2,200) terminal data inflated dirty-data-era 2018 yearly edge to +60-95% on some seeds. After filtering provider-emitted volume=0 synthetic-filler bars (see Methodology Notes) the freak disappeared and the 8 seeds collapsed into a tight band. The ex-2018 edge is the cleaner number to anchor on.*
 
 **Walk-forward — primary reference (1.5% baseline, 4 year-length windows):** WFE 0.667, aggregate OOS edge +3.64% on 447 trades. Reproduced 2026-04-21 within rounding (WFE 0.679, +3.74% on 449 trades) as a regression guard.
 
 **Walk-forward — confirmatory at the production config (2026-04-21):** 27 disjoint 3-month OOS quarters, 36-month IS, at 1.25% ATR-risk with position-sizing and capital-aware engine. Aggregate WFE 0.830, OOS edge +5.03%, 481 trades. **Do not treat as a replacement for the 0.667 headline** — the +1.08% OOS-edge improvement is not statistically distinguishable from the baseline (Welch t=0.59 on per-window OOS edges); the higher aggregate WFE is partly mechanical (trade-weighted OOS numerator vs simple-mean IS denominator). Cite as confirmation that edge persists under real trading constraints, not as a stronger edge claim. Median per-window WFE 0.48; 7/27 negative quarters.
 
-**Reproduced 2026-04-18** on DEV with the Appendix config across seeds 1 / 7 / 42 / 100 — every headline metric above matched to within rounding (CAGR 51.42%, MaxDD 18.92%, Calmar 2.730, edge +6.38%, WR 52.98%, 612.5 mean trades). Per-seed Calmar 2.38 / 2.63 / 3.20 / 2.71 — seed 42 confirmed as the upside outlier noted in Section 2.
+**Walk-forward 2000-2026 under corrected universe (2026-04-27):** 23-window 36mo-IS / 12mo-OOS / annual step at 1.25% ATR-risk. WFE 1.314, aggregate OOS edge +3.49% on 1,249 trades, 2 negative OOS years (2007 -2.22%, 2008 -1.54%) — same bear-market pattern as the prior survivors-only WF, edge within 0.21pp.
 
 ### Why 1.25% beat 1.5%
 
@@ -50,7 +51,9 @@ Volatility Contraction Pattern (VCP) — trend-following breakout strategy that 
 
 Smaller positions (~12.5% of equity vs 15%) let the portfolio absorb more of the sector's signal flow — effective concurrent position count rose from 6-7 to ~8, which diversifies idiosyncratic risk and produces a shallower drawdown profile at nearly identical CAGR. 3 of 4 seeds independently beat the 1.5% Calmar; the worst seed matches it. The floor is the same; the typical case is better.
 
-> **Note on prior numbers.** Earlier drafts of this plan cited CAGR 59.0%, MDD 16.8%, WFE 1.13, final capital $1.35M at 1.5% risk. Those came from a pre-capital-aware engine that allowed unfundable signals to count as trades. Under the current engine, 90%+ of signal candidates at $10K are skipped because the portfolio is already fully deployed. The numbers above are what a real trader at $10K can actually achieve.
+*Numbers in the table above are from the survivors-only era (2026-04-17). The clean-corrected 8-seed re-verification at 1.25% confirmed the conclusion: Calmar 2.52 mean / 1.82 worst-seed, MDD 22.6% mean / 27.1% worst-seed. The rank ordering of risk levels is unchanged, just the absolute numbers re-baseline upward on MDD.*
+
+> **Note on prior numbers.** Earlier drafts cited CAGR 59.0%, MDD 16.8%, WFE 1.13, final capital $1.35M at 1.5% risk. Those came from a pre-capital-aware engine that allowed unfundable signals to count as trades. The 51.4% / 18.9% MDD numbers cited above are the post-capital-aware survivors-only baseline. The 56.3% / 22.6% MDD numbers in the Validated Performance table are the post-capital-aware *and* survivorship-corrected baseline. Each correction tightened the simulation to a more realistic regime; 1.25% remains the recommended sizing under all three engines.
 
 ---
 
@@ -142,23 +145,25 @@ At constant sizing, trade composition is nearly identical across capital tiers. 
 
 DD scaling was tested and rejected — it costs significant terminal wealth for marginal DD reduction. The strategy's exit rules and sector rotation provide natural DD protection.
 
-### Level 1: Monitoring (0-10% drawdown)
-- Normal operations. No changes.
-- Drawdowns below 10% are frequent and recover in 2-4 weeks.
+*Thresholds rebased 2026-04-28 against the corrected universe (8-seed mean MDD 22.6%, worst-seed 27.1%). Previous thresholds were calibrated to the survivors-only universe (mean MDD 18.9%, worst-seed 20.7%) and would now trip on routine drawdowns. The protective ratio (worst-seed × ~1.2 buffer for the kill threshold) is preserved.*
 
-### Level 2: Heightened Awareness (10-15% drawdown)
+### Level 1: Monitoring (0-12% drawdown)
+- Normal operations. No changes.
+- Drawdowns below 12% are frequent and recover in 2-4 weeks.
+
+### Level 2: Heightened Awareness (12-18% drawdown)
 - Review all open positions. Verify exit conditions are executing correctly.
 - No position sizing changes.
 - Log emotional state daily.
 
-### Level 3: Pause New Entries (15-20% drawdown)
-- Stop opening new positions until drawdown recovers to 12%.
+### Level 3: Pause New Entries (18-24% drawdown)
+- Stop opening new positions until drawdown recovers to 15%.
 - Continue managing existing positions normally — do not close early.
-- 4-seed mean worst drawdown at 1.25% is 18.9% / 241 days. Worst single seed was 20.7% / 294 days — expect to sit through 8-10 months in the worst regimes.
+- 8-seed mean worst drawdown at 1.25% is 22.6%. Worst single seed was 27.1% — expect to sit through 8-10 months in the worst regimes.
 
-### Level 4: Full Stop (>23% drawdown)
+### Level 4: Full Stop (>32% drawdown)
 - Close all positions at market. Stop trading for 30 days minimum.
-- Exceeding the 20.7% worst-seed by 2pp+ suggests execution error or regime change.
+- Exceeding the 27.1% worst-seed by 5pp+ suggests execution error or regime change worse than anything in the 2016-2025 backtest sample.
 - Conduct full review before resuming.
 
 **Critical rule:** Never reduce position size during a drawdown. Either trade full size or stop entirely.
@@ -241,7 +246,7 @@ The 1-day entry delay means you scan after close and place orders before the nex
 
 ### Hard Stops (stop immediately)
 
-1. **Drawdown exceeds 23%.** Beyond the 20.7% worst-seed plus buffer. Something is structurally broken.
+1. **Drawdown exceeds 32%.** Beyond the 27.1% worst-seed (clean corrected-universe baseline) plus buffer. Something is structurally broken.
 2. **Override the system on >3 trades in a month.** You are no longer trading the backtested strategy.
 3. **Regulatory or broker change** materially affects execution.
 
@@ -257,47 +262,49 @@ The 1-day entry delay means you scan after close and place orders before the nex
 
 ## 10. Realistic Return Expectations
 
-**The capital-aware backtest already reflects real-world capital constraints. Apply a 20-30% haircut for remaining frictions** (slippage, commissions, FX drag, missed trades).
+**The capital-aware + survivorship-corrected backtest already reflects real-world capital constraints and a realistic loser tail. Apply a 20-30% haircut for remaining frictions** (slippage, commissions, FX drag, missed trades).
+
+Base CAGR: **56.3%** (8-seed clean mean) at $10K. Capital-tier scaling is assumed similar to the survivors-only era (CAGR was stable 50-52% across $10K → $50K). Haircut math below uses 55% as the round-number anchor.
 
 ### $10K AUD (~$7K USD)
 
 | Scenario | Annual Return | Year 1 | Year 3 |
 |----------|-------------|--------|--------|
-| Conservative (20% haircut on CAGR 50%) | 40% | $14,000 | $27,400 |
-| Base (30% haircut) | 35% | $13,500 | $24,600 |
-| Pessimistic (50% haircut) | 25% | $12,500 | $19,500 |
+| Conservative (20% haircut on CAGR 55%) | 44% | $14,400 | $29,800 |
+| Base (30% haircut) | 38.5% | $13,850 | $26,600 |
+| Pessimistic (50% haircut) | 27.5% | $12,750 | $20,700 |
 
 ### $30K AUD (~$20K USD)
 
 | Scenario | Annual Return | Year 1 | Year 3 |
 |----------|-------------|--------|--------|
-| Conservative | 40% | $42,000 | $82,300 |
-| Base | 35% | $40,500 | $73,800 |
-| Pessimistic | 25% | $37,500 | $58,600 |
+| Conservative | 44% | $43,200 | $89,400 |
+| Base | 38.5% | $41,550 | $79,800 |
+| Pessimistic | 27.5% | $38,250 | $62,100 |
 
 ### $50K AUD (~$33K USD)
 
 | Scenario | Annual Return | Year 1 | Year 3 |
 |----------|-------------|--------|--------|
-| Conservative | 40% | $70,000 | $137,200 |
-| Base | 35% | $67,500 | $123,000 |
-| Pessimistic | 25% | $62,500 | $97,700 |
+| Conservative | 44% | $72,000 | $148,900 |
+| Base | 38.5% | $69,250 | $133,000 |
+| Pessimistic | 27.5% | $63,750 | $103,400 |
 
 **2022-like worst case:** the worst OOS year in the walk-forward (2022) produced +0.90% edge on 119 OOS trades. At $30K AUD expect flat-to-slightly-positive P&L for a full year. Be content protecting capital while waiting for the next cycle.
 
 ## 11. Psychological Preparation
 
-### Expected Losing Streaks (52.9% WR)
+### Expected Losing Streaks (50.1% WR)
 
 - **3 losses in a row:** Every 2-3 weeks. Completely normal.
 - **5 losses in a row:** 2-3 times per year. At 1.25% risk, costs ~6.25% of equity.
 - **7 losses in a row:** Once every 2-3 years. This is where discipline is tested most severely.
 
-### What the Worst Drawdown Feels Like (18.9% mean / 20.7% worst-seed, 241-294 days)
+### What the Worst Drawdown Feels Like (22.6% mean / 27.1% worst-seed)
 
-- **Weeks 1-4:** Account drops 5-10%. "Normal pullback." You're calm.
-- **Weeks 5-10:** Account drops 12-16%. You check P&L more often. You wonder if something is broken.
-- **Weeks 11-20:** Account drops 17-21%. You seriously consider stopping. "This time is different." **This is the critical moment where most traders abandon working strategies.**
+- **Weeks 1-4:** Account drops 6-12%. "Normal pullback." You're calm.
+- **Weeks 5-10:** Account drops 14-19%. You check P&L more often. You wonder if something is broken.
+- **Weeks 11-20:** Account drops 20-27%. You seriously consider stopping. "This time is different." **This is the critical moment where most traders abandon working strategies.**
 - **Weeks 21-26:** Drawdown stabilizes. New signals appear. You're gun-shy.
 - **Weeks 27-42:** Recovery. Each small win rebuilds confidence slowly.
 
@@ -315,8 +322,8 @@ The 2022-2023 backtest went through this sequence and ended positive OOS edge (+
 
 - You are executing a process, not making predictions
 - Each individual trade is meaningless — only the distribution matters
-- The strategy's edge is +6.4% per trade on average — but any single trade can lose 10%
-- You already know the worst case (up to 20.7% DD, up to 294 days). You accepted this when you chose the strategy.
+- The strategy's edge is +5.3% per trade on average (+6.5% ex-2018) — but any single trade can lose 10%
+- You already know the worst case (up to 27.1% DD across the 8-seed clean baseline). You accepted this when you chose the strategy.
 - If you wouldn't take a trade the scanner recommends, you shouldn't be trading the strategy
 
 ---
@@ -336,6 +343,12 @@ The 2022-2023 backtest went through this sequence and ended positive OOS edge (+
 **Quarterly walk-forward at the production config (2026-04-21, commits `c273780` + `d0b07aa`).** Added month-based IS/OOS/step with `positionSizing` + `randomSeed` threading to `/api/backtest/walk-forward`, then ran a 36-month IS / 3-month OOS / 3-month step sweep (27 disjoint OOS windows, 2019-01 through 2025-10) at the production trading config: $10K, AtrRisk(1.25%, 2.0), leverage 1.0, seed 42. Aggregate WFE 0.830, OOS edge +5.03%, 481 trades. The year-based 5y/1y baseline was reproduced in the same session at WFE 0.679 (~0.667 headline) as a regression check. The two measurements are consistent within noise — Welch t=0.59 on per-window OOS edges — but the quarterly run surfaces a per-window distribution the 4-window sample could not: OOS-edge SD 7.00% (vs baseline 2.48%), median per-window WFE 0.48 (half of quarters under-realize 50% of IS edge), and 7/27 negative OOS quarters (four of them outside known bear regimes: 2019-Q2, 2019-Q3, 2023-Q3, plus Covid 2020-Q1).
 
 **IS-edge decay — open monitoring item (2026-04-21).** Across the quarterly WF, mean IS edge by training-window vintage: 2019-2021 windows **7.01%**, 2022-2023 windows **6.56%**, 2024-2025 windows **4.17%**. OOS kept pace with IS in 2024-2025 only because IS also fell. Unclear whether this reflects crowding, regime change, or Mag-7 breadth compression; worth tracking a rolling 3-year IS-analog once live to see whether the decay continues.
+
+**Survivorship-bias correction (2026-04-27 → 2026-04-28).** Added 1,091 historically-delisted US Common Stock tickers across all 11 GICS sectors via Flyway migrations (midgaard V6, udgaard V18). Source: EODHD's `exchange-symbol-list/US?delisted=1` endpoint, sector enriched via SEC EDGAR's CIK→SIC mapping. Universe expanded 3,074 → 4,158 active+delisted symbols. Walk-forward 2000-2026 under corrected universe held the prior edge within 0.21pp (3.49% vs 3.70% baseline) — survivorship bias was inflating the trading-plan headline numbers but not the per-trade edge meaningfully.
+
+**Volume=0 synthetic-filler bar fix (2026-04-28, commit `e072623`).** Diagnostic surfaced an AFX position with bogus +725% return arising from upstream-provider zero-volume "stuck" bars (provider pads non-trading-day periods on delisted issuers with synthetic close-repeating rows). Filter applied at two layers: midgaard `IngestionService.fetchInitialBars/fetchFreshBars` drops `volume=0` before persistence; udgaard `StockJooqRepository.findBySymbol/findBySymbols` appends `STOCK_QUOTES.VOLUME > 0` to quote queries. Existing 405,200 contaminated rows (~2.4% of universe) deleted from both DBs. After cleanup the 8-seed Calmar dispersion fell from 1.07-2.90 (SD 0.55) to 1.82-2.88 (SD 0.34) and worst-seed MDD dropped from 42.5% to 27.1%.
+
+**1.25% re-verification under clean corrected universe (2026-04-28).** 8 seeds × 1.25% vs 1.0% head-to-head. 1.25% won mean Calmar (2.52 vs 2.42), worst-seed MDD (27.1% vs 28.5%), Calmar SE (0.119 vs 0.139), and CAGR (56.3% vs 51.7%). 1.0% only marginally won mean MDD (21.8% vs 22.6%) and edge consistency score (90.7 vs 88.4). 1.25% wins per-seed Calmar in 5 of 8 seeds. Clean-data ranking confirms V1's "1.25% dominates" finding; an interim "switch to 1.0%" recommendation derived from the dirty-data 4×4 sweep was discarded after this re-test.
 
 ## Follow-Ups
 
