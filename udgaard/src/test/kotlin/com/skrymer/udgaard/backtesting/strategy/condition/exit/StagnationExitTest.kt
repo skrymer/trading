@@ -330,6 +330,26 @@ class StagnationExitTest {
   }
 
   @Test
+  fun `proximity returns null after the window has passed`() {
+    // Given: 17 trading days since entry, window is 15. The exit can never fire past
+    // the window (shouldExit requires exact equality), so the warning must clear instead
+    // of staying at 100% forever. Regression for FLY/TGTX surfacing 100% at day 17.
+    val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 15)
+    val (stock, entryQuote) = createStockWithQuotes(
+      entryDate = LocalDate.of(2024, 1, 1),
+      totalDays = 25,
+      priceAtEntry = 100.0,
+      priceGenerator = { 100.0 }, // flat — would have triggered exactly on day 15
+    )
+
+    // When: evaluating two days past the window
+    val proximity = condition.proximity(stock, entryQuote, stock.quotes[17])
+
+    // Then
+    assertNull(proximity)
+  }
+
+  @Test
   fun `proximity returns null when windowDays is zero`() {
     // Given: invalid config — window factor would divide by zero.
     val condition = StagnationExit(thresholdPercent = 3.0, windowDays = 0)

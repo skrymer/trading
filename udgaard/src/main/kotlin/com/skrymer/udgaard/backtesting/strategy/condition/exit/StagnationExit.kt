@@ -52,6 +52,10 @@ class StagnationExit(
     if (entryQuote == null || windowDays <= 0) return null
 
     val tradingDaysSinceEntry = stock.countTradingDaysBetween(entryQuote.date, quote.date)
+    // shouldExit only fires at exactly windowDays — past the window the exit can never
+    // trigger, so the warning must clear instead of fossilising at 100%.
+    if (tradingDaysSinceEntry > windowDays) return null
+
     val gainPercent = ((quote.closePrice - entryQuote.closePrice) / entryQuote.closePrice) * 100.0
     val barFactor = (tradingDaysSinceEntry.toDouble() / windowDays).coerceIn(0.0, 1.0)
     // Stagnation fires on a discrete threshold — the gain is either below the cutoff
