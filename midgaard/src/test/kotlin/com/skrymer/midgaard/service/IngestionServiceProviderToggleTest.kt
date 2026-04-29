@@ -5,6 +5,7 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.model.RawBar
+import com.skrymer.midgaard.repository.QuoteRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -30,11 +31,26 @@ class IngestionServiceProviderToggleTest {
         // When
         runBlocking { fixture.service.initialIngest("AAPL") }
 
-        // Then: OHLCV provider was asked for bars; fundamentals + the daily-update path were not consulted
+        // Then: OHLCV provider was asked for bars; fundamentals were also consulted
         verifyBlocking(fixture.ohlcv) { getDailyBars(eq("AAPL"), any(), any()) }
-        verifyBlocking(fixture.dailyUpdateOhlcv, never()) { getDailyBars(any(), any(), any()) }
         verifyBlocking(fixture.earnings) { getEarnings(eq("AAPL")) }
         verifyBlocking(fixture.companyInfo) { getCompanyInfo(eq("AAPL")) }
+    }
+
+    @Test
+    fun `daily update fetches OHLCV from the same configured provider as initial ingest`() {
+        // Given: an existing symbol with a stored last-bar date so updateSymbol proceeds past the empty-DB short-circuit
+        val quoteRepository =
+            mock<QuoteRepository>().apply {
+                stub { on { getLastBarDate(any()) } doReturn LocalDate.of(2024, 1, 1) }
+            }
+        val fixture = fixture(indicatorsMode = IndicatorsMode.LOCAL, quoteRepository = quoteRepository)
+
+        // When
+        runBlocking { fixture.service.updateSymbol("AAPL") }
+
+        // Then: daily update flowed through the same `ohlcv` bean — no separate daily-update provider exists
+        verifyBlocking(fixture.ohlcv) { getDailyBars(eq("AAPL"), any(), any()) }
     }
 
     @Test
@@ -66,14 +82,16 @@ class IngestionServiceProviderToggleTest {
     private data class Fixture(
         val service: IngestionService,
         val ohlcv: OhlcvProvider,
-        val dailyUpdateOhlcv: OhlcvProvider,
         val indicators: IndicatorProvider,
         val earnings: EarningsProvider,
         val companyInfo: CompanyInfoProvider,
     )
 
     @Suppress("LongMethod")
-    private fun fixture(indicatorsMode: IndicatorsMode): Fixture {
+    private fun fixture(
+        indicatorsMode: IndicatorsMode,
+        quoteRepository: QuoteRepository = mock(),
+    ): Fixture {
         val sampleBars =
             listOf(
                 RawBar(
@@ -91,7 +109,6 @@ class IngestionServiceProviderToggleTest {
             mock<OhlcvProvider>().apply {
                 stub { onBlocking { getDailyBars(any(), any(), any()) }.doReturn(sampleBars) }
             }
-        val dailyUpdateOhlcv = mock<OhlcvProvider>()
         val indicators =
             mock<IndicatorProvider>().apply {
                 stub {
@@ -115,18 +132,17 @@ class IngestionServiceProviderToggleTest {
         val service =
             IngestionService(
                 ohlcv = ohlcv,
-                dailyUpdateOhlcv = dailyUpdateOhlcv,
                 indicators = indicators,
                 earnings = earnings,
                 companyInfo = companyInfo,
                 indicatorCalculator = indicatorCalculator,
-                quoteRepository = mock(),
+                quoteRepository = quoteRepository,
                 earningsRepository = mock(),
                 symbolRepository = mock(),
                 ingestionStatusRepository = mock(),
                 indicatorsMode = indicatorsMode,
             )
 
-        return Fixture(service, ohlcv, dailyUpdateOhlcv, indicators, earnings, companyInfo)
+        return Fixture(service, ohlcv, indicators, earnings, companyInfo)
     }
 }

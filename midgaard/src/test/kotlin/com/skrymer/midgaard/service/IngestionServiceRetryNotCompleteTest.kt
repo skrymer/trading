@@ -56,7 +56,6 @@ class IngestionServiceRetryNotCompleteTest {
     private fun serviceWith(ingestionStatusRepository: IngestionStatusRepository): IngestionService =
         IngestionService(
             ohlcv = mock<OhlcvProvider>(),
-            dailyUpdateOhlcv = mock<OhlcvProvider>(),
             indicators = mock<IndicatorProvider>(),
             earnings = mock<EarningsProvider>(),
             companyInfo = mock<CompanyInfoProvider>(),

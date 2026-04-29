@@ -10,7 +10,6 @@ import com.skrymer.midgaard.integration.QuoteProvider
 import com.skrymer.midgaard.integration.alphavantage.AlphaVantageProvider
 import com.skrymer.midgaard.integration.eodhd.EodhdProvider
 import com.skrymer.midgaard.integration.finnhub.FinnhubProvider
-import com.skrymer.midgaard.integration.massive.MassiveProvider
 import com.skrymer.midgaard.service.RateLimiterService
 import jakarta.annotation.PostConstruct
 import org.springframework.beans.factory.annotation.Value
@@ -24,15 +23,16 @@ import org.springframework.context.annotation.Configuration
  * `EarningsProvider`, `CompanyInfoProvider`) to a concrete implementation chosen
  * by the `app.ingest.provider` property:
  *
- *   `alphavantage` (default) → AlphaVantage backs all four interfaces.
- *   `eodhd`                  → EODHD backs all four interfaces.
+ *   `alphavantage` → AlphaVantage backs all four interfaces.
+ *   `eodhd`        → EODHD backs all four interfaces.
  *
- * `IngestionService` injects the bare interfaces with no qualifier, so swapping
- * providers is a single config change with zero code edits.
+ * Defaults: bare `bootRun` (no env override) falls back to `alphavantage` via
+ * the SpEL default below; both `udgaard/compose.yaml` (dev) and
+ * `compose.prod.yaml` (prod) pin `APP_INGEST_PROVIDER=eodhd`.
  *
- * The daily-update OHLCV path (`@Qualifier("dailyUpdateOhlcv")`) always uses
- * Massive — that's a different concern from the toggleable initial-ingest
- * provider and lives under its own qualifier.
+ * `IngestionService` injects with `@Qualifier`s matching the bean names below,
+ * so swapping providers is a single config change with zero code edits. Both
+ * initial ingest and daily updates flow through the same OHLCV bean.
  *
  * Live quotes always come from Finnhub; options always from AlphaVantage. Add
  * matching `@ConditionalOnProperty` blocks if/when those become toggleable.
@@ -41,7 +41,6 @@ import org.springframework.context.annotation.Configuration
 @Suppress("LongParameterList")
 class ProviderConfiguration(
     private val alphaVantageProvider: AlphaVantageProvider,
-    private val massiveProvider: MassiveProvider,
     private val finnhubProvider: FinnhubProvider,
     private val eodhdProvider: EodhdProvider,
     private val rateLimiterService: RateLimiterService,
@@ -111,9 +110,6 @@ class ProviderConfiguration(
     fun companyInfoFromAlphaVantage(): CompanyInfoProvider = alphaVantageProvider
 
     // ── Non-toggleable: orthogonal concerns, kept under their own qualifiers.
-
-    @Bean("dailyUpdateOhlcv")
-    fun dailyUpdateOhlcv(): OhlcvProvider = massiveProvider
 
     @Bean
     fun optionsProvider(): OptionsProvider = alphaVantageProvider

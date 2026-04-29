@@ -1,0 +1,4 @@
+# Local development credentials — copy to secure.properties and fill in real keys.
+# secure.properties is gitignored. Production overrides via ~/.trading-app/config.properties.
+alphavantage.api.key=YOUR_ALPHAVANTAGE_KEY
+massive.api.key=YOUR_MASSIVE_KEY

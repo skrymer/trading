@@ -52,7 +52,7 @@ midgaard/
 │   │   │   ├── FinnhubProvider.kt         # Implements QuoteProvider (live quotes); self-rate-limits
 │   │   │   └── dto/
 │   │   ├── massive/
-│   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider (daily updates); self-rate-limits
+│   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider impl; @Component registers with rate limiter but currently NOT wired into any @Bean (kept for future re-enable)
 │   │   │   └── dto/
 │   │   └── eodhd/
 │   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider; self-rate-limits
@@ -117,20 +117,20 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 ### Data Flow
 
-1. **Initial Ingest**: AlphaVantage OHLCV + ATR/ADX indicators, local EMA/Donchian computation
-2. **Daily Update**: Polygon/Massive API for recent bars, extend indicators from 250-bar seed
+1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/Donchian computation
+2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed)
 3. **Serving**: REST API returns enriched quotes with all indicators pre-computed
 
 ### Provider Interfaces (`integration/Providers.kt`)
 
-- `OhlcvProvider` - Daily bars (initial: AlphaVantage or EODHD via the `app.ingest.provider` toggle; updates: Massive)
+- `OhlcvProvider` - Daily bars for both initial ingest and daily updates (AlphaVantage or EODHD via the `app.ingest.provider` toggle; single `ohlcv` bean serves both code paths)
 - `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle; only used when `app.ingest.indicators=API`)
 - `EarningsProvider` - Quarterly earnings (AlphaVantage or EODHD via the toggle)
 - `CompanyInfoProvider` - Company overview + sector (AlphaVantage or EODHD via the toggle)
 - `QuoteProvider` - Live/latest quotes (Finnhub)
 - `OptionsProvider` - Historical options pricing (AlphaVantage)
 
-**Provider selection is centralized in `ProviderConfiguration`.** `IngestionService` injects bare interface beans (`@Bean("ohlcv")`, `@Bean("indicators")`, `@Bean("earnings")`, `@Bean("companyInfo")`) — no per-provider branching inside the service. `@ConditionalOnProperty` on each bean reads `app.ingest.provider` to pick the active implementation. When `app.ingest.provider=eodhd` is set, **all four** roles (OHLCV + indicators + earnings + company info) route to EODHD via its All-In-One plan; the daily-update path still uses Massive (Polygon). Default is `alphavantage`.
+**Provider selection is centralized in `ProviderConfiguration`.** `IngestionService` injects bare interface beans (`@Bean("ohlcv")`, `@Bean("indicators")`, `@Bean("earnings")`, `@Bean("companyInfo")`) — no per-provider branching inside the service. `@ConditionalOnProperty` on each bean reads `app.ingest.provider` to pick the active implementation. When `app.ingest.provider=eodhd` is set, **all four** roles (OHLCV + indicators + earnings + company info) route to EODHD via its All-In-One plan; the same `ohlcv` bean handles both initial ingest and daily updates (the `dailyUpdateOhlcv` qualifier was removed, so Massive/Polygon is no longer wired into the daily-update path). Midgaard's in-process default (SpEL fallback in `ProviderConfiguration`) is `alphavantage`, but both `udgaard/compose.yaml` and `compose.prod.yaml` set `APP_INGEST_PROVIDER=eodhd` by default.
 
 **Indicator computation mode.** `app.ingest.indicators=LOCAL` (default) recomputes ATR/ADX from raw OHLCV via `IndicatorCalculator`. Set `app.ingest.indicators=API` to call the indicator provider's API instead.
 

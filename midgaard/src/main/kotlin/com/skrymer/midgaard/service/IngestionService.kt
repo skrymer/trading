@@ -46,11 +46,10 @@ import java.util.concurrent.atomic.AtomicInteger
 @Service
 @Suppress("LongParameterList", "TooManyFunctions")
 class IngestionService(
-    private val ohlcv: OhlcvProvider,
-    @param:Qualifier("dailyUpdateOhlcv") private val dailyUpdateOhlcv: OhlcvProvider,
-    private val indicators: IndicatorProvider,
-    private val earnings: EarningsProvider,
-    private val companyInfo: CompanyInfoProvider,
+    @param:Qualifier("ohlcv") private val ohlcv: OhlcvProvider,
+    @param:Qualifier("indicators") private val indicators: IndicatorProvider,
+    @param:Qualifier("earnings") private val earnings: EarningsProvider,
+    @param:Qualifier("companyInfo") private val companyInfo: CompanyInfoProvider,
     private val indicatorCalculator: IndicatorCalculator,
     private val quoteRepository: QuoteRepository,
     private val earningsRepository: EarningsRepository,
@@ -87,7 +86,8 @@ class IngestionService(
         }
 
     /**
-     * Daily update — uses Massive for recent OHLCV, extends indicators from baseline.
+     * Daily update — fetches recent OHLCV from the configured provider and
+     * extends indicators from the stored baseline.
      */
     suspend fun updateSymbol(symbol: String): IngestionResult =
         try {
@@ -279,7 +279,7 @@ class IngestionService(
         // §3.9 — provider data on delisted issuers can include zero-volume
         // bars that repeat the prior close.
         val freshBars =
-            dailyUpdateOhlcv
+            ohlcv
                 .getDailyBars(symbol, "compact", fetchFrom)
                 ?.filter { !it.date.isBefore(fetchFrom) && it.volume > 0L }
                 ?.ifEmpty { null }
