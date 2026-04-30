@@ -106,13 +106,36 @@ class IngestionServiceProviderToggleTest {
         // When
         runBlocking { fixture.service.initialIngest("AAPL") }
 
-        // Then: only the two trading-day bars reach `upsertQuotes`
+        // Then: only the two trading-day bars reach `replaceForSymbol`
         argumentCaptor<List<com.skrymer.midgaard.model.Quote>>().apply {
-            verify(quoteRepository).upsertQuotes(capture())
+            verify(quoteRepository).replaceForSymbol(eq("AAPL"), capture())
             val datesPersisted = firstValue.map { it.date }.toSet()
             org.junit.jupiter.api.Assertions
                 .assertEquals(setOf(tradingDay1, tradingDay2), datesPersisted)
         }
+    }
+
+    @Test
+    fun `initial ingest replaces history rather than upserting`() {
+        // Given: provider returns a single trading-day bar. The contract this test
+        // pins down is that initial ingest goes through `replaceForSymbol`, not
+        // `upsertQuotes` — so any rows in the DB on dates the provider doesn't
+        // re-emit (e.g. previously-stored holiday phantoms) get cleaned out.
+        val tradingDay = LocalDate.of(2024, 1, 2)
+        val quoteRepository = mock<QuoteRepository>()
+        val fixture =
+            fixture(
+                indicatorsMode = IndicatorsMode.LOCAL,
+                quoteRepository = quoteRepository,
+                ohlcvBars = listOf(sampleBar(tradingDay)),
+            )
+
+        // When
+        runBlocking { fixture.service.initialIngest("AAPL") }
+
+        // Then: replaceForSymbol is the persistence call, NOT upsertQuotes
+        verify(quoteRepository).replaceForSymbol(eq("AAPL"), any())
+        verify(quoteRepository, never()).upsertQuotes(any())
     }
 
     @Test

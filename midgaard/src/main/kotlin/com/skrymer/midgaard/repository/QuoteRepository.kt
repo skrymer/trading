@@ -87,6 +87,21 @@ class QuoteRepository(
             .execute()
     }
 
+    // Atomic delete-then-insert. initialIngest uses this so re-ingest cleans out
+    // rows that wouldn't be re-emitted under the current ingestion filters
+    // (e.g. market-holiday bars that were stored before the holiday filter shipped).
+    // Daily updates keep upsertQuotes semantics — they only fetch new bars and
+    // must not delete history.
+    @Transactional
+    fun replaceForSymbol(
+        symbol: String,
+        quotes: List<Quote>,
+    ) {
+        require(quotes.all { it.symbol == symbol }) { "All quotes must belong to $symbol" }
+        deleteBySymbol(symbol)
+        upsertQuotes(quotes)
+    }
+
     fun getTotalQuoteCount(): Int = dsl.fetchCount(QUOTES)
 
     private fun upsertSingleQuote(

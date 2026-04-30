@@ -75,7 +75,11 @@ class IngestionService(
                 IngestionResult(symbol, false, message = "No OHLCV data available")
             } else {
                 val quotes = buildInitialQuotes(symbol, bars)
-                quoteRepository.upsertQuotes(quotes)
+                // Replace, not upsert — initial ingest is the canonical "rebuild this
+                // symbol's history" path and must clean out stale rows (e.g. holiday
+                // bars stored before the V7 filter) that the current fetch would not
+                // re-emit. Daily updates use upsertQuotes; they're additive only.
+                quoteRepository.replaceForSymbol(symbol, quotes)
                 logger.info("Saved ${quotes.size} quotes for $symbol")
                 fetchAndSaveSupplementaryData(symbol)
                 updateStatus(symbol, quotes.size, quotes.maxByOrNull { it.date }?.date, IngestionState.COMPLETE)
