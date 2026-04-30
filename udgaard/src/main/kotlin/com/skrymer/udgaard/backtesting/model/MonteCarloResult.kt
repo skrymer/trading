@@ -30,6 +30,11 @@ data class MonteCarloResult(
    */
   val originalReturnPercentage: Double,
   /**
+   * Original backtest max drawdown percentage when position sizing is configured;
+   * null for un-sized requests where there's no portfolio equity curve to draw down on.
+   */
+  val originalMaxDrawdown: Double?,
+  /**
    * Original backtest edge
    */
   val originalEdge: Double,

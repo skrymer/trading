@@ -297,9 +297,15 @@ Strategies use a DSL for declarative composition, auto-discovered via `@Register
 
 **Trade Lifecycle:** Open → Edit → Close → Delete
 
-### MCP Tools
+### Backtest Skills
 
-Claude can use MCP tools (`runBacktest`, `getStockData`, `getMultipleStocksData`, `getMarketBreadth`, `getStockSymbols`) for programmatic backtesting and analysis. See the `/run-backtest` skill for detailed usage.
+Three user-invocable skills orchestrate the full backtest workflows end-to-end and delegate interpretation to specialized sub-agents:
+
+- `/backtest` → `post-backtest-analyst` (Sharpe / Sortino / drawdown duration / SPY correlation)
+- `/walk-forward` → `walk-forward-analyst` (WFE + per-window stability)
+- `/monte-carlo` → `monte-carlo-analyst` (path risk + edge confidence)
+
+All three call the Udgaard HTTP API directly.
 
 ---
 

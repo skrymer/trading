@@ -3,10 +3,13 @@ package com.skrymer.udgaard.backtesting.service
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.MonteCarloRequest
 import com.skrymer.udgaard.backtesting.model.MonteCarloTechniqueType
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -88,6 +91,7 @@ class MonteCarloServiceTest {
 
   @Test
   fun `should include original backtest metrics`() {
+    // Given: a Monte Carlo request with no position sizing
     val backtest = createBacktest()
     val request =
       MonteCarloRequest(
@@ -96,9 +100,11 @@ class MonteCarloServiceTest {
         iterations = 100,
       )
 
+    // When
     val result = service.runSimulation(request)
 
-    // Calculate expected compounded return
+    // Then: compounded per-trade return and core scalars are reported, max DD is null
+    // because there's no portfolio equity curve to draw down on without sizing
     val expectedReturn =
       backtest.trades
         .fold(1.0) { multiplier, trade -> multiplier * (1.0 + trade.profitPercentage / 100.0) }
@@ -107,6 +113,37 @@ class MonteCarloServiceTest {
     assertEquals(expectedReturn, result.originalReturnPercentage, 0.01)
     assertEquals(backtest.edge, result.originalEdge, 0.01)
     assertEquals(backtest.winRate, result.originalWinRate, 0.01)
+    assertNull(result.originalMaxDrawdown)
+  }
+
+  @Test
+  fun `originalMaxDrawdown is populated when position sizing is configured`() {
+    // Given: trades whose entry quotes have non-zero ATR. Without ATR, AtrRiskSizer
+    // short-circuits to 0 shares, no positions ever open, and maxDrawdownPct is
+    // stuck at 0.0 — making any "is the field populated correctly" assertion vacuous.
+    val backtest = createSizedBacktest()
+    val request =
+      MonteCarloRequest(
+        backtestResult = backtest,
+        techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+        iterations = 100,
+        positionSizing = PositionSizingConfig(
+          startingCapital = 10_000.0,
+          sizer = AtrRiskSizerConfig(riskPercentage = 1.25, nAtr = 2.0),
+          leverageRatio = 1.0,
+        ),
+      )
+
+    // When
+    val result = service.runSimulation(request)
+
+    // Then: drawdown actually fires (sizer can size, losers reduce equity from peak)
+    // and matches PositionSizingService output for these exact trades + config.
+    val expectedMaxDD =
+      PositionSizingService().applyPositionSizing(backtest.trades, request.positionSizing!!).maxDrawdownPct
+    assertNotNull(result.originalMaxDrawdown)
+    assertTrue(result.originalMaxDrawdown!! > 0.0, "expected non-zero drawdown but got ${result.originalMaxDrawdown}")
+    assertEquals(expectedMaxDD, result.originalMaxDrawdown!!, 1e-9)
   }
 
   @Test
@@ -262,16 +299,19 @@ class MonteCarloServiceTest {
   private fun createTrade(
     profitPercentage: Double,
     entryDate: LocalDate,
+    atr: Double = 0.0,
   ): Trade {
     val entryQuote =
       StockQuote(
         date = entryDate,
         closePrice = 100.0,
+        atr = atr,
       )
     val exitQuote =
       StockQuote(
         date = entryDate.plusDays(5),
         closePrice = 100.0 + profitPercentage,
+        atr = atr,
       )
 
     val profit = profitPercentage // Simplified for testing
@@ -285,5 +325,21 @@ class MonteCarloServiceTest {
       startDate = entryDate,
       sector = "Technology",
     )
+  }
+
+  /**
+   * Trades carrying non-zero ATR so AtrRiskSizer can actually size positions.
+   * Sequence is winner-then-loser-then-winner-… so the equity curve has visible
+   * draw downs from peak — needed for max-DD assertions in the position-sized path.
+   */
+  private fun createSizedBacktest(): BacktestReport {
+    val trades = listOf(
+      createTrade(8.0, LocalDate.of(2024, 1, 1), atr = 2.0), // winner — set initial peak
+      createTrade(-5.0, LocalDate.of(2024, 1, 8), atr = 2.0), // loser — drawdown from peak
+      createTrade(-3.0, LocalDate.of(2024, 1, 15), atr = 2.0), // loser — deeper
+      createTrade(6.0, LocalDate.of(2024, 1, 22), atr = 2.0), // winner — recovery starts
+      createTrade(4.0, LocalDate.of(2024, 1, 29), atr = 2.0), // winner — full recovery / new peak
+    )
+    return BacktestReport(trades.filter { it.profit > 0 }, trades.filter { it.profit <= 0 })
   }
 }

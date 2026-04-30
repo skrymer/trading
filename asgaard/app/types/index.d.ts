@@ -595,6 +595,7 @@ export interface MonteCarloResult {
   scenarios: MonteCarloScenario[]
   percentileEquityCurves: PercentileEquityCurves
   originalReturnPercentage: number
+  originalMaxDrawdown: number | null
   originalEdge: number
   originalWinRate: number
   executionTimeMs: number

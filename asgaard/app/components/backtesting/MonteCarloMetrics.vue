@@ -158,10 +158,15 @@ const probabilityColor = computed(() => {
       <h3 class="text-lg font-semibold mb-4">
         Original vs. Simulation
       </h3>
-      <UPageGrid class="lg:grid-cols-3 gap-4 sm:gap-6">
+      <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6">
         <BacktestingDataCard
           title="Original Return"
           :content="formatPercentage(result.originalReturnPercentage)"
+        />
+        <BacktestingDataCard
+          v-if="result.originalMaxDrawdown != null"
+          title="Original Max DD"
+          :content="formatPercentage(result.originalMaxDrawdown)"
         />
         <BacktestingDataCard
           title="Original Edge"

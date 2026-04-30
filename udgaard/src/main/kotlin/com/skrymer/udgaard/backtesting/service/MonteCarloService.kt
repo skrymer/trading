@@ -53,21 +53,25 @@ class MonteCarloService(
     // Extract percentile equity curves
     val percentileEquityCurves = extractPercentileEquityCurves(scenarios)
 
-    // Get original backtest metrics for comparison
-    val originalReturn =
+    // Get original backtest metrics for comparison.
+    // Compute return + max drawdown together when sizing is configured so the underlying
+    // applyPositionSizing call (which is expensive) runs once, not twice.
+    val (originalReturn, originalMaxDrawdown) =
       if (request.positionSizing != null) {
-        // Use position-sized return when sizing is configured
         val sizingResult =
           positionSizingService.applyPositionSizing(
             request.backtestResult.trades,
             request.positionSizing,
           )
-        sizingResult.totalReturnPct
+        sizingResult.totalReturnPct to sizingResult.maxDrawdownPct
       } else {
-        // Calculate compounded return: (1 + r1) * (1 + r2) * ... - 1
-        request.backtestResult.trades
-          .fold(1.0) { multiplier, trade -> multiplier * (1.0 + trade.profitPercentage / 100.0) }
-          .let { (it - 1.0) * 100.0 }
+        // Un-sized: compounded per-trade return; max drawdown isn't meaningful without
+        // a portfolio equity curve, so return null.
+        val compoundedReturn =
+          request.backtestResult.trades
+            .fold(1.0) { multiplier, trade -> multiplier * (1.0 + trade.profitPercentage / 100.0) }
+            .let { (it - 1.0) * 100.0 }
+        compoundedReturn to null
       }
     val originalEdge = request.backtestResult.edge
     val originalWinRate = request.backtestResult.winRate
@@ -81,6 +85,7 @@ class MonteCarloService(
       scenarios = if (request.includeAllEquityCurves) scenarios else emptyList(),
       percentileEquityCurves = percentileEquityCurves,
       originalReturnPercentage = originalReturn,
+      originalMaxDrawdown = originalMaxDrawdown,
       originalEdge = originalEdge,
       originalWinRate = originalWinRate,
       executionTimeMs = executionTime,
