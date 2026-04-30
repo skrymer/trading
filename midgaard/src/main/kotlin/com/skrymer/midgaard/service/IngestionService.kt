@@ -12,6 +12,7 @@ import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.model.SectorMapping
 import com.skrymer.midgaard.repository.EarningsRepository
 import com.skrymer.midgaard.repository.IngestionStatusRepository
+import com.skrymer.midgaard.repository.MarketHolidayRepository
 import com.skrymer.midgaard.repository.QuoteRepository
 import com.skrymer.midgaard.repository.SymbolRepository
 import com.skrymer.midgaard.service.IndicatorCalculator.Companion.toBigDecimal4
@@ -55,6 +56,7 @@ class IngestionService(
     private val earningsRepository: EarningsRepository,
     private val symbolRepository: SymbolRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
+    private val marketHolidayRepository: MarketHolidayRepository,
     @param:Value("\${app.ingest.indicators:LOCAL}") private val indicatorsMode: IndicatorsMode,
 ) {
     @Volatile
@@ -192,10 +194,30 @@ class IngestionService(
 
     private suspend fun fetchInitialBars(symbol: String): List<RawBar>? {
         val raw = ohlcv.getDailyBars(symbol, "full", MIN_DATE) ?: return null
-        val tradingBars = raw.filter { it.volume > 0L }
-        val skipped = raw.size - tradingBars.size
+        val holidays = marketHolidayRepository.findHolidayDates()
+        var skippedFiller = 0
+        var skippedHoliday = 0
+        val tradingBars =
+            raw.filter { bar ->
+                when {
+                    bar.volume == 0L -> {
+                        skippedFiller++
+                        false
+                    }
+                    bar.date in holidays -> {
+                        skippedHoliday++
+                        false
+                    }
+                    else -> true
+                }
+            }
         if (tradingBars.isNotEmpty()) {
-            val skippedNote = if (skipped > 0) " (skipped $skipped synthetic-filler bars)" else ""
+            val parts =
+                buildList {
+                    if (skippedFiller > 0) add("$skippedFiller synthetic-filler")
+                    if (skippedHoliday > 0) add("$skippedHoliday market-holiday")
+                }
+            val skippedNote = if (parts.isNotEmpty()) " (skipped ${parts.joinToString(" + ")} bars)" else ""
             logger.info("Fetched ${tradingBars.size} OHLCV bars for $symbol$skippedNote")
         }
         return tradingBars.ifEmpty { null }
@@ -274,14 +296,14 @@ class IngestionService(
             return null
         }
         val fetchFrom = lastBarDate.minusDays(OVERLAP_DAYS)
-        // Drop synthetic-filler bars (volume=0) at the ingest boundary so they
-        // never reach `quotes` and the downstream backtest. See VCP_STRATEGY_V2
-        // §3.9 — provider data on delisted issuers can include zero-volume
-        // bars that repeat the prior close.
+        // volume=0: synthetic-filler bars on delisted issuers (VCP_STRATEGY_V2 §3.9).
+        // date in holidays: phantom provider bars on US market-closed days — single-stock
+        // holiday rows otherwise skew downstream breadth queries to 0% on those dates.
+        val holidays = marketHolidayRepository.findHolidayDates()
         val freshBars =
             ohlcv
                 .getDailyBars(symbol, "compact", fetchFrom)
-                ?.filter { !it.date.isBefore(fetchFrom) && it.volume > 0L }
+                ?.filter { !it.date.isBefore(fetchFrom) && it.volume > 0L && it.date !in holidays }
                 ?.ifEmpty { null }
         if (freshBars == null) logger.info("No new bars for $symbol")
         return freshBars

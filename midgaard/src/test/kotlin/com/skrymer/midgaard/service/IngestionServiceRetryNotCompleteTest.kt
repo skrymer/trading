@@ -70,6 +70,7 @@ class IngestionServiceRetryNotCompleteTest {
             earningsRepository = mock(),
             symbolRepository = mock(),
             ingestionStatusRepository = ingestionStatusRepository,
+            marketHolidayRepository = mock(),
             indicatorsMode = IndicatorsMode.LOCAL,
         )
 }

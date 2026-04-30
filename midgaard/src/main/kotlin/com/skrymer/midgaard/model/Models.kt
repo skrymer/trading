@@ -125,3 +125,16 @@ data class LatestQuote(
     val high: Double = 0.0,
     val low: Double = 0.0,
 )
+
+/**
+ * One non-trading day for an exchange. Backfilled into `market_holidays`
+ * via Flyway migration (sourced from EODHD's `/exchange-details/{exchange}`
+ * snapshot at migration-write time). `IngestionService` consults the date
+ * set to drop phantom provider bars stamped to closed market days.
+ */
+data class MarketHoliday(
+    val exchange: String,
+    val date: LocalDate,
+    val name: String?,
+    val type: String?,
+)

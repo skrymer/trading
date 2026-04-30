@@ -58,14 +58,15 @@ midgaard/
 │   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider; self-rate-limits
 │   │       └── dto/
 │   ├── model/
-│   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, enums
+│   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, enums
 │   │   └── OptionContractDto.kt
 │   ├── repository/
 │   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count)
 │   │   ├── SymbolRepository.kt            # Symbol reference data
 │   │   ├── EarningsRepository.kt          # Earnings data
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
-│   │   └── ProviderConfigRepository.kt    # Provider configuration data
+│   │   ├── ProviderConfigRepository.kt    # Provider configuration data
+│   │   └── MarketHolidayRepository.kt     # Read-only US exchange holiday lookup (used by IngestionService to drop phantom bars)
 │   └── service/
 │       ├── IngestionService.kt            # Provider-agnostic orchestrator; injects bare OhlcvProvider/IndicatorProvider/EarningsProvider/CompanyInfoProvider beans (no per-provider branching)
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
@@ -82,7 +83,8 @@ midgaard/
 │   │   ├── V3__Add_sector_symbol.sql      # Add sector to symbols
 │   │   ├── V4__Add_provider_config.sql    # Provider config table
 │   │   ├── V5__Add_delisted_columns_to_symbols.sql
-│   │   └── V6__Add_delisted_symbols.sql
+│   │   ├── V6__Add_delisted_symbols.sql
+│   │   └── V7__Add_market_holidays.sql     # 349 US exchange holidays 1995-2030 (EODHD seed; revisit before 2030)
 │   └── templates/                         # Thymeleaf admin UI (6 templates)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -117,8 +119,8 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 ### Data Flow
 
-1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/Donchian computation
-2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed)
+1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/Donchian computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence.
+2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed). Same holiday + zero-volume filter is applied.
 3. **Serving**: REST API returns enriched quotes with all indicators pre-computed
 
 ### Provider Interfaces (`integration/Providers.kt`)
@@ -171,6 +173,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - **earnings**: Quarterly earnings (symbol + fiscal_date_ending PK)
 - **symbols**: Reference data with asset_type and sector (3,128 entries from V2)
 - **ingestion_status**: Per-symbol tracking (bar_count, last_bar_date, status)
+- **market_holidays** (V7): US exchange holiday calendar (exchange + holiday_date PK), 349 rows for 1995-2030 sourced from EODHD `/exchange-details/US`. Static seed; revisit before 2030. `IngestionService` filters out provider bars stamped to these dates (initial ingest + daily update) to avoid phantom rows skewing breadth queries.
 
 ### jOOQ Codegen
 
