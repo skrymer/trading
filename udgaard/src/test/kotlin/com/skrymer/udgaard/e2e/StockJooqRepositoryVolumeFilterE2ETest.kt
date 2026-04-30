@@ -56,11 +56,10 @@ class StockJooqRepositoryVolumeFilterE2ETest : AbstractIntegrationTest() {
   @Test
   fun `findBySymbol excludes volume=0 bars`() {
     // When
-    val stock = stockRepository.findBySymbol(symbol)
+    val stock = requireNotNull(stockRepository.findBySymbol(symbol)) { "stock not found" }
 
     // Then: synthetic bar is filtered out, real bars are loaded
-    assertTrue(stock != null)
-    val dates = stock!!.quotes.map { it.date }
+    val dates = stock.quotes.map { it.date }
     assertTrue(syntheticBar !in dates, "Volume=0 bar should be filtered out")
     assertTrue(realBar1 in dates && realBar2 in dates && realBar3 in dates, "Real bars must load")
     assertEquals(3, stock.quotes.size)
@@ -81,13 +80,12 @@ class StockJooqRepositoryVolumeFilterE2ETest : AbstractIntegrationTest() {
   @Test
   fun `findBySymbol respects quotesAfter alongside the volume filter`() {
     // When: cutoff between syntheticBar and realBar2 — only realBar2 + realBar3 should load
-    val stock = stockRepository.findBySymbol(symbol, quotesAfter = cutoff)
+    val stock = requireNotNull(stockRepository.findBySymbol(symbol, quotesAfter = cutoff)) { "stock not found" }
 
     // Then: pre-fix the cutoff was silently dropped by the jOOQ chain bug
     // (and()-return value discarded), so all bars would have loaded. Now
     // cutoff is honoured AND volume=0 bars excluded.
-    assertTrue(stock != null)
-    val dates = stock!!.quotes.map { it.date }
+    val dates = stock.quotes.map { it.date }
     assertTrue(dates.all { !it.isBefore(cutoff) }, "All quotes must respect the after-cutoff")
     assertEquals(2, stock.quotes.size)
     assertTrue(realBar2 in dates && realBar3 in dates)

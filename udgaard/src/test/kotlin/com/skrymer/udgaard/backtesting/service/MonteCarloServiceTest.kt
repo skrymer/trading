@@ -141,9 +141,9 @@ class MonteCarloServiceTest {
     // and matches PositionSizingService output for these exact trades + config.
     val expectedMaxDD =
       PositionSizingService().applyPositionSizing(backtest.trades, request.positionSizing!!).maxDrawdownPct
-    assertNotNull(result.originalMaxDrawdown)
-    assertTrue(result.originalMaxDrawdown!! > 0.0, "expected non-zero drawdown but got ${result.originalMaxDrawdown}")
-    assertEquals(expectedMaxDD, result.originalMaxDrawdown!!, 1e-9)
+    val actualMaxDD = requireNotNull(result.originalMaxDrawdown) { "originalMaxDrawdown should be populated when sizing is configured" }
+    assertTrue(actualMaxDD > 0.0, "expected non-zero drawdown but got $actualMaxDD")
+    assertEquals(expectedMaxDD, actualMaxDD, 1e-9)
   }
 
   @Test
