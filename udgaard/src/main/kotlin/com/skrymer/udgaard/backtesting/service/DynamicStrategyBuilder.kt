@@ -53,6 +53,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.BeforeEarningsExi
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.BelowPreviousDayLowExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.GapAndCrapExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
@@ -341,6 +342,11 @@ class DynamicStrategyBuilder(
           val windowDays = (config.parameters["windowDays"] as? Number)?.toInt() ?: 15
           logger.info("  -> StagnationExit(thresholdPercent=$thresholdPercent, windowDays=$windowDays)")
           StagnationExit(thresholdPercent, windowDays)
+        }
+        "gapandcrap" -> {
+          val gapPercent = (config.parameters["gapPercent"] as? Number)?.toDouble() ?: 5.0
+          logger.info("  -> GapAndCrapExit(gapPercent=$gapPercent)")
+          GapAndCrapExit(gapPercent)
         }
         else -> throw IllegalArgumentException("Unknown exit condition type: ${config.type}")
       }

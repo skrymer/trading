@@ -42,6 +42,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.BeforeEarningsExi
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.BelowPreviousDayLowExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.GapAndCrapExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
@@ -366,6 +367,11 @@ class ExitStrategyBuilder {
   ) = apply {
     conditions.add(StagnationExit(thresholdPercent, windowDays))
   }
+
+  fun gapAndCrap(gapPercent: Double = 5.0) =
+    apply {
+      conditions.add(GapAndCrapExit(gapPercent))
+    }
 
   fun withOperator(op: LogicalOperator) =
     apply {
