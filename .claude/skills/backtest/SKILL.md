@@ -19,7 +19,7 @@ Before running, list what's available unless the user specifies exact names:
 ```bash
 curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/strategies   # entry + exit names
 curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/conditions   # custom DSL conditions + parameters
-curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/rankers      # ranker names for position-limited runs
+curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/rankers      # rankers (type/displayName/category/parameters/usesRandomTieBreaks)
 ```
 
 ## Scenarios
@@ -84,7 +84,7 @@ Always include `leverageRatio: 1.0` for stocks unless the user explicitly enable
 
 Ranking only matters when `maxPositions` is set (scenario 2). On any bar where more entry signals fire than open slots, the ranker decides which ones get taken. In an unlimited backtest every signal is taken, so the ranker is unused.
 
-> **Discover available rankers first** — `GET /api/backtest/rankers` (see [Discovery](#discovery)) returns the live list of ranker names. Don't hard-code ranker names; the list can change.
+> **Discover available rankers first** — `GET /api/backtest/rankers` (see [Discovery](#discovery)) returns the live list of `RankerMetadata` (type, displayName, description, parameters, category, usesRandomTieBreaks). Don't hard-code ranker names; the list can change.
 
 **Defaulting:** if `ranker` is omitted, the strategy's preferred ranker is used (each `EntryStrategy` can declare one). Specify `ranker` only when overriding that default.
 
@@ -92,24 +92,24 @@ Ranking only matters when `maxPositions` is set (scenario 2). On any bar where m
 
 ```jsonc
 {
-  "ranker": "<ranker-name>",          // from /api/backtest/rankers
-  "rankerConfig": {                    // optional, ranker-specific
+  "ranker": "<ranker-type>",          // from /api/backtest/rankers (the .type field)
+  "rankerConfig": {                    // required only if the ranker has parameters
     "sectorRanking": ["XLK", "XLF", "..."]
   }
 }
 ```
 
-The exact `rankerConfig` shape depends on the ranker. Two patterns:
+The `rankerConfig` shape is determined by the ranker's `parameters` array — one config key per `parameters[].name`. Family is given by the `category` field:
 
-| Ranker family | Config requirement |
-|---------------|---------------------|
-| Sector-priority (ranks by user-supplied sector order) | Requires `rankerConfig.sectorRanking` — array of sector symbols (XLK, XLF, …) in priority order |
-| Score-based (volatility, momentum, EMA-distance, etc.) | No config — ranks by an intrinsic per-stock metric |
-| Random | No config — non-deterministic unless `randomSeed` is also set on the backtest request |
+| `category` | Meaning |
+|---|---|
+| `Sector-Priority` | `parameters` includes `sectorRanking` (a `stringList` — supply a non-empty ordered array of sector symbols, highest priority first) |
+| `Score-Based` | Ranks by an intrinsic per-stock metric. `parameters` is empty unless the ranker exposes tunables. |
+| `Random` | No parameters; non-deterministic unless `randomSeed` is set on the backtest request |
 
-The discovery endpoint returns ranker **names only** — no parameter metadata, so the family of an unfamiliar ranker isn't programmatically discoverable. Ask the user, or treat it as score-based (no config) and check the response for missing-config errors. Tracked in [Known limitations](#known-limitations) for backend follow-up.
+Programmatic decision: if a ranker's `parameters` array is empty, omit `rankerConfig`. If a parameter has `defaultValue: null`, it is required and you must supply a value.
 
-**Reproducibility:** any ranker that uses random tie-breaking (`Random`, or score-based with ties) needs `randomSeed` for reproducible results. Tie-break order can swing edge by 0.5%+ on tight position-limited runs — pair with [§6 Multi-seed sanity check](#6-multi-seed-sanity-check) when the ranker is non-deterministic.
+**Reproducibility:** any ranker with `usesRandomTieBreaks: true` needs `randomSeed` for reproducible results. Tie-break order can swing edge by 0.5%+ on tight position-limited runs — pair with [§6 Multi-seed sanity check](#6-multi-seed-sanity-check) when the ranker is non-deterministic.
 
 ### 4. Custom DSL strategy
 
@@ -262,7 +262,6 @@ Note: trend-following / breakout strategies legitimately have ~45% win rate with
 Tracked here so the backend roadmap closes them; the skill works around each in the meantime.
 
 - **Risk-adjusted metrics computed in analyst, not backend.** Sharpe / Sortino / CAGR / SPY-correlation / drawdown-duration come from `post-backtest-analyst`'s post-processing of the equity curve. Values are deterministic per analyst version but recompute every run. Promote into `BacktestReport` so they're testable and consistent across skills.
-- **`GET /api/backtest/rankers` returns names only — no parameter metadata.** Conditions discovery returns full `ConditionMetadata` (type, displayName, parameters with types/defaults, category); rankers should follow the same shape (`RankerMetadata` with `parameters` describing `rankerConfig` requirements). Until then the skill has to ask the user about unfamiliar rankers.
 - **SPY correlation** requires SPY in the symbol set or a separate fetch — the analyst handles the fetch as a workaround.
 - **Daily bars only** — no intraday slippage modelling. Edge < 1.5% likely doesn't survive live costs.
 - **Survivorship bias** — universe currently excludes most delisted-during-period stocks (V18 mitigates but doesn't eliminate).

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ScanRequest } from '~/types'
+import type { RankerMetadata, ScanRequest } from '~/types'
 import { AssetTypeOptions, SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
 
 const SectorOptions = Object.values(SectorSymbol).map(s => ({
@@ -43,11 +43,11 @@ const exitStrategyOptions = computed(() =>
 )
 
 // Fetch available rankers from backend
-const { data: availableRankers } = useFetch<string[]>('/udgaard/api/backtest/rankers')
+const { data: availableRankers } = useFetch<RankerMetadata[]>('/udgaard/api/backtest/rankers')
 
 const rankerOptions = computed(() => [
   { label: 'Strategy Default', value: 'default' },
-  ...(availableRankers.value ?? []).map(r => ({ label: r, value: r }))
+  ...(availableRankers.value ?? []).map(r => ({ label: r.displayName, value: r.type }))
 ])
 
 // Auto-select first strategies when loaded

@@ -263,19 +263,32 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
   }
 
   @Test
-  fun `GET rankers should return available rankers`() {
+  fun `GET rankers should return rich metadata for every ranker`() {
+    // Given / When
     val response = restTemplate.exchange(
       "/api/backtest/rankers",
       HttpMethod.GET,
       null,
-      object : ParameterizedTypeReference<List<String>>() {},
+      object : ParameterizedTypeReference<List<Map<String, Any?>>>() {},
     )
 
+    // Then: response shape mirrors ConditionMetadata
     assertEquals(HttpStatus.OK, response.statusCode)
     val body = response.body!!
     assertTrue(body.isNotEmpty(), "Should have at least one ranker")
-    assertTrue(body.contains("Adaptive"), "Should contain Adaptive ranker")
-    assertTrue(body.contains("Volatility"), "Should contain Volatility ranker")
+
+    val byType = body.associateBy { it["type"] as String }
+    assertTrue("Adaptive" in byType, "Should contain Adaptive ranker")
+    assertTrue("Volatility" in byType, "Should contain Volatility ranker")
+    assertTrue("SectorEdge" in byType, "Should contain SectorEdge ranker")
+
+    val sectorEdge = byType["SectorEdge"]!!
+    assertEquals("Sector-Priority", sectorEdge["category"])
+    @Suppress("UNCHECKED_CAST")
+    val params = sectorEdge["parameters"] as List<Map<String, Any?>>
+    assertEquals(1, params.size)
+    assertEquals("sectorRanking", params[0]["name"])
+    assertEquals("stringList", params[0]["type"])
   }
 
   @Test

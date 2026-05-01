@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
 import com.skrymer.udgaard.backtesting.dto.CustomStrategyConfig
 import com.skrymer.udgaard.backtesting.dto.PredefinedStrategyConfig
+import com.skrymer.udgaard.backtesting.dto.RankerMetadata
 import com.skrymer.udgaard.backtesting.dto.StrategyConfig
 import com.skrymer.udgaard.backtesting.dto.WalkForwardRequest
 import com.skrymer.udgaard.backtesting.model.BacktestReport
@@ -208,9 +209,9 @@ class BacktestController(
    * Example: GET /api/backtest/rankers
    */
   @GetMapping("/rankers")
-  fun getAvailableRankers(): ResponseEntity<List<String>> {
+  fun getAvailableRankers(): ResponseEntity<List<RankerMetadata>> {
     logger.info("Retrieving available rankers")
-    val rankers = RankerFactory.availableRankers()
+    val rankers = RankerFactory.availableRankerMetadata()
     logger.info("Returning ${rankers.size} rankers")
     return ResponseEntity.ok(rankers)
   }

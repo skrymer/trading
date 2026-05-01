@@ -123,7 +123,7 @@ See `/backtest` §2 for sizer options. Position-sized walk-forward takes proport
 
 Ranking only matters when `maxPositions` is set (scenario 3). The `ranker` + `rankerConfig` you supply is applied **independently in each IS and OOS sub-backtest** — same ranker drives both halves of every window.
 
-> **Discover available rankers first** — `GET /api/backtest/rankers` (see [Discovery](#discovery)) returns ranker names. Don't hard-code; the list can change.
+> **Discover available rankers first** — `GET /api/backtest/rankers` (see [Discovery](#discovery)) returns the live list of `RankerMetadata` (type, displayName, description, parameters, category, usesRandomTieBreaks). Don't hard-code; the list can change.
 
 **Defaulting:** if `ranker` is omitted, the strategy's preferred ranker is used (each `EntryStrategy` can declare one). Specify only when overriding that default.
 
@@ -131,24 +131,24 @@ Ranking only matters when `maxPositions` is set (scenario 3). The `ranker` + `ra
 
 ```jsonc
 {
-  "ranker": "<ranker-name>",          // from /api/backtest/rankers
-  "rankerConfig": {                    // optional, ranker-specific
+  "ranker": "<ranker-type>",          // from /api/backtest/rankers (the .type field)
+  "rankerConfig": {                    // required only if the ranker has parameters
     "sectorRanking": ["XLK", "XLF", "..."]
   }
 }
 ```
 
-| Ranker family | Config requirement |
-|---------------|---------------------|
-| Sector-priority (ranks by user-supplied sector order) | Requires `rankerConfig.sectorRanking` — array of sector symbols in priority order |
-| Score-based (volatility, momentum, EMA-distance, etc.) | No config — ranks by an intrinsic per-stock metric |
-| Random | No config — non-deterministic unless `randomSeed` is also set |
+| `category` | Meaning |
+|---|---|
+| `Sector-Priority` | `parameters` includes `sectorRanking` (a `stringList` — supply a non-empty ordered array of sector symbols) |
+| `Score-Based` | Ranks by an intrinsic per-stock metric. `parameters` is empty unless the ranker exposes tunables. |
+| `Random` | No parameters; non-deterministic unless `randomSeed` is set |
 
-The discovery endpoint returns names only — ask the user when an unfamiliar ranker appears. Tracked in [Known limitations](#known-limitations) for backend follow-up.
+Programmatic decision: empty `parameters` array → omit `rankerConfig`. A parameter with `defaultValue: null` is required.
 
 **Walk-forward-specific note:** the response also exposes `derivedSectorRanking` per window — that's the IS-optimal sector order for that window, **informational only**, not applied to the OOS sub-backtest. Use it as an overfitting tell (does the IS-optimal ranking churn across windows?), not as evidence the strategy uses IS sector data live.
 
-**Reproducibility:** non-deterministic rankers (`Random`, score-based with ties) need `randomSeed` for reproducible WFE. Pair with [§5 Multi-seed walk-forward](#5-multi-seed-walk-forward).
+**Reproducibility:** rankers with `usesRandomTieBreaks: true` need `randomSeed` for reproducible WFE. Pair with [§5 Multi-seed walk-forward](#5-multi-seed-walk-forward).
 
 ### 5. Multi-seed walk-forward
 
@@ -256,7 +256,6 @@ Tracked here so the backend roadmap closes them; the skill works around each in 
 
 - **Per-window regime tagging is best-effort.** The walk-forward result has dates per window but no regime label. The analyst infers regime from the dates by querying SPY/breadth tables — fine but adds latency. Backend should annotate each `WalkForwardWindow` with `oosUptrendPercent` / `oosBreadthAvg` derived from `MarketBreadthDaily`.
 - **`derivedSectorRanking` is informational only.** Per the API contract, the IS-derived sector ranking does NOT re-rank OOS trades. Treat as an overfitting signal (does the ranking churn across windows?), not as evidence the strategy uses IS sector data live.
-- **`GET /api/backtest/rankers` returns names only — no parameter metadata.** Same gap as `/backtest`: until rankers gain `RankerMetadata` (mirroring `ConditionMetadata`), unfamiliar rankers' `rankerConfig` shape isn't programmatically discoverable.
 - **Small window counts.** With 10y of data and default 5y IS / 1y OOS / 1y step, you get ~5–6 windows. Aggregate metrics are trade-weighted, so windows with more trades dominate. Per-window WFEs can be wildly dispersed (0 to 1.5+) on small samples.
 - **Walk-forward tests parameter durability, not optimization procedure.** Running walk-forward with fixed parameters validates that those parameters survive OOS. It does NOT validate that re-optimizing on each IS window would survive — that requires a different harness.
 - Same daily-bar / no-slippage / survivorship-bias caveats as `/backtest` apply.

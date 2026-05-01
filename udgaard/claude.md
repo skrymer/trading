@@ -69,7 +69,7 @@ udgaard/
 │   │       ├── CompositeExitStrategy.kt
 │   │       ├── StrategyDsl.kt        # DSL builder
 │   │       ├── StockRanker.kt        # Ranking implementations
-│   │       ├── RankerFactory.kt     # Shared ranker creation logic
+│   │       ├── RankerFactory.kt     # Ranker creation + RankerMetadata catalog (served by /api/backtest/rankers)
 │   │       ├── RegisteredStrategy.kt # Auto-discovery annotation
 │   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
 │   │       ├── *ExitStrategy.kt

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod'
-import type { BacktestRequest, StrategyConfig, AvailableConditions, PositionSizingConfig, SizerConfig } from '~/types'
+import type { BacktestRequest, StrategyConfig, AvailableConditions, PositionSizingConfig, RankerMetadata, SizerConfig } from '~/types'
 import { AssetTypeOptions, SectorSymbol, SectorSymbolDescriptions } from '~/types/enums'
 
 const SectorOptions = Object.values(SectorSymbol).map(s => ({
@@ -244,7 +244,7 @@ const { data: availableStrategies } = useFetch<{
 }>('/udgaard/api/backtest/strategies')
 
 // Fetch available rankers from backend
-const { data: availableRankers } = useFetch<string[]>('/udgaard/api/backtest/rankers')
+const { data: availableRankers } = useFetch<RankerMetadata[]>('/udgaard/api/backtest/rankers')
 
 // Fetch available conditions for custom strategies
 const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/api/backtest/conditions')
@@ -253,7 +253,7 @@ const { data: availableConditions } = useFetch<AvailableConditions>('/udgaard/ap
 const rankerOptions = computed(() => {
   const options = [{ label: 'Strategy Default', value: 'strategy-default' }]
   if (availableRankers.value) {
-    options.push(...availableRankers.value.map(r => ({ label: r, value: r })))
+    options.push(...availableRankers.value.map(r => ({ label: r.displayName, value: r.type })))
   }
   return options
 })

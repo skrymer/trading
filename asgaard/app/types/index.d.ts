@@ -397,7 +397,7 @@ export type StrategyType = 'predefined' | 'custom'
 export interface ParameterMetadata {
   name: string
   displayName: string
-  type: 'number' | 'boolean' | 'string'
+  type: 'number' | 'boolean' | 'string' | 'stringList'
   defaultValue: any
   min?: number
   max?: number
@@ -415,6 +415,15 @@ export interface ConditionMetadata {
 export interface AvailableConditions {
   entryConditions: ConditionMetadata[]
   exitConditions: ConditionMetadata[]
+}
+
+export interface RankerMetadata {
+  type: string
+  displayName: string
+  description: string
+  parameters: ParameterMetadata[]
+  category: 'Score-Based' | 'Sector-Priority' | 'Random'
+  usesRandomTieBreaks: boolean
 }
 
 export interface ConditionConfig {

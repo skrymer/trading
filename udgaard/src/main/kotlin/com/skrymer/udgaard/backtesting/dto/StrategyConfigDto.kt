@@ -85,11 +85,21 @@ data class ConditionMetadata(
 data class ParameterMetadata(
   val name: String,
   val displayName: String,
-  val type: String, // "number", "boolean", "string"
+  // "number", "boolean", "string", or "stringList" (for List<String> params like ranker sectorRanking)
+  val type: String,
   val defaultValue: Any?,
   val min: Number? = null,
   val max: Number? = null,
   val options: List<String>? = null, // For enum-like parameters
+)
+
+data class RankerMetadata(
+  val type: String, // canonical name used in BacktestRequest.ranker
+  val displayName: String,
+  val description: String,
+  val parameters: List<ParameterMetadata>,
+  val category: String, // "Score-Based", "Sector-Priority", "Random"
+  val usesRandomTieBreaks: Boolean = false,
 )
 
 /**
