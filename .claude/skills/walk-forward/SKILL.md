@@ -164,6 +164,7 @@ done
 
 ## How to run
 
+- **Always show the POST first and wait for explicit user approval before firing.** Walk-forward is N× more expensive than a single backtest — a wrong config burns 30+ min and blocks the engine. Output the full request body and stop. Wait for "go" / "fire it" / "approved" / equivalent. If the user amends the config, re-show the updated POST — don't fire it. The only exception is when the user explicitly says "fire it without showing me" in the same turn.
 - **Endpoint:** `POST /api/backtest/walk-forward` on PRD port `9080` with `X-API-Key` header
 - **One run at a time** — same OOM concern as `/backtest`
 - **Save raw response to `/tmp/walk-forward[-suffix].json`** — analyst agent reads from disk

@@ -92,6 +92,7 @@ Pass `positionSizing` (same shape as `/backtest` §2) so percentile equity curve
 
 ## How to run
 
+- **Always show the POST first and wait for explicit user approval before firing.** Output the full request body and stop. Wait for "go" / "fire it" / "approved" / equivalent. If the user amends the config (different technique, iterations, sizing, backtestId), re-show the updated POST — don't fire it. The only exception is when the user explicitly says "fire it without showing me" in the same turn.
 - **Endpoint:** `POST /api/monte-carlo/simulate` on PRD port `9080` with `X-API-Key` header
 - **Iterations:** 10,000 is the default sweet spot. Range allowed: 100 – 100,000. Below 1,000 percentile estimates are noisy; above 10,000 wall time grows without much precision gain.
 - **Wall time:** 10–60 seconds for 10k iterations on a typical backtest. Grows linearly with iterations × trade count.

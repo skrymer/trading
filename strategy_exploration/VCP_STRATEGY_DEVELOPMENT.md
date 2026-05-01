@@ -2237,3 +2237,42 @@ Tested whether adding a market-regime-based exit (cut all positions when the bro
 **Conclusion — do not add any market-regime-based exit to VCP's production exit strategy.** The individual stock's own EMA cross is already the correct granularity for trend-following — broad-market gates cut winners too aggressively. If this is ever revisited, `marketAndSectorDowntrend` is the strictness point to start from (the only Calmar-positive variant), not the looser alternatives.
 
 Raw results: `~/trading_wf_progress/breadth_exit_ab/` (2026-04-23) and `~/trading_wf_progress/market_sector_exit_ab/` (2026-04-24).
+
+### Gap and Crap Exit Sweep (2026-05-01)
+
+Tested whether adding a momentum-failure exit (`gapandcrap` — close below the low of a recent gap-up bar within a 3-day failure window) improves VCP risk-adjusted returns. Four gap thresholds evaluated; none adopted.
+
+**Hypothesis.** A 5%+ gap up that fails within 3 trading days marks a parabolic blow-off — exiting on confirmation should protect against the largest distribution events while preserving the bulk of trending winners.
+
+**Phase 1 — unlimited gapPercent sweep (2016-2025, no positionSizing, no maxPositions).** Pure per-trade edge measurement. Files: `/tmp/backtest-vcp-baseline.json`, `/tmp/backtest-vcp-gapandcrap.json` (5%), `/tmp/backtest-vcp-gac-{7,9,11}pct.json`.
+
+| GAC | Trades | Edge | Δ vs baseline | PF | EC | 2020 yearly | GAC fires | GAC avg P% | GAC WR |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **none (baseline)** | 9046 | **5.13** | — | 1.240 | 92 | +10.12 | — | — | — |
+| 5% | 9087 | 4.97 | **−0.16** | 1.383 | 96 | +8.82 | 501 | +26.30 | 83% |
+| 7% | 9069 | 5.12 | −0.01 | 1.392 | 96 | +9.69 | 254 | +30.68 | 86% |
+| 9% | 9061 | 5.14 | +0.02 | 1.392 | 96 | +9.86 | 156 | +34.26 | 89% |
+| **11%** | 9053 | **5.22** | **+0.09** | **1.395** | 96 | +10.05 | **89** | **+46.69** | **96%** |
+
+Edge improves monotonically as the threshold rises — the 5% trigger fires on too many "pause-then-resume" gaps that aren't true distribution; raising the bar removes false alarms. At 11% the fired trades are nearly perfect (96% WR, +46.7% avg) and 2020 runner-clipping disappears (−0.07pp vs baseline, down from −1.30pp at 5%).
+
+**Phase 2 — position-sized 4-seed sweep at 5% and 11% ($10K, AtrRisk(1.25%, 2.0), seeds 1/7/42/100).** Files: `/tmp/backtest-vcp-prod-gac{,-seed1,-seed7,-seed100}.json` (5%) and `/tmp/backtest-vcp-gac11pct-seed{1,7,42,100}.json` (11%). Baseline references: `/tmp/backtest-vcp-baseline-seed{1,7,100}.json` for seeds 1/7/100, plan 8-seed mean for seed 42.
+
+| Metric | Baseline | GAC@5% | **GAC@11%** |
+|---|---:|---:|---:|
+| Mean Calmar | **2.51** | 2.42 | **2.53** |
+| Mean MDD | 22.81% | 23.43% | **22.36%** |
+| Mean CAGR | **57.13%** | 56.65% | 56.57% |
+| Mean Edge | **5.75%** | 5.53% | 5.45% |
+| Mean PF | 3.96 | **4.07** | 3.97 |
+| Mean EC | **90.3** | **92.0** | 89.0 |
+| Worst-seed Calmar | 2.22 | 2.28 | 2.23 |
+| 2022 negatives | 1/3 | 2/4 | **3/4** |
+
+Per-seed Calmar effect of GAC@11% vs baseline: seed 1 +0.13, seed 7 flat, seed 42 −0.29, seed 100 +0.22 — **2 helps, 1 flat, 1 harms hard**. Direction is not consistent across seeds at either threshold tested.
+
+**Why the unlimited edge gain doesn't translate.** Position sizing reduces the GAC fire count from 89 (unlimited, 11%) to **5–9 per seed** in position-sized mode. At that fire rate even +46% per-fire average doesn't move the per-trade edge meaningfully across 600+ trades, and the runner-clipping cost on the 5–9 intercepted trades roughly cancels the benefit. The per-seed GAC win rate also becomes noisy in small samples (50% / 78% / 86% / 100% across the four seeds at 11%).
+
+**Conclusion — do not add `gapandcrap` to VCP's production exit composite at any threshold tested (5/7/9/11%).** The unlimited-mode edge gain at 11% (+0.09pp) is real but vanishes once position sizing reduces the fire count; mean Calmar improvement is +0.02 (within noise), edge consistency drops below baseline (89.0 vs 90.3), and 2022 floor flips negative in 3 of 4 seeds. The condition is correctly designed — it cleanly identifies failed parabolic gaps with 96% per-fire reliability — but the pattern is too rare in a 1.25%-risk VCP portfolio to be worth the implementation cost. The `GapAndCrapExit` `@Component` stays registered for ad-hoc analysis but is not wired into `VcpExitStrategy`.
+
+If this class of exit is revisited, the architectural problem is the gap threshold itself: a more frequent momentum-failure trigger (e.g. `close < N-day SMA after a specified up-move`) would give position sizing enough fires to amortise the runner-clipping cost. Tightening or loosening the GAC failure window (currently 3 days) is unlikely to flip the verdict — fire count is the binding constraint, not pattern quality.

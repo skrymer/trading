@@ -165,6 +165,7 @@ done
 
 ## How to run
 
+- **Always show the POST first and wait for explicit user approval before firing.** Backtests are expensive (10–15 min for position-sized 10y runs) and serialised — a wrong config wastes the user's time and blocks the next run. Output the full request body and stop. Wait for "go" / "fire it" / "approved" / equivalent. If the user amends the config, re-show the updated POST — don't fire it. The only exception is when the user explicitly says "fire it without showing me" in the same turn.
 - **Endpoint:** `POST /api/backtest` on PRD port `9080` with `X-API-Key` header
 - **One backtest at a time** — backend OOMs with concurrent backtests
 - **Save raw response to `/tmp/backtest-<id>.json`** — analyst agent reads from disk
