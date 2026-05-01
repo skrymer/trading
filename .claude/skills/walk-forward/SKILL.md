@@ -12,9 +12,28 @@ Validates that strategy edge persists on unseen data and isn't curve-fit. Return
 
 This skill is strategy-neutral. Substitute the user's actual strategy/exit/dates in every example.
 
+## Quick start
+
+Smallest viable invocation — default 5y IS / 1y OOS / 1y step. POSTs go through `.claude/scripts/udgaard-post.sh`, which adds the `X-API-Key` header and fails loudly on non-2xx responses.
+
+```bash
+.claude/scripts/udgaard-post.sh /api/backtest/walk-forward '{
+  "assetTypes": ["STOCK"],
+  "entryStrategy": {"type": "predefined", "name": "<entry>"},
+  "exitStrategy":  {"type": "predefined", "name": "<exit>"},
+  "startDate": "<YYYY-MM-DD>",
+  "endDate":   "<YYYY-MM-DD>",
+  "inSampleYears": 5,
+  "outOfSampleYears": 1,
+  "stepYears": 1
+}' /tmp/walk-forward-quick.json
+```
+
+Custom cadence, position-sizing, ranking, and multi-seed variants are in [SCENARIOS.md](SCENARIOS.md). Output fields, report template, decision thresholds, and known limitations are in [REFERENCE.md](REFERENCE.md).
+
 ## Discovery
 
-Same endpoints as `/backtest` — list available strategies / conditions / rankers before running:
+Same endpoints as `/backtest`. Discovery is GET, so use raw `curl`:
 
 ```bash
 curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/strategies
@@ -22,9 +41,7 @@ curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/cond
 curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/rankers
 ```
 
-## Scenarios
-
-### Choosing a scenario
+## Choosing a scenario
 
 | Question being asked | Use |
 |----------------------|-----|
@@ -35,133 +52,6 @@ curl -s -H "X-API-Key: $API_KEY" http://localhost:9080/udgaard/api/backtest/rank
 
 Unsized walk-forward is faster and tighter on edge CIs. Sized is what you want before live trading. They answer different questions — pick deliberately.
 
-### Window sizing constraint
-
-Default `inSampleYears: 5, outOfSampleYears: 1, stepYears: 1` requires at least **6 years** of data (`endDate − startDate ≥ inSamplePeriod + outOfSamplePeriod`) to fit even one window. On shorter spans, the API returns 0 windows and an empty result.
-
-For shorter periods, override with months:
-
-```jsonc
-{"inSampleMonths": 24, "outOfSampleMonths": 12, "stepMonths": 12}   // fits a 3-year span (1 window) up to 5-year (2 windows)
-{"inSampleMonths": 18, "outOfSampleMonths": 6,  "stepMonths": 6}    // tighter — fits a 2-year span
-```
-
-Rule of thumb: pick `inSamplePeriod` ≥ 12 months (need enough trades to estimate IS edge), `outOfSamplePeriod` long enough to expect ≥ 30 OOS trades on the chosen universe. Step ≤ OOS period for non-overlapping OOS coverage; step < OOS period gives more windows but reuses OOS data across windows.
-
-### 1. Default cadence (5y IS / 1y OOS / 1y step)
-
-The standard validation cadence. With 10+ years of data this gives ~5+ rolling windows — enough to spot trends in OOS degradation.
-
-```bash
-curl -s -X POST http://localhost:9080/udgaard/api/backtest/walk-forward \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{
-    "assetTypes": ["STOCK"],
-    "useUnderlyingAssets": false,
-    "entryStrategy": {"type": "predefined", "name": "<entry>"},
-    "exitStrategy":  {"type": "predefined", "name": "<exit>"},
-    "startDate": "<YYYY-MM-DD>",
-    "endDate":   "<YYYY-MM-DD>",
-    "inSampleYears": 5,
-    "outOfSampleYears": 1,
-    "stepYears": 1
-  }' > /tmp/walk-forward.json
-```
-
-### 2. Custom cadence (months)
-
-For shorter histories, faster-moving regimes, or finer-grained windows. Months override years if both are set.
-
-```bash
-curl -s -X POST http://localhost:9080/udgaard/api/backtest/walk-forward \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{
-    "assetTypes": ["STOCK"],
-    "entryStrategy": {"type": "predefined", "name": "<entry>"},
-    "exitStrategy":  {"type": "predefined", "name": "<exit>"},
-    "startDate": "<YYYY-MM-DD>",
-    "endDate":   "<YYYY-MM-DD>",
-    "inSampleMonths": <N>,
-    "outOfSampleMonths": <N>,
-    "stepMonths": <N>
-  }' > /tmp/walk-forward.json
-```
-
-Tighter step (e.g. 3 months) gives more windows but more overlapping IS data — windows are no longer fully independent.
-
-### 3. Position-sized walk-forward
-
-Forwards `positionSizing` to each IS/OOS backtest so OOS results reflect realistic capital constraints (not just statistical edge). See [§4 Ranking](#4-ranking) for which signals get taken when more fire than `maxPositions` allows.
-
-```bash
-curl -s -X POST http://localhost:9080/udgaard/api/backtest/walk-forward \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{
-    "assetTypes": ["STOCK"],
-    "entryStrategy": {"type": "predefined", "name": "<entry>"},
-    "exitStrategy":  {"type": "predefined", "name": "<exit>"},
-    "startDate": "<YYYY-MM-DD>",
-    "endDate":   "<YYYY-MM-DD>",
-    "inSampleYears": 5,
-    "outOfSampleYears": 1,
-    "stepYears": 1,
-    "maxPositions": <N>,
-    "entryDelayDays": 1,
-    "ranker": "<ranker>",
-    "rankerConfig": <RANKER_CONFIG_OR_OMIT>,
-    "positionSizing": {
-      "startingCapital": <dollars>,
-      "sizer": <SIZER>,
-      "leverageRatio": 1.0
-    }
-  }' > /tmp/walk-forward-sized.json
-```
-
-See `/backtest` §2 for sizer options. Position-sized walk-forward takes proportionally longer than unsized.
-
-### 4. Ranking
-
-Ranking only matters when `maxPositions` is set (scenario 3). The `ranker` + `rankerConfig` you supply is applied **independently in each IS and OOS sub-backtest** — same ranker drives both halves of every window.
-
-> **Discover available rankers first** — `GET /api/backtest/rankers` (see [Discovery](#discovery)) returns the live list of `RankerMetadata` (type, displayName, description, parameters, category, usesRandomTieBreaks). Don't hard-code; the list can change.
-
-**Defaulting:** if `ranker` is omitted, the strategy's preferred ranker is used (each `EntryStrategy` can declare one). Specify only when overriding that default.
-
-**Specifying a ranker:**
-
-```jsonc
-{
-  "ranker": "<ranker-type>",          // from /api/backtest/rankers (the .type field)
-  "rankerConfig": {                    // required only if the ranker has parameters
-    "sectorRanking": ["XLK", "XLF", "..."]
-  }
-}
-```
-
-| `category` | Meaning |
-|---|---|
-| `Sector-Priority` | `parameters` includes `sectorRanking` (a `stringList` — supply a non-empty ordered array of sector symbols) |
-| `Score-Based` | Ranks by an intrinsic per-stock metric. `parameters` is empty unless the ranker exposes tunables. |
-| `Random` | No parameters; non-deterministic unless `randomSeed` is set |
-
-Programmatic decision: empty `parameters` array → omit `rankerConfig`. A parameter with `defaultValue: null` is required.
-
-**Walk-forward-specific note:** the response also exposes `derivedSectorRanking` per window — that's the IS-optimal sector order for that window, **informational only**, not applied to the OOS sub-backtest. Use it as an overfitting tell (does the IS-optimal ranking churn across windows?), not as evidence the strategy uses IS sector data live.
-
-**Reproducibility:** rankers with `usesRandomTieBreaks: true` need `randomSeed` for reproducible WFE. Pair with [§5 Multi-seed walk-forward](#5-multi-seed-walk-forward).
-
-### 5. Multi-seed walk-forward
-
-Run scenario 1 or 3 with 3+ different `randomSeed` values when the ranker is non-deterministic. Report std-dev of aggregate WFE across seeds — a high spread means the OOS verdict depends on tie-break order.
-
-```bash
-for seed in 1 2 3; do
-  curl -s -X POST http://localhost:9080/udgaard/api/backtest/walk-forward \
-    -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-    -d "{... ,\"randomSeed\": $seed}" > /tmp/walk-forward-seed-$seed.json
-done
-```
-
 ## How to run
 
 - **Always show the POST first and wait for explicit user approval before firing.** Walk-forward is N× more expensive than a single backtest — a wrong config burns 30+ min and blocks the engine. Output the full request body and stop. Wait for "go" / "fire it" / "approved" / equivalent. If the user amends the config, re-show the updated POST — don't fire it. The only exception is when the user explicitly says "fire it without showing me" in the same turn.
@@ -170,95 +60,9 @@ done
 - **Save raw response to `/tmp/walk-forward[-suffix].json`** — analyst agent reads from disk
 - **Wall time:** roughly `(windows × IS-backtest time) + (windows × OOS-backtest time)`. A 10y/5y-IS/1y-OOS run is ~10 backtests. Plan for 30+ minutes on broad universes.
 
-## Output shape
-
-The API returns a `WalkForwardResult`. Top-level fields:
-
-- `walkForwardEfficiency` — aggregate WFE (= aggregate OOS edge / simple-average IS edge)
-- `aggregateOosEdge`, `aggregateOosTrades`, `aggregateOosWinRate`
-- `windows[]` — one entry per IS→OOS window:
-  - `inSampleStart`, `inSampleEnd`, `outOfSampleStart`, `outOfSampleEnd`
-  - `inSampleEdge`, `outOfSampleEdge`
-  - `inSampleTrades`, `outOfSampleTrades`
-  - `inSampleWinRate`, `outOfSampleWinRate`
-  - `derivedSectorRanking` — IS-optimal sector order (informational; not applied to OOS)
-
-## Example report shape
-
-Numbers below are placeholders.
-
-```
-## Walk-Forward Report — <Entry> / <Exit>
-Range: <start> to <end> | Cadence: <Iy>y IS / <Oy>y OOS / <Sy>y step | Windows: N
-
-### Headline
-- Walk-Forward Efficiency: X.XX  (>0.50 persistent, <0.30 likely curve-fit)
-- Aggregate OOS edge: X.X%   (vs IS: X.X%)
-- Aggregate OOS trades: N    | OOS win rate: X%
-
-### Per-window
-| Window | IS edge | OOS edge | OOS/IS | OOS trades | OOS WR | OOS regime* |
-| <IS_start>→<IS_end> → <OOS_end> | X.X | X.X | X.XX | N | X% | uptrend / mixed / downtrend |
-| ...
-* regime is best-effort; backend doesn't expose per-window regime yet
-
-### Stability (from analyst)
-- OOS-positive windows: N / M
-- Std-dev of OOS edge across windows: X
-- Worst window: <date range> (OOS edge X.X%, regime <regime>)
-- Best window:  <date range> (OOS edge X.X%, regime <regime>)
-
-### Sector ranking stability
-- Top-3 IS-derived sectors per window: <list>
-- Stability: do the same sectors lead across windows, or churn? (informational only)
-
-### Verdict (walk-forward-analyst)
-- ✅ / ⚠ / ❌ on edge persistence, regime-robustness, overfitting risk
-- 🔬 Recommended next step: /monte-carlo on the position-sized run, or stop here
-```
-
 ## Agent delegation
 
-After the API call returns, spawn `walk-forward-analyst` with the path to the saved JSON. The agent:
-
-- Computes per-window WFE (= OOS edge / IS edge)
-- Reports OOS-positive window count, std-dev of OOS edge across windows
-- Highlights worst and best windows + which regime they fell in (best-effort)
-- Flags overfitting (OOS << IS, or aggregate WFE < 0.30)
-- Comments on `derivedSectorRanking` stability — does the IS-optimal sector order shift across windows?
-- Produces verdict + next-step recommendation
-
-The skill itself does API orchestration + per-window table assembly. Statistical interpretation is the agent's job.
-
-## Decision framework (general systematic-trading thresholds)
-
-| WFE | Verdict |
-|-----|---------|
-| < 0.30 | Likely curve-fit — reject or rebuild |
-| 0.30 – 0.50 | Marginal — proceed only after `/monte-carlo` confirms edge confidence |
-| 0.50 – 0.80 | Robust — meaningful edge survives OOS |
-| > 0.80 | Excellent (suspiciously high may indicate insufficient OOS challenge) |
-
-Additional checks beyond aggregate WFE:
-
-| Check | Threshold | Why it matters |
-|-------|-----------|----------------|
-| OOS-positive windows | ≥ 70% | "Every window 0.6" vs "half 1.2 / half 0.0" both give WFE 0.6 — only the first is tradeable |
-| Std-dev of OOS edge | < IS edge | High dispersion across windows means edge is regime-dependent |
-| Smallest OOS window trade count | ≥ 30 | Single-window OOS metrics below this are noise |
-| Aggregate OOS edge | ≥ 1.5% | Trades-after-costs threshold — OOS edge above this clears the live-trading bar |
-
-Reject if any of: aggregate WFE < 0.30, < 50% OOS-positive windows, OOS edge < 0% in the most recent window with `n ≥ 30`.
-
-## Known limitations
-
-Tracked here so the backend roadmap closes them; the skill works around each in the meantime.
-
-- **Per-window regime tagging is best-effort.** The walk-forward result has dates per window but no regime label. The analyst infers regime from the dates by querying SPY/breadth tables — fine but adds latency. Backend should annotate each `WalkForwardWindow` with `oosUptrendPercent` / `oosBreadthAvg` derived from `MarketBreadthDaily`.
-- **`derivedSectorRanking` is informational only.** Per the API contract, the IS-derived sector ranking does NOT re-rank OOS trades. Treat as an overfitting signal (does the ranking churn across windows?), not as evidence the strategy uses IS sector data live.
-- **Small window counts.** With 10y of data and default 5y IS / 1y OOS / 1y step, you get ~5–6 windows. Aggregate metrics are trade-weighted, so windows with more trades dominate. Per-window WFEs can be wildly dispersed (0 to 1.5+) on small samples.
-- **Walk-forward tests parameter durability, not optimization procedure.** Running walk-forward with fixed parameters validates that those parameters survive OOS. It does NOT validate that re-optimizing on each IS window would survive — that requires a different harness.
-- Same daily-bar / no-slippage / survivorship-bias caveats as `/backtest` apply.
+After the API call returns, spawn `walk-forward-analyst` with the path to the saved JSON. The agent computes per-window WFE, OOS-positive window count, std-dev of OOS edge across windows, highlights worst/best windows + regime, flags overfitting (OOS << IS, or aggregate WFE < 0.30), and comments on `derivedSectorRanking` stability. The skill itself does API orchestration + per-window table assembly; statistical interpretation is the agent's job.
 
 ## Critical warnings
 

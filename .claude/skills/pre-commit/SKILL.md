@@ -8,11 +8,21 @@ Run all code quality checks before committing. Only run checks for projects that
 
 ## Instructions
 
-First, detect which projects have changes by running `git diff --name-only HEAD` and `git diff --name-only --cached` and checking for untracked files with `git ls-files --others --exclude-standard`. Combine the results and determine which projects are affected:
+First, detect which projects have changes:
 
-- **Udgaard**: any changed files under `udgaard/`
-- **Midgaard**: any changed files under `midgaard/`
-- **Asgaard**: any changed files under `asgaard/`
+```bash
+.claude/scripts/changed-projects.sh
+```
+
+Prints one line per affected project, drawn from `udgaard`, `midgaard`, `asgaard`. Empty output means no relevant changes — skip the agent fan-out and report `SKIPPED (no changes)`. The script unions tracked changes (`git diff --name-only HEAD`) and untracked files (`git ls-files --others --exclude-standard`).
+
+Then check whether backend changes touch code that the public-API skills document:
+
+```bash
+.claude/scripts/skill-impact-check.sh
+```
+
+Non-empty output lists changed files under skill-relevant paths (controllers, DTOs, models, sizers, rankers, conditions, DSL, `BacktestResultStore`) and which skill files may need updating. Pass the full output verbatim to **docs-reviewer** so it reviews the listed skill files alongside CLAUDE.md. Empty output → no skill-staleness risk; record `Skill files (API docs): SKIPPED (no impact)`.
 
 ## Sub-Agent Delegation
 
@@ -24,20 +34,21 @@ Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch
 |-----------|------------|
 | **backend-reviewer** | When `udgaard/` or `midgaard/` has changes. Tell it which projects changed. Runs tests, ktlint, detekt, compiler warnings. Auto-fixes issues. |
 | **frontend-reviewer** | When `asgaard/` has changes. Runs ESLint, typecheck. Auto-fixes lint issues. |
-| **docs-reviewer** | Always. Reviews and updates CLAUDE.md files for accuracy. |
+| **docs-reviewer** | Always. Reviews and updates CLAUDE.md files for accuracy. When `skill-impact-check.sh` produces non-empty output, also reviews the listed skill files (`.claude/skills/*/SKILL.md`, `SCENARIOS.md`, `REFERENCE.md`) against the changed app code. Pass the script output verbatim. |
 | **voltagent-qa-sec:code-reviewer** *(voltagent plugin)* | One instance per changed project. Reviews changed code for security issues, code quality, and QA concerns. Launched as separate parallel agents (subagents cannot spawn other subagents). |
 
 ### Workflow
 
-1. Detect which projects have changes
-2. Launch applicable agents in parallel:
+1. Detect which projects have changes (`changed-projects.sh`)
+2. Run `skill-impact-check.sh` and capture the output for the docs-reviewer task
+3. Launch applicable agents in parallel:
    - **backend-reviewer** (if udgaard/ or midgaard/ changed) — tell it which projects: "udgaard", "midgaard", or both
    - **frontend-reviewer** (if asgaard/ changed)
-   - **docs-reviewer** (always)
+   - **docs-reviewer** (always) — pass the skill-impact-check output if non-empty
    - **voltagent-qa-sec:code-reviewer** for backend (if udgaard/ or midgaard/ changed) — provide changed backend files
    - **voltagent-qa-sec:code-reviewer** for frontend (if asgaard/ changed) — provide changed frontend files
-3. Wait for all agents to complete
-4. Collect results and present the summary table
+4. Wait for all agents to complete
+5. Collect results and present the summary table
 
 ## Reporting
 
@@ -55,6 +66,7 @@ After all agents complete, present a unified summary table. Only include rows fo
 | Frontend Lint (ESLint) | PASS / FAIL / FIXED / SKIPPED |
 | Frontend Typecheck | PASS / FAIL / FIXED / SKIPPED |
 | CLAUDE.md files | UP TO DATE / UPDATED |
+| Skill files (API docs) | UP TO DATE / UPDATED / SKIPPED (no impact) |
 | Backend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 | Frontend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 | Test Coverage (new functionality) | PASS / MISSING TESTS / SKIPPED |

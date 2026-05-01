@@ -333,7 +333,7 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ### Pre-Commit Checklist
 
-**ALWAYS run `/pre-commit` before committing.** This skill runs all 5 code quality checks (backend tests, ktlint, detekt, frontend lint, frontend typecheck) and verifies CLAUDE.md files are up to date. All checks must pass before committing. Do NOT modify `claude_thoughts/`.
+**ALWAYS run `/pre-commit` before committing.** This skill runs all 5 code quality checks (backend tests, ktlint, detekt, frontend lint, frontend typecheck), verifies CLAUDE.md files are up to date, and — when backend changes touch code that the public-API skills document — verifies the affected skill files (`backtest`, `walk-forward`, `monte-carlo`) are still accurate via `.claude/scripts/skill-impact-check.sh`. All checks must pass before committing. Do NOT modify `claude_thoughts/`.
 
 ### Testing
 - Write unit tests for strategy logic
