@@ -1,7 +1,6 @@
 ---
 name: pre-commit
-description: Run pre-commit checks for changed projects (udgaard, midgaard, asgaard) and verify CLAUDE.md files. Use before committing code changes.
-disable-model-invocation: true
+description: Runs all code quality checks (tests, lint, static analysis, typecheck) for changed projects in parallel via specialist sub-agents and verifies CLAUDE.md + skill-doc files are still accurate. Use immediately before creating a git commit — not for ad-hoc lint/test runs.
 ---
 
 Run all code quality checks before committing. Only run checks for projects that have changes. This ensures backend tests, linting, static analysis, frontend validation all pass, and documentation is up to date.
