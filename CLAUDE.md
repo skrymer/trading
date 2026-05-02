@@ -155,9 +155,9 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
-│   │   │   ├── dto/                  # DTOs (StrategyConfigDto, MonteCarloRequestDto, ConditionSignalDtos, etc.)
-│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
+│   │   │   ├── model/                # BacktestReport, BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
+│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto, ConditionSignalDtos, etc.)
+│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController

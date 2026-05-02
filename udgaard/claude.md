@@ -38,6 +38,10 @@ udgaard/
 │   │   │   └── StockWithSignals.kt
 │   │   ├── model/                    # Domain models
 │   │   │   ├── BacktestReport.kt
+│   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized)
+│   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
+│   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha)
+│   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
 │   │   │   ├── BacktestContext.kt
 │   │   │   ├── Trade.kt              # Trade + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
@@ -45,6 +49,7 @@ udgaard/
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── service/                  # Business logic
 │   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades
+│   │   │   ├── RiskMetricsService.kt # Computes Sharpe/Sortino/Calmar/SQN/tailRatio + SPY benchmark comparison + drawdown episodes from position-sized equity curve (USD-only)
 │   │   │   ├── StrategyRegistry.kt   # Strategy discovery/management
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation

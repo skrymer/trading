@@ -85,9 +85,11 @@ data class BacktestResponseDto(
   val averageLossPercent: Double,
   val edge: Double,
   val profitFactor: Double?,
-  val sqn: Double?,
-  val calmarRatio: Double?,
-  val tailRatio: Double?,
+  // Risk-adjusted ratios + benchmark comparison + drawdown episodes (populated when sized).
+  val riskMetrics: RiskMetrics? = null,
+  val benchmarkComparison: BenchmarkComparison? = null,
+  val cagr: Double? = null,
+  val drawdownEpisodes: List<DrawdownEpisode>? = null,
   val stockProfits: List<Pair<String, Double>>,
   // Missed trades
   val missedOpportunitiesCount: Int,

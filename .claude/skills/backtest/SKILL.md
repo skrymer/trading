@@ -63,7 +63,7 @@ After the request returns, capture `backtestId` from the response (used by `/mon
 
 ## Agent delegation
 
-After the API call returns, spawn `post-backtest-analyst` with the path to the saved JSON. The agent computes drawdown duration analysis, risk-adjusted metrics (Sharpe / Sortino / CAGR / Calmar), SPY correlation / beta / annualized alpha, and produces a verdict + next-step recommendation. The skill itself does API orchestration + raw report assembly; statistical interpretation is the agent's job.
+After the API call returns, spawn `post-backtest-analyst` with the path to the saved JSON. The backend pre-computes risk-adjusted metrics (Sharpe / Sortino / Calmar / SQN / tailRatio), CAGR, benchmark comparison vs SPY (correlation / beta / activeReturnVsBenchmark — NOT Jensen's alpha), and the top-10 drawdown episodes; the agent **interprets** these values, applies thresholds, and produces a verdict + next-step recommendation. The skill itself does API orchestration + raw report assembly; statistical interpretation is the agent's job.
 
 ## Critical warnings
 

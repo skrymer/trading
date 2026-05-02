@@ -2,7 +2,6 @@ package com.skrymer.udgaard.backtesting.model
 
 import java.time.LocalDate
 import kotlin.math.abs
-import kotlin.math.sqrt
 
 /**
  * Statistics for a specific sector
@@ -84,6 +83,15 @@ class BacktestReport(
    */
   val edgeConsistencyScore: EdgeConsistencyScore? = null,
   val positionSizingResult: PositionSizingResult? = null,
+  // Risk-adjusted ratios computed by RiskMetricsService when position sizing is applied.
+  // Null when un-sized (no daily equity curve to derive Sharpe/Sortino/CAGR/episodes from).
+  val riskMetrics: RiskMetrics? = null,
+  // Strategy vs benchmark (e.g. SPY) — null when un-sized OR overlap < 60 days.
+  val benchmarkComparison: BenchmarkComparison? = null,
+  // Calendar-day annualized return; null when un-sized.
+  val cagr: Double? = null,
+  // Top-N drawdown excursions over the daily equity curve; null when un-sized.
+  val drawdownEpisodes: List<DrawdownEpisode>? = null,
 ) {
   /**
    * Calculated as (number of winning trades / total trades)
@@ -167,61 +175,6 @@ class BacktestReport(
       val grossProfit = winningTrades.sumOf { it.profit }
       val grossLoss = abs(losingTrades.sumOf { it.profit })
       return if (grossLoss == 0.0) 0.0 else grossProfit / grossLoss
-    }
-
-  /**
-   * System Quality Number (Van Tharp): sqrt(N) * mean(pnl) / stddev(pnl)
-   * Measures strategy quality accounting for consistency and sample size.
-   * > 2.0 good, > 3.0 excellent, > 5.0 superb
-   */
-  val sqn: Double?
-    get() {
-      if (totalTrades < 2) return null
-      val profits = trades.map { it.profitPercentage }
-      val mean = profits.average()
-      val variance = profits.map { (it - mean) * (it - mean) }.average()
-      val stdDev = sqrt(variance)
-      return if (stdDev > 0) sqrt(totalTrades.toDouble()) * mean / stdDev else null
-    }
-
-  /**
-   * Calmar Ratio: annualized return / max drawdown
-   * Higher is better. Requires position sizing result for accurate calculation,
-   * falls back to cumulative return / max equity curve drawdown.
-   */
-  val calmarRatio: Double?
-    get() {
-      val ps = positionSizingResult
-      if (ps != null) {
-        return if (ps.maxDrawdownPct > 0) ps.totalReturnPct / ps.maxDrawdownPct else null
-      }
-      val allTrades = trades
-      if (allTrades.isEmpty()) return null
-      val totalReturn = allTrades.sumOf { it.profitPercentage }
-      var peak = 0.0
-      var maxDD = 0.0
-      var cumulative = 0.0
-      for (trade in allTrades) {
-        cumulative += trade.profitPercentage
-        if (cumulative > peak) peak = cumulative
-        val dd = peak - cumulative
-        if (dd > maxDD) maxDD = dd
-      }
-      return if (maxDD > 0) totalReturn / maxDD else null
-    }
-
-  /**
-   * Tail Ratio: |95th percentile return| / |5th percentile return|
-   * > 1.0 means favorably skewed (big wins, small losses).
-   */
-  val tailRatio: Double?
-    get() {
-      if (totalTrades < 20) return null
-      val sorted = trades.map { it.profitPercentage }.sorted()
-      val p5 = sorted[(sorted.size * 0.05).toInt()]
-      val p95 = sorted[((sorted.size * 0.95).toInt()).coerceAtMost(sorted.size - 1)]
-      val absP5 = abs(p5)
-      return if (absP5 > 0) abs(p95) / absP5 else null
     }
 
   /**
@@ -429,9 +382,10 @@ fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
     averageLossPercent = averageLossPercent,
     edge = edge,
     profitFactor = profitFactor,
-    sqn = sqn,
-    calmarRatio = calmarRatio,
-    tailRatio = tailRatio,
+    riskMetrics = riskMetrics,
+    benchmarkComparison = benchmarkComparison,
+    cagr = cagr,
+    drawdownEpisodes = drawdownEpisodes,
     stockProfits = stockProfits,
     missedOpportunitiesCount = missedOpportunitiesCount,
     missedProfitPercentage = missedProfitPercentage,

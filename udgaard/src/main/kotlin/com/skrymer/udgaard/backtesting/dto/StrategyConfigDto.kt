@@ -29,6 +29,7 @@ data class BacktestRequest(
   val positionSizing: PositionSizingConfig? = null, // Optional ATR-based position sizing
   val rankerConfig: RankerConfig? = null, // Optional ranker-specific parameters
   val randomSeed: Long? = null, // Fixed seed for deterministic tie-breaking in ranker (null = random each run)
+  val riskFreeRatePct: Double? = null, // Annualized RF in percent for Sharpe (excess return) and Sortino MAR. Null = 0 = raw Sharpe.
 )
 
 /**

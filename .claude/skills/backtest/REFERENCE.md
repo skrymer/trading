@@ -6,7 +6,10 @@ Output shape, report template, decision thresholds, and known limitations. See [
 
 The API returns a `BacktestResponseDto` with pre-computed analytics. Key fields the report uses:
 
-- Scalars: `totalTrades`, `winRate`, `edge`, `profitFactor`, `calmarRatio`
+- Scalars: `totalTrades`, `winRate`, `edge`, `profitFactor`, `cagr`
+- Risk-adjusted ratios: `riskMetrics.{sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio}` (only populated for position-sized backtests; null otherwise)
+- Benchmark vs SPY: `benchmarkComparison.{benchmarkSymbol, correlation, beta, activeReturnVsBenchmark}` (null when overlap < 60 days or sized backtest absent)
+- Drawdown episodes: `drawdownEpisodes[]` — top-10 (peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays)
 - Equity: `equityCurveData`, `positionSizing.equityCurve` (daily M2M)
 - Stability: `edgeConsistencyScore` (0–100 + `yearlyEdges`)
 - Regime: `marketConditionStats` (uptrend/downtrend win rates)
@@ -35,7 +38,7 @@ Period: <start> to <end> | Trades: N | Position-sized | backtestId: <uuid>
 
 ### Drawdown
 - Median ATR-DD: X ATR | p95: X ATR | p99: X ATR
-- Longest DD: N months (peak → trough → recovery dates, depth%)  ← from analyst
+- Longest DD: N days (peak → trough → recovery dates, depth%) — from `drawdownEpisodes[0]`
 
 ### Regime sensitivity
 - Uptrend  win rate: X% (n=N)
@@ -49,8 +52,10 @@ Period: <start> to <end> | Trades: N | Position-sized | backtestId: <uuid>
 | Reason | Count | Avg profit | Win rate |
 | ...
 
-### SPY correlation (from analyst)
-- Correlation: X | Beta: X | Annualized alpha: X%
+### Benchmark comparison (from `benchmarkComparison`)
+- Symbol: SPY | Correlation: X | Beta: X | Active return vs benchmark: X%
+
+(Note: `activeReturnVsBenchmark` is `r_p_ann − β·r_b_ann` — NOT Jensen's alpha. Jensen's α requires a non-zero RF and is not yet computed.)
 
 ### Verdict (post-backtest-analyst)
 - ✅ / ⚠ / ❌ on edge reality, drawdown sustainability, alpha quality
@@ -65,7 +70,7 @@ These are not strategy-specific — they're the conventional bar for a systemati
 |--------|-----------|---------|
 | Edge | ≥ 1.5% | Tradeable after costs |
 | Edge consistency score | ≥ 60 | Reliable |
-| Calmar | > 1.0 | Healthy risk-adjusted |
+| Calmar (CAGR / max DD) | > 1.0 | Healthy risk-adjusted (industry standard; values prior to the formula fix used totalReturn/maxDD and were inflated by ~N years) |
 | Sharpe | > 1.0 | Decent risk-adjusted |
 | Max DD | < 25% | Psychologically tradeable |
 | DD duration | < 12 months | Recoverable on retail timescale |
@@ -79,8 +84,8 @@ Note: trend-following / breakout strategies legitimately have ~45% win rate with
 
 Tracked here so the backend roadmap closes them; the skill works around each in the meantime.
 
-- **Risk-adjusted metrics computed in analyst, not backend.** Sharpe / Sortino / CAGR / SPY-correlation / drawdown-duration come from `post-backtest-analyst`'s post-processing of the equity curve. Values are deterministic per analyst version but recompute every run. Promote into `BacktestReport` so they're testable and consistent across skills.
-- **SPY correlation** requires SPY in the symbol set or a separate fetch — the analyst handles the fetch as a workaround.
+- **USD-only equity curves.** `RiskMetricsService` assumes a USD-denominated portfolio. Multi-currency portfolios (e.g. AUD-base / USD-trade) are out of scope; their Sharpe / Sortino / CAGR would conflate strategy performance with FX vol, and benchmark beta vs SPY (USD) is essentially nonsense.
+- **Survivorship bias.** All risk-adjusted metrics inherit survivorship bias from the underlying universe. Sharpe and active-return-vs-benchmark are inflated by an estimated 1–2pp annualized relative to a survivorship-free universe; Calmar is less affected (denominator survives). V18 mitigates but doesn't eliminate.
 - **Daily bars only** — no intraday slippage modelling. Edge < 1.5% likely doesn't survive live costs.
 - **Survivorship bias** — universe currently excludes most delisted-during-period stocks (V18 mitigates but doesn't eliminate).
 - **Assumes perfect fills at close** — `entryDelayDays: 1` partially mitigates.
