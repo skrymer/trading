@@ -41,9 +41,11 @@ This can take several minutes for large universes.
 Extract from the response:
 - `walkForwardEfficiency` (aggregate WFE)
 - `aggregateOosEdge`, `aggregateOosTrades`, `aggregateOosWinRate`
-- Per-window: `inSampleEdge`, `outOfSampleEdge`, `inSampleTrades`, `outOfSampleTrades`, `inSampleWinRate`, `outOfSampleWinRate`, `derivedSectorRanking`
+- Per-window: `inSampleEdge`, `outOfSampleEdge`, `inSampleTrades`, `outOfSampleTrades`, `inSampleWinRate`, `outOfSampleWinRate`, `derivedSectorRanking`, `inSampleBreadthUptrendPercent`, `inSampleBreadthAvg`, `outOfSampleBreadthUptrendPercent`, `outOfSampleBreadthAvg`
 
 Compute per-window WFE: `outOfSampleEdge / inSampleEdge`
+
+Compute per-window regime divergence: `outOfSampleBreadthUptrendPercent − inSampleBreadthUptrendPercent`. Positive ⇒ OOS more bullish than IS (strategy got tailwind on unseen data). Large negative ⇒ OOS regime is harder than IS — OOS edge degradation may be regime-driven, not curve-fitting.
 
 ## Interpretation Guide
 
@@ -67,6 +69,7 @@ Compute per-window WFE: `outOfSampleEdge / inSampleEdge`
 
 Present a structured report with:
 1. **Summary** (aggregate WFE, OOS edge, OOS trades, OOS win rate)
-2. **Per-Window Breakdown** table (IS/OOS edge, trades, win rate, per-window WFE)
+2. **Per-Window Breakdown** table (IS/OOS edge, trades, win rate, per-window WFE, IS uptrend%, OOS uptrend%, regime divergence Δ)
 3. **Sector Ranking Stability** (do derived rankings shift significantly across windows?)
-4. **Verdict** (1-2 sentences: is the strategy robust out-of-sample?)
+4. **Regime Sensitivity** (do windows with large negative regime divergence show worse OOS edge? — distinguishes regime-driven degradation from overfitting)
+5. **Verdict** (1-2 sentences: is the strategy robust out-of-sample?)

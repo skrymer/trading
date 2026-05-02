@@ -210,6 +210,86 @@ class WalkForwardE2ETest : AbstractIntegrationTest() {
     assertEquals(first.aggregateOosEdge, second.aggregateOosEdge, DELTA)
   }
 
+  // ===== REGIME TAGGING =====
+
+  @Test
+  fun `each window carries regime metrics in 0 to 100 range for both IS and OOS halves`() {
+    val request = baseRequest().copy(
+      inSampleMonths = 6,
+      outOfSampleMonths = 3,
+      stepMonths = 3,
+    )
+
+    val body = postWalkForward(request).body!!
+
+    assertTrue(body.windows.isNotEmpty(), "fixture must produce at least one window")
+    body.windows.forEachIndexed { i, w ->
+      assertTrue(
+        w.inSampleBreadthUptrendPercent in 0.0..100.0,
+        "window $i: inSampleBreadthUptrendPercent out of range = ${w.inSampleBreadthUptrendPercent}",
+      )
+      assertTrue(
+        w.inSampleBreadthAvg in 0.0..100.0,
+        "window $i: inSampleBreadthAvg out of range = ${w.inSampleBreadthAvg}",
+      )
+      assertTrue(
+        w.outOfSampleBreadthUptrendPercent in 0.0..100.0,
+        "window $i: outOfSampleBreadthUptrendPercent out of range = ${w.outOfSampleBreadthUptrendPercent}",
+      )
+      assertTrue(
+        w.outOfSampleBreadthAvg in 0.0..100.0,
+        "window $i: outOfSampleBreadthAvg out of range = ${w.outOfSampleBreadthAvg}",
+      )
+    }
+  }
+
+  @Test
+  fun `regime metrics are non-zero on a fixture with breadth coverage`() {
+    // Given: the fixture inserts daily market breadth rows (~65 baseline, random-walk between 40-90)
+    val request = baseRequest().copy(
+      inSampleMonths = 6,
+      outOfSampleMonths = 3,
+      stepMonths = 3,
+    )
+
+    // When
+    val body = postWalkForward(request).body!!
+
+    // Then: at least one window must show non-zero breadth average — proves the lookup found rows.
+    // (uptrendPercent could legitimately be 0 if the random walk dipped below ema10 throughout a window)
+    assertTrue(
+      body.windows.any { it.inSampleBreadthAvg > 0.0 },
+      "expected at least one window with non-zero inSampleBreadthAvg given fixture coverage",
+    )
+    assertTrue(
+      body.windows.any { it.outOfSampleBreadthAvg > 0.0 },
+      "expected at least one window with non-zero outOfSampleBreadthAvg given fixture coverage",
+    )
+  }
+
+  @Test
+  fun `IS and OOS breadth averages within a window draw from non-overlapping date ranges`() {
+    // Given: a 6mo IS / 3mo OOS / 3mo step config — IS and OOS halves are date-disjoint by construction.
+    // On a random-walk breadth fixture, the chance that ALL windows have IS avg numerically equal to OOS avg
+    // is effectively zero — so any failure here points to the date filter being misapplied (e.g. averaging
+    // over the entire breadth map instead of the half-specific range).
+    val request = baseRequest().copy(
+      inSampleMonths = 6,
+      outOfSampleMonths = 3,
+      stepMonths = 3,
+    )
+
+    // When
+    val body = postWalkForward(request).body!!
+
+    // Then: at least one window must show IS breadth avg different from OOS breadth avg
+    assertTrue(body.windows.isNotEmpty(), "fixture must produce at least one window")
+    assertTrue(
+      body.windows.any { it.inSampleBreadthAvg != it.outOfSampleBreadthAvg },
+      "no window distinguished IS from OOS breadth avg — date-range filter likely not applied per half",
+    )
+  }
+
   // ===== VALIDATION =====
 
   @Test

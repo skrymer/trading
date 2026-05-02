@@ -13,7 +13,11 @@ The API returns a `WalkForwardResult`. Top-level fields:
   - `inSampleEdge`, `outOfSampleEdge`
   - `inSampleTrades`, `outOfSampleTrades`
   - `inSampleWinRate`, `outOfSampleWinRate`
+  - `inSampleBreadthUptrendPercent`, `inSampleBreadthAvg` — IS-half regime metrics derived from `MarketBreadthDaily.isInUptrend()` (`breadthPercent > ema10`)
+  - `outOfSampleBreadthUptrendPercent`, `outOfSampleBreadthAvg` — OOS-half regime metrics (same definition)
   - `derivedSectorRanking` — IS-optimal sector order (informational; not applied to OOS)
+
+**Regime divergence**: `outOfSampleBreadthUptrendPercent − inSampleBreadthUptrendPercent` positive ⇒ OOS more bullish than IS (strategy got tailwind on unseen data). Large negative ⇒ OOS regime is harder than IS — OOS edge degradation may be regime-driven, not curve-fitting.
 
 ## Example report shape
 
@@ -29,10 +33,9 @@ Range: <start> to <end> | Cadence: <Iy>y IS / <Oy>y OOS / <Sy>y step | Windows: 
 - Aggregate OOS trades: N    | OOS win rate: X%
 
 ### Per-window
-| Window | IS edge | OOS edge | OOS/IS | OOS trades | OOS WR | OOS regime* |
-| <IS_start>→<IS_end> → <OOS_end> | X.X | X.X | X.XX | N | X% | uptrend / mixed / downtrend |
+| Window | IS edge | OOS edge | OOS/IS | OOS trades | OOS WR | IS uptrend% | OOS uptrend% | Δ (OOS−IS) |
+| <IS_start>→<IS_end> → <OOS_end> | X.X | X.X | X.XX | N | X% | X% | X% | +/-X% |
 | ...
-* regime is best-effort; backend doesn't expose per-window regime yet
 
 ### Stability (from analyst)
 - OOS-positive windows: N / M
@@ -73,7 +76,6 @@ Reject if any of: aggregate WFE < 0.30, < 50% OOS-positive windows, OOS edge < 0
 
 Tracked here so the backend roadmap closes them; the skill works around each in the meantime.
 
-- **Per-window regime tagging is best-effort.** The walk-forward result has dates per window but no regime label. The analyst infers regime from the dates by querying SPY/breadth tables — fine but adds latency. Backend should annotate each `WalkForwardWindow` with `oosUptrendPercent` / `oosBreadthAvg` derived from `MarketBreadthDaily`.
 - **`derivedSectorRanking` is informational only.** Per the API contract, the IS-derived sector ranking does NOT re-rank OOS trades. Treat as an overfitting signal (does the ranking churn across windows?), not as evidence the strategy uses IS sector data live.
 - **Small window counts.** With 10y of data and default 5y IS / 1y OOS / 1y step, you get ~5–6 windows. Aggregate metrics are trade-weighted, so windows with more trades dominate. Per-window WFEs can be wildly dispersed (0 to 1.5+) on small samples.
 - **Walk-forward tests parameter durability, not optimization procedure.** Running walk-forward with fixed parameters validates that those parameters survive OOS. It does NOT validate that re-optimizing on each IS window would survive — that requires a different harness.
