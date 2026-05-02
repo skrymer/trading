@@ -31,4 +31,19 @@ data class MonteCarloRequestDto(
    */
   val includeAllEquityCurves: Boolean = false,
   val positionSizing: PositionSizingConfig? = null,
-)
+  /**
+   * Drawdown thresholds (percent units, e.g. [20.0, 25.0, 30.0]) for which the response
+   * will return P(maxDD > threshold) and CVaR. Omit/null = response field stays null.
+   * Each value must be in (0.0, 100.0).
+   */
+  val drawdownThresholds: List<Double>? = null,
+) {
+  init {
+    drawdownThresholds?.let { list ->
+      require(list.isNotEmpty()) { "drawdownThresholds must not be empty when provided" }
+      require(list.all { it > 0.0 && it < 100.0 }) {
+        "drawdownThresholds must each be in (0.0, 100.0) percent units, got $list"
+      }
+    }
+  }
+}

@@ -13,6 +13,7 @@ Resamples trade **order**. Distribution of max drawdowns answers "how unlucky co
   "backtestId": "<BACKTEST_ID>",
   "technique": "TRADE_SHUFFLING",
   "iterations": 10000,
+  "drawdownThresholds": [20.0, 25.0, 30.0, 35.0],
   "positionSizing": {
     "startingCapital": <dollars>,
     "sizer": <SIZER>,

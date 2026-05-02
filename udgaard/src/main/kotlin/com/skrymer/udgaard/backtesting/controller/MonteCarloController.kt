@@ -81,6 +81,7 @@ class MonteCarloController(
           seed = requestDto.seed,
           includeAllEquityCurves = requestDto.includeAllEquityCurves,
           positionSizing = requestDto.positionSizing,
+          drawdownThresholds = requestDto.drawdownThresholds,
         )
 
       logger.info("Starting Monte Carlo simulation...")

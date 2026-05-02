@@ -76,6 +76,11 @@ data class MonteCarloStatistics(
    * Worst case scenario (5th percentile return)
    */
   val worstCaseReturnPercentage: Double,
+  /**
+   * Per-threshold drawdown probabilities + CVaR. `null` when the request did not supply
+   * `drawdownThresholds`. Populated entries are sorted ascending by `drawdownPercent`.
+   */
+  val drawdownThresholdProbabilities: List<DrawdownThresholdProbability>? = null,
 ) {
   data class Percentiles(
     val p5: Double,

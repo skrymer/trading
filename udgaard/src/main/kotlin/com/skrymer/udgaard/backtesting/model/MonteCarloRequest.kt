@@ -28,4 +28,9 @@ data class MonteCarloRequest(
    */
   val includeAllEquityCurves: Boolean = false,
   val positionSizing: PositionSizingConfig? = null,
+  /**
+   * Drawdown thresholds in percent units (e.g. [20.0, 25.0, 30.0]). When non-null,
+   * MonteCarloStatistics.drawdownThresholdProbabilities is populated.
+   */
+  val drawdownThresholds: List<Double>? = null,
 )

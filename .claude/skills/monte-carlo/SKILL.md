@@ -43,7 +43,7 @@ Capture `executionTimeMs` from the response if reporting cost.
 
 ## Agent delegation
 
-After both API calls return, spawn `monte-carlo-analyst` with the paths to both saved JSONs. The agent combines shuffling + bootstrap into one report, computes drawdown-threshold probabilities (`P(max DD > X%)` for typical thresholds 20/25/30/35%), locates the original backtest's metrics in the resampled distribution, flags lucky/unlucky paths, compares actual DD to the MC shuffled distribution (actual >> p95 indicates structural correlation), and produces a verdict + position-sizing recommendation. The skill itself does API orchestration + raw report assembly; statistical interpretation is the agent's job.
+After both API calls return, spawn `monte-carlo-analyst` with the paths to both saved JSONs. The agent combines shuffling + bootstrap into one report, renders `statistics.drawdownThresholdProbabilities` (`P(max DD > X%)` + CVaR — request the typical thresholds 20/25/30/35% via `drawdownThresholds` on the shuffling POST), locates the original backtest's metrics in the resampled distribution, flags lucky/unlucky paths, compares actual DD to the MC shuffled distribution (actual >> p95 indicates structural correlation), and produces a verdict + position-sizing recommendation. The skill itself does API orchestration + raw report assembly; statistical interpretation is the agent's job.
 
 ## Critical warnings
 
