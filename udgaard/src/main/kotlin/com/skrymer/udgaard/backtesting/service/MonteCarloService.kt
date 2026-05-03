@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.BootstrapResamplingTechnique
+import com.skrymer.udgaard.backtesting.model.DrawdownThresholdProbability
 import com.skrymer.udgaard.backtesting.model.MonteCarloRequest
 import com.skrymer.udgaard.backtesting.model.MonteCarloResult
 import com.skrymer.udgaard.backtesting.model.MonteCarloScenario
@@ -17,22 +18,20 @@ import kotlin.math.sqrt
 class MonteCarloService(
   private val positionSizingService: PositionSizingService,
 ) {
-  private val techniques =
-    mapOf(
-      MonteCarloTechniqueType.TRADE_SHUFFLING to TradeShufflingTechnique(),
-      MonteCarloTechniqueType.BOOTSTRAP_RESAMPLING to BootstrapResamplingTechnique(),
-    )
-
   /**
    * Run Monte Carlo simulation
    */
   fun runSimulation(request: MonteCarloRequest): MonteCarloResult {
     val startTime = System.currentTimeMillis()
 
-    // Get the technique
-    val technique =
-      techniques[request.techniqueType]
-        ?: throw IllegalArgumentException("Technique ${request.techniqueType} not implemented")
+    // Construct the technique per-request because BootstrapResamplingTechnique takes
+    // request-scoped state (blockSize) — a static map can't carry that.
+    val technique = when (request.techniqueType) {
+      MonteCarloTechniqueType.TRADE_SHUFFLING -> TradeShufflingTechnique()
+      MonteCarloTechniqueType.BOOTSTRAP_RESAMPLING -> BootstrapResamplingTechnique(blockSize = request.blockSize)
+      MonteCarloTechniqueType.PRICE_PATH_RANDOMIZATION ->
+        throw IllegalArgumentException("Technique ${request.techniqueType} not implemented")
+    }
 
     // Generate scenarios
     val scenarios =
@@ -48,7 +47,7 @@ class MonteCarloService(
     }
 
     // Calculate statistics
-    val statistics = calculateStatistics(scenarios)
+    val statistics = calculateStatistics(scenarios, request.drawdownThresholds)
 
     // Extract percentile equity curves
     val percentileEquityCurves = extractPercentileEquityCurves(scenarios)
@@ -92,7 +91,10 @@ class MonteCarloService(
     )
   }
 
-  private fun calculateStatistics(scenarios: List<MonteCarloScenario>): MonteCarloStatistics {
+  private fun calculateStatistics(
+    scenarios: List<MonteCarloScenario>,
+    drawdownThresholds: List<Double>?,
+  ): MonteCarloStatistics {
     // Extract metrics from all scenarios
     val returns = scenarios.map { it.totalReturnPercentage }.sorted()
     val drawdowns = scenarios.map { it.maxDrawdown }.sorted()
@@ -136,6 +138,18 @@ class MonteCarloService(
     val profitableScenarios = scenarios.count { it.totalReturnPercentage > 0 }
     val probabilityOfProfit = profitableScenarios.toDouble() / scenarios.size * 100.0
 
+    // Per-threshold drawdown probabilities + CVaR. One linear scan over `drawdowns` per threshold,
+    // O(N·K) for N iterations and K thresholds — trivial below the iterations cap (≤ 100k).
+    // Sort + dedupe the request thresholds so output ordering is stable regardless of caller input.
+    val drawdownThresholdProbabilities = drawdownThresholds?.sorted()?.distinct()?.map { dp ->
+      val exceeded = drawdowns.filter { it > dp }
+      DrawdownThresholdProbability(
+        drawdownPercent = dp,
+        probability = exceeded.size.toDouble() / drawdowns.size * 100.0,
+        expectedDrawdownGivenExceeded = if (exceeded.isNotEmpty()) exceeded.average() else null,
+      )
+    }
+
     return MonteCarloStatistics(
       meanReturnPercentage = meanReturn,
       medianReturnPercentage = medianReturn,
@@ -155,6 +169,7 @@ class MonteCarloService(
       drawdownConfidenceInterval95 = drawdownCI,
       bestCaseReturnPercentage = returnPercentiles.p95,
       worstCaseReturnPercentage = returnPercentiles.p5,
+      drawdownThresholdProbabilities = drawdownThresholdProbabilities,
     )
   }
 

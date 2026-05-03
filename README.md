@@ -318,12 +318,33 @@ Get available predefined strategies.
 
 ### GET /api/backtest/rankers
 
-Get available rankers.
+Get available rankers with rich metadata (mirrors `/api/backtest/conditions` shape).
 
 **Response:**
 ```json
-["Adaptive", "Volatility", "DistanceFrom10Ema", "Composite", "SectorStrength", "Random"]
+[
+  {
+    "type": "Adaptive",
+    "displayName": "Adaptive",
+    "description": "Switches between Volatility and DistanceFrom10Ema based on the prevailing market regime.",
+    "parameters": [],
+    "category": "Score-Based",
+    "usesRandomTieBreaks": true
+  },
+  {
+    "type": "SectorEdge",
+    "displayName": "Sector Edge",
+    "description": "Ranks stocks by user-supplied sector priority order (highest priority sector first).",
+    "parameters": [
+      { "name": "sectorRanking", "displayName": "Sector Ranking", "type": "stringList", "defaultValue": null }
+    ],
+    "category": "Sector-Priority",
+    "usesRandomTieBreaks": false
+  }
+]
 ```
+
+The full catalog has 9 rankers across three `category` values (`Score-Based`, `Sector-Priority`, `Random`). Use the `parameters` array to determine which `rankerConfig` keys are required.
 
 ### GET /api/backtest/conditions
 

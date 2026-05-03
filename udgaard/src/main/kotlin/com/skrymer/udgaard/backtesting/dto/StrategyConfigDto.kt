@@ -29,6 +29,7 @@ data class BacktestRequest(
   val positionSizing: PositionSizingConfig? = null, // Optional ATR-based position sizing
   val rankerConfig: RankerConfig? = null, // Optional ranker-specific parameters
   val randomSeed: Long? = null, // Fixed seed for deterministic tie-breaking in ranker (null = random each run)
+  val riskFreeRatePct: Double? = null, // Annualized RF in percent for Sharpe (excess return) and Sortino MAR. Null = 0 = raw Sharpe.
 )
 
 /**
@@ -85,11 +86,21 @@ data class ConditionMetadata(
 data class ParameterMetadata(
   val name: String,
   val displayName: String,
-  val type: String, // "number", "boolean", "string"
+  // "number", "boolean", "string", or "stringList" (for List<String> params like ranker sectorRanking)
+  val type: String,
   val defaultValue: Any?,
   val min: Number? = null,
   val max: Number? = null,
   val options: List<String>? = null, // For enum-like parameters
+)
+
+data class RankerMetadata(
+  val type: String, // canonical name used in BacktestRequest.ranker
+  val displayName: String,
+  val description: String,
+  val parameters: List<ParameterMetadata>,
+  val category: String, // "Score-Based", "Sector-Priority", "Random"
+  val usesRandomTieBreaks: Boolean = false,
 )
 
 /**

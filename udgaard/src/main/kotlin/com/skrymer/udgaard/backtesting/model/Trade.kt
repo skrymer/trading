@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.skrymer.udgaard.data.model.StockQuote
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -24,24 +25,21 @@ class Trade(
   var startDate: LocalDate?,
   var sector: String,
 ) {
-  /**
-   * Market conditions at the time of trade entry.
-   * Helps identify if poor performance correlates with market state.
-   */
-  @Transient
+  // The four runtime-only fields below are populated by the engine and consumed within
+  // the same request. `@Transient` blocks Java serialization; `@get:JsonIgnore` blocks
+  // Jackson — both needed because Kotlin's `@Transient` does not affect Jackson's
+  // property discovery, and BacktestReport is persisted as JSONB.
+
+  @Transient @get:JsonIgnore
   var marketConditionAtEntry: MarketConditionSnapshot? = null
 
-  /**
-   * Trade excursion metrics (MFE/MAE and ATR drawdown).
-   * Helps understand trade quality and pain tolerance required.
-   */
-  @Transient
+  @Transient @get:JsonIgnore
   var excursionMetrics: ExcursionMetrics? = null
 
-  @Transient
+  @Transient @get:JsonIgnore
   var missedReason: String? = null
 
-  @Transient
+  @Transient @get:JsonIgnore
   var entryContext: EntryDecisionContext? = null
 
   /**

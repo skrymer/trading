@@ -127,6 +127,53 @@ export interface MarketConditionStats {
   downtrendCount: number
 }
 
+export interface RiskMetrics {
+  sharpeRatio: number | null
+  sortinoRatio: number | null
+  calmarRatio: number | null
+  sqn: number | null
+  tailRatio: number | null
+}
+
+export interface BenchmarkComparison {
+  benchmarkSymbol: string
+  correlation: number | null
+  beta: number | null
+  activeReturnVsBenchmark: number | null
+}
+
+export interface DrawdownEpisode {
+  peakDate: string
+  troughDate: string
+  recoveryDate: string | null
+  maxDrawdownPct: number
+  declineDays: number
+  recoveryDays: number | null
+  totalDays: number | null
+}
+
+export interface BacktestReportMetadata {
+  entryStrategyName: string
+  exitStrategyName: string
+  startDate: string
+  endDate: string
+}
+
+export interface BacktestReportSummary {
+  totalTrades: number
+  edge: number
+  cagr: number | null
+  maxDrawdownPct: number | null
+  sharpeRatio: number | null
+}
+
+export interface BacktestReportListItem {
+  backtestId: string
+  createdAt: string
+  metadata: BacktestReportMetadata
+  summary: BacktestReportSummary
+}
+
 export interface BacktestReport {
   backtestId: string
   // Scalar metrics
@@ -141,9 +188,10 @@ export interface BacktestReport {
   totalTrades: number
   edge: number
   profitFactor: number | null
-  sqn: number | null
-  calmarRatio: number | null
-  tailRatio: number | null
+  riskMetrics?: RiskMetrics | null
+  benchmarkComparison?: BenchmarkComparison | null
+  cagr?: number | null
+  drawdownEpisodes?: DrawdownEpisode[] | null
   stockProfits: [string, number][]
   // Missed trades
   missedOpportunitiesCount: number
@@ -219,8 +267,6 @@ export interface Trade {
   quotes: StockQuote[]
   tradingDays: number
   startDate: string
-  excursionMetrics?: ExcursionMetrics
-  marketConditionAtEntry?: MarketConditionSnapshot
 }
 
 // Trade Performance Metrics - Diagnostic Data
@@ -397,7 +443,7 @@ export type StrategyType = 'predefined' | 'custom'
 export interface ParameterMetadata {
   name: string
   displayName: string
-  type: 'number' | 'boolean' | 'string'
+  type: 'number' | 'boolean' | 'string' | 'stringList'
   defaultValue: any
   min?: number
   max?: number
@@ -415,6 +461,15 @@ export interface ConditionMetadata {
 export interface AvailableConditions {
   entryConditions: ConditionMetadata[]
   exitConditions: ConditionMetadata[]
+}
+
+export interface RankerMetadata {
+  type: string
+  displayName: string
+  description: string
+  parameters: ParameterMetadata[]
+  category: 'Score-Based' | 'Sector-Priority' | 'Random'
+  usesRandomTieBreaks: boolean
 }
 
 export interface ConditionConfig {

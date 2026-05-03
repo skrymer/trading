@@ -29,6 +29,7 @@ udgaard/
 │   ├── backtesting/                  # Backtesting domain
 │   │   ├── controller/               # REST endpoints
 │   │   │   ├── BacktestController.kt
+│   │   │   ├── BacktestReportController.kt  # GET /api/backtest/reports, DELETE /{id}, POST /batch-delete
 │   │   │   └── MonteCarloController.kt
 │   │   ├── dto/                      # DTOs
 │   │   │   ├── StrategyConfigDto.kt
@@ -37,14 +38,22 @@ udgaard/
 │   │   │   ├── ConditionEvaluationResult.kt
 │   │   │   └── StockWithSignals.kt
 │   │   ├── model/                    # Domain models
-│   │   │   ├── BacktestReport.kt
+│   │   │   ├── BacktestReport.kt        # Persisted as JSONB; additive-only schema evolution
+│   │   │   ├── BacktestReportMetadata.kt # Metadata + Summary + ListItem for backtest_reports table
+│   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized)
+│   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
+│   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha)
+│   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
 │   │   │   ├── BacktestContext.kt
 │   │   │   ├── Trade.kt              # Trade + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt
 │   │   │   └── TradePerformanceMetrics.kt
+│   │   ├── repository/               # jOOQ repositories
+│   │   │   └── BacktestReportJooqRepository.kt  # save / findById / listAll / deleteById / deleteByIds
 │   │   ├── service/                  # Business logic
 │   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades
+│   │   │   ├── RiskMetricsService.kt # Computes Sharpe/Sortino/Calmar/SQN/tailRatio + SPY benchmark comparison + drawdown episodes from position-sized equity curve (USD-only)
 │   │   │   ├── StrategyRegistry.kt   # Strategy discovery/management
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
@@ -59,7 +68,7 @@ udgaard/
 │   │   │   │   ├── VolatilityTargetSizer.kt # Target daily vol% with kATR proxy
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
-│   │   │   ├── BacktestResultStore.kt    # In-memory backtest result store
+│   │   │   ├── BacktestResultStore.kt    # JSONB-backed backtest result store (backtest_reports table)
 │   │   │   └── ConditionRegistry.kt
 │   │   └── strategy/                 # Trading strategies
 │   │       ├── EntryStrategy.kt      # Entry interface
@@ -69,7 +78,7 @@ udgaard/
 │   │       ├── CompositeExitStrategy.kt
 │   │       ├── StrategyDsl.kt        # DSL builder
 │   │       ├── StockRanker.kt        # Ranking implementations
-│   │       ├── RankerFactory.kt     # Shared ranker creation logic
+│   │       ├── RankerFactory.kt     # Ranker creation + RankerMetadata catalog (served by /api/backtest/rankers)
 │   │       ├── RegisteredStrategy.kt # Auto-discovery annotation
 │   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
 │   │       ├── *ExitStrategy.kt
@@ -184,7 +193,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V18)
+│   └── db/migration/                 # Flyway migrations (V1-V19)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -202,7 +211,8 @@ udgaard/
 │       ├── V15__Add_order_block_trigger_date.sql
 │       ├── V16__Add_listing_dates.sql
 │       ├── V17__Add_close_fields_to_scanner_trades.sql
-│       └── V18__Add_delisted_symbols.sql
+│       ├── V18__Add_delisted_symbols.sql
+│       └── V19__create_backtest_reports.sql
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
@@ -210,6 +220,10 @@ udgaard/
 │       ├── BacktestApiE2ETest.kt       # Backtest API E2E tests
 │       ├── BacktestInvariantsE2ETest.kt # Engine invariant E2E tests
 │       ├── BacktestPositionSizingE2ETest.kt  # Capital-aware position sizing E2E tests
+│       ├── BacktestReportControllerE2ETest.kt   # GET/DELETE /api/backtest/reports E2E tests
+│       ├── BacktestResultStorePersistenceE2ETest.kt # JSONB store roundtrip + listing E2E tests
+│       ├── BacktestRiskMetricsE2ETest.kt        # Sharpe/Sortino/Calmar/SPY benchmark E2E tests
+│       ├── MonteCarloE2ETest.kt        # Monte Carlo simulation E2E tests
 │       ├── WalkForwardE2ETest.kt       # Walk-forward validation E2E tests
 │       ├── CashTransactionE2ETest.kt   # Cash transaction E2E tests
 │       ├── ForexTrackingE2ETest.kt     # Forex tracking E2E tests

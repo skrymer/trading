@@ -26,6 +26,12 @@ data class WalkForwardWindow(
   val outOfSampleTrades: Int,
   val inSampleWinRate: Double,
   val outOfSampleWinRate: Double,
+  // Regime tagging derived from MarketBreadthDaily.isInUptrend() (breadthPercent > ema10).
+  // Default 0.0 when the window range has no breadth rows; analyst inspects date range to disambiguate.
+  val inSampleBreadthUptrendPercent: Double,
+  val inSampleBreadthAvg: Double,
+  val outOfSampleBreadthUptrendPercent: Double,
+  val outOfSampleBreadthAvg: Double,
 )
 
 data class WalkForwardResult(

@@ -54,7 +54,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `PositionSizingService.kt`: Position sizing orchestrator with daily mark-to-market drawdown tracking; delegates share calculation to pluggable `PositionSizer` implementations
    - `service/sizer/`: Pluggable sizer package — `PositionSizer` interface + polymorphic `SizerConfig` DTO; implementations: `AtrRiskSizer`, `PercentEquitySizer`, `KellySizer`, `VolatilityTargetSizer`; `LeverageCap` helper applies portfolio-level leverage constraint outside sizer
    - `WalkForwardService.kt`: Walk-forward validation with rolling IS/OOS windows and IS-derived sector ranking for OOS
-   - `BacktestResultStore.kt`: In-memory store for backtest results
+   - `BacktestResultStore.kt`: JSONB-backed Postgres store for backtest results (`backtest_reports` table); retention "day or two", manual cleanup via `BacktestReportController`
    - DSL-based strategy builder (`StrategyDsl.kt`)
    - Strategies and conditions are discoverable via MCP tools (`getAvailableStrategies`, `getAvailableConditions`)
 
@@ -99,7 +99,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **API Endpoints:**
 
-**Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/{backtestId}/missed-trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`
+**Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/{backtestId}/missed-trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`, `GET /api/backtest/reports`, `DELETE /api/backtest/reports/{backtestId}`, `POST /api/backtest/reports/batch-delete`
 
 **Stocks:** `GET /api/stocks`, `GET /api/stocks/symbols`, `GET /api/stocks/symbols/search`, `GET /api/stocks/{symbol}`, `GET /api/stocks/{symbol}/signals`, `GET /api/stocks/{symbol}/evaluate-date/{date}`, `GET /api/stocks/{symbol}/evaluate-exit/{date}`, `POST /api/stocks/{symbol}/condition-signals`, `GET /api/stocks/{symbol}/latest-quote`
 
@@ -127,8 +127,9 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (63 Vue components):**
+**Key Components (65 Vue components):**
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
+- **Backtest Reports** (`components/backtest-reports/`): ReportsTable, DeleteConfirmModal
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, BatchEditStrategyModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, BreadthChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
@@ -136,7 +137,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, BatchAddTradesModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
 - **Settings** (`components/settings/`): MembersList
 - **Root-level**: EquityCurve.client, StockPriceChart.client, SymbolLink, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable
-- **Pages**: index, backtesting, portfolio, portfolio-old, mission-control, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
+- **Pages**: index, backtesting, backtest-reports, portfolio, portfolio-old, mission-control, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
 
 **Type Definitions:** `app/types/index.d.ts`, `app/types/enums.ts`
 
@@ -154,10 +155,11 @@ trading/
 ├── udgaard/                          # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
-│   │   │   ├── controller/           # BacktestController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
-│   │   │   ├── dto/                  # DTOs (StrategyConfigDto, MonteCarloRequestDto, ConditionSignalDtos, etc.)
-│   │   │   ├── service/              # BacktestService, StrategyRegistry, MonteCarloService, PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
+│   │   │   ├── controller/           # BacktestController, BacktestReportController, MonteCarloController
+│   │   │   ├── model/                # BacktestReport (persisted as JSONB), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
+│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
+│   │   │   ├── repository/           # BacktestReportJooqRepository (save/findById/listAll/deleteById/deleteByIds)
+│   │   │   ├── service/              # BacktestService, BacktestResultStore (JSONB-backed), StrategyRegistry, MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
@@ -185,7 +187,7 @@ trading/
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
 │   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, MidgaardHealthIndicator)
-│   ├── src/main/resources/           # Config, migrations (V1-V18)
+│   ├── src/main/resources/           # Config, migrations (V1-V19)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -208,7 +210,7 @@ trading/
 │   ├── app/
 │   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
 │   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (12 pages + 1 dynamic route)
+│   │   ├── pages/                    # File-based routing (13 pages + 1 dynamic route)
 │   │   ├── plugins/                  # Nuxt plugins (apexcharts.client, auth-interceptor.client)
 │   │   ├── types/                    # TypeScript definitions
 │   │   ├── app.vue                   # Root component
@@ -333,7 +335,7 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ### Pre-Commit Checklist
 
-**ALWAYS run `/pre-commit` before committing.** This skill runs all 5 code quality checks (backend tests, ktlint, detekt, frontend lint, frontend typecheck) and verifies CLAUDE.md files are up to date. All checks must pass before committing. Do NOT modify `claude_thoughts/`.
+**ALWAYS run `/pre-commit` before committing.** This skill runs all 5 code quality checks (backend tests, ktlint, detekt, frontend lint, frontend typecheck), verifies CLAUDE.md files are up to date, and — when backend changes touch code that the public-API skills document — verifies the affected skill files (`backtest`, `walk-forward`, `monte-carlo`) are still accurate via `.claude/scripts/skill-impact-check.sh`. All checks must pass before committing. Do NOT modify `claude_thoughts/`.
 
 ### Testing
 - Write unit tests for strategy logic
@@ -343,4 +345,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-04-21_
+_Last Updated: 2026-05-03_

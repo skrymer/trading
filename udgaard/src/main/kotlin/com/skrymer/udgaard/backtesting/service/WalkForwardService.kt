@@ -11,6 +11,7 @@ import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.SectorEdgeRanker
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
+import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +117,11 @@ class WalkForwardService(
         "edge=${String.format("%.2f", oosReport.edge)}",
     )
 
+    val (isUptrendPct, isBreadthAvg) =
+      computeRegimeMetrics(window.isStart, window.isEnd, sharedContext.marketBreadthMap)
+    val (oosUptrendPct, oosBreadthAvg) =
+      computeRegimeMetrics(window.oosStart, window.oosEnd, sharedContext.marketBreadthMap)
+
     return WalkForwardWindow(
       inSampleStart = window.isStart,
       inSampleEnd = window.isEnd,
@@ -128,7 +134,28 @@ class WalkForwardService(
       outOfSampleTrades = oosReport.totalTrades,
       inSampleWinRate = isReport.winRate,
       outOfSampleWinRate = oosReport.winRate,
+      inSampleBreadthUptrendPercent = isUptrendPct,
+      inSampleBreadthAvg = isBreadthAvg,
+      outOfSampleBreadthUptrendPercent = oosUptrendPct,
+      outOfSampleBreadthAvg = oosBreadthAvg,
     )
+  }
+
+  /**
+   * Returns (uptrendPercent, breadthAvg) over breadth rows whose date falls in [start, end].
+   * Uses MarketBreadthDaily.isInUptrend() (breadthPercent > ema10) — the canonical project definition.
+   * Both metrics default to 0.0 when no breadth rows exist in the range.
+   */
+  internal fun computeRegimeMetrics(
+    start: LocalDate,
+    end: LocalDate,
+    breadthMap: Map<LocalDate, MarketBreadthDaily>,
+  ): Pair<Double, Double> {
+    val daysInRange = breadthMap.entries.filter { it.key in start..end }
+    if (daysInRange.isEmpty()) return 0.0 to 0.0
+    val uptrendPct = daysInRange.count { it.value.isInUptrend() }.toDouble() / daysInRange.size * 100.0
+    val breadthAvg = daysInRange.sumOf { it.value.breadthPercent } / daysInRange.size
+    return uptrendPct to breadthAvg
   }
 
   private fun runBacktest(

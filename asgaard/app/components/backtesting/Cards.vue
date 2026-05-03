@@ -28,19 +28,19 @@ const formattedEdgeConsistency = computed(() => {
 })
 
 const formattedSqn = computed(() => {
-  const sqn = props.report?.sqn
+  const sqn = props.report?.riskMetrics?.sqn
   if (sqn == null) return 'N/A'
   return sqn.toFixed(2)
 })
 
 const formattedCalmar = computed(() => {
-  const calmar = props.report?.calmarRatio
+  const calmar = props.report?.riskMetrics?.calmarRatio
   if (calmar == null) return 'N/A'
   return calmar.toFixed(2)
 })
 
 const formattedTailRatio = computed(() => {
-  const tail = props.report?.tailRatio
+  const tail = props.report?.riskMetrics?.tailRatio
   if (tail == null) return 'N/A'
   return tail.toFixed(2)
 })

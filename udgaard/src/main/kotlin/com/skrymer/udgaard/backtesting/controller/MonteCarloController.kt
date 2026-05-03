@@ -65,23 +65,7 @@ class MonteCarloController(
         return ResponseEntity.badRequest().build()
       }
 
-      // Construct BacktestReport for Monte Carlo (use the cached one directly)
-      val backtestReport =
-        BacktestReport(
-          winningTrades = cachedReport.winningTrades,
-          losingTrades = cachedReport.losingTrades,
-        )
-
-      // Convert DTO to request
-      val request =
-        MonteCarloRequest(
-          backtestResult = backtestReport,
-          techniqueType = requestDto.technique,
-          iterations = requestDto.iterations,
-          seed = requestDto.seed,
-          includeAllEquityCurves = requestDto.includeAllEquityCurves,
-          positionSizing = requestDto.positionSizing,
-        )
+      val request = buildSimulationRequest(requestDto, cachedReport)
 
       logger.info("Starting Monte Carlo simulation...")
       val result = monteCarloService.runSimulation(request)
@@ -106,6 +90,27 @@ class MonteCarloController(
       logger.error("Unexpected error during Monte Carlo simulation: ${e.message}", e)
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
     }
+  }
+
+  private fun buildSimulationRequest(
+    requestDto: MonteCarloRequestDto,
+    cachedReport: BacktestReport,
+  ): MonteCarloRequest {
+    val backtestReport =
+      BacktestReport(
+        winningTrades = cachedReport.winningTrades,
+        losingTrades = cachedReport.losingTrades,
+      )
+    return MonteCarloRequest(
+      backtestResult = backtestReport,
+      techniqueType = requestDto.technique,
+      iterations = requestDto.iterations,
+      seed = requestDto.seed,
+      includeAllEquityCurves = requestDto.includeAllEquityCurves,
+      positionSizing = requestDto.positionSizing,
+      drawdownThresholds = requestDto.drawdownThresholds,
+      blockSize = requestDto.blockSize,
+    )
   }
 
   companion object {

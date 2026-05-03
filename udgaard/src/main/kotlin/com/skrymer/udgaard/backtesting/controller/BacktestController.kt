@@ -4,9 +4,11 @@ import com.skrymer.udgaard.backtesting.dto.AvailableConditionsResponse
 import com.skrymer.udgaard.backtesting.dto.BacktestRequest
 import com.skrymer.udgaard.backtesting.dto.CustomStrategyConfig
 import com.skrymer.udgaard.backtesting.dto.PredefinedStrategyConfig
+import com.skrymer.udgaard.backtesting.dto.RankerMetadata
 import com.skrymer.udgaard.backtesting.dto.StrategyConfig
 import com.skrymer.udgaard.backtesting.dto.WalkForwardRequest
 import com.skrymer.udgaard.backtesting.model.BacktestReport
+import com.skrymer.udgaard.backtesting.model.BacktestReportMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
@@ -17,6 +19,7 @@ import com.skrymer.udgaard.backtesting.service.BacktestService
 import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.PositionSizingService
+import com.skrymer.udgaard.backtesting.service.RiskMetricsService
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.service.WalkForwardService
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
@@ -60,6 +63,7 @@ class BacktestController(
   private val conditionRegistry: ConditionRegistry,
   private val backtestResultStore: BacktestResultStore,
   private val positionSizingService: PositionSizingService,
+  private val riskMetricsService: RiskMetricsService,
   private val walkForwardService: WalkForwardService,
 ) {
   /**
@@ -208,9 +212,9 @@ class BacktestController(
    * Example: GET /api/backtest/rankers
    */
   @GetMapping("/rankers")
-  fun getAvailableRankers(): ResponseEntity<List<String>> {
+  fun getAvailableRankers(): ResponseEntity<List<RankerMetadata>> {
     logger.info("Retrieving available rankers")
-    val rankers = RankerFactory.availableRankers()
+    val rankers = RankerFactory.availableRankerMetadata()
     logger.info("Returning ${rankers.size} rankers")
     return ResponseEntity.ok(rankers)
   }
@@ -404,38 +408,35 @@ class BacktestController(
 
     val finalReport =
       if (request.positionSizing != null) {
-        val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, request.positionSizing)
-        val postHocZeroed = backtestReport.trades.size - sizingResult.trades.size
-        logger.info(
-          "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
-            "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
-            "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%, " +
-            "postHocZeroed=$postHocZeroed",
-        )
-        BacktestReport(
-          winningTrades = backtestReport.winningTrades,
-          losingTrades = backtestReport.losingTrades,
-          missedTrades = backtestReport.missedTrades,
-          timeBasedStats = backtestReport.timeBasedStats,
-          exitReasonAnalysis = backtestReport.exitReasonAnalysis,
-          sectorPerformance = backtestReport.sectorPerformance,
-          stockPerformance = backtestReport.stockPerformance,
-          atrDrawdownStats = backtestReport.atrDrawdownStats,
-          marketConditionAverages = backtestReport.marketConditionAverages,
-          edgeConsistencyScore = backtestReport.edgeConsistencyScore,
-          positionSizingResult = sizingResult,
+        applyPositionSizingAndRiskMetrics(
+          backtestReport = backtestReport,
+          request = request,
+          start = start,
+          positionSizingService = positionSizingService,
+          riskMetricsService = riskMetricsService,
+          stockRepository = stockRepository,
+          logger = logger,
         )
       } else {
         backtestReport
       }
 
-    val backtestId = backtestResultStore.store(finalReport)
+    val backtestId = backtestResultStore.store(
+      finalReport,
+      BacktestReportMetadata(
+        entryStrategyName = summarizeStrategy(request.entryStrategy),
+        exitStrategyName = summarizeStrategy(request.exitStrategy),
+        startDate = start,
+        endDate = end,
+      ),
+    )
     return ResponseEntity.ok(finalReport.toResponseDto(backtestId))
   }
 
   companion object {
     private val logger: Logger = LoggerFactory.getLogger(BacktestController::class.java)
     private const val MONTHS_PER_YEAR = 12
+    internal const val BENCHMARK_SYMBOL = "SPY"
 
     private fun summarizeStrategy(cfg: StrategyConfig): String =
       when (cfg) {
@@ -443,4 +444,58 @@ class BacktestController(
         is CustomStrategyConfig -> "custom(${cfg.conditions.size} conditions, op=${cfg.operator.ifBlank { "default" }})"
       }
   }
+}
+
+/**
+ * Position-sizes the trades, computes risk metrics (incl. SPY benchmark + drawdown episodes),
+ * and returns a new BacktestReport carrying both. Lifted out of `BacktestController` to keep
+ * the class under detekt's TooManyFunctions threshold; takes its dependencies explicitly so it
+ * remains testable in isolation if needed.
+ */
+private fun applyPositionSizingAndRiskMetrics(
+  backtestReport: BacktestReport,
+  request: BacktestRequest,
+  start: LocalDate,
+  positionSizingService: PositionSizingService,
+  riskMetricsService: RiskMetricsService,
+  stockRepository: StockJooqRepository,
+  logger: Logger,
+): BacktestReport {
+  val sizingConfig = requireNotNull(request.positionSizing) { "positionSizing required here" }
+  val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, sizingConfig)
+  val postHocZeroed = backtestReport.trades.size - sizingResult.trades.size
+  logger.info(
+    "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
+      "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
+      "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%, " +
+      "postHocZeroed=$postHocZeroed",
+  )
+  // Risk metrics: fetch SPY for benchmark comparison (existing path also used by BacktestService).
+  // SPY-fetch failures are non-fatal — the service produces null benchmark fields when quotes are absent.
+  val benchmarkQuotes = stockRepository.findBySymbol(BacktestController.BENCHMARK_SYMBOL, quotesAfter = start)?.quotes
+  val analysis = riskMetricsService.compute(
+    trades = backtestReport.trades,
+    equityCurve = sizingResult.equityCurve,
+    sizingResult = sizingResult,
+    benchmarkQuotes = benchmarkQuotes,
+    benchmarkSymbol = BacktestController.BENCHMARK_SYMBOL,
+    riskFreeRatePct = request.riskFreeRatePct ?: 0.0,
+  )
+  return BacktestReport(
+    winningTrades = backtestReport.winningTrades,
+    losingTrades = backtestReport.losingTrades,
+    missedTrades = backtestReport.missedTrades,
+    timeBasedStats = backtestReport.timeBasedStats,
+    exitReasonAnalysis = backtestReport.exitReasonAnalysis,
+    sectorPerformance = backtestReport.sectorPerformance,
+    stockPerformance = backtestReport.stockPerformance,
+    atrDrawdownStats = backtestReport.atrDrawdownStats,
+    marketConditionAverages = backtestReport.marketConditionAverages,
+    edgeConsistencyScore = backtestReport.edgeConsistencyScore,
+    positionSizingResult = sizingResult,
+    riskMetrics = analysis.riskMetrics,
+    benchmarkComparison = analysis.benchmarkComparison,
+    cagr = analysis.cagr,
+    drawdownEpisodes = analysis.drawdownEpisodes,
+  )
 }

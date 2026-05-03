@@ -275,6 +275,187 @@ class MonteCarloServiceTest {
     assertTrue(result.statistics.edgePercentiles.p75 <= result.statistics.edgePercentiles.p95)
   }
 
+  // ===== DRAWDOWN THRESHOLD PROBABILITIES + CVaR =====
+
+  @Test
+  fun `request without drawdownThresholds yields null probabilities field`() {
+    // Given a sized backtest with non-trivial drawdowns
+    val backtest = createSizedBacktest()
+    val request = MonteCarloRequest(
+      backtestResult = backtest,
+      techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+      iterations = 200,
+      seed = 12345L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+      // drawdownThresholds intentionally omitted
+    )
+
+    // When
+    val result = service.runSimulation(request)
+
+    // Then the new field is null — opt-in semantics
+    assertNull(result.statistics.drawdownThresholdProbabilities)
+  }
+
+  @Test
+  fun `threshold probabilities are sorted ascending and monotone non-increasing`() {
+    // Given a request with thresholds in shuffled order
+    val backtest = createSizedBacktest()
+    val request = MonteCarloRequest(
+      backtestResult = backtest,
+      techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+      iterations = 500,
+      seed = 12345L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+      drawdownThresholds = listOf(30.0, 10.0, 20.0, 5.0),
+    )
+
+    // When
+    val result = service.runSimulation(request)
+    val probabilities = result.statistics.drawdownThresholdProbabilities
+
+    // Then output is sorted ascending by drawdownPercent
+    assertNotNull(probabilities)
+    val percents = probabilities!!.map { it.drawdownPercent }
+    assertEquals(listOf(5.0, 10.0, 20.0, 30.0), percents)
+
+    // And probabilities are monotone non-increasing as drawdownPercent rises
+    probabilities.zipWithNext().forEach { (lower, higher) ->
+      assertTrue(
+        lower.probability >= higher.probability,
+        "P(DD>${lower.drawdownPercent})=${lower.probability} should be >= P(DD>${higher.drawdownPercent})=${higher.probability}",
+      )
+    }
+    // And every probability is in [0, 100]
+    probabilities.forEach { p ->
+      assertTrue(p.probability in 0.0..100.0, "probability ${p.probability} out of range for ${p.drawdownPercent}")
+    }
+  }
+
+  @Test
+  fun `duplicate thresholds in request are deduplicated in response`() {
+    // Given duplicate values in the request list
+    val backtest = createSizedBacktest()
+    val request = MonteCarloRequest(
+      backtestResult = backtest,
+      techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+      iterations = 200,
+      seed = 12345L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+      drawdownThresholds = listOf(20.0, 20.0, 25.0, 25.0, 30.0),
+    )
+
+    // When
+    val result = service.runSimulation(request)
+
+    // Then duplicates collapse to unique values
+    val percents = result.statistics.drawdownThresholdProbabilities!!.map { it.drawdownPercent }
+    assertEquals(listOf(20.0, 25.0, 30.0), percents)
+  }
+
+  @Test
+  fun `same seed produces identical threshold probabilities and CVaR across runs`() {
+    // Given a deterministic request
+    val backtest = createSizedBacktest()
+    val request = MonteCarloRequest(
+      backtestResult = backtest,
+      techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+      iterations = 500,
+      seed = 12345L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+      drawdownThresholds = listOf(5.0, 10.0, 15.0),
+    )
+
+    // When run twice with the same seed
+    val first = service.runSimulation(request)
+    val second = service.runSimulation(request)
+
+    // Then both probability lists are identical
+    val firstList = first.statistics.drawdownThresholdProbabilities!!
+    val secondList = second.statistics.drawdownThresholdProbabilities!!
+    assertEquals(firstList.size, secondList.size)
+    firstList.zip(secondList).forEach { (a, b) ->
+      assertEquals(a.drawdownPercent, b.drawdownPercent)
+      assertEquals(a.probability, b.probability, 1e-9)
+      assertEquals(a.expectedDrawdownGivenExceeded, b.expectedDrawdownGivenExceeded)
+    }
+  }
+
+  @Test
+  fun `threshold above max observed drawdown gives zero probability and null CVaR`() {
+    // Given a sized backtest with bounded drawdowns and an extreme threshold
+    val backtest = createSizedBacktest()
+    val request = MonteCarloRequest(
+      backtestResult = backtest,
+      techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+      iterations = 200,
+      seed = 12345L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+      drawdownThresholds = listOf(99.0), // no scenario can exceed 99% DD on this fixture
+    )
+
+    // When
+    val result = service.runSimulation(request)
+    val record = result.statistics.drawdownThresholdProbabilities!!.first()
+
+    // Then probability == 0 and CVaR is null (no exceedances to average)
+    assertEquals(0.0, record.probability, 1e-9)
+    assertNull(record.expectedDrawdownGivenExceeded)
+  }
+
+  @Test
+  fun `CVaR is at least the threshold for any non-zero exceedance`() {
+    // Given thresholds at low values where exceedances are likely
+    val backtest = createSizedBacktest()
+    val request = MonteCarloRequest(
+      backtestResult = backtest,
+      techniqueType = MonteCarloTechniqueType.TRADE_SHUFFLING,
+      iterations = 500,
+      seed = 12345L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+      drawdownThresholds = listOf(0.5, 1.0, 2.0),
+    )
+
+    // When
+    val result = service.runSimulation(request)
+
+    // Then any record with non-null CVaR has CVaR > threshold
+    // (CVaR = mean of values strictly greater than threshold ⇒ each contributing value > threshold ⇒ mean > threshold)
+    result.statistics.drawdownThresholdProbabilities!!.forEach { p ->
+      val cvar = p.expectedDrawdownGivenExceeded
+      if (cvar != null) {
+        assertTrue(
+          cvar > p.drawdownPercent,
+          "CVaR=$cvar should be > threshold=${p.drawdownPercent} when exceedances exist",
+        )
+      }
+    }
+  }
+
   // Helper methods
 
   private fun createBacktest(): BacktestReport {

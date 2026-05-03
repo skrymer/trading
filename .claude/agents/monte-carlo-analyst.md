@@ -25,17 +25,17 @@ curl -s -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
   -d '{"backtestId": "BACKTEST_ID", "technique": "BOOTSTRAP_RESAMPLING", "iterations": 10000, "includeAllEquityCurves": false}' > /tmp/mc_bootstrap.json
 ```
 
-**Trade Shuffling with position sizing** (drawdown distribution):
+**Trade Shuffling with position sizing + drawdown thresholds** (drawdown distribution):
 ```bash
 curl -s -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
   -H "Content-Type: application/json" \
-  -d '{"backtestId": "BACKTEST_ID", "technique": "TRADE_SHUFFLING", "iterations": 10000, "positionSizing": {"startingCapital": 10000, "riskPercentage": 1.5, "nAtr": 2.0, "leverageRatio": 1.0}}' > /tmp/mc_shuffling.json
+  -d '{"backtestId": "BACKTEST_ID", "technique": "TRADE_SHUFFLING", "iterations": 10000, "drawdownThresholds": [20.0, 25.0, 30.0, 35.0], "positionSizing": {"startingCapital": 10000, "sizer": {"type": "atrRisk", "riskPercentage": 1.5, "nAtr": 2.0}, "leverageRatio": 1.0}}' > /tmp/mc_shuffling.json
 ```
 
 Important notes:
-- Cache expires after 1 hour -- backtest must have been run recently
 - Trade shuffling without position sizing on large trade sets (9,000+) produces meaningless compounded returns
-- Bootstrap assumes IID trades -- violated when trades cluster in correlated regimes
+- IID bootstrap (`blockSize` null/omitted) destroys autocorrelation — edge CIs are tighter than reality on regime-correlated strategies. Block bootstrap (`blockSize >= 2`) preserves it. The `technique` field on the response reads `"Block Bootstrap Resampling"` when block mode was used, `"Bootstrap Resampling"` for IID.
+- **Do NOT compare edge p5/p95 spreads across runs with different `blockSize`** — the widening is the *correct* behaviour, not a regression. Comparing IID vs CBB spreads side-by-side will look like "block bootstrap rejected the strategy" when really IID was lying.
 
 ## Task 2: Extract and Analyze Metrics
 
@@ -44,6 +44,7 @@ Extract from `result['statistics']`:
 - `winRatePercentiles`: p5, p25, p50, p75, p95
 - `drawdownPercentiles`: p5, p25, p50, p75, p95
 - `probabilityOfProfit`
+- `drawdownThresholdProbabilities` (when the request supplied `drawdownThresholds`): list of `{drawdownPercent, probability, expectedDrawdownGivenExceeded}` records sorted ascending by `drawdownPercent`. `probability` = `P(maxDD > drawdownPercent)`; `expectedDrawdownGivenExceeded` = CVaR (`E[maxDD | maxDD > drawdownPercent]`, null when zero exceedances). Read these directly — do NOT infer from percentile bands.
 
 ## Interpretation Guide
 
@@ -69,6 +70,7 @@ Extract from `result['statistics']`:
 Present a structured report with:
 1. **Bootstrap Results** table (p5/p25/p50/p75/p95 for edge and win rate)
 2. **Trade Shuffling Results** table (p5/p50/p95 for drawdown and return)
-3. **Edge Confidence Assessment** (is the edge statistically robust?)
-4. **Drawdown Risk Assessment** (where does actual DD fall in the distribution?)
-5. **Verdict** (1-2 sentences: is the strategy edge real and the drawdown manageable?)
+3. **Drawdown Threshold Probabilities** table — for each `drawdownThresholdProbabilities` record, render `drawdownPercent | probability | expectedDrawdownGivenExceeded`. Probability answers "how likely is it bad?"; CVaR answers "given it's bad, how bad on average?" — both inform sizing.
+4. **Edge Confidence Assessment** (is the edge statistically robust?)
+5. **Drawdown Risk Assessment** (where does actual DD fall in the distribution?)
+6. **Verdict** (1-2 sentences: is the strategy edge real and the drawdown manageable?)

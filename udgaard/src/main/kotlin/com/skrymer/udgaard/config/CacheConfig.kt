@@ -22,15 +22,6 @@ class CacheConfig {
         .recordStats(),
     )
     cacheManager.setCacheNames(listOf("stocks", "backtests", "marketBreadth", "symbols"))
-    cacheManager.registerCustomCache(
-      "backtestResults",
-      Caffeine
-        .newBuilder()
-        .maximumSize(1)
-        .expireAfterAccess(1, TimeUnit.HOURS)
-        .recordStats()
-        .build(),
-    )
     return cacheManager
   }
 }
