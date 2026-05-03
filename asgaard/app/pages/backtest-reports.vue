@@ -111,7 +111,7 @@ onMounted(loadReports)
       </div>
     </div>
 
-    <BacktestReportsReportsTable
+    <BacktestReportsTable
       v-model:selected="selected"
       :reports="reports"
       @delete-one="openDeleteOne"
