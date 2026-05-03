@@ -28,7 +28,7 @@ Edge confidence on the most recent backtest. POSTs go through `.claude/scripts/u
 }' /tmp/mc-bootstrap.json
 ```
 
-For path risk (trade shuffling), position-sized variants, and the typical both-back-to-back run see [SCENARIOS.md](SCENARIOS.md). Output fields, report template, decision thresholds, and known limitations are in [REFERENCE.md](REFERENCE.md).
+For path risk (trade shuffling), position-sized variants, **block bootstrap** (`blockSize` for regime-correlated strategies), and the typical both-back-to-back run see [SCENARIOS.md](SCENARIOS.md). Output fields, report template, decision thresholds, and known limitations are in [REFERENCE.md](REFERENCE.md).
 
 ## How to run
 

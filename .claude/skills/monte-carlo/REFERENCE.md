@@ -94,6 +94,6 @@ Reject if any of: probability of profit < 90%, edge 95% CI lower bound < 0%, p95
 
 Tracked here so the backend roadmap closes them; the skill works around each in the meantime.
 
-- **Bootstrap assumes IID trades.** Real trades cluster in correlated regimes (multiple longs hit by the same selloff). Bootstrap edge confidence is a useful lower bound but somewhat optimistic — narrower CIs than reality.
+- **IID bootstrap (the default — `blockSize` null/omitted) destroys autocorrelation.** Edge CIs are tighter than reality on regime-correlated strategies (trend / breakout). Use **block bootstrap** (`blockSize >= 2`, see SCENARIOS.md §2b) to preserve short-range correlation — the resulting CIs are wider and more honest. Picking the block size is part art, part science: start at `L = ceil(N^(1/5)) * 2..4` (Hall-Horowitz-Jing 1995), sweep `L ∈ {1, 5, 10, 20, 40}`, pick the smallest L where edge p5/p95 spread plateaus (Politis-White 2004).
 - **Trade shuffling destroys temporal correlation.** Shuffled DD distribution is a lower bound on realistic DD. Use it to detect correlation-driven path risk (actual DD >> p95), not to bound worst-case DD.
 - Same daily-bar / no-slippage caveats as `/backtest` apply.
