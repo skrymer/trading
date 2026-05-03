@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.model
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import java.time.LocalDate
 import kotlin.math.abs
 
@@ -46,6 +47,28 @@ data class StockPerformance(
   val maxDrawdown: Double,
 )
 
+/**
+ * Persisted as JSONB in `backtest_reports`. Changes must be additive (new fields with
+ * defaults) — breaking changes (renames, removals, type changes) orphan existing
+ * backtestIds. Retention is "day or two max" so this is bounded in practice; for a
+ * stronger guarantee, introduce a `report_version` column + migrator before breaking
+ * the shape.
+ *
+ * `@JsonIgnoreProperties` lists the computed `get()` properties below. They derive
+ * from constructor fields and have no setter; including them in the JSON blob would
+ * bloat the payload AND fail to deserialize. Add new entries here when introducing
+ * new computed properties on this class.
+ */
+@JsonIgnoreProperties(
+  value = [
+    "winRate", "averageWinAmount", "averageWinPercent", "lossRate", "averageLossAmount",
+    "averageLossPercent", "totalTrades", "edge", "profitFactor", "numberOfWinningTrades",
+    "numberOfLosingTrades", "stockProfits", "exitReasonCount", "tradesGroupedByDate",
+    "missedOpportunitiesCount", "missedProfitPercentage", "missedAverageProfitPercentage",
+    "sectorStats", "trades",
+  ],
+  ignoreUnknown = true,
+)
 class BacktestReport(
   val winningTrades: List<Trade>,
   val losingTrades: List<Trade>,

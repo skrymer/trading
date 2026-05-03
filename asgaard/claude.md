@@ -28,6 +28,7 @@ asgaard/
 │   ├── pages/                    # File-based routing
 │   │   ├── index.vue             # Home/dashboard
 │   │   ├── backtesting.vue       # Backtesting UI with strategy builder
+│   │   ├── backtest-reports.vue  # Stored backtest report management (list + delete + batch-delete)
 │   │   ├── portfolio.vue         # Portfolio management
 │   │   ├── portfolio-old.vue     # Legacy portfolio page
 │   │   ├── mission-control.vue   # Mission control (active trades, candidates, exits)
@@ -54,6 +55,9 @@ asgaard/
 │   │   │   ├── TradeChart.client.vue
 │   │   │   ├── TradeDetailsModal.vue
 │   │   │   └── DataCard.vue
+│   │   ├── backtest-reports/     # Backtest report management components (2)
+│   │   │   ├── ReportsTable.vue       # UTable with selection, sortable columns, delete-row action
+│   │   │   └── DeleteConfirmModal.vue # Confirmation modal for single + batch delete
 │   │   ├── charts/               # Reusable chart components (9)
 │   │   │   ├── BarChart.client.vue
 │   │   │   ├── BreadthChart.client.vue  # Lightweight Charts breadth with Donchian channel
@@ -181,6 +185,7 @@ Chart components use `.client.vue` suffix for client-side-only rendering.
 Pages are automatically routed based on file structure:
 - `pages/index.vue` → `/`
 - `pages/backtesting.vue` → `/backtesting`
+- `pages/backtest-reports.vue` → `/backtest-reports`
 - `pages/stock-data.vue` → `/stock-data`
 
 ### 4. Auto-Imports

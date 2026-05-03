@@ -152,6 +152,28 @@ export interface DrawdownEpisode {
   totalDays: number | null
 }
 
+export interface BacktestReportMetadata {
+  entryStrategyName: string
+  exitStrategyName: string
+  startDate: string
+  endDate: string
+}
+
+export interface BacktestReportSummary {
+  totalTrades: number
+  edge: number
+  cagr: number | null
+  maxDrawdownPct: number | null
+  sharpeRatio: number | null
+}
+
+export interface BacktestReportListItem {
+  backtestId: string
+  createdAt: string
+  metadata: BacktestReportMetadata
+  summary: BacktestReportSummary
+}
+
 export interface BacktestReport {
   backtestId: string
   // Scalar metrics
@@ -245,8 +267,6 @@ export interface Trade {
   quotes: StockQuote[]
   tradingDays: number
   startDate: string
-  excursionMetrics?: ExcursionMetrics
-  marketConditionAtEntry?: MarketConditionSnapshot
 }
 
 // Trade Performance Metrics - Diagnostic Data

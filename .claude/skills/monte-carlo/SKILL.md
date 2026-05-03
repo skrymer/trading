@@ -14,7 +14,7 @@ This skill is strategy-neutral. Substitute the user's actual `backtestId` / sizi
 
 ## Prerequisite
 
-`/monte-carlo` requires an existing `backtestId` from a recent `/backtest` run. **The backend only retains the most recent backtest in memory** (see [REFERENCE.md → Known limitations](REFERENCE.md#known-limitations)) — run `/backtest` immediately before this skill.
+`/monte-carlo` requires an existing `backtestId` from a recent `/backtest` run. Backtests persist for "a day or two" — any prior `backtestId` remains valid until manually purged via the `/backtest-reports` management page (or `DELETE /api/backtest/reports/{id}` / `POST /api/backtest/reports/batch-delete`). List stored runs with `GET /api/backtest/reports` if you've forgotten the id.
 
 ## Quick start
 

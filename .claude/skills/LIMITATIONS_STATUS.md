@@ -2,7 +2,7 @@
 
 Cross-skill rollup of the 13 limitations originally documented in the per-skill `REFERENCE.md` files (backtest / walk-forward / monte-carlo). Tracks which have been closed, which are still open, and which are documented-as-designed (not a fix to ship).
 
-Last updated: 2026-05-02 — after the planned `#5 → #4 → #1` PR sequence landed on `feature/backtest-skill-roadmap`.
+Last updated: 2026-05-03 — after the Backtest persistence PR landed on `feature/backtest-result-persistence` (closes #3 + #11).
 
 ## Status legend
 
@@ -16,7 +16,7 @@ Last updated: 2026-05-02 — after the planned `#5 → #4 → #1` PR sequence la
 |----|---------------------------------------------------------------------------------------------------------|-----------------------|--------|------------------------|
 | 1  | Risk-adjusted metrics (Sharpe / Sortino / CAGR / Calmar / SPY-corr / DD-duration) computed in analyst   | backtest, walk-forward| ✅ Closed | PR #1 (`73a4b71`) — `RiskMetricsService` + `BacktestReport.riskMetrics`/`benchmarkComparison`/`cagr`/`drawdownEpisodes` |
 | 2  | SPY correlation needs SPY in symbol set or separate fetch                                               | backtest              | ✅ Closed | PR #1 — controller fetches `SPY` via `stockRepository.findBySymbol("SPY", ...)` transparently when sized |
-| 3  | `BacktestResultStore` keeps only most-recent                                                            | monte-carlo           | 🟡 Open   | Persist to DB so multiple `backtestId`s can coexist — schema + repo work |
+| 3  | `BacktestResultStore` keeps only most-recent                                                            | monte-carlo           | ✅ Closed | Backtest persistence PR — `backtest_reports` JSONB table + `BacktestReportJooqRepository`; multiple `backtestId`s coexist; manual cleanup via `BacktestReportController` (list + delete + batch-delete) and the `/backtest-reports` page |
 | 4  | `P(maxDD > X%)` computed in analyst, not backend                                                        | monte-carlo           | ✅ Closed | PR #4 (`3b5f979`) — `drawdownThresholds` request field + `MonteCarloStatistics.drawdownThresholdProbabilities` (also includes CVaR / `expectedDrawdownGivenExceeded`) |
 | 5  | Per-window regime tagging is analyst-side via SPY/breadth queries                                       | walk-forward          | ✅ Closed | PR #5 (`024800b`) — `WalkForwardWindow.{inSampleBreadthUptrendPercent, inSampleBreadthAvg, outOfSampleBreadthUptrendPercent, outOfSampleBreadthAvg}` |
 | 6  | Daily bars only — no intraday slippage                                                                  | all three             | 🟡 Open   | Needs intraday data ingestion + execution model — large structural |
@@ -24,7 +24,7 @@ Last updated: 2026-05-02 — after the planned `#5 → #4 → #1` PR sequence la
 | 8  | Perfect fills at close (`entryDelayDays:1` partially mitigates)                                         | backtest              | 🟡 Open   | Slippage/commission model — medium |
 | 9  | Bootstrap assumes IID trades                                                                            | monte-carlo           | 🟡 Open   | Block bootstrap (resample regime-blocks not single trades) — medium |
 | 10 | Trade shuffling destroys temporal correlation                                                           | monte-carlo           | 📝 Documented | Fundamental property of the technique — preserved as caveat in `monte-carlo/REFERENCE.md` |
-| 11 | Cache expiry on `backtestId` — 1h                                                                       | monte-carlo           | 🟡 Open (subsumed by #3) | Closing #3 closes this |
+| 11 | Cache expiry on `backtestId` — 1h                                                                       | monte-carlo           | ✅ Closed (subsumed by #3) | Closed by the Backtest persistence PR — JSONB store has no TTL; retention is manual via the `/backtest-reports` page |
 | 12 | `derivedSectorRanking` informational only                                                               | walk-forward          | 📝 Documented | Working as designed; per-window IS-derived ranking does NOT re-rank OOS trades |
 | 13 | Walk-forward tests parameter durability, not optimization procedure                                     | walk-forward          | 📝 Documented | Different harness; out of scope for the WF skill |
 
@@ -76,8 +76,7 @@ Walk-forward re-verification at 1.25% (PR #5's regime fields populate per window
 
 ## Still open (priority order for follow-up work)
 
-1. **#3 + #11 (BacktestResultStore persistence)** — medium difficulty; would unblock multi-backtest workflows and remove the 1h cache constraint on `/monte-carlo`
-2. **#9 (Block bootstrap for MC)** — medium difficulty; tightens edge confidence on regime-correlated strategies
-3. **#8 (Slippage/commission model)** — medium difficulty; affects all reported edge numbers (currently overstate by an estimated 0.5–1pp per the plan's own framing)
-4. **#7 (Survivorship bias improvements)** — medium-large; V18 + the 2026-04-28 EODHD delisted import already mitigated this, but more universe coverage tightens the bias further
-5. **#6 (Intraday slippage)** — large structural; needs intraday data pipeline + execution model. Lowest priority because the 0.5–1pp estimated drag is already baked into the plan's haircut calculations.
+1. **#9 (Block bootstrap for MC)** — medium difficulty; tightens edge confidence on regime-correlated strategies
+2. **#8 (Slippage/commission model)** — medium difficulty; affects all reported edge numbers (currently overstate by an estimated 0.5–1pp per the plan's own framing)
+3. **#7 (Survivorship bias improvements)** — medium-large; V18 + the 2026-04-28 EODHD delisted import already mitigated this, but more universe coverage tightens the bias further
+4. **#6 (Intraday slippage)** — large structural; needs intraday data pipeline + execution model. Lowest priority because the 0.5–1pp estimated drag is already baked into the plan's haircut calculations.
