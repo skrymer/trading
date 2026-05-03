@@ -94,8 +94,6 @@ Reject if any of: probability of profit < 90%, edge 95% CI lower bound < 0%, p95
 
 Tracked here so the backend roadmap closes them; the skill works around each in the meantime.
 
-- **Backtest results stored in-memory only, most-recent only.** `BacktestResultStore` keeps a single result; running another `/backtest` (or restarting the backend) invalidates the previous `backtestId`. The skill must run `/backtest` immediately before `/monte-carlo`. Persisting to DB so multiple `backtestId`s can coexist is a separate follow-up — same gap on `/walk-forward` analysis if it ever needs an MC pass.
 - **Bootstrap assumes IID trades.** Real trades cluster in correlated regimes (multiple longs hit by the same selloff). Bootstrap edge confidence is a useful lower bound but somewhat optimistic — narrower CIs than reality.
 - **Trade shuffling destroys temporal correlation.** Shuffled DD distribution is a lower bound on realistic DD. Use it to detect correlation-driven path risk (actual DD >> p95), not to bound worst-case DD.
-- **Cache expiry on `backtestId`.** Trade data cached server-side for 1 hour; older `backtestId`s won't resolve. Re-run `/backtest` if needed.
 - Same daily-bar / no-slippage caveats as `/backtest` apply.

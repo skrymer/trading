@@ -33,10 +33,21 @@ const links = [[{
 {
   label: 'Backtesting',
   icon: 'i-lucide-bar-chart-3',
-  to: '/backtesting',
-  onSelect: () => {
-    open.value = false
-  }
+  defaultOpen: true,
+  children: [
+    {
+      label: 'Run backtest',
+      icon: 'i-lucide-play',
+      to: '/backtesting',
+      onSelect: () => { open.value = false }
+    },
+    {
+      label: 'Reports',
+      icon: 'i-lucide-folder-archive',
+      to: '/backtest-reports',
+      onSelect: () => { open.value = false }
+    }
+  ]
 },
 {
   label: 'Stock Data',

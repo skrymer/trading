@@ -8,6 +8,7 @@ import com.skrymer.udgaard.backtesting.dto.RankerMetadata
 import com.skrymer.udgaard.backtesting.dto.StrategyConfig
 import com.skrymer.udgaard.backtesting.dto.WalkForwardRequest
 import com.skrymer.udgaard.backtesting.model.BacktestReport
+import com.skrymer.udgaard.backtesting.model.BacktestReportMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
@@ -420,7 +421,15 @@ class BacktestController(
         backtestReport
       }
 
-    val backtestId = backtestResultStore.store(finalReport)
+    val backtestId = backtestResultStore.store(
+      finalReport,
+      BacktestReportMetadata(
+        entryStrategyName = summarizeStrategy(request.entryStrategy),
+        exitStrategyName = summarizeStrategy(request.exitStrategy),
+        startDate = start,
+        endDate = end,
+      ),
+    )
     return ResponseEntity.ok(finalReport.toResponseDto(backtestId))
   }
 
