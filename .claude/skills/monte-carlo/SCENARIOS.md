@@ -34,6 +34,25 @@ Resamples trades **with replacement**. Distribution of return / edge / win-rate 
 }' /tmp/mc-bootstrap.json
 ```
 
+## 2b. Block bootstrap (regime-correlated edge confidence)
+
+For trend / breakout strategies whose trades cluster in correlated regimes (multiple longs hit by the same selloff), IID bootstrap **understates** edge confidence intervals because it scrambles the correlation structure. Block bootstrap resamples *contiguous blocks* of trades to preserve short-range autocorrelation, producing wider, more honest CIs.
+
+Add `blockSize` to the bootstrap request — `null`/omitted is the IID default; `>= 2` enables block bootstrap (Circular Block Bootstrap with `mod N` wrap-around).
+
+```bash
+.claude/scripts/udgaard-post.sh /api/monte-carlo/simulate '{
+  "backtestId": "<BACKTEST_ID>",
+  "technique": "BOOTSTRAP_RESAMPLING",
+  "iterations": 10000,
+  "blockSize": 10
+}' /tmp/mc-block-bootstrap.json
+```
+
+**Picking `blockSize`:** start at `L = ceil(N^(1/5)) * 2..4` (rounds to 5–15 for typical 200–2000 trades — Hall-Horowitz-Jing 1995 MSE-optimal rate for bootstrap-of-the-mean; **NOT** `cbrt(N)`, which is for spectral density and would mislead). Sweep `L ∈ {1, 5, 10, 20, 40}` and pick the smallest L where the edge p5/p95 spread plateaus — the plateau is where you've captured the autocorrelation in the data (Politis-White 2004 plateau heuristic).
+
+`blockSize=1` is mathematically identical to IID (each "block" is one trade) — useful as a sanity check.
+
 ## 3. Both techniques back-to-back
 
 The typical full validation. Run shuffling + bootstrap; the analyst combines them into one report.

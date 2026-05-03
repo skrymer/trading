@@ -2,7 +2,7 @@
 
 Cross-skill rollup of the 13 limitations originally documented in the per-skill `REFERENCE.md` files (backtest / walk-forward / monte-carlo). Tracks which have been closed, which are still open, and which are documented-as-designed (not a fix to ship).
 
-Last updated: 2026-05-03 — after the Backtest persistence PR landed on `feature/backtest-result-persistence` (closes #3 + #11).
+Last updated: 2026-05-04 — after the Block Bootstrap PR landed on `feature/block-bootstrap-mc` (closes #9).
 
 ## Status legend
 
@@ -22,7 +22,7 @@ Last updated: 2026-05-03 — after the Backtest persistence PR landed on `featur
 | 6  | Daily bars only — no intraday slippage                                                                  | all three             | 🟡 Open   | Needs intraday data ingestion + execution model — large structural |
 | 7  | Survivorship bias (V18 mitigates partially)                                                             | all three             | 🟡 Open   | Improve delisted-stock retention + handling — medium-large |
 | 8  | Perfect fills at close (`entryDelayDays:1` partially mitigates)                                         | backtest              | 🟡 Open   | Slippage/commission model — medium |
-| 9  | Bootstrap assumes IID trades                                                                            | monte-carlo           | 🟡 Open   | Block bootstrap (resample regime-blocks not single trades) — medium |
+| 9  | Bootstrap assumes IID trades                                                                            | monte-carlo           | ✅ Closed | Block Bootstrap PR — `BootstrapResamplingTechnique` rewritten with Circular Block Bootstrap (CBB) and optional `blockSize` parameter; `blockSize=null/1` preserves IID, `>= 2` enables block bootstrap with `mod N` wrap-around. Variance correctness verified against the truncated Bartlett kernel at ρ=0.3 + ρ=0.7. |
 | 10 | Trade shuffling destroys temporal correlation                                                           | monte-carlo           | 📝 Documented | Fundamental property of the technique — preserved as caveat in `monte-carlo/REFERENCE.md` |
 | 11 | Cache expiry on `backtestId` — 1h                                                                       | monte-carlo           | ✅ Closed (subsumed by #3) | Closed by the Backtest persistence PR — JSONB store has no TTL; retention is manual via the `/backtest-reports` page |
 | 12 | `derivedSectorRanking` informational only                                                               | walk-forward          | 📝 Documented | Working as designed; per-window IS-derived ranking does NOT re-rank OOS trades |
@@ -76,7 +76,6 @@ Walk-forward re-verification at 1.25% (PR #5's regime fields populate per window
 
 ## Still open (priority order for follow-up work)
 
-1. **#9 (Block bootstrap for MC)** — medium difficulty; tightens edge confidence on regime-correlated strategies
-2. **#8 (Slippage/commission model)** — medium difficulty; affects all reported edge numbers (currently overstate by an estimated 0.5–1pp per the plan's own framing)
-3. **#7 (Survivorship bias improvements)** — medium-large; V18 + the 2026-04-28 EODHD delisted import already mitigated this, but more universe coverage tightens the bias further
-4. **#6 (Intraday slippage)** — large structural; needs intraday data pipeline + execution model. Lowest priority because the 0.5–1pp estimated drag is already baked into the plan's haircut calculations.
+1. **#8 (Slippage/commission model)** — medium difficulty; affects all reported edge numbers (currently overstate by an estimated 0.5–1pp per the plan's own framing)
+2. **#7 (Survivorship bias improvements)** — medium-large; V18 + the 2026-04-28 EODHD delisted import already mitigated this, but more universe coverage tightens the bias further
+3. **#6 (Intraday slippage)** — large structural; needs intraday data pipeline + execution model. Lowest priority because the 0.5–1pp estimated drag is already baked into the plan's haircut calculations.

@@ -156,8 +156,8 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, BacktestReportController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport (persisted as JSONB), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique
-│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto, ConditionSignalDtos, etc.)
+│   │   │   ├── model/                # BacktestReport (persisted as JSONB), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
+│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
 │   │   │   ├── repository/           # BacktestReportJooqRepository (save/findById/listAll/deleteById/deleteByIds)
 │   │   │   ├── service/              # BacktestService, BacktestResultStore (JSONB-backed), StrategyRegistry, MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers

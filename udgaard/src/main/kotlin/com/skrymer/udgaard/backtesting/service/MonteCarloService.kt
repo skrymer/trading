@@ -18,22 +18,20 @@ import kotlin.math.sqrt
 class MonteCarloService(
   private val positionSizingService: PositionSizingService,
 ) {
-  private val techniques =
-    mapOf(
-      MonteCarloTechniqueType.TRADE_SHUFFLING to TradeShufflingTechnique(),
-      MonteCarloTechniqueType.BOOTSTRAP_RESAMPLING to BootstrapResamplingTechnique(),
-    )
-
   /**
    * Run Monte Carlo simulation
    */
   fun runSimulation(request: MonteCarloRequest): MonteCarloResult {
     val startTime = System.currentTimeMillis()
 
-    // Get the technique
-    val technique =
-      techniques[request.techniqueType]
-        ?: throw IllegalArgumentException("Technique ${request.techniqueType} not implemented")
+    // Construct the technique per-request because BootstrapResamplingTechnique takes
+    // request-scoped state (blockSize) — a static map can't carry that.
+    val technique = when (request.techniqueType) {
+      MonteCarloTechniqueType.TRADE_SHUFFLING -> TradeShufflingTechnique()
+      MonteCarloTechniqueType.BOOTSTRAP_RESAMPLING -> BootstrapResamplingTechnique(blockSize = request.blockSize)
+      MonteCarloTechniqueType.PRICE_PATH_RANDOMIZATION ->
+        throw IllegalArgumentException("Technique ${request.techniqueType} not implemented")
+    }
 
     // Generate scenarios
     val scenarios =

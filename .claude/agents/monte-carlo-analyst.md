@@ -33,9 +33,9 @@ curl -s -X POST http://localhost:8080/udgaard/api/monte-carlo/simulate \
 ```
 
 Important notes:
-- Cache expires after 1 hour -- backtest must have been run recently
 - Trade shuffling without position sizing on large trade sets (9,000+) produces meaningless compounded returns
-- Bootstrap assumes IID trades -- violated when trades cluster in correlated regimes
+- IID bootstrap (`blockSize` null/omitted) destroys autocorrelation — edge CIs are tighter than reality on regime-correlated strategies. Block bootstrap (`blockSize >= 2`) preserves it. The `technique` field on the response reads `"Block Bootstrap Resampling"` when block mode was used, `"Bootstrap Resampling"` for IID.
+- **Do NOT compare edge p5/p95 spreads across runs with different `blockSize`** — the widening is the *correct* behaviour, not a regression. Comparing IID vs CBB spreads side-by-side will look like "block bootstrap rejected the strategy" when really IID was lying.
 
 ## Task 2: Extract and Analyze Metrics
 

@@ -33,4 +33,10 @@ data class MonteCarloRequest(
    * MonteCarloStatistics.drawdownThresholdProbabilities is populated.
    */
   val drawdownThresholds: List<Double>? = null,
+  /**
+   * Fixed block size for circular block bootstrap. null/1 → IID (current behaviour);
+   * >= 2 enables block bootstrap. Only meaningful for BOOTSTRAP_RESAMPLING; silently
+   * ignored on other techniques.
+   */
+  val blockSize: Int? = null,
 )
