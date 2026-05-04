@@ -261,6 +261,7 @@ class IngestionServiceProviderToggleTest {
                     mock<MarketHolidayRepository>().apply {
                         stub { on { findHolidayDates(any()) } doReturn holidays }
                     },
+                dataIntegrityService = mock(),
                 indicatorsMode = indicatorsMode,
             )
 

@@ -1,5 +1,7 @@
 package com.skrymer.midgaard.controller
 
+import com.skrymer.midgaard.integrity.DataIntegrityService
+import com.skrymer.midgaard.integrity.Severity
 import com.skrymer.midgaard.model.AssetType
 import com.skrymer.midgaard.model.IngestionState
 import com.skrymer.midgaard.repository.IngestionStatusRepository
@@ -31,6 +33,7 @@ class UiController(
     private val delistedIngestionService: DelistedIngestionService,
     private val rateLimiterService: RateLimiterService,
     private val apiKeyService: ApiKeyService,
+    private val dataIntegrityService: DataIntegrityService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
@@ -114,7 +117,24 @@ class UiController(
         model.addAttribute("failedCount", ingestionStatusRepository.countByStatus(IngestionState.FAILED))
         model.addAttribute("notCompleteCount", ingestionStatusRepository.countNotComplete())
         model.addAttribute("delistedRunStats", delistedIngestionService.lastRunStats)
+        model.addAttribute("violationCount", dataIntegrityService.violationCount())
         return "ingestion"
+    }
+
+    @GetMapping("/integrity")
+    fun integrity(model: Model): String {
+        // ViolationRepository.findAll() already sorts by Severity.ordinal — no resort needed here.
+        val violations = dataIntegrityService.latestViolations()
+        model.addAttribute("violations", violations)
+        model.addAttribute("violationCount", violations.size)
+        model.addAttribute("criticalCount", violations.count { it.severity == Severity.CRITICAL })
+        return "integrity"
+    }
+
+    @PostMapping("/integrity/validate")
+    fun runValidationFromUi(): String {
+        dataIntegrityService.runAll()
+        return "redirect:/integrity"
     }
 
     @PostMapping("/ingestion/initial/all")

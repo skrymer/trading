@@ -258,6 +258,7 @@ class DelistedIngestionServiceTest {
                 fundamentalsClient = fundamentalsClient,
                 edgarClient = edgarClient,
                 symbolRepository = symbolRepository,
+                dataIntegrityService = mock(),
             )
         return Fixture(service, symbolListClient, fundamentalsClient, edgarClient, symbolRepository)
     }

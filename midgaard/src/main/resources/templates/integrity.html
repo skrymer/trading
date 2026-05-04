@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout('Midgaard - Data Integrity', ~{::content})}">
+<body>
+<div th:fragment="content">
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h2>Data Integrity</h2>
+      <p class="text-muted mb-0">
+        Latest snapshot from the most recent <code>runAll()</code>. Auto-runs after every bulk
+        ingest / update / delisted-discovery operation. Use the button below to re-run after
+        manual writes (Adminer, <code>psql</code>).
+      </p>
+    </div>
+    <form method="post" action="/integrity/validate">
+      <button type="submit" class="btn btn-primary">Re-run validators</button>
+    </form>
+  </div>
+
+  <div th:if="${violationCount == 0}" class="alert alert-success">
+    No violations detected.
+  </div>
+
+  <div th:if="${violationCount > 0}">
+    <div class="alert"
+         th:classappend="${criticalCount > 0} ? 'alert-danger' : 'alert-warning'">
+      <strong th:text="${violationCount}">0</strong> violation(s) detected,
+      <strong th:text="${criticalCount}">0</strong> critical.
+    </div>
+
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>Validator</th>
+          <th>Invariant</th>
+          <th>Description</th>
+          <th>Count</th>
+          <th>Sample symbols</th>
+          <th>Detected</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="v : ${violations}">
+          <td>
+            <span class="badge"
+                  th:classappend="${v.severity.name() == 'CRITICAL'} ? 'bg-danger' :
+                                 (${v.severity.name() == 'HIGH'}     ? 'bg-warning text-dark' :
+                                 (${v.severity.name() == 'MEDIUM'}   ? 'bg-info text-dark' : 'bg-secondary'))"
+                  th:text="${v.severity.name()}">CRITICAL</span>
+          </td>
+          <td><code th:text="${v.validator}">SectorIntegrityValidator</code></td>
+          <td><code th:text="${v.invariant}">I1</code></td>
+          <td th:text="${v.description}">desc</td>
+          <td th:text="${v.count}">0</td>
+          <td><small th:text="${#strings.listJoin(v.sampleSymbols, ', ')}">AAA, BBB</small></td>
+          <td><small th:text="${v.detectedAt}">2026-05-04T12:00:00</small></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

@@ -77,6 +77,12 @@ object SectorMapping {
         )
 
     fun toSectorSymbol(sectorName: String?): String? = sectorName?.uppercase()?.let { SECTOR_TO_SYMBOL[it] }
+
+    /** The canonical 11 UPPERCASE GICS sector names — used by SectorIntegrityValidator and tests. */
+    fun canonicalNames(): Set<String> = SECTOR_TO_SYMBOL.keys
+
+    /** The canonical 11 sector ETF symbols (XLF, XLV, ...) — used by SectorIntegrityValidator. */
+    fun canonicalSectorSymbols(): Set<String> = SECTOR_TO_SYMBOL.values.toSet()
 }
 
 enum class AssetType {

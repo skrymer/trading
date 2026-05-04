@@ -4,6 +4,15 @@
 <div th:fragment="content">
   <h2 class="mb-4">Ingestion Progress</h2>
 
+  <div class="mb-3">
+    <a href="/integrity"
+       class="btn"
+       th:classappend="${violationCount > 0} ? 'btn-danger' : 'btn-outline-secondary'">
+      View Data Integrity Violations
+      <span th:if="${violationCount > 0}" class="badge bg-light text-danger ms-2" th:text="${violationCount}">0</span>
+    </a>
+  </div>
+
   <div th:if="${!active}">
     <div class="alert alert-info">No bulk ingestion currently running.</div>
     <div>
