@@ -2,6 +2,7 @@ package com.skrymer.midgaard.integrity
 
 import com.skrymer.midgaard.jooq.tables.references.QUOTES
 import com.skrymer.midgaard.jooq.tables.references.SYMBOLS
+import com.skrymer.midgaard.model.AssetType
 import com.skrymer.midgaard.model.SectorMapping
 import org.jooq.DSLContext
 import org.springframework.stereotype.Component
@@ -93,11 +94,15 @@ class SectorIntegrityValidator(
     }
 
     private fun checkI4DelistedHasSector(): Violation? {
+        // STOCK only — ETFs/BOND_ETF/COMMODITY_ETF/LEVERAGED_ETF don't carry GICS sectors,
+        // so a NULL sector on a non-STOCK row is correct, not a violation.
         val offenders =
             dsl
                 .select(SYMBOLS.SYMBOL)
                 .from(SYMBOLS)
-                .where(SYMBOLS.DELISTED_AT.isNotNull.and(SYMBOLS.SECTOR.isNull))
+                .where(SYMBOLS.ASSET_TYPE.eq(AssetType.STOCK.name))
+                .and(SYMBOLS.DELISTED_AT.isNotNull)
+                .and(SYMBOLS.SECTOR.isNull)
                 .orderBy(SYMBOLS.SYMBOL)
                 .fetch(SYMBOLS.SYMBOL)
                 .filterNotNull()
@@ -105,18 +110,20 @@ class SectorIntegrityValidator(
         return buildViolation(
             invariant = "I4",
             severity = Severity.HIGH,
-            summary = "${offenders.size} delisted symbols have sector IS NULL (expected V6 baseline).",
+            summary = "${offenders.size} delisted STOCK symbols have sector IS NULL (expected V6 baseline).",
             offenders = offenders,
         )
     }
 
     private fun checkI5ActiveWithOhlcvHasSector(): Violation? {
-        // EXISTS subquery on quotes — cheaper than a join when most active stocks have data
+        // EXISTS subquery on quotes — cheaper than a join when most active stocks have data.
+        // STOCK only — ETFs don't carry GICS sectors so their NULL sector is intentional, not a leak.
         val offenders =
             dsl
                 .select(SYMBOLS.SYMBOL)
                 .from(SYMBOLS)
-                .where(SYMBOLS.DELISTED_AT.isNull)
+                .where(SYMBOLS.ASSET_TYPE.eq(AssetType.STOCK.name))
+                .and(SYMBOLS.DELISTED_AT.isNull)
                 .and(SYMBOLS.SECTOR.isNull)
                 .andExists(
                     dsl.selectOne().from(QUOTES).where(QUOTES.SYMBOL.eq(SYMBOLS.SYMBOL)),
