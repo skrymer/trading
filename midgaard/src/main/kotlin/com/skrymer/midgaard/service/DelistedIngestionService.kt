@@ -5,10 +5,12 @@ import com.skrymer.midgaard.integration.eodhd.EodhdFundamentalsClient
 import com.skrymer.midgaard.integration.eodhd.EodhdSymbolListClient
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdDelistedSymbolDto
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdFundamentalsResponse
+import com.skrymer.midgaard.integrity.DataIntegrityService
 import com.skrymer.midgaard.model.AssetType
 import com.skrymer.midgaard.model.SectorMapping
 import com.skrymer.midgaard.model.Symbol
 import com.skrymer.midgaard.repository.SymbolRepository
+import com.skrymer.midgaard.service.sector.SectorNormalizer
 import com.skrymer.midgaard.service.sector.SicToGicsMapping
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +47,7 @@ class DelistedIngestionService(
     private val fundamentalsClient: EodhdFundamentalsClient,
     private val edgarClient: EdgarClient,
     private val symbolRepository: SymbolRepository,
+    private val dataIntegrityService: DataIntegrityService,
 ) {
     @Volatile
     private var _lastRunStats: DelistedRunStats? = null
@@ -59,6 +62,10 @@ class DelistedIngestionService(
             } catch (e: Exception) {
                 logger.error("Delisted discovery failed: ${e.message}", e)
                 _lastRunStats = DelistedRunStats(failed = true)
+            } finally {
+                runCatching { dataIntegrityService.runAll() }
+                    .onSuccess { logger.info("Delisted discovery: data integrity check found ${it.size} violations") }
+                    .onFailure { logger.error("Delisted discovery: data integrity check failed", it) }
             }
         }
         return job
@@ -158,7 +165,12 @@ class DelistedIngestionService(
 
     private suspend fun resolveSector(cik: String?): String {
         val sic = cik?.takeIf { it.isNotBlank() }?.let { edgarClient.getSubmission(it)?.sicCode }
-        return sic?.let { SicToGicsMapping.gicsSectorFor(it) } ?: SECTOR_FALLBACK
+        val raw = sic?.let { SicToGicsMapping.gicsSectorFor(it) } ?: SECTOR_FALLBACK
+        // Defensive: SicToGicsMapping already produces canonical UPPERCASE GICS, so
+        // canonicalize() is a no-op in practice. Documents the invariant ("everything
+        // written by this service is canonicalized") and protects against future
+        // SIC -> GICS table edits that introduce variants.
+        return SectorNormalizer.canonicalize(raw) ?: SECTOR_FALLBACK
     }
 
     private fun toSymbol(enriched: EnrichedSymbol): Symbol =

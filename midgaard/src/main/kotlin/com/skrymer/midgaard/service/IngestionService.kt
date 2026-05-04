@@ -4,6 +4,7 @@ import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integrity.DataIntegrityService
 import com.skrymer.midgaard.model.IndicatorSource
 import com.skrymer.midgaard.model.IngestionResult
 import com.skrymer.midgaard.model.IngestionState
@@ -16,6 +17,7 @@ import com.skrymer.midgaard.repository.MarketHolidayRepository
 import com.skrymer.midgaard.repository.QuoteRepository
 import com.skrymer.midgaard.repository.SymbolRepository
 import com.skrymer.midgaard.service.IndicatorCalculator.Companion.toBigDecimal4
+import com.skrymer.midgaard.service.sector.SectorNormalizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -57,6 +59,7 @@ class IngestionService(
     private val symbolRepository: SymbolRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val marketHolidayRepository: MarketHolidayRepository,
+    private val dataIntegrityService: DataIntegrityService,
     @param:Value("\${app.ingest.indicators:LOCAL}") private val indicatorsMode: IndicatorsMode,
 ) {
     @Volatile
@@ -173,6 +176,7 @@ class IngestionService(
                     }
                 }.forEach { it.join() }
             logger.info("$label ingest: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
+            runIntegrityCheck("$label ingest")
         }
         return job
     }
@@ -192,8 +196,20 @@ class IngestionService(
                 semaphore.withPermit { processSymbolIngest(status.symbol, progress, ::updateSymbol) }
             }
             logger.info("Bulk update: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
+            runIntegrityCheck("bulk update")
         }
         return job
+    }
+
+    /**
+     * Run all DataIntegrityValidators after a bulk operation completes. The result is
+     * persisted; the UI surfaces it via the violation-count badge on the ingestion page.
+     * Failures are logged but never crash the ingest job (the ingest already succeeded).
+     */
+    private fun runIntegrityCheck(label: String) {
+        runCatching { dataIntegrityService.runAll() }
+            .onSuccess { logger.info("$label: data integrity check found ${it.size} violations") }
+            .onFailure { logger.error("$label: data integrity check failed", it) }
     }
 
     private suspend fun fetchInitialBars(symbol: String): List<RawBar>? {
@@ -280,16 +296,27 @@ class IngestionService(
             logger.info("Saved ${earningsList.size} earnings for $symbol")
         }
         val info = companyInfo.getCompanyInfo(symbol)
-        if (info?.sector != null) {
-            val existingSymbol = symbolRepository.findBySymbol(symbol)
-            if (existingSymbol != null) {
-                symbolRepository.upsertSymbol(
-                    existingSymbol.copy(
-                        sector = info.sector,
-                        sectorSymbol = SectorMapping.toSectorSymbol(info.sector),
-                    ),
-                )
-            }
+        val existing = symbolRepository.findBySymbol(symbol) ?: return
+
+        // Delisted symbols are sector-immutable: their sector is the V6 (EDGAR SIC) baseline
+        // and must not be overwritten by EODHD's response. Without this guard, EODHD's
+        // "Other" classification clobbers V6's correct sector for ~595 delisted symbols.
+        if (existing.delistedAt != null) return
+
+        val rawSector = info?.sector
+        val canonicalNew = SectorNormalizer.canonicalize(rawSector)
+        if (canonicalNew != null) {
+            symbolRepository.upsertSymbol(
+                existing.copy(
+                    sector = canonicalNew,
+                    sectorSymbol = SectorMapping.toSectorSymbol(canonicalNew),
+                ),
+            )
+        } else if (!rawSector.isNullOrBlank()) {
+            // Provider returned a non-empty value the normalizer doesn't recognize. Log it
+            // so the analyst can add a new entry to SectorNormalizer.VARIANTS. Drift is rare
+            // (~1-2 per year per provider given GICS stability) so a passive log is enough.
+            logger.warn("Uncanonicalized sector from companyInfo provider: symbol=$symbol, raw='$rawSector'")
         }
     }
 

@@ -41,7 +41,8 @@ midgaard/
 │   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical
 │   │   ├── StatusController.kt            # GET /api/status
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
-│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled)
+│   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
+│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion
 │   ├── integration/
 │   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, QuoteProvider, etc.)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
@@ -67,8 +68,18 @@ midgaard/
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
 │   │   ├── ProviderConfigRepository.kt    # Provider configuration data
 │   │   └── MarketHolidayRepository.kt     # Read-only US exchange holiday lookup (used by IngestionService to drop phantom bars)
+│   ├── integrity/                         # Data integrity framework (Spring auto-wires List<DataIntegrityValidator>)
+│   │   ├── DataIntegrityValidator.kt      # Interface — implementations are @Component
+│   │   ├── Violation.kt                   # Rolled-up: 1 Violation per (validator, invariant) tuple per run; carries count + sampleSymbols (top 10)
+│   │   ├── SectorIntegrityValidator.kt    # I1-I5: sector canonical, sector_symbol canonical, sector↔sector_symbol consistency, delisted⇒sector non-null, active+OHLCV⇒sector non-null
+│   │   ├── DataIntegrityService.kt        # runAll() = fresh snapshot of all validators + truncate-and-replace persistence
+│   │   └── ViolationRepository.kt         # jOOQ; findAll() ordered by severity asc; truncate-all on replace
 │   └── service/
-│       ├── IngestionService.kt            # Provider-agnostic orchestrator; injects bare OhlcvProvider/IndicatorProvider/EarningsProvider/CompanyInfoProvider beans (no per-provider branching)
+│       ├── IngestionService.kt            # Provider-agnostic orchestrator; **delisted-immutable rule** (skip sector update when delistedAt != null) + SectorNormalizer for active rows + drift warn-log
+│       ├── DelistedIngestionService.kt    # V6 baseline service; defensively normalizes via SectorNormalizer.canonicalize before storing
+│       ├── sector/
+│       │   ├── SectorNormalizer.kt        # Canonicalize raw provider sector → 1 of 11 UPPERCASE GICS names OR null. VARIANTS map: Financials/Financial → FINANCIAL SERVICES, Materials → BASIC MATERIALS. UNCLASSIFIED: Other/NONE/empty → null
+│       │   └── SicToGicsMapping.kt        # SEC SIC → GICS sector for V6 EDGAR-derived classification
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
 │       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation (used by LOCAL indicator mode)
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
@@ -84,8 +95,10 @@ midgaard/
 │   │   ├── V4__Add_provider_config.sql    # Provider config table
 │   │   ├── V5__Add_delisted_columns_to_symbols.sql
 │   │   ├── V6__Add_delisted_symbols.sql
-│   │   └── V7__Add_market_holidays.sql     # 349 US exchange holidays 1995-2030 (EODHD seed; revisit before 2030)
-│   └── templates/                         # Thymeleaf admin UI (6 templates)
+│   │   ├── V7__Add_market_holidays.sql     # 349 US exchange holidays 1995-2030 (EODHD seed; revisit before 2030)
+│   │   ├── V8__Restore_clobbered_v6_sectors.sql  # Re-INSERT V6 with ON CONFLICT DO UPDATE — restores sectors clobbered to 'Other' / variants by IngestionService; adds CHECK constraints for I1+I2 at the DB layer
+│   │   └── V9__Create_data_integrity_violations.sql  # Storage for DataIntegrityValidator framework
+│   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
 ├── build.gradle                           # Gradle build config
