@@ -32,6 +32,8 @@ midgaard/
 │   │   ├── ProviderConfiguration.kt       # Provider bean definitions
 │   │   ├── ExternalConfigLoader.kt        # External configuration loading
 │   │   ├── GlobalExceptionHandler.kt      # Global exception handler
+│   │   ├── CacheConfiguration.kt          # Spring Cache (ConcurrentMapCacheManager) — hosts `eodhdFundamentals` cache to dedup EODHD fundamentals calls
+│   │   ├── DnsPrewarmer.kt                # Pre-resolves provider hostnames on ApplicationReadyEvent to avoid JVM negative-DNS-cache races during bulk ingest
 │   │   └── VersionAdvice.kt              # Build version info via @ControllerAdvice
 │   ├── controller/
 │   │   ├── QuoteController.kt             # GET /api/quotes/{symbol}, /api/quotes/bulk, /api/quotes/{symbol}/latest
