@@ -359,6 +359,22 @@ data class AlphaVantageFxDaily(
         }
         return null
     }
+
+    /**
+     * Flatten the AV-shaped `Map<String, FxDailyData>` into a normalised `LocalDate → close`
+     * map for caching by the `FxProvider` series-cache. Drops rows whose date or close fails to
+     * parse rather than failing the whole series.
+     */
+    fun toSeriesMap(): Map<LocalDate, Double>? =
+        timeSeries
+            ?.mapNotNull { (dateStr, data) ->
+                runCatching {
+                    val parsed = LocalDate.parse(dateStr)
+                    val close = data.close?.toDoubleOrNull() ?: return@mapNotNull null
+                    parsed to close
+                }.getOrNull()
+            }?.toMap()
+            ?.takeIf { it.isNotEmpty() }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

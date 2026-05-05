@@ -2,6 +2,7 @@ package com.skrymer.midgaard.config
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FxProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.OptionsProvider
@@ -108,6 +109,19 @@ class ProviderConfiguration(
     @Bean("companyInfo")
     @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
     fun companyInfoFromAlphaVantage(): CompanyInfoProvider = alphaVantageProvider
+
+    // ── FX: independent toggle (`app.fx.provider`) because FX quota is operationally
+    //     separate from OHLCV/indicators quota. Defaults to EODHD via matchIfMissing —
+    //     the new convention going forward across midgaard. Existing app.ingest.provider
+    //     still defaults to alphavantage in code; flipping it is a separate one-line PR.
+
+    @Bean("fx")
+    @ConditionalOnProperty(name = ["app.fx.provider"], havingValue = ProviderIds.EODHD, matchIfMissing = true)
+    fun fxFromEodhd(): FxProvider = eodhdProvider
+
+    @Bean("fx")
+    @ConditionalOnProperty(name = ["app.fx.provider"], havingValue = ProviderIds.ALPHAVANTAGE)
+    fun fxFromAlphaVantage(): FxProvider = alphaVantageProvider
 
     // ── Non-toggleable: orthogonal concerns, kept under their own qualifiers.
 

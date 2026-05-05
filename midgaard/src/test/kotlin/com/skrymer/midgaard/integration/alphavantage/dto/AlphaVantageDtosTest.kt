@@ -1,8 +1,10 @@
 package com.skrymer.midgaard.integration.alphavantage.dto
 
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AlphaVantageDtosTest {
@@ -85,4 +87,71 @@ class AlphaVantageDtosTest {
             metaData = AdjustedMetaData("Daily Adjusted", "PGY", "2026-02-17", "Compact", "US/Eastern"),
             timeSeriesDaily = mapOf(*entries),
         )
+
+    // ── AlphaVantageFxDaily.toSeriesMap — flattens the AV-shaped string-keyed map into LocalDate→close ──
+
+    @Test
+    fun `toSeriesMap parses well-formed AV FX rows into LocalDate-keyed map`() {
+        // Given: an FX_DAILY response with three weekday closes
+        val response =
+            AlphaVantageFxDaily(
+                metaData = FxDailyMetaData(),
+                timeSeries =
+                    mapOf(
+                        "2024-06-12" to FxDailyData(close = "1.5230"),
+                        "2024-06-13" to FxDailyData(close = "1.5232"),
+                        "2024-06-14" to FxDailyData(close = "1.5234"),
+                    ),
+            )
+
+        // When
+        val series = response.toSeriesMap()
+
+        // Then
+        assertEquals(3, series?.size)
+        assertEquals(1.5234, series?.get(LocalDate.of(2024, 6, 14)))
+        assertEquals(1.5230, series?.get(LocalDate.of(2024, 6, 12)))
+    }
+
+    @Test
+    fun `toSeriesMap drops malformed rows rather than failing the whole series`() {
+        // Given: one valid row, one with an unparseable date, one with a non-numeric close
+        val response =
+            AlphaVantageFxDaily(
+                metaData = FxDailyMetaData(),
+                timeSeries =
+                    mapOf(
+                        "2024-06-14" to FxDailyData(close = "1.5234"),
+                        "not-a-date" to FxDailyData(close = "1.0000"),
+                        "2024-06-13" to FxDailyData(close = "garbage"),
+                    ),
+            )
+
+        // When
+        val series = response.toSeriesMap()
+
+        // Then: only the well-formed row survives — partial data is better than none
+        assertEquals(1, series?.size)
+        assertEquals(1.5234, series?.get(LocalDate.of(2024, 6, 14)))
+    }
+
+    @Test
+    fun `toSeriesMap returns null when timeSeries is null`() {
+        val response = AlphaVantageFxDaily(metaData = FxDailyMetaData(), timeSeries = null)
+        assertNull(response.toSeriesMap())
+    }
+
+    @Test
+    fun `toSeriesMap returns null when every row is malformed (empty result)`() {
+        // Given: all rows fail to parse
+        val response =
+            AlphaVantageFxDaily(
+                metaData = FxDailyMetaData(),
+                timeSeries = mapOf("not-a-date" to FxDailyData(close = "garbage")),
+            )
+
+        // When / Then: takeIf { isNotEmpty() } collapses an all-bad payload to null
+        // so callers see "no data" rather than caching an empty map
+        assertNull(response.toSeriesMap())
+    }
 }

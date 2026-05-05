@@ -2,6 +2,7 @@ package com.skrymer.midgaard.integration.alphavantage
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FxProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.OptionsProvider
@@ -11,11 +12,10 @@ import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageADX
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageATR
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageApiResponse
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageCompanyOverview
-import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageCurrencyExchangeRate
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageEarnings
-import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageFxDaily
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageHistoricalOptions
 import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesDailyAdjusted
+import com.skrymer.midgaard.integration.closestRateAtOrBefore
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.OptionContractDto
@@ -36,11 +36,13 @@ import java.time.LocalDate
 class AlphaVantageProvider(
     private val apiKeyService: ApiKeyService,
     private val rateLimiterService: RateLimiterService,
+    private val fxClient: AlphaVantageFxClient,
     @param:Value("\${alphavantage.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
     EarningsProvider,
     CompanyInfoProvider,
+    FxProvider,
     OptionsProvider {
     private val apiKey: String get() = apiKeyService.getAlphaVantageApiKey()
 
@@ -246,53 +248,16 @@ class AlphaVantageProvider(
         }
     }
 
-    fun getExchangeRate(
-        fromCurrency: String,
-        toCurrency: String,
-    ): Double? =
-        runCatching {
-            val response =
-                restClient
-                    .get()
-                    .uri { uriBuilder ->
-                        uriBuilder
-                            .queryParam("function", FUNCTION_CURRENCY_EXCHANGE_RATE)
-                            .queryParam("from_currency", fromCurrency)
-                            .queryParam("to_currency", toCurrency)
-                            .queryParam("apikey", apiKey)
-                            .build()
-                    }.retrieve()
-                    .toEntity(AlphaVantageCurrencyExchangeRate::class.java)
-                    .body
-            validateAndTransform(response, "$fromCurrency/$toCurrency", "exchange rate") { it.toRate() }
-        }.onFailure { e ->
-            SafeLogging.logFetchFailure(logger, "AlphaVantage", "exchange rate", "$fromCurrency/$toCurrency", e)
-        }.getOrNull()
+    override suspend fun getExchangeRate(
+        from: String,
+        to: String,
+    ): Double? = fxClient.fetchCurrent(from, to)
 
-    fun getHistoricalExchangeRate(
-        fromCurrency: String,
-        toCurrency: String,
+    override suspend fun getHistoricalExchangeRate(
+        from: String,
+        to: String,
         date: LocalDate,
-    ): Double? =
-        runCatching {
-            val response =
-                restClient
-                    .get()
-                    .uri { uriBuilder ->
-                        uriBuilder
-                            .queryParam("function", FUNCTION_FX_DAILY)
-                            .queryParam("from_symbol", fromCurrency)
-                            .queryParam("to_symbol", toCurrency)
-                            .queryParam("outputsize", "full")
-                            .queryParam("apikey", apiKey)
-                            .build()
-                    }.retrieve()
-                    .toEntity(AlphaVantageFxDaily::class.java)
-                    .body
-            validateAndTransform(response, "$fromCurrency/$toCurrency", "FX daily") { it.closestRateForDate(date) }
-        }.onFailure { e ->
-            SafeLogging.logFetchFailure(logger, "AlphaVantage", "historical FX rate $date", "$fromCurrency/$toCurrency", e)
-        }.getOrNull()
+    ): Double? = fxClient.fetchHistoricalSeries(from, to)?.let { closestRateAtOrBefore(it, date) }
 
     private fun <T : AlphaVantageApiResponse, R> validateAndTransform(
         response: T?,
@@ -317,7 +282,5 @@ class AlphaVantageProvider(
         private const val FUNCTION_OVERVIEW = "OVERVIEW"
         private const val FUNCTION_HISTORICAL_OPTIONS = "HISTORICAL_OPTIONS"
         private const val FUNCTION_REALTIME_OPTIONS = "REALTIME_OPTIONS"
-        private const val FUNCTION_CURRENCY_EXCHANGE_RATE = "CURRENCY_EXCHANGE_RATE"
-        private const val FUNCTION_FX_DAILY = "FX_DAILY"
     }
 }
