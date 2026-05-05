@@ -1,6 +1,8 @@
 package com.skrymer.midgaard.controller
 
-import com.skrymer.midgaard.integration.alphavantage.AlphaVantageProvider
+import com.skrymer.midgaard.integration.FxProvider
+import kotlinx.coroutines.runBlocking
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -12,7 +14,7 @@ import java.time.LocalDate
 @RestController
 @RequestMapping("/api/fx")
 class ExchangeRateController(
-    private val alphaVantageProvider: AlphaVantageProvider,
+    @param:Qualifier("fx") private val fxProvider: FxProvider,
 ) {
     @GetMapping("/rate")
     fun getCurrentRate(
@@ -20,7 +22,7 @@ class ExchangeRateController(
         @RequestParam to: String,
     ): ResponseEntity<ExchangeRateResponse> {
         val rate =
-            alphaVantageProvider.getExchangeRate(from.uppercase(), to.uppercase())
+            runBlocking { fxProvider.getExchangeRate(from.uppercase(), to.uppercase()) }
                 ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(
@@ -40,7 +42,7 @@ class ExchangeRateController(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate,
     ): ResponseEntity<ExchangeRateResponse> {
         val rate =
-            alphaVantageProvider.getHistoricalExchangeRate(from.uppercase(), to.uppercase(), date)
+            runBlocking { fxProvider.getHistoricalExchangeRate(from.uppercase(), to.uppercase(), date) }
                 ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(

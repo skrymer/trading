@@ -2,10 +2,12 @@ package com.skrymer.midgaard.integration.eodhd
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FxProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.ProviderIds
 import com.skrymer.midgaard.integration.SafeLogging
+import com.skrymer.midgaard.integration.closestRateAtOrBefore
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAdxResponse
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAdxRowDto
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdApiResponse
@@ -34,11 +36,13 @@ class EodhdProvider(
     private val apiKeyService: ApiKeyService,
     private val rateLimiterService: RateLimiterService,
     private val fundamentalsClient: EodhdFundamentalsClient,
+    private val fxClient: EodhdFxClient,
     @param:Value("\${eodhd.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
     IndicatorProvider,
     EarningsProvider,
-    CompanyInfoProvider {
+    CompanyInfoProvider,
+    FxProvider {
     private val apiKey: String get() = apiKeyService.getEodhdApiKey()
 
     private val restClient: RestClient =
@@ -131,6 +135,17 @@ class EodhdProvider(
 
     override suspend fun getCompanyInfo(symbol: String): CompanyInfo? =
         fundamentalsClient.fetch(symbol, symbol.toEodhdSymbol())?.toCompanyInfo()
+
+    override suspend fun getExchangeRate(
+        from: String,
+        to: String,
+    ): Double? = fxClient.fetchCurrent(from, to)
+
+    override suspend fun getHistoricalExchangeRate(
+        from: String,
+        to: String,
+        date: LocalDate,
+    ): Double? = fxClient.fetchHistoricalSeries(from, to)?.let { closestRateAtOrBefore(it, date) }
 
     private fun <T : EodhdApiResponse, R> validateAndTransform(
         response: T?,

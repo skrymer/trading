@@ -39,6 +39,19 @@ interface QuoteProvider {
     suspend fun getLatestQuote(symbol: String): LatestQuote?
 }
 
+interface FxProvider {
+    suspend fun getExchangeRate(
+        from: String,
+        to: String,
+    ): Double?
+
+    suspend fun getHistoricalExchangeRate(
+        from: String,
+        to: String,
+        date: LocalDate,
+    ): Double?
+}
+
 interface OptionsProvider {
     fun getHistoricalOptions(
         symbol: String,

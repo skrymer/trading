@@ -10,7 +10,7 @@ plugins {
 }
 
 group = 'com.skrymer'
-version = '1.0.44'
+version = '1.0.45'
 
 java {
 	toolchain {
@@ -27,6 +27,7 @@ dependencies {
 	// Database - PostgreSQL with jOOQ
 	implementation 'org.springframework.boot:spring-boot-starter-jooq'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
 	implementation 'org.jooq:jooq-kotlin'
 	runtimeOnly 'org.postgresql:postgresql'
 

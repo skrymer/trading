@@ -32,7 +32,7 @@ midgaard/
 │   │   ├── ProviderConfiguration.kt       # Provider bean definitions
 │   │   ├── ExternalConfigLoader.kt        # External configuration loading
 │   │   ├── GlobalExceptionHandler.kt      # Global exception handler
-│   │   ├── CacheConfiguration.kt          # Spring Cache (ConcurrentMapCacheManager) — hosts `eodhdFundamentals` cache to dedup EODHD fundamentals calls
+│   │   ├── CacheConfiguration.kt          # Spring Cache (`CaffeineCacheManager`) — hosts `eodhdFundamentals` (no TTL) plus `fxCurrent` (1h TTL) and `fxHistoricalSeries` (24h TTL) used by the FX provider series cache
 │   │   ├── DnsPrewarmer.kt                # Pre-resolves provider hostnames on ApplicationReadyEvent to avoid JVM negative-DNS-cache races during bulk ingest
 │   │   └── VersionAdvice.kt              # Build version info via @ControllerAdvice
 │   ├── controller/
@@ -40,16 +40,18 @@ midgaard/
 │   │   ├── SymbolController.kt            # GET /api/symbols, /api/symbols/{symbol}
 │   │   ├── EarningsController.kt          # GET /api/earnings/{symbol}
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
-│   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical
+│   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical — depends on `@Qualifier("fx") FxProvider`, wraps suspend calls with `runBlocking`
 │   │   ├── StatusController.kt            # GET /api/status
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
 │   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion
 │   ├── integration/
-│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, QuoteProvider, etc.)
+│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
+│   │   ├── FxCacheNames.kt                # Shared cache-name constants (`fxCurrent`, `fxHistoricalSeries`) + `closestRateAtOrBefore` walk-back-5-days helper used by both FX providers
 │   │   ├── alphavantage/
-│   │   │   ├── AlphaVantageProvider.kt    # Implements all 5 provider interfaces; self-rate-limits
+│   │   │   ├── AlphaVantageProvider.kt    # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, OptionsProvider; FX delegates to AlphaVantageFxClient
+│   │   │   ├── AlphaVantageFxClient.kt    # Sibling-class for cross-boundary @Cacheable interception; wraps CURRENCY_EXCHANGE_RATE + FX_DAILY?outputsize=full into series cache
 │   │   │   └── dto/
 │   │   ├── finnhub/
 │   │   │   ├── FinnhubProvider.kt         # Implements QuoteProvider (live quotes); self-rate-limits
@@ -58,7 +60,8 @@ midgaard/
 │   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider impl; @Component registers with rate limiter but currently NOT wired into any @Bean (kept for future re-enable)
 │   │   │   └── dto/
 │   │   └── eodhd/
-│   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider; self-rate-limits
+│   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider; FX delegates to EodhdFxClient
+│   │       ├── EodhdFxClient.kt           # Sibling-class for cross-boundary @Cacheable interception; wraps `/real-time/{pair}.FOREX` + `/eod/{pair}.FOREX` into series cache
 │   │       └── dto/
 │   ├── model/
 │   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, enums
@@ -144,6 +147,7 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 - `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle; only used when `app.ingest.indicators=API`)
 - `EarningsProvider` - Quarterly earnings (AlphaVantage or EODHD via the toggle)
 - `CompanyInfoProvider` - Company overview + sector (AlphaVantage or EODHD via the toggle)
+- `FxProvider` - Currency exchange rates (current + historical), backs `ExchangeRateController`. Toggleable via `app.fx.provider` (defaults to `eodhd` via `matchIfMissing`); FX quota is operationally separate from OHLCV/indicator quota so it has its own toggle.
 - `QuoteProvider` - Live/latest quotes (Finnhub)
 - `OptionsProvider` - Historical options pricing (AlphaVantage)
 
@@ -280,6 +284,12 @@ provider.alphavantage.requestsPerDay=75000
 provider.massive.requestsPerSecond=80
 provider.massive.requestsPerMinute=1000
 provider.massive.requestsPerDay=100000
+
+# Provider toggles
+# app.ingest.provider picks OHLCV/indicators/earnings/companyInfo (defaults to alphavantage in code; both compose files pin eodhd).
+# app.fx.provider picks the FxProvider behind /api/fx/rate (defaults to eodhd via matchIfMissing).
+app.ingest.provider=eodhd
+app.fx.provider=eodhd
 ```
 
 ## Development Checklist
