@@ -716,13 +716,29 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
   },
   {
     id: 'daysHeld',
-    header: 'Days',
+    header: 'Trading Days',
     cell: ({ row }) => row.original.tradingDaysHeld?.toString() ?? '-'
   },
   {
     id: 'strategy',
     header: 'Strategy',
     cell: ({ row }) => `${row.original.entryStrategyName} / ${row.original.exitStrategyName}`
+  },
+  {
+    id: 'pnl',
+    header: 'P&L',
+    cell: ({ row }) => {
+      const result = exitResults.value.get(row.original.id)
+      if (!result) return '-'
+      const pnl = result.unrealizedPnlPercent
+      const color = pnl > 0
+        ? 'text-green-600 dark:text-green-400'
+        : pnl < -0.05
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-gray-500 dark:text-gray-400'
+      const label = `${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%`
+      return h('span', { class: `${color} font-medium tabular-nums` }, label)
+    }
   },
   {
     id: 'exitAlert',
@@ -771,16 +787,8 @@ const tradeColumns: TableColumn<ScannerTrade>[] = [
         )
       }
 
-      const pnl = result.unrealizedPnlPercent
-      const hasSignificantPnl = Math.abs(pnl) >= 0.05
-      const pnlColor = pnl > 0 ? 'success' : pnl < -0.05 ? 'error' : 'neutral'
-      const pnlLabel = hasSignificantPnl
-        ? `${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%`
-        : null
-
-      return h(UBadge, { color: pnlColor, variant: 'subtle', size: 'sm', class: 'gap-1' }, () => [
-        h(UIcon, { name: 'i-lucide-check-circle', class: 'size-3.5 shrink-0' }),
-        ...(pnlLabel ? [pnlLabel] : [])
+      return h(UBadge, { color: 'success', variant: 'subtle', size: 'sm', class: 'gap-1' }, () => [
+        h(UIcon, { name: 'i-lucide-check-circle', class: 'size-3.5 shrink-0' })
       ])
     }
   },
