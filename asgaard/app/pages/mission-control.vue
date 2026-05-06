@@ -973,7 +973,7 @@ const tradesTableUi = computed(() => ({
           >
             <span class="text-sm">
               {{ positionSizingSettings.instrumentMode === 'OPTION' ? 'Options' : 'Stock' }}
-              &middot; {{ formatUsd(positionSizingSettings.portfolioValue, false) }}
+              &middot; {{ formatUsd(currentEquity, false) }}
               &middot; {{ effectiveRiskPercentage.toFixed(2) }}% risk
               &middot; {{ positionSizingSettings.nAtr }}x ATR
               &middot; {{ portfolioUtilization.toFixed(0) }}% utilized
@@ -993,7 +993,7 @@ const tradesTableUi = computed(() => ({
                   />
                 </NuxtLink>
               </div>
-              <div class="grid grid-cols-4 gap-4 text-sm">
+              <div class="grid grid-cols-5 gap-4 text-sm">
                 <div>
                   <span class="text-muted">Instrument</span>
                   <div class="flex mt-1">
@@ -1017,6 +1017,12 @@ const tradesTableUi = computed(() => ({
                   <span class="text-muted">Starting Capital</span>
                   <p class="font-medium">
                     {{ formatUsd(positionSizingSettings.portfolioValue, false) }}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-muted">Current Equity</span>
+                  <p class="font-medium">
+                    {{ formatUsd(currentEquity, false) }}
                   </p>
                 </div>
                 <div>
