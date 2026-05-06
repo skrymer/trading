@@ -274,7 +274,7 @@ class DynamicStrategyBuilder(
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }
 
-  private fun buildExitCondition(config: ConditionConfig): ExitCondition {
+  fun buildExitCondition(config: ConditionConfig): ExitCondition {
     logger.info("Building exit condition: type=${config.type}, params=${config.parameters}")
     val condition =
       when (config.type.lowercase()) {

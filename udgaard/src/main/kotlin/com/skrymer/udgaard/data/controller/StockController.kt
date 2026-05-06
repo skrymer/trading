@@ -2,8 +2,10 @@ package com.skrymer.udgaard.data.controller
 
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationRequest
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
+import com.skrymer.udgaard.backtesting.dto.ExitConditionEvaluationRequest
 import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
 import com.skrymer.udgaard.backtesting.dto.StockConditionSignals
+import com.skrymer.udgaard.backtesting.dto.StockExitConditionSignals
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
@@ -288,6 +290,57 @@ class StockController(
       ResponseEntity.ok(result)
     } catch (e: IllegalArgumentException) {
       logger.error("Invalid condition configuration: ${e.message}", e)
+      ResponseEntity.badRequest().build()
+    }
+  }
+
+  /**
+   * Evaluate individual exit conditions on a stock's data from a hypothetical entry date.
+   * Returns post-entry quotes where the operator-combined exit conditions fire.
+   *
+   * Example: POST /api/stocks/AAPL/exit-condition-signals
+   * Body: { "conditions": [{"type": "stopLoss", "parameters": {"atrMultiplier": 2.5}}],
+   *         "operator": "OR", "entryDate": "2026-02-03" }
+   *
+   * Returns 400 when the request is empty, the entry date doesn't match a quote in the symbol's
+   * history, or a condition config is malformed.
+   */
+  @PostMapping("/{symbol}/exit-condition-signals")
+  @Transactional(readOnly = true)
+  fun evaluateExitConditions(
+    @PathVariable symbol: String,
+    @RequestBody request: ExitConditionEvaluationRequest,
+  ): ResponseEntity<StockExitConditionSignals> {
+    logger.info(
+      "Evaluating ${request.conditions.size} exit conditions on $symbol from entryDate=${request.entryDate} " +
+        "with operator=${request.operator}",
+    )
+
+    if (request.conditions.isEmpty()) {
+      return ResponseEntity.badRequest().build()
+    }
+
+    val stock =
+      stockService.getStock(symbol) ?: run {
+        logger.error("Stock not found: $symbol")
+        return ResponseEntity.notFound().build()
+      }
+
+    return try {
+      val result =
+        strategySignalService.evaluateExitConditions(
+          stock = stock,
+          conditionConfigs = request.conditions,
+          operator = request.operator,
+          entryDate = request.entryDate,
+        )
+      logger.info(
+        "Exit condition evaluation for $symbol from ${request.entryDate}: " +
+          "${result.matchingQuotes}/${result.totalQuotes} post-entry quotes matched",
+      )
+      ResponseEntity.ok(result)
+    } catch (e: IllegalArgumentException) {
+      logger.error("Invalid exit condition request: ${e.message}", e)
       ResponseEntity.badRequest().build()
     }
   }

@@ -94,6 +94,16 @@
                 >
                   Show Conditions
                 </UButton>
+
+                <UButton
+                  icon="i-heroicons-arrow-down-tray"
+                  color="error"
+                  variant="soft"
+                  :loading="loadingExitConditions"
+                  @click="showExitConditionModal = true"
+                >
+                  Show Exit Conditions
+                </UButton>
               </div>
 
               <!-- Condition Signals Info Bar -->
@@ -115,6 +125,26 @@
                 </UButton>
               </div>
 
+              <!-- Exit Condition Signals Info Bar -->
+              <div v-if="exitConditionSignalsData" class="flex items-center gap-4 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg">
+                <UIcon name="i-heroicons-arrow-down-tray" class="text-red-600 dark:text-red-400 flex-shrink-0" />
+                <div class="text-sm flex-1">
+                  Entry <span class="font-mono">{{ exitConditionSignalsData.entryDate }}</span> —
+                  <span class="font-medium">{{ exitConditionSignalsData.matchingQuotes }}</span> of
+                  <span class="font-medium">{{ exitConditionSignalsData.totalQuotes }}</span> post-entry quotes fired
+                  ({{ exitConditionSignalsData.conditionDescriptions.join(` ${exitConditionSignalsData.operator} `) }})
+                </div>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-heroicons-x-mark"
+                  @click="exitConditionSignalsData = null"
+                >
+                  Clear
+                </UButton>
+              </div>
+
               <StockPriceChart
                 v-if="selectedStock.quotes && selectedStock.quotes.length > 0"
                 :quotes="selectedStock.quotes"
@@ -123,6 +153,7 @@
                 :signals="signalsData"
                 :entry-strategy="selectedEntryStrategy"
                 :condition-signals="conditionSignalsData"
+                :exit-condition-signals="exitConditionSignalsData"
               />
 
               <!-- Strategy Signals Table -->
@@ -136,6 +167,12 @@
               <ConditionSignalsTable
                 v-if="conditionSignalsData"
                 :condition-signals="conditionSignalsData"
+              />
+
+              <!-- Exit Condition Signals Table -->
+              <ExitConditionSignalsTable
+                v-if="exitConditionSignalsData"
+                :exit-condition-signals="exitConditionSignalsData"
               />
             </div>
           </template>
@@ -219,12 +256,19 @@
         v-model:open="showConditionModal"
         @evaluate="evaluateConditions"
       />
+
+      <!-- Exit Condition Config Modal -->
+      <ExitConditionConfigModal
+        v-model:open="showExitConditionModal"
+        :available-quote-dates="stockQuoteDates"
+        @evaluate="evaluateExitConditions"
+      />
     </template>
   </UDashboardPanel>
 </template>
 
 <script setup lang="ts">
-import type { Stock, MarketBreadthDaily, SectorBreadthDaily, ConditionConfig, StockConditionSignals } from '~/types'
+import type { Stock, MarketBreadthDaily, SectorBreadthDaily, ConditionConfig, StockConditionSignals, StockExitConditionSignals } from '~/types'
 import { getSectorName } from '~/types/enums'
 
 // Page meta
@@ -269,6 +313,12 @@ const signalsData = ref<any>(null)
 const showConditionModal = ref(false)
 const conditionSignalsData = ref<StockConditionSignals | null>(null)
 const loadingConditions = ref(false)
+const showExitConditionModal = ref(false)
+const exitConditionSignalsData = ref<StockExitConditionSignals | null>(null)
+const loadingExitConditions = ref(false)
+const stockQuoteDates = computed<string[]>(() =>
+  selectedStock.value?.quotes?.map((q: any) => q.date as string).filter(Boolean) ?? []
+)
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
 const marketBreadthData = ref<MarketBreadthDaily[]>([])
 const sectorBreadthData = ref<SectorBreadthDaily[]>([])
@@ -386,6 +436,7 @@ const fetchSignals = async () => {
 
   loadingSignals.value = true
   conditionSignalsData.value = null
+  exitConditionSignalsData.value = null
   try {
     const url = `/udgaard/api/stocks/${selectedSymbol.value}/signals?entryStrategy=${selectedEntryStrategy.value}&exitStrategy=${selectedExitStrategy.value}&cooldownDays=${cooldownDays.value}`
     const data = await $fetch(url)
@@ -440,7 +491,47 @@ const evaluateConditions = async (conditions: ConditionConfig[], operator: 'AND'
   }
 }
 
+const evaluateExitConditions = async (conditions: ConditionConfig[], operator: 'AND' | 'OR', entryDate: string) => {
+  if (!selectedSymbol.value || conditions.length === 0) return
+  loadingExitConditions.value = true
+  try {
+    const data = await $fetch<StockExitConditionSignals>(
+      `/udgaard/api/stocks/${selectedSymbol.value}/exit-condition-signals`,
+      {
+        method: 'POST',
+        body: { conditions, operator, entryDate }
+      }
+    )
+    exitConditionSignalsData.value = data
+    useToast().add({
+      title: 'Exit Conditions Evaluated',
+      description: `${data.matchingQuotes} of ${data.totalQuotes} post-entry quotes fired`,
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Failed to evaluate exit conditions:', error)
+    useToast().add({
+      title: 'Error',
+      description: 'Failed to evaluate exit conditions',
+      color: 'error'
+    })
+    exitConditionSignalsData.value = null
+  } finally {
+    loadingExitConditions.value = false
+  }
+}
+
+// Clears every signal/condition payload that was bound to the previously displayed stock.
+// Centralized so refreshes, fetch failures, and symbol switches can't leak stale chart markers
+// or info bars into a fresh view.
+const clearAllSignals = () => {
+  signalsData.value = null
+  conditionSignalsData.value = null
+  exitConditionSignalsData.value = null
+}
+
 const fetchStockData = async (symbol: string, refresh = false) => {
+  clearAllSignals()
   loading.value = true
   try {
     const params = new URLSearchParams()
@@ -502,7 +593,6 @@ onMounted(async () => {
 
 // Watch for symbol changes and clear signals
 watch(selectedSymbol, () => {
-  signalsData.value = null
-  conditionSignalsData.value = null
+  clearAllSignals()
 })
 </script>

@@ -6,6 +6,7 @@ import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
 import com.skrymer.udgaard.backtesting.dto.QuoteWithConditions
 import com.skrymer.udgaard.backtesting.dto.QuoteWithSignal
 import com.skrymer.udgaard.backtesting.dto.StockConditionSignals
+import com.skrymer.udgaard.backtesting.dto.StockExitConditionSignals
 import com.skrymer.udgaard.backtesting.dto.StockWithSignals
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
@@ -194,6 +195,68 @@ class StrategySignalService(
       operator = operator,
       conditionDescriptions = conditions.map { it.description() },
       totalQuotes = sortedQuotes.size,
+      matchingQuotes = matchingQuotes.size,
+      quotesWithConditions = matchingQuotes,
+    )
+  }
+
+  /**
+   * Evaluate individual exit conditions on a stock's history from a hypothetical entry.
+   * Returns only quotes (strictly after `entryDate`) where the operator-combined result is true,
+   * with per-condition diagnostic details for each fired bar.
+   *
+   * Pinning model: every condition gets the same `entryQuote` (the quote on `entryDate`) and the
+   * shared `BacktestContext`. All current `ExitCondition` implementations are pure functions of
+   * `(stock, entryQuote, quote)` — even the trailing-stop variants recompute their running high
+   * from `stock.quotes` on each call (`ATRTrailingStopLoss.kt:36-40`). If a future stateful
+   * condition is added that caches between calls, the per-quote evaluation model breaks and this
+   * method needs a per-evaluation cache or a fold-style API.
+   *
+   * @throws IllegalArgumentException when no quote in `stock.quotes` matches `entryDate`. The
+   *   modal-level guard on the frontend prevents this in normal use; the throw is defense-in-depth
+   *   for direct API hits.
+   */
+  fun evaluateExitConditions(
+    stock: Stock,
+    conditionConfigs: List<ConditionConfig>,
+    operator: String = "OR",
+    entryDate: java.time.LocalDate,
+  ): StockExitConditionSignals {
+    val entryQuote =
+      stock.quotes.firstOrNull { it.date == entryDate }
+        ?: throw IllegalArgumentException("No quote for entry date $entryDate in ${stock.symbol}'s history")
+    val context = buildContext()
+    val conditions = conditionConfigs.map { dynamicStrategyBuilder.buildExitCondition(it) }
+    val logicalOp = if (operator.uppercase() == "AND") LogicalOperator.AND else LogicalOperator.OR
+
+    val postEntryQuotes = stock.quotes.sortedBy { it.date }.filter { it.date.isAfter(entryDate) }
+    val matchingQuotes =
+      postEntryQuotes.mapNotNull { quote ->
+        val results = conditions.map { it.evaluateWithDetails(stock, entryQuote, quote, context) }
+        val allMet =
+          when (logicalOp) {
+            LogicalOperator.AND -> results.all { it.passed }
+            LogicalOperator.OR -> results.any { it.passed }
+            else -> results.any { it.passed }
+          }
+        if (allMet) {
+          QuoteWithConditions(
+            date = quote.date,
+            closePrice = quote.closePrice,
+            allConditionsMet = true,
+            conditionResults = results,
+          )
+        } else {
+          null
+        }
+      }
+
+    return StockExitConditionSignals(
+      symbol = stock.symbol,
+      operator = operator,
+      entryDate = entryDate,
+      conditionDescriptions = conditions.map { it.description() },
+      totalQuotes = postEntryQuotes.size,
       matchingQuotes = matchingQuotes.size,
       quotesWithConditions = matchingQuotes,
     )

@@ -32,3 +32,30 @@ data class StockConditionSignals(
   val matchingQuotes: Int,
   val quotesWithConditions: List<QuoteWithConditions>,
 )
+
+/**
+ * Request body for evaluating exit conditions on a stock from a hypothetical entry date.
+ *
+ * `entryDate` must match an existing quote in the stock's history; the service rejects
+ * dates with no matching quote so silent fall-throughs (entry-quote-needing conditions
+ * returning false because `entryQuote == null`) can't surprise the caller.
+ */
+data class ExitConditionEvaluationRequest(
+  val conditions: List<ConditionConfig>,
+  val operator: String = "OR",
+  val entryDate: LocalDate,
+)
+
+/**
+ * Response for exit-condition evaluation on a stock.
+ * `totalQuotes` counts only quotes strictly after `entryDate` (the evaluation window).
+ */
+data class StockExitConditionSignals(
+  val symbol: String,
+  val operator: String,
+  val entryDate: LocalDate,
+  val conditionDescriptions: List<String>,
+  val totalQuotes: Int,
+  val matchingQuotes: Int,
+  val quotesWithConditions: List<QuoteWithConditions>,
+)

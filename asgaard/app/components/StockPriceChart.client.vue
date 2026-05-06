@@ -160,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import type { StockQuote, OrderBlock, StockConditionSignals } from '~/types'
+import type { StockQuote, OrderBlock, StockConditionSignals, StockExitConditionSignals } from '~/types'
 
 const props = defineProps<{
   quotes: StockQuote[]
@@ -169,6 +169,7 @@ const props = defineProps<{
   signals?: any
   entryStrategy?: string
   conditionSignals?: StockConditionSignals | null
+  exitConditionSignals?: StockExitConditionSignals | null
 }>()
 
 const chartContainer = ref<HTMLElement | null>(null)
@@ -737,6 +738,41 @@ function updateMarkers() {
     })
   }
 
+  // Add exit-condition signal markers (red ▼ above bar)
+  // Distinct from entry-condition markers (green ○ below bar) so the two layers don't compete
+  // visually. When the user has evaluated both layers and they fire on the same bar, the
+  // entry-condition writer above wins the signalDataMap entry (it runs first); click-through
+  // therefore shows the entry-condition modal. The exit detail for that bar is still visible in
+  // the dedicated ExitConditionSignalsTable below the chart, so no information is lost.
+  if (props.exitConditionSignals?.quotesWithConditions) {
+    props.exitConditionSignals.quotesWithConditions.forEach((qwc) => {
+      const time = (new Date(qwc.date).getTime() / 1000) as any
+      const fired = qwc.conditionResults.filter(r => r.passed).length
+      const total = qwc.conditionResults.length
+      markers.push({
+        time,
+        position: 'aboveBar',
+        color: '#ef4444',
+        shape: 'arrowDown',
+        text: `${fired}/${total}`
+      })
+
+      if (!signalDataMap.has(time)) {
+        signalDataMap.set(time, {
+          date: qwc.date,
+          price: qwc.closePrice,
+          entryDetails: {
+            strategyName: 'Exit Condition Evaluation',
+            strategyDescription: `From entry ${props.exitConditionSignals!.entryDate} — `
+              + props.exitConditionSignals!.conditionDescriptions.join(` ${props.exitConditionSignals!.operator} `),
+            conditions: qwc.conditionResults,
+            allConditionsMet: qwc.allConditionsMet
+          }
+        })
+      }
+    })
+  }
+
   // Use the plugin's setMarkers method
   seriesMarkersPlugin.setMarkers(markers)
 }
@@ -855,6 +891,11 @@ watch(() => props.signals, () => {
 
 // Watch for condition signals changes
 watch(() => props.conditionSignals, () => {
+  updateMarkers()
+}, { deep: true })
+
+// Watch for exit-condition signals changes
+watch(() => props.exitConditionSignals, () => {
   updateMarkers()
 }, { deep: true })
 
