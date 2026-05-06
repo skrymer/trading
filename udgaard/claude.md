@@ -34,7 +34,7 @@ udgaard/
 │   │   ├── dto/                      # DTOs
 │   │   │   ├── StrategyConfigDto.kt
 │   │   │   ├── MonteCarloRequestDto.kt
-│   │   │   ├── ConditionSignalDtos.kt
+│   │   │   ├── ConditionSignalDtos.kt   # ConditionEvaluationRequest, StockConditionSignals (entry); ExitConditionEvaluationRequest, StockExitConditionSignals (exit)
 │   │   │   ├── ConditionEvaluationResult.kt
 │   │   │   └── StockWithSignals.kt
 │   │   ├── model/                    # Domain models

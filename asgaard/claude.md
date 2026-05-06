@@ -109,8 +109,10 @@ asgaard/
 │   │   ├── SymbolLink.vue        # Symbol link with NuxtLink + TradingView link
 │   │   ├── SymbolSearch.vue      # Symbol search autocomplete
 │   │   ├── UserMenu.vue          # User menu dropdown
-│   │   ├── ConditionConfigModal.vue   # Condition configuration modal
-│   │   └── ConditionSignalsTable.vue  # Condition signals display table
+│   │   ├── ConditionConfigModal.vue   # Entry condition configuration modal
+│   │   ├── ConditionSignalsTable.vue  # Entry condition signals display table
+│   │   ├── ExitConditionConfigModal.vue   # Exit condition configuration modal
+│   │   └── ExitConditionSignalsTable.vue  # Exit condition signals display table (red ▼ markers above bars)
 │   ├── plugins/
 │   │   ├── apexcharts.client.ts  # ApexCharts plugin (client-only)
 │   │   └── auth-interceptor.client.ts  # Auth interceptor plugin (client-only)

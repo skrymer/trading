@@ -1414,3 +1414,19 @@ export interface StockConditionSignals {
   matchingQuotes: number
   quotesWithConditions: QuoteWithConditions[]
 }
+
+export interface ExitConditionEvaluationRequest {
+  conditions: ConditionConfig[]
+  operator: string
+  entryDate: string
+}
+
+export interface StockExitConditionSignals {
+  symbol: string
+  operator: string
+  entryDate: string
+  conditionDescriptions: string[]
+  totalQuotes: number
+  matchingQuotes: number
+  quotesWithConditions: QuoteWithConditions[]
+}
