@@ -8,7 +8,7 @@ Vocabulary: **module** = anything with an interface + impl; **deep** = high leve
 
 | # | Candidate | Smell | Scope | Status |
 |---|-----------|-------|-------|--------|
-| 1 | `StockPriceChart` chart-marker module | parallel watcher blocks + prop explosion | Small | Planned (see [chart-marker-deepening.md](chart-marker-deepening.md)) |
+| 1 | `StockPriceChart` chart-marker module | parallel watcher blocks + prop explosion | Small | ✅ Completed (PR #11) — see [chart-marker-deepening.md](chart-marker-deepening.md) |
 | 2 | `DynamicStrategyBuilder` `when{}` factory | shallow abstraction (interface ≪ impl) | Medium | Open |
 | 3 | `ScannerService` 5-hat module | pass-through + multi-cohesion | Medium | Open |
 | 4 | Mirrored Condition modal + table pairs | mirrored modules, parallel maintenance | Medium | Open |
