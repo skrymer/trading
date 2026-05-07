@@ -150,10 +150,8 @@
                 :quotes="selectedStock.quotes"
                 :order-blocks="selectedStock.orderBlocks || []"
                 :symbol="selectedStock.symbol"
-                :signals="signalsData"
                 :entry-strategy="selectedEntryStrategy"
-                :condition-signals="conditionSignalsData"
-                :exit-condition-signals="exitConditionSignalsData"
+                :markers="chartMarkers"
               />
 
               <!-- Strategy Signals Table -->
@@ -268,7 +266,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Stock, MarketBreadthDaily, SectorBreadthDaily, ConditionConfig, StockConditionSignals, StockExitConditionSignals } from '~/types'
+import type { Stock, MarketBreadthDaily, SectorBreadthDaily, ConditionConfig, StockConditionSignals, StockExitConditionSignals, ChartMarker } from '~/types'
+import { strategySignalsToMarkers, conditionSignalsToMarkers, exitConditionSignalsToMarkers } from '~/utils/chart-markers'
 import { getSectorName } from '~/types/enums'
 
 // Page meta
@@ -319,6 +318,15 @@ const loadingExitConditions = ref(false)
 const stockQuoteDates = computed<string[]>(() =>
   selectedStock.value?.quotes?.map((q: any) => q.date as string).filter(Boolean) ?? []
 )
+
+// Merged marker list passed to StockPriceChart. Spread order = same-bar collision precedence:
+// strategy entry/exit first, then entry-condition, then exit-condition. The first marker with
+// a click-through `detail` for a given bar wins the modal entry.
+const chartMarkers = computed<ChartMarker[]>(() => [
+  ...strategySignalsToMarkers(signalsData.value),
+  ...conditionSignalsToMarkers(conditionSignalsData.value),
+  ...exitConditionSignalsToMarkers(exitConditionSignalsData.value)
+])
 const heatmapMonths = ref<{ label: string, value: number }>({ label: '3 Months', value: 3 })
 const marketBreadthData = ref<MarketBreadthDaily[]>([])
 const sectorBreadthData = ref<SectorBreadthDaily[]>([])

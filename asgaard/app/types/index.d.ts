@@ -1430,3 +1430,31 @@ export interface StockExitConditionSignals {
   matchingQuotes: number
   quotesWithConditions: QuoteWithConditions[]
 }
+
+// Chart marker plumbing — see docs/architecture/chart-marker-deepening.md
+// StockPriceChart accepts a flat `markers: ChartMarker[]` prop; callers map
+// each signal source (strategy / entry-condition / exit-condition / future) to
+// markers via the helpers in `app/utils/chart-markers.ts`. Same-bar collisions
+// resolve in array order — the first marker with a `detail` payload wins the
+// click-through modal entry for that bar.
+export interface ChartMarker {
+  time: number
+  position: 'aboveBar' | 'belowBar' | 'inBar'
+  color: string
+  shape: 'arrowUp' | 'arrowDown' | 'circle' | 'square'
+  text?: string
+  detail?: ChartMarkerDetail
+}
+
+export interface ChartMarkerDetail {
+  date: string
+  price: number
+  // Field name preserved as `entryDetails` because that's the existing shape
+  // ChartsSignalDetailsModal consumes; renaming the modal contract is out of scope.
+  entryDetails: {
+    strategyName: string
+    strategyDescription: string
+    conditions: ConditionEvaluationResult[]
+    allConditionsMet: boolean
+  }
+}
