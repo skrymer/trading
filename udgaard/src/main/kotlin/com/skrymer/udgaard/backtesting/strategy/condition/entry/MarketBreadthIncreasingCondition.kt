@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -59,7 +60,7 @@ class MarketBreadthIncreasingCondition(
             name = "days",
             displayName = "Days",
             type = "number",
-            defaultValue = 3,
+            defaultValue = days,
             min = 1,
             max = 20,
           ),
@@ -103,4 +104,9 @@ class MarketBreadthIncreasingCondition(
     }
     return count
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    MarketBreadthIncreasingCondition(
+      days = parameters.intOr("days", days),
+    )
 }

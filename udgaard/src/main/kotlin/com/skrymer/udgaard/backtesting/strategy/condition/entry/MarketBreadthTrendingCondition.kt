@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -44,7 +45,7 @@ class MarketBreadthTrendingCondition(
             name = "minWidth",
             displayName = "Min Donchian Width",
             type = "number",
-            defaultValue = 20.0,
+            defaultValue = minWidth,
             min = 5.0,
             max = 50.0,
           ),
@@ -91,4 +92,9 @@ class MarketBreadthTrendingCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    MarketBreadthTrendingCondition(
+      minWidth = parameters.numberOr("minWidth", minWidth),
+    )
 }

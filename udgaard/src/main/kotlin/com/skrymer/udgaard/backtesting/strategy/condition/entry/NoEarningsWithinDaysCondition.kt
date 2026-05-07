@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -51,7 +52,7 @@ class NoEarningsWithinDaysCondition(
             name = "days",
             displayName = "Days to Look Ahead",
             type = "number",
-            defaultValue = 7,
+            defaultValue = days,
             min = 0,
             max = 30,
             options = listOf("0", "1", "3", "5", "7", "14", "21", "30"),
@@ -101,4 +102,9 @@ class NoEarningsWithinDaysCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    NoEarningsWithinDaysCondition(
+      days = parameters.intOr("days", days),
+    )
 }

@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -58,14 +60,14 @@ class ValueZoneCondition(
             name = "emaPeriod",
             displayName = "EMA Period",
             type = "number",
-            defaultValue = 20,
+            defaultValue = emaPeriod,
             options = listOf("5", "10", "20", "50", "100", "200"),
           ),
           ParameterMetadata(
             name = "atrMultiplier",
             displayName = "ATR Multiplier",
             type = "number",
-            defaultValue = 2.0,
+            defaultValue = atrMultiplier,
             min = 0.5,
             max = 5.0,
           ),
@@ -112,4 +114,10 @@ class ValueZoneCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    ValueZoneCondition(
+      atrMultiplier = parameters.numberOr("atrMultiplier", atrMultiplier),
+      emaPeriod = parameters.intOr("emaPeriod", emaPeriod),
+    )
 }

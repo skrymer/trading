@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -44,7 +45,7 @@ class PriceAboveEmaCondition(
             name = "emaPeriod",
             displayName = "EMA Period",
             type = "number",
-            defaultValue = 10,
+            defaultValue = emaPeriod,
             options = listOf("5", "10", "20", "50", "100", "200"),
           ),
         ),
@@ -85,4 +86,9 @@ class PriceAboveEmaCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    PriceAboveEmaCondition(
+      emaPeriod = parameters.intOr("emaPeriod", emaPeriod),
+    )
 }

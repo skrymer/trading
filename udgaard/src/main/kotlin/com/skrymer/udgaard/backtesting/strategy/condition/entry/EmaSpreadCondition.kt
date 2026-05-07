@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -47,7 +49,7 @@ class EmaSpreadCondition(
             name = "fastEmaPeriod",
             displayName = "Fast EMA Period",
             type = "number",
-            defaultValue = 10,
+            defaultValue = fastEmaPeriod,
             min = 5,
             max = 50,
           ),
@@ -55,7 +57,7 @@ class EmaSpreadCondition(
             name = "slowEmaPeriod",
             displayName = "Slow EMA Period",
             type = "number",
-            defaultValue = 20,
+            defaultValue = slowEmaPeriod,
             min = 10,
             max = 200,
           ),
@@ -63,7 +65,7 @@ class EmaSpreadCondition(
             name = "minSpreadPercent",
             displayName = "Min Spread %",
             type = "number",
-            defaultValue = 1.0,
+            defaultValue = minSpreadPercent,
             min = 0,
             max = 10,
           ),
@@ -100,6 +102,13 @@ class EmaSpreadCondition(
         },
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    EmaSpreadCondition(
+      fastEmaPeriod = parameters.intOr("fastEmaPeriod", fastEmaPeriod),
+      slowEmaPeriod = parameters.intOr("slowEmaPeriod", slowEmaPeriod),
+      minSpreadPercent = parameters.numberOr("minSpreadPercent", minSpreadPercent),
+    )
 
   companion object {
     fun getEma(

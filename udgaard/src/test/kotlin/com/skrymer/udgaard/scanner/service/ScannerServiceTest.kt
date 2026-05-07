@@ -3,7 +3,6 @@ package com.skrymer.udgaard.scanner.service
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
-import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
@@ -53,7 +52,6 @@ class ScannerServiceTest {
   private lateinit var stockService: StockService
   private lateinit var symbolService: SymbolService
   private lateinit var strategyRegistry: StrategyRegistry
-  private lateinit var dynamicStrategyBuilder: DynamicStrategyBuilder
   private lateinit var sectorBreadthRepository: SectorBreadthRepository
   private lateinit var marketBreadthRepository: MarketBreadthRepository
   private lateinit var settingsService: SettingsService
@@ -67,7 +65,6 @@ class ScannerServiceTest {
     stockService = mock()
     symbolService = mock()
     strategyRegistry = mock()
-    dynamicStrategyBuilder = mock()
     sectorBreadthRepository = mock()
     marketBreadthRepository = mock()
     settingsService = mock()
@@ -80,7 +77,6 @@ class ScannerServiceTest {
       stockService,
       symbolService,
       strategyRegistry,
-      dynamicStrategyBuilder,
       sectorBreadthRepository,
       marketBreadthRepository,
       settingsService,

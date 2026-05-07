@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -105,14 +106,14 @@ class EmaCrossExit(
             name = "fastEma",
             displayName = "Fast EMA",
             type = "number",
-            defaultValue = 10,
+            defaultValue = fastEma,
             options = listOf("5", "10", "20"),
           ),
           ParameterMetadata(
             name = "slowEma",
             displayName = "Slow EMA",
             type = "number",
-            defaultValue = 20,
+            defaultValue = slowEma,
             options = listOf("10", "20", "50"),
           ),
         ),
@@ -165,4 +166,10 @@ class EmaCrossExit(
       50 -> quote.closePriceEMA50
       else -> 0.0
     }
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    EmaCrossExit(
+      fastEma = parameters.intOr("fastEma", fastEma),
+      slowEma = parameters.intOr("slowEma", slowEma),
+    )
 }

@@ -22,14 +22,14 @@ import java.time.LocalDate
 
 class StrategySignalServiceTest {
   private lateinit var service: StrategySignalService
-  private lateinit var dynamicStrategyBuilder: DynamicStrategyBuilder
+  private lateinit var conditionRegistry: ConditionRegistry
   private lateinit var stockRepository: StockJooqRepository
   private lateinit var sectorBreadthRepository: SectorBreadthRepository
   private lateinit var marketBreadthRepository: MarketBreadthRepository
 
   @BeforeEach
   fun setUp() {
-    dynamicStrategyBuilder = mock(DynamicStrategyBuilder::class.java)
+    conditionRegistry = mock(ConditionRegistry::class.java)
     stockRepository = mock(StockJooqRepository::class.java)
     sectorBreadthRepository = mock(SectorBreadthRepository::class.java)
     marketBreadthRepository = mock(MarketBreadthRepository::class.java)
@@ -40,7 +40,7 @@ class StrategySignalServiceTest {
     service =
       StrategySignalService(
         strategyRegistry = mock(StrategyRegistry::class.java),
-        dynamicStrategyBuilder = dynamicStrategyBuilder,
+        conditionRegistry = conditionRegistry,
         marketBreadthRepository = marketBreadthRepository,
         sectorBreadthRepository = sectorBreadthRepository,
         stockRepository = stockRepository,
@@ -52,7 +52,7 @@ class StrategySignalServiceTest {
     // Given: stock with 4 quotes; condition that fires when closePrice >= 105
     val stock = stockWithCloses(LocalDate.of(2026, 1, 5), listOf(100.0, 102.0, 106.0, 110.0))
     val firesAtCloseGte105 = exitConditionWhere { _, _, q -> q.closePrice >= 105.0 }
-    whenever(dynamicStrategyBuilder.buildExitCondition(any())).thenReturn(firesAtCloseGte105)
+    whenever(conditionRegistry.buildExitCondition(any())).thenReturn(firesAtCloseGte105)
 
     // When: evaluate from the first quote (entryDate = 2026-01-05, close=100)
     val result = service.evaluateExitConditions(stock, listOf(ConditionConfig("stopLoss")), "OR", LocalDate.of(2026, 1, 5))
@@ -69,7 +69,7 @@ class StrategySignalServiceTest {
     // Given: stock with 4 quotes; condition that fires on every bar
     val stock = stockWithCloses(LocalDate.of(2026, 1, 5), listOf(100.0, 102.0, 106.0, 110.0))
     val alwaysFires = exitConditionWhere { _, _, _ -> true }
-    whenever(dynamicStrategyBuilder.buildExitCondition(any())).thenReturn(alwaysFires)
+    whenever(conditionRegistry.buildExitCondition(any())).thenReturn(alwaysFires)
 
     // When
     val result = service.evaluateExitConditions(stock, listOf(ConditionConfig("any")), "OR", LocalDate.of(2026, 1, 5))
@@ -86,7 +86,7 @@ class StrategySignalServiceTest {
     val stock = stockWithCloses(LocalDate.of(2026, 1, 5), listOf(100.0, 102.0, 104.0, 110.0))
     val firesAtClose110 = exitConditionWhere { _, _, q -> q.closePrice >= 110.0 }
     val neverFires = exitConditionWhere { _, _, _ -> false }
-    whenever(dynamicStrategyBuilder.buildExitCondition(any()))
+    whenever(conditionRegistry.buildExitCondition(any()))
       .thenReturn(firesAtClose110)
       .thenReturn(neverFires)
 
@@ -108,7 +108,7 @@ class StrategySignalServiceTest {
   fun `evaluateExitConditions throws when entryDate has no matching quote`() {
     // Given: a stock whose history doesn't include the requested entry date
     val stock = stockWithCloses(LocalDate.of(2026, 1, 5), listOf(100.0, 102.0))
-    whenever(dynamicStrategyBuilder.buildExitCondition(any())).thenReturn(exitConditionWhere { _, _, _ -> true })
+    whenever(conditionRegistry.buildExitCondition(any())).thenReturn(exitConditionWhere { _, _, _ -> true })
 
     // When / Then: defense-in-depth for direct API hits past the modal guard
     val ex =
@@ -166,8 +166,10 @@ class StrategySignalServiceTest {
             parameters = emptyList(),
             category = "x",
           )
+
+        override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
       }
-    whenever(dynamicStrategyBuilder.buildExitCondition(any())).thenReturn(contextRecorder)
+    whenever(conditionRegistry.buildExitCondition(any())).thenReturn(contextRecorder)
 
     // When
     val result =
@@ -204,5 +206,7 @@ class StrategySignalServiceTest {
 
       override fun getMetadata(): ConditionMetadata =
         ConditionMetadata(type = "test", displayName = "test", description = "test", parameters = emptyList(), category = "test")
+
+      override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
     }
 }

@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -44,7 +45,7 @@ class PriceNearDonchianHighCondition(
             name = "maxDistancePercent",
             displayName = "Max Distance %",
             type = "number",
-            defaultValue = 1.5,
+            defaultValue = maxDistancePercent,
             min = 0,
             max = 10,
           ),
@@ -79,4 +80,9 @@ class PriceNearDonchianHighCondition(
         },
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    PriceNearDonchianHighCondition(
+      maxDistancePercent = parameters.numberOr("maxDistancePercent", maxDistancePercent),
+    )
 }

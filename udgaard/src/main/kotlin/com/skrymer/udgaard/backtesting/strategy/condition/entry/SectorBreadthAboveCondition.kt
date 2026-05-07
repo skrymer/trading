@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -40,7 +41,7 @@ class SectorBreadthAboveCondition(
             name = "threshold",
             displayName = "Threshold",
             type = "number",
-            defaultValue = 50.0,
+            defaultValue = threshold,
             min = 0,
             max = 100,
           ),
@@ -72,4 +73,9 @@ class SectorBreadthAboveCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    SectorBreadthAboveCondition(
+      threshold = parameters.numberOr("threshold", threshold),
+    )
 }

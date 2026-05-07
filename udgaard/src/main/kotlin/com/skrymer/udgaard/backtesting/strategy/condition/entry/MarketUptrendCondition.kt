@@ -56,4 +56,6 @@ class MarketUptrendCondition : EntryCondition {
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition = this
 }

@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
@@ -110,7 +111,7 @@ class OrderBlockBreakoutCondition(
             name = "consecutiveDays",
             displayName = "Consecutive Days Above",
             type = "number",
-            defaultValue = 1,
+            defaultValue = consecutiveDays,
             min = 1,
             max = 10,
           ),
@@ -118,7 +119,7 @@ class OrderBlockBreakoutCondition(
             name = "maxDaysSinceBreakout",
             displayName = "Max Days Since Breakout",
             type = "number",
-            defaultValue = 3,
+            defaultValue = maxDaysSinceBreakout,
             min = 1,
             max = 30,
           ),
@@ -126,7 +127,7 @@ class OrderBlockBreakoutCondition(
             name = "ageInDays",
             displayName = "Min OB Age (Days)",
             type = "number",
-            defaultValue = 0,
+            defaultValue = ageInDays,
             min = 0,
             max = 365,
           ),
@@ -199,4 +200,11 @@ class OrderBlockBreakoutCondition(
         },
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    OrderBlockBreakoutCondition(
+      consecutiveDays = parameters.intOr("consecutiveDays", consecutiveDays),
+      maxDaysSinceBreakout = parameters.intOr("maxDaysSinceBreakout", maxDaysSinceBreakout),
+      ageInDays = parameters.intOr("ageInDays", ageInDays),
+    )
 }

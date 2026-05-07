@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -71,14 +72,14 @@ class EmaBullishCrossCondition(
             name = "fastEma",
             displayName = "Fast EMA",
             type = "number",
-            defaultValue = 10,
+            defaultValue = fastEma,
             options = listOf("5", "10", "20"),
           ),
           ParameterMetadata(
             name = "slowEma",
             displayName = "Slow EMA",
             type = "number",
-            defaultValue = 20,
+            defaultValue = slowEma,
             options = listOf("10", "20", "50"),
           ),
         ),
@@ -114,4 +115,10 @@ class EmaBullishCrossCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    EmaBullishCrossCondition(
+      fastEma = parameters.intOr("fastEma", fastEma),
+      slowEma = parameters.intOr("slowEma", slowEma),
+    )
 }

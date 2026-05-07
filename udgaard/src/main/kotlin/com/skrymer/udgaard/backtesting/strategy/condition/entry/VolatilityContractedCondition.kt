@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -57,7 +59,7 @@ class VolatilityContractedCondition(
             name = "lookbackDays",
             displayName = "Lookback Days",
             type = "number",
-            defaultValue = 10,
+            defaultValue = lookbackDays,
             min = 3,
             max = 60,
           ),
@@ -65,7 +67,7 @@ class VolatilityContractedCondition(
             name = "maxAtrMultiple",
             displayName = "Max ATR Multiple",
             type = "number",
-            defaultValue = 2.5,
+            defaultValue = maxAtrMultiple,
             min = 0.5,
             max = 10.0,
           ),
@@ -130,5 +132,11 @@ class VolatilityContractedCondition(
       actualValue = null,
       threshold = null,
       message = "$reason ✗",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    VolatilityContractedCondition(
+      lookbackDays = parameters.intOr("lookbackDays", lookbackDays),
+      maxAtrMultiple = parameters.numberOr("maxAtrMultiple", maxAtrMultiple),
     )
 }

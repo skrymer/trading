@@ -3,6 +3,8 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -121,7 +123,7 @@ class StagnationExit(
             name = "thresholdPercent",
             displayName = "Min Gain %",
             type = "number",
-            defaultValue = 3.0,
+            defaultValue = thresholdPercent,
             min = 1.0,
             max = 10.0,
           ),
@@ -129,11 +131,17 @@ class StagnationExit(
             name = "windowDays",
             displayName = "Window (trading days)",
             type = "number",
-            defaultValue = 15,
+            defaultValue = windowDays,
             min = 5,
             max = 30,
           ),
         ),
       category = "CapitalEfficiency",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    StagnationExit(
+      thresholdPercent = parameters.numberOr("thresholdPercent", thresholdPercent),
+      windowDays = parameters.intOr("windowDays", windowDays),
     )
 }

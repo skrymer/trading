@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -43,7 +44,7 @@ class BullishCandleCondition(
             name = "minPercent",
             displayName = "Min Close-Open %",
             type = "number",
-            defaultValue = 0.5,
+            defaultValue = minPercent,
             min = 0,
             max = 10,
           ),
@@ -78,4 +79,9 @@ class BullishCandleCondition(
         },
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    BullishCandleCondition(
+      minPercent = parameters.numberOr("minPercent", minPercent),
+    )
 }

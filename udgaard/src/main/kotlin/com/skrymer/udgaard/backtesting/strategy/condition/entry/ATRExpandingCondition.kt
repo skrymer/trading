@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -66,7 +68,7 @@ class ATRExpandingCondition(
             name = "minPercentile",
             displayName = "Min Percentile",
             type = "number",
-            defaultValue = 30.0,
+            defaultValue = minPercentile,
             min = 0,
             max = 100,
           ),
@@ -74,7 +76,7 @@ class ATRExpandingCondition(
             name = "maxPercentile",
             displayName = "Max Percentile",
             type = "number",
-            defaultValue = 70.0,
+            defaultValue = maxPercentile,
             min = 0,
             max = 100,
           ),
@@ -82,7 +84,7 @@ class ATRExpandingCondition(
             name = "lookbackPeriod",
             displayName = "Lookback Period (Days)",
             type = "number",
-            defaultValue = 252,
+            defaultValue = lookbackPeriod,
             min = 30,
             max = 500,
           ),
@@ -189,4 +191,11 @@ class ATRExpandingCondition(
     val countBelow = historicalValues.count { it < currentValue }
     return (countBelow.toDouble() / historicalValues.size) * 100.0
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    ATRExpandingCondition(
+      minPercentile = parameters.numberOr("minPercentile", minPercentile),
+      maxPercentile = parameters.numberOr("maxPercentile", maxPercentile),
+      lookbackPeriod = parameters.intOr("lookbackPeriod", lookbackPeriod),
+    )
 }

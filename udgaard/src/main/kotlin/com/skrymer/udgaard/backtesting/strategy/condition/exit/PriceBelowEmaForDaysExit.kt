@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -106,18 +107,24 @@ class PriceBelowEmaForDaysExit(
             name = "emaPeriod",
             displayName = "EMA Period",
             type = "number",
-            defaultValue = 10,
+            defaultValue = emaPeriod,
             options = listOf("5", "10", "20", "50"),
           ),
           ParameterMetadata(
             name = "consecutiveDays",
             displayName = "Consecutive Days",
             type = "number",
-            defaultValue = 3,
+            defaultValue = consecutiveDays,
             min = 1,
             max = 10,
           ),
         ),
       category = "StopLoss",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    PriceBelowEmaForDaysExit(
+      emaPeriod = parameters.intOr("emaPeriod", emaPeriod),
+      consecutiveDays = parameters.intOr("consecutiveDays", consecutiveDays),
     )
 }

@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -66,11 +67,16 @@ class StopLossExit(
             name = "atrMultiplier",
             displayName = "ATR Multiplier",
             type = "number",
-            defaultValue = 2.0,
+            defaultValue = atrMultiplier,
             min = 0.5,
             max = 5.0,
           ),
         ),
       category = "StopLoss",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    StopLossExit(
+      atrMultiplier = parameters.numberOr("atrMultiplier", atrMultiplier),
     )
 }

@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -46,7 +47,7 @@ class MarketBreadthNearDonchianLowCondition(
             name = "percentile",
             displayName = "Percentile",
             type = "number",
-            defaultValue = 0.10,
+            defaultValue = percentile,
             min = 0.0,
             max = 1.0,
           ),
@@ -93,4 +94,9 @@ class MarketBreadthNearDonchianLowCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    MarketBreadthNearDonchianLowCondition(
+      percentile = parameters.numberOr("percentile", percentile),
+    )
 }

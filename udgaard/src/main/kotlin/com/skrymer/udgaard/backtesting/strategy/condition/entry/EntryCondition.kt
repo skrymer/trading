@@ -56,4 +56,14 @@ interface EntryCondition {
     quote: StockQuote,
     context: BacktestContext,
   ): ConditionEvaluationResult
+
+  /**
+   * Build a configured instance of this condition from a parameter map.
+   *
+   * Called on the Spring-discovered singleton (the default-bearer): missing keys fall
+   * back to `this.field`, so the constructor's default values are the single source of
+   * truth. Unknown keys are ignored. Wire-type binding is handled upstream by
+   * `ConditionRegistry`, which routes by `getMetadata().type`.
+   */
+  fun parseConfig(parameters: Map<String, Any>): EntryCondition
 }

@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -47,12 +48,17 @@ class BeforeEarningsExit(
             name = "daysBeforeEarnings",
             displayName = "Days Before Earnings",
             type = "number",
-            defaultValue = 1,
+            defaultValue = daysBeforeEarnings,
             min = 0,
             max = 10,
             options = listOf("0", "1", "2", "3", "5", "7"),
           ),
         ),
       category = "Earnings",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    BeforeEarningsExit(
+      daysBeforeEarnings = parameters.intOr("daysBeforeEarnings", daysBeforeEarnings),
     )
 }
