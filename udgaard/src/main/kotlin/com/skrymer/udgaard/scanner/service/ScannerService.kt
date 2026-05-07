@@ -3,7 +3,6 @@ package com.skrymer.udgaard.scanner.service
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
-import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
@@ -128,7 +127,6 @@ class ScannerService(
   private val stockService: StockService,
   private val symbolService: SymbolService,
   private val strategyRegistry: StrategyRegistry,
-  private val dynamicStrategyBuilder: DynamicStrategyBuilder,
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
   private val settingsService: SettingsService,

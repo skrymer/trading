@@ -2,6 +2,8 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -39,7 +41,7 @@ class ProfitTargetExit(
             name = "atrMultiplier",
             displayName = "ATR Multiplier",
             type = "number",
-            defaultValue = 3.0,
+            defaultValue = atrMultiplier,
             min = 1.0,
             max = 10.0,
           ),
@@ -47,7 +49,7 @@ class ProfitTargetExit(
             name = "emaPeriod",
             displayName = "EMA Period",
             type = "number",
-            defaultValue = 20,
+            defaultValue = emaPeriod,
             options = listOf("10", "20", "50"),
           ),
         ),
@@ -65,4 +67,10 @@ class ProfitTargetExit(
       50 -> quote.closePriceEMA50
       else -> 0.0
     }
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    ProfitTargetExit(
+      atrMultiplier = parameters.numberOr("atrMultiplier", atrMultiplier),
+      emaPeriod = parameters.intOr("emaPeriod", emaPeriod),
+    )
 }

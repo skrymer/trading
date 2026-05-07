@@ -3,6 +3,8 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -128,18 +130,24 @@ class PriceBelowEmaMinusAtrExit(
             name = "emaPeriod",
             displayName = "EMA Period",
             type = "number",
-            defaultValue = 5,
+            defaultValue = emaPeriod,
             options = listOf("5", "10", "20", "50", "100"),
           ),
           ParameterMetadata(
             name = "atrMultiplier",
             displayName = "ATR Multiplier",
             type = "number",
-            defaultValue = 0.5,
+            defaultValue = atrMultiplier,
             min = 0.1,
             max = 5.0,
           ),
         ),
       category = "StopLoss",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    PriceBelowEmaMinusAtrExit(
+      emaPeriod = parameters.intOr("emaPeriod", emaPeriod),
+      atrMultiplier = parameters.numberOr("atrMultiplier", atrMultiplier),
     )
 }

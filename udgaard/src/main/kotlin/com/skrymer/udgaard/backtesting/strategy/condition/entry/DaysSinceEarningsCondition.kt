@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -54,7 +55,7 @@ class DaysSinceEarningsCondition(
             name = "days",
             displayName = "Days Since Earnings",
             type = "number",
-            defaultValue = 5,
+            defaultValue = days,
             min = 0,
             max = 30,
             options = listOf("0", "1", "3", "5", "7", "10", "14", "21", "30"),
@@ -98,4 +99,9 @@ class DaysSinceEarningsCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    DaysSinceEarningsCondition(
+      days = parameters.intOr("days", days),
+    )
 }

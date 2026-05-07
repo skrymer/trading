@@ -160,16 +160,14 @@
 </template>
 
 <script setup lang="ts">
-import type { StockQuote, OrderBlock, StockConditionSignals, StockExitConditionSignals } from '~/types'
+import type { StockQuote, OrderBlock, ChartMarker } from '~/types'
 
 const props = defineProps<{
   quotes: StockQuote[]
   orderBlocks: OrderBlock[]
   symbol: string
-  signals?: any
   entryStrategy?: string
-  conditionSignals?: StockConditionSignals | null
-  exitConditionSignals?: StockExitConditionSignals | null
+  markers?: ChartMarker[]
 }>()
 
 const chartContainer = ref<HTMLElement | null>(null)
@@ -660,120 +658,18 @@ onMounted(async () => {
   })
 })
 
-// Function to update markers based on signals
+// Render markers from props.markers and rebuild the click-through detail map.
+// Same-time collisions: first marker with `detail` in array order wins the map entry.
+// Caller (the page) decides ordering by spread order in its `chartMarkers` computed.
 function updateMarkers() {
-  if (!seriesMarkersPlugin) {
-    return
-  }
-
-  const markers: any[] = []
+  if (!seriesMarkersPlugin) return
   signalDataMap.clear()
-
-  // Add strategy-based entry/exit signals as markers
-  if (props.signals && props.signals.quotesWithSignals) {
-    props.signals.quotesWithSignals.forEach((quoteWithSignal: any) => {
-      const quote = quoteWithSignal.quote
-      if (!quote.date) return
-
-      const time = (new Date(quote.date).getTime() / 1000) as any
-
-      // Add entry signal marker (blue arrow up)
-      if (quoteWithSignal.entrySignal) {
-        markers.push({
-          time,
-          position: 'belowBar',
-          color: '#2563eb',
-          shape: 'arrowUp',
-          text: 'Entry'
-        })
-
-        // Store signal data for click handling
-        signalDataMap.set(time, {
-          date: quote.date,
-          price: quote.closePrice,
-          entryDetails: quoteWithSignal.entryDetails
-        })
-      }
-
-      // Add exit signal marker (orange arrow down with exit reason)
-      if (quoteWithSignal.exitSignal) {
-        const exitReason = quoteWithSignal.exitReason || 'Exit'
-        markers.push({
-          time,
-          position: 'aboveBar',
-          color: '#f97316',
-          shape: 'arrowDown',
-          text: exitReason
-        })
-      }
-    })
+  const markers = props.markers ?? []
+  for (const m of markers) {
+    if (m.detail && !signalDataMap.has(m.time)) {
+      signalDataMap.set(m.time, m.detail)
+    }
   }
-
-  // Add condition signal markers (green circles)
-  if (props.conditionSignals?.quotesWithConditions) {
-    props.conditionSignals.quotesWithConditions.forEach((qwc) => {
-      const time = (new Date(qwc.date).getTime() / 1000) as any
-      const passed = qwc.conditionResults.filter(r => r.passed).length
-      const total = qwc.conditionResults.length
-      markers.push({
-        time,
-        position: 'belowBar',
-        color: '#22c55e',
-        shape: 'circle',
-        text: `${passed}/${total}`
-      })
-
-      if (!signalDataMap.has(time)) {
-        signalDataMap.set(time, {
-          date: qwc.date,
-          price: qwc.closePrice,
-          entryDetails: {
-            strategyName: 'Condition Evaluation',
-            strategyDescription: props.conditionSignals!.conditionDescriptions.join(` ${props.conditionSignals!.operator} `),
-            conditions: qwc.conditionResults,
-            allConditionsMet: qwc.allConditionsMet
-          }
-        })
-      }
-    })
-  }
-
-  // Add exit-condition signal markers (red ▼ above bar)
-  // Distinct from entry-condition markers (green ○ below bar) so the two layers don't compete
-  // visually. When the user has evaluated both layers and they fire on the same bar, the
-  // entry-condition writer above wins the signalDataMap entry (it runs first); click-through
-  // therefore shows the entry-condition modal. The exit detail for that bar is still visible in
-  // the dedicated ExitConditionSignalsTable below the chart, so no information is lost.
-  if (props.exitConditionSignals?.quotesWithConditions) {
-    props.exitConditionSignals.quotesWithConditions.forEach((qwc) => {
-      const time = (new Date(qwc.date).getTime() / 1000) as any
-      const fired = qwc.conditionResults.filter(r => r.passed).length
-      const total = qwc.conditionResults.length
-      markers.push({
-        time,
-        position: 'aboveBar',
-        color: '#ef4444',
-        shape: 'arrowDown',
-        text: `${fired}/${total}`
-      })
-
-      if (!signalDataMap.has(time)) {
-        signalDataMap.set(time, {
-          date: qwc.date,
-          price: qwc.closePrice,
-          entryDetails: {
-            strategyName: 'Exit Condition Evaluation',
-            strategyDescription: `From entry ${props.exitConditionSignals!.entryDate} — `
-              + props.exitConditionSignals!.conditionDescriptions.join(` ${props.exitConditionSignals!.operator} `),
-            conditions: qwc.conditionResults,
-            allConditionsMet: qwc.allConditionsMet
-          }
-        })
-      }
-    })
-  }
-
-  // Use the plugin's setMarkers method
   seriesMarkersPlugin.setMarkers(markers)
 }
 
@@ -884,18 +780,8 @@ watch(() => [props.quotes, props.orderBlocks], () => {
   updateChartData()
 }, { deep: true })
 
-// Watch for signals changes
-watch(() => props.signals, () => {
-  updateMarkers()
-}, { deep: true })
-
-// Watch for condition signals changes
-watch(() => props.conditionSignals, () => {
-  updateMarkers()
-}, { deep: true })
-
-// Watch for exit-condition signals changes
-watch(() => props.exitConditionSignals, () => {
+// Re-render markers whenever the caller's marker list changes.
+watch(() => props.markers, () => {
   updateMarkers()
 }, { deep: true })
 

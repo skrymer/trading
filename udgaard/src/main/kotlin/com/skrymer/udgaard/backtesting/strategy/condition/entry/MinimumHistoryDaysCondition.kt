@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -53,7 +54,7 @@ class MinimumHistoryDaysCondition(
             name = "days",
             displayName = "Minimum Days",
             type = "number",
-            defaultValue = 180,
+            defaultValue = days,
             min = 1,
             max = 3650,
           ),
@@ -84,4 +85,9 @@ class MinimumHistoryDaysCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    MinimumHistoryDaysCondition(
+      days = parameters.intOr("days", days),
+    )
 }

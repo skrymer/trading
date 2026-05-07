@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
@@ -93,7 +94,7 @@ class BearishOrderBlockExit(
             name = "ageInDays",
             displayName = "Age in Days",
             type = "number",
-            defaultValue = 120,
+            defaultValue = orderBlockAgeInDays,
             min = 1,
             max = 365,
           ),
@@ -101,9 +102,16 @@ class BearishOrderBlockExit(
             name = "useHighPrice",
             displayName = "Use High Price",
             type = "boolean",
-            defaultValue = false,
+            defaultValue = useHighPrice,
           ),
         ),
       category = "ProfitTaking",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    BearishOrderBlockExit(
+      orderBlockAgeInDays = parameters.intOr("ageInDays", orderBlockAgeInDays),
+      useHighPrice = (parameters["useHighPrice"] as? Boolean) ?: useHighPrice,
+      sensitivity = sensitivity,
     )
 }

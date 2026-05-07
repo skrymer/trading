@@ -41,4 +41,6 @@ class MarketAndSectorDowntrendExit : ExitCondition {
       parameters = emptyList(),
       category = "Trend",
     )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
 }

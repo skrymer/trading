@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -41,7 +42,7 @@ class MinimumPriceCondition(
             name = "minimumPrice",
             displayName = "Minimum Price",
             type = "number",
-            defaultValue = 10.0,
+            defaultValue = minimumPrice,
             min = 0.01,
             max = 1000,
           ),
@@ -66,4 +67,9 @@ class MinimumPriceCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    MinimumPriceCondition(
+      minimumPrice = parameters.numberOr("minimumPrice", minimumPrice),
+    )
 }

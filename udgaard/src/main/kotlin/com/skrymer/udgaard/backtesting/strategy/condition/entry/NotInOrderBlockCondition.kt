@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -38,7 +39,7 @@ class NotInOrderBlockCondition(
             name = "ageInDays",
             displayName = "Age in Days",
             type = "number",
-            defaultValue = 120,
+            defaultValue = ageInDays,
             min = 1,
             max = 365,
           ),
@@ -63,4 +64,9 @@ class NotInOrderBlockCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    NotInOrderBlockCondition(
+      ageInDays = parameters.intOr("ageInDays", ageInDays),
+    )
 }

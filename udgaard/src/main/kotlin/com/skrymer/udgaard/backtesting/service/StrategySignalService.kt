@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service
 @Service
 class StrategySignalService(
   private val strategyRegistry: StrategyRegistry,
-  private val dynamicStrategyBuilder: DynamicStrategyBuilder,
+  private val conditionRegistry: ConditionRegistry,
   private val marketBreadthRepository: MarketBreadthRepository,
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val stockRepository: StockJooqRepository,
@@ -165,7 +165,7 @@ class StrategySignalService(
     operator: String = "AND",
   ): StockConditionSignals {
     val context = buildContext()
-    val conditions = conditionConfigs.map { dynamicStrategyBuilder.buildEntryCondition(it) }
+    val conditions = conditionConfigs.map { conditionRegistry.buildEntryCondition(it) }
     val logicalOp = if (operator.uppercase() == "OR") LogicalOperator.OR else LogicalOperator.AND
 
     val sortedQuotes = stock.quotes.sortedBy { it.date }
@@ -226,7 +226,7 @@ class StrategySignalService(
       stock.quotes.firstOrNull { it.date == entryDate }
         ?: throw IllegalArgumentException("No quote for entry date $entryDate in ${stock.symbol}'s history")
     val context = buildContext()
-    val conditions = conditionConfigs.map { dynamicStrategyBuilder.buildExitCondition(it) }
+    val conditions = conditionConfigs.map { conditionRegistry.buildExitCondition(it) }
     val logicalOp = if (operator.uppercase() == "AND") LogicalOperator.AND else LogicalOperator.OR
 
     val postEntryQuotes = stock.quotes.sortedBy { it.date }.filter { it.date.isAfter(entryDate) }

@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -114,7 +116,7 @@ class OrderBlockRejectionCondition(
             name = "minRejections",
             displayName = "Min Rejections",
             type = "number",
-            defaultValue = 2,
+            defaultValue = minRejections,
             min = 1,
             max = 10,
           ),
@@ -122,7 +124,7 @@ class OrderBlockRejectionCondition(
             name = "ageInDays",
             displayName = "Age in Days",
             type = "number",
-            defaultValue = 30,
+            defaultValue = ageInDays,
             min = 1,
             max = 365,
           ),
@@ -130,7 +132,7 @@ class OrderBlockRejectionCondition(
             name = "rejectionThreshold",
             displayName = "Rejection Threshold %",
             type = "number",
-            defaultValue = 2.0,
+            defaultValue = rejectionThreshold,
             min = 0.5,
             max = 5.0,
           ),
@@ -204,4 +206,11 @@ class OrderBlockRejectionCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    OrderBlockRejectionCondition(
+      minRejections = parameters.intOr("minRejections", minRejections),
+      ageInDays = parameters.intOr("ageInDays", ageInDays),
+      rejectionThreshold = parameters.numberOr("rejectionThreshold", rejectionThreshold),
+    )
 }

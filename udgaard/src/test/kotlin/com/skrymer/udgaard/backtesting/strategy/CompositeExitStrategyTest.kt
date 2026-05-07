@@ -353,5 +353,7 @@ class CompositeExitStrategyTest {
         ConditionMetadata(type = "fake", displayName = "fake", description = "fake", parameters = emptyList(), category = "Test")
 
       override fun proximity(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): ExitProximity? = result
+
+      override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
     }
 }

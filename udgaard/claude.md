@@ -69,7 +69,8 @@ udgaard/
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
 │   │   │   ├── BacktestResultStore.kt    # JSONB-backed backtest result store (backtest_reports table)
-│   │   │   └── ConditionRegistry.kt
+│   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
+│   │   │   └── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override
 │   │   └── strategy/                 # Trading strategies
 │   │       ├── EntryStrategy.kt      # Entry interface
 │   │       ├── ExitStrategy.kt       # Exit interface
@@ -574,7 +575,7 @@ class MyEntryStrategy: DetailedEntryStrategy {
 ### When Adding New Features
 
 1. **New Strategy**: Add `@RegisteredStrategy` annotation - it will be auto-discovered
-2. **New Condition**: Create in `condition/entry/` or `condition/exit/`, add DSL method in `StrategyDsl.kt`
+2. **New Condition**: Create in `condition/entry/` or `condition/exit/`, annotate with `@Component`, override `parseConfig` (uses `numberOr`/`intOr`/`stringOr` helpers, defaults from `this.field`), add DSL method in `StrategyDsl.kt`. Spring auto-discovery + `ConditionRegistry` route by `getMetadata().type` — no `DynamicStrategyBuilder` edit needed.
 3. **Services**: Make them stateless, use constructor injection
 4. **Testing**: Write unit tests for all strategy logic
 5. **Caching**: Consider `@Cacheable` for expensive operations
@@ -589,11 +590,14 @@ class MyEntryStrategy: DetailedEntryStrategy {
 
 ### Strategy Development Workflow
 
-1. **Create condition class** in `backtesting/strategy/condition/`
-2. **Implement interface** (`EntryCondition` or `ExitCondition`)
-3. **Add to DSL** in `StrategyDsl.kt` for composability
-4. **Write tests** to verify logic
-5. **Use in composite strategy** or create standalone strategy with `@RegisteredStrategy`
+1. **Create condition class** in `backtesting/strategy/condition/{entry,exit}/`
+2. **Annotate with `@Component`** so Spring auto-discovers it (registered into `ConditionRegistry` by `getMetadata().type`)
+3. **Implement interface** (`EntryCondition` or `ExitCondition`):
+   - `evaluate` / `shouldExit`, `description()`, `getMetadata()`, `evaluateWithDetails`
+   - `parseConfig(parameters: Map<String, Any>)` — return a new instance using `parameters.numberOr("key", this.field)` (and `intOr` / `stringOr`) from `service/ConditionConfigParsing.kt`. Constructor defaults are the single source of truth — missing parameters fall back to `this.field`. No separate `when` branch in `DynamicStrategyBuilder` is needed.
+4. **Add to DSL** in `StrategyDsl.kt` for in-code composability
+5. **Write tests** to verify logic (and per-condition `parseConfig` round-trip)
+6. **Use in composite strategy** or create standalone strategy with `@RegisteredStrategy`
 
 ### Backend Development Checklist
 

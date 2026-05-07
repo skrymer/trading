@@ -48,7 +48,7 @@ class MarketBreadthEmaAlignmentCondition(
             name = "emaPeriods",
             displayName = "EMA Periods",
             type = "string",
-            defaultValue = "5,10,20",
+            defaultValue = emaPeriods.joinToString(","),
           ),
         ),
       category = "Market",
@@ -80,6 +80,20 @@ class MarketBreadthEmaAlignmentCondition(
       threshold = thresholdStr,
       message = message,
     )
+  }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition {
+    val parsed =
+      (parameters["emaPeriods"] as? String)
+        ?.split(",")
+        ?.map { it.trim().toIntOrNull() }
+    val periods =
+      if (parsed != null && parsed.isNotEmpty() && parsed.all { it != null }) {
+        parsed.filterNotNull()
+      } else {
+        emaPeriods
+      }
+    return MarketBreadthEmaAlignmentCondition(periods)
   }
 
   companion object {

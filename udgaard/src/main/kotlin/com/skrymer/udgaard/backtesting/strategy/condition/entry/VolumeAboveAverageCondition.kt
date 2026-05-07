@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -63,7 +65,7 @@ class VolumeAboveAverageCondition(
             name = "multiplier",
             displayName = "Volume Multiplier",
             type = "number",
-            defaultValue = 1.3,
+            defaultValue = multiplier,
             min = 1.0,
             max = 5.0,
           ),
@@ -71,7 +73,7 @@ class VolumeAboveAverageCondition(
             name = "lookbackDays",
             displayName = "Lookback Days",
             type = "number",
-            defaultValue = 20,
+            defaultValue = lookbackDays,
             min = 5,
             max = 100,
           ),
@@ -135,4 +137,10 @@ class VolumeAboveAverageCondition(
     volume >= 1_000 -> "${"%.1f".format(volume / 1_000.0)}K"
     else -> volume.toString()
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    VolumeAboveAverageCondition(
+      multiplier = parameters.numberOr("multiplier", multiplier),
+      lookbackDays = parameters.intOr("lookbackDays", lookbackDays),
+    )
 }

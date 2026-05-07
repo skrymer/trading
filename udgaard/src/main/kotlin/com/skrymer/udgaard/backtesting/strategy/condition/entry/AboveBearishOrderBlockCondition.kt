@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.OrderBlockType
@@ -157,7 +159,7 @@ class AboveBearishOrderBlockCondition(
             name = "consecutiveDays",
             displayName = "Consecutive Days",
             type = "number",
-            defaultValue = 3,
+            defaultValue = consecutiveDays,
             min = 1,
             max = 10,
             options = listOf("1", "2", "3", "5", "7"),
@@ -166,7 +168,7 @@ class AboveBearishOrderBlockCondition(
             name = "ageInDays",
             displayName = "Order Block Age (Days)",
             type = "number",
-            defaultValue = 30,
+            defaultValue = ageInDays,
             min = 1,
             max = 365,
           ),
@@ -174,7 +176,7 @@ class AboveBearishOrderBlockCondition(
             name = "proximityPercent",
             displayName = "Proximity (%)",
             type = "number",
-            defaultValue = 2.0,
+            defaultValue = proximityPercent,
             min = 0.0,
             max = 10.0,
           ),
@@ -276,4 +278,12 @@ class AboveBearishOrderBlockCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    AboveBearishOrderBlockCondition(
+      consecutiveDays = parameters.intOr("consecutiveDays", consecutiveDays),
+      ageInDays = parameters.intOr("ageInDays", ageInDays),
+      proximityPercent = parameters.numberOr("proximityPercent", proximityPercent),
+      sensitivity = sensitivity,
+    )
 }

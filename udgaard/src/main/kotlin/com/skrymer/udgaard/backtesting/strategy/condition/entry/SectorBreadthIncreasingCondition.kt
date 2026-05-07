@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.stringOr
 import com.skrymer.udgaard.data.model.SectorBreadthDaily
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -63,7 +65,7 @@ class SectorBreadthIncreasingCondition(
             name = "days",
             displayName = "Days",
             type = "number",
-            defaultValue = 3,
+            defaultValue = days,
             min = 1,
             max = 20,
           ),
@@ -71,7 +73,7 @@ class SectorBreadthIncreasingCondition(
             name = "sectorSymbol",
             displayName = "Sector Symbol",
             type = "string",
-            defaultValue = "XLK",
+            defaultValue = sectorSymbol,
           ),
         ),
       category = "Sector",
@@ -113,4 +115,10 @@ class SectorBreadthIncreasingCondition(
     }
     return count
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    SectorBreadthIncreasingCondition(
+      days = parameters.intOr("days", days),
+      sectorSymbol = parameters.stringOr("sectorSymbol", sectorSymbol),
+    )
 }

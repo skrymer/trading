@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -49,11 +50,16 @@ class SectorBreadthBelowExit(
             name = "threshold",
             displayName = "Threshold",
             type = "number",
-            defaultValue = 30.0,
+            defaultValue = threshold,
             min = 0,
             max = 100,
           ),
         ),
       category = "Sector",
+    )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    SectorBreadthBelowExit(
+      threshold = parameters.numberOr("threshold", threshold),
     )
 }

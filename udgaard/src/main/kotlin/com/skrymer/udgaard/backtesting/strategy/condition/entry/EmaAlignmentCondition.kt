@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -55,7 +56,7 @@ class EmaAlignmentCondition(
             name = "fastEmaPeriod",
             displayName = "Fast EMA Period",
             type = "number",
-            defaultValue = 10,
+            defaultValue = fastEmaPeriod,
             min = 5,
             max = 50,
           ),
@@ -63,7 +64,7 @@ class EmaAlignmentCondition(
             name = "slowEmaPeriod",
             displayName = "Slow EMA Period",
             type = "number",
-            defaultValue = 20,
+            defaultValue = slowEmaPeriod,
             min = 5,
             max = 50,
           ),
@@ -126,4 +127,10 @@ class EmaAlignmentCondition(
       50 -> quote.closePriceEMA50
       else -> null
     }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    EmaAlignmentCondition(
+      fastEmaPeriod = parameters.intOr("fastEmaPeriod", fastEmaPeriod),
+      slowEmaPeriod = parameters.intOr("slowEmaPeriod", slowEmaPeriod),
+    )
 }

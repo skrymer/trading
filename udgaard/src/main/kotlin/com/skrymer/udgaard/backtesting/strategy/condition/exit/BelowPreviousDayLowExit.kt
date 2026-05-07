@@ -33,4 +33,6 @@ class BelowPreviousDayLowExit : ExitCondition {
       parameters = emptyList(),
       category = "StopLoss",
     )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
 }

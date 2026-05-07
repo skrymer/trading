@@ -4,6 +4,8 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.backtesting.service.intOr
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.OrderBlockType
@@ -84,7 +86,7 @@ class BelowOrderBlockCondition(
             name = "percentBelow",
             displayName = "Percent Below",
             type = "number",
-            defaultValue = 2.0,
+            defaultValue = percentBelow,
             min = 0.5,
             max = 10.0,
           ),
@@ -92,7 +94,7 @@ class BelowOrderBlockCondition(
             name = "ageInDays",
             displayName = "Age in Days",
             type = "number",
-            defaultValue = 30,
+            defaultValue = ageInDays,
             min = 1,
             max = 365,
           ),
@@ -174,4 +176,11 @@ class BelowOrderBlockCondition(
       message = message,
     )
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): EntryCondition =
+    BelowOrderBlockCondition(
+      percentBelow = parameters.numberOr("percentBelow", percentBelow),
+      ageInDays = parameters.intOr("ageInDays", ageInDays),
+      sensitivity = sensitivity,
+    )
 }

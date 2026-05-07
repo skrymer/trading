@@ -41,4 +41,6 @@ class MarketBreadthDeterioratingExit : ExitCondition {
       parameters = emptyList(),
       category = "Market",
     )
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
 }

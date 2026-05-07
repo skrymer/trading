@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.service.numberOr
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -63,7 +64,7 @@ class GapAndCrapExit(
             name = "gapPercent",
             displayName = "Gap %",
             type = "number",
-            defaultValue = DEFAULT_GAP_PERCENT,
+            defaultValue = gapPercent,
             min = 1.0,
             max = 20.0,
           ),
@@ -106,6 +107,11 @@ class GapAndCrapExit(
     val gapPct = ((day2.openPrice - day1Close) / day1Close) * PERCENT_SCALE
     return if (gapPct >= gapPercent) day2 else null
   }
+
+  override fun parseConfig(parameters: Map<String, Any>): ExitCondition =
+    GapAndCrapExit(
+      gapPercent = parameters.numberOr("gapPercent", gapPercent),
+    )
 
   companion object {
     const val TYPE = "gapandcrap"
