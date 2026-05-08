@@ -1,6 +1,6 @@
 # Plan: ScannerService deepening (candidate #3) — Phase 1: coverage build-up
 
-Status: **Open — Phase 1 (coverage build-up + behaviour corrections)** · See [deepening-candidates.md](deepening-candidates.md) for the full list.
+Status: **✅ Phase 1 completed (PRs #14, #15, #16, 2026-05-08).** Phase 2 (split into `ScannerEvaluator` / `ScannerTradeStore` / `ScannerStatsService`) ready to start; deferred until next scanner change. See [Phase 2 readiness check](#phase-2-readiness-check-2026-05-09) below for the decision-marker analysis. See [deepening-candidates.md](deepening-candidates.md) for the full list.
 
 ## Smell
 
@@ -199,6 +199,19 @@ Concrete signals:
 3. **If `closeTrade` survives Phase 1.5's anemic-rule audit and moves onto `ScannerTrade.withClosed(...)`**, the `ScannerTradeStore` seam shrinks correspondingly. Phase 1.5 may *partially dissolve Phase 2 before Phase 2 starts* — exactly what happened with candidate #5.
 
 **Decision marker:** if after Phase 1.5 the file still reads as 5 hats with shared state, proceed with the split. If the entity-rule lifts have already shrunk the file to ~600 lines and 3 cohesive hats, the split is no longer the highest-leverage move — write that up and close candidate #3 instead.
+
+### Phase 2 readiness check (2026-05-09)
+
+After PRs #14, #15, #16 landed:
+
+| Criterion | Reality | Verdict |
+|---|---|---|
+| Line count vs ~600 target | 945 lines (PR 0 lifts saved ~30–50 lines) | Not shrunk |
+| Hat count | 5 distinct hats remain (`scan` / `checkExits` / `validateEntries` / lifecycle CRUD / stats) | Still 5 |
+| Test files cluster into 3 seams | Yes — `Scan` / `CheckExits` / `ValidateEntries` E2Es share synthetic-quote concerns (Evaluator), `Roll` / `TradeLifecycle` E2Es share `findOpenTrade` + lifecycle invariants (TradeStore), `Stats` E2E is pure aggregation | Hypothesis validated |
+| Shared state across hats | `createSyntheticQuote` shared by `checkExits` + `validateEntries`; `findOpenTrade` shared by lifecycle methods; 10 constructor deps still used cross-hat | Manageable — becomes explicit interface deps after split |
+
+**Verdict:** Phase 2 is justified — file is still 945 lines, 5 hats, and the test layout cleanly reflects the proposed 3 seams. Deferred (not closed) — low urgency now that coverage is solid; pick up next time anything in `ScannerService.kt` needs changing.
 
 ## Phase 1.5 — anemic-rule audit (mostly absorbed into PR 0; remainder deferred)
 
