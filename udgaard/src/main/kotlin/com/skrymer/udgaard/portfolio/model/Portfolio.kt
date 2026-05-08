@@ -3,10 +3,6 @@ package com.skrymer.udgaard.portfolio.model
 import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
 import java.time.LocalDateTime
 
-/**
- * Domain model for Portfolio (Hibernate-independent)
- * Represents a user's trading portfolio
- */
 data class Portfolio(
   val id: Long? = null,
   val userId: String? = null,
@@ -22,4 +18,35 @@ data class Portfolio(
   val brokerConfig: Map<String, String> = emptyMap(),
   val lastSyncDate: LocalDateTime? = null,
   val initialFxRate: Double? = null,
-)
+) {
+  fun withBalanceUpdated(newBalance: Double): Portfolio =
+    copy(currentBalance = newBalance, lastUpdated = LocalDateTime.now())
+
+  fun withSyncCompleted(syncedAt: LocalDateTime): Portfolio =
+    copy(lastSyncDate = syncedAt, lastUpdated = syncedAt)
+
+  companion object {
+    fun create(
+      name: String,
+      initialBalance: Double,
+      currency: String,
+      userId: String? = null,
+    ): Portfolio {
+      require(name.isNotBlank()) { "name must not be blank" }
+      require(currency.isNotBlank()) { "currency must not be blank" }
+      require(initialBalance >= 0.0) { "initialBalance must be non-negative" }
+      val now = LocalDateTime.now()
+      return Portfolio(
+        id = null,
+        userId = userId,
+        name = name,
+        initialBalance = initialBalance,
+        currentBalance = initialBalance,
+        currency = currency,
+        baseCurrency = currency,
+        createdDate = now,
+        lastUpdated = now,
+      )
+    }
+  }
+}

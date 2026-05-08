@@ -16,7 +16,9 @@ import com.skrymer.udgaard.portfolio.integration.ibkr.IBKRApiException
 import com.skrymer.udgaard.portfolio.model.CashTransactionSource
 import com.skrymer.udgaard.portfolio.model.ImportResult
 import com.skrymer.udgaard.portfolio.model.InstrumentType
+import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.repository.ExecutionJooqRepository
+import com.skrymer.udgaard.portfolio.repository.PortfolioJooqRepository
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -32,7 +34,7 @@ import java.time.LocalDateTime
 class BrokerIntegrationService(
   private val adapterFactory: BrokerAdapterFactory,
   private val tradeProcessor: TradeProcessor,
-  private val portfolioService: PortfolioService,
+  private val portfolioRepository: PortfolioJooqRepository,
   private val positionService: PositionService,
   private val portfolioStatsService: PortfolioStatsService,
   private val executionRepository: ExecutionJooqRepository,
@@ -71,31 +73,19 @@ class BrokerIntegrationService(
 
     // 4. Create portfolio
     val portfolio =
-      portfolioService.createPortfolio(
-        name = name,
-        initialBalance = initialBalance ?: accountInfo.balance ?: 10000.0,
-        currency = currency,
-        userId = null,
+      portfolioRepository.save(
+        Portfolio.create(
+          name = name,
+          initialBalance = initialBalance ?: accountInfo.balance ?: 10000.0,
+          currency = currency,
+          userId = null,
+        ),
       )
 
     // Update portfolio with broker info
     // Detect base currency from account info (e.g. AUD for IBKR Australia)
     val baseCurrency = accountInfo.currency.takeIf { it != currency } ?: currency
-
-    // Fetch initial FX rate if base currency differs from trade currency
-    val initialFxRate = if (baseCurrency != currency) {
-      midgaardClient
-        .getHistoricalExchangeRate(currency, baseCurrency, startDate)
-        .also { rate ->
-          if (rate != null) {
-            logger.info("Fetched initial FX rate $currency/$baseCurrency for $startDate: $rate")
-          } else {
-            logger.warn("Could not fetch initial FX rate $currency/$baseCurrency for $startDate")
-          }
-        }
-    } else {
-      null
-    }
+    val initialFxRate = fetchInitialFxRate(currency, baseCurrency, startDate)
 
     val updatedPortfolio =
       portfolio.copy(
@@ -107,7 +97,7 @@ class BrokerIntegrationService(
         initialFxRate = initialFxRate,
       )
 
-    val savedPortfolio = portfolioService.updatePortfolioWithBrokerInfo(updatedPortfolio)
+    val savedPortfolio = portfolioRepository.save(updatedPortfolio)
     val portfolioId = savedPortfolio.id
       ?: throw IllegalStateException("Portfolio ID is null after save")
     logger.info("Created portfolio: id=$portfolioId, broker=$broker, accountId=${accountInfo.accountId}")
@@ -145,7 +135,7 @@ class BrokerIntegrationService(
     logger.info("Syncing portfolio: portfolioId=$portfolioId")
 
     val portfolio =
-      portfolioService.getPortfolio(portfolioId)
+      portfolioRepository.findById(portfolioId)
         ?: throw IllegalArgumentException("Portfolio not found: $portfolioId")
 
     if (portfolio.broker == BrokerType.MANUAL) {
@@ -177,8 +167,12 @@ class BrokerIntegrationService(
       portfolioStatsService.recalculatePortfolioBalance(portfolioId)
     }
 
-    // Update last sync date
-    portfolioService.updateLastSyncDate(portfolioId, LocalDateTime.now())
+    // Re-fetch: cash-tx import may have called recalculatePortfolioBalance, which makes the
+    // earlier `portfolio` snapshot stale on currentBalance.
+    val syncedAt = LocalDateTime.now()
+    val refreshed = portfolioRepository.findById(portfolioId)
+      ?: error("Portfolio $portfolioId disappeared during sync (concurrent delete)")
+    portfolioRepository.save(refreshed.withSyncCompleted(syncedAt))
 
     logger.info(
       "Portfolio sync complete: ${imported.newPositions} new positions, " +
@@ -189,7 +183,7 @@ class BrokerIntegrationService(
       tradesAdded = imported.newPositions,
       tradesUpdated = 0,
       rollsDetected = imported.rollsDetected,
-      lastSyncDate = LocalDateTime.now(),
+      lastSyncDate = syncedAt,
       errors = emptyList(),
     )
   }
@@ -640,6 +634,25 @@ class BrokerIntegrationService(
       throw IllegalArgumentException("Start date cannot be in the future. Latest data available is for $endDate")
     }
     return endDate
+  }
+
+  /**
+   * Fetch initial FX rate when the broker's base currency differs from the trade currency.
+   * Returns null when both currencies match (no conversion needed) or the rate lookup fails.
+   */
+  private fun fetchInitialFxRate(
+    tradeCurrency: String,
+    baseCurrency: String,
+    startDate: LocalDate,
+  ): Double? {
+    if (baseCurrency == tradeCurrency) return null
+    val rate = midgaardClient.getHistoricalExchangeRate(tradeCurrency, baseCurrency, startDate)
+    if (rate != null) {
+      logger.info("Fetched initial FX rate $tradeCurrency/$baseCurrency for $startDate: $rate")
+    } else {
+      logger.warn("Could not fetch initial FX rate $tradeCurrency/$baseCurrency for $startDate")
+    }
+    return rate
   }
 
   /**

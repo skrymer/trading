@@ -68,9 +68,9 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `ScheduledRefreshService.kt`: Scheduled automatic data refresh
 
 3. **Portfolio** (`portfolio/`)
-   - `PortfolioService.kt`: Portfolio management
+   - Portfolio CRUD: `PortfolioController` talks to `PortfolioJooqRepository` directly; rich-domain methods (`Portfolio.create()`, `withBalanceUpdated()`, `withSyncCompleted()`) live on the `Portfolio` model
    - `PositionService.kt`: Position lifecycle management
-   - `BrokerIntegrationService.kt`: Broker sync orchestration
+   - `BrokerIntegrationService.kt`: Broker sync orchestration (uses `PortfolioJooqRepository` directly)
    - `ForexTrackingService.kt`: FIFO forex lot tracking for multi-currency portfolios
    - `CashTransactionService.kt`: Deposits/withdrawals tracking (IBKR import + balance adjustment)
    - `OptionPriceService.kt`: Options pricing data
@@ -176,7 +176,7 @@ trading/
 │   │   │   ├── mapper/               # Entity/DTO mappers
 │   │   │   ├── model/                # Portfolio, Position, Execution, PortfolioStats, CashTransaction, ForexLot, ForexDisposal, EquityCurveData
 │   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository, ForexLotJooqRepository, ForexDisposalJooqRepository, CashTransactionJooqRepository
-│   │   │   └── service/              # PortfolioService, PortfolioStatsService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService
+│   │   │   └── service/              # PortfolioStatsService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService (Portfolio CRUD: controller→PortfolioJooqRepository directly; rich-domain methods on Portfolio.kt)
 │   │   ├── scanner/                  # Scanner domain
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request/response DTOs (incl. StrategyClosedStats, ClosedTradeStatsResponse)
