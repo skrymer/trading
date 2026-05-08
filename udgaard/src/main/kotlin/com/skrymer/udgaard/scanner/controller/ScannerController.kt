@@ -113,13 +113,7 @@ class ScannerController(
     @RequestBody request: UpdateScannerTradeRequest,
   ): ResponseEntity<ScannerTrade> {
     logger.info("Updating scanner trade $id")
-    return try {
-      val trade = scannerService.updateTrade(id, request)
-      ResponseEntity.ok(trade)
-    } catch (e: IllegalArgumentException) {
-      logger.error("Scanner trade not found: $id - ${e.message}")
-      ResponseEntity.notFound().build()
-    }
+    return ResponseEntity.ok(scannerService.updateTrade(id, request))
   }
 
   @PutMapping("/trades/{id}/close")
@@ -128,18 +122,7 @@ class ScannerController(
     @RequestBody request: CloseScannerTradeRequest,
   ): ResponseEntity<ScannerTrade> {
     logger.info("Closing scanner trade $id")
-    return try {
-      val trade = scannerService.closeTrade(id, request)
-      ResponseEntity.ok(trade)
-    } catch (e: IllegalArgumentException) {
-      if (e.message?.contains("already closed") == true) {
-        logger.warn("Scanner trade already closed: $id - ${e.message}")
-        ResponseEntity.status(409).build()
-      } else {
-        logger.error("Scanner trade not found: $id - ${e.message}")
-        ResponseEntity.notFound().build()
-      }
-    }
+    return ResponseEntity.ok(scannerService.closeTrade(id, request))
   }
 
   @DeleteMapping("/trades/{id}")
@@ -177,13 +160,7 @@ class ScannerController(
     @RequestBody request: RollScannerTradeRequest,
   ): ResponseEntity<ScannerTrade> {
     logger.info("Rolling scanner trade $id")
-    return try {
-      val trade = scannerService.rollTrade(id, request)
-      ResponseEntity.ok(trade)
-    } catch (e: IllegalArgumentException) {
-      logger.error("Failed to roll scanner trade: ${e.message}")
-      ResponseEntity.badRequest().build()
-    }
+    return ResponseEntity.ok(scannerService.rollTrade(id, request))
   }
 
   @PostMapping("/option-contracts")

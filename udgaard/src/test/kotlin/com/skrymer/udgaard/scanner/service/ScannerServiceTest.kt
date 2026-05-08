@@ -21,6 +21,7 @@ import com.skrymer.udgaard.data.service.SymbolService
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
+import com.skrymer.udgaard.scanner.dto.CloseScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.RollScannerTradeRequest
 import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.dto.UpdateScannerTradeRequest
@@ -31,6 +32,7 @@ import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
 import com.skrymer.udgaard.service.SettingsService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -521,14 +523,24 @@ class ScannerServiceTest {
   }
 
   @Test
-  fun `deleteTrade throws when trade not found`() {
+  fun `closeTrade orchestrates withClosed and persists the result`() {
     // Given
-    whenever(scannerTradeRepository.findById(1L)).thenReturn(null)
+    val existing = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0).copy(quantity = 10)
+    whenever(scannerTradeRepository.findById(1L)).thenReturn(existing)
+    whenever(scannerTradeRepository.save(any())).thenAnswer { it.getArgument<ScannerTrade>(0) }
 
-    // When / Then
-    assertThrows(IllegalArgumentException::class.java) {
-      service.deleteTrade(1L)
-    }
+    val request = CloseScannerTradeRequest(exitPrice = 110.0, exitDate = "2024-02-15")
+
+    // When
+    val saved = service.closeTrade(1L, request)
+
+    // Then: service routes through ScannerTrade.withClosed — formula sanity-check covered by ScannerTradeTest.
+    // 404-on-not-found and 404-on-already-closed are covered by ScannerTradeLifecycleE2ETest.
+    assertEquals(TradeStatus.CLOSED, saved.status)
+    assertEquals(110.0, saved.exitPrice)
+    assertEquals(LocalDate.of(2024, 2, 15), saved.exitDate)
+    assertEquals(100.0, saved.realizedPnl)
+    assertNotNull(saved.closedAt)
   }
 
   @Test
@@ -615,7 +627,7 @@ class ScannerServiceTest {
   @Test
   fun `checkExits returns empty response when no trades exist`() {
     // Given
-    whenever(scannerTradeRepository.findAll()).thenReturn(emptyList())
+    whenever(scannerTradeRepository.findOpen()).thenReturn(emptyList())
 
     // When
     val response = service.checkExits()

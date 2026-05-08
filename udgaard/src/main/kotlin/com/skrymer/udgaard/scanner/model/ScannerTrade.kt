@@ -36,4 +36,26 @@ data class ScannerTrade(
   // Populated by ScannerService.getTrades() for open-trade responses; null on DB reads and
   // write-path responses where the number of trading days since entry is not relevant.
   val tradingDaysHeld: Int? = null,
-)
+) {
+  fun computeRealizedPnl(exitPrice: Double): Double =
+    if (instrumentType == InstrumentType.OPTION) {
+      (exitPrice - (optionPrice ?: entryPrice)) * quantity * multiplier + rolledCredits
+    } else {
+      (exitPrice - entryPrice) * quantity
+    }
+
+  fun withClosed(
+    exitDate: LocalDate,
+    exitPrice: Double,
+    closedAt: LocalDateTime = LocalDateTime.now(),
+  ): ScannerTrade =
+    copy(
+      status = TradeStatus.CLOSED,
+      exitPrice = exitPrice,
+      exitDate = exitDate,
+      realizedPnl = computeRealizedPnl(exitPrice),
+      closedAt = closedAt,
+    )
+
+  fun withNotes(notes: String?): ScannerTrade = copy(notes = notes)
+}
