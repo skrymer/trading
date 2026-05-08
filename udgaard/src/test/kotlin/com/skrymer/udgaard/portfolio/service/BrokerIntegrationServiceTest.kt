@@ -19,13 +19,17 @@ import com.skrymer.udgaard.portfolio.model.Position
 import com.skrymer.udgaard.portfolio.model.PositionSource
 import com.skrymer.udgaard.portfolio.model.PositionStatus
 import com.skrymer.udgaard.portfolio.repository.ExecutionJooqRepository
+import com.skrymer.udgaard.portfolio.repository.PortfolioJooqRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.argThat
+import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
@@ -35,7 +39,7 @@ import kotlin.test.assertEquals
 class BrokerIntegrationServiceTest {
   private val adapterFactory: BrokerAdapterFactory = mock()
   private val tradeProcessor = TradeProcessor()
-  private val portfolioService: PortfolioService = mock()
+  private val portfolioRepository: PortfolioJooqRepository = mock()
   private val positionService: PositionService = mock()
   private val portfolioStatsService: PortfolioStatsService = mock()
   private val executionRepository: ExecutionJooqRepository = mock()
@@ -55,7 +59,7 @@ class BrokerIntegrationServiceTest {
     service = BrokerIntegrationService(
       adapterFactory,
       tradeProcessor,
-      portfolioService,
+      portfolioRepository,
       positionService,
       portfolioStatsService,
       executionRepository,
@@ -65,12 +69,16 @@ class BrokerIntegrationServiceTest {
     )
 
     whenever(adapterFactory.getAdapter(any())).thenReturn(adapter)
+    whenever(portfolioRepository.save(any())).thenAnswer { invocation ->
+      val p = invocation.arguments[0] as Portfolio
+      if (p.id == null) p.copy(id = portfolioId) else p
+    }
   }
 
   @Test
   fun `sync should not duplicate positions when all executions already exist`() {
     val portfolio = createPortfolio()
-    whenever(portfolioService.getPortfolio(portfolioId)).thenReturn(portfolio)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
 
     val buyTrade = createTrade("PHVS", "buy-1", 96, 29.74, TradeDirection.BUY, OpenCloseIndicator.OPEN, today.minusDays(7))
     val sellTrade = createTrade("PHVS", "sell-1", 96, 27.56, TradeDirection.SELL, OpenCloseIndicator.CLOSE, today)
@@ -102,7 +110,7 @@ class BrokerIntegrationServiceTest {
   @Test
   fun `sync should create position when buy exists but sell is new`() {
     val portfolio = createPortfolio()
-    whenever(portfolioService.getPortfolio(portfolioId)).thenReturn(portfolio)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
 
     val buyTrade = createTrade("PHVS", "buy-1", 96, 29.74, TradeDirection.BUY, OpenCloseIndicator.OPEN, today.minusDays(7))
     val sellTrade = createTrade("PHVS", "sell-1", 96, 27.56, TradeDirection.SELL, OpenCloseIndicator.CLOSE, today)
@@ -145,7 +153,7 @@ class BrokerIntegrationServiceTest {
   @Test
   fun `sync fetches 3 months of trades to include long-running positions`() {
     val portfolio = createPortfolio()
-    whenever(portfolioService.getPortfolio(portfolioId)).thenReturn(portfolio)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
 
     whenever(adapter.fetchTrades(any(), any(), any(), any())).thenReturn(
       BrokerDataResult(emptyList(), accountInfo),
@@ -160,7 +168,7 @@ class BrokerIntegrationServiceTest {
   @Test
   fun `sync should import new position when no executions exist`() {
     val portfolio = createPortfolio()
-    whenever(portfolioService.getPortfolio(portfolioId)).thenReturn(portfolio)
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(portfolio)
 
     val buyTrade = createTrade("AAPL", "buy-1", 100, 150.0, TradeDirection.BUY, OpenCloseIndicator.OPEN, today.minusDays(3))
     whenever(adapter.fetchTrades(any(), any(), any(), any())).thenReturn(
@@ -194,6 +202,47 @@ class BrokerIntegrationServiceTest {
 
     assertEquals(1, result.tradesAdded)
     verify(positionService).addExecution(eq(20L), eq(100), eq(150.0), any(), anyOrNull(), anyOrNull(), anyOrNull())
+  }
+
+  @Test
+  fun `createPortfolioFromBroker saves twice — once for ID, once with broker info`() {
+    // Given
+    whenever(adapter.fetchTrades(any(), any(), any(), any())).thenReturn(
+      BrokerDataResult(emptyList(), accountInfo),
+    )
+
+    // When
+    service.createPortfolioFromBroker(
+      name = "Imported",
+      broker = BrokerType.IBKR,
+      credentials = createCredentials(),
+      startDate = today.minusMonths(1),
+      currency = "USD",
+      initialBalance = 50_000.0,
+    )
+
+    // Then: first save for the bare Portfolio.create(...), second save with broker fields populated
+    verify(portfolioRepository, times(2)).save(any())
+    verify(portfolioRepository).save(
+      argThat { broker == BrokerType.IBKR && brokerAccountId == "U12345" },
+    )
+  }
+
+  @Test
+  fun `sync stamps both lastSyncDate and lastUpdated to the same instant`() {
+    // Given
+    whenever(portfolioRepository.findById(portfolioId)).thenReturn(createPortfolio())
+    whenever(adapter.fetchTrades(any(), any(), any(), any())).thenReturn(
+      BrokerDataResult(emptyList(), accountInfo),
+    )
+
+    // When
+    service.syncPortfolio(portfolioId, createCredentials())
+
+    // Then
+    verify(portfolioRepository, atLeastOnce()).save(
+      argThat { lastSyncDate != null && lastSyncDate == lastUpdated },
+    )
   }
 
   private fun createPortfolio() = Portfolio(

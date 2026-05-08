@@ -12,10 +12,10 @@ import com.skrymer.udgaard.portfolio.model.CashTransaction
 import com.skrymer.udgaard.portfolio.model.ForexDisposal
 import com.skrymer.udgaard.portfolio.model.ForexLot
 import com.skrymer.udgaard.portfolio.model.Portfolio
+import com.skrymer.udgaard.portfolio.repository.PortfolioJooqRepository
 import com.skrymer.udgaard.portfolio.service.BrokerIntegrationService
 import com.skrymer.udgaard.portfolio.service.CashTransactionService
 import com.skrymer.udgaard.portfolio.service.ForexTrackingService
-import com.skrymer.udgaard.portfolio.service.PortfolioService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -37,76 +37,66 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/portfolio")
 class PortfolioController(
-  private val portfolioService: PortfolioService,
+  private val portfolioRepository: PortfolioJooqRepository,
   private val brokerIntegrationService: BrokerIntegrationService,
   private val forexTrackingService: ForexTrackingService,
   private val cashTransactionService: CashTransactionService,
 ) {
-  /**
-   * Get all portfolios
-   */
   @GetMapping
   @Transactional(readOnly = true)
   fun getAllPortfolios(
     @RequestParam(required = false) userId: String?,
   ): ResponseEntity<List<Portfolio>> {
-    val portfolios = portfolioService.getAllPortfolios(userId)
+    val portfolios =
+      if (userId != null) portfolioRepository.findByUserId(userId) else portfolioRepository.findAll()
     return ResponseEntity.ok(portfolios)
   }
 
-  /**
-   * Create a new portfolio
-   */
   @PostMapping
   fun createPortfolio(
     @Valid @RequestBody request: CreatePortfolioRequest,
   ): ResponseEntity<Portfolio> {
     val portfolio =
-      portfolioService.createPortfolio(
-        name = request.name,
-        initialBalance = request.initialBalance,
-        currency = request.currency,
-        userId = request.userId,
+      portfolioRepository.save(
+        Portfolio.create(
+          name = request.name,
+          initialBalance = request.initialBalance,
+          currency = request.currency,
+          userId = request.userId,
+        ),
       )
     return ResponseEntity.status(HttpStatus.CREATED).body(portfolio)
   }
 
-  /**
-   * Get portfolio by ID
-   */
   @GetMapping("/{portfolioId}")
   @Transactional(readOnly = true)
   fun getPortfolio(
     @PathVariable portfolioId: Long,
   ): ResponseEntity<Portfolio> {
     val portfolio =
-      portfolioService.getPortfolio(portfolioId)
+      portfolioRepository.findById(portfolioId)
         ?: return ResponseEntity.notFound().build()
     return ResponseEntity.ok(portfolio)
   }
 
-  /**
-   * Update portfolio balance
-   */
   @PutMapping("/{portfolioId}")
   fun updatePortfolio(
     @PathVariable portfolioId: Long,
     @Valid @RequestBody request: UpdatePortfolioRequest,
   ): ResponseEntity<Portfolio> {
-    val portfolio =
-      portfolioService.updatePortfolio(portfolioId, request.currentBalance)
+    val existing =
+      portfolioRepository.findById(portfolioId)
         ?: return ResponseEntity.notFound().build()
-    return ResponseEntity.ok(portfolio)
+    val updated = portfolioRepository.save(existing.withBalanceUpdated(request.currentBalance))
+    return ResponseEntity.ok(updated)
   }
 
-  /**
-   * Delete portfolio
-   */
   @DeleteMapping("/{portfolioId}")
+  @Transactional
   fun deletePortfolio(
     @PathVariable portfolioId: Long,
   ): ResponseEntity<Void> {
-    portfolioService.deletePortfolio(portfolioId)
+    portfolioRepository.delete(portfolioId)
     return ResponseEntity.noContent().build()
   }
 
@@ -138,7 +128,7 @@ class PortfolioController(
     @PathVariable portfolioId: Long,
     @RequestBody request: SyncPortfolioRequest,
   ): ResponseEntity<*> {
-    val portfolio = portfolioService.getPortfolio(portfolioId)
+    val portfolio = portfolioRepository.findById(portfolioId)
       ?: return ResponseEntity
         .status(HttpStatus.NOT_FOUND)
         .body(BrokerErrorResponse("Not Found", "Portfolio not found"))

@@ -136,16 +136,15 @@ udgaard/
 │   │   │   ├── ibkr/                 # Interactive Brokers (client, adapter, mapper, dto/)
 │   │   │   └── options/              # Options data (Midgaard)
 │   │   ├── mapper/                   # Entity/DTO mappers
-│   │   ├── model/
+│   │   ├── model/                    # Portfolio.kt has rich-domain methods (create() factory, withBalanceUpdated(), withSyncCompleted())
 │   │   ├── repository/
-│   │   │   ├── PortfolioJooqRepository.kt
+│   │   │   ├── PortfolioJooqRepository.kt   # Portfolio CRUD lives here; controller + BrokerIntegrationService use it directly (no PortfolioService layer)
 │   │   │   ├── PositionJooqRepository.kt
 │   │   │   ├── ExecutionJooqRepository.kt
 │   │   │   ├── ForexLotJooqRepository.kt
 │   │   │   ├── ForexDisposalJooqRepository.kt
 │   │   │   └── CashTransactionJooqRepository.kt
 │   │   └── service/
-│   │       ├── PortfolioService.kt
 │   │       ├── PortfolioStatsService.kt
 │   │       ├── PositionService.kt
 │   │       ├── BrokerIntegrationService.kt

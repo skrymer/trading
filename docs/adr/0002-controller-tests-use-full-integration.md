@@ -1,6 +1,6 @@
 # Controller tests use full integration via `AbstractIntegrationTest`
 
-Controller-level tests extend `AbstractIntegrationTest` (full `@SpringBootTest` + Testcontainers Postgres + `TestRestTemplate`) and exercise endpoints over real HTTP. They are named `*ControllerIT` (not `*ControllerTest`) to signal the integration scope.
+Controller-level tests extend `AbstractIntegrationTest` (full `@SpringBootTest` + Testcontainers Postgres + `TestRestTemplate`) and exercise endpoints over real HTTP. They live in the `e2e/` package and follow the `*E2ETest` naming convention already used by `WalkForwardE2ETest`, `IBKRBrokerImportE2ETest`, `MonteCarloE2ETest`, etc.
 
 We do *not* use `@WebMvcTest` slice tests. The risks that controller tests in this codebase need to catch — `@Transactional` boundaries actually applied, DB-level `ON DELETE CASCADE` actually firing, jOOQ queries returning the expected shape, real Spring Security filter chain behaviour — are out of scope for `@WebMvcTest`. A passing `@WebMvcTest` would create false confidence that the integration works.
 
