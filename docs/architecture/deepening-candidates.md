@@ -10,9 +10,9 @@ Vocabulary: **module** = anything with an interface + impl; **deep** = high leve
 |---|-----------|-------|-------|--------|
 | 1 | `StockPriceChart` chart-marker module | parallel watcher blocks + prop explosion | Small | ✅ Completed (PR #11) — see [chart-marker-deepening.md](chart-marker-deepening.md) |
 | 2 | `DynamicStrategyBuilder` `when{}` factory | shallow abstraction (interface ≪ impl) | Medium | ✅ Completed (PR #11) — see [dynamic-strategy-builder-deepening.md](dynamic-strategy-builder-deepening.md) |
-| 3 | `ScannerService` 5-hat module | pass-through + multi-cohesion | Medium | Open |
+| 3 | `ScannerService` 5-hat module | pass-through + multi-cohesion | Medium | In progress — Phase 1 (coverage build-up) |
 | 4 | Mirrored Condition modal + table pairs | mirrored modules, parallel maintenance | Medium | Open |
-| 5 | Portfolio-service layer (8 services) | pass-through + callers-always-need-N-together | Small (start) → Large | Open |
+| 5 | Portfolio-service layer (8 services) | pass-through + callers-always-need-N-together | Small (start) → Large | ✅ Phase 1 completed (PR #12) — see [portfolio-service-deepening.md](portfolio-service-deepening.md). Phase 1.5 (anemic-rule audit on Position / Execution / ScannerTrade) and Phase 2 (`OptionPriceService` deletion test, controller URL split) still open. |
 
 ---
 
