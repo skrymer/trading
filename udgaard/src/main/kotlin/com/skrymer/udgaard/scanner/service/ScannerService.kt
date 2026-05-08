@@ -651,24 +651,13 @@ class ScannerService(
   @Transactional
   fun closeTrade(id: Long, request: CloseScannerTradeRequest): ScannerTrade {
     val trade = findOpenTrade(id)
-
-    val exitPrice = request.exitPrice
-    val exitDate = parseDate(request.exitDate)
-    val realizedPnl = if (trade.instrumentType == InstrumentType.OPTION) {
-      (exitPrice - (trade.optionPrice ?: trade.entryPrice)) * trade.quantity * trade.multiplier + trade.rolledCredits
-    } else {
-      (exitPrice - trade.entryPrice) * trade.quantity
-    }
-
-    val closed = trade.copy(
-      status = TradeStatus.CLOSED,
-      exitPrice = exitPrice,
-      exitDate = exitDate,
-      realizedPnl = realizedPnl,
+    val closed = trade.withClosed(
+      exitDate = LocalDate.parse(request.exitDate),
+      exitPrice = request.exitPrice,
       closedAt = LocalDateTime.now(),
     )
     val saved = scannerTradeRepository.save(closed)
-    logger.info("Closed scanner trade $id: ${trade.symbol}, P&L=${"%.2f".format(realizedPnl)}")
+    logger.info("Closed scanner trade $id: ${trade.symbol}, P&L=${"%.2f".format(closed.realizedPnl)}")
     return saved
   }
 
@@ -683,6 +672,9 @@ class ScannerService(
     // calendar-day math can't produce.
     // TODO: inject a Clock across ScannerService (also used by checkExits) so wall-clock
     // reads become deterministic — removes a class of midnight-boundary test flakiness.
+    // TODO N+1: this loads quote series per-trade. Single-user scale = irrelevant; if open
+    // trades grow much past ~10 or paint UI hot paths emerge, pre-load the full quote map
+    // once and enrich in-memory. See docs/architecture/scanner-service-deepening.md.
     val today = LocalDate.now()
     val earliestEntry = trades.minOf { it.entryDate }
     val stocksBySymbol = stockRepository
@@ -702,15 +694,14 @@ class ScannerService(
 
   fun getTrade(id: Long): ScannerTrade? = scannerTradeRepository.findById(id)
 
-  fun updateTrade(id: Long, request: UpdateScannerTradeRequest): ScannerTrade {
-    val existing = findOpenTrade(id)
-    val updated = existing.copy(notes = request.notes)
-    return scannerTradeRepository.save(updated)
-  }
+  @Transactional
+  fun updateTrade(id: Long, request: UpdateScannerTradeRequest): ScannerTrade =
+    scannerTradeRepository.save(findOpenTrade(id).withNotes(request.notes))
 
+  @Transactional
   fun deleteTrade(id: Long) {
     scannerTradeRepository.findById(id)
-      ?: throw IllegalArgumentException("Scanner trade $id not found")
+      ?: throw NoSuchElementException("Scanner trade $id not found")
     scannerTradeRepository.delete(id)
     logger.info("Deleted scanner trade $id")
   }
@@ -869,19 +860,17 @@ class ScannerService(
     return symbols
   }
 
+  // Both not-found and already-closed surface as NoSuchElementException so the GlobalExceptionHandler
+  // maps them to 404. Single-user app — message-level differentiation is enough; resist introducing
+  // a separate 409 distinction or a sealed exception hierarchy.
   private fun findOpenTrade(id: Long): ScannerTrade {
     val trade = scannerTradeRepository.findById(id)
-      ?: throw IllegalArgumentException("Scanner trade $id not found")
-    require(trade.status != TradeStatus.CLOSED) { "Scanner trade $id is already closed" }
+      ?: throw NoSuchElementException("Scanner trade $id not found")
+    if (trade.status == TradeStatus.CLOSED) {
+      throw NoSuchElementException("Scanner trade $id is already closed")
+    }
     return trade
   }
-
-  private fun parseDate(dateStr: String): LocalDate =
-    try {
-      LocalDate.parse(dateStr)
-    } catch (_: java.time.format.DateTimeParseException) {
-      throw IllegalArgumentException("Invalid exit date format: $dateStr")
-    }
 
   companion object {
     private const val BATCH_SIZE = 150

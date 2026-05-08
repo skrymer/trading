@@ -160,7 +160,7 @@ udgaard/
 │   │   ├── mapper/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/
-│   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt)
+│   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt) — rich-domain methods: computeRealizedPnl(exitPrice), withClosed(...), withNotes(...)
 │   │   │   └── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   ├── repository/
 │   │   │   └── ScannerTradeJooqRepository.kt
