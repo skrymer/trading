@@ -7,6 +7,7 @@ import com.skrymer.udgaard.scanner.model.ExitCheckResponse
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -50,6 +51,11 @@ class ScannerCheckExitsE2ETest : AbstractIntegrationTest() {
   @BeforeAll
   fun setupTestData() {
     BacktestTestDataGenerator.populate(dsl, populateStart, populateEnd)
+  }
+
+  @AfterAll
+  fun resetTestData() {
+    BacktestTestDataGenerator.reset(dsl)
   }
 
   @BeforeEach

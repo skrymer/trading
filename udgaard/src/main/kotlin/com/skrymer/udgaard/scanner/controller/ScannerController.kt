@@ -41,30 +41,17 @@ class ScannerController(
     @RequestBody request: ScanRequest,
   ): ResponseEntity<ScanResponse> {
     logger.info("Running scan: entry=${request.entryStrategyName}, exit=${request.exitStrategyName}")
-    return try {
-      val response = scannerService.scan(request)
-      logger.info("Scan complete: ${response.results.size} matches from ${response.totalStocksScanned} stocks")
-      ResponseEntity.ok(response)
-    } catch (e: IllegalArgumentException) {
-      logger.error("Scan failed: ${e.message}")
-      ResponseEntity.badRequest().build()
-    } catch (e: Exception) {
-      logger.error("Unexpected error during scan: ${e.message}", e)
-      ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-    }
+    val response = scannerService.scan(request)
+    logger.info("Scan complete: ${response.results.size} matches from ${response.totalStocksScanned} stocks")
+    return ResponseEntity.ok(response)
   }
 
   @PostMapping("/check-exits")
   fun checkExits(): ResponseEntity<ExitCheckResponse> {
     logger.info("Checking exit signals for scanner trades")
-    return try {
-      val response = scannerService.checkExits()
-      logger.info("Exit check: ${response.checksPerformed} checked, ${response.exitsTriggered} triggered")
-      ResponseEntity.ok(response)
-    } catch (e: Exception) {
-      logger.error("Error checking exits: ${e.message}", e)
-      ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-    }
+    val response = scannerService.checkExits()
+    logger.info("Exit check: ${response.checksPerformed} checked, ${response.exitsTriggered} triggered")
+    return ResponseEntity.ok(response)
   }
 
   @PostMapping("/validate-entries")
@@ -72,17 +59,9 @@ class ScannerController(
     @RequestBody request: ValidateEntriesRequest,
   ): ResponseEntity<EntryValidationResponse> {
     logger.info("Validating ${request.symbols.size} entries: entry=${request.entryStrategyName}, exit=${request.exitStrategyName}")
-    return try {
-      val response = scannerService.validateEntries(request)
-      logger.info("Validation complete: ${response.validCount} valid, ${response.invalidCount} invalid, ${response.doaCount} DOA")
-      ResponseEntity.ok(response)
-    } catch (e: IllegalArgumentException) {
-      logger.error("Validation failed: ${e.message}", e)
-      ResponseEntity.badRequest().build()
-    } catch (e: Exception) {
-      logger.error("Unexpected error during validation: ${e.message}", e)
-      ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-    }
+    val response = scannerService.validateEntries(request)
+    logger.info("Validation complete: ${response.validCount} valid, ${response.invalidCount} invalid, ${response.doaCount} DOA")
+    return ResponseEntity.ok(response)
   }
 
   @GetMapping("/trades")
@@ -98,13 +77,8 @@ class ScannerController(
     @RequestBody request: AddScannerTradeRequest,
   ): ResponseEntity<ScannerTrade> {
     logger.info("Adding scanner trade for ${request.symbol}")
-    return try {
-      val trade = scannerService.addTrade(request)
-      ResponseEntity.status(HttpStatus.CREATED).body(trade)
-    } catch (e: IllegalArgumentException) {
-      logger.error("Failed to add scanner trade: ${e.message}")
-      ResponseEntity.badRequest().build()
-    }
+    val trade = scannerService.addTrade(request)
+    return ResponseEntity.status(HttpStatus.CREATED).body(trade)
   }
 
   @PutMapping("/trades/{id}")
@@ -167,7 +141,10 @@ class ScannerController(
   fun getOptionContracts(
     @RequestBody request: OptionContractsRequest,
   ): ResponseEntity<Map<String, OptionContractResponse>> {
-    val symbols = request.symbols.take(MAX_OPTION_SYMBOLS)
+    require(request.symbols.size <= MAX_OPTION_SYMBOLS) {
+      "Too many symbols: ${request.symbols.size} (max $MAX_OPTION_SYMBOLS). Chunk on the client."
+    }
+    val symbols = request.symbols
     logger.info("Fetching option contracts for ${symbols.size} symbols")
 
     val optionDate = request.date ?: LocalDate.now().toString()

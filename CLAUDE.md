@@ -89,7 +89,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 5. **MCP Server** (`mcp/`)
    - `mcp/config/McpConfiguration.kt`: MCP server configuration
    - `mcp/service/StockMcpTools.kt`: Tools for Claude AI integration
-   - Tools: getStockData, getMultipleStocksData, getMarketBreadth, getStockSymbols, runBacktest
+   - Tools: getAvailableSymbols, getAvailableStrategies, getAvailableRankers, getAvailableConditions, getStrategyDetails, explainBacktestMetrics, getSystemStatus
 
 6. **Integration** (`data/integration/`)
    - `StockProvider.kt`: Interface for OHLCV data + live quotes (`LatestQuote`, `getLatestQuote`, `getLatestQuotes`); used by ScannerService, StockController, and UnrealizedPnlService
@@ -187,7 +187,7 @@ trading/
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
-│   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, MidgaardHealthIndicator)
+│   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler)
 │   ├── src/main/resources/           # Config, migrations (V1-V19)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
@@ -346,4 +346,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-05-03_
+_Last Updated: 2026-05-08_

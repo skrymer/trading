@@ -1030,6 +1030,123 @@ class ScannerServiceTest {
   }
 
   @Test
+  fun `validateEntries rejects requests with more than MAX_VALIDATE_SYMBOLS symbols`() {
+    // Given: 31 symbols, one over the cap (MAX_VALIDATE_SYMBOLS = 30)
+    val symbols = (1..31).map { "S$it" }
+    val request = ValidateEntriesRequest(symbols, "Mjolnir", "MjolnirExit")
+
+    // When / Then: GlobalExceptionHandler maps IllegalArgumentException to 400.
+    // Was a silent take(30) before — caller now must chunk explicitly.
+    assertThrows(IllegalArgumentException::class.java) {
+      service.validateEntries(request)
+    }
+  }
+
+  @Test
+  fun `validateEntries uppercases lowercase symbols before lookup`() {
+    // Given: lowercase symbols in request — must be normalised to match scan() behaviour.
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(emptyMap())
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When: client sends lowercase "aapl"
+    val response = service.validateEntries(ValidateEntriesRequest(listOf("aapl"), "Mjolnir", "MjolnirExit"))
+
+    // Then: lookups happen with the uppercased "AAPL", so the result resolves the stock.
+    assertEquals(1, response.results.size)
+    assertEquals("AAPL", response.results[0].symbol)
+    val symbolCaptor = argumentCaptor<List<String>>()
+    verify(stockRepository).findBySymbols(symbolCaptor.capture(), anyOrNull())
+    assertEquals(listOf("AAPL"), symbolCaptor.firstValue)
+  }
+
+  @Test
+  fun `validateEntries falls back to DB quotes when stockProvider throws`() {
+    // Given: provider rate-limited or unavailable.
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val today = LocalDate.now()
+    val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", quotes = listOf(quote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(stockProvider.getLatestQuotes(any())).thenThrow(RuntimeException("provider rate-limited"))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    val response = service.validateEntries(ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit"))
+
+    // Then: validation still runs against the stored DB quote rather than 500ing — mirrors checkExits.
+    assertEquals(1, response.results.size)
+    with(response.results[0]) {
+      assertFalse(usedLiveData)
+      assertEquals(150.0, currentPrice)
+      assertTrue(entryStillValid)
+    }
+  }
+
+  @Test
+  fun `validateEntries hands the strategy a quote with the live closePrice but the original date and volume`() {
+    // Given: live quote has different date and volume than stored quote
+    val entryStrategy: EntryStrategy = mock()
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val storedDate = LocalDate.of(2026, 5, 6)
+    val storedVolume = 1_500_000L
+    val storedQuote = StockQuote(
+      symbol = "AAPL",
+      date = storedDate,
+      closePrice = 150.0,
+      volume = storedVolume,
+      atr = 3.5,
+      trend = "Uptrend",
+    )
+    val stock = Stock(symbol = "AAPL", quotes = listOf(storedQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(stockProvider.getLatestQuotes(any())).thenReturn(
+      mapOf(
+        "AAPL" to LatestQuote(
+          "AAPL",
+          price = 152.5,
+          volume = 99_999_999L,
+          date = LocalDate.of(2026, 5, 7),
+        ),
+      ),
+    )
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    service.validateEntries(ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit"))
+
+    // Then: synthesized quote has live price but stored date+volume — divergent from
+    // checkExits's full-EMA-projection synthesis path.
+    val captor = argumentCaptor<StockQuote>()
+    verify(entryStrategy).test(any<Stock>(), captor.capture(), any<BacktestContext>())
+    val seen = captor.firstValue
+    assertEquals(152.5, seen.closePrice, "live price applied")
+    assertEquals(storedDate, seen.date, "stored date preserved (breadth lookups depend on it)")
+    assertEquals(storedVolume, seen.volume, "stored volume preserved")
+  }
+
+  @Test
   fun `checkExits enriches synthetic quote with incremental EMAs`() {
     // Given: a trade with a stock whose last quote has known EMA values
     val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
@@ -1617,6 +1734,69 @@ class ScannerServiceTest {
     // Then: unrealized P&L uses live price (110 - 100) * 100 = 1000, not DB price (105 - 100) * 100 = 500
     assertEquals(1000.0, stats.totalUnrealizedPnl)
     assertEquals(101000.0, stats.currentEquity)
+  }
+
+  @Test
+  fun `getDrawdownStats uses settings peakEquity when set higher than currentEquity`() {
+    // Given: settings explicitly remembers a higher peak from a past run
+    whenever(scannerTradeRepository.findOpen()).thenReturn(emptyList())
+    whenever(scannerTradeRepository.findClosed()).thenReturn(emptyList())
+    whenever(settingsService.getPositionSizingSettings()).thenReturn(
+      com.skrymer.udgaard.controller.dto
+        .PositionSizingSettingsDto(portfolioValue = 100_000.0, peakEquity = 200_000.0),
+    )
+
+    // When
+    val stats = service.getDrawdownStats()
+
+    // Then: peakEquity sticks at the settings value even though currentEquity is lower
+    assertEquals(200_000.0, stats.peakEquity)
+    assertEquals(100_000.0, stats.currentEquity)
+    assertEquals(50.0, stats.currentDrawdownPct)
+  }
+
+  @Test
+  fun `getDrawdownStats raises peakEquity when currentEquity exceeds the recorded peak`() {
+    // Given: a recorded peak of $102_000, plus a closed trade that pushes currentEquity past it
+    // (entry $100 → exit $150 × 100 shares = $5_000 realized PnL → currentEquity = $105_000)
+    val closed = createClosedTrade(id = 1, symbol = "AAPL", entryPrice = 100.0, exitPrice = 150.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(emptyList())
+    whenever(scannerTradeRepository.findClosed()).thenReturn(listOf(closed))
+    whenever(settingsService.getPositionSizingSettings()).thenReturn(
+      com.skrymer.udgaard.controller.dto
+        .PositionSizingSettingsDto(portfolioValue = 100_000.0, peakEquity = 102_000.0),
+    )
+
+    // When
+    val stats = service.getDrawdownStats()
+
+    // Then: peakEquity = max(settings.peakEquity, currentEquity) = max(102_000, 105_000) = 105_000
+    assertEquals(105_000.0, stats.currentEquity)
+    assertEquals(105_000.0, stats.peakEquity, "currentEquity exceeded the recorded peak — peakEquity lifts up")
+    assertEquals(0.0, stats.currentDrawdownPct, "no drawdown when at peak")
+  }
+
+  @Test
+  fun `getDrawdownStats reports closed-trade realized PnL in currentEquity and totalRealizedPnl`() {
+    // Given: closed trades contribute to running equity (every prior test stubbed empty)
+    // entry 100 → exit 175 × 100 = +$7_500; entry 100 → exit 75 × 100 = -$2_500
+    val winner = createClosedTrade(id = 1, symbol = "AAPL", entryPrice = 100.0, exitPrice = 175.0)
+    val loser = createClosedTrade(id = 2, symbol = "MSFT", entryPrice = 100.0, exitPrice = 75.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(emptyList())
+    whenever(scannerTradeRepository.findClosed()).thenReturn(listOf(winner, loser))
+    whenever(settingsService.getPositionSizingSettings()).thenReturn(
+      com.skrymer.udgaard.controller.dto
+        .PositionSizingSettingsDto(portfolioValue = 100_000.0),
+    )
+
+    // When
+    val stats = service.getDrawdownStats()
+
+    // Then: currentEquity = portfolioValue + sum(realizedPnl) + totalUnrealizedPnl
+    assertEquals(5_000.0, stats.totalRealizedPnl, "7500 + (-2500)")
+    assertEquals(105_000.0, stats.currentEquity, "100k + 5k realized + 0 unrealized")
+    assertEquals(2, stats.closedTradeCount)
+    assertEquals(0.5, stats.winRate, "1 winner of 2 trades")
   }
 
   @Test
