@@ -152,6 +152,7 @@ trading/
 ├── CLAUDE.md                         # Project-wide context
 ├── .claude/                          # Claude configuration (commands, skills, settings)
 ├── claude_thoughts/                  # Documentation created by Claude
+├── docs/                             # Architectural decision records (adr/) + design docs (architecture/)
 ├── udgaard/                          # Backend (Kotlin/Spring Boot)
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
