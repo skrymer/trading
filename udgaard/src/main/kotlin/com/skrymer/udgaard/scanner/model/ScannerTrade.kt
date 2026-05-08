@@ -47,7 +47,7 @@ data class ScannerTrade(
   fun withClosed(
     exitDate: LocalDate,
     exitPrice: Double,
-    closedAt: LocalDateTime,
+    closedAt: LocalDateTime = LocalDateTime.now(),
   ): ScannerTrade =
     copy(
       status = TradeStatus.CLOSED,

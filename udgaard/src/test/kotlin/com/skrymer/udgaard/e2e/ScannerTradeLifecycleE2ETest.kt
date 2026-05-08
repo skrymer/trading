@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -287,12 +286,5 @@ class ScannerTradeLifecycleE2ETest : AbstractIntegrationTest() {
         .body(CloseScannerTradeRequest(exitPrice = 160.0, exitDate = "2024-02-15")),
       ScannerTrade::class.java,
     )
-  }
-
-  private fun jsonEntity(body: Any): HttpEntity<Any> {
-    val headers = org.springframework.http.HttpHeaders().apply {
-      contentType = MediaType.APPLICATION_JSON
-    }
-    return HttpEntity(body, headers)
   }
 }
