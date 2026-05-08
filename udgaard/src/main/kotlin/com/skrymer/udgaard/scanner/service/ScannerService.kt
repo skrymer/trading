@@ -308,7 +308,10 @@ class ScannerService(
    * Re-evaluates entry conditions with current price and checks if exit would trigger immediately.
    */
   fun validateEntries(request: ValidateEntriesRequest): EntryValidationResponse {
-    val symbols = request.symbols.take(MAX_VALIDATE_SYMBOLS)
+    require(request.symbols.size <= MAX_VALIDATE_SYMBOLS) {
+      "Too many symbols: ${request.symbols.size} (max $MAX_VALIDATE_SYMBOLS). Chunk on the client."
+    }
+    val symbols = request.symbols.map { it.uppercase() }
     val entryStrategy = strategyRegistry.createEntryStrategy(request.entryStrategyName)
       ?: throw IllegalArgumentException("Entry strategy '${request.entryStrategyName}' not found")
     val exitStrategy = strategyRegistry.createExitStrategy(request.exitStrategyName)
@@ -320,7 +323,15 @@ class ScannerService(
       .findBySymbols(symbols, quotesAfter = quotesAfter)
       .associateBy { it.symbol }
 
-    val liveQuotesBySymbol = stockProvider.getLatestQuotes(symbols)
+    // Mirror the checkExits fallback: a provider rate-limit or outage shouldn't 500 the
+    // whole validation — fall back to stored bars for every symbol.
+    val liveQuotesBySymbol =
+      try {
+        stockProvider.getLatestQuotes(symbols)
+      } catch (e: Exception) {
+        logger.warn("Live-quote provider failed during validateEntries — falling back to stored quotes", e)
+        emptyMap()
+      }
     logger.info("Validate entries: fetched live quotes for ${liveQuotesBySymbol.size}/${symbols.size} symbols")
 
     val results = symbols.mapNotNull { symbol ->

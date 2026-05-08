@@ -184,7 +184,6 @@ udgaard/
 │   │   ├── CacheConfig.kt
 │   │   ├── ExternalConfigLoader.kt   # External config loading
 │   │   ├── GlobalExceptionHandler.kt # Global exception handler
-│   │   ├── MidgaardHealthIndicator.kt # Midgaard health check
 │   │   ├── SecurityConfig.kt         # Spring Security configuration
 │   │   ├── SecurityProperties.kt     # Security properties
 │   │   ├── UserRepository.kt         # User data access
@@ -216,18 +215,29 @@ udgaard/
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
-│       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator (per-range fixtures via populate(dsl, startDate, endDate); ConcurrentHashMap-keyed dedup)
+│       ├── BacktestTestDataGenerator.kt  # 50-stock test data generator (per-range fixtures via populate(dsl, startDate, endDate); ConcurrentHashMap-keyed dedup; reset() to drop fixture state between scenarios)
 │       ├── BacktestApiE2ETest.kt       # Backtest API E2E tests
 │       ├── BacktestInvariantsE2ETest.kt # Engine invariant E2E tests
 │       ├── BacktestPositionSizingE2ETest.kt  # Capital-aware position sizing E2E tests
 │       ├── BacktestReportControllerE2ETest.kt   # GET/DELETE /api/backtest/reports E2E tests
 │       ├── BacktestResultStorePersistenceE2ETest.kt # JSONB store roundtrip + listing E2E tests
 │       ├── BacktestRiskMetricsE2ETest.kt        # Sharpe/Sortino/Calmar/SPY benchmark E2E tests
+│       ├── ExitConditionSignalsApiE2ETest.kt    # /api/stocks/{symbol}/exit-condition-signals E2E tests
 │       ├── MonteCarloE2ETest.kt        # Monte Carlo simulation E2E tests
 │       ├── WalkForwardE2ETest.kt       # Walk-forward validation E2E tests
 │       ├── CashTransactionE2ETest.kt   # Cash transaction E2E tests
 │       ├── ForexTrackingE2ETest.kt     # Forex tracking E2E tests
 │       ├── IBKRBrokerImportE2ETest.kt  # IBKR broker import E2E tests
+│       ├── PortfolioControllerE2ETest.kt  # Portfolio CRUD + sync E2E tests
+│       ├── ScannerCheckExitsE2ETest.kt    # Scanner check-exits E2E (live + stored bar)
+│       ├── ScannerOptionContractsE2ETest.kt  # Scanner /option-contracts E2E
+│       ├── ScannerRollE2ETest.kt          # Scanner roll-trade E2E
+│       ├── ScannerScanE2ETest.kt          # Scanner /scan E2E
+│       ├── ScannerStatsE2ETest.kt         # Scanner closed-trade stats + drawdown stats E2E
+│       ├── ScannerTradeLifecycleE2ETest.kt  # Trades CRUD + close E2E
+│       ├── ScannerValidateEntriesE2ETest.kt  # Scanner /validate-entries E2E (incl. cap-rejection cases)
+│       ├── StockJooqRepositoryVolumeFilterE2ETest.kt  # Volume-based filter behavior E2E
+│       ├── TestDetailedEntryStrategy.kt  # Detailed-entry test fixture
 │       ├── TestEntryStrategy.kt        # Test entry strategy fixture
 │       └── TestExitStrategy.kt         # Test exit strategy fixture
 ├── src/test/kotlin/.../backtesting/
@@ -373,11 +383,13 @@ AdaptiveRanker()                // Volatility in trends, DistanceFrom10Ema in ch
 Expose tools for Claude AI to perform backtesting and analysis:
 
 **Available MCP Tools:**
-- `getStockData` - Fetch single stock with indicators
-- `getMultipleStocksData` - Fetch multiple stocks
-- `getMarketBreadth` - Get market breadth data
-- `getStockSymbols` - List all available symbols
-- `runBacktest` - Run full backtest with strategies
+- `getAvailableSymbols` - List symbols available for backtesting
+- `getAvailableStrategies` - List discoverable entry/exit strategies
+- `getAvailableRankers` - List ranker implementations + RankerMetadata
+- `getAvailableConditions` - List discoverable entry/exit conditions + parameter shapes
+- `getStrategyDetails` - Detailed strategy description by name
+- `explainBacktestMetrics` - Human-readable explanation of risk/return metrics
+- `getSystemStatus` - Health snapshot (DB + Midgaard reachability)
 
 ### 7. Caching Strategy
 

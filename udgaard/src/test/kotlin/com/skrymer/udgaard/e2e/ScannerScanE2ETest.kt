@@ -4,6 +4,7 @@ import com.skrymer.udgaard.scanner.dto.ScanRequest
 import com.skrymer.udgaard.scanner.model.ScanResponse
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -40,6 +41,13 @@ class ScannerScanE2ETest : AbstractIntegrationTest() {
   fun setupTestData() {
     dsl.deleteFrom(DSL.table("scanner_trades")).execute()
     BacktestTestDataGenerator.populate(dsl, populateStart, populateEnd)
+  }
+
+  @AfterAll
+  fun resetTestData() {
+    // Recent-range populate pollutes shared tables. Reset so backtest tests with the default
+    // 2024 range get a clean slate.
+    BacktestTestDataGenerator.reset(dsl)
   }
 
   @Test

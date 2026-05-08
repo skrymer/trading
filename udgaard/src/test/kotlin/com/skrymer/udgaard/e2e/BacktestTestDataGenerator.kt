@@ -55,20 +55,48 @@ object BacktestTestDataGenerator {
     populate(dsl, LocalDate.of(2024, 1, 2), LocalDate.of(2024, 3, 29))
   }
 
+  /**
+   * Wipe all date-scoped fixture data and forget which ranges were populated.
+   *
+   * Test classes that populate a non-default range (e.g., the scanner e2e tests, which need
+   * recent dates because `quotesAfter = today.minusDays(90)` filters out the historic 2024
+   * fixture) MUST call this in `@AfterAll` so they don't leak rows into subsequent test
+   * classes that assume the DB only contains their own range. Without this, the next
+   * populate(...) call cache-hits and returns silently with extra rows still in place,
+   * breaking deterministic assertions on counts (e.g., `assertEquals(204, totalTrades)`).
+   *
+   * Truncates only date-scoped tables; `stocks` and `symbols` are UPSERT-idempotent and
+   * stay populated.
+   */
+  fun reset(dsl: DSLContext) {
+    synchronized(BacktestTestDataGenerator) {
+      dsl.deleteFrom(STOCK_QUOTES).execute()
+      dsl.deleteFrom(EARNINGS).execute()
+      dsl.deleteFrom(ORDER_BLOCKS).execute()
+      dsl.deleteFrom(MARKET_BREADTH_DAILY).execute()
+      dsl.deleteFrom(SECTOR_BREADTH_DAILY).execute()
+      populatedRanges.clear()
+    }
+  }
+
   fun populate(dsl: DSLContext, startDate: LocalDate, endDate: LocalDate) {
     val key = "$startDate..$endDate"
-    // computeIfAbsent locks per-key: prevents a concurrent second caller from returning
-    // before inserts are committed (closes a race under parallel test classes).
+    // computeIfAbsent locks per-key. The synchronized block adds cross-key serialization:
+    // `random` is a shared singleton, so concurrent populates for different ranges
+    // (e.g., the historic range used by BacktestApiE2ETest + the recent range used by
+    // ScannerScanE2ETest) would interleave their `setSeed(42L)` resets and their
+    // subsequent nextDouble() calls, corrupting both fixtures' deterministic data.
     populatedRanges.computeIfAbsent(key) {
-      random.setSeed(42L)
-
-      val tradingDays = generateTradingDays(startDate, endDate)
-      insertSymbols(dsl)
-      insertStocksAndQuotes(dsl, tradingDays)
-      insertEarnings(dsl, tradingDays)
-      insertOrderBlocks(dsl, tradingDays)
-      insertMarketBreadth(dsl, tradingDays)
-      insertSectorBreadth(dsl, tradingDays)
+      synchronized(BacktestTestDataGenerator) {
+        random.setSeed(42L)
+        val tradingDays = generateTradingDays(startDate, endDate)
+        insertSymbols(dsl)
+        insertStocksAndQuotes(dsl, tradingDays)
+        insertEarnings(dsl, tradingDays)
+        insertOrderBlocks(dsl, tradingDays)
+        insertMarketBreadth(dsl, tradingDays)
+        insertSectorBreadth(dsl, tradingDays)
+      }
     }
   }
 
