@@ -11,6 +11,7 @@ import com.skrymer.udgaard.backtesting.strategy.ExitStrategyReport
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.data.integration.LatestQuote
 import com.skrymer.udgaard.data.integration.StockProvider
+import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -118,6 +120,154 @@ class ScannerServiceTest {
     assertEquals(150.0, response.results[0].closePrice)
     assertEquals(3.5, response.results[0].atr)
     assertEquals("Mjolnir", response.entryStrategyName)
+  }
+
+  @Test
+  fun `scan resolves rankerName from request override`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    val today = LocalDate.now()
+    val stock = Stock(
+      symbol = "AAPL",
+      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    )
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+
+    // When: request name overrides whatever the strategy prefers
+    val response = service.scan(
+      ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit", rankerName = "Volatility"),
+    )
+
+    // Then: ScanResponse.rankerName reflects the request override (RankerFactory resolved the name)
+    assertEquals("Volatility", response.rankerName)
+  }
+
+  @Test
+  fun `scan falls back to Random ranker when neither request nor strategy specifies one`() {
+    // Given
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(entryStrategy.preferredRanker()).thenReturn(null)
+    val today = LocalDate.now()
+    val stock = Stock(
+      symbol = "AAPL",
+      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    )
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+
+    // When
+    val response = service.scan(ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit"))
+
+    // Then
+    assertEquals("Random", response.rankerName)
+  }
+
+  @Test
+  fun `scan uppercases explicit stockSymbols from the request`() {
+    // Given: request lists symbols in mixed case
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    val today = LocalDate.now()
+    val stock = Stock(
+      symbol = "AAPL",
+      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    )
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+
+    val request = ScanRequest(
+      entryStrategyName = "Mjolnir",
+      exitStrategyName = "MjolnirExit",
+      stockSymbols = listOf("aapl", "Msft"),
+    )
+
+    // When
+    service.scan(request)
+
+    // Then: findBySymbols is called with uppercased symbols, not the mixed-case request input
+    verify(stockRepository).findBySymbols(eq(listOf("AAPL", "MSFT")), anyOrNull())
+    verify(stockRepository, never()).findAllSymbols()
+  }
+
+  @Test
+  fun `scan skips stocks whose last-quote date does not match the current market date`() {
+    // Given: market breadth has a max date of 2026-05-08, but stock's latest quote is two days stale
+    val marketDate = LocalDate.of(2026, 5, 8)
+    whenever(marketBreadthRepository.findAllAsMap()).thenReturn(
+      mapOf(marketDate to MarketBreadthDaily(quoteDate = marketDate, breadthPercent = 50.0)),
+    )
+
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    val staleQuote = StockQuote(symbol = "AAPL", date = LocalDate.of(2026, 5, 6), closePrice = 150.0, atr = 3.5)
+    val stock = Stock(symbol = "AAPL", quotes = listOf(staleQuote))
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+
+    // When
+    val response = service.scan(ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit"))
+
+    // Then: the stock is silently skipped; entryStrategy.test is never invoked for stale data
+    assertEquals(0, response.results.size)
+    verify(entryStrategy, never()).test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())
+  }
+
+  @Test
+  fun `scan emits near-miss candidates and condition-failure summary only via DetailedEntryStrategy`() {
+    // Given
+    val entryStrategy: DetailedEntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Vcp")).thenReturn(entryStrategy)
+    val today = LocalDate.now()
+    val stock = Stock(
+      symbol = "AAPL",
+      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    )
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    val details = EntrySignalDetails(
+      strategyName = "Vcp",
+      strategyDescription = "VCP entry",
+      conditions = listOf(
+        ConditionEvaluationResult(
+          conditionType = "uptrend",
+          description = "uptrend",
+          passed = true,
+          actualValue = "yes",
+          threshold = "yes",
+          message = "uptrend ok",
+        ),
+        ConditionEvaluationResult(
+          conditionType = "volatilityContracted",
+          description = "volatilityContracted",
+          passed = false,
+          actualValue = "0.6",
+          threshold = "<0.5",
+          message = "atr too wide",
+        ),
+      ),
+      allConditionsMet = false,
+    )
+    whenever(entryStrategy.testWithDetails(any<Stock>(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(details)
+
+    // When: stock fails (one condition failed) but is a near-miss (other condition passed)
+    val response = service.scan(
+      ScanRequest(entryStrategyName = "Vcp", exitStrategyName = "MjolnirExit", nearMissLimit = 5),
+    )
+
+    // Then: 0 matches, 1 near-miss, summary aggregates the failed condition
+    assertEquals(0, response.results.size)
+    assertEquals(1, response.nearMissCandidates.size)
+    assertEquals("AAPL", response.nearMissCandidates[0].symbol)
+    assertEquals(1, response.conditionFailureSummary.size)
+    assertEquals("volatilityContracted", response.conditionFailureSummary[0].conditionType)
+    assertEquals(1, response.conditionFailureSummary[0].stocksBlocked)
   }
 
   @Test
@@ -636,6 +786,32 @@ class ScannerServiceTest {
     assertEquals(0, response.checksPerformed)
     assertEquals(0, response.exitsTriggered)
     assertTrue(response.results.isEmpty())
+  }
+
+  @Test
+  fun `checkExits falls back to DB quotes when stockProvider throws`() {
+    // Given: live-quote provider unavailable (rate-limited, network error, etc.)
+    val trade = createScannerTrade(id = 1, symbol = "AAPL", entryPrice = 100.0)
+    whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
+
+    val exitStrategy: ExitStrategy = mock()
+    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+
+    val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
+    val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 105.0, atr = 3.0)
+    val stock = Stock(symbol = "AAPL", quotes = listOf(entryQuote, latestQuote))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(stockProvider.getLatestQuotes(any())).thenThrow(RuntimeException("provider rate-limited"))
+    whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
+      .thenReturn(ExitStrategyReport(match = false))
+
+    // When
+    val response = service.checkExits()
+
+    // Then: the check still runs against the DB quote rather than propagating the exception
+    assertEquals(1, response.checksPerformed)
+    assertEquals(1, response.results.size)
+    assertEquals("AAPL", response.results[0].symbol)
   }
 
   @Test

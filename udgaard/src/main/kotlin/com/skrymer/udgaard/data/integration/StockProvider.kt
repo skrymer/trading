@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.data.integration
 
 import com.skrymer.udgaard.data.model.StockQuote
+import org.springframework.boot.actuate.health.HealthIndicator
 import java.time.LocalDate
 
 data class LatestQuote(
@@ -21,10 +22,12 @@ data class LatestQuote(
 /**
  * Interface for stock price and volume data providers
  *
- * Implementations should provide OHLCV (Open, High, Low, Close, Volume) data
- * for stocks, preferably adjusted for corporate actions like splits and dividends.
+ * Implementations provide OHLCV (Open, High, Low, Close, Volume) data for stocks, preferably
+ * adjusted for corporate actions like splits and dividends. Extends Spring's `HealthIndicator`
+ * so each provider exposes its own liveness probe to `/actuator/health` — Spring auto-registers
+ * any `HealthIndicator` bean.
  */
-interface StockProvider {
+interface StockProvider : HealthIndicator {
   /**
    * Get daily time series data for a stock symbol
    *

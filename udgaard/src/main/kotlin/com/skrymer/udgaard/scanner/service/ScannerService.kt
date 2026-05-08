@@ -277,7 +277,16 @@ class ScannerService(
         .findBySymbols(uniqueSymbols, quotesAfter = quotesAfter)
         .associateBy { it.symbol }
 
-    val liveQuotesBySymbol = stockProvider.getLatestQuotes(uniqueSymbols)
+    // Provider failure (rate-limit, network, etc.) shouldn't kill the whole exit check —
+    // fall back to stored DB quotes for every symbol; the user still gets signals
+    // against yesterday's close rather than an HTTP 500.
+    val liveQuotesBySymbol =
+      try {
+        stockProvider.getLatestQuotes(uniqueSymbols)
+      } catch (e: Exception) {
+        logger.warn("Live-quote provider failed during checkExits — falling back to stored quotes", e)
+        emptyMap()
+      }
     logger.info("Fetched live quotes for ${liveQuotesBySymbol.size}/${uniqueSymbols.size} symbols")
 
     val results = trades.mapNotNull { trade ->

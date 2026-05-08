@@ -13,6 +13,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.actuate.health.Health
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -94,6 +95,18 @@ class MidgaardClient(
       return null
     }
   }
+
+  override fun health(): Health =
+    try {
+      val symbols = getAllSymbols()
+      if (symbols != null) {
+        Health.up().withDetail("symbols", symbols.size).build()
+      } else {
+        Health.down().withDetail("reason", "No response from provider").build()
+      }
+    } catch (e: Exception) {
+      Health.down().withDetail("reason", e.message ?: "Unknown error").build()
+    }
 
   override fun getLatestQuote(symbol: String): LatestQuote? {
     try {
