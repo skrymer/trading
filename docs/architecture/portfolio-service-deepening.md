@@ -129,27 +129,183 @@ Total: ~250 lines changed; net coverage *increases* (zero existing controller-te
    - Run a broker import + sync against the IBKR Flex test query → confirm `lastSyncDate` advances and no duplicate positions
 4. **Pre/post comparison:** `curl http://localhost:9080/udgaard/api/portfolio` JSON shape unchanged.
 
-## Phase 1.5 — anemic-rule audit (record only, no fixes this PR)
+## Phase 1.5 — anemic-rule audit (planned 2026-05-09)
 
-[ADR 0001 — Rich domain objects](../adr/0001-rich-domain-objects.md) (Fowler-anchored against the [Anemic Domain Model](https://martinfowler.com/bliki/AnemicDomainModel.html) antipattern) likely applies elsewhere. After Phase 1 lands, walk through `udgaard/src/main/kotlin/com/skrymer/udgaard/**/service/*.kt` and flag any service method matching the anemic shape:
+[ADR 0001 — Rich domain objects](../adr/0001-rich-domain-objects.md) (Fowler-anchored against the [Anemic Domain Model](https://martinfowler.com/bliki/AnemicDomainModel.html) antipattern, plus the [Aggregate Root pattern](https://martinfowler.com/bliki/DDD_Aggregate.html) for multi-row invariants) applied to Position / Execution / ScannerTrade / TradeProcessor / CashTransaction.
 
-- 1–3 lines, single repo call, no external-system orchestration
-- Mutates a `data class` field with a derived value (`now()`, `prev + delta`, etc.)
-- The rule it encodes belongs naturally on the entity ("a Position is closed by ...", "an Execution's fxRate is captured at ...")
+### Audit findings (2026-05-09)
 
-**Candidates to investigate** (initial scan — confirm or reject when audited):
+| Target | Audit verdict |
+|---|---|
+| `ScannerTrade` | ✅ Already lifted in PR #13 (`withClosed`, `realisedPnl`, `withNotes`). Confirmed rich. |
+| `CashTransactionService.addCashTransaction` | KEEP in service. Dedup-by-`brokerTransactionId` is repo-aware (queries before saving), not a pure entity invariant. |
+| `Execution` data class | Currently anemic (no factories, only computed-property helpers). One factory rule worth lifting: synthetic closing-execution construction (in scope below). |
+| `PositionService.closePosition` | SPLIT — P&L formula + state transition belong on the aggregate; cross-aggregate balance update belongs on `Portfolio`; service orchestrates. |
+| `PositionService.recalculatePositionAggregates` | LIFT — pure transformation over executions (no I/O). |
+| `PositionService.closeManualPosition` | SPLIT — synthetic-execution construction → `Execution.closingFor(...)`; orchestration → service. |
+| `PositionService.addExecution` | KEEP in service — orchestration only (save + recalc). |
+| `TradeProcessor.{aggregateExecutions, splitPartialCloses, detectOptionRolls, buildRollChains}` | LIFT all 4 — pure transformations, no I/O. `TradeProcessor` class itself fails the deletion test (empty after lift). |
 
-| Service / method | Likely entity rule | Rich-domain shape |
+### Plan: 2 PRs, per-entity, TradeProcessor first
+
+PR B (TradeProcessor) ships first because the lifts are pure and the test pattern (companion-factory + plain-JUnit Given/When/Then) sets up cadence for the meatier PR A.
+
+---
+
+### PR B — `TradeProcessor` → companion factories
+
+**Smell:** `TradeProcessor` is a Spring `@Service` whose 4 methods are all pure transformations over `List<StandardizedTrade>` / `List<TradeLot>` / `List<RollPair>`. No state, no I/O, no constructor deps. Fails the deletion test once its data classes own their construction.
+
+**Target shape:**
+
+```kotlin
+val lots   = TradeLot.from(standardizedTrades)
+val rolls  = RollPair.detectFrom(lots)
+val chains = RollChain.buildFrom(rolls)
+```
+
+Each output type owns its own construction; the call site reads as a pipeline, no DI required.
+
+**Step-by-step:**
+
+1. Add companion factories on the existing data classes:
+   - `TradeLot.Companion.from(trades: List<StandardizedTrade>): List<TradeLot>` — body is current `splitPartialCloses` + private helper for `aggregateExecutions` (single internal caller).
+   - `RollPair.Companion.detectFrom(lots: List<TradeLot>): List<RollPair>` — body is current `detectOptionRolls`.
+   - `RollChain.Companion.buildFrom(rollPairs: List<RollPair>): List<RollChain>` — body is current `buildRollChains`.
+2. Migrate `BrokerIntegrationService` (3 call sites at lines 71–72, 158–159, 217): `tradeProcessor.X` → `Type.Y`. Drop the `tradeProcessor: TradeProcessor` constructor parameter.
+3. Update `BrokerIntegrationServiceTest`: drop `private val tradeProcessor = TradeProcessor()` and the constructor positional arg. No mock surgery (was already a real instance).
+4. Delete `TradeProcessor` class.
+5. Rename `TradeProcessor.kt` → `TradeLot.kt`. Co-locate the 3 surviving data classes (`TradeLot`, `RollPair`, `RollChain`) plus the now-private `AggregationKey`.
+6. Migrate the 2 cases from `TradeProcessorTest.kt` to `RollPairTest.kt`. Delete `TradeProcessorTest.kt`.
+
+**Component → test coverage:**
+
+| Component | Test class | Test cases |
 |---|---|---|
-| `PositionService.closePosition(...)` | "a Position transitions to CLOSED with realized P&L" | `position.withClosed(closeDate, closePrice, fxRate)` returning a new `Position` plus a derived `realizedPnl` |
-| `PositionService.recalculatePositionAggregates(...)` | "a Position's running-average resets on roll boundaries" | `position.withAggregatesRecalculated(executions)` |
-| `ScannerService.closeTrade(...)` | "a ScannerTrade transitions to CLOSED with P&L" | `scannerTrade.withClosed(closeDate, closePrice)` |
-| `TradeProcessor.splitPartialCloses(...)` / `detectOptionRolls(...)` | derivation rules over raw `Execution` lists | possibly `Execution.Companion.splitPartialCloses(...)` or stays as orchestration if it composes broker-format → domain |
-| `CashTransactionService.addCashTransaction(...)` | dedup-by-`brokerTransactionId` + portfolio FK invariant | likely stays in service (dedup is repo-aware, not a pure entity invariant) |
+| `TradeLot.from` | `TradeLotTest` (new, plain JUnit, no Spring) | (1) Buy 100 + Sell 50 + Sell 50 → 2 lots of 50 (FIFO match); (2) unmatched close logs warning + dropped (no exception); (3) remaining open with no close → unmatched lot with `closeTrade == null`; (4) multiple aggregated executions on the same trade-day collapse before lot building (covers private `aggregateExecutions` path); (5) two separate symbols don't cross-contaminate |
+| `RollPair.detectFrom` | `RollPairTest` (new, plain JUnit) | Migrated 2 from `TradeProcessorTest`: (1) same-orderId candidate preferred; (2) single-candidate match. New: (3) candidate within 1-day window matches; (4) candidate outside 1-day window doesn't; (5) different option type (CALL vs PUT) doesn't pair |
+| `RollChain.buildFrom` | `RollChainTest` (new, plain JUnit) | (1) A→B→C single chain across 3 rolls; (2) two disjoint pairs become two single-link chains; (3) chain with open final lot has `isClosed=false`, `endDate=null`; (4) `rollPairs` in arbitrary order produce same chains (order-independence) |
+| `BrokerIntegrationServiceTest` | `BrokerIntegrationServiceTest` (existing, update) | No new cases; mechanical constructor / call-site update. Existing 6 cases continue to pass. |
 
-**Process for each candidate:** apply the deletion test from `deepening-candidates.md`. If the service method survives without the entity (i.e., the rule is a 1-liner over a single aggregate) → move it to the entity. If it composes multiple aggregates or external systems → leave it in the service.
+**Backtest / scanner impact:** zero. Verify with greps before commit:
 
-**Output of Phase 1.5:** a list of follow-up commits, each scoped to one entity. Not a single sweep — each gets its own deletion-test pass and its own PR.
+- `grep -r "TradeProcessor\|TradeLot\|RollPair\|RollChain" udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting` → no matches expected
+- `grep -r "TradeProcessor\|TradeLot\|RollPair\|RollChain" udgaard/src/main/kotlin/com/skrymer/udgaard/scanner` → no matches expected
+
+**PR shape:** ~200–300 lines changed. 1 file deleted, 1 renamed, 3 new test files, 1 existing test updated, 1 service constructor updated.
+
+**Verification:**
+1. `./gradlew test` — green, including the 3 new test files.
+2. `/pre-commit` — ktlint / detekt / compiler clean.
+3. **Manual smoke:** run a broker import + sync against the IBKR Flex test query — confirm the same number of positions / executions / rolls / chains as before. JSON shape on `POST /api/portfolio/{id}/sync` unchanged.
+
+---
+
+### PR A — `Position` rich-domain via aggregate root
+
+**Smell:** `PositionService.closePosition` is 68 lines that pull executions + portfolio from repos and compute `realizedPnl`, `realizedPnlBase`, balance update — i.e. the service performs domain logic. Per [ADR 0001](../adr/0001-rich-domain-objects.md), the cleaner shape is "service asks the aggregate questions; aggregate owns logic AND data."
+
+The latent aggregate root already exists: `PositionWithExecutions` at `udgaard/.../portfolio/model/PositionStats.kt:33` — currently an anemic tuple `(position: Position, executions: List<Execution>)`. PR A promotes it.
+
+**Target shape:**
+
+```kotlin
+data class PositionWithExecutions(
+  val position: Position,
+  val executions: List<Execution>,
+) {
+  val realizedPnl: BigDecimal              // no args — aggregate has everything
+  fun realizedPnlBase(fxRateToBase: BigDecimal?): BigDecimal
+  val totalCommissions: BigDecimal
+  fun withClosed(closeDate: LocalDate, fxRateToBase: BigDecimal?): PositionWithExecutions
+  fun withExecutionAdded(execution: Execution): PositionWithExecutions
+  fun recalculated(): PositionWithExecutions   // running-average reset over executions
+}
+
+data class Portfolio(...) {
+  // existing factory + copy methods from Phase 1
+  fun withRealizedPnlApplied(realizedPnl: BigDecimal, commissions: BigDecimal): Portfolio  // NEW
+}
+
+data class Execution(...) {
+  companion object {
+    fun closingFor(position: Position, exitPrice: BigDecimal, exitDate: LocalDate): Execution  // NEW
+  }
+}
+```
+
+Service after migration is pure plumbing — fetch aggregates, ask them to transition, persist:
+
+```kotlin
+@Transactional
+fun closePosition(id: Long, closeDate: LocalDate, fxRate: BigDecimal?): Position {
+  val aggregate = positionRepo.findWithExecutionsById(id)
+    ?: throw NoSuchElementException("Position $id not found")
+  val closed = aggregate.withClosed(closeDate, fxRate)
+  val portfolio = portfolioRepo.findById(aggregate.position.portfolioId)
+    ?: throw NoSuchElementException("Portfolio ${aggregate.position.portfolioId} not found")
+  val updated = portfolio.withRealizedPnlApplied(closed.realizedPnl, closed.totalCommissions)
+  positionRepo.save(closed.position)
+  portfolioRepo.save(updated)
+  return closed.position
+}
+
+@Transactional
+fun closeManualPosition(id: Long, exitPrice: BigDecimal, exitDate: LocalDate, fxRate: BigDecimal?): Position {
+  val position = positionRepo.findById(id)
+    ?: throw NoSuchElementException("Position $id not found")
+  executionRepo.save(Execution.closingFor(position, exitPrice, exitDate))
+  return closePosition(id, exitDate, fxRate)
+}
+
+fun recalculatePositionAggregates(id: Long): Position {
+  val aggregate = positionRepo.findWithExecutionsById(id)
+    ?: throw NoSuchElementException("Position $id not found")
+  val recalculated = aggregate.recalculated()
+  positionRepo.save(recalculated.position)
+  return recalculated.position
+}
+```
+
+The stored `Position.realizedPnl` column stays — written by the aggregate at close time, read by `PortfolioStatsService` for sums (no recomputation, no N+1). The aggregate is the canonical writer; mutation outside the aggregate is forbidden by [ADR 0001](../adr/0001-rich-domain-objects.md).
+
+**Step-by-step:**
+
+1. Add the 6 rich methods on `PositionWithExecutions` (lift logic from `PositionService.closePosition` + `recalculatePositionAggregates`).
+2. Add `Portfolio.withRealizedPnlApplied(realizedPnl, commissions)`.
+3. Add `Execution.Companion.closingFor(position, exitPrice, exitDate)`.
+4. Add `PositionJooqRepository.findWithExecutionsById(id): PositionWithExecutions?` (two-query implementation: load position, load executions, assemble).
+5. Migrate `PositionService.closePosition` (68 → ~10 lines).
+6. Migrate `PositionService.closeManualPosition` (34 → ~5 lines).
+7. Migrate `PositionService.recalculatePositionAggregates` (46 → ~7 lines).
+8. `addExecution` stays as orchestration — body becomes `executionRepo.save(...); recalculatePositionAggregates(id)`.
+9. Scan migrated methods for pre-existing bugs ([feedback_dont_pin_broken_behaviour](../../home/skrymer/.claude/projects/-home-skrymer-Development-git-trading/memory/feedback_dont_pin_broken_behaviour.md)). Fix in-PR rather than pinning.
+10. Update existing `BrokerIntegrationServiceTest` — caller-site changes are mechanical (public API unchanged).
+
+**Component → test coverage:**
+
+| Component | Test class | Test cases |
+|---|---|---|
+| `PositionWithExecutions` (new aggregate methods) | `PositionWithExecutionsTest` (new, plain JUnit, no Spring) | (1) `realizedPnl` for stocks: sells × price − buys × price; (2) `realizedPnl` for options applies multiplier; (3) `realizedPnlBase(fxRate)` weights each execution by its `fxRateToBase`; (4) `totalCommissions` sums execution commissions (null-safe); (5) `withClosed` sets status=CLOSED, closedDate, currentQuantity=0, realizedPnl populated; (6) `withClosed` returns a new aggregate, leaves the original unchanged (immutability); (7) `withExecutionAdded` appends to executions list; (8) `recalculated` resets running-average on zero-crossing (FIFO weighted); (9) `recalculated` syncs `currentContracts` to quantity for options; (10) edge case: aggregate with empty executions list → `realizedPnl == 0`, `totalCommissions == 0` |
+| `Execution.Companion.closingFor` | `ExecutionTest` (new, plain JUnit) | (1) closing execution for stock has `quantity == -position.currentQuantity`, `price == exitPrice`, `executionDate == exitDate`, `fxRateToBase` carried from position; (2) closing execution for option uses `currentContracts × multiplier` semantics correctly |
+| `Portfolio.withRealizedPnlApplied` | `PortfolioTest` (existing — extend) | (1) `withRealizedPnlApplied(pnl, commissions)` adds `pnl + commissions` to `currentBalance`, bumps `lastUpdated`, leaves `createdDate` / `initialBalance` untouched |
+| `BrokerIntegrationService` | `BrokerIntegrationServiceTest` (existing — update) | Existing 6 cases stay green after caller-site mechanical update. Public API of `PositionService.closePosition` / `closeManualPosition` / `recalculatePositionAggregates` unchanged. |
+| `PositionController` close-flow | `PositionControllerE2ETest` (new, full integration per [ADR 0002](../adr/0002-controller-tests-use-full-integration.md)) | (1) `PUT /api/positions/{portfolioId}/{positionId}/close` with `exitPrice` synthesises closing execution, sets position status=CLOSED, populates `realizedPnl`, bumps portfolio balance — verify atomicity (`@Transactional`); (2) same endpoint returns 404 when position missing; (3) same returns 404 when portfolio missing; (4) `POST /api/positions/{portfolioId}` adds an execution and recalculates aggregates; (5) JSON shape on close response unchanged from pre-migration baseline |
+
+**Backtest / scanner impact:** zero. Verify with greps:
+
+- `grep -r "PositionWithExecutions\|Position\b\|Execution\b" udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting` → backtest uses its own ledger, no portfolio types
+- `grep -r "PositionWithExecutions\|PositionService" udgaard/src/main/kotlin/com/skrymer/udgaard/scanner` → no matches expected
+
+**PR shape:** ~500–600 lines changed. 3 entities enriched, 1 repo method added, 3 service methods migrated, 4 test files (3 new + 1 extended + 1 new e2e), 1 existing service-test updated. Single PR (per Q1 — per-entity cadence).
+
+**Verification:**
+1. `./gradlew test` — green, including all 4 new/extended test files.
+2. `/pre-commit` — full check.
+3. **Manual smoke:**
+   - List positions in the UI; close one manually with an exit price; confirm position transitions to CLOSED, `realizedPnl` populated, portfolio balance reflects the P&L.
+   - Run a broker import + sync; confirm broker-driven closes trigger the same flow with no double-counting.
+   - `curl http://localhost:9080/udgaard/api/positions/{portfolioId}` JSON shape unchanged.
 
 ## Phase 2 hypothesis
 
