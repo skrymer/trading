@@ -11,7 +11,6 @@ import com.skrymer.udgaard.portfolio.integration.broker.RollChain
 import com.skrymer.udgaard.portfolio.integration.broker.RollPair
 import com.skrymer.udgaard.portfolio.integration.broker.StandardizedCashTransaction
 import com.skrymer.udgaard.portfolio.integration.broker.TradeLot
-import com.skrymer.udgaard.portfolio.integration.broker.TradeProcessor
 import com.skrymer.udgaard.portfolio.integration.ibkr.IBKRApiException
 import com.skrymer.udgaard.portfolio.model.CashTransactionSource
 import com.skrymer.udgaard.portfolio.model.ImportResult
@@ -33,7 +32,6 @@ import java.time.LocalDateTime
 @Service
 class BrokerIntegrationService(
   private val adapterFactory: BrokerAdapterFactory,
-  private val tradeProcessor: TradeProcessor,
   private val portfolioRepository: PortfolioJooqRepository,
   private val positionService: PositionService,
   private val portfolioStatsService: PortfolioStatsService,
@@ -68,8 +66,8 @@ class BrokerIntegrationService(
     val accountInfo = brokerData.accountInfo
 
     // 3. Process trades (broker-agnostic logic)
-    val lots = tradeProcessor.splitPartialCloses(standardizedTrades)
-    val rolls = tradeProcessor.detectOptionRolls(lots)
+    val lots = TradeLot.from(standardizedTrades)
+    val rolls = RollPair.detectFrom(lots)
 
     // 4. Create portfolio
     val portfolio =
@@ -155,8 +153,8 @@ class BrokerIntegrationService(
     val standardizedTrades = brokerData.trades
 
     // Process trades
-    val lots = tradeProcessor.splitPartialCloses(standardizedTrades)
-    val rolls = tradeProcessor.detectOptionRolls(lots)
+    val lots = TradeLot.from(standardizedTrades)
+    val rolls = RollPair.detectFrom(lots)
 
     // Import/update trades
     val imported = importTrades(portfolioId, lots, rolls)
@@ -214,7 +212,7 @@ class BrokerIntegrationService(
     var executionsCreated = 0
 
     // 1. Build roll chains from roll pairs
-    val rollChains = tradeProcessor.buildRollChains(rolls)
+    val rollChains = RollChain.buildFrom(rolls)
 
     // 2. Get all lots that are part of roll chains
     val lotsInChains = rollChains.flatMap { it.lots }.toSet()

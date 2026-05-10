@@ -15,8 +15,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.actuate.health.Health
 import org.springframework.core.ParameterizedTypeReference
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -34,10 +36,18 @@ class MidgaardClient(
 ) : StockProvider {
   private val logger = LoggerFactory.getLogger(MidgaardClient::class.java)
 
+  // Bounded timeouts so a Midgaard outage (or a misconfigured test where the mock doesn't
+  // intercept) fails fast with SocketTimeoutException instead of blocking on the JVM's
+  // default infinite socket reads.
   private val restClient: RestClient by lazy {
+    val requestFactory = SimpleClientHttpRequestFactory().apply {
+      setConnectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+      setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS))
+    }
     RestClient
       .builder()
       .baseUrl(baseUrl)
+      .requestFactory(requestFactory)
       .build()
   }
 
@@ -200,5 +210,7 @@ class MidgaardClient(
 
   private companion object {
     private val NY_ZONE: ZoneId = ZoneId.of("America/New_York")
+    private const val CONNECT_TIMEOUT_SECONDS = 5L
+    private const val READ_TIMEOUT_SECONDS = 10L
   }
 }

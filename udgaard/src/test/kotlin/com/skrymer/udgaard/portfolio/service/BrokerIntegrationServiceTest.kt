@@ -11,7 +11,6 @@ import com.skrymer.udgaard.portfolio.integration.broker.BrokerType
 import com.skrymer.udgaard.portfolio.integration.broker.OpenCloseIndicator
 import com.skrymer.udgaard.portfolio.integration.broker.StandardizedTrade
 import com.skrymer.udgaard.portfolio.integration.broker.TradeDirection
-import com.skrymer.udgaard.portfolio.integration.broker.TradeProcessor
 import com.skrymer.udgaard.portfolio.model.Execution
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.Portfolio
@@ -38,7 +37,6 @@ import kotlin.test.assertEquals
 
 class BrokerIntegrationServiceTest {
   private val adapterFactory: BrokerAdapterFactory = mock()
-  private val tradeProcessor = TradeProcessor()
   private val portfolioRepository: PortfolioJooqRepository = mock()
   private val positionService: PositionService = mock()
   private val portfolioStatsService: PortfolioStatsService = mock()
@@ -58,7 +56,6 @@ class BrokerIntegrationServiceTest {
   fun setUp() {
     service = BrokerIntegrationService(
       adapterFactory,
-      tradeProcessor,
       portfolioRepository,
       positionService,
       portfolioStatsService,
