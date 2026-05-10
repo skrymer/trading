@@ -132,7 +132,7 @@ udgaard/
 │   │   │   └── OptionController.kt
 │   │   ├── dto/                      # Request/response DTOs
 │   │   ├── integration/
-│   │   │   ├── broker/               # Broker adapter pattern (BrokerAdapter, TradeProcessor)
+│   │   │   ├── broker/               # Broker adapter pattern (BrokerAdapter, TradeLot/RollPair/RollChain w/ companion-object factories)
 │   │   │   ├── ibkr/                 # Interactive Brokers (client, adapter, mapper, dto/)
 │   │   │   └── options/              # Options data (Midgaard)
 │   │   ├── mapper/                   # Entity/DTO mappers
