@@ -129,7 +129,15 @@ Total: ~250 lines changed; net coverage *increases* (zero existing controller-te
    - Run a broker import + sync against the IBKR Flex test query → confirm `lastSyncDate` advances and no duplicate positions
 4. **Pre/post comparison:** `curl http://localhost:9080/udgaard/api/portfolio` JSON shape unchanged.
 
-## Phase 1.5 — anemic-rule audit (planned 2026-05-09)
+## Phase 1.5 — anemic-rule audit (✅ completed 2026-05-10)
+
+**Outcome:**
+- PR B (#17) lifted all 4 `TradeProcessor` methods to companion factories on `TradeLot` / `RollPair` / `RollChain`. The `@Service TradeProcessor` class was deleted; `BrokerIntegrationService` lost a constructor dep.
+- PR A (#18) promoted `PositionWithExecutions` from anemic tuple to rich aggregate root. `PositionService.closePosition` (68 → ~25 lines), `closeManualPosition` (34 → ~10), and `recalculatePositionAggregates` (46 → ~10) became thin orchestration. Pre-existing bugs fixed in-PR: `(sold − bought) × multiplier` formula on open/partial positions, missing `fxRateToBase` on manual-close legs, double-application of P&L on re-entrant `closePosition` calls.
+
+The original plan and the QA findings that shaped both PRs are preserved below as historical context.
+
+
 
 [ADR 0001 — Rich domain objects](../adr/0001-rich-domain-objects.md) (Fowler-anchored against the [Anemic Domain Model](https://martinfowler.com/bliki/AnemicDomainModel.html) antipattern, plus the [Aggregate Root pattern](https://martinfowler.com/bliki/DDD_Aggregate.html) for multi-row invariants) applied to Position / Execution / ScannerTrade / TradeProcessor / CashTransaction.
 

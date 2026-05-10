@@ -12,7 +12,7 @@ Vocabulary: **module** = anything with an interface + impl; **deep** = high leve
 | 2 | `DynamicStrategyBuilder` `when{}` factory | shallow abstraction (interface ≪ impl) | Medium | ✅ Completed (PR #11) — see [dynamic-strategy-builder-deepening.md](dynamic-strategy-builder-deepening.md) |
 | 3 | `ScannerService` 5-hat module | pass-through + multi-cohesion | Medium | ✅ Phase 1 completed (PRs #14, #15, #16) — see [scanner-service-deepening.md](scanner-service-deepening.md). Phase 2 (split into `ScannerEvaluator` / `ScannerTradeStore` / `ScannerStatsService`) ready to start: decision-marker check confirmed file still 945 lines / 5 distinct hats and new test files cluster cleanly into the 3 proposed seams. Low urgency — deferred until next scanner change. |
 | 4 | Mirrored Condition modal + table pairs | mirrored modules, parallel maintenance | Medium | Open |
-| 5 | Portfolio-service layer (8 services) | pass-through + callers-always-need-N-together | Small (start) → Large | ✅ Phase 1 completed (PR #12). Phase 1.5 planned 2026-05-09 (2 PRs: PR B `TradeProcessor` → companion factories + PR A `Position` rich-domain via aggregate root) — see [portfolio-service-deepening.md](portfolio-service-deepening.md). Phase 2 (`OptionPriceService` deletion test, controller URL split) still open. |
+| 5 | Portfolio-service layer (8 services) | pass-through + callers-always-need-N-together | Small (start) → Large | ✅ Phase 1 completed (PR #12). ✅ Phase 1.5 completed 2026-05-10 — PR B `TradeProcessor` → companion factories (#17) + PR A `Position` rich-domain via aggregate root (#18). See [portfolio-service-deepening.md](portfolio-service-deepening.md). Phase 2 (`OptionPriceService` deletion test, controller URL split) still open. |
 
 ---
 
