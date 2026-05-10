@@ -25,6 +25,15 @@ data class Portfolio(
   fun withSyncCompleted(syncedAt: LocalDateTime): Portfolio =
     copy(lastSyncDate = syncedAt, lastUpdated = syncedAt)
 
+  /**
+   * Apply a closed position's realized result to the portfolio balance. Adds `realizedPnl + commissions`
+   * to `currentBalance` (broker commission rows are typically already signed-negative, so this addition
+   * subtracts cost) and bumps `lastUpdated`. Stays at the portfolio aggregate boundary — the caller
+   * supplies scalars derived from the closed position aggregate (per ADR 0001's cross-aggregate rule).
+   */
+  fun withRealizedPnlApplied(realizedPnl: Double, commissions: Double): Portfolio =
+    copy(currentBalance = currentBalance + realizedPnl + commissions, lastUpdated = LocalDateTime.now())
+
   companion object {
     fun create(
       name: String,

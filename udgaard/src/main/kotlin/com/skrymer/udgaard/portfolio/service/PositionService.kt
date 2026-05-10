@@ -14,8 +14,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
-import java.time.LocalDateTime
-import kotlin.math.abs
 
 @Service
 class PositionService(
@@ -142,69 +140,41 @@ class PositionService(
     positionId: Long,
     closedDate: LocalDate,
   ): Position {
-    val position =
-      positionRepository.findById(positionId)
+    val aggregate =
+      positionRepository.findWithExecutionsById(positionId)
         ?: throw IllegalArgumentException("Position $positionId not found")
+    if (aggregate.position.isClosed) {
+      // Idempotency guard: a re-entrant close must not double-apply realizedPnl to the portfolio
+      // balance. The broker-import flow's heuristics (allBrokerTradeIdsExist, chain.isClosed)
+      // skip already-closed positions, but a partially-failed prior sync could leave the
+      // position closed without all its broker trade IDs registered, which would otherwise
+      // re-trigger the close path.
+      logger.info("Position $positionId already closed; skipping idempotent close-call")
+      return aggregate.position
+    }
+    val portfolio =
+      portfolioRepository.findById(aggregate.position.portfolioId)
+        ?: throw IllegalArgumentException("Portfolio ${aggregate.position.portfolioId} not found")
 
     logger.info("Closing position $positionId on $closedDate")
 
-    // Calculate realized P&L from all executions
-    val executions = executionRepository.findByPositionId(positionId)
-    val totalBought = executions.filter { it.quantity > 0 }.sumOf { it.quantity * it.price }
-    val totalSold = executions.filter { it.quantity < 0 }.sumOf { abs(it.quantity) * it.price }
+    val closed = aggregate.withClosed(closedDate)
+    val updatedPortfolio = portfolio.withRealizedPnlApplied(closed.realizedPnl, closed.totalCommissions)
 
-    // Multiply by position multiplier (for options: 100, for stocks: 1)
-    val multiplier = position.multiplier
-    val realizedPnl = (totalSold - totalBought) * multiplier
-
-    // Calculate base currency P&L if FX rates are available
-    val hasFxRates = executions.any { it.fxRateToBase != null }
-    val realizedPnlBase = if (hasFxRates) {
-      val totalBoughtBase = executions
-        .filter { it.quantity > 0 }
-        .sumOf { it.quantity * it.price * (it.fxRateToBase ?: 1.0) }
-      val totalSoldBase = executions
-        .filter { it.quantity < 0 }
-        .sumOf { abs(it.quantity) * it.price * (it.fxRateToBase ?: 1.0) }
-      (totalSoldBase - totalBoughtBase) * multiplier
-    } else {
-      null
-    }
-
-    logger.info("Position $positionId realized P&L: $realizedPnl (bought: $totalBought, sold: $totalSold, multiplier: $multiplier)")
-    if (realizedPnlBase != null) {
-      logger.info("Position $positionId realized P&L (base): $realizedPnlBase")
-    }
-
-    val closed =
-      position.copy(
-        status = PositionStatus.CLOSED,
-        closedDate = closedDate,
-        realizedPnl = realizedPnl,
-        realizedPnlBase = realizedPnlBase,
-        currentQuantity = 0,
-        currentContracts = if (position.instrumentType == InstrumentType.OPTION) 0 else null,
-      )
-
-    // Update portfolio current balance with realized P&L minus commissions
-    val portfolio =
-      portfolioRepository.findById(position.portfolioId)
-        ?: throw IllegalArgumentException("Portfolio ${position.portfolioId} not found")
-
-    val positionCommissions = executions.sumOf { it.commission ?: 0.0 }
-    val updatedPortfolio =
-      portfolio.copy(
-        currentBalance = portfolio.currentBalance + realizedPnl + positionCommissions,
-        lastUpdated = LocalDateTime.now(),
-      )
-
-    portfolioRepository.save(updatedPortfolio)
     logger.info(
-      "Updated portfolio ${position.portfolioId} balance: " +
-        "${portfolio.currentBalance} + $realizedPnl + $positionCommissions = ${updatedPortfolio.currentBalance}",
+      "Position $positionId realized P&L: ${closed.realizedPnl} " +
+        "(multiplier: ${aggregate.position.multiplier})",
+    )
+    if (closed.realizedPnlBase != null) {
+      logger.info("Position $positionId realized P&L (base): ${closed.realizedPnlBase}")
+    }
+    logger.info(
+      "Updated portfolio ${aggregate.position.portfolioId} balance: " +
+        "${portfolio.currentBalance} + ${closed.realizedPnl} + ${closed.totalCommissions} = ${updatedPortfolio.currentBalance}",
     )
 
-    return positionRepository.save(closed)
+    portfolioRepository.save(updatedPortfolio)
+    return positionRepository.save(closed.position)
   }
 
   /**
@@ -243,55 +213,19 @@ class PositionService(
   }
 
   /**
-   * Recalculate position aggregates from executions.
-   * Uses a running average that resets when quantity hits 0 (e.g., between roll legs),
-   * so avgEntryPrice reflects the current/last leg's entry, not a blend of all historical buys.
+   * Recalculate position aggregates from executions. Delegates to the rich domain
+   * (`PositionWithExecutions.recalculated()`) which owns the running-average reset rule.
    */
   private fun recalculatePositionAggregates(positionId: Long) {
-    val position = positionRepository.findById(positionId) ?: return
-    val executions = executionRepository.findByPositionId(positionId)
-
-    // Total cost across all buys (for return % calculations in stats)
-    // Include multiplier so totalCost is in actual dollars (consistent with realizedPnl)
-    val multiplier = if (position.instrumentType == InstrumentType.OPTION) position.multiplier else 1
-    val totalCost = executions.filter { it.quantity > 0 }.sumOf { it.quantity * it.price } * multiplier
-
-    // Running average entry price: resets when position fully closes (roll boundary)
-    val sorted = executions.sortedBy { it.executionDate }
-    var runningQty = 0
-    var runningCost = 0.0
-    var avgEntryPrice = 0.0
-
-    for (exec in sorted) {
-      if (exec.quantity > 0) {
-        runningCost += exec.quantity * exec.price
-        runningQty += exec.quantity
-        avgEntryPrice = runningCost / runningQty
-      } else {
-        val sellQty = abs(exec.quantity)
-        runningCost -= sellQty * avgEntryPrice
-        runningQty -= sellQty
-        if (runningQty == 0) {
-          runningCost = 0.0
-        }
-      }
-    }
-
-    val currentQuantity = runningQty
-
+    val aggregate = positionRepository.findWithExecutionsById(positionId) ?: return
+    val recalculated = aggregate.recalculated()
     logger.debug(
-      "Position $positionId aggregates: quantity=$currentQuantity, avgEntry=$avgEntryPrice, cost=$totalCost",
+      "Position $positionId aggregates: " +
+        "quantity=${recalculated.position.currentQuantity}, " +
+        "avgEntry=${recalculated.position.averageEntryPrice}, " +
+        "cost=${recalculated.position.totalCost}",
     )
-
-    val updated =
-      position.copy(
-        currentQuantity = currentQuantity,
-        currentContracts = if (position.instrumentType == InstrumentType.OPTION) currentQuantity else null,
-        averageEntryPrice = avgEntryPrice,
-        totalCost = totalCost,
-      )
-
-    positionRepository.save(updated)
+    positionRepository.save(recalculated.position)
   }
 
   // ===========================================
@@ -397,23 +331,14 @@ class PositionService(
 
     logger.info("Closing manual position $positionId with exit price $exitPrice on $exitDate")
 
-    // Add closing execution
-    executionRepository.save(
-      Execution(
-        id = null,
-        positionId = positionId,
-        quantity = -position.currentQuantity,
-        price = exitPrice,
-        executionDate = exitDate,
-        brokerTradeId = null,
-        linkedBrokerTradeId = null,
-        executionTime = null,
-        commission = null,
-        notes = "Manual close",
-      ),
-    )
-
-    // Close position
+    // Inherit the FX rate from the most recent prior execution so the closing leg contributes
+    // correctly to realizedPnlBase. Falls back to null for USD-only portfolios (where no
+    // execution carries a rate); realizedPnlBase short-circuits to null in that case anyway.
+    val priorFxRate = executionRepository
+      .findByPositionId(positionId)
+      .sortedByDescending { it.executionDate }
+      .firstNotNullOfOrNull { it.fxRateToBase }
+    executionRepository.save(Execution.closingFor(position, exitPrice, exitDate, fxRateToBase = priorFxRate))
     return closePosition(positionId, exitDate)
   }
 

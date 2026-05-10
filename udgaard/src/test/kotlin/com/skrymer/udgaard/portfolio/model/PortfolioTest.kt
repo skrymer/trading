@@ -102,6 +102,23 @@ class PortfolioTest {
   }
 
   @Test
+  fun `withRealizedPnlApplied adds pnl plus commissions to currentBalance and bumps lastUpdated`() {
+    // Given: portfolio at $10,000, lastUpdated stale
+    val original = Portfolio.create(name = "Test", initialBalance = 10_000.0, currency = "USD")
+    val staleLastUpdated = original.lastUpdated.minus(1, ChronoUnit.HOURS)
+    val portfolio = original.copy(lastUpdated = staleLastUpdated)
+
+    // When: a closed position contributes +$200 of P&L and -$5 of commissions (negative sign per broker convention)
+    val applied = portfolio.withRealizedPnlApplied(realizedPnl = 200.0, commissions = -5.0)
+
+    // Then: balance moves by (200 + -5) = 195; createdDate untouched; initialBalance untouched; lastUpdated bumped
+    assertEquals(10_195.0, applied.currentBalance)
+    assertEquals(original.createdDate, applied.createdDate)
+    assertEquals(10_000.0, applied.initialBalance, "Initial balance is the historical seed and should never change")
+    assertTrue(applied.lastUpdated.isAfter(staleLastUpdated))
+  }
+
+  @Test
   fun `withSyncCompleted sets lastSyncDate and lastUpdated to the supplied timestamp`() {
     // Given
     val portfolio = Portfolio.create(name = "Test", initialBalance = 10_000.0, currency = "USD")

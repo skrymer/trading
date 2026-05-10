@@ -136,17 +136,17 @@ udgaard/
 │   │   │   ├── ibkr/                 # Interactive Brokers (client, adapter, mapper, dto/)
 │   │   │   └── options/              # Options data (Midgaard)
 │   │   ├── mapper/                   # Entity/DTO mappers
-│   │   ├── model/                    # Portfolio.kt has rich-domain methods (create() factory, withBalanceUpdated(), withSyncCompleted())
+│   │   ├── model/                    # Portfolio.kt rich-domain (create()/withBalanceUpdated()/withSyncCompleted()/withRealizedPnlApplied()); PositionStats.kt also defines PositionWithExecutions aggregate root (realizedPnl/realizedPnlBase/totalCommissions getters; withClosed(closeDate)/withExecutionAdded(execution)/recalculated() transitions) per ADR 0001; Execution.kt has closingFor(position, exitPrice, exitDate) factory
 │   │   ├── repository/
 │   │   │   ├── PortfolioJooqRepository.kt   # Portfolio CRUD lives here; controller + BrokerIntegrationService use it directly (no PortfolioService layer)
-│   │   │   ├── PositionJooqRepository.kt
+│   │   │   ├── PositionJooqRepository.kt    # Includes findWithExecutionsById(id) returning the PositionWithExecutions aggregate
 │   │   │   ├── ExecutionJooqRepository.kt
 │   │   │   ├── ForexLotJooqRepository.kt
 │   │   │   ├── ForexDisposalJooqRepository.kt
 │   │   │   └── CashTransactionJooqRepository.kt
 │   │   └── service/
 │   │       ├── PortfolioStatsService.kt
-│   │       ├── PositionService.kt
+│   │       ├── PositionService.kt           # Thin orchestration; closePosition/closeManualPosition/recalculatePositionAggregates delegate to PositionWithExecutions + Portfolio.withRealizedPnlApplied
 │   │       ├── BrokerIntegrationService.kt
 │   │       ├── OptionPriceService.kt
 │   │       ├── UnrealizedPnlService.kt
@@ -229,6 +229,7 @@ udgaard/
 │       ├── ForexTrackingE2ETest.kt     # Forex tracking E2E tests
 │       ├── IBKRBrokerImportE2ETest.kt  # IBKR broker import E2E tests
 │       ├── PortfolioControllerE2ETest.kt  # Portfolio CRUD + sync E2E tests
+│       ├── PositionControllerE2ETest.kt    # Position CRUD + close + roll-chain E2E tests
 │       ├── ScannerCheckExitsE2ETest.kt    # Scanner check-exits E2E (live + stored bar)
 │       ├── ScannerOptionContractsE2ETest.kt  # Scanner /option-contracts E2E
 │       ├── ScannerRollE2ETest.kt          # Scanner roll-trade E2E

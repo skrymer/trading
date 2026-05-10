@@ -6,6 +6,7 @@ import com.skrymer.udgaard.portfolio.mapper.PositionMapper
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.portfolio.model.Position
 import com.skrymer.udgaard.portfolio.model.PositionStatus
+import com.skrymer.udgaard.portfolio.model.PositionWithExecutions
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.LocalDate
@@ -18,6 +19,7 @@ import java.time.LocalDateTime
 class PositionJooqRepository(
   private val dsl: DSLContext,
   private val mapper: PositionMapper,
+  private val executionRepository: ExecutionJooqRepository,
 ) {
   /**
    * Find position by ID
@@ -30,6 +32,18 @@ class PositionJooqRepository(
         .fetchOneInto(Positions::class.java) ?: return null
 
     return mapper.toDomain(position)
+  }
+
+  /**
+   * Load the rich Position aggregate (position + executions) by id. Returns null if the position
+   * doesn't exist. Two-query implementation: one round trip for the position, one for its
+   * executions. The aggregate (`PositionWithExecutions`) owns all derived P&L logic; this method
+   * is the seam between persistence and the rich-domain operations on the aggregate.
+   */
+  fun findWithExecutionsById(id: Long): PositionWithExecutions? {
+    val position = findById(id) ?: return null
+    val executions = executionRepository.findByPositionId(id)
+    return PositionWithExecutions(position = position, executions = executions)
   }
 
   /**
