@@ -211,6 +211,10 @@ class MidgaardClient(
   private companion object {
     private val NY_ZONE: ZoneId = ZoneId.of("America/New_York")
     private const val CONNECT_TIMEOUT_SECONDS = 5L
-    private const val READ_TIMEOUT_SECONDS = 10L
+
+    // 30s read timeout — Midgaard doesn't cache FX rates persistently and proxies to
+    // upstream providers (AlphaVantage etc.) on cache miss. A cold historical-FX-rate
+    // fetch can legitimately take 10–25s when the provider is rate-limited.
+    private const val READ_TIMEOUT_SECONDS = 30L
   }
 }
