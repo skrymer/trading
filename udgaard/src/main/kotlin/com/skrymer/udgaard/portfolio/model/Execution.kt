@@ -56,4 +56,33 @@ data class Execution(
    */
   val netCost: Double
     get() = totalValue + (commission ?: 0.0)
+
+  companion object {
+    /**
+     * Build a closing execution that liquidates the position's current quantity at the given
+     * price. Sign-flips the quantity (negative = sell/close). For FX portfolios, the caller
+     * passes `fxRateToBase` so the closing leg contributes correctly to the aggregate's
+     * `realizedPnlBase` — passing null here makes the closing leg an effective rate of 1.0,
+     * which silently corrupts base-currency P&L for any AUD/USD-style portfolio.
+     */
+    fun closingFor(
+      position: Position,
+      exitPrice: Double,
+      exitDate: LocalDate,
+      fxRateToBase: Double? = null,
+    ): Execution =
+      Execution(
+        id = null,
+        positionId = position.id ?: error("Cannot build a closing execution for an unsaved position"),
+        brokerTradeId = null,
+        linkedBrokerTradeId = null,
+        quantity = -position.currentQuantity,
+        price = exitPrice,
+        executionDate = exitDate,
+        executionTime = null,
+        commission = null,
+        fxRateToBase = fxRateToBase,
+        notes = "Manual close",
+      )
+  }
 }

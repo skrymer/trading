@@ -68,8 +68,10 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `ScheduledRefreshService.kt`: Scheduled automatic data refresh
 
 3. **Portfolio** (`portfolio/`)
-   - Portfolio CRUD: `PortfolioController` talks to `PortfolioJooqRepository` directly; rich-domain methods (`Portfolio.create()`, `withBalanceUpdated()`, `withSyncCompleted()`) live on the `Portfolio` model
-   - `PositionService.kt`: Position lifecycle management
+   - Portfolio CRUD: `PortfolioController` talks to `PortfolioJooqRepository` directly; rich-domain methods (`Portfolio.create()`, `withBalanceUpdated()`, `withSyncCompleted()`, `withRealizedPnlApplied()`) live on the `Portfolio` model
+   - `PositionWithExecutions` (in `model/PositionStats.kt`): rich aggregate root for Position + executions; owns derived P&L (`realizedPnl`, `realizedPnlBase`, `totalCommissions`) and state transitions (`withClosed(closeDate)`, `withExecutionAdded(execution)`, `recalculated()`) per ADR 0001
+   - `Execution.Companion.closingFor(position, exitPrice, exitDate)`: factory for closing executions
+   - `PositionService.kt`: thin orchestration — close/recalculate operations delegate to `PositionWithExecutions` and `Portfolio.withRealizedPnlApplied`; uses `PositionJooqRepository.findWithExecutionsById(id)`
    - `BrokerIntegrationService.kt`: Broker sync orchestration (uses `PortfolioJooqRepository` directly)
    - `ForexTrackingService.kt`: FIFO forex lot tracking for multi-currency portfolios
    - `CashTransactionService.kt`: Deposits/withdrawals tracking (IBKR import + balance adjustment)
@@ -174,9 +176,9 @@ trading/
 │   │   │   ├── dto/                  # Request/response DTOs
 │   │   │   ├── integration/          # Broker adapters (broker/), IBKR (ibkr/), options providers (options/MidgaardOptionsProvider)
 │   │   │   ├── mapper/               # Entity/DTO mappers
-│   │   │   ├── model/                # Portfolio, Position, Execution, PortfolioStats, CashTransaction, ForexLot, ForexDisposal, EquityCurveData
-│   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository, ExecutionJooqRepository, ForexLotJooqRepository, ForexDisposalJooqRepository, CashTransactionJooqRepository
-│   │   │   └── service/              # PortfolioStatsService, PositionService, BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService (Portfolio CRUD: controller→PortfolioJooqRepository directly; rich-domain methods on Portfolio.kt)
+│   │   │   ├── model/                # Portfolio (rich domain: create/withBalanceUpdated/withSyncCompleted/withRealizedPnlApplied), Position, Execution (w/ closingFor() factory), PortfolioStats, PositionStats (incl. PositionWithExecutions aggregate root w/ realizedPnl, withClosed, withExecutionAdded, recalculated), CashTransaction, ForexLot, ForexDisposal, EquityCurveData
+│   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository (incl. findWithExecutionsById), ExecutionJooqRepository, ForexLotJooqRepository, ForexDisposalJooqRepository, CashTransactionJooqRepository
+│   │   │   └── service/              # PortfolioStatsService, PositionService (thin orchestration; delegates close/recalculate to PositionWithExecutions + Portfolio.withRealizedPnlApplied), BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService (Portfolio CRUD: controller→PortfolioJooqRepository directly; rich-domain methods on Portfolio.kt)
 │   │   ├── scanner/                  # Scanner domain
 │   │   │   ├── controller/           # ScannerController
 │   │   │   ├── dto/                  # Request/response DTOs (incl. StrategyClosedStats, ClosedTradeStatsResponse)
@@ -346,4 +348,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-05-08_
+_Last Updated: 2026-05-10_
