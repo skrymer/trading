@@ -849,6 +849,21 @@ export interface RollChainResponse {
   trades: PortfolioTrade[]
 }
 
+export interface StrategyBreakdownStats {
+  strategy: string
+  trades: number
+  wins: number
+  losses: number
+  winRate: number
+  edge: number
+  avgWinPct: number
+  avgLossPct: number
+  avgWinDollars: number
+  avgLossDollars: number
+  profitFactor: number | null
+  totalPnl: number
+}
+
 export interface PortfolioStats {
   totalTrades: number
   openTrades: number
@@ -871,6 +886,7 @@ export interface PortfolioStats {
   currentFxRate?: number | null
   totalDeposits?: number
   totalWithdrawals?: number
+  byStrategy?: StrategyBreakdownStats[]
 }
 
 export interface EquityDataPoint {

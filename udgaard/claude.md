@@ -136,7 +136,7 @@ udgaard/
 │   │   │   ├── ibkr/                 # Interactive Brokers (client, adapter, mapper, dto/)
 │   │   │   └── options/              # Options data (Midgaard)
 │   │   ├── mapper/                   # Entity/DTO mappers
-│   │   ├── model/                    # Portfolio.kt rich-domain (create()/withBalanceUpdated()/withSyncCompleted()/withRealizedPnlApplied()); PositionStats.kt also defines PositionWithExecutions aggregate root (realizedPnl/realizedPnlBase/totalCommissions getters; withClosed(closeDate)/withExecutionAdded(execution)/recalculated() transitions) per ADR 0001; Execution.kt has closingFor(position, exitPrice, exitDate) factory
+│   │   ├── model/                    # Portfolio.kt rich-domain (create()/withBalanceUpdated()/withSyncCompleted()/withRealizedPnlApplied()); PositionStats.kt also defines PositionWithExecutions aggregate root (realizedPnl/realizedPnlBase/totalCommissions getters; withClosed(closeDate)/withExecutionAdded(execution)/recalculated() transitions) per ADR 0001, plus StrategyBreakdownStats (fromPositions factory owns win-rate/edge/profit-factor math) surfaced as PositionStats.byStrategy; Position.kt has strategyGroupKey for per-strategy grouping; Execution.kt has closingFor(position, exitPrice, exitDate) factory
 │   │   ├── repository/
 │   │   │   ├── PortfolioJooqRepository.kt   # Portfolio CRUD lives here; controller + BrokerIntegrationService use it directly (no PortfolioService layer)
 │   │   │   ├── PositionJooqRepository.kt    # Includes findWithExecutionsById(id) returning the PositionWithExecutions aggregate

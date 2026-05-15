@@ -70,6 +70,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 3. **Portfolio** (`portfolio/`)
    - Portfolio CRUD: `PortfolioController` talks to `PortfolioJooqRepository` directly; rich-domain methods (`Portfolio.create()`, `withBalanceUpdated()`, `withSyncCompleted()`, `withRealizedPnlApplied()`) live on the `Portfolio` model
    - `PositionWithExecutions` (in `model/PositionStats.kt`): rich aggregate root for Position + executions; owns derived P&L (`realizedPnl`, `realizedPnlBase`, `totalCommissions`) and state transitions (`withClosed(closeDate)`, `withExecutionAdded(execution)`, `recalculated()`) per ADR 0001
+   - `StrategyBreakdownStats` (in `model/PositionStats.kt`): per-strategy slice of closed positions; owns the breakdown math (win rate, edge, profit factor) via `fromPositions` factory. Exposed as the `byStrategy` field on `PositionStats`, populated by `PortfolioStatsService.calculateStats`; positions are grouped by `Position.strategyGroupKey`
    - `Execution.Companion.closingFor(position, exitPrice, exitDate)`: factory for closing executions
    - `PositionService.kt`: thin orchestration — close/recalculate operations delegate to `PositionWithExecutions` and `Portfolio.withRealizedPnlApplied`; uses `PositionJooqRepository.findWithExecutionsById(id)`
    - `BrokerIntegrationService.kt`: Broker sync orchestration (uses `PortfolioJooqRepository` directly)
@@ -152,6 +153,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 ```
 trading/
 ├── CLAUDE.md                         # Project-wide context
+├── CONTEXT.md                        # Domain glossary (Edge, Win rate, Profit factor, Unassigned)
 ├── .claude/                          # Claude configuration (commands, skills, settings)
 ├── claude_thoughts/                  # Documentation created by Claude
 ├── docs/                             # Architectural decision records (adr/) + design docs (architecture/)
@@ -176,7 +178,7 @@ trading/
 │   │   │   ├── dto/                  # Request/response DTOs
 │   │   │   ├── integration/          # Broker adapters (broker/), IBKR (ibkr/), options providers (options/MidgaardOptionsProvider)
 │   │   │   ├── mapper/               # Entity/DTO mappers
-│   │   │   ├── model/                # Portfolio (rich domain: create/withBalanceUpdated/withSyncCompleted/withRealizedPnlApplied), Position, Execution (w/ closingFor() factory), PortfolioStats, PositionStats (incl. PositionWithExecutions aggregate root w/ realizedPnl, withClosed, withExecutionAdded, recalculated), CashTransaction, ForexLot, ForexDisposal, EquityCurveData
+│   │   │   ├── model/                # Portfolio (rich domain: create/withBalanceUpdated/withSyncCompleted/withRealizedPnlApplied), Position (w/ strategyGroupKey), Execution (w/ closingFor() factory), PortfolioStats, PositionStats (incl. PositionWithExecutions aggregate root w/ realizedPnl, withClosed, withExecutionAdded, recalculated; StrategyBreakdownStats w/ fromPositions factory; byStrategy field on PositionStats), CashTransaction, ForexLot, ForexDisposal, EquityCurveData
 │   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository (incl. findWithExecutionsById), ExecutionJooqRepository, ForexLotJooqRepository, ForexDisposalJooqRepository, CashTransactionJooqRepository
 │   │   │   └── service/              # PortfolioStatsService, PositionService (thin orchestration; delegates close/recalculate to PositionWithExecutions + Portfolio.withRealizedPnlApplied), BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService (Portfolio CRUD: controller→PortfolioJooqRepository directly; rich-domain methods on Portfolio.kt)
 │   │   ├── scanner/                  # Scanner domain
@@ -348,4 +350,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-05-10_
+_Last Updated: 2026-05-15_
