@@ -78,6 +78,14 @@ data class Position(
    */
   val isRolled: Boolean
     get() = rolledToPositionId != null || parentPositionId != null
+
+  /**
+   * Strategy name to group this position under in per-strategy breakdowns. The "Broker Import"
+   * placeholder that broker-sync stamps on imported positions means no strategy was chosen, so
+   * it collapses to the literal "(Unassigned)".
+   */
+  val strategyGroupKey: String
+    get() = entryStrategy?.takeIf { it.isNotBlank() && it != "Broker Import" } ?: "(Unassigned)"
 }
 
 /**

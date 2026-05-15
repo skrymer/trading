@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent, type Ref } from 'vue'
-import type { Portfolio, Position, PortfolioStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal, CashTransaction, CashTransactionSummary } from '~/types'
+import type { Portfolio, Position, PortfolioStats, StrategyBreakdownStats, CreateFromBrokerResult, PortfolioSyncResult, PositionUnrealizedPnl, EquityCurveData, ForexSummary, ForexLot, ForexDisposal, CashTransaction, CashTransactionSummary } from '~/types'
 import { usePositionFormatters } from '~/composables/usePositionFormatters'
 
 const { formatOptionDetails, formatCurrency, formatDate } = usePositionFormatters()
@@ -520,65 +520,8 @@ const displayStats = computed(() => {
   }
 })
 
-// Strategy breakdown stats
-const UNASSIGNED_STRATEGIES = new Set(['', 'Broker Import'])
-
-interface StrategyStats {
-  strategy: string
-  trades: number
-  wins: number
-  losses: number
-  winRate: number
-  avgWin: number
-  avgLoss: number
-  profitFactor: number | null
-  totalPnl: number
-}
-
-const strategyBreakdown = computed<StrategyStats[]>(() => {
-  if (closedPositions.value.length === 0) return []
-
-  const grouped = new Map<string, Position[]>()
-  for (const pos of closedPositions.value) {
-    const key = (!pos.entryStrategy || UNASSIGNED_STRATEGIES.has(pos.entryStrategy))
-      ? '(Unassigned)'
-      : pos.entryStrategy
-    const list = grouped.get(key) || []
-    list.push(pos)
-    grouped.set(key, list)
-  }
-
-  const results: StrategyStats[] = []
-  for (const [strategy, positions] of grouped) {
-    const wins = positions.filter(p => (p.realizedPnl ?? 0) > 0)
-    const losses = positions.filter(p => (p.realizedPnl ?? 0) < 0)
-    const totalPnl = positions.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0)
-
-    const avgWinPnl = wins.length > 0
-      ? wins.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0) / wins.length
-      : 0
-    const avgLossPnl = losses.length > 0
-      ? losses.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0) / losses.length
-      : 0
-
-    const grossProfit = wins.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0)
-    const grossLoss = Math.abs(losses.reduce((sum, p) => sum + (p.realizedPnl ?? 0), 0))
-
-    results.push({
-      strategy,
-      trades: positions.length,
-      wins: wins.length,
-      losses: losses.length,
-      winRate: positions.length > 0 ? (wins.length / positions.length) * 100 : 0,
-      avgWin: avgWinPnl,
-      avgLoss: avgLossPnl,
-      profitFactor: grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? null : 0),
-      totalPnl
-    })
-  }
-
-  return results.sort((a, b) => b.trades - a.trades)
-})
+// Strategy breakdown stats — grouped, edge-scored, and sorted by the backend (PositionStats.byStrategy)
+const strategyBreakdown = computed<StrategyBreakdownStats[]>(() => stats.value?.byStrategy ?? [])
 
 const strategyBreakdownColumns = computed(() => {
   const UBadge = resolveComponent('UBadge')
@@ -588,7 +531,7 @@ const strategyBreakdownColumns = computed(() => {
       accessorKey: 'strategy',
       header: 'Strategy',
       cell: ({ row }: { row: any }) => {
-        const s = row.original as StrategyStats
+        const s = row.original as StrategyBreakdownStats
         const children: any[] = []
         if (s.strategy === '(Unassigned)') {
           children.push(h('span', { class: 'italic text-gray-400' }, s.strategy))
@@ -603,35 +546,45 @@ const strategyBreakdownColumns = computed(() => {
     },
     { accessorKey: 'trades', header: 'Trades' },
     {
+      accessorKey: 'totalPnl',
+      header: 'Total P&L',
+      cell: ({ row }: { row: any }) => {
+        const val = (row.original as StrategyBreakdownStats).totalPnl
+        return h('span', { class: val >= 0 ? 'text-green-600' : 'text-red-600' }, formatCurrency(val))
+      }
+    },
+    {
+      accessorKey: 'edge',
+      header: 'Edge',
+      cell: ({ row }: { row: any }) => {
+        const val = (row.original as StrategyBreakdownStats).edge
+        return h('span', { class: val > 0 ? 'text-green-600' : 'text-red-600' }, formatPercent(val))
+      }
+    },
+    {
       accessorKey: 'winRate',
       header: 'Win Rate',
       cell: ({ row }: { row: any }) => {
-        const val = row.original.winRate
+        const val = (row.original as StrategyBreakdownStats).winRate
         return h('span', { class: val >= 50 ? 'text-green-600' : 'text-red-600' }, formatPercent(val))
       }
     },
     {
-      accessorKey: 'avgWin',
-      header: 'Avg Win',
-      cell: ({ row }: { row: any }) => h('span', { class: 'text-green-600' }, formatCurrency(row.original.avgWin))
-    },
-    {
-      accessorKey: 'avgLoss',
-      header: 'Avg Loss',
-      cell: ({ row }: { row: any }) => h('span', { class: 'text-red-600' }, formatCurrency(row.original.avgLoss))
+      accessorKey: 'avgWinDollars',
+      header: 'Avg Win/Loss',
+      cell: ({ row }: { row: any }) => {
+        const s = row.original as StrategyBreakdownStats
+        return h('span', {}, [
+          h('span', { class: 'text-green-600' }, `+${formatUsd(s.avgWinDollars, false)}`),
+          h('span', { class: 'text-gray-400' }, ' / '),
+          h('span', { class: 'text-red-600' }, `-${formatUsd(s.avgLossDollars, false)}`)
+        ])
+      }
     },
     {
       accessorKey: 'profitFactor',
       header: 'Profit Factor',
-      cell: ({ row }: { row: any }) => formatProfitFactor(row.original.profitFactor)
-    },
-    {
-      accessorKey: 'totalPnl',
-      header: 'Total P&L',
-      cell: ({ row }: { row: any }) => {
-        const val = row.original.totalPnl
-        return h('span', { class: val >= 0 ? 'text-green-600' : 'text-red-600' }, formatCurrency(val))
-      }
+      cell: ({ row }: { row: any }) => formatProfitFactor((row.original as StrategyBreakdownStats).profitFactor)
     }
   ]
 })
@@ -645,9 +598,9 @@ const formatPercent = (value: number) => {
   }).format(value / 100)
 }
 
-// Format profit factor
+// Format profit factor. Null means undefined (no losing trades) — never infinity (see CONTEXT.md).
 const formatProfitFactor = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '∞'
+  if (value === null || value === undefined) return '—'
   return value.toFixed(2)
 }
 

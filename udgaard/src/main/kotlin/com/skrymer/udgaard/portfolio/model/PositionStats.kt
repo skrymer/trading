@@ -27,7 +27,80 @@ data class PositionStats(
   val currentFxRate: Double? = null,
   val totalDeposits: Double = 0.0,
   val totalWithdrawals: Double = 0.0,
+  val byStrategy: List<StrategyBreakdownStats> = emptyList(),
 )
+
+/**
+ * Per-strategy slice of a portfolio's closed positions. Owns the breakdown math (win rate,
+ * edge, profit factor) via [fromPositions] per ADR 0001 — the service only groups and maps.
+ *
+ * `edge` is the expected percentage return per trade: `avgWinPct·winRate − avgLossPct·lossRate`.
+ * Dollar and percentage averages of losses are stored as positive magnitudes.
+ */
+data class StrategyBreakdownStats(
+  val strategy: String,
+  val trades: Int,
+  val wins: Int,
+  val losses: Int,
+  val winRate: Double,
+  val edge: Double,
+  val avgWinPct: Double,
+  val avgLossPct: Double,
+  val avgWinDollars: Double,
+  val avgLossDollars: Double,
+  val profitFactor: Double?,
+  val totalPnl: Double,
+) {
+  companion object {
+    fun fromPositions(strategy: String, positions: List<Position>): StrategyBreakdownStats {
+      val wins = positions.filter { (it.realizedPnl ?: 0.0) > 0.0 }
+      val losses = positions.filter { (it.realizedPnl ?: 0.0) < 0.0 }
+      // Derive both rates from their own counts (not `100 − winRate`) so positions with zero or
+      // null realised P&L — neither a win nor a loss — don't get charged to the loss side.
+      val winRate = if (positions.isNotEmpty()) (wins.size.toDouble() / positions.size) * 100.0 else 0.0
+      val lossRate = if (positions.isNotEmpty()) (losses.size.toDouble() / positions.size) * 100.0 else 0.0
+
+      val avgWinDollars = if (wins.isNotEmpty()) wins.sumOf { it.realizedPnl ?: 0.0 } / wins.size else 0.0
+      val avgLossDollars =
+        if (losses.isNotEmpty()) kotlin.math.abs(losses.sumOf { it.realizedPnl ?: 0.0 } / losses.size) else 0.0
+      val avgWinPct = avgPnlPercentage(wins)
+      val avgLossPct = kotlin.math.abs(avgPnlPercentage(losses))
+
+      val grossProfit = wins.sumOf { it.realizedPnl ?: 0.0 }
+      val grossLoss = kotlin.math.abs(losses.sumOf { it.realizedPnl ?: 0.0 })
+      // Undefined when there are no losses — never zero or infinity (see CONTEXT.md: Profit factor)
+      val profitFactor = if (losses.isNotEmpty() && grossLoss > 0.0) grossProfit / grossLoss else null
+
+      return StrategyBreakdownStats(
+        strategy = strategy,
+        trades = positions.size,
+        wins = wins.size,
+        losses = losses.size,
+        winRate = winRate,
+        edge = (avgWinPct * winRate / 100.0) - (avgLossPct * lossRate / 100.0),
+        avgWinPct = avgWinPct,
+        avgLossPct = avgLossPct,
+        avgWinDollars = avgWinDollars,
+        avgLossDollars = avgLossDollars,
+        profitFactor = profitFactor,
+        totalPnl = positions.sumOf { it.realizedPnl ?: 0.0 },
+      )
+    }
+
+    /**
+     * Average per-position percentage return (`realizedPnl / totalCost · 100`). Positions with a
+     * non-positive cost basis are excluded — they have no meaningful percentage.
+     */
+    private fun avgPnlPercentage(positions: List<Position>): Double {
+      if (positions.isEmpty()) return 0.0
+      return positions
+        .filter { it.totalCost > 0 }
+        .map { ((it.realizedPnl ?: 0.0) / it.totalCost) * 100.0 }
+        .ifEmpty { null }
+        ?.average() ?: 0.0
+    }
+  }
+}
 
 /**
  * Position with all its executions — the rich aggregate root for Position state transitions

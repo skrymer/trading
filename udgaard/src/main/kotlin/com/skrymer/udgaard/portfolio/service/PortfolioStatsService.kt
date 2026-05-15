@@ -9,6 +9,7 @@ import com.skrymer.udgaard.portfolio.model.Portfolio
 import com.skrymer.udgaard.portfolio.model.Position
 import com.skrymer.udgaard.portfolio.model.PositionStats
 import com.skrymer.udgaard.portfolio.model.PositionStatus
+import com.skrymer.udgaard.portfolio.model.StrategyBreakdownStats
 import com.skrymer.udgaard.portfolio.repository.ExecutionJooqRepository
 import com.skrymer.udgaard.portfolio.repository.PortfolioJooqRepository
 import org.slf4j.LoggerFactory
@@ -41,6 +42,10 @@ class PortfolioStatsService(
     }
 
     val tradeMetrics = calculateTradeMetrics(closedPositions)
+    val byStrategy = closedPositions
+      .groupBy { it.strategyGroupKey }
+      .map { (strategy, positions) -> StrategyBreakdownStats.fromPositions(strategy, positions) }
+      .sortedWith(compareByDescending<StrategyBreakdownStats> { it.trades }.thenByDescending { it.totalPnl })
     val totalCommissions = allPositions
       .mapNotNull { it.id }
       .flatMap { executionRepository.findByPositionId(it) }
@@ -79,6 +84,7 @@ class PortfolioStatsService(
       currentFxRate = fxResult.currentFxRate,
       totalDeposits = totalDeposits,
       totalWithdrawals = totalWithdrawals,
+      byStrategy = byStrategy,
     )
   }
 
@@ -165,7 +171,9 @@ class PortfolioStatsService(
     val winRate = (wins.size.toDouble() / closedPositions.size) * 100.0
     val avgWin = calculateAvgPnlPercentage(wins)
     val avgLoss = calculateAvgPnlPercentage(losses)
-    val lossRate = 100.0 - winRate
+    // Derive both rates from their own counts so scratch trades (realised P&L of zero or null)
+    // don't get charged to the loss side via `100 − winRate`.
+    val lossRate = (losses.size.toDouble() / closedPositions.size) * 100.0
 
     val profitFactor = if (losses.isNotEmpty()) {
       val grossProfit = wins.sumOf { it.realizedPnl ?: 0.0 }
