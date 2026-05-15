@@ -143,40 +143,65 @@ const chartContainer = ref<HTMLElement | null>(null)
 let chart: any = null
 let lineSeries: any = null
 
+// Normalize dated values into chart points: key by UTC day so same-day entries
+// collapse into one (lightweight-charts requires strictly-ascending unique
+// times), skip unparseable dates, and optionally anchor one day before the
+// first point at a baseline value.
+function toEquityPoints(
+  raw: { date: string, value: number }[],
+  anchorValue?: number
+): { time: number, value: number }[] {
+  const valueByTime = new Map<number, number>()
+  for (const point of raw) {
+    const dateMs = new Date(point.date).getTime()
+    if (!Number.isFinite(dateMs)) continue
+    const time = Math.floor(dateMs / 86400000) * 86400
+    // Overwrite keeps the last value when a date repeats
+    valueByTime.set(time, point.value)
+  }
+
+  if (valueByTime.size === 0) return []
+
+  const sorted = [...valueByTime.entries()].sort((a, b) => a[0] - b[0])
+
+  if (anchorValue !== undefined) {
+    // anchorTime is one day before the earliest point, so it cannot collide
+    // with any existing key — safe to prepend unconditionally
+    sorted.unshift([sorted[0]![0] - 86400, anchorValue])
+  }
+
+  return sorted.map(([time, value]) => ({ time, value }))
+}
+
 // Compute equity curve points from profitPercentage data or position sizing
 const equityPoints = computed(() => {
-  // When position sizing is active, use the backend-computed equity curve
+  // When position sizing is active, use the backend-computed equity curve.
+  // No anchor: the backend curve already starts at the correct baseline.
   if (hasPositionSizing.value) {
-    const sizingCurve = props.positionSizing!.equityCurve
-    return sizingCurve.map(point => ({
-      time: new Date(point.date).getTime() / 1000,
-      value: point.portfolioValue
-    }))
+    return toEquityPoints(
+      props.positionSizing!.equityCurve.map(point => ({
+        date: point.date,
+        value: point.portfolioValue
+      }))
+    )
   }
 
   if (!props.equityCurveData || props.equityCurveData.length === 0) return []
 
+  // Trades arrive sorted ascending by exit date — the running equity total
+  // relies on that ordering. profitPercentage is compounded into a running
+  // equity, then anchored one day before the first trade at starting capital.
   let equity = startingCapital.value
-  const points: { time: number, value: number }[] = []
-
-  // Add starting point using first trade's date
-  const firstDate = props.equityCurveData[0]?.date
-  if (firstDate) {
-    const firstTime = new Date(firstDate).getTime() / 1000
-    // Start point is 1 day before first trade
-    points.push({ time: firstTime - 86400, value: startingCapital.value })
-  }
-
-  props.equityCurveData.forEach((point) => {
+  const rawPoints = props.equityCurveData.map((point) => {
     const leveragedProfitPct = point.profitPercentage * leverage.value
-    const profitDollars = (equity * leveragedProfitPct) / 100
-    equity += profitDollars
-
-    const time = new Date(point.date).getTime() / 1000
-    points.push({ time, value: equity })
+    // Guard against a NaN profitPercentage poisoning the whole running total
+    if (Number.isFinite(leveragedProfitPct)) {
+      equity += (equity * leveragedProfitPct) / 100
+    }
+    return { date: point.date, value: equity }
   })
 
-  return points
+  return toEquityPoints(rawPoints, startingCapital.value)
 })
 
 // Calculate performance metrics
@@ -327,7 +352,7 @@ onMounted(async () => {
     timeScale: {
       timeVisible: false,
       borderColor: '#D1D5DB',
-      rightOffset: 5,
+      rightOffset: 1,
       barSpacing: 3,
       minBarSpacing: 0.5,
       fixLeftEdge: false,
@@ -374,13 +399,17 @@ onMounted(async () => {
   updateChartData()
   chart.timeScale().fitContent()
 
-  // Handle resize
+  // Handle resize. lightweight-charts stores horizontal layout as a fixed
+  // bar spacing, so the visible range must be re-applied whenever the canvas
+  // changes size (window resize, sidebar toggle, collapsible expand after mount).
+  // Re-applying the current preset preserves any user-selected date range.
   const resizeObserver = new ResizeObserver(() => {
     if (chart && chartContainer.value) {
       chart.applyOptions({
         width: chartContainer.value.clientWidth,
         height: chartContainer.value.clientHeight
       })
+      setDateRange(dateRange.value)
     }
   })
   resizeObserver.observe(chartContainer.value)
