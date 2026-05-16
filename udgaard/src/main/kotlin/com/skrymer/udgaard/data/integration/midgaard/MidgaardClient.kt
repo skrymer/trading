@@ -2,10 +2,12 @@ package com.skrymer.udgaard.data.integration.midgaard
 
 import com.skrymer.udgaard.data.integration.LatestQuote
 import com.skrymer.udgaard.data.integration.StockProvider
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardEarningDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardExchangeRateDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
+import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.StockQuote
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -15,10 +17,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.actuate.health.Health
 import org.springframework.core.ParameterizedTypeReference
-import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -33,23 +33,11 @@ import java.time.ZoneId
 @Component
 class MidgaardClient(
   @param:Value("\${midgaard.base-url:http://localhost:8081}") private val baseUrl: String,
+  restClientBuilder: RestClient.Builder,
 ) : StockProvider {
   private val logger = LoggerFactory.getLogger(MidgaardClient::class.java)
 
-  // Bounded timeouts so a Midgaard outage (or a misconfigured test where the mock doesn't
-  // intercept) fails fast with SocketTimeoutException instead of blocking on the JVM's
-  // default infinite socket reads.
-  private val restClient: RestClient by lazy {
-    val requestFactory = SimpleClientHttpRequestFactory().apply {
-      setConnectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
-      setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS))
-    }
-    RestClient
-      .builder()
-      .baseUrl(baseUrl)
-      .requestFactory(requestFactory)
-      .build()
-  }
+  private val restClient: RestClient = restClientBuilder.baseUrl(baseUrl).build()
 
   override fun getDailyAdjustedTimeSeries(symbol: String): List<StockQuote>? {
     try {
@@ -163,6 +151,20 @@ class MidgaardClient(
         .toMap()
     }
 
+  override fun getEarnings(symbol: String): List<Earning>? {
+    try {
+      val response = restClient
+        .get()
+        .uri("/api/earnings/{symbol}", symbol)
+        .retrieve()
+        .body(object : ParameterizedTypeReference<List<MidgaardEarningDto>>() {})
+      return response?.map { it.toEarning() } ?: emptyList()
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch earnings from Midgaard for $symbol: ${e.message}")
+      return null
+    }
+  }
+
   /**
    * Get current exchange rate from Midgaard (e.g., USD to AUD).
    */
@@ -210,11 +212,5 @@ class MidgaardClient(
 
   private companion object {
     private val NY_ZONE: ZoneId = ZoneId.of("America/New_York")
-    private const val CONNECT_TIMEOUT_SECONDS = 5L
-
-    // 30s read timeout — Midgaard doesn't cache FX rates persistently and proxies to
-    // upstream providers (AlphaVantage etc.) on cache miss. A cold historical-FX-rate
-    // fetch can legitimately take 10–25s when the provider is rate-limited.
-    private const val READ_TIMEOUT_SECONDS = 30L
   }
 }

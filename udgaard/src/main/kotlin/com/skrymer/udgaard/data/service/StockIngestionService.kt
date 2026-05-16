@@ -5,6 +5,7 @@ import com.skrymer.udgaard.data.dto.RefreshTask
 import com.skrymer.udgaard.data.dto.RefreshType
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
+import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -60,10 +61,9 @@ class StockIngestionService(
   // ── Public API ─────────────────────────────────────────────────────
 
   /**
-   * Refresh a single stock: delete existing → fetch from Midgaard → save to DB.
+   * Refresh a single stock: fetch from provider → save to DB.
    */
   fun refreshStock(symbol: String): Stock? {
-    stockRepository.findBySymbol(symbol)?.let { stockRepository.delete(symbol) }
     val stock = fetchAndBuildStock(symbol) ?: return null
     return saveStock(stock)
   }
@@ -91,7 +91,7 @@ class StockIngestionService(
   // ── Stock fetch pipeline ───────────────────────────────────────────
 
   /**
-   * Fetch quotes from Midgaard, enrich with trend, and calculate order blocks.
+   * Fetch quotes from the provider, enrich with trend, and calculate order blocks.
    * Returns a fully built Stock entity, or null on failure.
    */
   internal fun fetchAndBuildStock(symbol: String): Stock? =
@@ -102,11 +102,13 @@ class StockIngestionService(
       val orderBlocks = calculateOrderBlocks(enrichedQuotes)
       val sortedQuotes = enrichedQuotes.sortedBy { it.date }
       val symbolInfo = midgaardClient.getSymbolInfo(symbol)
+      val earnings = resolveEarnings(symbol)
       Stock(
         symbol = symbol,
         sectorSymbol = symbolInfo?.sectorSymbol,
         quotes = sortedQuotes,
         orderBlocks = orderBlocks.toMutableList(),
+        earnings = earnings,
         listingDate = sortedQuotes.firstOrNull()?.date,
         delistingDate = resolveDelistingDate(symbolInfo?.delistedAt, sortedQuotes.lastOrNull()?.date),
       )
@@ -114,14 +116,25 @@ class StockIngestionService(
       logger.error("✗ $symbol failed: ${error.message ?: error::class.simpleName}", error)
     }.getOrNull()
 
+  // Fall back to the last-known earnings on upstream-fetch failure rather than wiping the
+  // row set. An empty earnings list silently inverts `noEarningsWithinDays` (and similar
+  // filters) into "always pass", so any provider outage would otherwise cause the scanner
+  // to take trades straight into earnings catalysts. Stale-but-present beats empty-because-
+  // we-failed.
+  private fun resolveEarnings(symbol: String): List<Earning> =
+    runCatching { stockProvider.getEarnings(symbol) }
+      .onFailure { logger.warn("Earnings fetch failed for $symbol, keeping existing rows: ${it.message}") }
+      .getOrNull()
+      ?: stockRepository.findEarnings(symbol)
+
   /**
-   * Authoritative delisting date if midgaard knows one (the symbol came in
+   * Authoritative delisting date if the provider knows one (the symbol came in
    * through the delisted-bootstrap path). Falls back to the
    * 90-days-without-data heuristic for symbols that delisted between bulk
-   * runs without midgaard noticing yet.
+   * runs without the provider noticing yet.
    */
-  private fun resolveDelistingDate(midgaardDelistedAt: LocalDate?, lastQuoteDate: LocalDate?): LocalDate? =
-    midgaardDelistedAt
+  private fun resolveDelistingDate(providerDelistedAt: LocalDate?, lastQuoteDate: LocalDate?): LocalDate? =
+    providerDelistedAt
       ?: lastQuoteDate?.let { lastDate ->
         val cutoff = LocalDate.now().minusDays(90)
         if (lastDate.isBefore(cutoff)) lastDate else null
@@ -129,7 +142,7 @@ class StockIngestionService(
 
   private fun fetchQuotes(symbol: String): List<StockQuote> =
     stockProvider.getDailyAdjustedTimeSeries(symbol)
-      ?: throw IllegalStateException("No data from Midgaard for $symbol")
+      ?: throw IllegalStateException("No data from provider for $symbol")
 
   private fun enrichWithTrend(quotes: List<StockQuote>, symbol: String): List<StockQuote> =
     technicalIndicatorService.enrichWithIndicators(quotes, symbol)

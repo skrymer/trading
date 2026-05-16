@@ -394,20 +394,27 @@ object BacktestTestDataGenerator {
   private fun insertEarnings(dsl: DSLContext, tradingDays: List<LocalDate>) {
     // Place earnings for ~30% of stocks: some within the date range (to test
     // noEarningsWithinDays / exitBeforeEarnings) and some outside.
+    //
+    // Inserts are idempotent (onConflictDoNothing) on (stock_symbol, fiscal_date_ending)
+    // because the static past-earnings row uses a fixed date that would otherwise collide
+    // across (a) repeated populate() calls for different ranges on the same test class and
+    // (b) successive test classes sharing the AbstractIntegrationTest container. The future
+    // earnings row's date is range-derived but two ranges can incidentally share a trading
+    // day; the same conflict policy keeps that safe.
     val stocksWithEarnings = ALL_SYMBOLS.filterIndexed { i, _ -> i % 3 == 0 }
     for (symbol in stocksWithEarnings) {
       // Past earnings (well before the test range) — should not block entry
       dsl
         .insertInto(EARNINGS)
         .set(EARNINGS.STOCK_SYMBOL, symbol)
-        .set(EARNINGS.SYMBOL, symbol)
         .set(EARNINGS.FISCAL_DATE_ENDING, LocalDate.of(2023, 10, 15))
         .set(EARNINGS.REPORTED_DATE, LocalDate.of(2023, 10, 20))
-        .set(EARNINGS.REPORTEDEPS, 1.25.toBd())
-        .set(EARNINGS.ESTIMATEDEPS, 1.20.toBd())
+        .set(EARNINGS.REPORTED_EPS, 1.25.toBd())
+        .set(EARNINGS.ESTIMATED_EPS, 1.20.toBd())
         .set(EARNINGS.SURPRISE, 0.05.toBd())
         .set(EARNINGS.SURPRISE_PERCENTAGE, 4.17.toBd())
         .set(EARNINGS.REPORT_TIME, "after-hours")
+        .onConflictDoNothing()
         .execute()
 
       // Future earnings during test range — triggers exitBeforeEarnings
@@ -415,14 +422,14 @@ object BacktestTestDataGenerator {
       dsl
         .insertInto(EARNINGS)
         .set(EARNINGS.STOCK_SYMBOL, symbol)
-        .set(EARNINGS.SYMBOL, symbol)
         .set(EARNINGS.FISCAL_DATE_ENDING, earningsDate)
         .set(EARNINGS.REPORTED_DATE, earningsDate)
-        .set(EARNINGS.REPORTEDEPS, 1.50.toBd())
-        .set(EARNINGS.ESTIMATEDEPS, 1.45.toBd())
+        .set(EARNINGS.REPORTED_EPS, 1.50.toBd())
+        .set(EARNINGS.ESTIMATED_EPS, 1.45.toBd())
         .set(EARNINGS.SURPRISE, 0.05.toBd())
         .set(EARNINGS.SURPRISE_PERCENTAGE, 3.45.toBd())
         .set(EARNINGS.REPORT_TIME, "before-market")
+        .onConflictDoNothing()
         .execute()
     }
   }
