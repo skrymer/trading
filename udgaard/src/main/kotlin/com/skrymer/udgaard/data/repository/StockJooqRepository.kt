@@ -2,6 +2,7 @@ package com.skrymer.udgaard.data.repository
 
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
 import com.skrymer.udgaard.data.mapper.StockMapper
+import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
@@ -79,6 +80,22 @@ class StockJooqRepository(
 
     return mapper.toDomain(stock, quotes, orderBlocks, earnings)
   }
+
+  /**
+   * Load earnings for a single symbol, ordered by fiscal date ascending.
+   *
+   * Returns an empty list when no rows exist — the read is used by the ingestion
+   * service to recover prior earnings when a fresh Midgaard fetch fails, and the
+   * caller distinguishes "no earnings" (legitimate empty result) from "fetch failed
+   * upstream" (null) higher up the stack.
+   */
+  fun findEarnings(symbol: String): List<Earning> =
+    dsl
+      .selectFrom(EARNINGS)
+      .where(EARNINGS.STOCK_SYMBOL.eq(symbol))
+      .orderBy(EARNINGS.FISCAL_DATE_ENDING.asc())
+      .fetchInto(Earnings::class.java)
+      .map { mapper.toDomain(it) }
 
   /**
    * Find all stocks with their symbols only (lightweight query)
@@ -316,11 +333,10 @@ class StockJooqRepository(
             ctx
               .insertInto(EARNINGS)
               .set(EARNINGS.STOCK_SYMBOL, stock.symbol)
-              .set(EARNINGS.SYMBOL, pojo.symbol)
               .set(EARNINGS.FISCAL_DATE_ENDING, pojo.fiscalDateEnding)
               .set(EARNINGS.REPORTED_DATE, pojo.reportedDate)
-              .set(EARNINGS.REPORTEDEPS, pojo.reportedeps)
-              .set(EARNINGS.ESTIMATEDEPS, pojo.estimatedeps)
+              .set(EARNINGS.REPORTED_EPS, pojo.reportedEps)
+              .set(EARNINGS.ESTIMATED_EPS, pojo.estimatedEps)
               .set(EARNINGS.SURPRISE, pojo.surprise)
               .set(EARNINGS.SURPRISE_PERCENTAGE, pojo.surprisePercentage)
               .set(EARNINGS.REPORT_TIME, pojo.reportTime)
@@ -636,16 +652,14 @@ class StockJooqRepository(
         .insertInto(
           EARNINGS,
           EARNINGS.STOCK_SYMBOL,
-          EARNINGS.SYMBOL,
           EARNINGS.FISCAL_DATE_ENDING,
           EARNINGS.REPORTED_DATE,
-          EARNINGS.REPORTEDEPS,
-          EARNINGS.ESTIMATEDEPS,
+          EARNINGS.REPORTED_EPS,
+          EARNINGS.ESTIMATED_EPS,
           EARNINGS.SURPRISE,
           EARNINGS.SURPRISE_PERCENTAGE,
           EARNINGS.REPORT_TIME,
         ).values(
-          null as String?,
           null as String?,
           null as LocalDate?,
           null as LocalDate?,
@@ -660,11 +674,10 @@ class StockJooqRepository(
       val pojo = mapper.toPojo(earning)
       batch.bind(
         symbol,
-        pojo.symbol,
         pojo.fiscalDateEnding,
         pojo.reportedDate,
-        pojo.reportedeps,
-        pojo.estimatedeps,
+        pojo.reportedEps,
+        pojo.estimatedEps,
         pojo.surprise,
         pojo.surprisePercentage,
         pojo.reportTime,

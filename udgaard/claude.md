@@ -92,10 +92,11 @@ udgaard/
 │   │   │   ├── BreadthController.kt
 │   │   │   └── DataManagementController.kt
 │   │   ├── integration/              # External API integrations
-│   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes (LatestQuote, getLatestQuote, getLatestQuotes)
-│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators from Midgaard service (implements StockProvider)
+│   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes + earnings (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings); getEarnings returns null on provider failure (caller must fall back), empty list when symbol genuinely has none
+│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators + earnings from Midgaard service (implements StockProvider)
 │   │   │   │   ├── MidgaardClient.kt
-│   │   │   │   └── dto/
+│   │   │   │   ├── MidgaardHttpConfig.kt  # RestClientCustomizer with connect (5s) + read (30s) timeouts; bounded so a Midgaard outage fails fast instead of hanging on infinite socket reads
+│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
@@ -111,13 +112,13 @@ udgaard/
 │   │   │   ├── MarketBreadthDaily.kt
 │   │   │   └── SectorBreadthDaily.kt
 │   │   ├── repository/               # jOOQ repositories
-│   │   │   ├── StockJooqRepository.kt
+│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) used by ingestion fallback
 │   │   │   ├── SymbolJooqRepository.kt
 │   │   │   ├── MarketBreadthRepository.kt
 │   │   │   └── SectorBreadthRepository.kt
 │   │   └── service/
 │   │       ├── StockService.kt       # Stock data management
-│   │       ├── StockIngestionService.kt  # Bulk data ingestion
+│   │       ├── StockIngestionService.kt  # Bulk data ingestion; resolveEarnings(symbol) helper falls back to stockRepository.findEarnings on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays silently invert)
 │   │       ├── TechnicalIndicatorService.kt  # EMAs, ATR, Donchian
 │   │       ├── MarketBreadthService.kt
 │   │       ├── SectorBreadthService.kt
@@ -192,7 +193,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V19)
+│   └── db/migration/                 # Flyway migrations (V1-V20)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -211,7 +212,8 @@ udgaard/
 │       ├── V16__Add_listing_dates.sql
 │       ├── V17__Add_close_fields_to_scanner_trades.sql
 │       ├── V18__Add_delisted_symbols.sql
-│       └── V19__create_backtest_reports.sql
+│       ├── V19__create_backtest_reports.sql
+│       └── V20__cleanup_earnings_schema.sql  # Drop legacy reportedeps/estimatedeps/symbol; add UNIQUE(stock_symbol, fiscal_date_ending)
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

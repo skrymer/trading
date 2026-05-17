@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.data.integration
 
+import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.boot.actuate.health.HealthIndicator
 import java.time.LocalDate
@@ -45,4 +46,15 @@ interface StockProvider : HealthIndicator {
    * Get latest live quotes for multiple symbols in parallel
    */
   fun getLatestQuotes(symbols: List<String>): Map<String, LatestQuote>
+
+  /**
+   * Get the full history of earnings reports for a symbol (past and projected).
+   *
+   * Returns an empty list when the symbol has no earnings data (e.g. a newly listed
+   * stock that hasn't reported yet). Returns `null` only when the call failed — outage,
+   * timeout, parse error. Consumers must treat `null` as "we don't know" and may fall
+   * back to last-known-good data; treating `null` as "no earnings" silently inverts
+   * filters like `noEarningsWithinDays`.
+   */
+  fun getEarnings(symbol: String): List<Earning>?
 }

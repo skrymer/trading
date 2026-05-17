@@ -93,11 +93,11 @@ class StockMapper {
    */
   fun toDomain(earning: Earnings): Earning =
     Earning(
-      symbol = earning.symbol ?: earning.stockSymbol,
+      symbol = earning.stockSymbol,
       fiscalDateEnding = earning.fiscalDateEnding,
       reportedDate = earning.reportedDate,
-      reportedEPS = earning.reportedeps?.toDouble(),
-      estimatedEPS = earning.estimatedeps?.toDouble(),
+      reportedEPS = earning.reportedEps?.toDouble(),
+      estimatedEPS = earning.estimatedEps?.toDouble(),
       surprise = earning.surprise?.toDouble(),
       surprisePercentage = earning.surprisePercentage?.toDouble(),
       reportTime = earning.reportTime,
@@ -181,13 +181,10 @@ class StockMapper {
     Earnings(
       id = null, // Let database generate ID
       stockSymbol = earning.symbol,
-      symbol = earning.symbol,
       fiscalDateEnding = earning.fiscalDateEnding,
       reportedDate = earning.reportedDate,
       reportedEps = earning.reportedEPS?.toBigDecimal(),
-      reportedeps = earning.reportedEPS?.toBigDecimal(),
       estimatedEps = earning.estimatedEPS?.toBigDecimal(),
-      estimatedeps = earning.estimatedEPS?.toBigDecimal(),
       surprise = earning.surprise?.toBigDecimal(),
       surprisePercentage = earning.surprisePercentage?.toBigDecimal(),
       reportTime = earning.reportTime,

@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.data.integration.midgaard.dto
 
+import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.StockQuote
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -72,3 +73,26 @@ data class MidgaardLatestQuoteDto(
   val high: Double = 0.0,
   val low: Double = 0.0,
 )
+
+data class MidgaardEarningDto(
+  val symbol: String,
+  val fiscalDateEnding: LocalDate,
+  val reportedDate: LocalDate? = null,
+  val reportedEps: Double? = null,
+  val estimatedEps: Double? = null,
+  val surprise: Double? = null,
+  val surprisePercentage: Double? = null,
+  val reportTime: String? = null,
+) {
+  fun toEarning(): Earning =
+    Earning(
+      symbol = symbol,
+      fiscalDateEnding = fiscalDateEnding,
+      reportedDate = reportedDate,
+      reportedEPS = reportedEps,
+      estimatedEPS = estimatedEps,
+      surprise = surprise,
+      surprisePercentage = surprisePercentage,
+      reportTime = reportTime,
+    )
+}

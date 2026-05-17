@@ -2276,3 +2276,51 @@ Per-seed Calmar effect of GAC@11% vs baseline: seed 1 +0.13, seed 7 flat, seed 4
 **Conclusion — do not add `gapandcrap` to VCP's production exit composite at any threshold tested (5/7/9/11%).** The unlimited-mode edge gain at 11% (+0.09pp) is real but vanishes once position sizing reduces the fire count; mean Calmar improvement is +0.02 (within noise), edge consistency drops below baseline (89.0 vs 90.3), and 2022 floor flips negative in 3 of 4 seeds. The condition is correctly designed — it cleanly identifies failed parabolic gaps with 96% per-fire reliability — but the pattern is too rare in a 1.25%-risk VCP portfolio to be worth the implementation cost. The `GapAndCrapExit` `@Component` stays registered for ad-hoc analysis but is not wired into `VcpExitStrategy`.
 
 If this class of exit is revisited, the architectural problem is the gap threshold itself: a more frequent momentum-failure trigger (e.g. `close < N-day SMA after a specified up-move`) would give position sizing enough fires to amortise the runner-clipping cost. Tightening or loosening the GAC failure window (currently 3 days) is unlikely to flip the verdict — fire count is the binding constraint, not pattern quality.
+
+### Before-Earnings Exit Sweep (2026-05-17)
+
+Tested whether adding `beforeEarnings(daysBeforeEarnings=1)` to VCP's exit composite improves risk-adjusted returns by sidestepping earnings-driven volatility. **Verdict: do not adopt — under a CAGR objective the cost is ~8pp CAGR and ~$371K terminal wealth over 10 years.**
+
+**Hypothesis.** Exiting 1 trading day before each held name's earnings announcement removes a tail-event source (negative earnings surprises that punch through the ATR stop). The cost is giving up post-earnings continuation when the print is positive; the question is whether the path-smoothness gain outweighs that give-up.
+
+**Data prerequisite.** Re-ingested earnings prior to this sweep so the universe coverage matches the 2016–2025 backtest window — `trading.earnings` 239,886 rows / 3,469 symbols, with 9.3K–12.1K reports/year and 2.4K–3.1K distinct symbols/year across 2016–2025. `trading.earnings` and `datastore.earnings` row counts match exactly.
+
+**Phase 1 — unlimited (2016-2025, no positionSizing, no maxPositions).** Pure per-trade edge measurement. Files: `/tmp/backtest-vcp-unlimited-baseline.json`, `/tmp/backtest-vcp-unlimited-earnings.json`.
+
+| Variant | Trades | WR | Edge | PF |
+|---|---:|---:|---:|---:|
+| Baseline (VcpExitStrategy) | 9,178 | 52.1% | **+5.09%** | 1.80 |
+| + beforeEarnings(1) | 9,647 | 54.0% | +3.22% | **2.13** |
+| Δ | +469 (+5.1%) | +1.9pp | **−1.87pp** | +0.33 |
+
+Exit reason breakdown (earnings variant): the `beforeEarnings` exit fires 3,924 times (41% of all exits) at +10.50% avg and 81.1% WR — it captures pre-earnings run-ups cleanly. But total per-trade edge drops 1.87pp because trades that would otherwise have continued through earnings into the EMA-cross window were on net positive: the strategy was benefiting from post-earnings continuation more than it was suffering from negative surprises.
+
+**Phase 2 — position-sized 4-seed sweep ($10K, AtrRisk(1.25%, 2.0), leverage 1.0, maxPositions 15, entryDelayDays 1, seeds 1/7/42/100).** Files: `/tmp/backtest-vcp-sized-baseline-seed-{1,7,42,100}.json`, `/tmp/backtest-vcp-sized-earnings-seed-{1,7,42,100}.json`.
+
+| Metric | Baseline (4-seed mean) | + beforeEarnings(1) (4-seed mean) | Δ |
+|---|---:|---:|---:|
+| Trades | 632 | 896 | +41.6% |
+| Win rate | 51.80% | 52.40% | +0.6pp |
+| Edge | **+5.33%** | +3.14% | −2.19pp |
+| Profit factor | **4.30** | 2.26 | −2.04 |
+| CAGR | **54.58%** | 46.46% | **−8.12pp** |
+| Max DD | 22.65% | **17.05%** | −5.60pp |
+| Calmar | 2.43 | **2.73** | +0.30 |
+| Sharpe | 2.19 | **2.23** | +0.04 |
+| Sortino | 3.77 | **4.08** | +0.31 |
+| Final Capital | **$832K** | $461K | **−$371K** |
+
+**Per-seed direction is consistent across all four seeds (4/4).** Baseline wins CAGR in every seed (−6 to −12pp range). Earnings exit wins MaxDD, Calmar, Sharpe, and Sortino in every seed. This isn't a noisy outcome — the trade-off is robust.
+
+| Seed | Baseline CAGR | Earnings CAGR | Δ CAGR | Baseline Calmar | Earnings Calmar | Δ Calmar |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 53.84% | 47.71% | −6.13pp | 2.12 | 2.81 | +0.69 |
+| 7 | 56.23% | 43.90% | −12.33pp | 2.43 | 2.49 | +0.06 |
+| 42 | 52.59% | 44.82% | −7.77pp | 2.42 | 2.62 | +0.20 |
+| 100 | 55.67% | 49.39% | −6.28pp | 2.73 | 2.99 | +0.26 |
+
+**Baseline re-verification against VCP_TRADING_PLAN.md.** The fresh 4-seed baseline run alongside this experiment landed within the documented 2026-05-02 4-seed range on every metric except profit factor: trades 632 (plan 635, range 613–652), CAGR 54.58% (plan 54.5%, range 49.5–60.9%), MDD 22.65% (plan 23.3%, range 21.7–24.9%), Calmar 2.43 (plan 2.35, range 1.99–2.80), Sharpe 2.19 (plan 2.17), Sortino 3.77 (plan 3.78). PF came in at 4.30 vs documented range 3.62–4.11 (+0.19 above the top of the documented band) — small post-2026-05-02 drift, consistent with the engine evolution noted in the plan; doesn't invalidate the baseline as the A/B reference.
+
+**Why the trade-off doesn't survive a CAGR objective.** The earnings exit is a clean risk-adjustment trade: it converts ~8pp of CAGR into ~5.6pp of MaxDD reduction and a +0.30 Calmar improvement. On Sortino/Sharpe/Calmar it is the better strategy in 4/4 seeds. But for a strategy whose published objective is CAGR — and where the trader has explicitly chosen `1.25%` sizing as the Pareto-dominant risk level within a CAGR-anchored frame — sacrificing ~45% of terminal wealth ($832K → $461K over 10 years) for a smoother ride is the wrong direction. The path-smoothness was already addressed at the sizer layer; layering another smoother on top costs CAGR without buying anything the user values.
+
+**Conclusion — do not add `beforeEarnings` to `VcpExitStrategy`.** The condition implementation is correct (41% fire rate at +10.5% avg / 81% WR confirms it's catching pre-earnings run-ups cleanly) and the directional trade-off is robust across seeds. The verdict is **objective-dependent**, not data-dependent: under a Calmar/Sortino objective this would be adopted; under the documented CAGR objective it is rejected. The `BeforeEarningsExit` `@Component` stays registered for ad-hoc use and remains a candidate for any future strategy that explicitly trades CAGR for path smoothness.

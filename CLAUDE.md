@@ -95,8 +95,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Tools: getAvailableSymbols, getAvailableStrategies, getAvailableRankers, getAvailableConditions, getStrategyDetails, explainBacktestMetrics, getSystemStatus
 
 6. **Integration** (`data/integration/`)
-   - `StockProvider.kt`: Interface for OHLCV data + live quotes (`LatestQuote`, `getLatestQuote`, `getLatestQuotes`); used by ScannerService, StockController, and UnrealizedPnlService
-   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks
+   - `StockProvider.kt`: Interface for OHLCV data + live quotes + earnings (`LatestQuote`, `getLatestQuote`, `getLatestQuotes`, `getEarnings`); used by ScannerService, StockController, UnrealizedPnlService, and StockIngestionService
+   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks and earnings (via `MidgaardEarningDto`); HTTP timeouts configured in `MidgaardHttpConfig` (RestClientCustomizer)
    - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
    - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
@@ -168,11 +168,11 @@ trading/
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
-│   │   │   ├── integration/          # Midgaard, Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes)
+│   │   │   ├── integration/          # Midgaard (incl. MidgaardHttpConfig for connect/read timeouts), Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings)
 │   │   │   ├── mapper/               # StockMapper
 │   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, AssetType
-│   │   │   ├── repository/           # StockJooqRepository, SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
-│   │   │   └── service/              # StockService, StockIngestionService, TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService, ScheduledRefreshService
+│   │   │   ├── repository/           # StockJooqRepository (incl. findEarnings(symbol) for ingestion fallback), SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
+│   │   │   └── service/              # StockService, StockIngestionService (resolveEarnings(symbol) falls back to stockRepository.findEarnings on provider failure — stale-but-present beats empty-because-we-failed), TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService, ScheduledRefreshService
 │   │   ├── portfolio/                # Portfolio domain
 │   │   │   ├── controller/           # PortfolioController, PositionController, OptionController
 │   │   │   ├── dto/                  # Request/response DTOs
