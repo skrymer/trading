@@ -59,9 +59,12 @@ midgaard/
 │   │   ├── massive/
 │   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider impl; @Component registers with rate limiter but currently NOT wired into any @Bean (kept for future re-enable)
 │   │   │   └── dto/
-│   │   └── eodhd/
-│   │       ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider; FX delegates to EodhdFxClient
-│   │       ├── EodhdFxClient.kt           # Sibling-class for cross-boundary @Cacheable interception; wraps `/real-time/{pair}.FOREX` + `/eod/{pair}.FOREX` into series cache
+│   │   ├── eodhd/
+│   │   │   ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider; FX delegates to EodhdFxClient
+│   │   │   ├── EodhdFxClient.kt           # Sibling-class for cross-boundary @Cacheable interception; wraps `/real-time/{pair}.FOREX` + `/eod/{pair}.FOREX` into series cache
+│   │   │   └── dto/
+│   │   └── edgar/                         # SEC EDGAR client for V6 SIC→GICS sector classification baseline
+│   │       ├── EdgarClient.kt
 │   │       └── dto/
 │   ├── model/
 │   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, enums
