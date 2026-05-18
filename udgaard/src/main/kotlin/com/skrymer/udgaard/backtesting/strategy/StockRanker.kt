@@ -265,6 +265,57 @@ class SectorEdgeRanker(
 }
 
 /**
+ * Sector-edge priority with a base-tightness tie-breaker.
+ *
+ * Primary key: sector position in [sectorRanking] (same shape as [SectorEdgeRanker]).
+ * Secondary key: base tightness, computed as `-ATR / close` — a smaller ATR-to-price ratio
+ * gets a larger (less negative) bonus, so the tighter base wins the tie-break.
+ *
+ * Within a single sector, today's [SectorEdgeRanker] resolves ties with `TIE_BREAK_JITTER`
+ * (uniform random), which discards information the scanner already computes. With ~5–15
+ * candidates per leading sector and a 15-position cap, the within-sector ordering decides
+ * 60–80% of fills, so a structurally-aligned tie-break should narrow seed dispersion and —
+ * if the underlying signal is real — lift Calmar.
+ *
+ * The combined score is `sectorScore * SECTOR_SCALE - (ATR / close)`. `SECTOR_SCALE = 10`
+ * leaves enough headroom that any sector difference (≥ 1 with 11 sectors) strictly dominates
+ * any tightness difference (typical range 0.005–0.20 for liquid US stocks).
+ *
+ * Stocks outside [sectorRanking] get `sectorScore = 0`, so a tight base in an unranked
+ * sector still ranks below the worst base in any ranked sector.
+ */
+class SectorEdgeWithTightnessRanker(
+  sectorRanking: List<String>,
+) : StockRanker {
+  private val sectorScores: Map<String, Double> =
+    sectorRanking
+      .mapIndexed { index, sector ->
+        sector to (sectorRanking.size - index).toDouble()
+      }.toMap()
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double {
+    val sectorScore = sectorScores[stock.sectorSymbol] ?: 0.0
+    // Guard against ATR/close ingestion pathologies. Negative ATR is a stale-data artefact;
+    // NaN propagates through every comparison silently and would make the stock unsortable.
+    // Either case collapses to the sector ceiling — same as having no tightness signal at
+    // all. Better than allowing a phantom positive boost from a sign-flipped row.
+    val closePrice = entryQuote.closePrice
+    val atr = entryQuote.atr
+    val tightnessBonus = if (closePrice > 0.0 && atr.isFinite() && atr >= 0.0) -(atr / closePrice) else 0.0
+    return sectorScore * SECTOR_SCALE + tightnessBonus
+  }
+
+  override fun description() = "Sector edge priority + base-tightness tie-breaker (ATR/close)"
+
+  companion object {
+    private const val SECTOR_SCALE = 10.0
+  }
+}
+
+/**
  * Adaptive ranker that switches between strategies based on market conditions.
  * Theory: Use Volatility ranker in trending markets, DistanceFrom10Ema in choppy markets.
  *

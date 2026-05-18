@@ -82,6 +82,24 @@ object RankerFactory {
         usesRandomTieBreaks = false,
       ),
       RankerMetadata(
+        type = "SectorEdgeWithTightness",
+        displayName = "Sector Edge with Tightness",
+        description =
+          "Sector Edge with a base-tightness tie-breaker (ATR / close, lower = tighter). " +
+            "Within a sector, the tighter base ranks higher; sector priority still dominates across sectors.",
+        parameters =
+          listOf(
+            ParameterMetadata(
+              name = "sectorRanking",
+              displayName = "Sector Ranking",
+              type = "stringList",
+              defaultValue = null,
+            ),
+          ),
+        category = "Sector-Priority",
+        usesRandomTieBreaks = false,
+      ),
+      RankerMetadata(
         type = "Random",
         displayName = "Random",
         description = "Random ordering. Use with `randomSeed` for reproducible runs.",
@@ -106,6 +124,10 @@ object RankerFactory {
       "sectoredge" -> {
         val ranking = rankerConfig?.sectorRanking
         if (ranking.isNullOrEmpty()) null else SectorEdgeRanker(ranking)
+      }
+      "sectoredgewithtightness" -> {
+        val ranking = rankerConfig?.sectorRanking
+        if (ranking.isNullOrEmpty()) null else SectorEdgeWithTightnessRanker(ranking)
       }
       "random" -> RandomRanker()
       "adaptive" -> AdaptiveRanker()
