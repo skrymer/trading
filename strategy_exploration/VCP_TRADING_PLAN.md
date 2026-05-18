@@ -10,7 +10,7 @@ Volatility Contraction Pattern (VCP) — trend-following breakout strategy that 
 
 **Exit:** emaCross(10, 20) + stopLoss(2.5 ATR) + stagnation(3%, 15 days)
 
-**Ranker:** SectorEdge (deterministic, IS-derived sector rankings)
+**Ranker:** SectorEdgeWithTightness (fully deterministic — sector priority + ATR/close tie-breaker; no random jitter)
 
 ---
 
@@ -418,8 +418,8 @@ curl -s -X POST http://localhost:8080/udgaard/api/backtest \
 ```
 
 **Notes:**
-- **Ranker omitted** — VCP's preferred `SectorEdge` with its built-in IS-derived sector ranking is used by default.
-- **`randomSeed`** controls tie-breaking within the ranker when multiple candidates share the same sector rank. `SectorEdge` itself is deterministic, but cohort-level ties still exist.
+- **Ranker omitted** — VCP's preferred `SectorEdgeWithTightness` with its built-in sector ranking is used by default. Within-sector tie-break is `ATR / close` (lower = tighter = ranks higher), fully deterministic.
+- **`randomSeed`** has no effect under `SectorEdgeWithTightness` — the ranker eliminates the random tie-break the previous `SectorEdge` applied. The field is preserved in the request shape for backwards compatibility and for runs that override the ranker via `ranker: "SectorEdge"`. See `VCP_STRATEGY_DEVELOPMENT.md` § Sector Edge Tightness Ranker Sweep for the adoption sweep + quant notes.
 - **Runtime:** 10-15 minutes; requires ~12GB JVM heap (`-Xmx12288m` already configured in `bootRun`).
 - **Against production:** swap host for `http://localhost:9080/udgaard/api/backtest` and add `-H "X-API-Key: <your-key>"`. Run one heavy backtest at a time.
 - **Expected output:** the `backtestId` in the response can be fed to `/api/backtest/{id}/missed-trades` (selection-bias analysis) and the Monte Carlo endpoint.
