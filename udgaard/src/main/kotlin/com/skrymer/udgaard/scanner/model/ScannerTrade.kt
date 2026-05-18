@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.scanner.model
 
+import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import java.time.LocalDate
@@ -36,6 +37,13 @@ data class ScannerTrade(
   // Populated by ScannerService.getTrades() for open-trade responses; null on DB reads and
   // write-path responses where the number of trading days since entry is not relevant.
   val tradingDaysHeld: Int? = null,
+  // The OHLCV bar the scanner matched on — immutable after add. Null on legacy rows
+  // (pre-V21) and any path that adds a trade without a scanner match. See docs/adr/0004.
+  val signalDate: LocalDate? = null,
+  // Verbatim record of the per-condition evaluation for [signalDate]. Persisted as JSONB
+  // and never recomputed on read — retroactive recomputes (breadth, indicator backfills)
+  // would otherwise destroy the audit trail. See docs/adr/0004.
+  val signalSnapshot: EntrySignalDetails? = null,
 ) {
   fun computeRealizedPnl(exitPrice: Double): Double =
     if (instrumentType == InstrumentType.OPTION) {

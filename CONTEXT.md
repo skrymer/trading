@@ -22,6 +22,17 @@ Gross profit divided by absolute gross loss for a set of closed trades. Undefine
 **Unassigned**:
 A position with no chosen strategy — its `entryStrategy` is null, blank, or the `"Broker Import"` placeholder that broker-sync stamps on imported positions. Grouped under the literal name `"(Unassigned)"` in per-strategy breakdowns.
 
+### Scanner trade dates
+
+**Signal date**:
+The date of the OHLCV bar on which a strategy's entry conditions were evaluated as a match (`ScanResult.date` returned by `/api/scanner/scan`). Distinct from the entry date — it's the *decision* bar, not the *execution* bar.
+
+**Entry date**:
+The date the trade was actually opened in the broker (i.e. the user filled). Typically `signalDate + N` trading days where `N` reflects the user's entryDelayDays convention (often 1). Stored as `scanner_trades.entry_date`.
+
+**Signal snapshot**:
+The immutable record of `EntrySignalDetails` (per-condition pass/fail + actual values) for the signal bar, captured at the moment the trade is added. Persisted verbatim — never recomputed on read, because the underlying inputs (sector breadth, Donchian high, volume averages) can drift retroactively as those tables are recomputed. The snapshot is the only mechanism that survives such drift.
+
 ## Flagged ambiguities
 
 - "edge" vs "provenEdge" — the same concept under two names. Resolved: **Edge** is the canonical term; `provenEdge` is retained only as the existing field name for the portfolio-aggregate instance.

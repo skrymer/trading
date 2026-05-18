@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
+import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
@@ -61,6 +62,7 @@ class ScannerServiceTest {
   private lateinit var settingsService: SettingsService
   private lateinit var stockProvider: StockProvider
   private lateinit var technicalIndicatorService: com.skrymer.udgaard.data.service.TechnicalIndicatorService
+  private lateinit var strategySignalService: StrategySignalService
 
   @BeforeEach
   fun setup() {
@@ -74,6 +76,7 @@ class ScannerServiceTest {
     settingsService = mock()
     stockProvider = mock()
     technicalIndicatorService = mock()
+    strategySignalService = mock()
 
     service = ScannerService(
       scannerTradeRepository,
@@ -86,6 +89,7 @@ class ScannerServiceTest {
       settingsService,
       stockProvider,
       technicalIndicatorService,
+      strategySignalService,
     )
 
     // Default stubs for breadth/context loading
@@ -591,6 +595,104 @@ class ScannerServiceTest {
   )
 
   @Test
+  fun `addTrade captures signalSnapshot when signalDate is provided`() {
+    // Given: a trade request where the client passed the bar date the scanner matched on,
+    // and the strategy evaluator can produce an EntrySignalDetails for that bar
+    val signalDate = LocalDate.of(2026, 4, 1)
+    val entryDate = LocalDate.of(2026, 4, 2)
+    val stock = Stock(
+      symbol = "ANRO",
+      sectorSymbol = "XLV",
+      quotes = listOf(StockQuote(symbol = "ANRO", date = signalDate, closePrice = 23.41)),
+    )
+    val snapshot = EntrySignalDetails(
+      strategyName = "Vcp",
+      strategyDescription = "Volatility Contraction Pattern",
+      conditions = listOf(
+        ConditionEvaluationResult("MarketUptrendCondition", "Market in uptrend", passed = true),
+        ConditionEvaluationResult("PriceNearDonchianHighCondition", "Price near Donchian high", passed = true),
+      ),
+      allConditionsMet = true,
+    )
+    whenever(stockRepository.findBySymbol(eq("ANRO"), anyOrNull())).thenReturn(stock)
+    whenever(stockRepository.getLatestQuoteDate("ANRO")).thenReturn(entryDate)
+    whenever(stockProvider.getLatestQuote("ANRO"))
+      .thenReturn(LatestQuote(symbol = "ANRO", price = 21.68, previousClose = 23.41, date = entryDate))
+    whenever(
+      strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), "Vcp"),
+    ).thenReturn(snapshot)
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    val request = AddScannerTradeRequest(
+      symbol = "ANRO",
+      sectorSymbol = "XLV",
+      instrumentType = "STOCK",
+      entryPrice = 21.68,
+      entryDate = entryDate.toString(),
+      quantity = 100,
+      entryStrategyName = "Vcp",
+      exitStrategyName = "VcpExitStrategy",
+      notes = null,
+      signalDate = signalDate.toString(),
+    )
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then: the persisted trade carries both the signalDate and the captured snapshot
+    assertEquals(signalDate, saved.signalDate)
+    val savedSnapshot = saved.signalSnapshot!!
+    assertEquals("Vcp", savedSnapshot.strategyName)
+    assertTrue(savedSnapshot.allConditionsMet)
+    assertEquals(2, savedSnapshot.conditions.size)
+  }
+
+  @Test
+  fun `addTrade leaves signalSnapshot null when signalDate is absent`() {
+    // Given: a trade request without a signalDate — e.g., the legacy manual-add path that
+    // pre-dates the V21 schema. No snapshot lookup should happen.
+    val request = addTradeRequest(symbol = "AAPL", entryDate = "2026-04-02")
+    whenever(stockRepository.getLatestQuoteDate("AAPL")).thenReturn(LocalDate.of(2026, 4, 2))
+    whenever(stockProvider.getLatestQuote("AAPL")).thenReturn(null)
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then
+    assertNull(saved.signalDate)
+    assertNull(saved.signalSnapshot)
+    verify(strategySignalService, never()).evaluateConditionsForDate(any(), any(), any())
+  }
+
+  @Test
+  fun `addTrade persists null snapshot when evaluateConditionsForDate returns null`() {
+    // Given: the strategy evaluator cannot produce a result for the supplied signalDate
+    // (e.g., that bar isn't in the stock's stored history). The trade should still be
+    // added — we just log and persist null.
+    val signalDate = LocalDate.of(2026, 4, 1)
+    val entryDate = LocalDate.of(2026, 4, 2)
+    val stock = Stock(symbol = "ANRO", quotes = listOf(StockQuote(symbol = "ANRO", date = entryDate, closePrice = 20.0)))
+    whenever(stockRepository.findBySymbol(eq("ANRO"), anyOrNull())).thenReturn(stock)
+    whenever(stockRepository.getLatestQuoteDate("ANRO")).thenReturn(entryDate)
+    whenever(stockProvider.getLatestQuote("ANRO")).thenReturn(null)
+    whenever(strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), "Vcp"))
+      .thenReturn(null)
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    val request = addTradeRequest(symbol = "ANRO", entryDate = entryDate.toString())
+      .copy(signalDate = signalDate.toString())
+
+    // When
+    val saved = service.addTrade(request)
+
+    // Then: signalDate is recorded (we know which bar the scanner matched on) but the
+    // snapshot is null — we did not capture the conditions, and that's truthfully recorded
+    assertEquals(signalDate, saved.signalDate)
+    assertNull(saved.signalSnapshot)
+  }
+
+  @Test
   fun `addTrade creates and returns scanner trade`() {
     // Given
     val request = AddScannerTradeRequest(
@@ -772,6 +874,58 @@ class ScannerServiceTest {
     assertEquals("Mjolnir", newTrade.entryStrategyName)
     assertEquals("MjolnirExit", newTrade.exitStrategyName)
     assertEquals("Original trade", newTrade.notes)
+  }
+
+  @Test
+  fun `rollTrade carries signalSnapshot and signalDate forward to the new trade`() {
+    // Given: an open trade whose original scanner match was captured at add-trade time
+    val originalSignalDate = LocalDate.of(2026, 4, 1)
+    val originalSnapshot = EntrySignalDetails(
+      strategyName = "Vcp",
+      strategyDescription = "VCP",
+      conditions = listOf(
+        ConditionEvaluationResult("MarketUptrendCondition", "Market in uptrend", passed = true),
+      ),
+      allConditionsMet = true,
+    )
+    val existingTrade = ScannerTrade(
+      id = 7,
+      symbol = "ANRO",
+      sectorSymbol = "XLV",
+      instrumentType = InstrumentType.OPTION,
+      entryPrice = 1.5,
+      entryDate = LocalDate.of(2026, 4, 2),
+      quantity = 1,
+      optionType = OptionType.CALL,
+      strikePrice = 25.0,
+      expirationDate = LocalDate.of(2026, 5, 15),
+      multiplier = 100,
+      optionPrice = 1.5,
+      entryStrategyName = "Vcp",
+      exitStrategyName = "VcpExitStrategy",
+      notes = null,
+      signalDate = originalSignalDate,
+      signalSnapshot = originalSnapshot,
+    )
+    whenever(scannerTradeRepository.findById(7L)).thenReturn(existingTrade)
+    whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
+
+    val request = RollScannerTradeRequest(
+      closePrice = 0.5,
+      newStrikePrice = 28.0,
+      newExpirationDate = "2026-06-19",
+      newEntryPrice = 1.2,
+      newEntryDate = "2026-05-15",
+      newQuantity = 1,
+    )
+
+    // When
+    val rolled = service.rollTrade(7L, request)
+
+    // Then: the roll is a mechanical contract refresh, not a new entry decision. The
+    // original audit trail (signalDate + snapshot) carries through to the rolled row.
+    assertEquals(originalSignalDate, rolled.signalDate)
+    assertEquals(originalSnapshot, rolled.signalSnapshot)
   }
 
   @Test

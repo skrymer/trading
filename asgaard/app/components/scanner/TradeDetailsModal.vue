@@ -15,7 +15,7 @@ const emit = defineEmits<{
   <UModal
     :open="open"
     title="Trade Details"
-    size="lg"
+    :ui="{ content: 'max-w-5xl' }"
     @update:open="emit('update:open', $event)"
   >
     <template #body>
@@ -110,6 +110,62 @@ const emit = defineEmits<{
               </span>
             </div>
           </div>
+        </div>
+
+        <!-- Signal evidence: the frozen snapshot of what the scanner saw on the bar that
+             triggered this trade. Decoupled from current-data evaluation by design — see
+             docs/adr/0004. Null on legacy / manual-add trades. -->
+        <div v-if="trade.signalDate || trade.signalSnapshot" class="space-y-2">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-muted">Signal Evidence</span>
+            <span v-if="trade.signalDate" class="font-medium">
+              Bar: {{ trade.signalDate }}
+            </span>
+          </div>
+          <div v-if="trade.signalSnapshot" class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div
+                v-for="(condition, index) in trade.signalSnapshot.conditions"
+                :key="index"
+                class="p-2 rounded border text-xs"
+                :class="condition.passed ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'"
+              >
+                <div class="flex items-start gap-2">
+                  <UIcon
+                    :name="condition.passed ? 'i-lucide-check-circle' : 'i-lucide-x-circle'"
+                    :class="condition.passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                    class="w-4 h-4 flex-shrink-0 mt-0.5"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium" :class="condition.passed ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'">
+                      {{ condition.description }}
+                    </p>
+                    <div v-if="condition.actualValue || condition.threshold" class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted">
+                      <span v-if="condition.actualValue">
+                        <span class="font-medium">Actual:</span> {{ condition.actualValue }}
+                      </span>
+                      <span v-if="condition.threshold">
+                        <span class="font-medium">Threshold:</span> {{ condition.threshold }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="p-2 rounded border text-xs text-center font-medium"
+              :class="trade.signalSnapshot.allConditionsMet ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100'"
+            >
+              <UIcon
+                :name="trade.signalSnapshot.allConditionsMet ? 'i-lucide-check-circle-2' : 'i-lucide-alert-circle'"
+                class="w-4 h-4 inline-block mr-1"
+              />
+              {{ trade.signalSnapshot.allConditionsMet ? 'All conditions met at scan time' : 'Conditions partially failed at scan time' }}
+            </div>
+          </div>
+          <p v-else class="text-xs text-muted italic p-2 bg-muted/30 rounded">
+            Snapshot unavailable — trade pre-dates V21 schema or was added without a scanner match.
+          </p>
         </div>
 
         <!-- Notes -->

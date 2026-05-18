@@ -105,7 +105,11 @@ async function onSubmit() {
         entryDate: trade.result.date,
         quantity: trade.quantity,
         entryStrategyName: props.entryStrategyName,
-        exitStrategyName: props.exitStrategyName
+        exitStrategyName: props.exitStrategyName,
+        // The bar the scanner matched on. Backend persists this + a snapshot of the
+        // per-condition evaluation so the trade-details modal can show what fired even
+        // after sector breadth / indicator data drifts later. See docs/adr/0004.
+        signalDate: trade.result.date
       }
       if (isOptionsMode.value && trade.contract) {
         body.optionType = 'CALL'
