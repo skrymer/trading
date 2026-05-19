@@ -11,7 +11,7 @@ import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
-import jakarta.annotation.PostConstruct
+import com.skrymer.udgaard.service.UserSettingsJooqRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -37,6 +38,8 @@ class StockIngestionService(
   private val sectorBreadthService: SectorBreadthService,
   private val marketBreadthService: MarketBreadthService,
   private val marketBreadthRepository: MarketBreadthRepository,
+  private val userSettingsRepository: UserSettingsJooqRepository,
+  private val clock: Clock,
 ) {
   private val logger = LoggerFactory.getLogger(StockIngestionService::class.java)
   private val refreshQueue = ConcurrentLinkedQueue<RefreshTask>()
@@ -49,13 +52,19 @@ class StockIngestionService(
   @Volatile
   private var processingJob: Job? = null
 
-  @Volatile
-  private var _lastRefreshedAt: LocalDateTime? = null
-  val lastRefreshedAt: LocalDateTime? get() = _lastRefreshedAt
+  // Wall-clock timestamp of the user's last completed refresh. Persisted via user_settings so
+  // it survives JVM restarts. Distinct from MAX(stock_quotes.quote_date), which is the latest
+  // bar *date* — those advance only on market sessions and lag the refresh action.
+  val lastRefreshedAt: LocalDateTime?
+    get() = userSettingsRepository
+      .findByKey(LAST_REFRESHED_AT_KEY)
+      ?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() }
 
-  @PostConstruct
-  fun initLastRefreshedAt() {
-    _lastRefreshedAt = stockRepository.getLatestQuoteTimestamp()
+  // Single-source-of-truth for "a refresh just finished, record it". Called from every
+  // successful refresh entrypoint (single-stock and batch) so the UI's "last refreshed"
+  // reflects any completed refresh action, not just bulk runs.
+  private fun markRefreshComplete() {
+    userSettingsRepository.upsert(LAST_REFRESHED_AT_KEY, LocalDateTime.now(clock).toString())
   }
 
   // ── Public API ─────────────────────────────────────────────────────
@@ -65,7 +74,9 @@ class StockIngestionService(
    */
   fun refreshStock(symbol: String): Stock? {
     val stock = fetchAndBuildStock(symbol) ?: return null
-    return saveStock(stock)
+    val saved = saveStock(stock)
+    markRefreshComplete()
+    return saved
   }
 
   /**
@@ -257,7 +268,7 @@ class StockIngestionService(
       isProcessing = false
       refreshBreadth()
       logCompletionSummary(errorDetails)
-      _lastRefreshedAt = LocalDateTime.now()
+      markRefreshComplete()
       currentProgress.set(RefreshProgress())
     }
   }
@@ -340,5 +351,9 @@ class StockIngestionService(
     }
     logger.info("========================")
     logger.info("")
+  }
+
+  companion object {
+    private const val LAST_REFRESHED_AT_KEY = "data.last_refreshed_at"
   }
 }
