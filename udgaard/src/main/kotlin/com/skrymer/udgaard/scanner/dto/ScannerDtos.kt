@@ -33,6 +33,10 @@ data class AddScannerTradeRequest(
   val entryStrategyName: String,
   val exitStrategyName: String,
   val notes: String? = null,
+  // ISO date of the OHLCV bar the scanner matched on. When set, the server captures the
+  // condition-evaluation snapshot for that bar at add-trade time. Null on legacy / manual paths.
+  // See docs/adr/0004.
+  val signalDate: String? = null,
 )
 
 /**

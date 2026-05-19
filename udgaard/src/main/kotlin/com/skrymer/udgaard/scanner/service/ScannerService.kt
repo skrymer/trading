@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionEvaluationResult
 import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
+import com.skrymer.udgaard.backtesting.service.StrategySignalService
 import com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
@@ -131,6 +132,7 @@ class ScannerService(
   private val settingsService: SettingsService,
   private val stockProvider: StockProvider,
   private val technicalIndicatorService: TechnicalIndicatorService,
+  private val strategySignalService: StrategySignalService,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
 
@@ -593,6 +595,10 @@ class ScannerService(
       rolledCredits = newRolledCredits,
       rollCount = existingTrade.rollCount + 1,
       notes = existingTrade.notes,
+      // Audit trail preserved across rolls — see docs/adr/0004. A roll is a contract refresh,
+      // not a new entry decision, so the snapshot of the original scanner match carries forward.
+      signalDate = existingTrade.signalDate,
+      signalSnapshot = existingTrade.signalSnapshot,
     )
 
     val saved = scannerTradeRepository.save(newTrade)
@@ -604,6 +610,8 @@ class ScannerService(
   }
 
   fun addTrade(request: AddScannerTradeRequest): ScannerTrade {
+    val signalDate = request.signalDate?.let { LocalDate.parse(it) }
+    val signalSnapshot = signalDate?.let { captureSignalSnapshot(request.symbol, it, request.entryStrategyName) }
     val trade = ScannerTrade(
       id = null,
       symbol = request.symbol,
@@ -621,6 +629,8 @@ class ScannerService(
       entryStrategyName = request.entryStrategyName,
       exitStrategyName = request.exitStrategyName,
       notes = request.notes,
+      signalDate = signalDate,
+      signalSnapshot = signalSnapshot,
     )
     val saved = scannerTradeRepository.save(trade)
     logger.info(
@@ -629,6 +639,31 @@ class ScannerService(
     )
     return saved
   }
+
+  /**
+   * Capture the EntrySignalDetails snapshot for [signalDate] by re-evaluating the strategy
+   * against currently-stored data. Server-recompute at add-time is safe because the scan-to-add
+   * window is short; the snapshot must never be re-derived later. See docs/adr/0004.
+   *
+   * Returns null when the stock is unknown, the bar isn't in stored history, or the strategy
+   * cannot evaluate — the trade is still added with a null snapshot.
+   *
+   * The repository load is windowed (`SNAPSHOT_LOOKBACK_DAYS`) so we don't deserialise the
+   * stock's full quote history on the synchronous user-blocking write path. The window must
+   * cover the strategy's longest indicator lookback (EMA200 + Donchian channel, etc.).
+   */
+  private fun captureSignalSnapshot(symbol: String, signalDate: LocalDate, strategyName: String) =
+    stockRepository
+      .findBySymbol(symbol, quotesAfter = signalDate.minusDays(SNAPSHOT_LOOKBACK_DAYS))
+      ?.let { stock -> strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), strategyName) }
+      .also {
+        if (it == null) {
+          logger.warn(
+            "Could not capture signalSnapshot for $symbol @ $signalDate strategy=$strategyName — " +
+              "stock missing, bar not in history, or strategy not registered. Storing null.",
+          )
+        }
+      }
 
   /**
    * Authoritative entry-date resolution. Browser-supplied dates are unreliable — a user in
@@ -897,6 +932,11 @@ class ScannerService(
     private const val MAX_VALIDATE_SYMBOLS = 30
     private const val ATR_PERIOD = 14
     private const val DONCHIAN_PERIOD = 5
+
+    // Window for the signal-snapshot recompute load. Must cover the longest strategy
+    // indicator lookback (EMA200 needs ~200 trading days; cushion to 300 calendar days
+    // so weekend/holiday gaps don't truncate the window).
+    private const val SNAPSHOT_LOOKBACK_DAYS = 300L
 
     // Stored prices round to 4 decimals; anything tighter than this is rounding noise, not a real price move.
     private const val QUOTE_MATCH_TOLERANCE = 1e-4

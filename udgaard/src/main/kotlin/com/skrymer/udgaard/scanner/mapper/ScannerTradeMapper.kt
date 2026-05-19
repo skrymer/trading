@@ -1,14 +1,22 @@
 package com.skrymer.udgaard.scanner.mapper
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.jooq.tables.pojos.ScannerTrades
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.model.TradeStatus
+import org.jooq.JSONB
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-class ScannerTradeMapper {
+class ScannerTradeMapper(
+  private val objectMapper: ObjectMapper,
+) {
+  private val logger = LoggerFactory.getLogger(ScannerTradeMapper::class.java)
+
   fun toDomain(pojo: ScannerTrades): ScannerTrade =
     ScannerTrade(
       id = pojo.id,
@@ -52,7 +60,17 @@ class ScannerTradeMapper {
       exitDate = pojo.exitDate,
       realizedPnl = pojo.realizedPnl?.toDouble(),
       closedAt = pojo.closedAt,
+      signalDate = pojo.signalDate,
+      signalSnapshot = pojo.signalSnapshot?.let { deserializeSnapshot(pojo.id, it) },
     )
+
+  // A single corrupted blob must not take down findOpen()/findAll() for every other trade.
+  // Per ADR 0004, "NULL is informative" — degrade to NULL on parse failure and log loudly so
+  // the row stays readable and audits can flag the bad blob.
+  private fun deserializeSnapshot(tradeId: Long?, blob: JSONB): EntrySignalDetails? =
+    runCatching { objectMapper.readValue(blob.data(), EntrySignalDetails::class.java) }
+      .onFailure { logger.warn("Failed to deserialize signal_snapshot for scanner_trade id=$tradeId — storing as null", it) }
+      .getOrNull()
 
   fun toPojo(trade: ScannerTrade): ScannerTrades =
     ScannerTrades(
@@ -91,6 +109,8 @@ class ScannerTradeMapper {
       exitDate = trade.exitDate,
       realizedPnl = trade.realizedPnl?.toBigDecimal(),
       closedAt = trade.closedAt,
+      signalDate = trade.signalDate,
+      signalSnapshot = trade.signalSnapshot?.let { JSONB.valueOf(objectMapper.writeValueAsString(it)) },
     ).apply {
       id = trade.id
     }

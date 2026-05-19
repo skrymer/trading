@@ -120,11 +120,17 @@ class StrategySignalService(
         cooldownRemaining--
       }
 
-      // Check for entry signal if not currently in a position and not in cooldown
+      // Observation semantics: report entrySignal on every bar where conditions match AND the
+      // simulation is in-position (sustain) OR not-in-position-not-in-cooldown (a fresh entry).
+      // Bars that fall inside the cooldown window still suppress entrySignal — cooldown is the
+      // simulation expressing "I would not have re-entered here" and we preserve that. Pre-fix,
+      // entry was suppressed for the entire in-position interval too, collapsing multi-bar
+      // sustains to a single bar; the fix restores per-bar sustain visibility while keeping the
+      // existing exit/cooldown anchoring. See docs/adr/0004 and the grilling trail under
+      // "Question 7 — what does the /signals fix change".
       if (entryQuote == null && cooldownRemaining == 0) {
         entrySignal = entryStrategy.test(stock, quote, context)
 
-        // If entry signal triggered and strategy supports detailed evaluation, get condition details
         if (entrySignal && entryStrategy is com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy) {
           entryDetails = entryStrategy.testWithDetails(stock, quote, context).copy(strategyName = entryStrategyName)
         }
@@ -133,9 +139,15 @@ class StrategySignalService(
           entryQuote = quote
           entryQuoteDomain = quote
         }
-      }
-      // Check for exit signal if currently in a position
-      else if (entryQuote != null) {
+      } else if (entryQuote != null) {
+        // Already in a hypothetical position: keep observing entry condition on this bar so
+        // sustains are visible, but do not re-pin entryQuote — exit/cooldown still anchor
+        // to the original entry.
+        entrySignal = entryStrategy.test(stock, quote, context)
+        if (entrySignal && entryStrategy is com.skrymer.udgaard.backtesting.strategy.DetailedEntryStrategy) {
+          entryDetails = entryStrategy.testWithDetails(stock, quote, context).copy(strategyName = entryStrategyName)
+        }
+
         exitSignal = exitStrategy.match(stock, entryQuoteDomain, quote)
         if (exitSignal) {
           exitReason = exitStrategy.reason(stock, entryQuoteDomain, quote)

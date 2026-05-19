@@ -1354,6 +1354,11 @@ export interface ScannerTrade {
   realizedPnl?: number
   closedAt?: string
   tradingDaysHeld?: number
+  // The bar the scanner matched on. Null on legacy / manual-add trades. See docs/adr/0004.
+  signalDate?: string
+  // Frozen snapshot of the per-condition evaluation for [signalDate]. Used by the trade-details
+  // modal to render what fired even after data drifts. Null on legacy / manual-add trades.
+  signalSnapshot?: EntrySignalDetails
 }
 
 export interface DrawdownStatsResponse {
@@ -1382,6 +1387,9 @@ export interface AddScannerTradeRequest {
   entryStrategyName: string
   exitStrategyName: string
   notes?: string
+  // ISO date of the OHLCV bar the scanner matched on. Backend captures the per-condition
+  // snapshot for this bar at add-trade time. See docs/adr/0004.
+  signalDate?: string
 }
 
 export interface RollScannerTradeRequest {
@@ -1467,10 +1475,19 @@ export interface ChartMarkerDetail {
   price: number
   // Field name preserved as `entryDetails` because that's the existing shape
   // ChartsSignalDetailsModal consumes; renaming the modal contract is out of scope.
-  entryDetails: {
+  // Optional because the upstream signals payload (typed `any` in chart-markers.ts)
+  // can legitimately omit entryDetails on a bar — the modal already renders a
+  // "No details available" fallback when this is missing.
+  entryDetails?: {
     strategyName: string
     strategyDescription: string
     conditions: ConditionEvaluationResult[]
     allConditionsMet: boolean
   }
+  // Populated only on entry markers that represent a sustained run of consecutive
+  // entrySignal=true bars (e.g. a 3-day breakout). One marker per run, anchored at the
+  // first bar. UI tooltip surfaces the duration so a thick band of arrows doesn't
+  // obscure the chart. See docs/adr/0004 / Q8 in the grilling trail.
+  sustainDays?: number
+  sustainEndDate?: string
 }

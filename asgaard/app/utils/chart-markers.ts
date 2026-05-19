@@ -16,38 +16,82 @@ function toLightweightChartsTime(isoDate: string): number {
 // `signals` is the strategy-evaluation payload returned by GET /api/stocks/{symbol}/signals
 // (StockWithSignals). Typed as `any` here because the page-level state is `Ref<any>` today —
 // tightening that type is a separate cleanup tracked in the deepening doc.
+//
+// Entry markers collapse consecutive entrySignal=true bars into a single marker at the first
+// bar of each run, with the run duration surfaced in `detail.sustainDays`. The backend now
+// reports per-bar truth (see StrategySignalService.evaluateQuotes); without this collapse,
+// a 5-day sustained breakout would render 5 stacked arrows obscuring the bar.
+// See docs/adr/0004 and the grilling trail under Q8.
 export function strategySignalsToMarkers(signals: any): ChartMarker[] {
   if (!signals?.quotesWithSignals) return []
   const markers: ChartMarker[] = []
-  for (const qws of signals.quotesWithSignals) {
+  const qwsList = signals.quotesWithSignals
+
+  let i = 0
+  while (i < qwsList.length) {
+    const qws = qwsList[i]
     const quote = qws.quote
-    if (!quote?.date) continue
-    const time = toLightweightChartsTime(quote.date)
+    if (!quote?.date) {
+      i++
+      continue
+    }
 
     if (qws.entrySignal) {
+      // Find the end of this sustained run — the index of the last consecutive
+      // entrySignal=true bar (the loop walks forward while the next bar also has
+      // entrySignal AND a quote, so endQuote.date is safe to dereference below).
+      let runEnd = i
+      while (
+        runEnd + 1 < qwsList.length
+        && qwsList[runEnd + 1]?.entrySignal
+        && qwsList[runEnd + 1]?.quote?.date
+      ) runEnd++
+      const runLength = runEnd - i + 1
+      const endQuote = qwsList[runEnd].quote
       markers.push({
-        time,
+        time: toLightweightChartsTime(quote.date),
         position: 'belowBar',
         color: STRATEGY_ENTRY_COLOR,
         shape: 'arrowUp',
-        text: 'Entry',
+        text: runLength > 1 ? `Entry · ${runLength}d` : 'Entry',
         detail: {
           date: quote.date,
           price: quote.closePrice,
-          entryDetails: qws.entryDetails
+          entryDetails: qws.entryDetails,
+          ...(runLength > 1 && { sustainDays: runLength, sustainEndDate: endQuote.date })
         }
       })
+      // Exits can fire on any bar of the sustain (including the last). Emit a per-bar
+      // exit marker for every bar in the run that triggered one — collapsing entries
+      // does NOT collapse exits.
+      for (let j = i; j <= runEnd; j++) {
+        const runBar = qwsList[j]
+        if (runBar?.exitSignal && runBar.quote?.date) {
+          markers.push({
+            time: toLightweightChartsTime(runBar.quote.date),
+            position: 'aboveBar',
+            color: STRATEGY_EXIT_COLOR,
+            shape: 'arrowDown',
+            text: runBar.exitReason || 'Exit'
+          })
+        }
+      }
+      i = runEnd + 1
+      continue
     }
 
+    // Non-entry bar: handle exit independently.
     if (qws.exitSignal) {
       markers.push({
-        time,
+        time: toLightweightChartsTime(quote.date),
         position: 'aboveBar',
         color: STRATEGY_EXIT_COLOR,
         shape: 'arrowDown',
         text: qws.exitReason || 'Exit'
       })
     }
+
+    i++
   }
   return markers
 }

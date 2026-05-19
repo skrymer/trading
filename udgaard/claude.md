@@ -161,7 +161,7 @@ udgaard/
 │   │   ├── mapper/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/
-│   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt) — rich-domain methods: computeRealizedPnl(exitPrice), withClosed(...), withNotes(...)
+│   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt; signalDate + signalSnapshot:EntrySignalDetails persisted verbatim as JSONB per ADR 0004 — immutable, never recomputed on read) — rich-domain methods: computeRealizedPnl(exitPrice), withClosed(...), withNotes(...)
 │   │   │   └── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
 │   │   ├── repository/
 │   │   │   └── ScannerTradeJooqRepository.kt
@@ -193,7 +193,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V20)
+│   └── db/migration/                 # Flyway migrations (V1-V21)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -213,7 +213,8 @@ udgaard/
 │       ├── V17__Add_close_fields_to_scanner_trades.sql
 │       ├── V18__Add_delisted_symbols.sql
 │       ├── V19__create_backtest_reports.sql
-│       └── V20__cleanup_earnings_schema.sql  # Drop legacy reportedeps/estimatedeps/symbol; add UNIQUE(stock_symbol, fiscal_date_ending)
+│       ├── V20__cleanup_earnings_schema.sql  # Drop legacy reportedeps/estimatedeps/symbol; add UNIQUE(stock_symbol, fiscal_date_ending)
+│       └── V21__Add_signal_snapshot_to_scanner_trades.sql  # signal_date + signal_snapshot JSONB columns per ADR 0004
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
@@ -238,6 +239,7 @@ udgaard/
 │       ├── ScannerScanE2ETest.kt          # Scanner /scan E2E
 │       ├── ScannerStatsE2ETest.kt         # Scanner closed-trade stats + drawdown stats E2E
 │       ├── ScannerTradeLifecycleE2ETest.kt  # Trades CRUD + close E2E
+│       ├── ScannerTradeJooqRepositoryE2ETest.kt  # signalDate + signalSnapshot JSONB roundtrip per ADR 0004
 │       ├── ScannerValidateEntriesE2ETest.kt  # Scanner /validate-entries E2E (incl. cap-rejection cases)
 │       ├── StockJooqRepositoryVolumeFilterE2ETest.kt  # Volume-based filter behavior E2E
 │       ├── TestDetailedEntryStrategy.kt  # Detailed-entry test fixture
