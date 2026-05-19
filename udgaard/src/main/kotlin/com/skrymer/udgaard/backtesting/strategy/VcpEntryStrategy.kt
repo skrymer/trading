@@ -58,8 +58,11 @@ class VcpEntryStrategy : DetailedEntryStrategy {
     context: BacktestContext,
   ): EntrySignalDetails = compositeStrategy.testWithDetails(stock, quote, context)
 
-  override fun preferredRanker(): StockRanker = SectorEdgeRanker(
-    // Derived from trailing 3-year backtest (2023-04-13 to 2026-04-13). Recalibrate annually.
+  override fun preferredRanker(): StockRanker = SectorEdgeWithTightnessRanker(
+    // Sector ordering derived from trailing 3-year backtest (2023-04-13 to 2026-04-13).
+    // Recalibrate annually. Within a sector, ATR/close breaks ties (lower = tighter base =
+    // ranks higher) — deterministic, no random tie-break jitter. See sweep + quant notes in
+    // strategy_exploration/VCP_STRATEGY_DEVELOPMENT.md § Sector Edge Tightness Ranker.
     listOf("XLC", "XLU", "XLI", "XLK", "XLE", "XLB", "XLV", "XLF", "XLY", "XLP", "XLRE"),
   )
 }

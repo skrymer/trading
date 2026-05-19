@@ -375,7 +375,8 @@ CompositeRanker()               // Combines Vol (40%) + Dist10EMA (30%) + Sector
 SectorStrengthRanker()          // Rank by sector bull percentage
 RollingSectorStrengthRanker()   // Avg sector bull % over a trailing window (persistent strength)
 SectorStrengthMomentumRanker()  // Δ sector bull % over a window (sectors gaining breadth)
-SectorEdgeRanker()              // Rank by IS-derived sector performance (used by walk-forward)
+SectorEdgeRanker()              // Rank by user-supplied sector priority order (Sector-Priority category)
+SectorEdgeWithTightnessRanker() // Sector edge + base-tightness (ATR/close) tie-breaker within a sector
 RandomRanker()                  // Random selection (baseline)
 AdaptiveRanker()                // Volatility in trends, DistanceFrom10Ema in chop
 ```

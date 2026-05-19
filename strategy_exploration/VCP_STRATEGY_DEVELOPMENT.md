@@ -2324,3 +2324,38 @@ Exit reason breakdown (earnings variant): the `beforeEarnings` exit fires 3,924 
 **Why the trade-off doesn't survive a CAGR objective.** The earnings exit is a clean risk-adjustment trade: it converts ~8pp of CAGR into ~5.6pp of MaxDD reduction and a +0.30 Calmar improvement. On Sortino/Sharpe/Calmar it is the better strategy in 4/4 seeds. But for a strategy whose published objective is CAGR — and where the trader has explicitly chosen `1.25%` sizing as the Pareto-dominant risk level within a CAGR-anchored frame — sacrificing ~45% of terminal wealth ($832K → $461K over 10 years) for a smoother ride is the wrong direction. The path-smoothness was already addressed at the sizer layer; layering another smoother on top costs CAGR without buying anything the user values.
 
 **Conclusion — do not add `beforeEarnings` to `VcpExitStrategy`.** The condition implementation is correct (41% fire rate at +10.5% avg / 81% WR confirms it's catching pre-earnings run-ups cleanly) and the directional trade-off is robust across seeds. The verdict is **objective-dependent**, not data-dependent: under a Calmar/Sortino objective this would be adopted; under the documented CAGR objective it is rejected. The `BeforeEarningsExit` `@Component` stays registered for ad-hoc use and remains a candidate for any future strategy that explicitly trades CAGR for path smoothness.
+
+### Sector Edge Tightness Ranker Sweep (2026-05-19)
+
+Tested whether replacing the random tie-break inside `SectorEdgeRanker` with a deterministic `ATR / close` (lower = tighter base) tie-breaker improves VCP. **Verdict: adopted as VCP's `preferredRanker()`.** The primary reason for adoption is the *determinism itself* (paired with the signal-snapshot persistence shipped in PR #22), not the metric gains — though the metric gains are real and clear the structural adoption gate.
+
+**Motivation.** Today's `SectorEdgeRanker` orders sectors by user-supplied priority and within a sector applies `kotlin.random.Random.nextDouble() * TIE_BREAK_JITTER` to break ties. With ~5–15 candidates per leading sector and `maxPositions=15`, within-sector ordering decides 60–80% of fills on signal-dense days — i.e. the random tie-break decides most of the actual trade list. `ATR / close` is already computed from stored ATR, structurally aligns with Minervini's VCP thesis (contraction precedes expansion), and adds no new parameters to overfit.
+
+**Combined score.** `sectorScore * SECTOR_SCALE + tightnessBonus`, where `SECTOR_SCALE = 10.0` and `tightnessBonus = -(ATR / close)`. With 11 sectors and typical ATR/close in 0.005–0.20, sector priority strictly dominates tightness across all realistic inputs — verified in unit tests including a pathologically loose top-sector stock vs a pathologically tight second-sector stock. NaN / negative ATR (corrupted-data guard) collapse to the sector ceiling so they cannot produce a phantom positive boost.
+
+**Sweep — 8 seeds (1 / 7 / 13 / 42 / 100 / 271 / 314 / 808), $10K, AtrRisk(1.25%, 2.0), leverage 1.0, maxPositions 15, 2016-2025.** Files: `/tmp/sweep-tightness/baseline-seed-*.json`, `/tmp/sweep-tightness/tightness-seed-*.json`. Both arms used the same sector list verbatim from `VcpEntryStrategy.preferredRanker()` — the only difference is the `ranker` field (`SectorEdge` vs `SectorEdgeWithTightness`).
+
+| Metric | Baseline mean (± SE) | Tightness (deterministic) | Δ |
+|---|---:|---:|---:|
+| Trades | 631.5 (range 606–650) | 609 (96.5% of mean) | −22 |
+| Win rate | 51.75% | **54.68%** | +2.93pp |
+| Edge | 5.61% | 5.53% | −0.08pp |
+| Profit factor | 4.45 | **5.06** | +0.61 |
+| CAGR | 54.28% (range 49.48–56.53%) | 53.03% | **−1.25pp** |
+| Max DD | 22.89% (range 20.15–25.41%) | **18.66%** | **−4.23pp** |
+| **Calmar** | 2.39 ± 0.092 (range 1.98–2.81) | **2.84** | **+0.45** |
+| Sharpe | 2.18 | 2.22 | +0.04 |
+| Final Capital | $823K (range $607K–$952K) | $742K | −$81K (90% of mean) |
+| Seed SE (Calmar) | 0.092 | **0.000** | eliminated |
+
+**All 8 tightness seeds produced identical metrics** — different file checksums on the JSON (timestamp metadata) but identical trades, identical edge, identical final capital. The ranker is fully deterministic: the seed has no effect because there is nothing random left to seed. Calmar 2.84 beats the **best baseline seed (2.81)** — even the luckiest random tie-break run can't match deterministic tightness selection. The +0.45 Calmar lift is ~4.9σ over the baseline seed-SE, well clear of the +0.25 adoption gate.
+
+**Quant review — adopt, with one diagnostic to watch live.** Per consultation (2026-05-19):
+- `ATR / close` is economically motivated (tighter names → smaller adverse excursions, better risk-adjusted continuation), so the deterministic arm is **replacing noise with a mild factor tilt**, not curve-fitting a single selection path. The 1.25pp CAGR cost is the price of the tilt; the 4.23pp DD reduction is the durable win.
+- The Calmar lift may be 2016-2025-specific. The DD reduction is the more robust claim and would survive regime changes better than the headline Calmar number.
+- Determinism removes a free diagnostic the random arm provided: when the 8-seed Calmar spread widened, that was a signal of selection-process instability. We've lost that early warning by going deterministic.
+- **Concentration-risk watch (open follow-up).** `ATR / close` systematically favours the same tight names within a sector. In a regime where tightness inverts (early 2020, vol regime shift), the deterministic ranker will pick the *same wrong names every day* until the regime flips. Same expected loss as random, more "stuck"-feeling drawdown. Diagnostic to add: distinct symbols picked over the last 20 scan days. If it collapses below ~60% of what a random-tie-break arm would produce, the tilt is biting harder than the backtest suggested.
+
+**Why this clears the bar despite −1.25pp CAGR.** Unlike the before-earnings exit (which gave up ~8pp CAGR for similar Calmar), tightness gives up ~1pp CAGR — a small enough cost that the determinism + DD reduction package is net-positive even under a CAGR-anchored objective. The deterministic property *itself* is the headline value: live trading produces the same picks given the same data, which pairs naturally with the signal-snapshot persistence shipped in PR #22.
+
+**Conclusion — wire `SectorEdgeWithTightnessRanker` as VCP's `preferredRanker()`.** Done in `VcpEntryStrategy.kt:62-66`; pinned by `VcpEntryStrategyTest`. The legacy `SectorEdgeRanker` stays registered for backwards compatibility and any future strategy that needs the random-jitter behaviour. Follow-up: implement the distinct-symbols-over-N-days concentration diagnostic in the scanner UI to monitor live for regime-change failure modes.
