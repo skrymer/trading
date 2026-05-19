@@ -14,6 +14,9 @@ import com.skrymer.udgaard.scanner.model.EntryValidationResponse
 import com.skrymer.udgaard.scanner.model.ExitCheckResponse
 import com.skrymer.udgaard.scanner.model.ScanResponse
 import com.skrymer.udgaard.scanner.model.ScannerTrade
+import com.skrymer.udgaard.scanner.service.CohortDivergenceReport
+import com.skrymer.udgaard.scanner.service.CohortDivergenceService
+import com.skrymer.udgaard.scanner.service.DivergenceConfig
 import com.skrymer.udgaard.scanner.service.ScannerService
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 
@@ -33,6 +37,7 @@ import java.time.LocalDate
 class ScannerController(
   private val scannerService: ScannerService,
   private val optionsDataProvider: OptionsDataProvider,
+  private val cohortDivergenceService: CohortDivergenceService,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerController::class.java)
 
@@ -127,6 +132,17 @@ class ScannerController(
   @GetMapping("/drawdown-stats")
   fun getDrawdownStats(): ResponseEntity<DrawdownStatsResponse> =
     ResponseEntity.ok(scannerService.getDrawdownStats())
+
+  @GetMapping("/cohort-divergence")
+  fun getCohortDivergence(
+    @RequestParam(defaultValue = "Vcp") entryStrategy: String,
+    @RequestParam(defaultValue = "VcpExitStrategy") exitStrategy: String,
+    @RequestParam(defaultValue = "SectorEdgeWithTightness") ranker: String,
+    @RequestParam(defaultValue = "20") windowDays: Int,
+  ): ResponseEntity<CohortDivergenceReport> =
+    ResponseEntity.ok(
+      cohortDivergenceService.compute(DivergenceConfig(entryStrategy, exitStrategy, ranker, windowDays)),
+    )
 
   @PostMapping("/trades/{id}/roll")
   fun rollTrade(

@@ -155,18 +155,22 @@ udgaard/
 │   │       └── CashTransactionService.kt
 │   ├── scanner/                      # Scanner domain
 │   │   ├── controller/
-│   │   │   └── ScannerController.kt
+│   │   │   └── ScannerController.kt  # incl. GET /api/scanner/cohort-divergence
 │   │   ├── dto/
-│   │   │   └── ScannerDtos.kt        # ScanRequest, AddScannerTradeRequest, RollScannerTradeRequest, UpdateScannerTradeRequest, CloseScannerTradeRequest, OptionContractsRequest, OptionContractResponse, DrawdownStatsResponse, ValidateEntriesRequest, StrategyClosedStats, ClosedTradeStatsResponse
+│   │   │   └── ScannerDtos.kt        # ScanRequest, AddScannerTradeRequest, RollScannerTradeRequest, UpdateScannerTradeRequest, CloseScannerTradeRequest, OptionContractsRequest, OptionContractResponse, DrawdownStatsResponse, ValidateEntriesRequest, StrategyClosedStats, ClosedTradeStatsResponse, DivergenceConfig, CohortDivergenceReport, TodayMetrics, RollingMetrics, Alerts
 │   │   ├── mapper/
 │   │   │   └── ScannerTradeMapper.kt
 │   │   ├── model/
 │   │   │   ├── ScannerTrade.kt       # ScannerTrade (TradeStatus enum, close fields: exitPrice, exitDate, realizedPnl, closedAt; signalDate + signalSnapshot:EntrySignalDetails persisted verbatim as JSONB per ADR 0004 — immutable, never recomputed on read) — rich-domain methods: computeRealizedPnl(exitPrice), withClosed(...), withNotes(...)
-│   │   │   └── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
+│   │   │   ├── ScanResult.kt         # ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
+│   │   │   ├── ScanRun.kt            # ScanRun + MatchedSymbol (persisted scan history)
+│   │   │   └── CohortWindow.kt       # Aggregate root over a rolling window of ScanRuns (per ADR 0001)
 │   │   ├── repository/
-│   │   │   └── ScannerTradeJooqRepository.kt
+│   │   │   ├── ScannerTradeJooqRepository.kt  # incl. findBySignalDateBetween
+│   │   │   └── ScanRunJooqRepository.kt       # ScanRun persistence
 │   │   └── service/
-│   │       └── ScannerService.kt
+│   │       ├── ScannerService.kt              # persists a ScanRun after each scan
+│   │       └── CohortDivergenceService.kt     # Today vs rolling-window cohort-divergence diagnostic
 │   ├── service/                     # Shared services
 │   │   ├── SettingsService.kt       # Settings (DB-backed via UserSettingsJooqRepository)
 │   │   └── UserSettingsJooqRepository.kt
@@ -183,6 +187,7 @@ udgaard/
 │   │   ├── ApiKeyAuthenticationFilter.kt  # API key auth filter
 │   │   ├── AppUserDetailsService.kt  # Spring Security user details
 │   │   ├── CacheConfig.kt
+│   │   ├── ClockConfig.kt            # NY-pinned Clock bean (America/New_York) for deterministic scan-date semantics
 │   │   ├── ExternalConfigLoader.kt   # External config loading
 │   │   ├── GlobalExceptionHandler.kt # Global exception handler
 │   │   ├── SecurityConfig.kt         # Spring Security configuration
@@ -193,7 +198,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V21)
+│   └── db/migration/                 # Flyway migrations (V1-V22)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -214,7 +219,8 @@ udgaard/
 │       ├── V18__Add_delisted_symbols.sql
 │       ├── V19__create_backtest_reports.sql
 │       ├── V20__cleanup_earnings_schema.sql  # Drop legacy reportedeps/estimatedeps/symbol; add UNIQUE(stock_symbol, fiscal_date_ending)
-│       └── V21__Add_signal_snapshot_to_scanner_trades.sql  # signal_date + signal_snapshot JSONB columns per ADR 0004
+│       ├── V21__Add_signal_snapshot_to_scanner_trades.sql  # signal_date + signal_snapshot JSONB columns per ADR 0004
+│       └── V22__Add_scan_runs.sql                          # scan_runs table for cohort-divergence diagnostic
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

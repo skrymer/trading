@@ -2,7 +2,7 @@
 import { h } from 'vue'
 import type { Row } from '@tanstack/vue-table'
 import type { TableColumn } from '@nuxt/ui'
-import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse, ClosedTradeStatsResponse, EquityCurvePoint } from '~/types'
+import type { ScanRequest, ScanResponse, ScanResult, ScannerTrade, ExitCheckResponse, ExitCheckResult, EntryValidationResponse, EntryValidationResult, PositionSizingSettings, OptionContractResponse, DrawdownStatsResponse, ClosedTradeStatsResponse, EquityCurvePoint, CohortDivergenceReport } from '~/types'
 
 // State
 const pageLoading = ref(true)
@@ -18,6 +18,7 @@ const validationStatus = ref<'idle' | 'pending'>('idle')
 const validationResults = ref<Map<string, EntryValidationResult>>(new Map())
 const activeTab = ref('trades')
 const closedTradeStats = ref<ClosedTradeStatsResponse | null>(null)
+const cohortDivergenceReport = ref<CohortDivergenceReport | null>(null)
 
 // Modal states
 const isScanConfigModalOpen = ref(false)
@@ -283,7 +284,7 @@ onMounted(async () => {
   void loadDataFreshness()
   try {
     loadingMessage.value = 'Loading trades and settings...'
-    await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats()])
+    await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats(), loadCohortDivergence()])
     if (trades.value.length > 0) {
       const now = Date.now()
       if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
@@ -334,6 +335,14 @@ async function loadTrades() {
   }
 }
 
+async function loadCohortDivergence() {
+  try {
+    cohortDivergenceReport.value = await $fetch<CohortDivergenceReport>('/udgaard/api/scanner/cohort-divergence')
+  } catch (error) {
+    console.error('Error loading cohort divergence report:', error)
+  }
+}
+
 async function loadClosedTrades() {
   try {
     closedTrades.value = await $fetch<ScannerTrade[]>('/udgaard/api/scanner/trades/closed')
@@ -374,6 +383,9 @@ async function runScan(config: ScanRequest) {
       body: config
     })
     scanStatus.value = 'success'
+
+    // A scan persists a new ScanRun, which shifts today's emitted count + can flip alerts.
+    void loadCohortDivergence()
 
     // Fetch option contracts for preferred results in options mode
     if (isOptionsMode.value && scanResponse.value.results.length > 0) {
@@ -653,6 +665,7 @@ function openBatchAddModal() {
 async function onBatchTradesAdded() {
   selectedSymbols.value = new Set()
   await loadTrades()
+  void loadCohortDivergence()
   activeTab.value = 'trades'
 }
 
@@ -951,7 +964,9 @@ const tradesTableUi = computed(() => ({
           :total-risk="positionSizingSettings.enabled ? totalPortfolioRisk : undefined"
           :risk-pct="positionSizingSettings.enabled ? portfolioRiskPct : undefined"
           :max-heat-pct="positionSizingSettings.enabled ? maxPositions * effectiveRiskPercentage : undefined"
-        />
+        >
+          <ScannerCohortDivergenceCard :report="cohortDivergenceReport" />
+        </ScannerStatsCards>
 
         <!-- Drawdown Alert (always visible when active) -->
         <UAlert

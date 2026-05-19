@@ -63,6 +63,7 @@ class ScannerServiceTest {
   private lateinit var stockProvider: StockProvider
   private lateinit var technicalIndicatorService: com.skrymer.udgaard.data.service.TechnicalIndicatorService
   private lateinit var strategySignalService: StrategySignalService
+  private lateinit var scanRunRepository: com.skrymer.udgaard.scanner.repository.ScanRunJooqRepository
 
   @BeforeEach
   fun setup() {
@@ -77,6 +78,7 @@ class ScannerServiceTest {
     stockProvider = mock()
     technicalIndicatorService = mock()
     strategySignalService = mock()
+    scanRunRepository = mock()
 
     service = ScannerService(
       scannerTradeRepository,
@@ -90,6 +92,8 @@ class ScannerServiceTest {
       stockProvider,
       technicalIndicatorService,
       strategySignalService,
+      scanRunRepository,
+      java.time.Clock.systemDefaultZone(),
     )
 
     // Default stubs for breadth/context loading
@@ -220,6 +224,50 @@ class ScannerServiceTest {
     // Then: the stock is silently skipped; entryStrategy.test is never invoked for stale data
     assertEquals(0, response.results.size)
     verify(entryStrategy, never()).test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())
+  }
+
+  @Test
+  fun `scan persists a ScanRun capturing the matched cohort and scalar metadata`() {
+    // Given: a single-stock universe where AAPL matches on the latest market date. The
+    // diagnostic in `strategy_exploration/VCP_TRADING_PLAN.md` § Cohort Divergence depends
+    // on every successful scan persisting its matched cohort to scan_runs.
+    val marketDate = LocalDate.of(2026, 5, 18)
+    whenever(marketBreadthRepository.findAllAsMap()).thenReturn(
+      mapOf(marketDate to MarketBreadthDaily(quoteDate = marketDate, breadthPercent = 50.0)),
+    )
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("Vcp")).thenReturn(entryStrategy)
+    val quote = StockQuote(symbol = "AAPL", date = marketDate, closePrice = 175.5, atr = 3.5, trend = "Uptrend")
+    val stock = Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(quote))
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+
+    val request = ScanRequest(
+      entryStrategyName = "Vcp",
+      exitStrategyName = "VcpExitStrategy",
+    )
+
+    // When
+    service.scan(request)
+
+    // Then: a single ScanRun was persisted with the right scalar fields + matched cohort
+    val captor = argumentCaptor<com.skrymer.udgaard.scanner.model.ScanRun>()
+    verify(scanRunRepository).save(captor.capture())
+    val persisted = captor.firstValue
+    assertEquals(marketDate, persisted.signalDate, "signalDate should be the latest market bar evaluated")
+    assertEquals("Vcp", persisted.entryStrategyName)
+    assertEquals("VcpExitStrategy", persisted.exitStrategyName)
+    // Mocked entry strategy has no preferredRanker, so resolution falls back to Random.
+    // Production VCP wires SectorEdgeWithTightness via VcpEntryStrategy.preferredRanker().
+    assertEquals("Random", persisted.rankerName)
+    assertEquals(1, persisted.totalStocksScanned)
+    assertEquals(1, persisted.matchedSymbols.size)
+    val match = persisted.matchedSymbols.single()
+    assertEquals("AAPL", match.symbol)
+    assertEquals("XLK", match.sectorSymbol)
+    assertEquals(175.5, match.closePrice)
+    assertEquals(3.5, match.atr)
   }
 
   @Test

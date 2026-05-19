@@ -79,7 +79,7 @@ const drawdownColor = computed(() => {
 </script>
 
 <template>
-  <div class="grid grid-cols-2 lg:grid-cols-7 gap-4">
+  <div class="grid grid-cols-2 lg:grid-cols-8 gap-4">
     <div class="p-4 bg-muted/50 rounded-lg border border-default">
       <div class="text-sm text-muted">
         Active Trades
@@ -181,5 +181,7 @@ const drawdownColor = computed(() => {
         <span class="text-warning ml-1">{{ (effectiveRisk ?? 0).toFixed(2) }}%</span>
       </div>
     </div>
+
+    <slot />
   </div>
 </template>

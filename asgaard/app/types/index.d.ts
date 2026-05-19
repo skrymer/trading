@@ -1371,6 +1371,31 @@ export interface DrawdownStatsResponse {
   currentDrawdownPct: number
 }
 
+export interface CohortDivergenceReport {
+  config: {
+    entryStrategy: string
+    exitStrategy: string
+    ranker: string
+    windowDays: number
+  }
+  windowStart: string
+  windowEnd: string
+  scanRunsInWindow: number
+  today: {
+    scanDate: string
+    signalsEmitted: number
+    signalsTaken: number
+  }
+  rolling: {
+    jaccard: number
+    scannerRichDayCount: number
+  }
+  alerts: {
+    executionDrift: boolean
+    traderFiltering: boolean
+  }
+}
+
 export interface AddScannerTradeRequest {
   symbol: string
   sectorSymbol?: string

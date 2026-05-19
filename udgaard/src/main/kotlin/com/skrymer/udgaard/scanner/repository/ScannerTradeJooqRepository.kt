@@ -7,6 +7,7 @@ import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.model.TradeStatus
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Repository
@@ -34,6 +35,20 @@ class ScannerTradeJooqRepository(
     dsl
       .selectFrom(SCANNER_TRADES)
       .orderBy(SCANNER_TRADES.ENTRY_DATE.desc())
+      .fetchInto(ScannerTrades::class.java)
+      .map { mapper.toDomain(it) }
+
+  // Trades whose signal_date falls in [startInclusive, endInclusive]. Used by the
+  // cohort-divergence diagnostic to join executed trades back to the scan run that produced
+  // the offer. Excludes pre-V21 legacy trades that have NULL signal_date.
+  fun findBySignalDateBetween(
+    startInclusive: LocalDate,
+    endInclusive: LocalDate,
+  ): List<ScannerTrade> =
+    dsl
+      .selectFrom(SCANNER_TRADES)
+      .where(SCANNER_TRADES.SIGNAL_DATE.between(startInclusive, endInclusive))
+      .orderBy(SCANNER_TRADES.SIGNAL_DATE.asc())
       .fetchInto(ScannerTrades::class.java)
       .map { mapper.toDomain(it) }
 

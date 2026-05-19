@@ -33,6 +33,17 @@ The date the trade was actually opened in the broker (i.e. the user filled). Typ
 **Signal snapshot**:
 The immutable record of `EntrySignalDetails` (per-condition pass/fail + actual values) for the signal bar, captured at the moment the trade is added. Persisted verbatim — never recomputed on read, because the underlying inputs (sector breadth, Donchian high, volume averages) can drift retroactively as those tables are recomputed. The snapshot is the only mechanism that survives such drift.
 
+### Scanner operations
+
+**Scan run**:
+A user-triggered invocation of the entry-candidate scanner — `POST /api/scanner/scan` → `ScannerService.scan()`. Evaluates the configured entry strategy against every stock's latest bar and returns the matched-symbol cohort. Distinct from `check-exits` (which evaluates exit conditions on open positions) and `validate-entries` (which re-confirms a small set of candidates against live quotes pre-execution). The operating cadence is one scan run per trading day, executed after US market close.
+
+**Live book**:
+The set of currently-open scanner trades (`scanner_trades.status = 'OPEN'`). The trader's actual exposure at a point in time.
+
+**Signal flow**:
+The chronological stream of matched-symbol cohorts emitted by scan runs over a window. Distinct from the live book — signal flow is what the scanner *offered*; live book is what the trader *took*.
+
 ## Flagged ambiguities
 
 - "edge" vs "provenEdge" — the same concept under two names. Resolved: **Edge** is the canonical term; `provenEdge` is retained only as the existing field name for the portfolio-aggregate instance.

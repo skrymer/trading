@@ -87,7 +87,7 @@ asgaard/
 │   │   │   ├── SyncPortfolioModal.vue
 │   │   │   ├── RollChainModal.vue
 │   │   │   └── CreateFromBrokerModal.vue
-│   │   ├── scanner/              # Scanner components (10)
+│   │   ├── scanner/              # Scanner components (11)
 │   │   │   ├── ScanConfigModal.vue
 │   │   │   ├── ScanResultsTable.vue
 │   │   │   ├── AddTradeModal.vue
@@ -97,7 +97,8 @@ asgaard/
 │   │   │   ├── TradeDetailsModal.vue
 │   │   │   ├── ExitAlerts.vue
 │   │   │   ├── StatsCards.vue
-│   │   │   └── NearMissAnalysis.vue
+│   │   │   ├── NearMissAnalysis.vue
+│   │   │   └── CohortDivergenceCard.vue
 │   │   ├── settings/             # Settings components (1)
 │   │   │   └── MembersList.vue
 │   │   ├── strategy/             # Strategy builder components (3)
