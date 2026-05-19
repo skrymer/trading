@@ -38,11 +38,14 @@ import com.skrymer.udgaard.scanner.model.EntryValidationResponse
 import com.skrymer.udgaard.scanner.model.EntryValidationResult
 import com.skrymer.udgaard.scanner.model.ExitCheckResponse
 import com.skrymer.udgaard.scanner.model.ExitCheckResult
+import com.skrymer.udgaard.scanner.model.MatchedSymbol
 import com.skrymer.udgaard.scanner.model.NearMissCandidate
 import com.skrymer.udgaard.scanner.model.ScanResponse
 import com.skrymer.udgaard.scanner.model.ScanResult
+import com.skrymer.udgaard.scanner.model.ScanRun
 import com.skrymer.udgaard.scanner.model.ScannerTrade
 import com.skrymer.udgaard.scanner.model.TradeStatus
+import com.skrymer.udgaard.scanner.repository.ScanRunJooqRepository
 import com.skrymer.udgaard.scanner.repository.ScannerTradeJooqRepository
 import com.skrymer.udgaard.service.SettingsService
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +55,9 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
@@ -133,6 +138,8 @@ class ScannerService(
   private val stockProvider: StockProvider,
   private val technicalIndicatorService: TechnicalIndicatorService,
   private val strategySignalService: StrategySignalService,
+  private val scanRunRepository: ScanRunJooqRepository,
+  private val clock: Clock,
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
 
@@ -141,7 +148,7 @@ class ScannerService(
    */
   fun scan(request: ScanRequest): ScanResponse {
     val startTime = System.currentTimeMillis()
-    val scanDate = LocalDate.now()
+    val scanDate = LocalDate.now(clock)
     val entryStrategy = strategyRegistry.createEntryStrategy(request.entryStrategyName)
       ?: throw IllegalArgumentException("Entry strategy '${request.entryStrategyName}' not found")
 
@@ -177,6 +184,8 @@ class ScannerService(
     val executionTime = System.currentTimeMillis() - startTime
     logger.info("Scan complete: ${rankedResults.size} matches in ${executionTime}ms (ranked by $resolvedRankerName)")
 
+    persistScanRun(currentMarketDate, request, resolvedRankerName, evalResult.stocksEvaluated, rankedResults)
+
     return ScanResponse(
       scanDate = scanDate,
       latestDataDate = currentMarketDate,
@@ -189,6 +198,49 @@ class ScannerService(
       conditionFailureSummary = failureSummary,
       rankerName = resolvedRankerName,
     )
+  }
+
+  /**
+   * Persist the scan run so the cohort-divergence diagnostic has a record of what the
+   * scanner offered today. Upsert by (signal_date, entry, exit, ranker) — multiple scans
+   * within a session overwrite. Skipped when there's no `currentMarketDate` (no breadth
+   * ⇒ degraded scan, nothing meaningful to anchor the signal date to). See
+   * strategy_exploration/VCP_TRADING_PLAN.md § Cohort Divergence.
+   */
+  private fun persistScanRun(
+    currentMarketDate: LocalDate?,
+    request: ScanRequest,
+    resolvedRankerName: String,
+    stocksEvaluated: Int,
+    rankedResults: List<ScanResult>,
+  ) {
+    if (currentMarketDate == null) return
+    // Persistence is best-effort: the diagnostic is a downstream consumer, never a blocker
+    // on returning scan results to the user. A repo failure here logs and moves on.
+    try {
+      scanRunRepository.save(
+        ScanRun(
+          id = null,
+          signalDate = currentMarketDate,
+          scanTimestamp = LocalDateTime.now(clock),
+          entryStrategyName = request.entryStrategyName,
+          exitStrategyName = request.exitStrategyName,
+          rankerName = resolvedRankerName,
+          totalStocksScanned = stocksEvaluated,
+          matchedSymbols = rankedResults.map {
+            MatchedSymbol(
+              symbol = it.symbol,
+              sectorSymbol = it.sectorSymbol,
+              closePrice = it.closePrice,
+              atr = it.atr,
+              rankScore = it.rankScore,
+            )
+          },
+        ),
+      )
+    } catch (e: Exception) {
+      logger.warn("Failed to persist scan_run for cohort-divergence diagnostic: ${e.message}", e)
+    }
   }
 
   private data class ScanEvaluation(

@@ -83,9 +83,12 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - Options data via Midgaard (`options/MidgaardOptionsProvider.kt`)
 
 4. **Scanner** (`scanner/`)
-   - `ScannerService.kt`: Scan for entry signals, check exits, validate entries against live quotes, CRUD trades, roll trades, close trades, drawdown stats
-   - `ScannerController.kt`: REST API for scanner operations (scan, validate entries, trades CRUD, close, roll, exits, drawdown stats)
-   - `ScannerTradeJooqRepository.kt`: jOOQ persistence for scanner trades
+   - `ScannerService.kt`: Scan for entry signals, check exits, validate entries against live quotes, CRUD trades, roll trades, close trades, drawdown stats; persists a `ScanRun` after each scan
+   - `CohortDivergenceService.kt`: Cohort-divergence diagnostic comparing today's matched symbols against a rolling baseline (today vs N-day window)
+   - `ScannerController.kt`: REST API for scanner operations (scan, validate entries, trades CRUD, close, roll, exits, drawdown stats, cohort-divergence)
+   - `ScannerTradeJooqRepository.kt`: jOOQ persistence for scanner trades (incl. `findBySignalDateBetween`)
+   - `ScanRunJooqRepository.kt`: jOOQ persistence for `ScanRun` history
+   - `CohortWindow.kt`: aggregate root over a rolling window of scan runs (per ADR 0001)
    - Lightweight trade tracking separate from portfolio positions
    - Uses `StrategyRegistry` for predefined strategy lookup
 
@@ -110,7 +113,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Positions:** `GET /api/positions/{portfolioId}`, `GET /api/positions/{portfolioId}/{positionId}`, `POST /api/positions/{portfolioId}`, `PUT /api/positions/{portfolioId}/{positionId}/close`, `PUT /api/positions/{portfolioId}/{positionId}/metadata`, `DELETE /api/positions/{portfolioId}/{positionId}`, `GET /api/positions/{portfolioId}/stats`, `GET /api/positions/{portfolioId}/unrealized-pnl`, `GET /api/positions/{portfolioId}/equity-curve`, `POST /api/positions/{portfolioId}/recalculate-balance`, `GET /api/positions/{portfolioId}/{positionId}/roll-chain`
 
-**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `POST /api/scanner/validate-entries`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `POST /api/scanner/trades/reset`, `GET /api/scanner/trades/closed`, `GET /api/scanner/trades/closed/stats`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`
+**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `POST /api/scanner/validate-entries`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `POST /api/scanner/trades/reset`, `GET /api/scanner/trades/closed`, `GET /api/scanner/trades/closed/stats`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`, `GET /api/scanner/cohort-divergence`
 
 **Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
 
@@ -130,14 +133,14 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Tech Stack:** Nuxt 4.1.2, NuxtUI 4.0.1, TypeScript 5.9.3, Vue 3, Tailwind CSS, ApexCharts 5.3.5, Unovis 1.6.1, Lightweight Charts 5.0.9, date-fns 4.1.0, Zod 4.1.11, pnpm 10.24.0
 
-**Key Components (67 Vue components):**
+**Key Components (68 Vue components):**
 - **Backtesting** (`components/backtesting/`): Cards, ConfigModal, SectorAnalysis, StockPerformance, ATRDrawdownStats, ExcursionAnalysis, ExitReasonAnalysis, MonteCarloResults, MonteCarloEquityCurve.client, MonteCarloMetrics, TimeBasedStats, MarketConditions, TradeChart.client, TradeDetailsModal, DataCard
 - **Backtest Reports** (`components/backtest-reports/`): ReportsTable, DeleteConfirmModal
 - **Portfolio** (`components/portfolio/`): CreateModal, CreateFromBrokerModal, PositionDetailsModal, ClosePositionModal, DeleteModal, DeletePositionModal, EditPositionMetadataModal, BatchEditStrategyModal, AddExecutionModal, EquityCurve.client, OpenTradeChart.client, OptionTradeChart.client, SyncPortfolioModal, RollChainModal
 - **Charts** (`components/charts/`): BarChart.client, BreadthChart.client, DonutChart.client, HistogramChart.client, LineChart.client, ScatterChart.client, StockChart.client, SignalDetailsModal, StrategySignalsTable
 - **Data Management** (`components/data-management/`): DatabaseStatsCards, RefreshControlsCard, BreadthRefreshCard, RateLimitCard
 - **Strategy** (`components/strategy/`): StrategyBuilder, StrategySelector, ConditionCard
-- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, BatchAddTradesModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis
+- **Scanner** (`components/scanner/`): ScanConfigModal, ScanResultsTable, AddTradeModal, BatchAddTradesModal, DeleteTradeModal, RollTradeModal, TradeDetailsModal, ExitAlerts, StatsCards, NearMissAnalysis, CohortDivergenceCard
 - **Settings** (`components/settings/`): MembersList
 - **Root-level**: EquityCurve.client, StockPriceChart.client, SymbolLink, SymbolSearch, UserMenu, ConditionConfigModal, ConditionSignalsTable, ExitConditionConfigModal, ExitConditionSignalsTable
 - **Pages**: index, backtesting, backtest-reports, portfolio, portfolio-old, mission-control, stock-data/[[symbol]], breadth, data-manager, app-metrics, settings, login, test-chart
@@ -183,16 +186,16 @@ trading/
 │   │   │   └── service/              # PortfolioStatsService, PositionService (thin orchestration; delegates close/recalculate to PositionWithExecutions + Portfolio.withRealizedPnlApplied), BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService (Portfolio CRUD: controller→PortfolioJooqRepository directly; rich-domain methods on Portfolio.kt)
 │   │   ├── scanner/                  # Scanner domain
 │   │   │   ├── controller/           # ScannerController
-│   │   │   ├── dto/                  # Request/response DTOs (incl. StrategyClosedStats, ClosedTradeStatsResponse)
+│   │   │   ├── dto/                  # Request/response DTOs (incl. StrategyClosedStats, ClosedTradeStatsResponse, DivergenceConfig, CohortDivergenceReport, TodayMetrics, RollingMetrics, Alerts)
 │   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields, signalDate + signalSnapshot:EntrySignalDetails persisted JSONB per ADR 0004), ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse
-│   │   │   ├── repository/           # ScannerTradeJooqRepository
-│   │   │   └── service/              # ScannerService
+│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields, signalDate + signalSnapshot:EntrySignalDetails persisted JSONB per ADR 0004), ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse, ScanRun (+ MatchedSymbol), CohortWindow (aggregate root per ADR 0001)
+│   │   │   ├── repository/           # ScannerTradeJooqRepository (incl. findBySignalDateBetween), ScanRunJooqRepository
+│   │   │   └── service/              # ScannerService (persists ScanRun after each scan), CohortDivergenceService
 │   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
-│   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler)
-│   ├── src/main/resources/           # Config, migrations (V1-V19)
+│   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler, ClockConfig — NY-pinned Clock bean)
+│   ├── src/main/resources/           # Config, migrations (V1-V22)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)
