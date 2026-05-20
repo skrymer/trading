@@ -36,6 +36,7 @@ services:
       APP_SECURITY_ENABLED: "false"
       APP_UI_ENABLED: "true"
       APP_INGEST_PROVIDER: "${APP_INGEST_PROVIDER:-eodhd}"
+      OVTLYR_STOCKINFORMATION_BASEURL: "https://console.ovtlyr.com/dashboard?handler=AjaxGetDashboardChartData"
     env_file:
       - path: .env.prod
         required: false
