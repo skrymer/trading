@@ -114,12 +114,14 @@ class StockIngestionService(
       val sortedQuotes = enrichedQuotes.sortedBy { it.date }
       val symbolInfo = midgaardClient.getSymbolInfo(symbol)
       val earnings = resolveEarnings(symbol)
+      val ovtlyrSignals = midgaardClient.getOvtlyrSignals(symbol) ?: emptyList()
       Stock(
         symbol = symbol,
         sectorSymbol = symbolInfo?.sectorSymbol,
         quotes = sortedQuotes,
         orderBlocks = orderBlocks.toMutableList(),
         earnings = earnings,
+        ovtlyrSignals = ovtlyrSignals,
         listingDate = sortedQuotes.firstOrNull()?.date,
         delistingDate = resolveDelistingDate(symbolInfo?.delistedAt, sortedQuotes.lastOrNull()?.date),
       )

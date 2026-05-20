@@ -60,6 +60,11 @@ class ProviderConfiguration(
     @param:Value("\${provider.edgar.requestsPerSecond:10}") private val edgarReqPerSec: Int,
     @param:Value("\${provider.edgar.requestsPerMinute:600}") private val edgarReqPerMin: Int,
     @param:Value("\${provider.edgar.requestsPerDay:100000}") private val edgarReqPerDay: Int,
+    // ovtlyr is a scraped private endpoint authenticated by a replayed browser session —
+    // 5/sec keeps a full-universe backfill (~14 min) brisk without tripping its abuse radar.
+    @param:Value("\${provider.ovtlyr.requestsPerSecond:5}") private val ovtlyrReqPerSec: Int,
+    @param:Value("\${provider.ovtlyr.requestsPerMinute:300}") private val ovtlyrReqPerMin: Int,
+    @param:Value("\${provider.ovtlyr.requestsPerDay:10000}") private val ovtlyrReqPerDay: Int,
 ) {
     @PostConstruct
     fun init() {
@@ -68,6 +73,7 @@ class ProviderConfiguration(
         rateLimiterService.registerProvider(ProviderIds.FINNHUB, finnhubReqPerSec, finnhubReqPerMin, finnhubReqPerDay)
         rateLimiterService.registerProvider(ProviderIds.EODHD, eodhdReqPerSec, eodhdReqPerMin, eodhdReqPerDay)
         rateLimiterService.registerProvider(ProviderIds.EDGAR, edgarReqPerSec, edgarReqPerMin, edgarReqPerDay)
+        rateLimiterService.registerProvider(ProviderIds.OVTLYR, ovtlyrReqPerSec, ovtlyrReqPerMin, ovtlyrReqPerDay)
     }
 
     // ── Toggleable: app.ingest.provider picks which implementation backs each interface.

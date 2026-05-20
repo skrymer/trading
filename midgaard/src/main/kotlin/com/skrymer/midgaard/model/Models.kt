@@ -144,3 +144,18 @@ data class MarketHoliday(
     val name: String?,
     val type: String?,
 )
+
+/**
+ * A third-party buy/sell call from ovtlyr.com for a symbol on a date. Stored sparsely —
+ * a row exists only on days ovtlyr emitted a call. See the "Ovtlyr signal" glossary entry.
+ */
+data class OvtlyrSignal(
+    val symbol: String,
+    val signalDate: LocalDate,
+    val signal: OvtlyrSignalType,
+)
+
+enum class OvtlyrSignalType {
+    BUY,
+    SELL,
+}

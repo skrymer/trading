@@ -44,6 +44,48 @@
     </div>
   </div>
 
+  <!-- Ovtlyr Credentials -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Ovtlyr Credentials</strong>
+      <span class="badge" th:classappend="${ovtlyrConfigured} ? 'bg-success' : 'bg-secondary'"
+            th:text="${ovtlyrConfigured} ? 'Configured' : 'Not configured'">Status</span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        ovtlyr.com has no API key — authentication replays a logged-in browser session.
+        Log into ovtlyr.com, copy the <code>UserId</code> and <code>Token</code> cookies and the
+        <code>ProjectId</code> request header, and paste them here.
+      </p>
+      <form method="post" action="/providers/ovtlyr">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Cookie: UserId</label>
+            <input type="password" class="form-control" name="ovtlyrCookieUserId"
+                   placeholder="Enter to update">
+            <small class="text-muted"><code th:text="${ovtlyrCookieUserIdMasked}">-</code></small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Cookie: Token</label>
+            <input type="password" class="form-control" name="ovtlyrCookieToken"
+                   placeholder="Enter to update">
+            <small class="text-muted"><code th:text="${ovtlyrCookieTokenMasked}">-</code></small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">ProjectId</label>
+            <input type="password" class="form-control" name="ovtlyrProjectId"
+                   placeholder="Enter to update">
+            <small class="text-muted"><code th:text="${ovtlyrProjectIdMasked}">-</code></small>
+          </div>
+          <div class="col-md-4 col-lg-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Save</button>
+          </div>
+        </div>
+        <small class="text-muted mt-2 d-block">Leave a field empty to keep the current value.</small>
+      </form>
+    </div>
+  </div>
+
   <div class="row">
     <div class="col-md-6 mb-4" th:each="provider : ${providers}">
       <div class="card h-100">
