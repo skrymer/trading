@@ -6,6 +6,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
 import java.time.Duration
 
 /**
@@ -62,10 +63,12 @@ class OvtlyrClient(
                 ).retrieve()
                 .toEntity(OvtlyrPayloadDto::class.java)
                 .body
-        }.onFailure {
-            // Log only the exception type — never the throwable or its message. RestClient
-            // failures can carry request context (headers/cookies), and the cookies are secrets.
-            logger.error("Ovtlyr fetch failed for $symbol: ${it.javaClass.simpleName}")
+        }.onFailure { e ->
+            // Log the HTTP status when the failure carries one — a status code is not a secret
+            // and makes throttle/auth failures diagnosable (429 vs 401 vs a connection error).
+            // Never log the throwable or its message: those can carry the session cookies.
+            val detail = if (e is RestClientResponseException) "HTTP ${e.statusCode.value()}" else e.javaClass.simpleName
+            logger.error("Ovtlyr fetch failed for $symbol: $detail")
         }.getOrNull()
 
     companion object {
