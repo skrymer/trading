@@ -10,6 +10,7 @@ import com.skrymer.midgaard.repository.SymbolRepository
 import com.skrymer.midgaard.service.ApiKeyService
 import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
+import com.skrymer.midgaard.service.OvtlyrBackfillService
 import com.skrymer.midgaard.service.ProviderRateLimitStats
 import com.skrymer.midgaard.service.RateLimiterService
 import kotlinx.coroutines.runBlocking
@@ -23,6 +24,9 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 
+// One handler per UI page/action — the function count tracks the number of screens and
+// triggers, not class complexity, so the TooManyFunctions heuristic doesn't apply here.
+@Suppress("TooManyFunctions")
 @Controller
 @ConditionalOnProperty("app.ui.enabled", havingValue = "true", matchIfMissing = true)
 class UiController(
@@ -34,6 +38,7 @@ class UiController(
     private val rateLimiterService: RateLimiterService,
     private val apiKeyService: ApiKeyService,
     private val dataIntegrityService: DataIntegrityService,
+    private val ovtlyrBackfillService: OvtlyrBackfillService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
@@ -118,6 +123,8 @@ class UiController(
         model.addAttribute("notCompleteCount", ingestionStatusRepository.countNotComplete())
         model.addAttribute("delistedRunStats", delistedIngestionService.lastRunStats)
         model.addAttribute("violationCount", dataIntegrityService.violationCount())
+        model.addAttribute("ovtlyrConfigured", apiKeyService.getStatus()["ovtlyrConfigured"] ?: false)
+        model.addAttribute("ovtlyrProgress", ovtlyrBackfillService.progress)
         return "ingestion"
     }
 
@@ -217,6 +224,10 @@ class UiController(
             )
 
         model.addAttribute("providers", providers)
+        model.addAttribute("ovtlyrConfigured", apiKeyService.getStatus()["ovtlyrConfigured"] ?: false)
+        model.addAttribute("ovtlyrCookieUserIdMasked", maskedKeys["ovtlyrCookieUserId"] ?: "Not configured")
+        model.addAttribute("ovtlyrCookieTokenMasked", maskedKeys["ovtlyrCookieToken"] ?: "Not configured")
+        model.addAttribute("ovtlyrProjectIdMasked", maskedKeys["ovtlyrProjectId"] ?: "Not configured")
         return "providers"
     }
 
@@ -240,6 +251,32 @@ class UiController(
         }
 
         return "redirect:/providers"
+    }
+
+    @PostMapping("/providers/ovtlyr")
+    fun saveOvtlyrCredentials(
+        @RequestParam ovtlyrCookieUserId: String?,
+        @RequestParam ovtlyrCookieToken: String?,
+        @RequestParam ovtlyrProjectId: String?,
+        redirectAttributes: RedirectAttributes,
+    ): String {
+        // A field left blank — or still showing the masked placeholder — means "keep current".
+        val userId = ovtlyrCookieUserId?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+        val token = ovtlyrCookieToken?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+        val projectId = ovtlyrProjectId?.takeIf { it.isNotBlank() && !it.startsWith("•") }
+
+        if (listOf(userId, token, projectId).any { it != null }) {
+            apiKeyService.saveOvtlyrCredentials(userId, token, projectId)
+            redirectAttributes.addFlashAttribute("success", "Ovtlyr credentials updated successfully")
+        }
+
+        return "redirect:/providers"
+    }
+
+    @PostMapping("/ingestion/ovtlyr/backfill")
+    fun startOvtlyrBackfill(): String {
+        ovtlyrBackfillService.runBackfill()
+        return "redirect:/ingestion"
     }
 
     data class ProviderViewModel(

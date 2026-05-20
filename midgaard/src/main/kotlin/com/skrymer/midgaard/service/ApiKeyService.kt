@@ -81,6 +81,10 @@ class ApiKeyService(
             "massiveConfigured" to getMassiveApiKey().isNotBlank(),
             "finnhubConfigured" to getFinnhubApiKey().isNotBlank(),
             "eodhdConfigured" to getEodhdApiKey().isNotBlank(),
+            // Ovtlyr is configured only when all three session values are present.
+            "ovtlyrConfigured" to
+                listOf(getOvtlyrCookieUserId(), getOvtlyrCookieToken(), getOvtlyrProjectId())
+                    .all { it.isNotBlank() },
         )
 
     fun getMaskedKeys(): Map<String, String> =
@@ -89,6 +93,9 @@ class ApiKeyService(
             "massive" to maskKey(getMassiveApiKey()),
             "finnhub" to maskKey(getFinnhubApiKey()),
             "eodhd" to maskKey(getEodhdApiKey()),
+            "ovtlyrCookieUserId" to maskKey(getOvtlyrCookieUserId()),
+            "ovtlyrCookieToken" to maskKey(getOvtlyrCookieToken()),
+            "ovtlyrProjectId" to maskKey(getOvtlyrProjectId()),
         )
 
     companion object {

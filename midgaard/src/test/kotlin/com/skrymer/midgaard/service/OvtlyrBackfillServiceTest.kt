@@ -9,6 +9,7 @@ import com.skrymer.midgaard.model.OvtlyrSignalType
 import com.skrymer.midgaard.model.Symbol
 import com.skrymer.midgaard.repository.OvtlyrSignalRepository
 import com.skrymer.midgaard.repository.SymbolRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -18,12 +19,16 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 
 class OvtlyrBackfillServiceTest {
     private lateinit var symbolRepository: SymbolRepository
     private lateinit var ovtlyrClient: OvtlyrClient
     private lateinit var signalRepository: OvtlyrSignalRepository
     private lateinit var apiKeyService: ApiKeyService
+    private lateinit var rateLimiterService: RateLimiterService
     private lateinit var service: OvtlyrBackfillService
 
     @BeforeEach
@@ -32,10 +37,13 @@ class OvtlyrBackfillServiceTest {
         ovtlyrClient = mock()
         signalRepository = mock()
         apiKeyService = mock()
+        // Unstubbed: acquirePermit is a no-op on the mock — no real pacing delay in tests.
+        rateLimiterService = mock()
         whenever(apiKeyService.getOvtlyrCookieUserId()).thenReturn("u")
         whenever(apiKeyService.getOvtlyrCookieToken()).thenReturn("t")
         whenever(apiKeyService.getOvtlyrProjectId()).thenReturn("p")
-        service = OvtlyrBackfillService(symbolRepository, ovtlyrClient, signalRepository, apiKeyService)
+        service =
+            OvtlyrBackfillService(symbolRepository, ovtlyrClient, signalRepository, apiKeyService, rateLimiterService)
     }
 
     @Test
@@ -46,7 +54,7 @@ class OvtlyrBackfillServiceTest {
         whenever(ovtlyrClient.getStockInformation(eq("MSFT"), any())).thenReturn(payload("MSFT", "2026-05-12", "Sell"))
 
         // When
-        service.runBackfill()
+        runBlocking { service.runBackfill().join() }
 
         // Then: each symbol's extracted signals were upserted
         verify(signalRepository).upsert(listOf(OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 11), OvtlyrSignalType.BUY)))
@@ -64,11 +72,45 @@ class OvtlyrBackfillServiceTest {
             .thenAnswer { }
 
         // When
-        service.runBackfill()
+        runBlocking { service.runBackfill().join() }
 
         // Then: both symbols were attempted — the first failure didn't kill the loop
         verify(signalRepository, times(2)).upsert(any())
         verify(signalRepository).upsert(listOf(OvtlyrSignal("MSFT", LocalDate.of(2026, 5, 12), OvtlyrSignalType.BUY)))
+    }
+
+    @Test
+    fun `progress reflects totals and completes after the run`() {
+        // Given: two symbols, each yielding one signal
+        whenever(symbolRepository.findAll()).thenReturn(listOf(symbol("AAPL"), symbol("MSFT")))
+        whenever(ovtlyrClient.getStockInformation(any(), any()))
+            .thenAnswer { payload(it.getArgument(0), "2026-05-12", "Buy") }
+
+        // When
+        runBlocking { service.runBackfill().join() }
+
+        // Then: progress reports the universe size, all symbols processed, and the run finished
+        val progress = assertNotNull(service.progress)
+        assertEquals(2, progress.total)
+        assertEquals(2, progress.processed.get())
+        assertEquals(2, progress.signalsWritten.get())
+        assertEquals(false, progress.active)
+    }
+
+    @Test
+    fun `runBackfill does not start a second run while one is already active`() {
+        // Given: enough symbols that the first run is still in flight when we re-call
+        whenever(symbolRepository.findAll()).thenReturn((1..5).map { symbol("S$it") })
+        whenever(ovtlyrClient.getStockInformation(any(), any()))
+            .thenAnswer { payload(it.getArgument(0), "2026-05-12", "Buy") }
+
+        // When: a second trigger fires while the first run is active
+        val first = service.runBackfill()
+        val second = service.runBackfill()
+
+        // Then: the second call returns the in-flight job — no overlapping run launched
+        assertSame(first, second)
+        runBlocking { first.join() }
     }
 
     private fun symbol(ticker: String) = Symbol(symbol = ticker, assetType = AssetType.STOCK)

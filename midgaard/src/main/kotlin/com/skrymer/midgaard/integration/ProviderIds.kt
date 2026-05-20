@@ -11,4 +11,5 @@ object ProviderIds {
     const val MASSIVE = "massive"
     const val FINNHUB = "finnhub"
     const val EDGAR = "edgar"
+    const val OVTLYR = "ovtlyr"
 }

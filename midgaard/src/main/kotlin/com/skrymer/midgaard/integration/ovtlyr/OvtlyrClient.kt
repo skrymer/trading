@@ -21,7 +21,8 @@ data class OvtlyrCredentials(
 /**
  * Thin HTTP client for ovtlyr.com's private stock-information endpoint. One call returns a
  * symbol's full history; [getStockInformation] hands back the raw payload — extraction of
- * buy/sell signals is [OvtlyrPayloadMapper]'s job.
+ * buy/sell signals is [OvtlyrPayloadMapper]'s job. Call pacing is the caller's responsibility
+ * (`OvtlyrBackfillService` rate-limits the loop).
  */
 @Component
 class OvtlyrClient(

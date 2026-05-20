@@ -45,7 +45,7 @@ midgaard/
 │   │   ├── StatusController.kt            # GET /api/status
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
-│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion
+│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill)
 │   ├── integration/
 │   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
@@ -97,7 +97,7 @@ midgaard/
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
 │       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation (used by LOCAL indicator mode)
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
-│       ├── OvtlyrBackfillService.kt       # Backfills ovtlyr signals via OvtlyrClient into ovtlyr_signals
+│       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
 │       ├── ApiKeyService.kt              # API key + provider credential management (incl. ovtlyr cookie userid/token/projectId)
 │       └── ScheduledIngestionService.kt  # Scheduled automatic data ingestion
 ├── src/main/resources/
@@ -151,7 +151,7 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/Donchian computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence.
 2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed). Same holiday + zero-volume filter is applied.
 3. **Serving**: REST API returns enriched quotes with all indicators pre-computed
-4. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback).
+4. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
 
 ### Provider Interfaces (`integration/Providers.kt`)
 
@@ -193,7 +193,8 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 
 - Controlled by `@ConditionalOnProperty("app.ui.enabled")`, enabled by default
 - Set `APP_UI_ENABLED=false` in production to disable entirely
-- Pages: dashboard, symbols, symbol-detail, ingestion progress, providers
+- Pages: dashboard, symbols, symbol-detail, ingestion progress, providers, integrity
+- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress
 
 ## Database Schema
 
