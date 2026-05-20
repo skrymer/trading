@@ -1,5 +1,6 @@
 package com.skrymer.midgaard.integration.ovtlyr
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterEach
@@ -19,6 +20,9 @@ class OvtlyrClientTest {
 
     private val credentials = OvtlyrCredentials("user-1", "token-1", "proj-1")
 
+    // Kotlin module + JSR-310 (LocalDate) — mirrors the Spring-managed ObjectMapper.
+    private val objectMapper = jacksonObjectMapper().findAndRegisterModules()
+
     @BeforeEach
     fun setUp() {
         server = MockWebServer().apply { start() }
@@ -29,7 +33,7 @@ class OvtlyrClientTest {
         server.shutdown()
     }
 
-    private fun client() = OvtlyrClient(baseUrl = server.url("/").toString())
+    private fun client() = OvtlyrClient(baseUrl = server.url("/").toString(), objectMapper = objectMapper)
 
     @Test
     fun `getStockInformation parses ovtlyr response into a payload of daily entries`() {
@@ -69,6 +73,21 @@ class OvtlyrClientTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
         // When / Then: the failure is swallowed — the backfill skips this symbol, not crashes
+        assertNull(client().getStockInformation("AAPL", credentials))
+    }
+
+    @Test
+    fun `getStockInformation returns null when ovtlyr serves a non-JSON body`() {
+        // Given: a 200 whose body is an HTML page, not the expected JSON (ovtlyr's soft-block
+        // / expired-session behaviour — it serves a web page instead of a 4xx)
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "text/html")
+                .setBody("<!DOCTYPE html><html><head><title>Log in</title></head><body>Please sign in</body></html>"),
+        )
+
+        // When / Then: the unparseable body is swallowed — the backfill skips this symbol
         assertNull(client().getStockInformation("AAPL", credentials))
     }
 }

@@ -64,7 +64,13 @@ class OvtlyrBackfillService(
                 cookieToken = apiKeyService.getOvtlyrCookieToken(),
                 projectId = apiKeyService.getOvtlyrProjectId(),
             )
-        val symbols = symbolRepository.findAll()
+        // Skip symbols that already have stored signals — a re-run after a partial/blocked
+        // backfill then only fetches what's missing. Known limitation: a symbol ovtlyr covered
+        // but that had zero buy/sell calls writes no rows, so it isn't recorded as done and
+        // gets re-fetched on every run. That set is negligible for a buy/sell-signal service,
+        // so it isn't worth a separate processed-symbol tracking table.
+        val alreadyLoaded = signalRepository.findDistinctSymbols()
+        val symbols = symbolRepository.findAll().filterNot { it.symbol in alreadyLoaded }
         val runProgress = OvtlyrBackfillProgress(total = symbols.size)
         progress = runProgress
 

@@ -1,5 +1,6 @@
 package com.skrymer.midgaard.integration.ovtlyr
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
@@ -28,6 +29,7 @@ data class OvtlyrCredentials(
 @Component
 class OvtlyrClient(
     @param:Value("\${ovtlyr.stockinformation.baseUrl:}") private val baseUrl: String,
+    private val objectMapper: ObjectMapper,
 ) {
     private val restClient: RestClient by lazy {
         RestClient
@@ -44,8 +46,36 @@ class OvtlyrClient(
     fun getStockInformation(
         symbol: String,
         credentials: OvtlyrCredentials,
-    ): OvtlyrPayloadDto? =
-        runCatching {
+    ): OvtlyrPayloadDto? {
+        val body = fetchBody(symbol, credentials) ?: return null
+        return try {
+            objectMapper.readValue(body, OvtlyrPayloadDto::class.java)
+        } catch (e: Exception) {
+            // A 200 whose body isn't the expected JSON — typically an HTML block/login page.
+            // The snippet makes that immediately visible.
+            logger.error("Ovtlyr returned an unparseable body for $symbol (${e.javaClass.simpleName}): ${snippet(body)}")
+            null
+        }
+    }
+
+    private fun fetchBody(
+        symbol: String,
+        credentials: OvtlyrCredentials,
+    ): String? {
+        val body = requestBody(symbol, credentials)
+        if (body.isNullOrBlank()) {
+            // A null body here means the request failed — requestBody already logged the cause.
+            if (body != null) logger.error("Ovtlyr returned an empty body for $symbol")
+            return null
+        }
+        return body
+    }
+
+    private fun requestBody(
+        symbol: String,
+        credentials: OvtlyrCredentials,
+    ): String? =
+        try {
             restClient
                 .post()
                 .header("ProjectId", credentials.projectId)
@@ -61,19 +91,26 @@ class OvtlyrClient(
                         "page_size" to MAX_PAGE_SIZE,
                     ),
                 ).retrieve()
-                .toEntity(OvtlyrPayloadDto::class.java)
-                .body
-        }.onFailure { e ->
-            // Log the HTTP status when the failure carries one — a status code is not a secret
-            // and makes throttle/auth failures diagnosable (429 vs 401 vs a connection error).
-            // Never log the throwable or its message: those can carry the session cookies.
-            val detail = if (e is RestClientResponseException) "HTTP ${e.statusCode.value()}" else e.javaClass.simpleName
-            logger.error("Ovtlyr fetch failed for $symbol: $detail")
-        }.getOrNull()
+                .body(String::class.java)
+        } catch (e: RestClientResponseException) {
+            // 4xx/5xx — log the status and a snippet of ovtlyr's error body (a response
+            // body never carries our request cookies; response headers, which can, are not logged).
+            logger.error("Ovtlyr fetch failed for $symbol: HTTP ${e.statusCode.value()} — ${snippet(e.responseBodyAsString)}")
+            null
+        } catch (e: Exception) {
+            // Transport failure (timeout, connection) — exception type only, never the message.
+            logger.error("Ovtlyr fetch failed for $symbol: ${e.javaClass.simpleName}")
+            null
+        }
+
+    private fun snippet(body: String): String = body.replace(Regex("\\s+"), " ").trim().take(BODY_LOG_LIMIT)
 
     companion object {
         // ovtlyr paginates; one oversized page pulls a symbol's entire history in a single call.
         private const val MAX_PAGE_SIZE = 20000
+
+        // Cap on the response-body excerpt written to logs on a failure.
+        private const val BODY_LOG_LIMIT = 400
         private val logger = LoggerFactory.getLogger(OvtlyrClient::class.java)
     }
 }

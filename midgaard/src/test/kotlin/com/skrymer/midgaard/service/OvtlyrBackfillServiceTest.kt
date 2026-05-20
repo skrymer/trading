@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -111,6 +112,22 @@ class OvtlyrBackfillServiceTest {
         // Then: the second call returns the in-flight job — no overlapping run launched
         assertSame(first, second)
         runBlocking { first.join() }
+    }
+
+    @Test
+    fun `runBackfill skips symbols that already have stored signals`() {
+        // Given: AAPL is already covered, MSFT is not
+        whenever(symbolRepository.findAll()).thenReturn(listOf(symbol("AAPL"), symbol("MSFT")))
+        whenever(signalRepository.findDistinctSymbols()).thenReturn(setOf("AAPL"))
+        whenever(ovtlyrClient.getStockInformation(any(), any()))
+            .thenAnswer { payload(it.getArgument(0), "2026-05-12", "Buy") }
+
+        // When
+        runBlocking { service.runBackfill().join() }
+
+        // Then: only the uncovered symbol is fetched — no ovtlyr request spent on AAPL
+        verify(ovtlyrClient).getStockInformation(eq("MSFT"), any())
+        verify(ovtlyrClient, never()).getStockInformation(eq("AAPL"), any())
     }
 
     private fun symbol(ticker: String) = Symbol(symbol = ticker, assetType = AssetType.STOCK)

@@ -25,6 +25,15 @@ class OvtlyrSignalRepository(
                 )
             }
 
+    /** Symbols that already have at least one stored signal — used to skip them on a backfill re-run. */
+    fun findDistinctSymbols(): Set<String> =
+        dsl
+            .selectDistinct(OVTLYR_SIGNALS.SYMBOL)
+            .from(OVTLYR_SIGNALS)
+            .fetchSet(OVTLYR_SIGNALS.SYMBOL)
+            .filterNotNull()
+            .toSet()
+
     @Transactional
     fun upsert(signals: List<OvtlyrSignal>) {
         if (signals.isEmpty()) return
