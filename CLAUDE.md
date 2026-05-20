@@ -40,8 +40,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
-- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian), live quotes (Finnhub), options data, and FX rates
-- Ovtlyr API (legacy, being removed — breadth data now computed from DB tables)
+- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian), live quotes (Finnhub), options data, FX rates, and ovtlyr buy/sell signals
+- Ovtlyr direct API integration in Udgaard (legacy, being removed — breadth data now computed from DB tables; ovtlyr buy/sell signals are now ingested via Midgaard)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
 
@@ -99,8 +99,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 6. **Integration** (`data/integration/`)
    - `StockProvider.kt`: Interface for OHLCV data + live quotes + earnings (`LatestQuote`, `getLatestQuote`, `getLatestQuotes`, `getEarnings`); used by ScannerService, StockController, UnrealizedPnlService, and StockIngestionService
-   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks and earnings (via `MidgaardEarningDto`); HTTP timeouts configured in `MidgaardHttpConfig` (RestClientCustomizer)
-   - **Ovtlyr**: Legacy integration (being removed — breadth now computed from DB)
+   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, Donchian) via REST client; also provides live quotes (via Finnhub) for scanner exit checks, earnings (via `MidgaardEarningDto`), and ovtlyr buy/sell signals (via `MidgaardClient.getOvtlyrSignals` / `MidgaardOvtlyrSignalDto`, loaded into `Stock.ovtlyrSignals` during ingestion); HTTP timeouts configured in `MidgaardHttpConfig` (RestClientCustomizer)
+   - **Ovtlyr**: Legacy direct-API integration (being removed — breadth now computed from DB; ovtlyr signals now flow through Midgaard)
    - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
 **API Endpoints:**
@@ -171,9 +171,9 @@ trading/
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
-│   │   │   ├── integration/          # Midgaard (incl. MidgaardHttpConfig for connect/read timeouts), Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings)
+│   │   │   ├── integration/          # Midgaard (incl. MidgaardHttpConfig for connect/read timeouts + getOvtlyrSignals), legacy Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings)
 │   │   │   ├── mapper/               # StockMapper
-│   │   │   ├── model/                # Stock, StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, AssetType
+│   │   │   ├── model/                # Stock (w/ ovtlyrSignals), StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, OvtlyrSignal, AssetType
 │   │   │   ├── repository/           # StockJooqRepository (incl. findEarnings(symbol) for ingestion fallback), SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
 │   │   │   └── service/              # StockService, StockIngestionService (resolveEarnings(symbol) falls back to stockRepository.findEarnings on provider failure — stale-but-present beats empty-because-we-failed), TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService, ScheduledRefreshService
 │   │   ├── portfolio/                # Portfolio domain
@@ -205,9 +205,9 @@ trading/
 │   └── detekt-baseline.xml           # Detekt baseline for existing issues
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
 │   ├── src/main/kotlin/com/skrymer/midgaard/
-│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive, Finnhub, EODHD); self-rate-limiting; selection via ProviderConfiguration @ConditionalOnProperty
-│   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, ApiKeyService, ScheduledIngestionService
-│   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config)
+│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive, Finnhub, EODHD); self-rate-limiting; selection via ProviderConfiguration @ConditionalOnProperty; ovtlyr/ (OvtlyrClient + payload mapper for ovtlyr.com buy/sell signals)
+│   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, OvtlyrBackfillService, ApiKeyService, ScheduledIngestionService
+│   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config, ovtlyr signals)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
 │   │   ├── model/                    # Domain models (Models.kt, OptionContractDto)
 │   │   └── config/                   # Configuration classes (Security, ProviderConfiguration, ExternalConfigLoader, VersionAdvice)

@@ -44,6 +44,11 @@ The set of currently-open scanner trades (`scanner_trades.status = 'OPEN'`). The
 **Signal flow**:
 The chronological stream of matched-symbol cohorts emitted by scan runs over a window. Distinct from the live book — signal flow is what the scanner *offered*; live book is what the trader *took*.
 
+### External signals
+
+**Ovtlyr signal**:
+A third-party buy/sell call from ovtlyr.com for a given symbol on a given date — the `final_calls` field of ovtlyr's payload, valued `BUY`, `SELL`, or absent. Always written *with* the `Ovtlyr` qualifier to keep it distinct from the scanner `Signal *` family above: a *Signal date* / *Signal snapshot* / *Signal flow* concern the platform's own strategy-entry signals, whereas an Ovtlyr signal is an external vendor's directional opinion ingested as reference data. Stored in Midgaard.
+
 ## Flagged ambiguities
 
 - "edge" vs "provenEdge" — the same concept under two names. Resolved: **Edge** is the canonical term; `provenEdge` is retained only as the existing field name for the portfolio-aggregate instance.

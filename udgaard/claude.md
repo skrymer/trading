@@ -93,20 +93,21 @@ udgaard/
 │   │   │   └── DataManagementController.kt
 │   │   ├── integration/              # External API integrations
 │   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes + earnings (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings); getEarnings returns null on provider failure (caller must fall back), empty list when symbol genuinely has none
-│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators + earnings from Midgaard service (implements StockProvider)
-│   │   │   │   ├── MidgaardClient.kt
+│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators + earnings + ovtlyr signals from Midgaard service (implements StockProvider)
+│   │   │   │   ├── MidgaardClient.kt  # incl. getOvtlyrSignals(symbol) — ovtlyr buy/sell calls (vendor-specific, not on StockProvider)
 │   │   │   │   ├── MidgaardHttpConfig.kt  # RestClientCustomizer with connect (5s) + read (30s) timeouts; bounded so a Midgaard outage fails fast instead of hanging on infinite socket reads
-│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto
+│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto, MidgaardOvtlyrSignalDto
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
 │   │   ├── mapper/                   # Data mappers
 │   │   │   └── StockMapper.kt
 │   │   ├── model/                    # Domain models
-│   │   │   ├── Stock.kt
+│   │   │   ├── Stock.kt              # Includes ovtlyrSignals: List<OvtlyrSignal>
 │   │   │   ├── StockQuote.kt
 │   │   │   ├── OrderBlock.kt
 │   │   │   ├── Earning.kt
+│   │   │   ├── OvtlyrSignal.kt       # Ovtlyr buy/sell signal (loaded from Midgaard during ingestion)
 │   │   │   ├── AssetType.kt
 │   │   │   ├── MarketSymbol.kt
 │   │   │   ├── MarketBreadthDaily.kt
@@ -118,7 +119,7 @@ udgaard/
 │   │   │   └── SectorBreadthRepository.kt
 │   │   └── service/
 │   │       ├── StockService.kt       # Stock data management
-│   │       ├── StockIngestionService.kt  # Bulk data ingestion; resolveEarnings(symbol) helper falls back to stockRepository.findEarnings on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays silently invert)
+│   │       ├── StockIngestionService.kt  # Bulk data ingestion; loads ovtlyr signals via MidgaardClient.getOvtlyrSignals; resolveEarnings(symbol) helper falls back to stockRepository.findEarnings on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays silently invert)
 │   │       ├── TechnicalIndicatorService.kt  # EMAs, ATR, Donchian
 │   │       ├── MarketBreadthService.kt
 │   │       ├── SectorBreadthService.kt

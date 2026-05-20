@@ -5,6 +5,8 @@ import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlock
+import com.skrymer.udgaard.data.model.OvtlyrSignal
+import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.service.UserSettingsJooqRepository
@@ -155,6 +157,34 @@ class StockIngestionServiceTest {
     // Then: nothing persisted — a failed refresh shouldn't update "last refreshed"
     assertNull(result)
     verify(userSettingsRepository, never()).upsert(any(), any(), anyOrNull())
+  }
+
+  @Test
+  fun `fetchAndBuildStock attaches ovtlyr signals from Midgaard`() {
+    // Given: Midgaard has a Buy signal for the symbol
+    stubSuccessfulFetch()
+    val signals = listOf(OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 11), OvtlyrSignalType.BUY))
+    whenever(midgaardClient.getOvtlyrSignals("AAPL")).thenReturn(signals)
+
+    // When
+    val result = service.fetchAndBuildStock("AAPL")
+
+    // Then: the signals are carried onto the built Stock
+    assertEquals(signals, result?.ovtlyrSignals)
+  }
+
+  @Test
+  fun `fetchAndBuildStock yields empty ovtlyr signals when Midgaard returns none, stock still builds`() {
+    // Given: Midgaard has no ovtlyr coverage for the symbol (fetch returns null)
+    stubSuccessfulFetch()
+    whenever(midgaardClient.getOvtlyrSignals("AAPL")).thenReturn(null)
+
+    // When
+    val result = service.fetchAndBuildStock("AAPL")
+
+    // Then: the build succeeds with an empty signal list rather than failing
+    assertNotNull(result)
+    assertEquals(emptyList<OvtlyrSignal>(), result!!.ovtlyrSignals)
   }
 
   @Test

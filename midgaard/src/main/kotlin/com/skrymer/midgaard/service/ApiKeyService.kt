@@ -12,6 +12,9 @@ class ApiKeyService(
     @param:Value("\${massive.api.key:}") private val defaultMassiveKey: String,
     @param:Value("\${finnhub.api.key:}") private val defaultFinnhubKey: String,
     @param:Value("\${eodhd.api.key:}") private val defaultEodhdKey: String,
+    @param:Value("\${ovtlyr.cookies.userid:}") private val defaultOvtlyrCookieUserId: String,
+    @param:Value("\${ovtlyr.cookies.token:}") private val defaultOvtlyrCookieToken: String,
+    @param:Value("\${ovtlyr.header.projectId:}") private val defaultOvtlyrProjectId: String,
 ) {
     private val logger = LoggerFactory.getLogger(ApiKeyService::class.java)
 
@@ -47,6 +50,31 @@ class ApiKeyService(
         }
     }
 
+    fun getOvtlyrCookieUserId(): String = providerConfigRepository.findByKey(KEY_OVTLYR_COOKIE_USERID) ?: defaultOvtlyrCookieUserId
+
+    fun getOvtlyrCookieToken(): String = providerConfigRepository.findByKey(KEY_OVTLYR_COOKIE_TOKEN) ?: defaultOvtlyrCookieToken
+
+    fun getOvtlyrProjectId(): String = providerConfigRepository.findByKey(KEY_OVTLYR_PROJECT_ID) ?: defaultOvtlyrProjectId
+
+    fun saveOvtlyrCredentials(
+        cookieUserId: String?,
+        cookieToken: String?,
+        projectId: String?,
+    ) {
+        cookieUserId?.let {
+            providerConfigRepository.upsert(KEY_OVTLYR_COOKIE_USERID, it)
+            logger.info("Ovtlyr cookie UserId updated")
+        }
+        cookieToken?.let {
+            providerConfigRepository.upsert(KEY_OVTLYR_COOKIE_TOKEN, it)
+            logger.info("Ovtlyr cookie Token updated")
+        }
+        projectId?.let {
+            providerConfigRepository.upsert(KEY_OVTLYR_PROJECT_ID, it)
+            logger.info("Ovtlyr ProjectId updated")
+        }
+    }
+
     fun getStatus(): Map<String, Boolean> =
         mapOf(
             "alphaVantageConfigured" to getAlphaVantageApiKey().isNotBlank(),
@@ -68,6 +96,9 @@ class ApiKeyService(
         private const val KEY_MASSIVE = "massive_api_key"
         private const val KEY_FINNHUB = "finnhub_api_key"
         private const val KEY_EODHD = "eodhd_api_key"
+        private const val KEY_OVTLYR_COOKIE_USERID = "ovtlyr_cookie_userid"
+        private const val KEY_OVTLYR_COOKIE_TOKEN = "ovtlyr_cookie_token"
+        private const val KEY_OVTLYR_PROJECT_ID = "ovtlyr_project_id"
 
         fun maskKey(key: String): String =
             when {

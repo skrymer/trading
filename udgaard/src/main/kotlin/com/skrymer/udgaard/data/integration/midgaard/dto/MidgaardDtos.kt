@@ -1,6 +1,8 @@
 package com.skrymer.udgaard.data.integration.midgaard.dto
 
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.OvtlyrSignal
+import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import com.skrymer.udgaard.data.model.StockQuote
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -95,4 +97,13 @@ data class MidgaardEarningDto(
       surprisePercentage = surprisePercentage,
       reportTime = reportTime,
     )
+}
+
+data class MidgaardOvtlyrSignalDto(
+  val symbol: String,
+  val signalDate: LocalDate,
+  val signal: OvtlyrSignalType,
+) {
+  fun toOvtlyrSignal(): OvtlyrSignal =
+    OvtlyrSignal(symbol = symbol, signalDate = signalDate, signal = signal)
 }

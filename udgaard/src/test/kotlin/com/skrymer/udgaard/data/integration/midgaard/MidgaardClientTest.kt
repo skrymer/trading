@@ -1,5 +1,7 @@
 package com.skrymer.udgaard.data.integration.midgaard
 
+import com.skrymer.udgaard.data.model.OvtlyrSignal
+import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.client.RestClientTest
@@ -111,5 +113,41 @@ class MidgaardClientTest {
 
     // Then the client surfaces the failure as null (callers fall back to existing data)
     assertNull(result)
+  }
+
+  @Test
+  fun `getOvtlyrSignals returns mapped signals on 200 OK`() {
+    // Given Midgaard returns a Buy and a Sell call for the symbol
+    val responseJson =
+      """
+      [
+        {"symbol": "AAPL", "signalDate": "2026-05-11", "signal": "BUY"},
+        {"symbol": "AAPL", "signalDate": "2026-05-18", "signal": "SELL"}
+      ]
+      """.trimIndent()
+    mockServer
+      .expect(requestTo("http://midgaard-test.invalid/api/ovtlyr-signals/AAPL"))
+      .andExpect(method(HttpMethod.GET))
+      .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON))
+
+    // When the client fetches ovtlyr signals
+    val result = client.getOvtlyrSignals("AAPL")
+
+    // Then both calls map into the Udgaard domain type
+    assertNotNull(result)
+    assertEquals(2, result.size)
+    assertEquals(OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 11), OvtlyrSignalType.BUY), result[0])
+    assertEquals(OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 18), OvtlyrSignalType.SELL), result[1])
+  }
+
+  @Test
+  fun `getOvtlyrSignals returns null on server error`() {
+    // Given the provider responds with a 5xx
+    mockServer
+      .expect(requestTo("http://midgaard-test.invalid/api/ovtlyr-signals/BROKE"))
+      .andRespond(withServerError())
+
+    // When / Then: the failure surfaces as null, not an exception
+    assertNull(client.getOvtlyrSignals("BROKE"))
   }
 }

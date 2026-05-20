@@ -18,6 +18,7 @@ data class Stock(
   val quotes: List<StockQuote> = emptyList(),
   val orderBlocks: List<OrderBlock> = emptyList(),
   val earnings: List<Earning> = emptyList(),
+  val ovtlyrSignals: List<OvtlyrSignal> = emptyList(),
   val listingDate: LocalDate? = null,
   val delistingDate: LocalDate? = null,
 ) {
