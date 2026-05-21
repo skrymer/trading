@@ -48,7 +48,22 @@ class OvtlyrClient(
         credentials: OvtlyrCredentials,
     ): OvtlyrPayloadDto? {
         val body = fetchBody(symbol, credentials) ?: return null
-        return try {
+        return when {
+            // ovtlyr answers an uncovered symbol with a 200 + an "Invalid Stock" envelope, not
+            // the data shape. That's a normal coverage gap, not a failure — debug, not error.
+            isInvalidStockResponse(body) -> {
+                logger.debug("Ovtlyr has no coverage for $symbol (Invalid Stock)")
+                null
+            }
+            else -> parsePayload(symbol, body)
+        }
+    }
+
+    private fun parsePayload(
+        symbol: String,
+        body: String,
+    ): OvtlyrPayloadDto? =
+        try {
             objectMapper.readValue(body, OvtlyrPayloadDto::class.java)
         } catch (e: Exception) {
             // A 200 whose body isn't the expected JSON — typically an HTML block/login page.
@@ -56,7 +71,20 @@ class OvtlyrClient(
             logger.error("Ovtlyr returned an unparseable body for $symbol (${e.javaClass.simpleName}): ${snippet(body)}")
             null
         }
-    }
+
+    /**
+     * True when the body is ovtlyr's `resultDetail: "Invalid Stock"` error envelope. A
+     * non-JSON body (e.g. an HTML login page) is not JSON-parseable here, so it returns
+     * false and falls through to [parsePayload] — which logs it as a genuine failure.
+     */
+    private fun isInvalidStockResponse(body: String): Boolean =
+        runCatching {
+            objectMapper
+                .readTree(body)
+                .path("resultDetail")
+                .asText("")
+                .equals("Invalid Stock", ignoreCase = true)
+        }.getOrDefault(false)
 
     private fun fetchBody(
         symbol: String,

@@ -77,6 +77,20 @@ class OvtlyrClientTest {
     }
 
     @Test
+    fun `getStockInformation returns null when ovtlyr reports the symbol as Invalid Stock`() {
+        // Given: ovtlyr's 200 error envelope for a symbol outside its coverage
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"result":"3","resultDetail":"Invalid Stock","lst_h":null}"""),
+        )
+
+        // When / Then: a coverage gap reads as no data — null, no exception
+        assertNull(client().getStockInformation("NOTREAL", credentials))
+    }
+
+    @Test
     fun `getStockInformation returns null when ovtlyr serves a non-JSON body`() {
         // Given: a 200 whose body is an HTML page, not the expected JSON (ovtlyr's soft-block
         // / expired-session behaviour — it serves a web page instead of a 4xx)
