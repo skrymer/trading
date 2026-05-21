@@ -199,7 +199,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V22)
+│   └── db/migration/                 # Flyway migrations (V1-V23)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -221,7 +221,8 @@ udgaard/
 │       ├── V19__create_backtest_reports.sql
 │       ├── V20__cleanup_earnings_schema.sql  # Drop legacy reportedeps/estimatedeps/symbol; add UNIQUE(stock_symbol, fiscal_date_ending)
 │       ├── V21__Add_signal_snapshot_to_scanner_trades.sql  # signal_date + signal_snapshot JSONB columns per ADR 0004
-│       └── V22__Add_scan_runs.sql                          # scan_runs table for cohort-divergence diagnostic
+│       ├── V22__Add_scan_runs.sql                          # scan_runs table for cohort-divergence diagnostic
+│       └── V23__Add_ovtlyr_signals.sql                     # ovtlyr_signals table (mirrors earnings: FK to stocks ON DELETE CASCADE, UNIQUE(stock_symbol, signal_date))
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

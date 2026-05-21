@@ -32,6 +32,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithin
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockBreakoutCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockRejectionCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.OvtlyrBuySignalCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
@@ -55,6 +56,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.GapAndCrapExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.OvtlyrSellSignalCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
@@ -211,6 +213,7 @@ class LegacyDynamicStrategyBuilder {
           lookbackDays = (config.parameters["lookbackDays"] as? Number)?.toInt() ?: 10,
           maxAtrMultiple = (config.parameters["maxAtrMultiple"] as? Number)?.toDouble() ?: 2.5,
         )
+      "ovtlyrbuysignal" -> OvtlyrBuySignalCondition()
       else -> throw IllegalArgumentException("Unknown entry condition type: ${config.type}")
     }
 
@@ -277,6 +280,7 @@ class LegacyDynamicStrategyBuilder {
         GapAndCrapExit(
           gapPercent = (config.parameters["gapPercent"] as? Number)?.toDouble() ?: 5.0,
         )
+      "ovtlyrsellsignal" -> OvtlyrSellSignalCondition()
       else -> throw IllegalArgumentException("Unknown exit condition type: ${config.type}")
     }
 }

@@ -23,6 +23,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.MinimumPriceCond
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithinDaysCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockBreakoutCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.OvtlyrBuySignalCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
@@ -45,6 +46,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.GapAndCrapExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.OvtlyrSellSignalCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
@@ -264,6 +266,12 @@ class EntryStrategyBuilder {
       conditions.add(PriceNearDonchianHighCondition(maxDistancePercent))
     }
 
+  // External signals
+  fun ovtlyrBuySignal() =
+    apply {
+      conditions.add(OvtlyrBuySignalCondition())
+    }
+
   fun withOperator(op: LogicalOperator) =
     apply {
       operator = op
@@ -371,6 +379,12 @@ class ExitStrategyBuilder {
   fun gapAndCrap(gapPercent: Double = 5.0) =
     apply {
       conditions.add(GapAndCrapExit(gapPercent))
+    }
+
+  // External signals
+  fun ovtlyrSellSignal() =
+    apply {
+      conditions.add(OvtlyrSellSignalCondition())
     }
 
   fun withOperator(op: LogicalOperator) =

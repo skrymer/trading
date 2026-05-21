@@ -234,6 +234,17 @@ data class Stock(
    */
   fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): Earning? = earnings.find { it.fiscalDateEnding == fiscalDateEnding }
 
+  /**
+   * The current Ovtlyr signal as of [asOf] — the most recent stored signal on or before that
+   * date. Ovtlyr signals are sparse events; this derives the standing state, so a BUY call
+   * reads as BUY on every bar until the next SELL. Null before the symbol's first ever signal.
+   */
+  fun currentOvtlyrSignal(asOf: LocalDate): OvtlyrSignalType? =
+    ovtlyrSignals
+      .filter { !it.signalDate.isAfter(asOf) }
+      .maxByOrNull { it.signalDate }
+      ?.signal
+
   override fun toString() = "Symbol: $symbol"
 
   override fun equals(other: Any?): Boolean {
