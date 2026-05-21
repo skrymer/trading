@@ -48,11 +48,11 @@ data class StockPerformance(
 )
 
 /**
- * Persisted as JSONB in `backtest_reports`. Changes must be additive (new fields with
- * defaults) — breaking changes (renames, removals, type changes) orphan existing
- * backtestIds. Retention is "day or two max" so this is bounded in practice; for a
- * stronger guarantee, introduce a `report_version` column + migrator before breaking
- * the shape.
+ * Persisted gzip-compressed (bytea) in `backtest_reports`, serialized via Jackson.
+ * Changes must be additive (new fields with defaults) — breaking changes (renames,
+ * removals, type changes) orphan existing backtestIds. Retention is "day or two max"
+ * so this is bounded in practice; for a stronger guarantee, introduce a
+ * `report_version` column + migrator before breaking the shape.
  *
  * `@JsonIgnoreProperties` lists the computed `get()` properties below. They derive
  * from constructor fields and have no setter; including them in the JSON blob would

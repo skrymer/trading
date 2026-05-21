@@ -54,7 +54,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `PositionSizingService.kt`: Position sizing orchestrator with daily mark-to-market drawdown tracking; delegates share calculation to pluggable `PositionSizer` implementations
    - `service/sizer/`: Pluggable sizer package — `PositionSizer` interface + polymorphic `SizerConfig` DTO; implementations: `AtrRiskSizer`, `PercentEquitySizer`, `KellySizer`, `VolatilityTargetSizer`; `LeverageCap` helper applies portfolio-level leverage constraint outside sizer
    - `WalkForwardService.kt`: Walk-forward validation with rolling IS/OOS windows and IS-derived sector ranking for OOS
-   - `BacktestResultStore.kt`: JSONB-backed Postgres store for backtest results (`backtest_reports` table); retention "day or two", manual cleanup via `BacktestReportController`
+   - `BacktestResultStore.kt`: Postgres store for backtest results (`backtest_reports` table); the report is gzip-compressed into a `bytea` column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), scalar summary fields extracted to columns; retention "day or two", manual cleanup via `BacktestReportController`
    - DSL-based strategy builder (`StrategyDsl.kt`)
    - Strategies and conditions are discoverable via MCP tools (`getAvailableStrategies`, `getAvailableConditions`)
 
@@ -164,10 +164,10 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, BacktestReportController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport (persisted as JSONB), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
+│   │   │   ├── model/                # BacktestReport (persisted gzip-compressed in bytea), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult, MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
 │   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
 │   │   │   ├── repository/           # BacktestReportJooqRepository (save/findById/listAll/deleteById/deleteByIds)
-│   │   │   ├── service/              # BacktestService, BacktestResultStore (JSONB-backed), StrategyRegistry, MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
+│   │   │   ├── service/              # BacktestService, BacktestResultStore (gzip-compressed bytea), StrategyRegistry, MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
@@ -195,7 +195,7 @@ trading/
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
 │   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler, ClockConfig — NY-pinned Clock bean)
-│   ├── src/main/resources/           # Config, migrations (V1-V23)
+│   ├── src/main/resources/           # Config, migrations (V1-V24)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)

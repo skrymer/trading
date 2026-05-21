@@ -38,7 +38,7 @@ udgaard/
 │   │   │   ├── ConditionEvaluationResult.kt
 │   │   │   └── StockWithSignals.kt
 │   │   ├── model/                    # Domain models
-│   │   │   ├── BacktestReport.kt        # Persisted as JSONB; additive-only schema evolution
+│   │   │   ├── BacktestReport.kt        # Persisted gzip-compressed in a bytea column; additive-only schema evolution
 │   │   │   ├── BacktestReportMetadata.kt # Metadata + Summary + ListItem for backtest_reports table
 │   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized)
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
@@ -50,7 +50,7 @@ udgaard/
 │   │   │   ├── WalkForwardResult.kt
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── repository/               # jOOQ repositories
-│   │   │   └── BacktestReportJooqRepository.kt  # save / findById / listAll / deleteById / deleteByIds
+│   │   │   └── BacktestReportJooqRepository.kt  # save / findById / listAll / deleteById / deleteByIds; stores/reads the report as ByteArray
 │   │   ├── service/                  # Business logic
 │   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades
 │   │   │   ├── RiskMetricsService.kt # Computes Sharpe/Sortino/Calmar/SQN/tailRatio + SPY benchmark comparison + drawdown episodes from position-sized equity curve (USD-only)
@@ -68,7 +68,7 @@ udgaard/
 │   │   │   │   ├── VolatilityTargetSizer.kt # Target daily vol% with kATR proxy
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
-│   │   │   ├── BacktestResultStore.kt    # JSONB-backed backtest result store (backtest_reports table)
+│   │   │   ├── BacktestResultStore.kt    # Backtest result store (backtest_reports table); gzip-compresses the report into a bytea column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), decompresses on read
 │   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
 │   │   │   └── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override
 │   │   └── strategy/                 # Trading strategies
@@ -199,7 +199,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V23)
+│   └── db/migration/                 # Flyway migrations (V1-V24)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -222,7 +222,8 @@ udgaard/
 │       ├── V20__cleanup_earnings_schema.sql  # Drop legacy reportedeps/estimatedeps/symbol; add UNIQUE(stock_symbol, fiscal_date_ending)
 │       ├── V21__Add_signal_snapshot_to_scanner_trades.sql  # signal_date + signal_snapshot JSONB columns per ADR 0004
 │       ├── V22__Add_scan_runs.sql                          # scan_runs table for cohort-divergence diagnostic
-│       └── V23__Add_ovtlyr_signals.sql                     # ovtlyr_signals table (mirrors earnings: FK to stocks ON DELETE CASCADE, UNIQUE(stock_symbol, signal_date))
+│       ├── V23__Add_ovtlyr_signals.sql                     # ovtlyr_signals table (mirrors earnings: FK to stocks ON DELETE CASCADE, UNIQUE(stock_symbol, signal_date))
+│       └── V24__Compress_backtest_report.sql               # backtest_reports.report switched from jsonb to gzip-compressed bytea (jsonb ~256 MB cap overflow); clears existing rows
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
@@ -231,7 +232,7 @@ udgaard/
 │       ├── BacktestInvariantsE2ETest.kt # Engine invariant E2E tests
 │       ├── BacktestPositionSizingE2ETest.kt  # Capital-aware position sizing E2E tests
 │       ├── BacktestReportControllerE2ETest.kt   # GET/DELETE /api/backtest/reports E2E tests
-│       ├── BacktestResultStorePersistenceE2ETest.kt # JSONB store roundtrip + listing E2E tests
+│       ├── BacktestResultStorePersistenceE2ETest.kt # gzip-compressed store roundtrip + listing E2E tests
 │       ├── BacktestRiskMetricsE2ETest.kt        # Sharpe/Sortino/Calmar/SPY benchmark E2E tests
 │       ├── ExitConditionSignalsApiE2ETest.kt    # /api/stocks/{symbol}/exit-condition-signals E2E tests
 │       ├── MonteCarloE2ETest.kt        # Monte Carlo simulation E2E tests

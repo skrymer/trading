@@ -5,7 +5,6 @@ import com.skrymer.udgaard.backtesting.model.BacktestReportMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestReportSummary
 import com.skrymer.udgaard.jooq.tables.references.BACKTEST_REPORTS
 import org.jooq.DSLContext
-import org.jooq.JSONB
 import org.springframework.stereotype.Repository
 import java.util.UUID
 
@@ -17,7 +16,7 @@ class BacktestReportJooqRepository(
     backtestId: UUID,
     metadata: BacktestReportMetadata,
     summary: BacktestReportSummary,
-    report: JSONB,
+    report: ByteArray,
   ) {
     dsl
       .insertInto(BACKTEST_REPORTS)
@@ -35,7 +34,7 @@ class BacktestReportJooqRepository(
       .execute()
   }
 
-  fun findById(backtestId: UUID): JSONB? =
+  fun findById(backtestId: UUID): ByteArray? =
     dsl
       .select(BACKTEST_REPORTS.REPORT)
       .from(BACKTEST_REPORTS)

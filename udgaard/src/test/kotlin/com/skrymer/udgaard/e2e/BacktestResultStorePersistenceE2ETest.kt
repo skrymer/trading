@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.e2e
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestReportMetadata
 import com.skrymer.udgaard.backtesting.model.EntryDecisionContext
@@ -28,9 +29,12 @@ class BacktestResultStorePersistenceE2ETest : AbstractIntegrationTest() {
   @Autowired
   private lateinit var dsl: DSLContext
 
+  @Autowired
+  private lateinit var objectMapper: ObjectMapper
+
   @Test
   fun `round-trip preserves all BacktestReport constructor fields`() {
-    // Given a fully-populated report (the constructor fields the JSONB blob must round-trip)
+    // Given a fully-populated report (the constructor fields the compressed blob must round-trip)
     val report = fixtureReport()
 
     // When stored and re-fetched
@@ -192,6 +196,31 @@ class BacktestResultStorePersistenceE2ETest : AbstractIntegrationTest() {
     assertEquals(LocalDate.of(2023, 12, 31), row[BACKTEST_REPORTS.END_DATE])
     assertEquals(report.totalTrades, row[BACKTEST_REPORTS.TOTAL_TRADES])
     assertTrue(kotlin.math.abs(report.edge - row[BACKTEST_REPORTS.EDGE]!!) < EPSILON)
+  }
+
+  @Test
+  fun `the persisted report blob is gzip-compressed and smaller than the raw JSON`() {
+    // Given a report with enough trades that its JSON is non-trivial
+    val report = BacktestReport(
+      winningTrades = (1..200).map { createTrade(1.0, LocalDate.of(2024, 1, 1).plusDays(it.toLong())) },
+      losingTrades = emptyList(),
+    )
+
+    // When stored
+    val id = UUID.fromString(store.store(report, fixtureMetadata()))
+    val blob = dsl
+      .select(BACKTEST_REPORTS.REPORT)
+      .from(BACKTEST_REPORTS)
+      .where(BACKTEST_REPORTS.BACKTEST_ID.eq(id))
+      .fetchOne(BACKTEST_REPORTS.REPORT)
+      ?: error("row not found for $id")
+
+    // Then the blob carries the gzip magic header and is smaller than the raw JSON —
+    // this compression is what keeps a large report under Postgres's storage limit
+    assertEquals(0x1f, blob[0].toInt() and 0xff)
+    assertEquals(0x8b, blob[1].toInt() and 0xff)
+    val rawJsonSize = objectMapper.writeValueAsBytes(report).size
+    assertTrue(blob.size < rawJsonSize, "compressed ${blob.size} bytes should be < raw JSON $rawJsonSize bytes")
   }
 
   // ===== HELPERS =====

@@ -22,7 +22,7 @@ class VcpEntryStrategyTest {
     // strategy_exploration/VCP_STRATEGY_DEVELOPMENT.md § Sector Edge Tightness Ranker.
     assertTrue(
       ranker is SectorEdgeWithTightnessRanker,
-      "expected SectorEdgeWithTightnessRanker, got ${ranker?.javaClass?.simpleName}",
+      "expected SectorEdgeWithTightnessRanker, got ${ranker.javaClass.simpleName}",
     )
   }
 }
