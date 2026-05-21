@@ -47,7 +47,10 @@ The chronological stream of matched-symbol cohorts emitted by scan runs over a w
 ### External signals
 
 **Ovtlyr signal**:
-A third-party buy/sell call from ovtlyr.com for a given symbol on a given date — the `final_calls` field of ovtlyr's payload, valued `BUY`, `SELL`, or absent. Always written *with* the `Ovtlyr` qualifier to keep it distinct from the scanner `Signal *` family above: a *Signal date* / *Signal snapshot* / *Signal flow* concern the platform's own strategy-entry signals, whereas an Ovtlyr signal is an external vendor's directional opinion ingested as reference data. Stored in Midgaard.
+A third-party buy/sell call from ovtlyr.com for a given symbol on a given date — the `final_calls` field of ovtlyr's payload, valued `BUY`, `SELL`, or absent. An *event*: a stored row exists only on a day a call fired (sparse). Always written *with* the `Ovtlyr` qualifier to keep it distinct from the scanner `Signal *` family above: a *Signal date* / *Signal snapshot* / *Signal flow* concern the platform's own strategy-entry signals, whereas an Ovtlyr signal is an external vendor's directional opinion ingested as reference data. Stored in Midgaard.
+
+**Current Ovtlyr signal**:
+The derived *state* — the most recent Ovtlyr signal at or before a given date. Whereas an Ovtlyr signal is an event on its own date, the current Ovtlyr signal is BUY (or SELL) on *every* bar between a BUY call and the next SELL, including bars with no stored row. Null before a symbol's first ever call. This is what strategy conditions ask ("does this stock currently have a buy signal?"), not the raw event.
 
 ## Flagged ambiguities
 

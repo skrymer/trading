@@ -6,10 +6,12 @@ import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
+import com.skrymer.udgaard.jooq.tables.pojos.OvtlyrSignals
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
 import com.skrymer.udgaard.jooq.tables.pojos.Stocks
 import com.skrymer.udgaard.jooq.tables.references.EARNINGS
 import com.skrymer.udgaard.jooq.tables.references.ORDER_BLOCKS
+import com.skrymer.udgaard.jooq.tables.references.OVTLYR_SIGNALS
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
 import org.jooq.DSLContext
@@ -78,7 +80,15 @@ class StockJooqRepository(
         .orderBy(EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
 
-    return mapper.toDomain(stock, quotes, orderBlocks, earnings)
+    // Load Ovtlyr signals
+    val ovtlyrSignals =
+      dsl
+        .selectFrom(OVTLYR_SIGNALS)
+        .where(OVTLYR_SIGNALS.STOCK_SYMBOL.eq(symbol))
+        .orderBy(OVTLYR_SIGNALS.SIGNAL_DATE.asc())
+        .fetchInto(OvtlyrSignals::class.java)
+
+    return mapper.toDomain(stock, quotes, orderBlocks, earnings, ovtlyrSignals)
   }
 
   /**
@@ -190,6 +200,21 @@ class StockJooqRepository(
         .fetchInto(StockQuotes::class.java)
     logger.info("Loaded ${quotes.size} quotes in ${System.currentTimeMillis() - startTime}ms")
 
+    return assembleStocks(stocks, symbols, quotes, startTime, logger)
+  }
+
+  /**
+   * Load the remaining child records (order blocks, earnings, Ovtlyr signals) for the
+   * given symbols, group everything by symbol, and map to domain [Stock] models.
+   * Extracted from [findBySymbols] to keep that method within length limits.
+   */
+  private fun assembleStocks(
+    stocks: List<Stocks>,
+    symbols: List<String>,
+    quotes: List<StockQuotes>,
+    startTime: Long,
+    logger: org.slf4j.Logger,
+  ): List<Stock> {
     // Load all order blocks for these stocks
     val orderBlocks =
       dsl
@@ -205,15 +230,25 @@ class StockJooqRepository(
         .where(EARNINGS.STOCK_SYMBOL.`in`(symbols))
         .orderBy(EARNINGS.STOCK_SYMBOL, EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
+
+    // Load all Ovtlyr signals for these stocks
+    val ovtlyrSignals =
+      dsl
+        .selectFrom(OVTLYR_SIGNALS)
+        .where(OVTLYR_SIGNALS.STOCK_SYMBOL.`in`(symbols))
+        .orderBy(OVTLYR_SIGNALS.STOCK_SYMBOL, OVTLYR_SIGNALS.SIGNAL_DATE.asc())
+        .fetchInto(OvtlyrSignals::class.java)
     logger.info(
       "Loaded ${stocks.size} stocks, ${orderBlocks.size} order blocks, " +
-        "${earnings.size} earnings in ${System.currentTimeMillis() - startTime}ms",
+        "${earnings.size} earnings, ${ovtlyrSignals.size} Ovtlyr signals " +
+        "in ${System.currentTimeMillis() - startTime}ms",
     )
 
     // Group by symbol
     val quotesBySymbol = quotes.groupBy { it.stockSymbol }
     val orderBlocksBySymbol = orderBlocks.groupBy { it.stockSymbol }
     val earningsBySymbol = earnings.groupBy { it.stockSymbol }
+    val ovtlyrSignalsBySymbol = ovtlyrSignals.groupBy { it.stockSymbol }
 
     // Map to domain models
     return stocks.map { stock ->
@@ -222,6 +257,7 @@ class StockJooqRepository(
         quotes = quotesBySymbol[stock.symbol] ?: emptyList(),
         orderBlocks = orderBlocksBySymbol[stock.symbol] ?: emptyList(),
         earnings = earningsBySymbol[stock.symbol] ?: emptyList(),
+        ovtlyrSignals = ovtlyrSignalsBySymbol[stock.symbol] ?: emptyList(),
       )
     }
   }
@@ -265,10 +301,11 @@ class StockJooqRepository(
         .set(STOCKS.DELISTING_DATE, stock.delistingDate)
         .execute()
 
-      // 2. Delete existing quotes, order blocks, and earnings (cascade delete)
+      // 2. Delete existing quotes, order blocks, earnings, and Ovtlyr signals (cascade delete)
       ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.eq(stock.symbol)).execute()
+      ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.eq(stock.symbol)).execute()
 
       // 3. Insert quotes
       if (stock.quotes.isNotEmpty()) {
@@ -345,6 +382,21 @@ class StockJooqRepository(
         earningsBatch.execute()
       }
 
+      // 6. Insert Ovtlyr signals
+      if (stock.ovtlyrSignals.isNotEmpty()) {
+        val ovtlyrSignalsBatch = ctx.batch(
+          stock.ovtlyrSignals.map { ovtlyrSignal ->
+            val pojo = mapper.toPojo(ovtlyrSignal)
+            ctx
+              .insertInto(OVTLYR_SIGNALS)
+              .set(OVTLYR_SIGNALS.STOCK_SYMBOL, stock.symbol)
+              .set(OVTLYR_SIGNALS.SIGNAL_DATE, pojo.signalDate)
+              .set(OVTLYR_SIGNALS.SIGNAL, pojo.signal)
+          },
+        )
+        ovtlyrSignalsBatch.execute()
+      }
+
       // Return the saved stock
       stock
     }
@@ -360,6 +412,7 @@ class StockJooqRepository(
       ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.eq(symbol)).execute()
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.eq(symbol)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.eq(symbol)).execute()
+      ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.eq(symbol)).execute()
       ctx.deleteFrom(STOCKS).where(STOCKS.SYMBOL.eq(symbol)).execute()
     }
   }
@@ -423,6 +476,7 @@ class StockJooqRepository(
       ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(STOCKS).where(STOCKS.SYMBOL.`in`(symbols)).execute()
     }
   }
@@ -467,6 +521,7 @@ class StockJooqRepository(
       ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.`in`(symbols)).execute()
 
       // 3. Insert all child records
       batchInsertChildRecords(ctx, stocks)
@@ -510,6 +565,7 @@ class StockJooqRepository(
     batchInsertQuotes(ctx, stocks)
     batchInsertOrderBlocks(ctx, stocks)
     batchInsertEarnings(ctx, stocks)
+    batchInsertOvtlyrSignals(ctx, stocks)
   }
 
   private fun batchInsertQuotes(ctx: DSLContext, stocks: List<Stock>) {
@@ -681,6 +737,34 @@ class StockJooqRepository(
         pojo.surprise,
         pojo.surprisePercentage,
         pojo.reportTime,
+      )
+    }
+    batch.execute()
+  }
+
+  private fun batchInsertOvtlyrSignals(ctx: DSLContext, stocks: List<Stock>) {
+    val allOvtlyrSignals = stocks.flatMap { stock -> stock.ovtlyrSignals.map { stock.symbol to it } }
+    if (allOvtlyrSignals.isEmpty()) return
+
+    val batch = ctx.batch(
+      ctx
+        .insertInto(
+          OVTLYR_SIGNALS,
+          OVTLYR_SIGNALS.STOCK_SYMBOL,
+          OVTLYR_SIGNALS.SIGNAL_DATE,
+          OVTLYR_SIGNALS.SIGNAL,
+        ).values(
+          null as String?,
+          null as LocalDate?,
+          null as String?,
+        ),
+    )
+    allOvtlyrSignals.forEach { (symbol, ovtlyrSignal) ->
+      val pojo = mapper.toPojo(ovtlyrSignal)
+      batch.bind(
+        symbol,
+        pojo.signalDate,
+        pojo.signal,
       )
     }
     batch.execute()

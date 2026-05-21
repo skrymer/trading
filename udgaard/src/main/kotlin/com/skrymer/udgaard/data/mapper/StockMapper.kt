@@ -4,10 +4,13 @@ import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.OrderBlockType
+import com.skrymer.udgaard.data.model.OvtlyrSignal
+import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
+import com.skrymer.udgaard.jooq.tables.pojos.OvtlyrSignals
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
 import com.skrymer.udgaard.jooq.tables.pojos.Stocks
 import org.springframework.stereotype.Component
@@ -19,13 +22,14 @@ import org.springframework.stereotype.Component
 class StockMapper {
   /**
    * Convert jOOQ Stock POJO to domain model
-   * Requires associated quotes, order blocks, and earnings to be provided separately
+   * Requires associated quotes, order blocks, earnings, and Ovtlyr signals to be provided separately
    */
   fun toDomain(
     stock: Stocks,
     quotes: List<StockQuotes>,
     orderBlocks: List<OrderBlocks>,
     earnings: List<Earnings>,
+    ovtlyrSignals: List<OvtlyrSignals> = emptyList(),
   ): Stock =
     Stock(
       symbol = stock.symbol,
@@ -33,6 +37,7 @@ class StockMapper {
       quotes = quotes.map { toDomain(it) },
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },
+      ovtlyrSignals = ovtlyrSignals.map { toDomain(it) },
       listingDate = stock.listingDate,
       delistingDate = stock.delistingDate,
     )
@@ -101,6 +106,16 @@ class StockMapper {
       surprise = earning.surprise?.toDouble(),
       surprisePercentage = earning.surprisePercentage?.toDouble(),
       reportTime = earning.reportTime,
+    )
+
+  /**
+   * Convert Ovtlyr signal jOOQ POJO to domain model
+   */
+  fun toDomain(ovtlyrSignal: OvtlyrSignals): OvtlyrSignal =
+    OvtlyrSignal(
+      symbol = ovtlyrSignal.stockSymbol,
+      signalDate = ovtlyrSignal.signalDate,
+      signal = OvtlyrSignalType.valueOf(ovtlyrSignal.signal),
     )
 
   /**
@@ -188,5 +203,16 @@ class StockMapper {
       surprise = earning.surprise?.toBigDecimal(),
       surprisePercentage = earning.surprisePercentage?.toBigDecimal(),
       reportTime = earning.reportTime,
+    )
+
+  /**
+   * Convert domain model to jOOQ Ovtlyr signal POJO
+   */
+  fun toPojo(ovtlyrSignal: OvtlyrSignal): OvtlyrSignals =
+    OvtlyrSignals(
+      id = null, // Let database generate ID
+      stockSymbol = ovtlyrSignal.symbol,
+      signalDate = ovtlyrSignal.signalDate,
+      signal = ovtlyrSignal.signal.name,
     )
 }
