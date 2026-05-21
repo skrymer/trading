@@ -5,6 +5,7 @@ import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -25,6 +26,23 @@ class OvtlyrSignalDslTest {
 
     // Then: the strategy matches the buy bar
     assertTrue(strategy.test(stock, quote, BacktestContext.EMPTY))
+  }
+
+  @Test
+  fun `entryStrategy ovtlyrBuySignalFired matches a stock only on its BUY event bar`() {
+    // Given: a stock whose Ovtlyr BUY signal fired on May 4
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        ovtlyrSignals = listOf(OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 4), OvtlyrSignalType.BUY)),
+      )
+
+    // When: a strategy is built via the DSL builder method
+    val strategy = entryStrategy { ovtlyrBuySignalFired() }
+
+    // Then: it matches the call-day bar but not a later standing-BUY bar
+    assertTrue(strategy.test(stock, StockQuote(date = LocalDate.of(2026, 5, 4)), BacktestContext.EMPTY))
+    assertFalse(strategy.test(stock, StockQuote(date = LocalDate.of(2026, 5, 12)), BacktestContext.EMPTY))
   }
 
   @Test

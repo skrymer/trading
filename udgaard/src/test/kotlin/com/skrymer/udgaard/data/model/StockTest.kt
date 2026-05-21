@@ -100,4 +100,60 @@ class StockTest {
     assertEquals(OvtlyrSignalType.SELL, stock.currentOvtlyrSignal(LocalDate.of(2026, 5, 20)))
     assertEquals(OvtlyrSignalType.SELL, stock.currentOvtlyrSignal(LocalDate.of(2026, 6, 1)))
   }
+
+  @Test
+  fun `ovtlyrSignalOn returns BUY on the exact date the BUY signal fired`() {
+    // Given: a BUY signal fired on May 4
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        ovtlyrSignals = listOf(OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 4), OvtlyrSignalType.BUY)),
+      )
+
+    // When / Then: the call day itself reports the BUY event
+    assertEquals(OvtlyrSignalType.BUY, stock.ovtlyrSignalOn(LocalDate.of(2026, 5, 4)))
+  }
+
+  @Test
+  fun `ovtlyrSignalOn is null on a no-row date between a BUY call and the next SELL`() {
+    // Given: a BUY on May 4 and a SELL on May 20 — no signal row in between
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        ovtlyrSignals =
+          listOf(
+            OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 4), OvtlyrSignalType.BUY),
+            OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 20), OvtlyrSignalType.SELL),
+          ),
+      )
+
+    // When / Then: May 12 has no call — null, even though the standing state is BUY
+    assertNull(stock.ovtlyrSignalOn(LocalDate.of(2026, 5, 12)))
+  }
+
+  @Test
+  fun `ovtlyrSignalOn returns SELL on the exact date the SELL signal fired`() {
+    // Given: a BUY then a SELL
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        ovtlyrSignals =
+          listOf(
+            OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 4), OvtlyrSignalType.BUY),
+            OvtlyrSignal("AAPL", LocalDate.of(2026, 5, 20), OvtlyrSignalType.SELL),
+          ),
+      )
+
+    // When / Then: the SELL call day reports the SELL event
+    assertEquals(OvtlyrSignalType.SELL, stock.ovtlyrSignalOn(LocalDate.of(2026, 5, 20)))
+  }
+
+  @Test
+  fun `ovtlyrSignalOn is null when the stock has no Ovtlyr signals`() {
+    // Given: a stock with no Ovtlyr coverage
+    val stock = Stock(symbol = "AAPL")
+
+    // When / Then: no event on any date
+    assertNull(stock.ovtlyrSignalOn(LocalDate.of(2026, 5, 4)))
+  }
 }
