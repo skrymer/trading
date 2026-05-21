@@ -245,6 +245,14 @@ data class Stock(
       .maxByOrNull { it.signalDate }
       ?.signal
 
+  /**
+   * The Ovtlyr signal that fired *exactly* on [date] — the call-day event, or null if no
+   * Ovtlyr call fired that day. Unlike [currentOvtlyrSignal] this does not derive the standing
+   * state: a bar between a BUY call and the next SELL returns null, not BUY.
+   */
+  fun ovtlyrSignalOn(date: LocalDate): OvtlyrSignalType? =
+    ovtlyrSignals.firstOrNull { it.signalDate == date }?.signal
+
   override fun toString() = "Symbol: $symbol"
 
   override fun equals(other: Any?): Boolean {

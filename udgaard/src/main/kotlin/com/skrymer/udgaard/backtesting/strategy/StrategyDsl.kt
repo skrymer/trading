@@ -24,6 +24,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.NoEarningsWithin
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.NotInOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OrderBlockBreakoutCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.OvtlyrBuySignalCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.OvtlyrBuySignalFiredCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
@@ -270,6 +271,11 @@ class EntryStrategyBuilder {
   fun ovtlyrBuySignal() =
     apply {
       conditions.add(OvtlyrBuySignalCondition())
+    }
+
+  fun ovtlyrBuySignalFired() =
+    apply {
+      conditions.add(OvtlyrBuySignalFiredCondition())
     }
 
   fun withOperator(op: LogicalOperator) =
