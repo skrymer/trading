@@ -124,6 +124,8 @@ Inline `entryStrategy`/`exitStrategy` with conditions. Conditions need parameter
 
 Common pitfall: nesting parameters at the top level instead of under `"parameters"` silently ignores them.
 
+**The `script` condition** (entry and exit) is a special case: its `script` parameter is a Kotlin expression — over `stock` / `quote` / `context` for entry, `stock` / `entryQuote` / `quote` for exit — that must yield `Boolean`. It expresses signals not covered by the fixed catalogue; several `script` conditions can appear in one strategy, and a malformed script fails the request with a compile error.
+
 ## 5. Targeted symbol subset
 
 Use `stockSymbols` for debugging, watchlist runs, or fast iteration. Pair with a tight date range for sub-30s turnaround.
