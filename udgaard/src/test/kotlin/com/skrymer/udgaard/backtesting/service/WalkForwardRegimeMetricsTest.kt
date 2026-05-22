@@ -11,6 +11,8 @@ class WalkForwardRegimeMetricsTest {
     backtestService = mock(),
     sectorBreadthRepository = mock(),
     marketBreadthRepository = mock(),
+    positionSizingService = mock(),
+    riskMetricsService = mock(),
   )
 
   private fun row(date: LocalDate, breadth: Double, ema10: Double) =

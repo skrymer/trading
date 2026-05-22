@@ -29,6 +29,8 @@ class WalkForwardService(
   private val backtestService: BacktestService,
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
+  private val positionSizingService: PositionSizingService,
+  private val riskMetricsService: RiskMetricsService,
 ) {
   private val logger = LoggerFactory.getLogger(WalkForwardService::class.java)
 
@@ -117,6 +119,8 @@ class WalkForwardService(
         "edge=${String.format("%.2f", oosReport.edge)}",
     )
 
+    val (oosCagr, oosMaxDrawdownPct) = computeOosRiskMetrics(oosReport, params.positionSizingConfig)
+
     val (isUptrendPct, isBreadthAvg) =
       computeRegimeMetrics(window.isStart, window.isEnd, sharedContext.marketBreadthMap)
     val (oosUptrendPct, oosBreadthAvg) =
@@ -134,11 +138,28 @@ class WalkForwardService(
       outOfSampleTrades = oosReport.totalTrades,
       inSampleWinRate = isReport.winRate,
       outOfSampleWinRate = oosReport.winRate,
+      outOfSampleCagr = oosCagr,
+      outOfSampleMaxDrawdownPct = oosMaxDrawdownPct,
       inSampleBreadthUptrendPercent = isUptrendPct,
       inSampleBreadthAvg = isBreadthAvg,
       outOfSampleBreadthUptrendPercent = oosUptrendPct,
       outOfSampleBreadthAvg = oosBreadthAvg,
     )
+  }
+
+  /**
+   * Per-window OOS CAGR + max drawdown — the inputs for a Calmar-based walk-forward objective.
+   * The sub-backtest does not compute these itself (there, position sizing only drives
+   * capital-aware selection), so they are derived here by applying position sizing to the OOS
+   * trades — the same post-backtest step the controller runs. Both null for an un-sized run.
+   */
+  private fun computeOosRiskMetrics(
+    oosReport: BacktestReport,
+    positionSizingConfig: PositionSizingConfig?,
+  ): Pair<Double?, Double?> {
+    if (positionSizingConfig == null) return null to null
+    val sizing = positionSizingService.applyPositionSizing(oosReport.trades, positionSizingConfig)
+    return riskMetricsService.cagr(sizing.equityCurve) to sizing.maxDrawdownPct
   }
 
   /**
