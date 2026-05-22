@@ -13,6 +13,7 @@ The API returns a `WalkForwardResult`. Top-level fields:
   - `inSampleEdge`, `outOfSampleEdge`
   - `inSampleTrades`, `outOfSampleTrades`
   - `inSampleWinRate`, `outOfSampleWinRate`
+  - `outOfSampleCagr`, `outOfSampleMaxDrawdownPct` (`Double?`) — OOS-segment CAGR and max drawdown, derived by applying position sizing to each window's OOS trades. The per-window inputs for a Calmar-based walk-forward objective. Both `null` for un-sized walk-forward runs (no daily equity curve).
   - `inSampleBreadthUptrendPercent`, `inSampleBreadthAvg` — IS-half regime metrics derived from `MarketBreadthDaily.isInUptrend()` (`breadthPercent > ema10`)
   - `outOfSampleBreadthUptrendPercent`, `outOfSampleBreadthAvg` — OOS-half regime metrics (same definition)
   - `derivedSectorRanking` — IS-optimal sector order (informational; not applied to OOS)

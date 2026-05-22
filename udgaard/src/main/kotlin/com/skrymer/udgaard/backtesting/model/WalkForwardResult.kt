@@ -26,6 +26,10 @@ data class WalkForwardWindow(
   val outOfSampleTrades: Int,
   val inSampleWinRate: Double,
   val outOfSampleWinRate: Double,
+  // OOS-segment CAGR and max drawdown — the per-window inputs for a Calmar-based
+  // walk-forward objective. Null when the run is un-sized (no daily equity curve).
+  val outOfSampleCagr: Double?,
+  val outOfSampleMaxDrawdownPct: Double?,
   // Regime tagging derived from MarketBreadthDaily.isInUptrend() (breadthPercent > ema10).
   // Default 0.0 when the window range has no breadth rows; analyst inspects date range to disambiguate.
   val inSampleBreadthUptrendPercent: Double,

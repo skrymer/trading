@@ -210,6 +210,42 @@ class WalkForwardE2ETest : AbstractIntegrationTest() {
     assertEquals(first.aggregateOosEdge, second.aggregateOosEdge, DELTA)
   }
 
+  // ===== PER-WINDOW DRAWDOWN-ADJUSTED METRICS =====
+
+  @Test
+  fun `position-sized windows carry OOS cagr and maxDrawdownPct`() {
+    // Given: a position-sized walk-forward run — the OOS backtest computes a daily equity
+    // curve, so CAGR and maxDD are available per window
+    val request = baseRequest().copy(
+      inSampleMonths = 6,
+      outOfSampleMonths = 3,
+      stepMonths = 3,
+      randomSeed = 42L,
+      positionSizing = PositionSizingConfig(
+        startingCapital = 100_000.0,
+        sizer = AtrRiskSizerConfig(riskPercentage = 1.25, nAtr = 2.0),
+        leverageRatio = 1.0,
+      ),
+    )
+
+    // When
+    val body = postWalkForward(request).body!!
+
+    // Then: the OOS backtest's CAGR and maxDD flow through to the per-window output — the
+    // per-window inputs for a Calmar-based walk-forward objective. A thin window with too
+    // few equity-curve points legitimately yields null (RiskMetricsService.cagr), so the
+    // wiring is proven by at least one window carrying real values, not by all of them.
+    assertTrue(body.windows.isNotEmpty(), "fixture must produce at least one window")
+    assertTrue(
+      body.windows.any { it.outOfSampleCagr != null },
+      "no window carried outOfSampleCagr — the OOS-report CAGR is not wired through",
+    )
+    assertTrue(
+      body.windows.any { it.outOfSampleMaxDrawdownPct != null },
+      "no window carried outOfSampleMaxDrawdownPct — the OOS-report maxDD is not wired through",
+    )
+  }
+
   // ===== REGIME TAGGING =====
 
   @Test
