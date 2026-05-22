@@ -70,7 +70,8 @@ udgaard/
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
 │   │   │   ├── BacktestResultStore.kt    # Backtest result store (backtest_reports table); gzip-compresses the report into a bytea column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), decompresses on read
 │   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
-│   │   │   └── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override
+│   │   │   ├── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override
+│   │   │   └── ScriptPredicateCompiler.kt # Compiles user Kotlin scripts into entry/exit predicates (the `script` conditions); needs the app run exploded — see Dockerfile
 │   │   └── strategy/                 # Trading strategies
 │   │       ├── EntryStrategy.kt      # Entry interface
 │   │       ├── ExitStrategy.kt       # Exit interface
