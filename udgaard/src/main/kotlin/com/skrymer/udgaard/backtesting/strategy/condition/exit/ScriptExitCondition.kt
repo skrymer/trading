@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
 import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.service.ExitPredicate
 import com.skrymer.udgaard.backtesting.service.ScriptPredicateCompiler
 import com.skrymer.udgaard.backtesting.service.stringOr
@@ -14,10 +15,10 @@ import org.springframework.stereotype.Component
  * counterpart of [com.skrymer.udgaard.backtesting.strategy.condition.entry.ScriptEntryCondition].
  *
  * The script is a Kotlin expression over `stock: Stock`, `entryQuote: StockQuote?`,
- * `quote: StockQuote` that must yield `Boolean` (true = exit now). `entryQuote` is nullable —
- * handling that is the script's responsibility. Compiled once at strategy-build time
- * (`parseConfig`); a script that fails to compile fails the request loudly there rather than
- * per bar. Scripts must be pure and deterministic.
+ * `quote: StockQuote`, `context: BacktestContext` that must yield `Boolean` (true = exit now).
+ * `entryQuote` is nullable — handling that is the script's responsibility. Compiled once at
+ * strategy-build time (`parseConfig`); a script that fails to compile fails the request loudly
+ * there rather than per bar. Scripts must be pure and deterministic.
  */
 @Component
 class ScriptExitCondition(
@@ -30,7 +31,14 @@ class ScriptExitCondition(
     stock: Stock,
     entryQuote: StockQuote?,
     quote: StockQuote,
-  ): Boolean = predicate(stock, entryQuote, quote)
+  ): Boolean = shouldExit(stock, entryQuote, quote, BacktestContext.EMPTY)
+
+  override fun shouldExit(
+    stock: Stock,
+    entryQuote: StockQuote?,
+    quote: StockQuote,
+    context: BacktestContext,
+  ): Boolean = predicate(stock, entryQuote, quote, context)
 
   override fun exitReason(): String = "Script exit triggered"
 
@@ -40,7 +48,7 @@ class ScriptExitCondition(
     ConditionMetadata(
       type = "script",
       displayName = "Custom Script",
-      description = "Exit condition defined by a Kotlin script over stock, entryQuote, quote (must yield Boolean)",
+      description = "Exit condition defined by a Kotlin script over stock, entryQuote, quote, context (must yield Boolean)",
       parameters =
         listOf(
           ParameterMetadata(

@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.BacktestContext
+import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -33,8 +34,29 @@ class ScriptPredicateCompilerTest {
 
     // When / Then
     val entry = quoteAt(100.0)
-    assertTrue(predicate(Stock(symbol = "TEST"), entry, quoteAt(90.0)))
-    assertFalse(predicate(Stock(symbol = "TEST"), entry, quoteAt(110.0)))
+    assertTrue(predicate(Stock(symbol = "TEST"), entry, quoteAt(90.0), BacktestContext.EMPTY))
+    assertFalse(predicate(Stock(symbol = "TEST"), entry, quoteAt(110.0), BacktestContext.EMPTY))
+  }
+
+  @Test
+  fun `compiled exit script can read the backtest context`() {
+    // Given: an exit script that reads market breadth from the context — context-dependent
+    // exits (e.g. "leave when breadth rolls over") are only expressible with this binding
+    val predicate = compiler.compileExit(
+      "(context.getMarketBreadth(quote.date)?.breadthPercent ?: 0.0) > 50.0",
+    )
+    val bar = quoteAt(100.0)
+    val withBreadth =
+      BacktestContext(
+        sectorBreadthMap = emptyMap(),
+        marketBreadthMap = mapOf(
+          bar.date to MarketBreadthDaily(quoteDate = bar.date, breadthPercent = 60.0, ema10 = 50.0),
+        ),
+      )
+
+    // When / Then: the exit script sees context-supplied breadth, and EMPTY context too
+    assertTrue(predicate(Stock(symbol = "TEST"), bar, bar, withBreadth))
+    assertFalse(predicate(Stock(symbol = "TEST"), bar, bar, BacktestContext.EMPTY))
   }
 
   @Test

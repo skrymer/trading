@@ -18,8 +18,8 @@ import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 /** A compiled entry-condition predicate: a pure function of the current bar. */
 typealias EntryPredicate = (Stock, StockQuote, BacktestContext) -> Boolean
 
-/** A compiled exit-condition predicate: a pure function of the entry and current bars. */
-typealias ExitPredicate = (Stock, StockQuote?, StockQuote) -> Boolean
+/** A compiled exit-condition predicate: a pure function of the entry/current bars + breadth context. */
+typealias ExitPredicate = (Stock, StockQuote?, StockQuote, BacktestContext) -> Boolean
 
 /**
  * Compiles user-supplied Kotlin scripts into entry/exit-condition predicates.
@@ -66,14 +66,15 @@ class ScriptPredicateCompiler {
     }
 
   /**
-   * Compile [script] — a Kotlin expression over `stock`, `entryQuote`, `quote` — into a
-   * predicate. Throws [IllegalArgumentException] as [compileEntry] does.
+   * Compile [script] — a Kotlin expression over `stock`, `entryQuote`, `quote`, `context` —
+   * into a predicate. Throws [IllegalArgumentException] as [compileEntry] does.
    */
   fun compileExit(script: String): ExitPredicate =
     exitCache.computeIfAbsent(script) {
       @Suppress("UNCHECKED_CAST")
       compile(
-        "val __p: (Stock, StockQuote?, StockQuote) -> Boolean = { stock, entryQuote, quote ->\n$it\n}\n__p",
+        "val __p: (Stock, StockQuote?, StockQuote, BacktestContext) -> Boolean = " +
+          "{ stock, entryQuote, quote, context ->\n$it\n}\n__p",
         "Exit",
       ) as ExitPredicate
     }

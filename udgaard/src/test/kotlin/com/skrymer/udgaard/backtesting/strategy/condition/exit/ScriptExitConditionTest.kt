@@ -1,6 +1,8 @@
 package com.skrymer.udgaard.backtesting.strategy.condition.exit
 
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.service.ScriptPredicateCompiler
+import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -35,5 +37,26 @@ class ScriptExitConditionTest {
 
     // When / Then: no exception, the script's null handling decides the result
     assertFalse(condition.shouldExit(Stock(symbol = "TEST"), null, quoteAt(90.0)))
+  }
+
+  @Test
+  fun `exit script reads the backtest context through the context-aware shouldExit`() {
+    // Given: an exit condition whose script reads market breadth from the context
+    val condition =
+      defaultBearer.parseConfig(
+        mapOf("script" to "(context.getMarketBreadth(quote.date)?.breadthPercent ?: 0.0) > 50.0"),
+      )
+    val bar = quoteAt(100.0)
+    val withBreadth =
+      BacktestContext(
+        sectorBreadthMap = emptyMap(),
+        marketBreadthMap = mapOf(
+          bar.date to MarketBreadthDaily(quoteDate = bar.date, breadthPercent = 60.0, ema10 = 50.0),
+        ),
+      )
+
+    // When / Then: the context-aware shouldExit passes the context through to the script
+    assertTrue(condition.shouldExit(Stock(symbol = "TEST"), bar, bar, withBreadth))
+    assertFalse(condition.shouldExit(Stock(symbol = "TEST"), bar, bar, BacktestContext.EMPTY))
   }
 }
