@@ -16,6 +16,8 @@ Volatility Contraction Pattern (VCP) — trend-following breakout strategy that 
 
 ## Validated Performance (2016-2025, $10K start, **1.25% risk**, leverage 1.0, 15 max positions)
 
+> **Lookahead-bias note (2026-05-25):** Numbers in this section, and in the walk-forward subsections below, were captured before a correctness fix to `AboveBearishOrderBlockCondition.getRelevantOrderBlocks` that filtered out order blocks with `startDate` after the evaluated bar. Pre-fix, future OBs could leak into the entry signal at the per-bar evaluation, so the metrics here are **lookahead-inflated** and may overstate edge / WFE / CAGR. They have not yet been re-verified under the fixed condition; treat as upper-bound estimates until a fresh multi-seed re-baseline lands.
+
 **Primary sizing recommendation: 1.25% risk per trade.** Selected after a 4-cell risk sweep (0.75% / 1.0% / 1.25% / 1.5%) on the survivors-only universe, then re-verified 2026-04-28 on the corrected universe (8 seeds × 1.25% vs 1.0% head-to-head — 1.25% won mean Calmar 2.52 vs 2.42, lower worst-seed MDD 27.10% vs 28.46%, and lower Calmar SE 0.119 vs 0.139). Numbers below are the 8-seed clean-data baseline.
 
 | Metric | Value (8-seed clean, 2026-04-28) |

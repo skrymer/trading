@@ -1187,4 +1187,118 @@ class AboveBearishOrderBlockConditionTest {
     assertTrue(result.message?.contains("near") ?: false)
     assertTrue(result.message?.contains("✗") ?: false)
   }
+
+  @Test
+  fun `should not be blocked by future-started OB whose price range covers the bar`() {
+    // Given: a stock evaluated on 2016-06-02 with close=56.35, and a BEARISH OB whose
+    // lifetime is entirely 10 years in the future (startDate 2026-02-10, endDate=null)
+    // whose price range [55.35, 57.84] happens to cover the 2016 close. This reproduces
+    // the actual LBRDK production case that surfaced this bug.
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 1, ageInDays = 0)
+    val evalDate = LocalDate.of(2016, 6, 2)
+    val futureOb =
+      OrderBlock(
+        low = 55.35,
+        high = 57.84,
+        startDate = LocalDate.of(2026, 2, 10),
+        endDate = null,
+        triggerDate = LocalDate.of(2026, 2, 18),
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+    val quotes = createTradingDayQuotes(LocalDate.of(2016, 1, 4), evalDate, defaultClosePrice = 56.35)
+    val evalQuote = StockQuote(date = evalDate, closePrice = 56.35)
+    val stock =
+      Stock(
+        symbol = "LBRDK",
+        quotes = (quotes.filter { it.date < evalDate } + evalQuote).sortedBy { it.date },
+        orderBlocks = listOf(futureOb),
+      )
+
+    // When: the entry condition evaluates
+    val passed = condition.evaluate(stock, evalQuote, BacktestContext.EMPTY)
+
+    // Then: the future OB must not count — it hasn't started yet. A regression that
+    // drops the `startDate <= quote.date` filter would block the entry by treating
+    // the 2026 OB's [55.35, 57.84] zone as "currently containing" the 2016 close. This
+    // is a textbook lookahead bias: the future OB's existence implies the price-action
+    // that creates it, which the engine cannot legitimately use to gate a 2016 entry.
+    assertTrue(
+      passed,
+      "future OB (startDate=2026) must be ignored for a 2016 bar — leaking it produces lookahead bias",
+    )
+  }
+
+  @Test
+  fun `should not be blocked by future-started OB whose price range covers a prior bar in the walk-back`() {
+    // Given: a 2016-06-02 bar at price 56.35, where prior bars 2016-05-30 .. 2016-06-01
+    // were also at ~$56 (inside the future OB's range). Without the startDate filter,
+    // the walk-back's `isOrderBlockBlocked` returns true at one of those prior bars,
+    // setting barsSinceBlocked low and failing the cooldown. With the filter, the
+    // future OB never enters the relevant set at any prior bar, so the walk-back
+    // never finds a block.
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 3, ageInDays = 0)
+    val evalDate = LocalDate.of(2016, 6, 2)
+    val futureOb =
+      OrderBlock(
+        low = 55.0,
+        high = 58.0,
+        startDate = LocalDate.of(2026, 2, 10),
+        endDate = null,
+        triggerDate = LocalDate.of(2026, 2, 18),
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+    val quotes = createTradingDayQuotes(LocalDate.of(2016, 1, 4), evalDate, defaultClosePrice = 56.0)
+    val evalQuote = StockQuote(date = evalDate, closePrice = 56.35)
+    val stock =
+      Stock(
+        symbol = "LBRDK",
+        quotes = (quotes.filter { it.date < evalDate } + evalQuote).sortedBy { it.date },
+        orderBlocks = listOf(futureOb),
+      )
+
+    // When/Then: with the future OB filtered, the walk-back finds no block in the
+    // 100-bar lookback, returns Int.MAX_VALUE, and the condition passes regardless of
+    // how aggressive the cooldown is.
+    assertTrue(
+      condition.evaluate(stock, evalQuote, BacktestContext.EMPTY),
+      "future OB must not poison the historical walk-back",
+    )
+  }
+
+  @Test
+  fun `an OB starting exactly on the evaluated bar does not count`() {
+    // Given: a BEARISH OB whose startDate equals the evaluated bar's date (a same-session
+    // OB, which `OrderBlock.startsBefore` excludes by design — `startDate.isBefore(date)`
+    // is strictly less). This pins the inclusive-vs-exclusive contract: the condition uses
+    // the canonical `startsBefore` predicate, so an OB on its own pivot bar is NOT yet
+    // "started" for entry-gating purposes — same rule as BelowOrderBlockCondition,
+    // OrderBlockRejectionCondition, and Stock.withinOrderBlock.
+    val condition = AboveBearishOrderBlockCondition(consecutiveDays = 1, ageInDays = 0)
+    val evalDate = LocalDate.of(2016, 6, 2)
+    val sameBarOb =
+      OrderBlock(
+        low = 55.0,
+        high = 58.0,
+        startDate = evalDate,
+        endDate = null,
+        triggerDate = evalDate,
+        orderBlockType = OrderBlockType.BEARISH,
+      )
+    val quotes = createTradingDayQuotes(LocalDate.of(2016, 1, 4), evalDate, defaultClosePrice = 56.0)
+    val evalQuote = StockQuote(date = evalDate, closePrice = 56.5)
+    val stock =
+      Stock(
+        symbol = "TEST",
+        quotes = (quotes.filter { it.date < evalDate } + evalQuote).sortedBy { it.date },
+        orderBlocks = listOf(sameBarOb),
+      )
+
+    // When/Then: the condition treats the same-session OB as not-yet-started — passes.
+    // A regression that switched the filter to `!startDate.isAfter(quote.date)` (inclusive)
+    // would block this entry, diverging from every other OB condition in the codebase.
+    assertTrue(
+      condition.evaluate(stock, evalQuote, BacktestContext.EMPTY),
+      "OB whose startDate == evaluated bar must NOT count — matches `OrderBlock.startsBefore`",
+    )
+  }
 }
