@@ -16,7 +16,22 @@ Volatility Contraction Pattern (VCP) — trend-following breakout strategy that 
 
 ## Validated Performance (2016-2025, $10K start, **1.25% risk**, leverage 1.0, 15 max positions)
 
-> **Lookahead-bias note (2026-05-25):** Numbers in this section, and in the walk-forward subsections below, were captured before a correctness fix to `AboveBearishOrderBlockCondition.getRelevantOrderBlocks` that filtered out order blocks with `startDate` after the evaluated bar. Pre-fix, future OBs could leak into the entry signal at the per-bar evaluation, so the metrics here are **lookahead-inflated** and may overstate edge / WFE / CAGR. They have not yet been re-verified under the fixed condition; treat as upper-bound estimates until a fresh multi-seed re-baseline lands.
+> **STATUS — INVALIDATED PENDING REWORK (2026-05-26).** A post-fix 25-year walk-forward against the same config (deployed commit `6d4dfaf`, PR #34, on `udgaard 1.0.60`) collapses the strategy's apparent edge. Headline numbers below — CAGR 56.3% / edge +5.29% / WFE 0.83-1.15 across cadences — were captured with a **future-OB lookahead bug** in `AboveBearishOrderBlockCondition.getRelevantOrderBlocks`. The condition's filter chain checked `endDate` for active-ness but never `startDate`, so future-dated OBs whose `[low, high]` zone happened to cover the historical bar incorrectly suppressed entries — effectively cherry-picking winners by avoiding setups that would later fail at not-yet-existent resistance.
+>
+> **Post-fix 25-year WF (2026-05-26, seed 42, single-seed, 22 windows / 36mo IS / 12mo OOS / 12mo step, deployed on PRD with the fix):**
+>
+> | Metric | Documented pre-fix (2026-05-22) | Post-fix (2026-05-26) | Δ |
+> |---|---|---|---|
+> | Aggregate WFE | 1.152 | 1.10 | -4% |
+> | Aggregate OOS edge | +3.61% | **+5.17%** | +43% |
+> | Total OOS trades | 1,173 | 1,428 | +22% |
+> | OOS-positive years | 21/22 (95%) | **14/22 (64%)** | -31 pp |
+>
+> The +5.17% aggregate is misleading: it's driven almost entirely by 2003 (OOS edge **+117% on 58 trades** — post-dot-com snapback against IS data 2000-01 → 2003-01). Strip the 2003 outlier and ex-outlier OOS edge ≈ **+0.43%** — essentially breakeven before costs. Strip 2003 + 2020 (COVID V, +9.66%) and the strategy is **net flat over 20 years**. The bug was making most years look positive when they weren't: 8 of the 22 OOS years are real losers (2004, 2006, 2008, 2014, 2015, 2018, 2022, 2024).
+>
+> **Implication:** all "Validated Performance" / single-backtest / walk-forward / sizer-sweep / goal-search numbers in this plan were generated against the buggy engine and are **historical artifacts, not validated performance**. The strategy's real edge is at or near zero. **Do NOT deploy this strategy live based on the numbers in this document.** A full re-baseline under the fixed engine is required to determine whether VCP has any durable edge, and the rest of the plan (sizing, capital sensitivity, drawdown response, kill criteria) is downstream of that re-baseline.
+>
+> Original numbers preserved below for audit trail.
 
 **Primary sizing recommendation: 1.25% risk per trade.** Selected after a 4-cell risk sweep (0.75% / 1.0% / 1.25% / 1.5%) on the survivors-only universe, then re-verified 2026-04-28 on the corrected universe (8 seeds × 1.25% vs 1.0% head-to-head — 1.25% won mean Calmar 2.52 vs 2.42, lower worst-seed MDD 27.10% vs 28.46%, and lower Calmar SE 0.119 vs 0.139). Numbers below are the 8-seed clean-data baseline.
 
