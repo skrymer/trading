@@ -74,6 +74,10 @@ class AboveBearishOrderBlockCondition(
    * OBs must be:
    * - Bearish (resistance)
    * - At least ageInDays old
+   * - **Already started by `quote.date`** (strictly before — matches the canonical
+   *   `OrderBlock.startsBefore` predicate used by the other 5 OB conditions and
+   *   `Stock.withinOrderBlock`; without it future-dated OBs whose price range happens
+   *   to cover the current close leak in as a textbook lookahead bias).
    * - Active (not ended, or ended recently)
    */
   private fun getRelevantOrderBlocks(
@@ -83,6 +87,7 @@ class AboveBearishOrderBlockCondition(
     stock.orderBlocks
       .filter { it.orderBlockType == OrderBlockType.BEARISH }
       .filter { sensitivity == null || it.sensitivity == sensitivity }
+      .filter { it.startsBefore(quote.date) }
       .filter {
         stock.countTradingDaysBetween(
           it.triggerDate,
