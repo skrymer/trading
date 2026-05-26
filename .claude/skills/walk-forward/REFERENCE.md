@@ -8,15 +8,20 @@ The API returns a `WalkForwardResult`. Top-level fields:
 
 - `walkForwardEfficiency` — aggregate WFE (= aggregate OOS edge / simple-average IS edge)
 - `aggregateOosEdge`, `aggregateOosTrades`, `aggregateOosWinRate`
+- `aggregateOosRiskMetrics` (`RiskMetrics?`) — Sharpe / Sortino / Calmar / SQN / tailRatio computed from the **stitched** daily-return series across all OOS windows (per ADR-0005). Captures cross-window drawdowns that per-window-max-DD cannot. `null` for un-sized runs.
+- `aggregateOosCagr`, `aggregateOosMaxDrawdownPct` (`Double?`) — CAGR (wall-clock-annualised) and peak-to-trough max DD from the stitched synthetic continuous-compounding equity curve. Same null semantics.
 - `windows[]` — one entry per IS→OOS window:
   - `inSampleStart`, `inSampleEnd`, `outOfSampleStart`, `outOfSampleEnd`
   - `inSampleEdge`, `outOfSampleEdge`
   - `inSampleTrades`, `outOfSampleTrades`
   - `inSampleWinRate`, `outOfSampleWinRate`
   - `outOfSampleCagr`, `outOfSampleMaxDrawdownPct` (`Double?`) — OOS-segment CAGR and max drawdown, derived by applying position sizing to each window's OOS trades. The per-window inputs for a Calmar-based walk-forward objective. Both `null` for un-sized walk-forward runs (no daily equity curve).
+  - `outOfSampleRiskMetrics` (`RiskMetrics?`) — per-window Sharpe / Sortino / Calmar / SQN / tailRatio from the position-sized OOS equity curve via `RiskMetricsService.compute`. `null` for un-sized runs.
   - `inSampleBreadthUptrendPercent`, `inSampleBreadthAvg` — IS-half regime metrics derived from `MarketBreadthDaily.isInUptrend()` (`breadthPercent > ema10`)
   - `outOfSampleBreadthUptrendPercent`, `outOfSampleBreadthAvg` — OOS-half regime metrics (same definition)
   - `derivedSectorRanking` — IS-optimal sector order (informational; not applied to OOS)
+
+**Stitched-aggregate semantics** (ADR-0005): aggregate Sharpe / Sortino / Calmar / CAGR / max DD are NOT trade-weighted averages of per-window values. The per-window equity curves are normalised to their window-start values and chained multiplicatively into one continuous synthetic curve; daily returns are concatenated for Sharpe/Sortino; trades are concatenated for SQN/tailRatio. CAGR annualises against wall-clock span (matches SPY-benchmark convention). When `stepMonths > outOfSampleMonths` the strategy is assumed flat during gap days (conservative direction).
 
 **Regime divergence**: `outOfSampleBreadthUptrendPercent − inSampleBreadthUptrendPercent` positive ⇒ OOS more bullish than IS (strategy got tailwind on unseen data). Large negative ⇒ OOS regime is harder than IS — OOS edge degradation may be regime-driven, not curve-fitting.
 

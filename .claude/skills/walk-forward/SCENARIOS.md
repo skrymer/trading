@@ -76,11 +76,14 @@ Forwards `positionSizing` to each IS/OOS backtest so OOS results reflect realist
     "startingCapital": <dollars>,
     "sizer": <SIZER>,
     "leverageRatio": 1.0
-  }
+  },
+  "riskFreeRatePct": 0.0
 }' /tmp/walk-forward-sized.json
 ```
 
 See `/backtest` SCENARIOS.md §2 for sizer options. Position-sized walk-forward takes proportionally longer than unsized.
+
+`riskFreeRatePct` (optional, default 0.0 = raw Sharpe) is consumed by both per-window `outOfSampleRiskMetrics` and the stitched `aggregateOosRiskMetrics` — same field and convention as the single-backtest endpoint.
 
 ## 4. Ranking
 

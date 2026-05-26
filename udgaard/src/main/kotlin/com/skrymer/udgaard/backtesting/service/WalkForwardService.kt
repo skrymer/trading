@@ -2,7 +2,10 @@ package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.BacktestReport
+import com.skrymer.udgaard.backtesting.model.PortfolioEquityPoint
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
+import com.skrymer.udgaard.backtesting.model.RiskMetrics
+import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
 import com.skrymer.udgaard.backtesting.model.WalkForwardResult
 import com.skrymer.udgaard.backtesting.model.WalkForwardWindow
@@ -23,6 +26,8 @@ import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlin.math.pow
 
 @Service
 class WalkForwardService(
@@ -47,6 +52,7 @@ class WalkForwardService(
     entryDelayDays: Int = 0,
     randomSeed: Long? = null,
     positionSizingConfig: PositionSizingConfig? = null,
+    riskFreeRatePct: Double = RAW_RISK_FREE_RATE,
   ): WalkForwardResult {
     val windows = generateWindows(config)
     logger.info(
@@ -73,6 +79,7 @@ class WalkForwardService(
       entryDelayDays = entryDelayDays,
       randomSeed = randomSeed,
       positionSizingConfig = positionSizingConfig,
+      riskFreeRatePct = riskFreeRatePct,
     )
 
     val concurrency = Semaphore(MAX_CONCURRENT_WINDOWS)
@@ -82,15 +89,26 @@ class WalkForwardService(
           async { concurrency.withPermit { processWindow(window, params, sharedContext, sharedBreadthByDate) } }
         }.awaitAll()
     }
-    return aggregateResults(results)
+    return aggregateResults(results, params.riskFreeRatePct)
   }
+
+  /**
+   * A window's `WalkForwardWindow` (the public DTO row) plus the heavy intermediate data
+   * the aggregator needs to stitch a continuous OOS daily-return series per ADR-0005. The
+   * curve and trade list are NOT in the public DTO — they are internal aggregation inputs.
+   */
+  internal data class WindowComputation(
+    val window: WalkForwardWindow,
+    val equityCurve: List<PortfolioEquityPoint>?,
+    val trades: List<Trade>,
+  )
 
   private fun processWindow(
     window: WindowDates,
     params: BacktestParams,
     sharedContext: BacktestContext,
     sharedBreadthByDate: Map<LocalDate, Double>,
-  ): WalkForwardWindow {
+  ): WindowComputation {
     logger.info(
       "Window: IS ${window.isStart} to ${window.isEnd}, " +
         "OOS ${window.oosStart} to ${window.oosEnd}",
@@ -119,14 +137,14 @@ class WalkForwardService(
         "edge=${String.format("%.2f", oosReport.edge)}",
     )
 
-    val (oosCagr, oosMaxDrawdownPct) = computeOosRiskMetrics(oosReport, params.positionSizingConfig)
+    val perWindowMetrics = computeOosRiskMetrics(oosReport, params.positionSizingConfig, params.riskFreeRatePct)
 
     val (isUptrendPct, isBreadthAvg) =
       computeRegimeMetrics(window.isStart, window.isEnd, sharedContext.marketBreadthMap)
     val (oosUptrendPct, oosBreadthAvg) =
       computeRegimeMetrics(window.oosStart, window.oosEnd, sharedContext.marketBreadthMap)
 
-    return WalkForwardWindow(
+    val walkForwardWindow = WalkForwardWindow(
       inSampleStart = window.isStart,
       inSampleEnd = window.isEnd,
       outOfSampleStart = window.oosStart,
@@ -138,28 +156,57 @@ class WalkForwardService(
       outOfSampleTrades = oosReport.totalTrades,
       inSampleWinRate = isReport.winRate,
       outOfSampleWinRate = oosReport.winRate,
-      outOfSampleCagr = oosCagr,
-      outOfSampleMaxDrawdownPct = oosMaxDrawdownPct,
+      outOfSampleCagr = perWindowMetrics.cagr,
+      outOfSampleMaxDrawdownPct = perWindowMetrics.maxDrawdownPct,
+      outOfSampleRiskMetrics = perWindowMetrics.riskMetrics,
       inSampleBreadthUptrendPercent = isUptrendPct,
       inSampleBreadthAvg = isBreadthAvg,
       outOfSampleBreadthUptrendPercent = oosUptrendPct,
       outOfSampleBreadthAvg = oosBreadthAvg,
     )
+    return WindowComputation(
+      window = walkForwardWindow,
+      equityCurve = perWindowMetrics.equityCurve,
+      trades = oosReport.trades,
+    )
   }
 
   /**
-   * Per-window OOS CAGR + max drawdown — the inputs for a Calmar-based walk-forward objective.
-   * The sub-backtest does not compute these itself (there, position sizing only drives
-   * capital-aware selection), so they are derived here by applying position sizing to the OOS
-   * trades — the same post-backtest step the controller runs. Both null for an un-sized run.
+   * Per-window OOS risk metrics + the equity curve they were derived from. The sub-backtest
+   * does not compute these itself, so position sizing is applied here to the OOS trades —
+   * the same post-backtest step the controller runs. All fields null for an un-sized run.
    */
+  private data class PerWindowMetrics(
+    val cagr: Double?,
+    val maxDrawdownPct: Double?,
+    val riskMetrics: RiskMetrics?,
+    val equityCurve: List<PortfolioEquityPoint>?,
+  )
+
   private fun computeOosRiskMetrics(
     oosReport: BacktestReport,
     positionSizingConfig: PositionSizingConfig?,
-  ): Pair<Double?, Double?> {
-    if (positionSizingConfig == null) return null to null
+    riskFreeRatePct: Double,
+  ): PerWindowMetrics {
+    if (positionSizingConfig == null) {
+      return PerWindowMetrics(null, null, null, null)
+    }
     val sizing = positionSizingService.applyPositionSizing(oosReport.trades, positionSizingConfig)
-    return riskMetricsService.cagr(sizing.equityCurve) to sizing.maxDrawdownPct
+    val dailyReturns = riskMetricsService.dailyReturns(sizing.equityCurve)
+    val cagr = riskMetricsService.cagr(sizing.equityCurve)
+    val sharpe = riskMetricsService.sharpe(dailyReturns, riskFreeRatePct)
+    val sortino = riskMetricsService.sortino(dailyReturns, riskFreeRatePct)
+    val calmar = riskMetricsService.calmar(cagr, sizing.maxDrawdownPct)
+    val sqn = riskMetricsService.sqn(oosReport.trades)
+    val tailRatio = riskMetricsService.tailRatio(oosReport.trades)
+    val riskMetrics = RiskMetrics(
+      sharpeRatio = sharpe,
+      sortinoRatio = sortino,
+      calmarRatio = calmar,
+      sqn = sqn,
+      tailRatio = tailRatio,
+    )
+    return PerWindowMetrics(cagr, sizing.maxDrawdownPct, riskMetrics, sizing.equityCurve)
   }
 
   /**
@@ -203,35 +250,35 @@ class WalkForwardService(
     positionSizingConfig = params.positionSizingConfig,
   )
 
-  private fun aggregateResults(results: List<WalkForwardWindow>): WalkForwardResult {
-    if (results.isEmpty()) {
-      return WalkForwardResult(
-        windows = emptyList(),
-        aggregateOosEdge = 0.0,
-        aggregateOosTrades = 0,
-        aggregateOosWinRate = 0.0,
-        walkForwardEfficiency = 0.0,
-      )
+  internal fun aggregateResults(
+    computations: List<WindowComputation>,
+    riskFreeRatePct: Double = RAW_RISK_FREE_RATE,
+  ): WalkForwardResult {
+    if (computations.isEmpty()) {
+      return emptyResult()
     }
 
-    val totalOosTrades = results.sumOf { it.outOfSampleTrades }
+    val windows = computations.map { it.window }
+    val totalOosTrades = windows.sumOf { it.outOfSampleTrades }
     val weightedOosEdge = if (totalOosTrades > 0) {
-      results.sumOf { it.outOfSampleEdge * it.outOfSampleTrades } / totalOosTrades
+      windows.sumOf { it.outOfSampleEdge * it.outOfSampleTrades } / totalOosTrades
     } else {
       0.0
     }
     val weightedOosWinRate = if (totalOosTrades > 0) {
-      results.sumOf { it.outOfSampleWinRate * it.outOfSampleTrades } / totalOosTrades
+      windows.sumOf { it.outOfSampleWinRate * it.outOfSampleTrades } / totalOosTrades
     } else {
       0.0
     }
-    val totalIsTrades = results.sumOf { it.inSampleTrades }
+    val totalIsTrades = windows.sumOf { it.inSampleTrades }
     val weightedIsEdge = if (totalIsTrades > 0) {
-      results.sumOf { it.inSampleEdge * it.inSampleTrades } / totalIsTrades
+      windows.sumOf { it.inSampleEdge * it.inSampleTrades } / totalIsTrades
     } else {
       0.0
     }
     val wfe = if (weightedIsEdge != 0.0) weightedOosEdge / weightedIsEdge else 0.0
+
+    val stitched = stitchedAggregate(computations, riskFreeRatePct)
 
     logger.info(
       "Walk-forward complete: WFE=${String.format("%.2f", wfe)}, " +
@@ -240,13 +287,116 @@ class WalkForwardService(
     )
 
     return WalkForwardResult(
-      windows = results,
+      windows = windows,
       aggregateOosEdge = weightedOosEdge,
       aggregateOosTrades = totalOosTrades,
       aggregateOosWinRate = weightedOosWinRate,
       walkForwardEfficiency = wfe,
+      aggregateOosRiskMetrics = stitched.riskMetrics,
+      aggregateOosCagr = stitched.cagr,
+      aggregateOosMaxDrawdownPct = stitched.maxDrawdownPct,
     )
   }
+
+  /**
+   * Stitches per-window OOS equity curves and trade lists into a single continuous OOS view,
+   * then computes aggregate Sharpe / Sortino / Calmar / CAGR / max DD per ADR-0005. Each
+   * per-window curve is normalised to its window's starting value and chained multiplicatively
+   * into a synthetic continuous-compounding curve; daily returns are concatenated for Sharpe
+   * and Sortino; trades are concatenated for SQN and tail ratio. CAGR annualises the total
+   * compounded growth over the **wall-clock span** from the first window's first bar to the
+   * last window's last bar — matches the SPY-benchmark convention. When `stepMonths >
+   * outOfSampleMonths` the strategy is assumed flat (zero return) during gap days, which is
+   * the conservative direction. Returns the empty `StitchedAggregate` (all null) when no
+   * window contributed an equity curve with at least two points.
+   */
+  private fun stitchedAggregate(computations: List<WindowComputation>, riskFreeRatePct: Double): StitchedAggregate {
+    val sized = computations.filter { it.equityCurve != null && it.equityCurve.size >= 2 }
+    if (sized.isEmpty()) return StitchedAggregate(null, null, null)
+
+    val stitchedReturns = mutableListOf<Double>()
+    val syntheticCurve = mutableListOf<Double>()
+    var carry = 1.0
+    syntheticCurve.add(carry)
+
+    for (computation in sized) {
+      val curve = computation.equityCurve!!
+      val first = curve.first().portfolioValue
+      if (first <= 0.0) continue
+      stitchedReturns.addAll(riskMetricsService.dailyReturns(curve))
+      for (point in curve.drop(1)) {
+        val growth = point.portfolioValue / first
+        syntheticCurve.add(carry * growth)
+      }
+      carry *= curve.last().portfolioValue / first
+    }
+
+    val wallClockDays = ChronoUnit.DAYS.between(
+      sized
+        .first()
+        .equityCurve!!
+        .first()
+        .date,
+      sized
+        .last()
+        .equityCurve!!
+        .last()
+        .date,
+    )
+
+    val sharpe = riskMetricsService.sharpe(stitchedReturns, riskFreeRatePct)
+    val sortino = riskMetricsService.sortino(stitchedReturns, riskFreeRatePct)
+    val maxDd = peakToTroughDrawdownPct(syntheticCurve)
+    val cagr = if (wallClockDays > 0L && syntheticCurve.first() > 0.0) {
+      val growth = syntheticCurve.last() / syntheticCurve.first()
+      (growth.pow(DAYS_PER_CALENDAR_YEAR / wallClockDays.toDouble()) - 1.0) * PERCENT_SCALE
+    } else {
+      null
+    }
+    val calmar = riskMetricsService.calmar(cagr, maxDd)
+    val allTrades = sized.flatMap { it.trades }
+    val sqn = riskMetricsService.sqn(allTrades)
+    val tailRatio = riskMetricsService.tailRatio(allTrades)
+
+    val riskMetrics = RiskMetrics(
+      sharpeRatio = sharpe,
+      sortinoRatio = sortino,
+      calmarRatio = calmar,
+      sqn = sqn,
+      tailRatio = tailRatio,
+    )
+    return StitchedAggregate(riskMetrics, cagr, maxDd)
+  }
+
+  private fun peakToTroughDrawdownPct(curve: List<Double>): Double {
+    var peak = curve.first()
+    var maxDd = 0.0
+    for (value in curve) {
+      if (value > peak) peak = value
+      if (peak > 0.0) {
+        val dd = (peak - value) / peak * PERCENT_SCALE
+        if (dd > maxDd) maxDd = dd
+      }
+    }
+    return maxDd
+  }
+
+  private data class StitchedAggregate(
+    val riskMetrics: RiskMetrics?,
+    val cagr: Double?,
+    val maxDrawdownPct: Double?,
+  )
+
+  private fun emptyResult(): WalkForwardResult = WalkForwardResult(
+    windows = emptyList(),
+    aggregateOosEdge = 0.0,
+    aggregateOosTrades = 0,
+    aggregateOosWinRate = 0.0,
+    walkForwardEfficiency = 0.0,
+    aggregateOosRiskMetrics = null,
+    aggregateOosCagr = null,
+    aggregateOosMaxDrawdownPct = null,
+  )
 
   internal fun generateWindows(config: WalkForwardConfig): List<WindowDates> {
     require(config.inSampleMonths > 0) { "inSampleMonths must be positive, got ${config.inSampleMonths}" }
@@ -296,9 +446,13 @@ class WalkForwardService(
     val entryDelayDays: Int,
     val randomSeed: Long?,
     val positionSizingConfig: PositionSizingConfig?,
+    val riskFreeRatePct: Double,
   )
 
   companion object {
     private const val MAX_CONCURRENT_WINDOWS = 2
+    private const val RAW_RISK_FREE_RATE = 0.0
+    private const val DAYS_PER_CALENDAR_YEAR = 365.25
+    private const val PERCENT_SCALE = 100.0
   }
 }
