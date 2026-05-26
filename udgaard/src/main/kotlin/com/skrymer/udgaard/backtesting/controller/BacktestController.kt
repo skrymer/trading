@@ -298,6 +298,7 @@ class BacktestController(
       entryDelayDays = request.entryDelayDays,
       randomSeed = request.randomSeed,
       positionSizingConfig = request.positionSizing,
+      riskFreeRatePct = request.riskFreeRatePct ?: 0.0,
     )
 
     logger.info(

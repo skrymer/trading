@@ -139,4 +139,8 @@ data class WalkForwardRequest(
   val entryDelayDays: Int = 0,
   val randomSeed: Long? = null,
   val positionSizing: PositionSizingConfig? = null,
+  // Annualized risk-free rate (percent) for Sharpe/Sortino. Default 0 (raw Sharpe), matching
+  // the single-backtest endpoint's default. Used by WalkForwardService when computing per-window
+  // and stitched-aggregate risk-adjusted metrics per ADR-0005.
+  val riskFreeRatePct: Double? = null,
 )
