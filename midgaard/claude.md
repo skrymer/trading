@@ -86,6 +86,7 @@ midgaard/
 │   │   ├── DataIntegrityValidator.kt      # Interface — implementations are @Component
 │   │   ├── Violation.kt                   # Rolled-up: 1 Violation per (validator, invariant) tuple per run; carries count + sampleSymbols (top 10)
 │   │   ├── SectorIntegrityValidator.kt    # I1-I5: sector canonical, sector_symbol canonical, sector↔sector_symbol consistency, delisted⇒sector non-null, active+OHLCV⇒sector non-null
+│   │   ├── BadPrintIntegrityValidator.kt  # V1: no symbol should contain a bad-print V-shape bar (close >= 5x prev AND next <= 20% of spike) — canonical data-corruption signature flagged as CRITICAL
 │   │   ├── DataIntegrityService.kt        # runAll() = fresh snapshot of all validators + truncate-and-replace persistence
 │   │   └── ViolationRepository.kt         # jOOQ; findAll() ordered by severity asc; truncate-all on replace
 │   └── service/
@@ -113,7 +114,8 @@ midgaard/
 │   │   ├── V7__Add_market_holidays.sql     # 349 US exchange holidays 1995-2030 (EODHD seed; revisit before 2030)
 │   │   ├── V8__Restore_clobbered_v6_sectors.sql  # Re-INSERT V6 with ON CONFLICT DO UPDATE — restores sectors clobbered to 'Other' / variants by IngestionService; adds CHECK constraints for I1+I2 at the DB layer
 │   │   ├── V9__Create_data_integrity_violations.sql  # Storage for DataIntegrityValidator framework
-│   │   └── V10__Add_ovtlyr_signals.sql               # Sparse ovtlyr buy/sell signal storage
+│   │   ├── V10__Add_ovtlyr_signals.sql               # Sparse ovtlyr buy/sell signal storage
+│   │   └── V11__Remove_bad_print_symbols.sql         # One-time scrub: removes ~48 symbols matching the V-shape bad-print pattern (+ dependent rows in quotes, earnings, ovtlyr_signals, ingestion_status). Future contaminants are detected by BadPrintIntegrityValidator.
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
