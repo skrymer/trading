@@ -450,7 +450,12 @@ class WalkForwardService(
   )
 
   companion object {
-    private const val MAX_CONCURRENT_WINDOWS = 2
+    // Windows are processed sequentially. Earlier `=2` doubled per-window heap (two
+    // BacktestReports + two evaluation contexts simultaneously), causing OOM at 12-15GB
+    // on loose-entry candidates with high trade counts (e.g. MR3 with 431 OOS trades per
+    // window). Wall-clock cost is ~2x for the sequential reduction; the heap reduction
+    // is needed for the v4 candidate sweep against the full ~4000-stock universe.
+    private const val MAX_CONCURRENT_WINDOWS = 1
     private const val RAW_RISK_FREE_RATE = 0.0
     private const val DAYS_PER_CALENDAR_YEAR = 365.25
     private const val PERCENT_SCALE = 100.0
