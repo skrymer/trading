@@ -219,6 +219,136 @@ class BadPrintIntegrityValidatorE2ETest : AbstractIntegrationTest() {
     }
 
     @Test
+    fun `validate flags a sub-cent prev jump-that-holds with sufficient prior history under V3`() {
+        // Given: 5 bars at $0.003 (real low-price pre-split history) followed
+        // by a jump to $3.00 that holds. V2 misses this (prev < $0.01); V3 is
+        // for this exact AT-class case where bar_position >= 5 proves it isn't
+        // a stub-first-bar artifact.
+        quoteRepository.upsertQuotes(
+            listOf(
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 2), close = BigDecimal("0.003")),
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 3), close = BigDecimal("0.003")),
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 6), close = BigDecimal("0.003")),
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 7), close = BigDecimal("0.003")),
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 8), close = BigDecimal("0.003")),
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 9), close = BigDecimal("3.00")),
+                quoteAt("ATSPL", LocalDate.of(2020, 1, 10), close = BigDecimal("3.00")),
+            ),
+        )
+
+        // When
+        val violations = validator.validate()
+
+        // Then: one V3 violation, HIGH severity
+        assertEquals(1, violations.size)
+        val v = violations.single()
+        assertEquals("V3", v.invariant)
+        assertEquals(Severity.HIGH, v.severity)
+        assertEquals(1, v.count)
+        assertEquals(listOf("ATSPL"), v.sampleSymbols)
+    }
+
+    @Test
+    fun `validate deliberately leaves sub-cent V-shape with real history uncovered`() {
+        // Given: 5 bars at $0.003 then spike to $3.00 then crash back to
+        // $0.003. V1 would catch (V-shape) but its barFilter requires
+        // prev >= MIN_PRICE (excludes sub-cent). V3 would catch (sufficient
+        // history, sub-cent prev) but its predicate requires next/close >= 50%
+        // (this fails — next is 0.1% of close). Neither fires.
+        //
+        // This is deliberate: a sub-cent V-shape with real history is rare and
+        // dominated by stub-bar artifacts in practice. If a real example
+        // surfaces, design a new invariant rather than relaxing V1/V3.
+        quoteRepository.upsertQuotes(
+            listOf(
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 2), close = BigDecimal("0.003")),
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 3), close = BigDecimal("0.003")),
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 6), close = BigDecimal("0.003")),
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 7), close = BigDecimal("0.003")),
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 8), close = BigDecimal("0.003")),
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 9), close = BigDecimal("3.00")),
+                quoteAt("SCVSH", LocalDate.of(2020, 1, 10), close = BigDecimal("0.003")),
+            ),
+        )
+
+        // When
+        val violations = validator.validate()
+
+        // Then: no violation — the gap between V1 and V3 is intentional
+        assertEquals(emptyList(), violations)
+    }
+
+    @Test
+    fun `validate fires V3 exactly at the bar_position 5 boundary`() {
+        // Given: 4 bars at $0.003, then jump bar at $3.00 (bar_position = 5),
+        // then $3.00 hold. Locks the inclusive ge(5) on BAR_POSITION_FLOOR so
+        // a future flip to strict gt is caught.
+        quoteRepository.upsertQuotes(
+            listOf(
+                quoteAt("V3BD", LocalDate.of(2020, 1, 2), close = BigDecimal("0.003")),
+                quoteAt("V3BD", LocalDate.of(2020, 1, 3), close = BigDecimal("0.003")),
+                quoteAt("V3BD", LocalDate.of(2020, 1, 6), close = BigDecimal("0.003")),
+                quoteAt("V3BD", LocalDate.of(2020, 1, 7), close = BigDecimal("0.003")),
+                quoteAt("V3BD", LocalDate.of(2020, 1, 8), close = BigDecimal("3.00")),
+                quoteAt("V3BD", LocalDate.of(2020, 1, 9), close = BigDecimal("3.00")),
+            ),
+        )
+
+        // When
+        val violations = validator.validate()
+
+        // Then: V3 fires
+        assertEquals(1, violations.size)
+        assertEquals("V3", violations.single().invariant)
+    }
+
+    @Test
+    fun `validate fires V2 not V3 when prev is at or above MIN_PRICE`() {
+        // Given: 6 bars at $1.00 (well above MIN_PRICE) then jump to $10.00
+        // that holds. V2 territory (normal-priced prev); V3 must not fire.
+        quoteRepository.upsertQuotes(
+            listOf(
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 2), close = BigDecimal("1.00")),
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 3), close = BigDecimal("1.00")),
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 6), close = BigDecimal("1.00")),
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 7), close = BigDecimal("1.00")),
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 8), close = BigDecimal("1.00")),
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 9), close = BigDecimal("10.00")),
+                quoteAt("V2BD2", LocalDate.of(2020, 1, 10), close = BigDecimal("10.00")),
+            ),
+        )
+
+        // When
+        val violations = validator.validate()
+
+        // Then: V2 only — no double-counting under V3
+        assertEquals(1, violations.size)
+        assertEquals("V2", violations.single().invariant)
+    }
+
+    @Test
+    fun `validate V3 ignores a sub-cent stub bar with insufficient prior history`() {
+        // Given: 3 bars at $0.003 (NOT enough — bar_position of the jump bar
+        // would be 4, below BAR_POSITION_FLOOR=5) then jump to $3.00 that holds.
+        // V3 must skip this — could be a stub-bar artifact, not real history.
+        quoteRepository.upsertQuotes(
+            listOf(
+                quoteAt("STUB3", LocalDate.of(2020, 1, 2), close = BigDecimal("0.003")),
+                quoteAt("STUB3", LocalDate.of(2020, 1, 3), close = BigDecimal("0.003")),
+                quoteAt("STUB3", LocalDate.of(2020, 1, 6), close = BigDecimal("0.003")),
+                quoteAt("STUB3", LocalDate.of(2020, 1, 7), close = BigDecimal("3.00")),
+                quoteAt("STUB3", LocalDate.of(2020, 1, 8), close = BigDecimal("3.00")),
+            ),
+        )
+
+        // When
+        val violations = validator.validate()
+
+        // Then: no violation — only 3 bars of pre-jump history
+        assertEquals(emptyList(), violations)
+    }
+
+    @Test
     fun `validate ignores a stub first bar followed by the symbol's real listing price`() {
         // Given: $0.0001 stub bar (placeholder, not a real trade) followed by
         // the symbol's first real listing price at $3.56. A "jump" from a stub
