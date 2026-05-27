@@ -9,7 +9,7 @@ G11 is computed across blocks in summarize.py, not here.
 G12 is a per-block aggregate trade count, handled here.
 
 Usage:
-  eval-block.py <wf-result.json> --block {A,B,C} [--label NAME] [--risk PCT] [--spy-cagr PCT]
+  eval-block.py <wf-result.json> --block {A,B,C} [--label NAME] [--risk PCT]
 """
 import argparse
 import json
@@ -47,7 +47,6 @@ def main():
     p.add_argument("--block", required=True, choices=["A", "B", "C"])
     p.add_argument("--label", default="")
     p.add_argument("--risk", type=float, default=1.25)
-    p.add_argument("--spy-cagr", type=float, default=8.0, help="SPY CAGR for the block (for G1 SPY+2 check)")
     args = p.parse_args()
 
     data = json.loads(Path(args.path).read_text())
@@ -71,15 +70,25 @@ def main():
     agg_sharpe = rm.get("sharpeRatio")
     agg_calmar = rm.get("calmarRatio")
 
-    # G1: CAGR floor (max of 10%, SPY+2%, 30%)
-    g1_floor = max(10.0, args.spy_cagr + 2.0, 30.0)
+    # G1: CAGR floor. Quant-verified at max(10%, SPY+2%, 30%) but 30% dominates
+    # for every block — Block A 2000-2014 SPY CAGR ~4-5%, Block B 2014-2021 ~12-15%,
+    # Block C 2021-2025 ~10-12%; SPY+2 < 30 in all cases. Hardcoded as 30 so
+    # summarize.py's GATE_METADATA stays in sync without a runtime-flag desync risk.
+    # Revisit if SPY CAGR ever exceeds 28% over a relevant block.
+    #
+    # When N<4 windows, G4b enforces the same CAGR check (block-aggregate >=
+    # g1_floor). Emitting G1 too would double-count one underlying metric and
+    # eat two of the ≤2 tight-margin slots in NEAR_MISS evaluation. So G1 is
+    # skipped when G4b will fire.
+    g1_floor = 30.0
     gates = []
-    gates.append(gate(
-        "G1_cagr",
-        agg_cagr is not None and agg_cagr >= g1_floor,
-        agg_cagr,
-        f">= {g1_floor:.2f}% (max of 10, SPY+2={args.spy_cagr+2:.1f}, 30%)",
-    ))
+    if n >= 4:
+        gates.append(gate(
+            "G1_cagr",
+            agg_cagr is not None and agg_cagr >= g1_floor,
+            agg_cagr,
+            f">= {g1_floor:.2f}% (max of 10, SPY+2, 30) — 30 dominates",
+        ))
     gates.append(gate(
         "G2_dd_aggregated",
         agg_dd is not None and agg_dd <= 25.0,

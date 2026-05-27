@@ -15,10 +15,12 @@ This skill is strategy-neutral. Substitute the user's actual candidate label / r
 | Block | Range | Mandate regime | If pass |
 |---|---|---|---|
 | **A — Initial** | 2000-01-01 → 2014-01-01 (14y) | 2008 GFC OOS+ | Continue to B |
-| **B — COVID** | 2014-01-01 → 2020-12-31 (7y) | 2020 COVID OOS+ | Continue to C |
+| **B — COVID** | 2014-01-01 → 2021-06-30 (7.5y) | 2020 COVID OOS+ | Continue to C |
 | **C — Firewall** | 2021-01-01 → 2025-12-31 (5y) | 2022 inflation bear OOS+ | TRADABLE |
 
-No date gaps. Quant-validated boundaries — do not adjust.
+Block B ends 2021-06-30 (not 2020-12-31) so the W4 OOS window covers 2020 — without the extension G6 is structurally unreachable. 6-month overlap with Block C is contained in C's IS warm-up (C's first OOS under 36/12/12 cadence is 2024), preserving firewall integrity. Quant-verified boundaries — do not adjust.
+
+**G6a/G6b half-year split deferred.** The quant's preferred design splits Block B's G6 into G6a (2020-H1 crash survival, edge ≥ −0.5%) and G6b (2020-H2 recovery, edge > 0) so a strategy that bled in March but got rescued by the rally can't sneak through. Implementing requires per-trade entry-date data in the walk-forward response, which the engine doesn't currently expose — tracked in [issue #51](https://github.com/skrymer/trading/issues/51). Until that lands, Block B uses single G6 ("2020 OOS edge > 0") evaluated on the W4 window aggregate.
 
 A candidate must clear all 3 blocks. **A failed block is final. Modifying the config and re-running is data-mining, not validation.** The legitimate remediation path is to go back to `/strategy-screen` and re-survey the variant before re-entering the firewall.
 
@@ -65,10 +67,51 @@ Outputs:
 
 | Outcome | Meaning |
 |---|---|
-| **TRADABLE** | Pass A+B+C, G11 ok. Eligible for live deployment after position-sizing finalisation + Monte Carlo (`/monte-carlo`). |
+| **TRADABLE** | Pass A+B+C, G11 ok. Eligible for live deployment after position-sizing finalisation + Monte Carlo (`/monte-carlo`). **See "Script-condition promotion" below — TRADABLE is conditional if the candidate uses inline scripts.** |
 | **PROVISIONAL** | Pass A+B+C but G11 fail (edge degraded > 50% A→C). Paper-trade only; do not commit capital. |
 | **INCONCLUSIVE_G11** | Pass A+B+C but G11 couldn't be evaluated (missing data or Block A edge/CAGR non-positive). **NOT a TRADABLE verdict** — investigate the data anomaly before treating as ready. |
-| **REJECTED** | Failed any block. Candidate config burned. Re-design and re-enter via `/strategy-screen`. |
+| **NEAR_MISS** | Failed ≤ 2 gates AND every failure within tight margin AND no G6 failure. **NOT tradable** — "one design iteration away", not "almost tradable". Surfaces a `remediation_hint` indicating which axis to vary. Re-design and re-enter via `/strategy-screen`. |
+| **REJECTED** | Any other failure: catastrophic miss, G6 failure, OR 3+ tight failures (multi-dimensional drift). Re-design and re-enter via `/strategy-screen`. |
+
+### NEAR_MISS tight-margin bands (quant-verified 2026-05-28)
+
+| Gate type | Tight if failure within |
+|---|---|
+| Percentage gates (G1, G2, G3, G4 pct, G4a, G4b) | 5% relative to threshold |
+| Ratio gates (G5, G9) | 20% relative |
+| Count gates (G4 by-count, G8) | 1 unit |
+| Trade count (G12) | 20% relative |
+| **G6 regime mandate** | **No near-miss — must be strictly positive** |
+| G7 chop (OR-rule) | No near-miss possible — either at least one positive or none |
+
+**Multi-gate cap**: NEAR_MISS requires ≤ 2 tight-margin failures total across all blocks. 3+ tight failures = REJECTED with "multi-dimensional drift" note (the pattern says systematic slightly-off-mandate, not iterational).
+
+### `remediation_hint` values
+
+The summary surfaces one of these tokens based on which gates failed:
+
+| Hint | Triggered by |
+|---|---|
+| `regime_survival_redesign` | Any G6 failure (fundamental — strategy can't survive that regime) |
+| `tune_position_sizing` | G1 alone, or with non-DD gates (sizer too conservative for the regime) |
+| `add_regime_filter` | ≥2 of {G3, G4, G5} (the consistency cluster — usually fixed by suppressing entries in the bad regime) |
+| `tighten_exit_or_reduce_positions` | G2/G3 only (DD-only failures with edge intact) |
+| `expand_universe_or_loosen_entry` | G8/G12 (trade count too low) |
+| `review_failed_gates` | Anything else / catch-all |
+
+Hint is INFORMATIONAL — the firewall does not pre-approve any specific remediation. The operator picks the track.
+
+### Script-condition promotion (gate on TRADABLE → live)
+
+A TRADABLE verdict on a candidate that uses inline `{"type": "script"}` conditions in its `entryStrategy` or `exitStrategy` is **TRADABLE-PENDING-PROMOTION**, not final. Treat as paper-only until:
+
+1. Each inline script is promoted to a real, named, version-controlled condition class via `/create-condition` (passes the skill's lookahead-safety audits and is unit-tested).
+2. The candidate's request JSON is rewritten to use the promoted `type` name (e.g. `"type": "sectorBreadthDivergence"` instead of `"type": "script"`).
+3. The candidate **re-enters the firewall from Block A** with the promoted-condition request. Pre-promotion and post-promotion runs are not interchangeable — the firewall validates the exact config that will ship.
+
+Why: inline scripts are text in a request JSON; they bypass the `/create-condition` lookahead audits (PR #34 future-OB bug class), aren't unit-tested, aren't discoverable via `/api/backtest/conditions`, and silently drift between sessions. A TRADABLE verdict on a script-based config is a result about the *current text*, not the *deployed code*.
+
+The skill's summary report flags script-condition usage when emitting TRADABLE so this isn't missed.
 
 ## Agent delegation
 

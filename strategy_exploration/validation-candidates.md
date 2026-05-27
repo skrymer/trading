@@ -6,6 +6,8 @@ _Generated 2026-05-27, updated 2026-05-28 to include DV1 as a near-miss. Capture
 - **Firm survivors** (PASS all 5 `/strategy-screen` gates + CAGR ≥ 30%): **VZ3**, **MR3**
 - **Near-miss** (full Block A, fails 2 v4 gates by tiny margins; not advanced under current strict gates): **DV1**
 
+**All three candidates use inline `script` conditions in their `entryStrategy`. None is tradable as-is.** Even if `/validate-candidate` returns TRADABLE on VZ3 / MR3, the verdict is **TRADABLE-PENDING-PROMOTION** — the inline scripts must first be promoted to real, named, version-controlled `EntryCondition` classes via `/create-condition` (lookahead-audited + unit-tested), then the candidate re-enters the firewall from Block A with the promoted config. Inline scripts bypass the audit, aren't reproducible across sessions, and aren't discoverable via `/api/backtest/conditions`.
+
 ## Methodology context
 
 - **Universe**: post-V13 midgaard data (after V11/V12/V13 sanitization removed 206 symbols with V-shape bad-prints + V2/V3 split-adjustment failures). 3,964 active symbols.

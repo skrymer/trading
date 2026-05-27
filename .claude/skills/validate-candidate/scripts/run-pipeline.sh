@@ -54,7 +54,14 @@ if ! command -v jq >/dev/null; then
 fi
 
 declare -A BLOCK_START=( [A]="2000-01-01" [B]="2014-01-01" [C]="2021-01-01" )
-declare -A BLOCK_END=(   [A]="2014-01-01" [B]="2020-12-31" [C]="2025-12-31" )
+# Block B extends to 2021-06-30 (not 2020-12-31) so the W4 OOS window
+# (2020-01-02 to 2021-01-01 under 36/12/12 cadence) actually covers 2020 —
+# otherwise G6 ("2020 COVID OOS positive") is structurally unreachable. Quant-
+# verified 2026-05-28. 6-month overlap with Block C is contained in C's IS
+# warm-up (C's first OOS is 2024 under 36/12/12), so the firewall stays intact.
+# G6a/G6b half-year split (crash survival vs recovery) deferred — needs engine
+# change to expose per-trade data in WF response. See issue #51.
+declare -A BLOCK_END=(   [A]="2014-01-01" [B]="2021-06-30" [C]="2025-12-31" )
 
 EVAL_PATHS=()
 
@@ -138,12 +145,23 @@ else
   fi
 fi
 
+# Detect inline-script conditions so summarize.py can flag TRADABLE-pending-promotion.
+# Per SKILL.md "Script-condition promotion": a TRADABLE verdict on a candidate with
+# inline `{"type":"script"}` conditions is conditional until promoted via /create-condition.
+SCRIPT_CONDITIONS=$(jq '
+  [
+    (.entryStrategy.conditions // [])[],
+    (.exitStrategy.conditions // [])[]
+  ] | map(select(.type == "script")) | length
+' "$TEMPLATE")
+
 # Summarize whatever completed
 SUMMARY_JSON="/tmp/validate-${CANDIDATE}-summary.json"
 python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
   "/tmp/validate-${CANDIDATE}-eval-blockA.json" \
   "/tmp/validate-${CANDIDATE}-eval-blockB.json" \
   "/tmp/validate-${CANDIDATE}-eval-blockC.json" \
+  --script-conditions "$SCRIPT_CONDITIONS" \
   > "$SUMMARY_JSON" 2> "$REPO_REPORT"
 
 VERDICT=$(jq -r '.verdict' "$SUMMARY_JSON")
