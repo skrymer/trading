@@ -115,7 +115,8 @@ midgaard/
 │   │   ├── V8__Restore_clobbered_v6_sectors.sql  # Re-INSERT V6 with ON CONFLICT DO UPDATE — restores sectors clobbered to 'Other' / variants by IngestionService; adds CHECK constraints for I1+I2 at the DB layer
 │   │   ├── V9__Create_data_integrity_violations.sql  # Storage for DataIntegrityValidator framework
 │   │   ├── V10__Add_ovtlyr_signals.sql               # Sparse ovtlyr buy/sell signal storage
-│   │   └── V11__Remove_bad_print_symbols.sql         # One-time scrub: removes ~48 symbols matching the V-shape bad-print pattern (+ dependent rows in quotes, earnings, ovtlyr_signals, ingestion_status). Future contaminants are detected by BadPrintIntegrityValidator.
+│   │   ├── V11__Remove_bad_print_symbols.sql         # One-time scrub: removes ~48 symbols matching the V-shape bad-print pattern (+ dependent rows in quotes, earnings, ovtlyr_signals, ingestion_status). Future contaminants are detected by BadPrintIntegrityValidator.
+│   │   └── V12__Remove_split_adjustment_failure_symbols.sql  # One-time scrub: removes ~127 symbols matching BadPrintIntegrityValidator's V2 invariant (split-adjustment failure: close >= 5x prev AND next >= 50% of spike). Same cascade pattern as V11. ~63 of the removed symbols are still-active legitimate large-caps (DAC, WFRD, AU, FE, etc.) — accepted as collateral damage versus bar-level surgery.
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
