@@ -22,13 +22,16 @@ Gross profit divided by absolute gross loss for a set of closed trades. Undefine
 **Unassigned**:
 A position with no chosen strategy — its `entryStrategy` is null, blank, or the `"Broker Import"` placeholder that broker-sync stamps on imported positions. Grouped under the literal name `"(Unassigned)"` in per-strategy breakdowns.
 
-### Scanner trade dates
+### Trade execution dates
 
 **Signal date**:
-The date of the OHLCV bar on which a strategy's entry conditions were evaluated as a match (`ScanResult.date` returned by `/api/scanner/scan`). Distinct from the entry date — it's the *decision* bar, not the *execution* bar.
+The date of the OHLCV bar on which a strategy's entry conditions were evaluated as a match (`ScanResult.date` returned by `/api/scanner/scan`, or the `entryDate - entryDelayDays` bar in a backtest). The **decision bar** — distinct from the execution bar. Entry conditions are evaluated **only here**; they are NOT re-evaluated on the entry bar (see `entryDelayDays` below).
 
 **Entry date**:
-The date the trade was actually opened in the broker (i.e. the user filled). Typically `signalDate + N` trading days where `N` reflects the user's entryDelayDays convention (often 1). Stored as `scanner_trades.entry_date`.
+The date the trade was actually opened — in the broker for scanner trades, simulated as a fill for backtests. Equals `signalDate + entryDelayDays` trading days. Stored as `scanner_trades.entry_date` for scanner trades; recorded on `Trade.entryQuote.date` for backtest trades.
+
+**`entryDelayDays`**:
+The number of trading days between a strategy's signal bar and the actual execution. Models a real trader's workflow: a signal is observed at the close of one bar, an order is queued, and execution happens N bars later at that bar's close. Entry conditions are evaluated only at the signal bar — never re-evaluated at the entry bar. This is intentional: a live trader does not re-check the conditions before the order fills.
 
 **Signal snapshot**:
 The immutable record of `EntrySignalDetails` (per-condition pass/fail + actual values) for the signal bar, captured at the moment the trade is added. Persisted verbatim — never recomputed on read, because the underlying inputs (sector breadth, Donchian high, volume averages) can drift retroactively as those tables are recomputed. The snapshot is the only mechanism that survives such drift.
