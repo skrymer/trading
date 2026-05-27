@@ -209,7 +209,7 @@ trading/
 │   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, OvtlyrBackfillService, ApiKeyService, ScheduledIngestionService
 │   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config, ovtlyr signals)
 │   │   ├── controller/               # REST API + Thymeleaf UI controllers
-│   │   ├── integrity/                # Data integrity framework — SectorIntegrityValidator (I1-I5), BadPrintIntegrityValidator (V1 V-shape bad-print detection); Spring auto-wires List<DataIntegrityValidator>
+│   │   ├── integrity/                # Data integrity framework — SectorIntegrityValidator (I1-I5), BadPrintIntegrityValidator (V1 CRITICAL V-shape bad-print, V2 HIGH split-adjustment failure); Spring auto-wires List<DataIntegrityValidator>
 │   │   ├── model/                    # Domain models (Models.kt, OptionContractDto)
 │   │   └── config/                   # Configuration classes (Security, ProviderConfiguration, ExternalConfigLoader, VersionAdvice)
 │   ├── src/main/resources/           # Config, migrations, Thymeleaf templates
@@ -354,4 +354,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-05-15_
+_Last Updated: 2026-05-27_
