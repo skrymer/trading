@@ -71,16 +71,30 @@ Pass **all five** to qualify as a survivor. Reject any candidate that fails any 
 - **Wall time:** ~3-5 min per candidate (10y span × 7 windows × sized backtest).
 - **Track variants-screened across the sweep** — G5 fires at 50.
 
-## After screening
+## After screening — handoff to `/validate-candidate`
 
-**Survivors are not winners — they're candidates worth further validation.** Required next steps:
+**Survivors are not winners — they're candidates worth further validation.** The next step is the 3-block firewall via `/validate-candidate`, which applies the strict v4 gates + design-isolation + cross-block edge-decay check.
 
-1. **Re-run on full Block A** (2000-01-01 to 2015-01-01) via `/walk-forward`. Apply *strict v4 gates* there. A survivor on the 10y screen must clear the full 15y validation before being treated as a real candidate.
-2. **Then progress to Block B + Block C** per the 3-block firewall methodology.
+**The screen request file IS the validation template.** `/validate-candidate` overrides only `startDate` / `endDate` per block — every other field (entry/exit/sizer/ranker/seed) is reused as-is:
+
+```bash
+# Generic invocation:
+.claude/skills/validate-candidate/scripts/run-pipeline.sh <candidate-name> /tmp/screen-req-<candidate-name>.json
+```
+
+The pipeline runs Block A (2000-2014) → Block B (2014-2020 incl COVID) → Block C (2021-2025), stops at the first failing block, and emits `strategy_exploration/validate-<candidate-name>.md` with the final TRADABLE / PROVISIONAL / REJECTED verdict.
+
+**Skill output requirement** when reporting screen results: for each PASS candidate that also clears the 30% CAGR tradability bar, surface the exact `/validate-candidate` invocation as the recommended next step. Below-30%-CAGR passes go in a separate "filtered out" list — the screen approved them mechanically but they don't meet the user's tradability floor.
 
 ## Agent delegation
 
-After the API call returns, spawn `walk-forward-analyst` with the path to the saved JSON. Same agent as `/walk-forward` — it computes per-window stability, but here you also evaluate the 5 screening gates above for a binary pass/fail verdict. Report shape: one-line verdict per candidate so a sweep summary is scannable.
+For individual candidate analysis: spawn `walk-forward-analyst` with the path to the saved JSON (per-window stability for that candidate).
+
+For sweep-wide analysis (after all candidates are fired): spawn `strategy-screen-analyst` with the sweep's eval JSONs + verdict table. The agent:
+- Buckets candidates into TRUE SURVIVORS / PASS-but-below-tradability / FAILURES / LOST
+- Classifies each failure against the failure-mode → root-cause table (G4 over-firing pattern, ranker brittleness, edge inconsistency, etc.)
+- Flags seed-invariant duplicates, ranker-family clustering, contamination tells, cross-candidate trade overlap
+- Recommends per-candidate next step (`/validate-candidate` invocation for survivors; specific remediation for fixable failures; reject-and-redesign for structural ones)
 
 ## Critical warnings
 
