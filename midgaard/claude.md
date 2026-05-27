@@ -86,7 +86,7 @@ midgaard/
 │   │   ├── DataIntegrityValidator.kt      # Interface — implementations are @Component
 │   │   ├── Violation.kt                   # Rolled-up: 1 Violation per (validator, invariant) tuple per run; carries count + sampleSymbols (top 10)
 │   │   ├── SectorIntegrityValidator.kt    # I1-I5: sector canonical, sector_symbol canonical, sector↔sector_symbol consistency, delisted⇒sector non-null, active+OHLCV⇒sector non-null
-│   │   ├── BadPrintIntegrityValidator.kt  # V1: no symbol should contain a bad-print V-shape bar (close >= 5x prev AND next <= 20% of spike) — canonical data-corruption signature flagged as CRITICAL
+│   │   ├── BadPrintIntegrityValidator.kt  # V1 (CRITICAL): bad-print V-shape bar (close >= 5x prev AND next <= 20% of spike) — canonical data-corruption signature. V2 (HIGH): split-adjustment failure (close >= 5x prev AND next >= 50% of close) — provider (EODHD) carried only a partial adjustment factor back, leaving a real corporate-action jump that the engine treats as a phantom return. Both invariants apply a `MIN_PRICE` ($0.01) floor on the prev bar to filter out stub/placeholder first bars at the symbol's listing date.
 │   │   ├── DataIntegrityService.kt        # runAll() = fresh snapshot of all validators + truncate-and-replace persistence
 │   │   └── ViolationRepository.kt         # jOOQ; findAll() ordered by severity asc; truncate-all on replace
 │   └── service/
