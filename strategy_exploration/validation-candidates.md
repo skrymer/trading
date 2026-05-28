@@ -262,19 +262,115 @@ If both survive Block B + C validation, a **portfolio of VZ3 + MR3** would be mo
 
 ---
 
+## Strategic framing — regime-conditional portfolio (quant 2026-05-28)
+
+After VZ3's PASS A+B / FAIL C result, the quant called the direction:
+
+> Uber-strategy search has hit diminishing returns. The set of "single rule with `E[edge | any regime] > 0`" is approximately empty for any premise rich enough to have edge in one regime. Going higher than VCP requires **orthogonality (regime-specialists), not depth (more conditions on a single premise)**.
+
+**Current state vs portfolio transition threshold**: **1/4 criteria met** (VCP only). Threshold requires ≥3 components passing relaxed regime-conditional bar + pairwise in-regime correlation ≤ 0.3 + combined regime coverage ≥ 70% + classifier passes v4. **Stay in component-search mode.**
+
+**Search direction — fill regime gaps**:
+| Gap | Status | Notes |
+|---|---|---|
+| Broad-participation trending | **Filled** (VCP) | Stop firing candidates here; would be duplication, not diversification |
+| Narrow-leadership / Mag-7 trending | **Empty (highest-value gap)** | Where VZ3 died. Hardest to fill — historically thin edges here |
+| Range-bound / low-breadth chop | **Empty** | Where VCP underperforms but doesn't bleed |
+| Crisis / high-volatility | **Empty** | Defensive component with mediocre edge but anti-correlation value |
+
+**Component bar (relaxed, not v4)**:
+- Pass target regime block all 10 gates (cleanly, not borderline)
+- Flat-or-better outside target regime (DD ≤ 1.5× in-regime DD)
+- G6 crash survival NON-NEGOTIABLE for every component (classifier confidence is lowest in crises)
+- Edge-stability within target regime (no sign-flips across sub-periods)
+- Design-isolation (no feature-set reuse across components)
+
+Under this bar, **VZ3 may actually pass as a broad-participation-trending component** despite v4 REJECTION (Block A+B cleared cleanly; Block C is "out of regime"). Not actionable today though — broad-participation trending is already covered by VCP.
+
+See [`project_regime_conditional_portfolio_framework.md`](../../.claude/projects/-home-skrymer-Development-git-trading/memory/project_regime_conditional_portfolio_framework.md) for the full framework.
+
+---
+
+## Firewall outcome (2026-05-28) — both REJECTED under single-strategy v4
+
+- **VZ3-s3 baseline (1.25%/2.0nAtr)**: PASS Block A, PASS Block B-corrected, **FAIL Block C**. Per-trade edge inverted +0.48% → −0.11% in 2024. Mean-reversion-on-pullback breaks in narrow-leadership trending tape. Quant verdict (post-firewall): not iterable on this axis — adding a regime filter would be IS-fitting to the single Block C OOS window. The wider lesson: mean-reversion-on-pullback strategies have a known weakness in low-breadth trending markets; they won't clear v4 without a structurally different entry premise (not a bolt-on filter).
+- **MR3-s1 baseline (1.25%/2.0nAtr)**: **FAIL Block A** with multi-dimensional drift (G3 worst-window DD 20.47% > 20%, G4 8/11 windows positive < 75%, G5 CoV 1.77 > 1.5 — three tight failures, NEAR_MISS bucket capped at 2). Quant levers (ATR-percentile floor + min pullback depth + held≥5 exit) noted but not yet built.
+
+**Search-area finding**: VZ3 + MR3 are both mean-reversion-in-uptrend variants. Both REJECTED for different reasons (VZ3 fails late, MR3 fails early), which together signal the mean-reversion-on-pullback design space is mostly exhausted on the current cleaned universe.
+
+See [`VZ3_STRATEGY_DEVELOPMENT.md`](VZ3_STRATEGY_DEVELOPMENT.md) and [`MR3_STRATEGY_DEVELOPMENT.md`](MR3_STRATEGY_DEVELOPMENT.md) for per-candidate state.
+
+### VZ3 — sizer sweep + 2019 drag fix
+
+**Diagnosis**: VZ3's gates pass cleanly; CAGR is the constrained dimension. AtrRisk(1.25%, 2.0×ATR) leaves DD headroom unused (Block A 11.92%, Block B ~6%) — sizer is under-deployed for the regime. Lifting risk-per-trade is the lowest-risk lever.
+
+**Sizer sweep grid** (5 variants, Block A only first; winner re-fires Block B + C):
+
+| Variant | nAtr | Risk % | Rationale |
+|---|---|---|---|
+| **Current** | 2.0 | 1.25 | Baseline — already in `/tmp/validate-VZ3-s3-blockA.json` |
+| **A** | 2.0 | 1.50 | +20% — likely closes CAGR gap without DD blow-up |
+| **B** | 2.0 | 1.75 | **First pick** — projected Block A DD ~16.7%, Block B ~6.6%, well inside G2 cap |
+| **C** | 2.0 | 2.00 | Stress test — confirms ceiling before DD breach |
+| **D** | 1.75 | 1.50 | Tighter stop + more risk — alternate axis |
+
+**2019 drag fix** (independent of sizer): replace the `+10% gain target` exit with one of:
+1. **Trailing EMA20 break** (`close < closeEMA20` after entry day + N) — lets winners run during persistent trend windows
+2. **Chandelier 3×ATR** trailing stop — same intent, different mechanic
+
+Reason: the +10% target capped many 2019 trades short of the late-2019 momentum extension. Surface as a follow-up sweep after the sizer winner is locked.
+
+### MR3 — quiet-regime filter + minimum pullback depth + held≥5 exit
+
+**Diagnosis**: REJECTED on Block B with three correlated structural failures (not a single-axis fix like VZ3). Edge bled when entries fired in low-volatility chop where the 3-day dip wasn't deep enough to mean-revert. The mean-reversion premise needs sharper qualification, not more capital.
+
+| Lever | Change | Why |
+|---|---|---|
+| **Stock-level ATR-percentile floor** | Require trailing 252-day `ATR/close` ≥ 30th percentile of stock's own history | Suppresses entries in the stock's own quiet regime — where mean-reversion edge is weakest |
+| **Minimum pullback depth** | Require cumulative 3-day return ≤ −3% | Rejects shallow dips that don't qualify as a real pullback |
+| **Exit** | Held ≥ 5 days + 2×ATR stop (was held ≥ 3 days + 2.5×ATR) | Gives the reversion more time to materialize; tighter stop reduces small losers |
+
+Lower priority than VZ3 — MR3 needs script-condition promotion + Block-A re-survey via `/strategy-screen` before re-entering the firewall.
+
+### Pair potential
+
+If both candidates eventually clear the firewall (post-promotion + post-improvement), the equity-curve correlation is likely 0.4-0.6 (VZ3 trend-following vs. MR3 mean-reversion, inverse regime preferences). Projected pair Sharpe 2.7-3.2 with shared capital — meaningfully higher than either solo. Pair backtest is a Phase-2 follow-up after both candidates are independently TRADABLE.
+
+---
+
 ## Next steps
 
-1. **Full Block A validation** (2000-01-01 to 2015-01-01, same cadence) for VZ3-s3 and MR3-s1 via `/walk-forward`. Apply strict v4 gates (CAGR ≥ 30% AND SPY+2%, max DD ≤ 25%, 75% windows positive, 2008+2022 positive, etc.). 12 OOS windows total.
-2. **Block B validation** (2015-2020) for any that survive Block A.
-3. **Block C validation** (2021-2025) — the firewall — for any that survive Block B.
-4. **Monte Carlo** on the Block A position-sized results — quantify path risk.
-5. **Optional sizer / position-count sweep** on each survivor before committing to live deployment (cf. VCP_TRADING_PLAN.md methodology).
+**Component search — target each remaining regime gap:**
 
-Only candidates that clear all three blocks should be considered tradable.
+1. **Mjolnir entry + VCP exit (MJV)** _(screening 2026-05-28)_ — `MjolnirEntryStrategy` + `VcpExitStrategy` at VZ3 baseline sizer (1.25%/2.0nAtr), `DistanceFrom10Ema` ranker, seed 1, 2005-2015. Different premise (trend/momentum). Likely targets broad-participation trending — caveat: if it ends up in the same regime as VCP, it's duplication. Will assess regime fit from screen window-level edges.
+2. **Narrow-leadership candidate (HIGHEST-VALUE GAP, undefined)** — needs a structurally different entry premise that profits in Mag-7-concentrated tape. Brainstorm directions: leadership-concentration scanner (top-N return contribution to SPY), relative-strength rank vs sector, breakout-of-narrow-range when leadership widens. Quant: "hardest to fill, highest value." Skip until VCP+Mjolnir+VCP-exit picture is clear.
+3. **Chop / range-bound candidate (undefined)** — counter-trend or mean-reversion under explicit chop regime (`!marketUptrend AND !marketDowntrend` or similar). MR3 with filter refinements (ATR-percentile floor + min-pullback-depth + held≥5 exit) is a candidate IF the levers actually move the failure-mode dial. Re-survey first before firewall.
+4. **Crisis / defensive candidate (undefined)** — anti-correlation play. Brainstorm: VIX-based gate + index-short or sector-rotation-to-defensive (utilities, staples). Lowest priority (smallest edge expected) but highest portfolio-level value.
+
+**Process gates** (apply when any candidate clears the relaxed regime-conditional bar):
+- **Script-condition promotion** — inline scripts must be promoted via `/create-condition` before TRADABLE→live; firewall validates the exact config that will ship.
+- **Block C cadence fix (separate ADR)** — current 36/12/12 on 5y range fits only 1 OOS window. REFERENCE.md claims 2. Either widen Block C or accept 1-window limitation explicitly. Per quant: do as a future-candidate ADR, not a rescue maneuver for any single candidate.
+
+**Do NOT do (variance-mining traps)**:
+- Iterate VZ3 with regime filters bolted on — it's IS-fitting to the single Block C OOS window
+- Sweep more VZ3 sizer variants — quant verdict was clean
+- Fire candidates targeting broad-participation trending — VCP covers that regime; duplication, not diversification
+- Tune portfolio weights to smooth equity curves — explicit anti-pattern per the framework
+
+**When to revisit framework**: if after ~6 more candidate runs targeted at the regime gaps we have <2 additional survivors, regime-component-portfolio frame isn't producing components fast enough. Stay with VCP solo and revisit in 6 months with different premises.
 
 ---
 
 ## Failed candidates (for completeness)
+
+### MJV-s1 — Mjolnir entry + VCP exit (2026-05-28)
+- Per-trade edge +2.50% (high) but **bimodally distributed** — 5/7 windows < +1.5%, 2/7 windows > +8% (2009 +49.67% / 2013 +50.84% CAGR carrying five negative-CAGR years).
+- Aggregate CAGR 7.43% (geometric stitch of the lumpy sequence), Sharpe 0.51 (fails G2), Calmar 0.28, max DD 26.70%.
+- Quant verdict: **regime-conditional momentum entry without explicit regime gating = lottery**. Edge is regime-beta on momentum factor, not alpha. Iteration via faster exit or sizer sweep explicitly banned (faster exit destroys the W2/W6 runners; sizer sweep is variance-mining trap → ruined account on a 5/7-negative-years engine).
+- Framework-fit: **doesn't fill any unfilled regime gap** — duplicates VCP's broad-trending footprint with worse path quality. REJECTED no iteration.
+- See [`feedback_lottery_screen_diagnostic.md`](../../.claude/projects/-home-skrymer-Development-git-trading/memory/feedback_lottery_screen_diagnostic.md) for the reusable screen-stage rejection rule this case produced.
+
+### Original /strategy-screen sweep (2026-05-27)
 
 Eight candidates failed the screen. All but one failed G4 (GFC stress) — the dominant failure mode in the sweep.
 
