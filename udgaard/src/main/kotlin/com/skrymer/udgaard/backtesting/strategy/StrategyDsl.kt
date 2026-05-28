@@ -29,6 +29,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.OvtlyrBuySignalF
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.Pullback2of3Condition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAboveCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAcceleratingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEmaAlignmentCondition
@@ -50,6 +51,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.exit.GapAndCrapExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketAndSectorDowntrendExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.MarketBreadthDeterioratingExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.OvtlyrSellSignalCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.PercentGainExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaForDaysExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaMinusAtrExit
@@ -279,6 +281,14 @@ class EntryStrategyBuilder {
       conditions.add(PriceNearDonchianHighCondition(maxDistancePercent))
     }
 
+  fun pullback2of3(
+    atrMultiple: Double = 1.5,
+    lookbackDays: Int = 10,
+    minSubConditions: Int = 2,
+  ) = apply {
+    conditions.add(Pullback2of3Condition(atrMultiple, lookbackDays, minSubConditions))
+  }
+
   // External signals
   fun ovtlyrBuySignal() =
     apply {
@@ -346,6 +356,11 @@ class ExitStrategyBuilder {
   fun priceBelowEma(emaPeriod: Int = 10) =
     apply {
       conditions.add(PriceBelowEmaExit(emaPeriod))
+    }
+
+  fun percentGain(targetPct: Double = 10.0) =
+    apply {
+      conditions.add(PercentGainExit(targetPct))
     }
 
   fun priceBelowEmaMinusAtr(
