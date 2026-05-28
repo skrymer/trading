@@ -5,6 +5,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.ADXRangeConditio
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ATRExpandingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.AboveBearishOrderBlockCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.BelowOrderBlockCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.BreadthEma10Above50Condition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.BullishCandleCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ConsecutiveHigherHighsInValueZoneCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.DaysSinceEarningsCondition
@@ -34,6 +35,7 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEma
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthGreaterThanMarketCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorUptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SpyPriceUptrendCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.SpyTrendUpCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.ValueZoneCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.VolatilityContractedCondition
@@ -106,6 +108,16 @@ class EntryStrategyBuilder {
   fun spyPriceUptrend() =
     apply {
       conditions.add(SpyPriceUptrendCondition())
+    }
+
+  fun spyTrendUp() =
+    apply {
+      conditions.add(SpyTrendUpCondition())
+    }
+
+  fun breadthEma10Above50() =
+    apply {
+      conditions.add(BreadthEma10Above50Condition())
     }
 
   fun marketBreadthAbove(threshold: Double) =
