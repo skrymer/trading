@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
-"""Apply the v4 gates to one block's walk-forward result.
+"""Apply the v4 gates to one layer's walk-forward result.
 
-Per .claude/skills/validate-candidate/SKILL.md. Gates G1-G9 are universal;
-G6/G7 are block-specific; G4 falls back to G4a/G4b for N < 4 OOS windows.
+Per .claude/skills/validate-candidate/SKILL.md (refined framework 2026-05-28):
+Block A (binding) + Block B (binding) + 25y aggregate (binding) + Block C (informational).
+
+Gates G1-G9 are universal; G6/G7 are layer-specific; G4 falls back to G4a/G4b for N < 4 OOS windows.
 
 G10 is enforced by the orchestrator (user confirmation), not here.
-G11 is computed across blocks in summarize.py, not here.
-G12 is a per-block aggregate trade count, handled here.
+G11 (cross-block edge decay A→B) is computed in summarize.py, not here.
+G12 is a per-layer aggregate trade count, handled here.
+
+Block C is informational — gates are still evaluated and reported, but additionally a
+non_catastrophic check is emitted (|edge| <= 0.5% AND DD <= 20%). summarize.py reads
+this flag to decide PROVISIONAL vs TRADABLE, but Block C gate failures never trigger
+REJECTED on their own.
 
 Usage:
-  eval-block.py <wf-result.json> --block {A,B,C} [--label NAME] [--risk PCT]
+  eval-block.py <wf-result.json> --block {A,B,C,25y} [--label NAME] [--risk PCT]
 """
 import argparse
 import json
@@ -23,18 +30,28 @@ BLOCK_CONFIG = {
         "regime_mandate_year": "2008",
         "regime_mandate_label": "2008 GFC",
         "chop_years": ["2004", "2011", "2015-H1"],
+        "binding": True,
     },
     "B": {
-        "name": "Block B (2014-2020 incl COVID)",
+        "name": "Block B (2014-2021H1 incl COVID)",
         "regime_mandate_year": "2020",
         "regime_mandate_label": "2020 COVID",
         "chop_years": ["2015-H2", "2018-Q4"],
+        "binding": True,
+    },
+    "25y": {
+        "name": "25-year aggregate (2000-2025)",
+        "regime_mandate_year": "2008",
+        "regime_mandate_label": "2008 GFC",
+        "chop_years": ["2004", "2011", "2015-H1"],
+        "binding": True,
     },
     "C": {
-        "name": "Block C (2021-2025)",
+        "name": "Block C (2021-2025, informational)",
         "regime_mandate_year": "2022",
         "regime_mandate_label": "2022 inflation bear",
-        "chop_years": None,  # skipped per quant
+        "chop_years": None,
+        "binding": False,
     },
 }
 
@@ -44,7 +61,7 @@ def gate(name, passed, value, threshold, note=""):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("path")
-    p.add_argument("--block", required=True, choices=["A", "B", "C"])
+    p.add_argument("--block", required=True, choices=["A", "B", "C", "25y"])
     p.add_argument("--label", default="")
     p.add_argument("--risk", type=float, default=1.25)
     args = p.parse_args()
@@ -215,15 +232,26 @@ def main():
     failed = [g for g in gates if not g["passed"]]
     overall = "PASS" if not failed else "FAIL"
 
+    # Block C non-catastrophic check (informational only). summarize.py reads this
+    # to decide PROVISIONAL vs TRADABLE; Block C gate failures DO NOT trigger REJECTED.
+    # Threshold: |edge| <= 0.5% AND DD <= 20% (quant-verified 2026-05-28).
+    non_catastrophic = None
+    if args.block == "C":
+        edge_ok = agg_edge is not None and abs(agg_edge) <= 0.5
+        dd_ok = agg_dd is not None and agg_dd <= 20.0
+        non_catastrophic = edge_ok and dd_ok
+
     summary = {
         "label": args.label or Path(args.path).stem,
         "block": args.block,
         "block_name": block_cfg["name"],
+        "binding": block_cfg.get("binding", True),
         "overall": overall,
         "first_failure": failed[0]["name"] if failed else None,
         "passed_gates": passed_count,
         "failed_gates": len(failed),
         "total_gates": len(gates),
+        "non_catastrophic": non_catastrophic,
         "aggregate_edge": agg_edge,
         "aggregate_cagr": agg_cagr,
         "aggregate_max_dd": agg_dd,
@@ -239,13 +267,21 @@ def main():
     cagr_str = f"{agg_cagr:.2f}%" if agg_cagr is not None else "null"
     dd_str = f"{agg_dd:.2f}%" if agg_dd is not None else "null"
     edge_str = f"{agg_edge:.3f}%" if agg_edge is not None else "null"
+    binding_note = "" if block_cfg.get("binding", True) else " (informational)"
+    nc_note = ""
+    if args.block == "C":
+        nc_note = f" non_catastrophic={non_catastrophic}"
     print(
-        f"[{summary['label']} Block {args.block}] {overall} | "
+        f"[{summary['label']} Block {args.block}{binding_note}] {overall} | "
         f"edge={edge_str} sharpe={sharpe_str} cagr={cagr_str} dd={dd_str} | "
-        f"{passed_count}/{len(gates)} gates pass | first_failure={summary['first_failure']}",
+        f"{passed_count}/{len(gates)} gates pass | first_failure={summary['first_failure']}{nc_note}",
         file=sys.stderr,
     )
 
+    # Block C is informational: exit 0 regardless of gate failures (overall is reported
+    # but doesn't bind orchestration). Binding layers exit 1 on FAIL to halt run-pipeline.sh.
+    if not block_cfg.get("binding", True):
+        sys.exit(0)
     sys.exit(0 if overall == "PASS" else 1)
 
 if __name__ == "__main__":
