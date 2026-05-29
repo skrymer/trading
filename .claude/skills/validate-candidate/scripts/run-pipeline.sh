@@ -178,6 +178,12 @@ SCRIPT_CONDITIONS=$(jq '
   ] | map(select(.type == "script")) | length
 ' "$TEMPLATE")
 
+# Pass a prior G13 advisory outcome to summarize if one exists (G13 runs separately via
+# run-g13.sh after a TRADABLE; it never changes the verdict, only surfaces as a yellow flag).
+G13_OUTCOME="/tmp/g13-${CANDIDATE}/g13-${CANDIDATE}-outcome.json"
+G13_ARGS=()
+[[ -s "$G13_OUTCOME" ]] && G13_ARGS=(--g13 "$G13_OUTCOME")
+
 # Summarize whatever completed
 SUMMARY_JSON="/tmp/validate-${CANDIDATE}-summary.json"
 python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
@@ -186,6 +192,7 @@ python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
   "/tmp/validate-${CANDIDATE}-eval-25y.json" \
   "/tmp/validate-${CANDIDATE}-eval-blockC.json" \
   --script-conditions "$SCRIPT_CONDITIONS" \
+  "${G13_ARGS[@]}" \
   > "$SUMMARY_JSON" 2> "$REPO_REPORT"
 
 VERDICT=$(jq -r '.verdict' "$SUMMARY_JSON")
@@ -193,3 +200,12 @@ echo "" >&2
 echo "==> FINAL VERDICT: $VERDICT" >&2
 echo "==> Summary JSON: $SUMMARY_JSON" >&2
 echo "==> Report:       $REPO_REPORT" >&2
+
+# G13 (advisory) runs as a separate sweep after a TRADABLE center — it fires neighbor backtests
+# and needs explicit confirmation, so it is not auto-fired here.
+if [[ "$VERDICT" == "TRADABLE" && ! -s "$G13_OUTCOME" ]]; then
+  echo "" >&2
+  echo "==> Advisory next step: run the G13 parameter-robustness sweep on this TRADABLE center:" >&2
+  echo "    $SKILL_DIR/scripts/run-g13.sh $CANDIDATE $TEMPLATE" >&2
+  echo "    (fires ±-step neighbor backtests; advisory only — does not change the verdict)" >&2
+fi

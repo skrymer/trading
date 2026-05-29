@@ -160,6 +160,8 @@ def main():
     p.add_argument("eval_c", nargs="?", default=None, help="Block C eval JSON (informational)")
     p.add_argument("--script-conditions", type=int, default=0,
                    help="Count of inline-script conditions in the candidate request template")
+    p.add_argument("--g13", default=None,
+                   help="Optional G13 advisory outcome JSON (from run-g13.sh). Surfaced but never binds.")
     args = p.parse_args()
 
     layers = {
@@ -205,6 +207,9 @@ def main():
 
     remediation_hint = derive_remediation_hint(failed_gates_binding)
 
+    # G13 is advisory (calibration-pending) — surfaced but NEVER changes the verdict below.
+    g13_advisory = load(args.g13) if args.g13 else None
+
     all_binding_complete = all(layers[k] is not None for k in BINDING_LAYERS)
 
     if binding_fail:
@@ -234,6 +239,7 @@ def main():
         "tight_margin_failures_binding": sum(1 for g in failed_gates_binding if is_tight_margin(g)),
         "remediation_hint": remediation_hint,
         "script_conditions_in_template": args.script_conditions,
+        "g13_advisory": g13_advisory,
     }
     print(json.dumps(summary, indent=2, default=str))
 
@@ -304,6 +310,18 @@ def main():
         for g in layer.get("gates", []):
             status = "PASS" if g["passed"] else "FAIL"
             md_lines.append(f"| {g['name']} | {status} | {g.get('value')} | {g.get('threshold')} |")
+        md_lines.append("")
+
+    if g13_advisory is not None:
+        md_lines.append("## G13 — Parameter Robustness (advisory, calibration-pending)")
+        md_lines.append("")
+        md_lines.append(f"- **Advisory outcome: {g13_advisory.get('outcome')}** (reason: {g13_advisory.get('reason') or '—'})")
+        md_lines.append("- This does NOT change the verdict above — G13 is calibration-pending. Treat as a yellow flag.")
+        floor = g13_advisory.get("floor_flagged_tunables") or []
+        if floor:
+            md_lines.append(f"- Floor-flagged tunables (one-sided robustness only): {', '.join(floor)}")
+        for nb in g13_advisory.get("failing_neighbors") or []:
+            md_lines.append(f"- Fragile neighbor: `{nb.get('name')}` {nb.get('direction')} failed {', '.join(nb.get('failing_gates') or [])}")
         md_lines.append("")
 
     md_lines.append("## Verdict explanation")

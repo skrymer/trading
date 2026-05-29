@@ -24,6 +24,7 @@ You will be given:
 - `/tmp/validate-<candidate>-block{A,B}.json` — raw walk-forward results per block (for per-window inspection)
 - `/tmp/validate-<candidate>-25y.json` — raw 25y walk-forward result (22 OOS windows for stability inspection)
 - `/tmp/validate-<candidate>-blockC.json` — raw Block C walk-forward result
+- `/tmp/g13-<candidate>/g13-<candidate>-outcome.json` — **(optional)** the G13 parameter-robustness advisory outcome, if the G13 sweep was run. Surfaced as `g13_advisory` in the summary JSON.
 
 ## Tasks
 
@@ -71,6 +72,17 @@ For each gate that PASSED across all 3 blocks, compute the margin to threshold. 
 
 The 5% criterion is universal; the IQR criterion is tight where the PASS distribution is tight (G5 CoV) and wide where it's wide (G11 edge decay). Both matter.
 
+### 4b. G13 parameter-robustness read (only if `g13_advisory` is present)
+
+G13 is **advisory / calibration-pending** — it does NOT change the deterministic verdict. Do not treat a G13 REJECTED as if the candidate were rejected. Interpret it as a fragility yellow flag:
+
+- **G13 TRADABLE** — neighbors held; the edge is not a single-parameter artifact. Strengthens confidence in a TRADABLE verdict.
+- **G13 PROVISIONAL** (`g13_floor_pinned` or `g13_regime_sensitive_neighbor`) — one-sided robustness or a single continuous near-miss that survived the ±2 probe. Note which tunable and recommend the operator widen the design margin on it before sizing up.
+- **G13 REJECTED** (`g13_parameter_fragile` / `g13_parameter_fragile_pm2_cliff`) — a neighbor fell off a binding gate. Name the fragile tunable + direction + failing gate. This is the strongest single argument against committing capital even on a TRADABLE verdict: the deterministic gates passed at the center, but the center was a lucky pick. Recommend re-design of that tunable's dimension (not a re-run at a re-picked value — that's data-snooping).
+- **`subtype_fallback` flags** — if any neighbor was classified by subtype fallback, flag that the classification map needs extending; the robustness read for that tunable is provisional until it's mapped.
+
+Until G13 is calibrated, present its outcome as decision-support, not a gate. Do not let a G13 PASS substitute for the binding-layer verdict, and do not let a G13 REJECTED override a deterministic REJECTED's remediation path.
+
 ### 5. Verdict-specific next step recommendation
 
 **TRADABLE**:
@@ -112,7 +124,8 @@ The 5% criterion is universal; the IQR criterion is tight where the PASS distrib
 3. **Layer-specific regime decomposition** (one section per layer — outlier-driven? narrow regime win? Block C section explicitly flags where 2024 OOS edge sits in the 25y per-window distribution)
 4. **25y per-window stability scan** (count of negative windows, clustering pattern, late-clustering as edge-decay signal)
 5. **"Passed but barely" margins** (table of gate × layer × margin-to-threshold)
-6. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
+6. **G13 parameter-robustness read** (only if `g13_advisory` present — advisory yellow flag, names any fragile tunable; never overrides the deterministic verdict)
+7. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
 
 ## Critical "don't"s
 

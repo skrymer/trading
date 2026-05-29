@@ -54,8 +54,19 @@ A candidate must clear **all three binding layers** (Block A v4, Block B v4, 25-
 | G10 — Design isolation | Skill emits the candidate config + freeze date. User must confirm no config change before any binding layer beyond Block A. |
 | G11 — Cross-block edge decay | edge_B ≥ 0.5 × edge_A AND CAGR_B ≥ 0.5 × CAGR_A (applied between binding blocks). Failure downgrades verdict to PROVISIONAL. |
 | G12 — Block-aggregate trade count | ≥ 100 trades per block |
+| G13 — Parameter robustness | Every alpha-defining tunable's ±-step neighbors must also pass Block A + Block B. **Advisory / calibration-pending — does not bind the verdict yet.** See "G13 — Parameter Robustness" below. |
 
 **Block C non-catastrophic check (informational, not a gate):** No `|edge| > 0.5%` AND no DD > 20%. A binding-layer-clearing candidate that breaches non-catastrophic Block C is **PROVISIONAL** (paper-trade only). A binding-layer-clearing candidate with clean Block C is **TRADABLE** (subject to script-condition promotion). Block C's other gates are reported but do not bind the verdict.
+
+## G13 — Parameter Robustness (advisory, calibration-pending)
+
+A TRADABLE verdict is data-snooping if it only holds at one parameter value. G13 is a **fragility tripwire**: after a candidate reaches TRADABLE, it perturbs each alpha-defining tunable by one step and re-fires Block A + Block B on each neighbor. A neighbor failure means the center value was a lucky pick, not a structural edge.
+
+- **Advisory until calibrated** — G13 runs and is reported but **does not change the verdict** until a known-passer sweep confirms it doesn't false-positive-reject a legitimate strategy. Treat it as a yellow flag, like Block C, for now.
+- **Runs** after G7, only on a TRADABLE (or TRADABLE-pending-promotion) center; skipped if zero numeric tunables.
+- **Verdict rule (when binding):** all neighbors pass → TRADABLE; a single one-directional near-miss on a continuous gate → PROVISIONAL; a regime-gate (G4/G6/G7) failure, a non-near-miss failure, or ≥2 failing neighbors → REJECTED. No gate-specific escape valve.
+
+Steps, the discrete/continuous classification map, the ±2 carve-out, floor-flag handling, and the calibration acceptance criteria are in [REFERENCE.md](REFERENCE.md#g13--parameter-robustness).
 
 ## Quick start
 
