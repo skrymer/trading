@@ -391,12 +391,14 @@ If both candidates eventually clear the firewall (post-promotion + post-improvem
 
 ## Next steps
 
-**Component search — target each remaining regime gap:**
+**Component search — superseded by `NEW_CANDIDATES_2026-05-29.md`**:
 
-1. **Mjolnir entry + VCP exit (MJV)** _(screening 2026-05-28)_ — `MjolnirEntryStrategy` + `VcpExitStrategy` at VZ3 baseline sizer (1.25%/2.0nAtr), `DistanceFrom10Ema` ranker, seed 1, 2005-2015. Different premise (trend/momentum). Likely targets broad-participation trending — caveat: if it ends up in the same regime as VCP, it's duplication. Will assess regime fit from screen window-level edges.
-2. **Narrow-leadership candidate (HIGHEST-VALUE GAP, undefined)** — needs a structurally different entry premise that profits in Mag-7-concentrated tape. Brainstorm directions: leadership-concentration scanner (top-N return contribution to SPY), relative-strength rank vs sector, breakout-of-narrow-range when leadership widens. Quant: "hardest to fill, highest value." Skip until VCP+Mjolnir+VCP-exit picture is clear.
-3. **Chop / range-bound candidate (undefined)** — counter-trend or mean-reversion under explicit chop regime (`!marketUptrend AND !marketDowntrend` or similar). MR3 with filter refinements (ATR-percentile floor + min-pullback-depth + held≥5 exit) is a candidate IF the levers actually move the failure-mode dial. Re-survey first before firewall.
-4. **Crisis / defensive candidate (undefined)** — anti-correlation play. Brainstorm: VIX-based gate + index-short or sector-rotation-to-defensive (utilities, staples). Lowest priority (smallest edge expected) but highest portfolio-level value.
+The 4-direction roadmap below is **superseded** by the fresh candidate designs in `NEW_CANDIDATES_2026-05-29.md` (PLM / BTC / PEDQ / SRS, in priority order). Both the originally-proposed MJV (Mjolnir + VCP exit) candidate and the underlying Mjolnir / VCP strategies have been deleted from the registered roster. The historical 4-direction framing is preserved below for context:
+
+~~1. **Mjolnir entry + VCP exit (MJV)** — `MjolnirEntryStrategy` + `VcpExitStrategy`. Different premise (trend/momentum). [Strategies deleted 2026-05-29.]~~
+2. **Narrow-leadership candidate** — needs a structurally different entry premise that profits in Mag-7-concentrated tape. Leadership-concentration scanner, relative-strength rank vs sector, breakout-of-narrow-range. **Quant 12th consultation now proposes SRS (Sector-Rotation Strength) for this gap** — see `NEW_CANDIDATES_2026-05-29.md`.
+3. **Chop / range-bound candidate** — counter-trend or mean-reversion under explicit chop regime. **DEPRECATED** with the mean-reversion-on-pullback premise class (see top of this doc).
+4. **Crisis / defensive candidate** — anti-correlation play. VIX-based gate + sector-rotation-to-defensive. Lowest priority (smallest edge expected) but highest portfolio-level value. Open.
 
 **Process gates** (apply when any candidate clears the relaxed regime-conditional bar):
 - **Script-condition promotion** — inline scripts must be promoted via `/create-condition` before TRADABLE→live; firewall validates the exact config that will ship.

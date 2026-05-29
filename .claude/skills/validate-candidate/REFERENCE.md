@@ -18,7 +18,7 @@ The skill ran an empirical test on VZ3-s3: it cleared Block A v4 and Block B v4 
 **Why each layer is necessary, individually:**
 
 1. **3-block separation alone is too weak on Block C** — single-window verdicts generate Type I errors (this is what motivated the refinement).
-2. **25y aggregate alone misses edge decay** — a strategy with 1.5% edge in 2003-2009 and 0.1% edge in 2018-2024 can post 30% aggregate CAGR + low CoV (because dispersion is within-block) while being structurally degraded. Block-separated edge comparison surfaces edge decay; 22-window aggregate does not. Every dead strategy in the session (VCP under lookahead fix, MR3 with regime gates, DV1) had a Block-A-edge >> Block-B-edge signature that an aggregate would mask.
+2. **25y aggregate alone misses edge decay** — a strategy with 1.5% edge in 2003-2009 and 0.1% edge in 2018-2024 can post 30% aggregate CAGR + low CoV (because dispersion is within-block) while being structurally degraded. Block-separated edge comparison surfaces edge decay; 22-window aggregate does not. Previously-investigated dead strategies had a Block-A-edge >> Block-B-edge signature that an aggregate would mask.
 3. **Block C demotes** because 5-year-range + 36/12/12 cadence = 1 OOS window. Type I error generator if binding. Demoted but not removed — its non-catastrophic check ([edge] ≤ 0.5%, DD ≤ 20%) is the gate that catches a fundamentally broken 2024-style regime without rejecting on the −0.11% noise floor.
 
 ## Block-boundary rationale

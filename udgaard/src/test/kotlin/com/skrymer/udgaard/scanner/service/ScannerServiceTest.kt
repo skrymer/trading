@@ -106,7 +106,7 @@ class ScannerServiceTest {
   fun `scan returns matching stocks from predefined strategy`() {
     // Given
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -116,7 +116,7 @@ class ScannerServiceTest {
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
 
-    val request = ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit")
+    val request = ScanRequest(entryStrategyName = "TestEntry", exitStrategyName = "TestExit")
 
     // When
     val response = service.scan(request)
@@ -127,14 +127,14 @@ class ScannerServiceTest {
     assertEquals("XLK", response.results[0].sectorSymbol)
     assertEquals(150.0, response.results[0].closePrice)
     assertEquals(3.5, response.results[0].atr)
-    assertEquals("Mjolnir", response.entryStrategyName)
+    assertEquals("TestEntry", response.entryStrategyName)
   }
 
   @Test
   fun `scan resolves rankerName from request override`() {
     // Given
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     val today = LocalDate.now()
     val stock = Stock(
       symbol = "AAPL",
@@ -146,7 +146,7 @@ class ScannerServiceTest {
 
     // When: request name overrides whatever the strategy prefers
     val response = service.scan(
-      ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit", rankerName = "Volatility"),
+      ScanRequest(entryStrategyName = "TestEntry", exitStrategyName = "TestExit", rankerName = "Volatility"),
     )
 
     // Then: ScanResponse.rankerName reflects the request override (RankerFactory resolved the name)
@@ -157,7 +157,7 @@ class ScannerServiceTest {
   fun `scan falls back to Random ranker when neither request nor strategy specifies one`() {
     // Given
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     whenever(entryStrategy.preferredRanker()).thenReturn(null)
     val today = LocalDate.now()
     val stock = Stock(
@@ -169,7 +169,7 @@ class ScannerServiceTest {
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
 
     // When
-    val response = service.scan(ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit"))
+    val response = service.scan(ScanRequest(entryStrategyName = "TestEntry", exitStrategyName = "TestExit"))
 
     // Then
     assertEquals("Random", response.rankerName)
@@ -179,7 +179,7 @@ class ScannerServiceTest {
   fun `scan uppercases explicit stockSymbols from the request`() {
     // Given: request lists symbols in mixed case
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     val today = LocalDate.now()
     val stock = Stock(
       symbol = "AAPL",
@@ -189,8 +189,8 @@ class ScannerServiceTest {
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
 
     val request = ScanRequest(
-      entryStrategyName = "Mjolnir",
-      exitStrategyName = "MjolnirExit",
+      entryStrategyName = "TestEntry",
+      exitStrategyName = "TestExit",
       stockSymbols = listOf("aapl", "Msft"),
     )
 
@@ -211,7 +211,7 @@ class ScannerServiceTest {
     )
 
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     val staleQuote = StockQuote(symbol = "AAPL", date = LocalDate.of(2026, 5, 6), closePrice = 150.0, atr = 3.5)
     val stock = Stock(symbol = "AAPL", quotes = listOf(staleQuote))
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
@@ -219,7 +219,7 @@ class ScannerServiceTest {
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
 
     // When
-    val response = service.scan(ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit"))
+    val response = service.scan(ScanRequest(entryStrategyName = "TestEntry", exitStrategyName = "TestExit"))
 
     // Then: the stock is silently skipped; entryStrategy.test is never invoked for stale data
     assertEquals(0, response.results.size)
@@ -236,7 +236,7 @@ class ScannerServiceTest {
       mapOf(marketDate to MarketBreadthDaily(quoteDate = marketDate, breadthPercent = 50.0)),
     )
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Vcp")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry2")).thenReturn(entryStrategy)
     val quote = StockQuote(symbol = "AAPL", date = marketDate, closePrice = 175.5, atr = 3.5, trend = "Uptrend")
     val stock = Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(quote))
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
@@ -244,8 +244,8 @@ class ScannerServiceTest {
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
 
     val request = ScanRequest(
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntry2",
+      exitStrategyName = "TestExit2",
     )
 
     // When
@@ -256,10 +256,10 @@ class ScannerServiceTest {
     verify(scanRunRepository).save(captor.capture())
     val persisted = captor.firstValue
     assertEquals(marketDate, persisted.signalDate, "signalDate should be the latest market bar evaluated")
-    assertEquals("Vcp", persisted.entryStrategyName)
-    assertEquals("VcpExitStrategy", persisted.exitStrategyName)
+    assertEquals("TestEntry2", persisted.entryStrategyName)
+    assertEquals("TestExit2", persisted.exitStrategyName)
     // Mocked entry strategy has no preferredRanker, so resolution falls back to Random.
-    // Production VCP wires SectorEdgeWithTightness via VcpEntryStrategy.preferredRanker().
+    // Test entry strategy with explicit ranker override
     assertEquals("Random", persisted.rankerName)
     assertEquals(1, persisted.totalStocksScanned)
     assertEquals(1, persisted.matchedSymbols.size)
@@ -274,7 +274,7 @@ class ScannerServiceTest {
   fun `scan emits near-miss candidates and condition-failure summary only via DetailedEntryStrategy`() {
     // Given
     val entryStrategy: DetailedEntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Vcp")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry2")).thenReturn(entryStrategy)
     val today = LocalDate.now()
     val stock = Stock(
       symbol = "AAPL",
@@ -283,7 +283,7 @@ class ScannerServiceTest {
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
     val details = EntrySignalDetails(
-      strategyName = "Vcp",
+      strategyName = "TestEntry2",
       strategyDescription = "VCP entry",
       conditions = listOf(
         ConditionEvaluationResult(
@@ -310,7 +310,7 @@ class ScannerServiceTest {
 
     // When: stock fails (one condition failed) but is a near-miss (other condition passed)
     val response = service.scan(
-      ScanRequest(entryStrategyName = "Vcp", exitStrategyName = "MjolnirExit", nearMissLimit = 5),
+      ScanRequest(entryStrategyName = "TestEntry2", exitStrategyName = "TestExit", nearMissLimit = 5),
     )
 
     // Then: 0 matches, 1 near-miss, summary aggregates the failed condition
@@ -326,7 +326,7 @@ class ScannerServiceTest {
   fun `scan filters out non-matching stocks`() {
     // Given
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
 
     val today = LocalDate.now()
     val matchingQuote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -343,7 +343,7 @@ class ScannerServiceTest {
       stock.symbol == "AAPL"
     }
 
-    val request = ScanRequest(entryStrategyName = "Mjolnir", exitStrategyName = "MjolnirExit")
+    val request = ScanRequest(entryStrategyName = "TestEntry", exitStrategyName = "TestExit")
 
     // When
     val response = service.scan(request)
@@ -361,7 +361,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
     val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 90.0, atr = 3.0)
@@ -389,7 +389,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
     val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 110.0, atr = 3.0)
@@ -416,7 +416,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
     val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 100.0, atr = 3.0)
@@ -449,7 +449,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
     val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 100.0, atr = 3.0)
@@ -637,8 +637,8 @@ class ScannerServiceTest {
     entryPrice = 150.0,
     entryDate = entryDate,
     quantity = 10,
-    entryStrategyName = "Vcp",
-    exitStrategyName = "VcpExitStrategy",
+    entryStrategyName = "TestEntry2",
+    exitStrategyName = "TestExit2",
     notes = null,
   )
 
@@ -654,7 +654,7 @@ class ScannerServiceTest {
       quotes = listOf(StockQuote(symbol = "ANRO", date = signalDate, closePrice = 23.41)),
     )
     val snapshot = EntrySignalDetails(
-      strategyName = "Vcp",
+      strategyName = "TestEntry2",
       strategyDescription = "Volatility Contraction Pattern",
       conditions = listOf(
         ConditionEvaluationResult("MarketUptrendCondition", "Market in uptrend", passed = true),
@@ -667,7 +667,7 @@ class ScannerServiceTest {
     whenever(stockProvider.getLatestQuote("ANRO"))
       .thenReturn(LatestQuote(symbol = "ANRO", price = 21.68, previousClose = 23.41, date = entryDate))
     whenever(
-      strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), "Vcp"),
+      strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), "TestEntry2"),
     ).thenReturn(snapshot)
     whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
 
@@ -678,8 +678,8 @@ class ScannerServiceTest {
       entryPrice = 21.68,
       entryDate = entryDate.toString(),
       quantity = 100,
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntry2",
+      exitStrategyName = "TestExit2",
       notes = null,
       signalDate = signalDate.toString(),
     )
@@ -690,7 +690,7 @@ class ScannerServiceTest {
     // Then: the persisted trade carries both the signalDate and the captured snapshot
     assertEquals(signalDate, saved.signalDate)
     val savedSnapshot = saved.signalSnapshot!!
-    assertEquals("Vcp", savedSnapshot.strategyName)
+    assertEquals("TestEntry2", savedSnapshot.strategyName)
     assertTrue(savedSnapshot.allConditionsMet)
     assertEquals(2, savedSnapshot.conditions.size)
   }
@@ -724,7 +724,7 @@ class ScannerServiceTest {
     whenever(stockRepository.findBySymbol(eq("ANRO"), anyOrNull())).thenReturn(stock)
     whenever(stockRepository.getLatestQuoteDate("ANRO")).thenReturn(entryDate)
     whenever(stockProvider.getLatestQuote("ANRO")).thenReturn(null)
-    whenever(strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), "Vcp"))
+    whenever(strategySignalService.evaluateConditionsForDate(stock, signalDate.toString(), "TestEntry2"))
       .thenReturn(null)
     whenever(scannerTradeRepository.save(any<ScannerTrade>())).thenAnswer { it.arguments[0] }
 
@@ -750,8 +750,8 @@ class ScannerServiceTest {
       entryPrice = 150.0,
       entryDate = "2024-01-15",
       quantity = 100,
-      entryStrategyName = "Mjolnir",
-      exitStrategyName = "MjolnirExit",
+      entryStrategyName = "TestEntry",
+      exitStrategyName = "TestExit",
       notes = "Test trade",
     )
 
@@ -769,7 +769,7 @@ class ScannerServiceTest {
     assertEquals("XLK", trade.sectorSymbol)
     assertEquals(InstrumentType.STOCK, trade.instrumentType)
     assertEquals(150.0, trade.entryPrice)
-    assertEquals("Mjolnir", trade.entryStrategyName)
+    assertEquals("TestEntry", trade.entryStrategyName)
     assertEquals("Test trade", trade.notes)
   }
 
@@ -884,8 +884,8 @@ class ScannerServiceTest {
       expirationDate = LocalDate.of(2024, 2, 16),
       multiplier = 100,
       optionPrice = 5.0,
-      entryStrategyName = "Mjolnir",
-      exitStrategyName = "MjolnirExit",
+      entryStrategyName = "TestEntry",
+      exitStrategyName = "TestExit",
       rolledCredits = 50.0,
       rollCount = 1,
       notes = "Original trade",
@@ -919,8 +919,8 @@ class ScannerServiceTest {
     assertEquals(135.0, newTrade.strikePrice)
     assertEquals(LocalDate.of(2024, 3, 15), newTrade.expirationDate)
     assertEquals(4.5, newTrade.entryPrice)
-    assertEquals("Mjolnir", newTrade.entryStrategyName)
-    assertEquals("MjolnirExit", newTrade.exitStrategyName)
+    assertEquals("TestEntry", newTrade.entryStrategyName)
+    assertEquals("TestExit", newTrade.exitStrategyName)
     assertEquals("Original trade", newTrade.notes)
   }
 
@@ -929,7 +929,7 @@ class ScannerServiceTest {
     // Given: an open trade whose original scanner match was captured at add-trade time
     val originalSignalDate = LocalDate.of(2026, 4, 1)
     val originalSnapshot = EntrySignalDetails(
-      strategyName = "Vcp",
+      strategyName = "TestEntry2",
       strategyDescription = "VCP",
       conditions = listOf(
         ConditionEvaluationResult("MarketUptrendCondition", "Market in uptrend", passed = true),
@@ -949,8 +949,8 @@ class ScannerServiceTest {
       expirationDate = LocalDate.of(2026, 5, 15),
       multiplier = 100,
       optionPrice = 1.5,
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntry2",
+      exitStrategyName = "TestExit2",
       notes = null,
       signalDate = originalSignalDate,
       signalSnapshot = originalSnapshot,
@@ -997,7 +997,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
     val latestQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 105.0, atr = 3.0)
@@ -1021,8 +1021,8 @@ class ScannerServiceTest {
     // Given
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1036,7 +1036,7 @@ class ScannerServiceTest {
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
       .thenReturn(ExitStrategyReport(match = false))
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "TestExit")
 
     // When
     val response = service.validateEntries(request)
@@ -1060,8 +1060,8 @@ class ScannerServiceTest {
     // Given
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1075,7 +1075,7 @@ class ScannerServiceTest {
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
       .thenReturn(ExitStrategyReport(match = false))
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "TestExit")
 
     // When
     val response = service.validateEntries(request)
@@ -1093,8 +1093,8 @@ class ScannerServiceTest {
     // Given
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1108,7 +1108,7 @@ class ScannerServiceTest {
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
       .thenReturn(ExitStrategyReport(match = true, exitReason = "Stop loss hit", exitPrice = 145.0))
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "TestExit")
 
     // When
     val response = service.validateEntries(request)
@@ -1130,8 +1130,8 @@ class ScannerServiceTest {
     // Given
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1143,7 +1143,7 @@ class ScannerServiceTest {
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
       .thenReturn(ExitStrategyReport(match = false))
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "TestExit")
 
     // When
     val response = service.validateEntries(request)
@@ -1162,8 +1162,8 @@ class ScannerServiceTest {
     // Given
     val entryStrategy: DetailedEntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Vcp")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry2")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1175,7 +1175,7 @@ class ScannerServiceTest {
     )
 
     val details = EntrySignalDetails(
-      strategyName = "Vcp",
+      strategyName = "TestEntry2",
       strategyDescription = "VCP Strategy",
       conditions = listOf(
         ConditionEvaluationResult("uptrend", "Stock in uptrend", true, null),
@@ -1187,7 +1187,7 @@ class ScannerServiceTest {
     whenever(exitStrategy.test(any<Stock>(), anyOrNull(), any<StockQuote>(), any<BacktestContext>()))
       .thenReturn(ExitStrategyReport(match = false))
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "Vcp", "MjolnirExit")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "TestEntry2", "TestExit")
 
     // When
     val response = service.validateEntries(request)
@@ -1196,7 +1196,7 @@ class ScannerServiceTest {
     assertEquals(1, response.results.size)
     with(response.results[0]) {
       assertFalse(entryStillValid)
-      assertEquals("Vcp", entrySignalDetails?.strategyName)
+      assertEquals("TestEntry2", entrySignalDetails?.strategyName)
       assertEquals(2, entrySignalDetails?.conditions?.size)
       assertTrue(entrySignalDetails?.conditions?.get(0)?.passed == true)
       assertFalse(entrySignalDetails?.conditions?.get(1)?.passed == true)
@@ -1208,7 +1208,7 @@ class ScannerServiceTest {
     // Given
     whenever(strategyRegistry.createEntryStrategy("NonExistent")).thenReturn(null)
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "NonExistent", "MjolnirExit")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "NonExistent", "TestExit")
 
     // When / Then
     assertThrows(IllegalArgumentException::class.java) {
@@ -1220,10 +1220,10 @@ class ScannerServiceTest {
   fun `validateEntries throws when exit strategy not found`() {
     // Given
     val entryStrategy: EntryStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     whenever(strategyRegistry.createExitStrategy("NonExistent")).thenReturn(null)
 
-    val request = ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "NonExistent")
+    val request = ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "NonExistent")
 
     // When / Then
     assertThrows(IllegalArgumentException::class.java) {
@@ -1235,7 +1235,7 @@ class ScannerServiceTest {
   fun `validateEntries rejects requests with more than MAX_VALIDATE_SYMBOLS symbols`() {
     // Given: 31 symbols, one over the cap (MAX_VALIDATE_SYMBOLS = 30)
     val symbols = (1..31).map { "S$it" }
-    val request = ValidateEntriesRequest(symbols, "Mjolnir", "MjolnirExit")
+    val request = ValidateEntriesRequest(symbols, "TestEntry", "TestExit")
 
     // When / Then: GlobalExceptionHandler maps IllegalArgumentException to 400.
     // Was a silent take(30) before — caller now must chunk explicitly.
@@ -1249,8 +1249,8 @@ class ScannerServiceTest {
     // Given: lowercase symbols in request — must be normalised to match scan() behaviour.
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1262,7 +1262,7 @@ class ScannerServiceTest {
       .thenReturn(ExitStrategyReport(match = false))
 
     // When: client sends lowercase "aapl"
-    val response = service.validateEntries(ValidateEntriesRequest(listOf("aapl"), "Mjolnir", "MjolnirExit"))
+    val response = service.validateEntries(ValidateEntriesRequest(listOf("aapl"), "TestEntry", "TestExit"))
 
     // Then: lookups happen with the uppercased "AAPL", so the result resolves the stock.
     assertEquals(1, response.results.size)
@@ -1277,8 +1277,8 @@ class ScannerServiceTest {
     // Given: provider rate-limited or unavailable.
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
@@ -1290,7 +1290,7 @@ class ScannerServiceTest {
       .thenReturn(ExitStrategyReport(match = false))
 
     // When
-    val response = service.validateEntries(ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit"))
+    val response = service.validateEntries(ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "TestExit"))
 
     // Then: validation still runs against the stored DB quote rather than 500ing — mirrors checkExits.
     assertEquals(1, response.results.size)
@@ -1306,8 +1306,8 @@ class ScannerServiceTest {
     // Given: live quote has different date and volume than stored quote
     val entryStrategy: EntryStrategy = mock()
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createEntryStrategy("Mjolnir")).thenReturn(entryStrategy)
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val storedDate = LocalDate.of(2026, 5, 6)
     val storedVolume = 1_500_000L
@@ -1336,7 +1336,7 @@ class ScannerServiceTest {
       .thenReturn(ExitStrategyReport(match = false))
 
     // When
-    service.validateEntries(ValidateEntriesRequest(listOf("AAPL"), "Mjolnir", "MjolnirExit"))
+    service.validateEntries(ValidateEntriesRequest(listOf("AAPL"), "TestEntry", "TestExit"))
 
     // Then: synthesized quote has live price but stored date+volume — divergent from
     // checkExits's full-EMA-projection synthesis path.
@@ -1355,7 +1355,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val entryQuote = StockQuote(symbol = "AAPL", date = trade.entryDate, closePrice = 100.0)
     val lastQuote = StockQuote(
@@ -1426,7 +1426,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val previousDayQuote = StockQuote(
       symbol = "AAPL",
@@ -1499,7 +1499,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     // Entry bar + 14 post-entry stored bars. Dates don't need to be consecutive trading
     // days — the test only asserts the count relationship between stored bars and the
@@ -1560,7 +1560,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val lastQuote = StockQuote(
       symbol = "AAPL",
@@ -1604,7 +1604,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val previousDayQuote = StockQuote(
       symbol = "AAPL",
@@ -1653,7 +1653,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val previousDayQuote = StockQuote(
       symbol = "AAPL",
@@ -1710,7 +1710,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val onlyQuote = StockQuote(
       symbol = "AAPL",
@@ -1747,7 +1747,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val previousDayQuote = StockQuote(
       symbol = "AAPL",
@@ -1798,7 +1798,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val lastQuote = StockQuote(
       symbol = "AAPL",
@@ -1837,7 +1837,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val lastQuote = StockQuote(
       symbol = "AAPL",
@@ -1881,7 +1881,7 @@ class ScannerServiceTest {
     whenever(scannerTradeRepository.findOpen()).thenReturn(listOf(trade1, trade2))
 
     val exitStrategy: ExitStrategy = mock()
-    whenever(strategyRegistry.createExitStrategy("MjolnirExit")).thenReturn(exitStrategy)
+    whenever(strategyRegistry.createExitStrategy("TestExit")).thenReturn(exitStrategy)
 
     val aaplQuote = StockQuote(symbol = "AAPL", date = LocalDate.now(), closePrice = 100.0)
     val msftQuote = StockQuote(symbol = "MSFT", date = LocalDate.now(), closePrice = 200.0)
@@ -2044,8 +2044,8 @@ class ScannerServiceTest {
       strikePrice = null,
       expirationDate = null,
       multiplier = 100,
-      entryStrategyName = "Mjolnir",
-      exitStrategyName = "MjolnirExit",
+      entryStrategyName = "TestEntry",
+      exitStrategyName = "TestExit",
       notes = null,
     )
 
@@ -2055,7 +2055,7 @@ class ScannerServiceTest {
     entryPrice: Double,
     exitPrice: Double,
     quantity: Int = 100,
-    entryStrategyName: String = "Vcp",
+    entryStrategyName: String = "TestEntry2",
     instrumentType: InstrumentType = InstrumentType.STOCK,
     optionPrice: Double? = null,
     multiplier: Int = 1,
@@ -2079,7 +2079,7 @@ class ScannerServiceTest {
       multiplier = multiplier,
       optionPrice = optionPrice,
       entryStrategyName = entryStrategyName,
-      exitStrategyName = "VcpExitStrategy",
+      exitStrategyName = "TestExit2",
       notes = null,
       status = TradeStatus.CLOSED,
       exitPrice = exitPrice,
@@ -2121,15 +2121,15 @@ class ScannerServiceTest {
     assertEquals(2000.0, overall.totalPnl, 0.01) // (1500 - 1000 + 1500)
 
     assertEquals(1, result.byStrategy.size)
-    assertEquals("Vcp", result.byStrategy[0].strategy)
+    assertEquals("TestEntry2", result.byStrategy[0].strategy)
   }
 
   @Test
   fun `getClosedTradeStats groups by entry strategy`() {
     val trades = listOf(
-      createClosedTrade(1, "AAPL", 100.0, 110.0, entryStrategyName = "Vcp"),
-      createClosedTrade(2, "MSFT", 200.0, 220.0, entryStrategyName = "Vcp"),
-      createClosedTrade(3, "GOOGL", 150.0, 140.0, entryStrategyName = "Mjolnir"),
+      createClosedTrade(1, "AAPL", 100.0, 110.0, entryStrategyName = "TestEntry2"),
+      createClosedTrade(2, "MSFT", 200.0, 220.0, entryStrategyName = "TestEntry2"),
+      createClosedTrade(3, "GOOGL", 150.0, 140.0, entryStrategyName = "TestEntry"),
     )
     whenever(scannerTradeRepository.findClosed()).thenReturn(trades)
 
@@ -2138,13 +2138,13 @@ class ScannerServiceTest {
     assertEquals(3, result.overall!!.trades)
     assertEquals(2, result.byStrategy.size)
 
-    val vcp = result.byStrategy.find { it.strategy == "Vcp" }!!
+    val vcp = result.byStrategy.find { it.strategy == "TestEntry2" }!!
     assertEquals(2, vcp.trades)
     assertEquals(2, vcp.wins)
     assertEquals(0, vcp.losses)
     assertEquals(100.0, vcp.winRate, 0.1)
 
-    val mjolnir = result.byStrategy.find { it.strategy == "Mjolnir" }!!
+    val mjolnir = result.byStrategy.find { it.strategy == "TestEntry" }!!
     assertEquals(1, mjolnir.trades)
     assertEquals(0, mjolnir.wins)
     assertEquals(1, mjolnir.losses)

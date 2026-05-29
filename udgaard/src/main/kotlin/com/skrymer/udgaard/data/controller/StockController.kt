@@ -132,11 +132,11 @@ class StockController(
   /**
    * Get stock data with entry/exit signals for specific strategies.
    *
-   * Example: GET /api/stocks/TQQQ/signals?entryStrategy=VegardPlanEtf&exitStrategy=VegardPlanEtf&cooldownDays=10
+   * Example: GET /api/stocks/TQQQ/signals?entryStrategy=<entry-strategy-name>&exitStrategy=<entry-strategy-name>&cooldownDays=10
    *
    * @param symbol Stock symbol (e.g., TQQQ, SPY)
-   * @param entryStrategy Entry strategy name (e.g., VegardPlanEtf, OvtlyrPlanEtf)
-   * @param exitStrategy Exit strategy name (e.g., VegardPlanEtf, OvtlyrPlanEtf)
+   * @param entryStrategy Entry strategy name (e.g., <entry-strategy-name>, <entry-strategy-name>)
+   * @param exitStrategy Exit strategy name (e.g., <entry-strategy-name>, <entry-strategy-name>)
    * @param cooldownDays Number of trading days to wait after exit before allowing new entry (default: 0)
    * @param refresh Force refresh stock data from external source
    * @return Stock data with entry/exit signals annotated on each quote
@@ -180,11 +180,11 @@ class StockController(
    * Evaluate entry strategy conditions for a specific date.
    * Returns condition details showing why a strategy did or did not trigger.
    *
-   * Example: GET /api/stocks/TQQQ/evaluate-date/2024-01-15?entryStrategy=VegardPlanEtf
+   * Example: GET /api/stocks/TQQQ/evaluate-date/2024-01-15?entryStrategy=<entry-strategy-name>
    *
    * @param symbol Stock symbol (e.g., TQQQ, SPY)
    * @param date Date to evaluate (format: YYYY-MM-DD)
-   * @param entryStrategy Entry strategy name (e.g., VegardPlanEtf)
+   * @param entryStrategy Entry strategy name (e.g., <entry-strategy-name>)
    * @return Entry signal details with all condition evaluations
    */
   @GetMapping("/{symbol}/evaluate-date/{date}")
@@ -219,11 +219,11 @@ class StockController(
    * Evaluate exit strategy conditions for a specific date.
    * Returns condition details showing why a strategy did or did not trigger an exit.
    *
-   * Example: GET /api/stocks/AAPL/evaluate-exit/2024-01-15?exitStrategy=ProjectXExitStrategy&entryDate=2024-01-10
+   * Example: GET /api/stocks/AAPL/evaluate-exit/2024-01-15?exitStrategy=<exit-strategy-name>&entryDate=2024-01-10
    *
    * @param symbol Stock symbol (e.g., AAPL, TQQQ)
    * @param date Date to evaluate exit conditions on (format: YYYY-MM-DD)
-   * @param exitStrategy Exit strategy name (e.g., ProjectXExitStrategy)
+   * @param exitStrategy Exit strategy name (e.g., <exit-strategy-name>)
    * @param entryDate The entry date for the trade (format: YYYY-MM-DD)
    * @return Exit signal details with all condition evaluations
    */

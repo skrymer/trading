@@ -135,8 +135,8 @@ class ScannerController(
 
   @GetMapping("/cohort-divergence")
   fun getCohortDivergence(
-    @RequestParam(defaultValue = "Vcp") entryStrategy: String,
-    @RequestParam(defaultValue = "VcpExitStrategy") exitStrategy: String,
+    @RequestParam entryStrategy: String,
+    @RequestParam exitStrategy: String,
     @RequestParam(defaultValue = "SectorEdgeWithTightness") ranker: String,
     @RequestParam(defaultValue = "20") windowDays: Int,
   ): ResponseEntity<CohortDivergenceReport> =

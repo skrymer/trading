@@ -562,7 +562,7 @@ fun `test entry strategy with uptrend and price above EMA`() {
             symbol = "AAPL"  // IMPORTANT: always set symbol on quotes
         )
     ))
-    val strategy = PlanAlphaEntryStrategy()
+    val strategy = MyEntryStrategy()  // @RegisteredStrategy-annotated class
 
     // When
     val result = strategy.test(stock, stock.quotes.first())

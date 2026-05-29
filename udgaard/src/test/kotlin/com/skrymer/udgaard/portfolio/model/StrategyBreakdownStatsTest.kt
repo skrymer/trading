@@ -17,10 +17,10 @@ class StrategyBreakdownStatsTest {
     )
 
     // When
-    val stats = StrategyBreakdownStats.fromPositions("Vcp", positions)
+    val stats = StrategyBreakdownStats.fromPositions("TestEntryStrategy", positions)
 
     // Then: edge = avgWinPct·winRate − avgLossPct·lossRate = 15.0·0.5 − 5.0·0.5 = 5.0
-    assertEquals("Vcp", stats.strategy)
+    assertEquals("TestEntryStrategy", stats.strategy)
     assertEquals(4, stats.trades)
     assertEquals(50.0, stats.winRate)
     assertEquals(5.0, stats.edge, 1e-9)
@@ -36,7 +36,7 @@ class StrategyBreakdownStatsTest {
     )
 
     // When
-    val stats = StrategyBreakdownStats.fromPositions("Vcp", positions)
+    val stats = StrategyBreakdownStats.fromPositions("TestEntryStrategy", positions)
 
     // Then: profit factor is undefined with no losses; edge is the win side alone (15.0 · 1.0)
     assertEquals(100.0, stats.winRate)
@@ -55,7 +55,7 @@ class StrategyBreakdownStatsTest {
     )
 
     // When
-    val stats = StrategyBreakdownStats.fromPositions("Vcp", positions)
+    val stats = StrategyBreakdownStats.fromPositions("TestEntryStrategy", positions)
 
     // Then: edge = 0·0 − 7.5·1.0 = −7.5; profit factor is gross profit (0) over gross loss → 0.0
     assertEquals(0.0, stats.winRate)
@@ -75,7 +75,7 @@ class StrategyBreakdownStatsTest {
     )
 
     // When
-    val stats = StrategyBreakdownStats.fromPositions("Vcp", positions)
+    val stats = StrategyBreakdownStats.fromPositions("TestEntryStrategy", positions)
 
     // Then: the zero-cost position is excluded from avgWinPct/edge, but still counts toward
     // trade count, dollar averages, and total P&L
@@ -99,7 +99,7 @@ class StrategyBreakdownStatsTest {
     )
 
     // When
-    val stats = StrategyBreakdownStats.fromPositions("Vcp", positions)
+    val stats = StrategyBreakdownStats.fromPositions("TestEntryStrategy", positions)
 
     // Then: trades counts all 4, wins/losses count only the real ±, and edge uses the true
     // lossRate (1/4), not the leftover-of-winRate (3/4). edge = 20·0.25 − 10·0.25 = 2.5.
@@ -132,7 +132,7 @@ class StrategyBreakdownStatsTest {
       realizedPnl = realizedPnl,
       rolledToPositionId = null,
       parentPositionId = null,
-      entryStrategy = "Vcp",
+      entryStrategy = "TestEntryStrategy",
       exitStrategy = null,
       notes = null,
     )

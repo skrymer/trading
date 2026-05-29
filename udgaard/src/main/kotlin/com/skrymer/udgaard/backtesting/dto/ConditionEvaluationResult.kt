@@ -63,7 +63,7 @@ data class EntrySignalDetails(
  */
 data class ExitSignalDetails(
   /**
-   * Name of the exit strategy (e.g., "ProjectXExitStrategy")
+   * Name of the exit strategy (e.g., the registered exit strategy class name)
    */
   val strategyName: String,
   /**

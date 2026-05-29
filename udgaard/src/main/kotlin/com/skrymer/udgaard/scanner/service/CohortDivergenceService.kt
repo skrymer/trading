@@ -69,8 +69,8 @@ class CohortDivergenceService(
 }
 
 data class DivergenceConfig(
-  val entryStrategy: String = "Vcp",
-  val exitStrategy: String = "VcpExitStrategy",
+  val entryStrategy: String,
+  val exitStrategy: String,
   val ranker: String = "SectorEdgeWithTightness",
   val windowDays: Int = 20,
 )

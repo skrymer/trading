@@ -39,8 +39,8 @@ class ScanRunJooqRepositoryE2ETest : AbstractIntegrationTest() {
       id = null,
       signalDate = LocalDate.of(2026, 5, 18),
       scanTimestamp = LocalDateTime.of(2026, 5, 19, 6, 30),
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntryStrategy",
+      exitStrategyName = "TestExitStrategy",
       rankerName = "SectorEdgeWithTightness",
       totalStocksScanned = 3005,
       matchedSymbols = listOf(
@@ -59,8 +59,8 @@ class ScanRunJooqRepositoryE2ETest : AbstractIntegrationTest() {
     assertNotNull(reloaded)
     assertEquals(LocalDate.of(2026, 5, 18), reloaded.signalDate)
     assertEquals(LocalDateTime.of(2026, 5, 19, 6, 30), reloaded.scanTimestamp)
-    assertEquals("Vcp", reloaded.entryStrategyName)
-    assertEquals("VcpExitStrategy", reloaded.exitStrategyName)
+    assertEquals("TestEntryStrategy", reloaded.entryStrategyName)
+    assertEquals("TestExitStrategy", reloaded.exitStrategyName)
     assertEquals("SectorEdgeWithTightness", reloaded.rankerName)
     assertEquals(3005, reloaded.totalStocksScanned)
     assertEquals(3, reloaded.matchedSymbols.size)
@@ -83,8 +83,8 @@ class ScanRunJooqRepositoryE2ETest : AbstractIntegrationTest() {
       id = null,
       signalDate = signalDate,
       scanTimestamp = LocalDateTime.of(2026, 5, 19, 6, 0),
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntryStrategy",
+      exitStrategyName = "TestExitStrategy",
       rankerName = "SectorEdgeWithTightness",
       totalStocksScanned = 3000,
       matchedSymbols = listOf(
@@ -137,8 +137,8 @@ class ScanRunJooqRepositoryE2ETest : AbstractIntegrationTest() {
     val results = repository.findByWindow(
       startInclusive = LocalDate.of(2026, 4, 30),
       endInclusive = LocalDate.of(2026, 5, 19),
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntryStrategy",
+      exitStrategyName = "TestExitStrategy",
       rankerName = "SectorEdgeWithTightness",
     )
 
@@ -152,8 +152,8 @@ class ScanRunJooqRepositoryE2ETest : AbstractIntegrationTest() {
     id = null,
     signalDate = signalDate,
     scanTimestamp = signalDate.atStartOfDay().plusHours(18),
-    entryStrategyName = "Vcp",
-    exitStrategyName = "VcpExitStrategy",
+    entryStrategyName = "TestEntryStrategy",
+    exitStrategyName = "TestExitStrategy",
     rankerName = ranker,
     totalStocksScanned = 3000,
     matchedSymbols = listOf(

@@ -29,7 +29,7 @@ class ScannerTradeJooqRepositoryE2ETest : AbstractIntegrationTest() {
   fun `save with non-null signalSnapshot round-trips JSONB with structure intact`() {
     // Given a scanner trade carrying an EntrySignalDetails snapshot from a Vcp match
     val snapshot = EntrySignalDetails(
-      strategyName = "Vcp",
+      strategyName = "TestEntryStrategy",
       strategyDescription = "Volatility Contraction Pattern",
       conditions = listOf(
         ConditionEvaluationResult(
@@ -62,8 +62,8 @@ class ScannerTradeJooqRepositoryE2ETest : AbstractIntegrationTest() {
       optionType = null,
       strikePrice = null,
       expirationDate = null,
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntryStrategy",
+      exitStrategyName = "TestExitStrategy",
       notes = null,
       signalDate = LocalDate.of(2026, 4, 1),
       signalSnapshot = snapshot,
@@ -78,7 +78,7 @@ class ScannerTradeJooqRepositoryE2ETest : AbstractIntegrationTest() {
     assertEquals(LocalDate.of(2026, 4, 1), reloaded.signalDate)
     val reloadedSnapshot = reloaded.signalSnapshot
     assertNotNull(reloadedSnapshot, "expected signalSnapshot to be persisted")
-    assertEquals("Vcp", reloadedSnapshot.strategyName)
+    assertEquals("TestEntryStrategy", reloadedSnapshot.strategyName)
     assertEquals(false, reloadedSnapshot.allConditionsMet)
     assertEquals(2, reloadedSnapshot.conditions.size)
     assertEquals("MarketUptrendCondition", reloadedSnapshot.conditions[0].conditionType)
@@ -104,8 +104,8 @@ class ScannerTradeJooqRepositoryE2ETest : AbstractIntegrationTest() {
       optionType = null,
       strikePrice = null,
       expirationDate = null,
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntryStrategy",
+      exitStrategyName = "TestExitStrategy",
       notes = null,
       signalDate = null,
       signalSnapshot = null,
