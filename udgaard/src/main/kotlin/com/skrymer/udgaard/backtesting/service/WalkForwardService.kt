@@ -6,6 +6,7 @@ import com.skrymer.udgaard.backtesting.model.PortfolioEquityPoint
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.RiskMetrics
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.model.TradeStatsSummary
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
 import com.skrymer.udgaard.backtesting.model.WalkForwardResult
 import com.skrymer.udgaard.backtesting.model.WalkForwardWindow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.pow
 
@@ -163,6 +165,7 @@ class WalkForwardService(
       inSampleBreadthAvg = isBreadthAvg,
       outOfSampleBreadthUptrendPercent = oosUptrendPct,
       outOfSampleBreadthAvg = oosBreadthAvg,
+      outOfSampleStatsByEntryMonth = bucketByEntryMonth(oosReport.trades),
     )
     return WindowComputation(
       window = walkForwardWindow,
@@ -208,6 +211,17 @@ class WalkForwardService(
     )
     return PerWindowMetrics(cagr, sizing.maxDrawdownPct, riskMetrics, sizing.equityCurve)
   }
+
+  /**
+   * Buckets trades by their entry-date month (`entryQuote.date`, key "yyyy-MM") into a
+   * `TradeStatsSummary` per month. The slicing is intentionally monthly so the engine stays
+   * agnostic to which sub-window range a downstream gate cares about — callers re-aggregate the
+   * months they need. Per ADR-0006.
+   */
+  internal fun bucketByEntryMonth(trades: List<Trade>): Map<String, TradeStatsSummary> =
+    trades
+      .groupBy { ENTRY_MONTH_KEY.format(it.entryQuote.date) }
+      .mapValues { (_, monthTrades) -> TradeStatsSummary.fromTrades(monthTrades) }
 
   /**
    * Returns (uptrendPercent, breadthAvg) over breadth rows whose date falls in [start, end].
@@ -459,5 +473,6 @@ class WalkForwardService(
     private const val RAW_RISK_FREE_RATE = 0.0
     private const val DAYS_PER_CALENDAR_YEAR = 365.25
     private const val PERCENT_SCALE = 100.0
+    private val ENTRY_MONTH_KEY = DateTimeFormatter.ofPattern("yyyy-MM")
   }
 }

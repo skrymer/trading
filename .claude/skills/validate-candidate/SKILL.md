@@ -27,7 +27,7 @@ A candidate that clears the binding layers but fails Block C's non-catastrophic 
 
 Block B ends 2021-06-30 (not 2020-12-31) so the W4 OOS window covers 2020 — without the extension G6 is structurally unreachable. 6-month overlap with Block C is contained in C's IS warm-up (C's first OOS under 36/12/12 cadence is 2024), preserving firewall integrity. Quant-verified boundaries — do not adjust.
 
-**G6a/G6b half-year split deferred.** The quant's preferred design splits Block B's G6 into G6a (2020-H1 crash survival, edge ≥ −0.5%) and G6b (2020-H2 recovery, edge > 0) so a strategy that bled in March but got rescued by the rally can't sneak through. Implementing requires per-trade entry-date data in the walk-forward response, which the engine doesn't currently expose — tracked in [issue #51](https://github.com/skrymer/trading/issues/51). Until that lands, Block B uses single G6 ("2020 OOS edge > 0") evaluated on the W4 window aggregate.
+**G6a/G6b split (Block B only).** Block B's G6 is split into **G6a** (2020 crash survival — trades entered **Jan–Apr** 2020, OOS edge ≥ −0.5%) and **G6b** (2020 recovery — trades entered **May–Dec** 2020, OOS edge > 0) so a strategy that bled in March but got rescued by the rally can't sneak through on "2020 positive overall". The Jan–Apr / May–Dec cut is asymmetric and COVID-specific — not a calendar half-year (the "H1/H2" labels are loose). Each half's edge is recomputed from the walk-forward window's per-month entry-date buckets (`outOfSampleStatsByEntryMonth`, ADR-0006). Both are **strict** regime-mandate sub-gates: a failure is structural (REJECTED), never a tight-margin NEAR_MISS. Other blocks keep the single G6. Delivered in [issue #51](https://github.com/skrymer/trading/issues/51).
 
 **Why each layer is necessary (quant 2026-05-28 7th consultation):**
 - **3-block separation** catches *edge decay* — the single most predictive failure mode for live deployment. A strategy whose alpha is shrinking across blocks will pass a 25y aggregate (because the early blocks are still strong) but fail block-separated comparison. Multiple previously-investigated candidates showed this signature (Block-A-edge >> Block-B-edge). 25y aggregate alone would miss it.
@@ -47,7 +47,9 @@ A candidate must clear **all three binding layers** (Block A v4, Block B v4, 25-
 | G4a (N < 4) | No single OOS window worse than −5% CAGR |
 | G4b (N < 4) | Block-aggregate CAGR ≥ G1 threshold |
 | G5 — CoV of per-window edges | ≤ 1.5 |
-| G6 — Regime mandate | Block A: 2008 OOS+. Block B: 2020 OOS+. 25y aggregate: 2008 OOS+. Block C: 2022 OOS+ (informational only). |
+| G6 — Regime mandate | Block A: 2008 OOS+. **Block B: split into G6a + G6b (below).** 25y aggregate: 2008 OOS+. Block C: 2022 OOS+ (informational only). |
+| G6a — 2020 crash survival (Block B only) | Trades entered Jan–Apr 2020: OOS edge ≥ −0.5%. Strict — failure ⇒ REJECTED. |
+| G6b — 2020 recovery (Block B only) | Trades entered May–Dec 2020: OOS edge > 0. Strict — failure ⇒ REJECTED. |
 | G7 — Chop regime | Block A: ≥1 of {2004, 2011, 2015-H1} positive. Block B: ≥1 of {2015-H2, 2018-Q4} positive. 25y aggregate: ≥1 of {2004, 2011, 2015-H1} positive. Block C: skipped. |
 | G8 — Min trades per window | ≥ 30 |
 | G9 — Sharpe + Calmar | Sharpe ≥ 0.8 AND Calmar ≥ 0.5 |

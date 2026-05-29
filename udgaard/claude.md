@@ -47,7 +47,8 @@ udgaard/
 │   │   │   ├── BacktestContext.kt
 │   │   │   ├── Trade.kt              # Trade + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
-│   │   │   ├── WalkForwardResult.kt
+│   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006)
+│   │   │   ├── TradeStatsSummary.kt     # Month-agnostic closed-trade summary w/ additive raw fields; re-aggregate arbitrary month ranges + recompute Edge/Win rate/Profit factor (ADR 0006)
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── repository/               # jOOQ repositories
 │   │   │   └── BacktestReportJooqRepository.kt  # save / findById / listAll / deleteById / deleteByIds; stores/reads the report as ByteArray
@@ -67,7 +68,7 @@ udgaard/
 │   │   │   │   ├── KellySizer.kt            # Fractional Kelly from win rate + win/loss ratio
 │   │   │   │   ├── VolatilityTargetSizer.kt # Target daily vol% with kATR proxy
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
-│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows)
+│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows); bucketByEntryMonth() builds per-window OOS monthly TradeStatsSummary buckets (ADR 0006)
 │   │   │   ├── BacktestResultStore.kt    # Backtest result store (backtest_reports table); gzip-compresses the report into a bytea column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), decompresses on read
 │   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
 │   │   │   ├── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override

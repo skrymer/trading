@@ -39,6 +39,10 @@ data class WalkForwardWindow(
   val inSampleBreadthAvg: Double,
   val outOfSampleBreadthUptrendPercent: Double,
   val outOfSampleBreadthAvg: Double,
+  // OOS trades bucketed by entry-date month (key "yyyy-MM"), each a TradeStatsSummary. Lets a
+  // caller re-aggregate an arbitrary contiguous month range and recompute Edge / Win rate /
+  // Profit factor for sub-window regime gates (e.g. crash vs recovery halves). Per ADR-0006.
+  val outOfSampleStatsByEntryMonth: Map<String, TradeStatsSummary> = emptyMap(),
 )
 
 data class WalkForwardResult(

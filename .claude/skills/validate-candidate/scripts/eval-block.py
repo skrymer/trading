@@ -38,6 +38,27 @@ BLOCK_CONFIG = {
         "regime_mandate_label": "2020 COVID",
         "chop_years": ["2015-H2", "2018-Q4"],
         "binding": True,
+        # G6 splits into G6a/G6b for Block B only (issue #51). "2020 positive overall" can
+        # mask a strategy that bled in the March crash and got rescued by the rally — the split
+        # forces a separate read on crash survival vs regime re-entry. The Jan-Apr / May-Dec cut
+        # is asymmetric and COVID-specific (not a calendar half-year); each half's edge is
+        # recomputed from the per-window monthly entry-date buckets (ADR-0006).
+        "regime_mandate_split": [
+            {
+                "name": "G6a_crash_survival",
+                "label": "2020 crash survival (Jan-Apr entries)",
+                "months": [f"2020-{m:02d}" for m in range(1, 5)],
+                "min_edge": -0.5,
+                "strict": False,
+            },
+            {
+                "name": "G6b_recovery",
+                "label": "2020 recovery (May-Dec entries)",
+                "months": [f"2020-{m:02d}" for m in range(5, 13)],
+                "min_edge": 0.0,
+                "strict": True,
+            },
+        ],
     },
     "25y": {
         "name": "25-year aggregate (2000-2025)",
@@ -57,6 +78,31 @@ BLOCK_CONFIG = {
 
 def gate(name, passed, value, threshold, note=""):
     return {"name": name, "passed": passed, "value": value, "threshold": threshold, "note": note}
+
+def edge_over_months(windows, months):
+    """Recompute Edge over every `outOfSampleStatsByEntryMonth` bucket whose key is in `months`,
+    summed across all windows. Edge is non-linear over subsets, so the additive raw fields
+    (trades / winners / sumWinPercent / sumLossPercent) are summed and Edge recomputed once —
+    matching TradeStatsSummary.edge / BacktestReport.edge. Returns None when no trade fell in
+    those months (the sub-gate cannot be confirmed)."""
+    month_set = set(months)
+    trades = winners = 0
+    sum_win = sum_loss = 0.0
+    for w in windows:
+        buckets = w.get("outOfSampleStatsByEntryMonth") or {}
+        for key, b in buckets.items():
+            if key in month_set:
+                trades += b.get("trades", 0)
+                winners += b.get("winners", 0)
+                sum_win += b.get("sumWinPercent", 0.0)
+                sum_loss += b.get("sumLossPercent", 0.0)
+    if trades == 0:
+        return None
+    losers = trades - winners
+    win_rate = winners / trades
+    avg_win = (sum_win / winners) if winners else 0.0
+    avg_loss = abs(sum_loss / losers) if losers else 0.0
+    return win_rate * avg_win - (1.0 - win_rate) * avg_loss
 
 def main():
     p = argparse.ArgumentParser()
@@ -156,19 +202,37 @@ def main():
         "stdev/mean <= 1.5",
     ))
 
-    # G6: regime mandate for this block
-    mandate_year = block_cfg["regime_mandate_year"]
-    mandate_window = next(
-        (w for w in windows if (w.get("outOfSampleStart") or "")[:4] == mandate_year),
-        None,
-    )
-    mandate_edge = mandate_window.get("outOfSampleEdge") if mandate_window else None
-    gates.append(gate(
-        "G6_regime_mand",
-        mandate_edge is not None and mandate_edge > 0,
-        f"{block_cfg['regime_mandate_label']} OOS edge = {mandate_edge}",
-        f"{block_cfg['regime_mandate_label']} OOS > 0",
-    ))
+    # G6: regime mandate for this block. Block B splits into G6a (crash survival) + G6b
+    # (recovery) via per-window monthly buckets; other blocks use the single window-aggregate G6.
+    split = block_cfg.get("regime_mandate_split")
+    if split:
+        for sub in split:
+            sub_edge = edge_over_months(windows, sub["months"])
+            if sub["strict"]:
+                passed = sub_edge is not None and sub_edge > sub["min_edge"]
+                threshold = f"{sub['label']} OOS edge > {sub['min_edge']:.1f}%"
+            else:
+                passed = sub_edge is not None and sub_edge >= sub["min_edge"]
+                threshold = f"{sub['label']} OOS edge >= {sub['min_edge']:.1f}%"
+            gates.append(gate(
+                sub["name"],
+                passed,
+                f"{sub['label']} OOS edge = {sub_edge}",
+                threshold,
+            ))
+    else:
+        mandate_year = block_cfg["regime_mandate_year"]
+        mandate_window = next(
+            (w for w in windows if (w.get("outOfSampleStart") or "")[:4] == mandate_year),
+            None,
+        )
+        mandate_edge = mandate_window.get("outOfSampleEdge") if mandate_window else None
+        gates.append(gate(
+            "G6_regime_mand",
+            mandate_edge is not None and mandate_edge > 0,
+            f"{block_cfg['regime_mandate_label']} OOS edge = {mandate_edge}",
+            f"{block_cfg['regime_mandate_label']} OOS > 0",
+        ))
 
     # G7: chop regime (skip if block has none)
     if block_cfg["chop_years"]:
