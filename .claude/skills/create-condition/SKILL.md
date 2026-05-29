@@ -85,6 +85,8 @@ Templates in SCENARIOS.md.
 
 `ScriptEntryCondition` / `ScriptExitCondition` execute user Kotlin against `(stock, quote, entryQuote, context)` — no automatic guards. Every L/S/P rule applies inside a script verbatim.
 
+**Before wiring a new entry condition into a strategy, screen it with `/condition-screen`** — a fast diagnostic pre-screen (forward-return lift, firing rate, parameter-sensitivity / ARS) that rejects structurally-unsound conditions at design time, before any backtest. For a script tunable, expose it as a `{{param}}` placeholder so the screen can sweep it.
+
 ## See also
 
 - [REFERENCE.md](REFERENCE.md) — rule-by-rule explanation
