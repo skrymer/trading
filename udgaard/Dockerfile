@@ -14,4 +14,4 @@ RUN cd /app && unzip -q /tmp/app.jar && rm /tmp/app.jar \
 
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-Xmx12288m", "-Xms4096m", "-cp", "/app/BOOT-INF/classes:/app/BOOT-INF/lib/*", "com.skrymer.udgaard.UdgaardApplicationKt"]
+ENTRYPOINT ["java", "-Xmx20480m", "-Xms4096m", "-cp", "/app/BOOT-INF/classes:/app/BOOT-INF/lib/*", "com.skrymer.udgaard.UdgaardApplicationKt"]
