@@ -160,6 +160,13 @@ def main():
     p.add_argument("eval_c", nargs="?", default=None, help="Block C eval JSON (informational)")
     p.add_argument("--script-conditions", type=int, default=0,
                    help="Count of inline-script conditions in the candidate request template")
+    p.add_argument("--g13", default=None,
+                   help="Optional G13 advisory outcome JSON (from run-g13.sh). Surfaced but never binds.")
+    p.add_argument("--g14", default=None,
+                   help="Optional G14 Implementation Invariance diff JSON (from /verify-promotion). "
+                        "PASS = inline verdict transfers; DIFFERS = inline verdict void, promoted "
+                        "config validated from scratch (this run). G14 never flips a binding-PASS to "
+                        "REJECTED — it annotates which verdict the operator may trust.")
     args = p.parse_args()
 
     layers = {
@@ -205,6 +212,15 @@ def main():
 
     remediation_hint = derive_remediation_hint(failed_gates_binding)
 
+    # G13 is advisory (calibration-pending) — surfaced but NEVER changes the verdict below.
+    g13_advisory = load(args.g13) if args.g13 else None
+
+    # G14 Implementation Invariance (promoted candidates only) — surfaced but NEVER flips a
+    # binding-PASS to REJECTED. Per quant 2026-05-29: DIFFERS voids the *reusable inline verdict*
+    # and mandates full promoted-config validation (which is exactly this run); it is not an
+    # independent rejection reason. PASS records that the prior inline verdict transfers.
+    g14 = load(args.g14) if args.g14 else None
+
     all_binding_complete = all(layers[k] is not None for k in BINDING_LAYERS)
 
     if binding_fail:
@@ -234,6 +250,8 @@ def main():
         "tight_margin_failures_binding": sum(1 for g in failed_gates_binding if is_tight_margin(g)),
         "remediation_hint": remediation_hint,
         "script_conditions_in_template": args.script_conditions,
+        "g13_advisory": g13_advisory,
+        "g14_implementation_invariance": g14,
     }
     print(json.dumps(summary, indent=2, default=str))
 
@@ -304,6 +322,36 @@ def main():
         for g in layer.get("gates", []):
             status = "PASS" if g["passed"] else "FAIL"
             md_lines.append(f"| {g['name']} | {status} | {g.get('value')} | {g.get('threshold')} |")
+        md_lines.append("")
+
+    if g14 is not None:
+        g14_outcome = g14.get("outcome")
+        md_lines.append("## G14 — Implementation Invariance (promotion fidelity)")
+        md_lines.append("")
+        md_lines.append(f"- **Outcome: {g14_outcome}** — trade-list diff (promoted config vs inline-script config), match key `(entry_date, symbol)`")
+        if g14_outcome == "PASS":
+            md_lines.append("- The promoted config produces an **identical** trade population (Jaccard 1.0, no exit/PnL divergence). The prior inline-script firewall verdict **transfers** — the verdict above is confirmed on the shippable code.")
+        elif g14_outcome == "DIFFERS":
+            jac = g14.get("jaccard")
+            md_lines.append(f"- The promoted config produces a **different** trade population (Jaccard {jac}, entry divergences {g14.get('entry_divergence_count')}, exit {g14.get('exit_divergence_count')}, PnL {g14.get('pnl_divergence_count')}).")
+            md_lines.append("- **The inline-script verdict is VOID** — it described trades the shippable code does not produce. The verdict above is the PROMOTED config's OWN full-firewall result (validated from scratch this run); the inline result is discarded, never blended.")
+            fd = g14.get("first_divergent_trade")
+            if fd:
+                md_lines.append(f"- First divergent trade ({fd.get('bucket')}): `{fd.get('symbol')}` entered {fd.get('entry_date')} — inspect that symbol's bar coverage / history-buffer at that date.")
+        elif g14_outcome == "ERROR":
+            md_lines.append("- **ERROR** — the two configs are not the same logical strategy; the diff is meaningless. (The pipeline should have halted upstream.)")
+        md_lines.append("")
+
+    if g13_advisory is not None:
+        md_lines.append("## G13 — Parameter Robustness (advisory, calibration-pending)")
+        md_lines.append("")
+        md_lines.append(f"- **Advisory outcome: {g13_advisory.get('outcome')}** (reason: {g13_advisory.get('reason') or '—'})")
+        md_lines.append("- This does NOT change the verdict above — G13 is calibration-pending. Treat as a yellow flag.")
+        floor = g13_advisory.get("floor_flagged_tunables") or []
+        if floor:
+            md_lines.append(f"- Floor-flagged tunables (one-sided robustness only): {', '.join(floor)}")
+        for nb in g13_advisory.get("failing_neighbors") or []:
+            md_lines.append(f"- Fragile neighbor: `{nb.get('name')}` {nb.get('direction')} failed {', '.join(nb.get('failing_gates') or [])}")
         md_lines.append("")
 
     md_lines.append("## Verdict explanation")

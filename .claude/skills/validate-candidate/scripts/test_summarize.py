@@ -44,12 +44,16 @@ def make_eval(block: str, overall: str, **kwargs) -> dict:
     return defaults
 
 
-def run_summarize(*eval_paths, script_conditions=0) -> dict:
+def run_summarize(*eval_paths, script_conditions=0, g13=None, g14=None) -> dict:
     """Invoke summarize.py with the given eval paths; return parsed JSON output."""
     cmd = [sys.executable, str(SCRIPT), "test-candidate"]
     cmd.extend(str(p) for p in eval_paths)
     if script_conditions:
         cmd.extend(["--script-conditions", str(script_conditions)])
+    if g13:
+        cmd.extend(["--g13", str(g13)])
+    if g14:
+        cmd.extend(["--g14", str(g14)])
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     assert result.returncode == 0, f"summarize.py failed: {result.stderr}"
     return json.loads(result.stdout)
@@ -217,6 +221,65 @@ class TestVerdictLogic(unittest.TestCase):
         # Then: verdict still TRADABLE but script_conditions surfaced
         self.assertEqual(result["verdict"], "TRADABLE")
         self.assertEqual(result["script_conditions_in_template"], 2)
+
+    def test_g13_advisory_is_surfaced_without_changing_verdict(self):
+        # Given: a clean TRADABLE plus an advisory G13 outcome of REJECTED (fragile)
+        self.write_eval("A", overall="PASS", aggregate_edge=0.7, aggregate_cagr=35.0)
+        self.write_eval("B", overall="PASS", aggregate_edge=0.5, aggregate_cagr=30.0)
+        self.write_eval("25y", overall="PASS")
+        self.write_eval("C", overall="PASS", non_catastrophic=True)
+        g13_path = Path(self.tmpdir) / "g13-outcome.json"
+        g13_path.write_text(json.dumps({"outcome": "REJECTED", "reason": "g13_parameter_fragile", "binding": False}))
+
+        # When
+        result = run_summarize(
+            self.paths["A"], self.paths["B"], self.paths["25y"], self.paths["C"], g13=g13_path)
+
+        # Then: verdict stays TRADABLE (G13 advisory), but the advisory outcome is surfaced
+        self.assertEqual(result["verdict"], "TRADABLE")
+        self.assertEqual(result["g13_advisory"]["outcome"], "REJECTED")
+        self.assertFalse(result["g13_advisory"]["binding"])
+
+
+    def test_g14_differs_does_not_flip_binding_pass_to_rejected(self):
+        # Given: a clean TRADABLE binding result PLUS a G14 DIFFERS outcome.
+        # Per quant 2026-05-29 G14 DIFFERS voids the *reusable inline* verdict but does NOT
+        # auto-REJECT — this run already validated the promoted config, so the verdict stands.
+        self.write_eval("A", overall="PASS", aggregate_edge=0.7, aggregate_cagr=35.0)
+        self.write_eval("B", overall="PASS", aggregate_edge=0.5, aggregate_cagr=30.0)
+        self.write_eval("25y", overall="PASS")
+        self.write_eval("C", overall="PASS", non_catastrophic=True)
+        g14_path = Path(self.tmpdir) / "g14.json"
+        g14_path.write_text(json.dumps({
+            "outcome": "DIFFERS", "jaccard": 0.997, "entry_divergence_count": 2,
+            "exit_divergence_count": 0, "pnl_divergence_count": 0,
+            "first_divergent_trade": {"bucket": "ENTRY", "symbol": "PENN", "entry_date": "2020-03-20"},
+        }))
+
+        # When
+        result = run_summarize(
+            self.paths["A"], self.paths["B"], self.paths["25y"], self.paths["C"], g14=g14_path)
+
+        # Then: verdict stays TRADABLE (promoted config validated this run); G14 surfaced
+        self.assertEqual(result["verdict"], "TRADABLE")
+        self.assertEqual(result["g14_implementation_invariance"]["outcome"], "DIFFERS")
+
+    def test_g14_pass_surfaced_alongside_tradable(self):
+        # Given: clean TRADABLE plus G14 PASS (promoted config identical to inline)
+        self.write_eval("A", overall="PASS", aggregate_edge=0.7, aggregate_cagr=35.0)
+        self.write_eval("B", overall="PASS", aggregate_edge=0.5, aggregate_cagr=30.0)
+        self.write_eval("25y", overall="PASS")
+        self.write_eval("C", overall="PASS", non_catastrophic=True)
+        g14_path = Path(self.tmpdir) / "g14.json"
+        g14_path.write_text(json.dumps({"outcome": "PASS", "jaccard": 1.0}))
+
+        # When
+        result = run_summarize(
+            self.paths["A"], self.paths["B"], self.paths["25y"], self.paths["C"], g14=g14_path)
+
+        # Then: TRADABLE and the transfer is recorded
+        self.assertEqual(result["verdict"], "TRADABLE")
+        self.assertEqual(result["g14_implementation_invariance"]["outcome"], "PASS")
 
 
 if __name__ == "__main__":

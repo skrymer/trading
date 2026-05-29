@@ -131,6 +131,79 @@ The hint is derived deterministically from which gates failed, not from per-cand
 
 G8 enforces ≥ 30 trades per window. But Block B (2 windows) × 30 = 60 trades, which is too few for block-aggregate stats to be trustworthy. G12 raises the per-block floor to ≥ 100 trades. Below that, the gate readings are noise.
 
+## G13 — Parameter Robustness
+
+G13 is a **fragility tripwire**, not a robustness measurement: its job is to catch the specific failure mode where a TRADABLE verdict is an artifact of a single lucky parameter value. Empirically, a one-step shift in a single tunable has moved Block B aggregate edge from clearly-positive to noise-band, flipped a chop-window edge sign (G7), and exploded G5 CoV by 4× — far beyond what the trade-sample's sampling error can explain. A sharper variant is **Aliased Regime Sensitivity (ARS)**: a non-monotone {PASS, FAIL, FAIL, PASS} pattern across the parameter neighborhood with stable trade counts and aggregate edge in the noise band — a structural disqualifier worse than simple brittleness.
+
+After a candidate clears the binding layers and reaches TRADABLE (or TRADABLE-pending-promotion), G13 perturbs each in-scope tunable by one step and re-fires Block A + Block B on each neighbor.
+
+### Advisory status (calibration-pending)
+
+G13 ships **advisory** — it runs and is reported but does not change the verdict — until a known-passer sweep confirms it does not false-positive-reject a legitimate strategy. A tripwire never shown to let a good strategy through is uncalibrated in the direction that matters for adoption. There is currently no known-passer strategy, so the passer calibration runs against the first strategy to clear the firewall (or a designated reference passer once one exists). Flipping G13 to binding is a one-line change once the acceptance criteria below are met.
+
+### Scope — which tunables are tested
+
+`{all entry/exit condition numeric params} ∪ {maxPositions, entryDelayDays} ∪ {leverageRatio if not covered by a sizer sweep}`, MINUS any `positionSizing.sizer.*` param provably covered by a passed multi-config sizer sweep for this exact config (each excluded param is named in the report with its sweep reference). Categorical/structural fields (ranker, sectorRanking, assetTypes, IS/OOS cadence, dates, startingCapital, the script string) are not tunables.
+
+`randomSeed` perturbation is deferred — seed dispersion is owned by the upstream multi-seed sizer sweep, which is a different question (is the edge real) from G13's (is the parameter choice fragile). The report asserts that precondition; if a candidate reaches G13 without having gone through the sizer sweep, seed perturbation must run.
+
+**v1 implementation note:** the sizer-coverage exclusion is the target design but is not yet wired — v1 has no sweep-reference input, so it tests *all* sizer params (`riskPercentage`, `nAtr`, `leverageRatio`, …) alongside the alpha tunables. This is conservative over-testing (the safe direction per the classification rationale): it costs extra neighbor fires but cannot mask fragility. Wiring the "minus sizer params covered by a passed sweep" exclusion is a follow-up once a sweep-reference is threaded in.
+
+### Classification — discrete vs continuous
+
+An **explicit param-name map is the source of truth**:
+
+- DISCRETE (± 1 step): `maxPositions`, `entryDelayDays`, `lookbackDays`, any `*Days` history requirement.
+- CONTINUOUS (× 0.9 / × 1.1): `riskPercentage`, `nAtr`, `atrMultiplier`, `leverageRatio`, `*Pct`, `*Multiplier`, `*Fraction`.
+
+JSON numeric subtype (int→discrete, float→continuous) is only the fallback for an *unrecognized* tunable name, and the fallback emits a loud warning ("classified by subtype fallback: add to map"). The map is the source of truth because mis-classifying a discrete param as continuous silently under-tests — a small nominal rounds its ±10% neighbor back onto itself — which is exactly the hole the motivating bug slips through. Mis-classifying continuous as discrete merely over-tests (the safe direction).
+
+### Step computation + boundaries
+
+- Discrete: `nominal − 1` and `nominal + 1`.
+- Continuous: `nominal × 0.9` and `nominal × 1.1`, rounded to the number of decimals in the nominal literal (ties away from zero). The report prints **both** the requested and the actually-fired (rounded) value.
+- **Fail-closed guard rail:** if a continuous ±10% step rounds back to the nominal (perturbed config byte-identical to center), that param is *not tested*, not *passed* — the step widens to the smallest representable step at its precision and is flagged. A no-op neighbor reads as a false PASS.
+- **Floor-flag:** if a discrete tunable sits on its natural floor so only the +1 neighbor is valid (e.g. `maxPositions` 1, `lookbackDays` 1), the +1 neighbor must still pass AND the floor-pinning is recorded. A center with ≥1 floor-flagged tunable caps at **PROVISIONAL** (never TRADABLE) — one-sided is survivorship reasoning, not robustness.
+
+### Verdict aggregation (when binding)
+
+A neighbor PASSES iff both its Block A and Block B evals return `overall == PASS`. Neighbors fire **Block A + Block B only** — never the 25y aggregate (its overlapping rolling windows smear the per-window sign-flips G13 keys on) and never Block C (single-window).
+
+| Outcome | Verdict |
+|---|---|
+| All neighbors PASS | **TRADABLE** retained |
+| Exactly 1 neighbor fails, *near-miss on a continuous gate* (G1 within 10% rel of threshold, **G5 failing but ≤ 1.65 — within 0.15 absolute above the 1.5 ceiling**, G9 within 10% rel) AND one-directional (opposite ±1 neighbor passes clean) | **PROVISIONAL** (reason `g13_regime_sensitive_neighbor`) — *subject to the ±2 carve-out below, which may downgrade to REJECTED* |
+| Any neighbor failure on a regime/binary gate (G4, G6, G7), any continuous-gate failure outside its near-miss band (G1/G9 beyond 10% rel; **G5 above 1.65, i.e. beyond 0.15 absolute above the 1.5 ceiling**), or ≥2 failing neighbors | **REJECTED** (reason `g13_parameter_fragile`) |
+
+**No gate-specific escape valve.** An earlier draft forgave a single neighbor that failed only on G5 or G7 — but those are precisely the gates the motivating failure tripped (CoV explosion, chop sign-flip). Whitelisting them fits the gate to the known failure and reopens the exact door G13 exists to close. The only allowance is a continuous-gate *near-miss* (within sampling error of the threshold), which is genuine noise, not fragility.
+
+**±2 carve-out (ARS protection where it can change a verdict).** ±1 is sufficient for the verdict — both a monotone edge cliff and ARS produce a ±1 binding-gate neighbor failure, so both REJECT either way; the base sweep does not widen to ±2. The one exception: if G13 would award PROVISIONAL on a continuous near-miss and that tunable's *opposite* ±1 neighbor PASSED, fire the ±2 neighbor on the failing side. ±2 also fails → edge cliff confirmed → REJECTED; ±2 recovers → the near-miss was noise → PROVISIONAL stands. Labeling cliff-vs-ARS is a v2 diagnostic; it does not change the v1 verdict.
+
+### Calibration acceptance criteria
+
+The step size is the right resolution when it is the smallest perturbation still **meaningfully larger than the per-window edge's sampling SE** on that tunable. Integer tunables: ±1 is forced (the quantum). Continuous: ±10% is right iff a 10% move shifts behaviour by more than sampling error — so G13 **records margins, not just pass/fail**, and compares them to the sample SE.
+
+- **Known-failer sweep (confirms ±1 is not too coarse):** the buggy center is REJECTED at ±1, with the failing neighbor failing **G5 or G7** (matching the CoV-explosion / chop-sign-flip mechanism). A different failing gate means the mechanism doesn't match the diagnosis — investigate. Confirmatory, not blocking (G13 is designed to reject this; if it didn't, that's a logic bug).
+- **Known-passer sweep (confirms ±1/±10% is not too fine — no false-positive):** swept on its alpha params, G13 must **not downgrade the passer below PROVISIONAL** (all-pass TRADABLE, or at worst one continuous near-miss with ±2 recovery). A wide-margin neighbor failure means real fragility the other gates missed; a near-miss failure means ±10% is too fine for that param (relax to ±5% and re-test). **Blocking** for verdict authority.
+
+## G14 — Implementation Invariance
+
+G14 closes the gap between a *validated research candidate* and the *shippable code*. A candidate authored with inline `{"type":"script"}` conditions is validated as text in a request JSON; promotion to a named first-class condition (via `/create-condition`) can silently change behaviour through a hidden tunable the firewall never saw. Idunn (2026-05-29) is the empirical case: the promoted `Pullback2of3Condition` used a dynamic history buffer `max(20, lookbackDays*2+10)` = 28 days where the inline script hardcoded 20. The 8 extra days admitted ~2 more bars of history per stock-date, firing the condition on a few more thin-history symbols. Headline metrics barely moved (Block B edge +0.48% → +0.36%, 912 → 914 trades) but the binding 2020 COVID OOS edge flipped +0.31% → −0.07% across the G6 zero-threshold. An identity check on the trade list would have caught it instantly.
+
+**G14 is an identity gate, not an edge gate.** It diffs the promoted config's trade list against the inline-script config's, keyed by `(entry_date, symbol)`, over the full 25y binding window (the longest window maximizes the population-shift signal on thin-history symbols). The mechanism is the `/verify-promotion` skill; the firewall reuses its `diff.json` verdict.
+
+**Verdict precedence (quant 2026-05-29).** The issue's first draft said "G14 fail = REJECTED regardless of other gates." The quant corrected this — those two halves (auto-REJECT + an escape valve for intentional fixes) are in tension. The right framing:
+
+- **PASS** (entry-set Jaccard 1.0, no exit/PnL divergence) → the inline verdict transfers to the promoted config.
+- **DIFFERS** → the inline-script firewall result is *discarded* (it described a trade population the shippable code does not produce). The promoted config must run the full binding firewall (Block A + Block B + 25y aggregate) on its own and meet TRADABLE independently. The pipeline does exactly this when it continues past a DIFFERS, so the verdict it computes IS the promoted config's own — G14 never flips that binding-PASS to REJECTED. The net effect for a lazy promoter (DIFFERS + no real re-validation) is identical to REJECTED, the right default, without a special case.
+- **ERROR** (the two configs differ in anything but condition representation — universe, dates, sizer, ranker, maxPositions, capital, seed) → methodology fault; halt before firing. A single-path backtest with mismatched seeds false-DIFFERS on noise, so seed mismatch is an ERROR precondition.
+
+**Match key + tolerances** are detailed in [verify-promotion/REFERENCE.md](../verify-promotion/REFERENCE.md): entry-set membership EXACT (a single different entry is a real population shift), exit dates exact, P&L on matched trades within 1e-3 relative (harmless float noise only). Binary PASS/DIFFERS — no graded "minor", because an identity gate with a tolerance band on *which trades exist* is a contradiction.
+
+**Scope.** G14 also fires on any change to an existing first-class condition's per-bar `evaluate()` logic (or a history-buffer constant it depends on), not only inline→promotion — that change invalidates the firewall verdict of every strategy referencing the condition. That half ships as a `/pre-commit`-adjacent advisory until a condition-class → live-verdict registry exists; the promotion case binds now.
+
+**Why G14 is not in `eval-block.py`.** `eval-block.py` evaluates one walk-forward result against the per-window v4 gates. G14 is a cross-*config* trade-list diff over a single backtest — a fundamentally different computation with no per-window structure. It lives in `/verify-promotion` (invoked by `run-pipeline.sh` before Block A) and is surfaced by `summarize.py`, not folded into the per-block evaluator.
+
 ## Failure handling
 
 **Reject on first-block failure.** No retries with different sizer / seed / position count. Each retry is another shot at the same target — exactly the multiple-comparison leak the firewall exists to prevent.
@@ -143,6 +216,7 @@ The skill MUST refuse to "try one more seed" on a rejected candidate. If the use
 
 | Path | Content |
 |---|---|
+| `/tmp/validate-<candidate>-g14.json` | G14 trade-list diff outcome (promoted vs inline-script) — only when an inline template is supplied |
 | `/tmp/validate-<candidate>-block{A,B}.json` | Raw walk-forward results — binding layers |
 | `/tmp/validate-<candidate>-25y.json` | Raw walk-forward result — binding statistical-power layer |
 | `/tmp/validate-<candidate>-blockC.json` | Raw walk-forward result — informational only |
