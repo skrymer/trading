@@ -293,10 +293,61 @@ See [`project_regime_conditional_portfolio_framework.md`](../../.claude/projects
 
 ## Firewall outcome (2026-05-28) — both REJECTED under single-strategy v4
 
-- **VZ3-s3 baseline (1.25%/2.0nAtr)**: PASS Block A, PASS Block B-corrected, **FAIL Block C**. Per-trade edge inverted +0.48% → −0.11% in 2024. Mean-reversion-on-pullback breaks in narrow-leadership trending tape. Quant verdict (post-firewall): not iterable on this axis — adding a regime filter would be IS-fitting to the single Block C OOS window. The wider lesson: mean-reversion-on-pullback strategies have a known weakness in low-breadth trending markets; they won't clear v4 without a structurally different entry premise (not a bolt-on filter).
+- **VZ3-s3 baseline (1.25%/2.0nAtr)**: PASS Block A, PASS Block B-corrected, **FAIL Block C**. Per-trade edge inverted +0.48% → −0.11% in 2024. Mean-reversion-on-pullback breaks in narrow-leadership trending tape. Quant verdict (post-firewall): not iterable on this axis — adding a regime filter would be IS-fitting to the single Block C OOS window.
+- **VZ3-s3 baseline 25y refined-firewall smoke (2026-05-28)**: ~~initially read as TRADABLE under refined framework~~. **INVALIDATED 2026-05-29** — verdict was carried by an off-by-one bug in the inline higher-low script (`ref[ref.size - 10]` against an inclusive-range `quotesInRange` result, reading 9 trading days back instead of 10). The corrected lookback (Idunn) fails Block B. Treat VZ3-s3 TRADABLE as a bug-induced artifact; do NOT ship the buggy lookback=9 even though it passed. See `feedback_parameter_fragility_must_be_verified.md`.
 - **MR3-s1 baseline (1.25%/2.0nAtr)**: **FAIL Block A** with multi-dimensional drift (G3 worst-window DD 20.47% > 20%, G4 8/11 windows positive < 75%, G5 CoV 1.77 > 1.5 — three tight failures, NEAR_MISS bucket capped at 2). Quant levers (ATR-percentile floor + min pullback depth + held≥5 exit) noted but not yet built.
 
-**Search-area finding**: VZ3 + MR3 are both mean-reversion-in-uptrend variants. Both REJECTED for different reasons (VZ3 fails late, MR3 fails early), which together signal the mean-reversion-on-pullback design space is mostly exhausted on the current cleaned universe.
+## Mean-reversion-on-pullback — DEPRECATED for current macro regime (2026-05-29)
+
+Per quant 11th consultation: **doubly-condemned and abandoned for current macro regime** (post-2020 narrow-leadership equity tape).
+
+**Two-strike Bayesian update**:
+- **Strike 1 — Regime-weak in narrow-leadership tape**: VZ3-s3 Block C edge inverted +0.48% → −0.11% in 2024; MR3 failed Block A on multi-dimensional drift; DV1 similar. Flow rotates away from laggards before mean-reversion fires; leaders' pullbacks are too shallow to touch the entry EMA.
+- **Strike 2 — Parameter-brittle at condition-design level**: Idunn brittleness sweep (lookback ∈ {8,9,10,11}) showed Aliased Regime Sensitivity (ARS) — non-monotone pass/fail across the parameter neighborhood, per-window edges flipping sign at regime gates under 1-day shifts. The "today's low vs N-bars-ago low" sub-condition is structurally an anti-pattern for noisy regime-variant data.
+
+**Two independent failure modes pointing the same direction** = the alpha hypothesis is wrong for current market structure, not the encoding.
+
+**Do not iterate.** Do not redesign the pullback-detection sub-condition. Do not add new regime filters. Move to a different premise class entirely.
+
+**Revisit trigger**: market structure returns to broad-participation bull markets — objective measure: market breadth EMA10 > 60% sustained for 6+ months OR advance-decline line in new highs sustained. Until then, parking this premise class.
+
+See [`feedback_mean_reversion_pullback_known_weakness.md`](../../.claude/projects/-home-skrymer-Development-git-trading/memory/feedback_mean_reversion_pullback_known_weakness.md) and [`feedback_aliased_regime_sensitivity.md`](../../.claude/projects/-home-skrymer-Development-git-trading/memory/feedback_aliased_regime_sensitivity.md).
+
+## Idunn (promoted VZ3-s3, 2026-05-29) — REJECTED at all 4 lookback values via ARS
+
+VZ3-s3's inline `script` conditions were promoted to first-class registered conditions (`Pullback2of3Condition` + `PercentGainExit`) and a Norse-god-named strategy (`IdunnEntryStrategy` + `IdunnExitStrategy`). During promotion, the off-by-one in the higher-low lookback was identified and corrected — the original inline script's `ref[ref.size - 10]` was effectively reading 9 trading days back; the corrected formula reads 10.
+
+**Block A**: PASS 10/10 — CAGR 41.44%, Max DD 11.70%, Sharpe 2.70, Calmar 3.54, edge +0.86%, 2702 trades. BETTER than VZ3-s3's Block A under the buggy formula (CAGR 36.02%, Sharpe 2.54, edge +0.62%).
+
+**Block B**: FAIL 7/10 — CAGR 29.36% (0.64pp short of 30% G1), G5 CoV 2.86 (vs 1.5 cap), G7 2018-Q4 chop edge −0.45% (vs > 0 mandate). Per-trade edge +0.12% (vs VZ3-s3 buggy +0.48%).
+
+**The 1-day lookback shift produced an enormous swing**: 2018-Q4 chop edge flipped from +0.21% (buggy) to −0.45% (corrected) on essentially the same trade population. The strategy's edge isn't tracking the "higher low vs ~2 weeks ago" structural feature — it's tracking incidental bar alignment.
+
+**Verdict**: REJECTED at Block B per the refined framework. Idunn is closed.
+
+**Brittleness sweep complete (2026-05-29)**: per quant's 10th consultation, ran lookback ∈ {8, 9, 11} via the `pullback2of3` custom-strategy path. Verdict matrix:
+
+| lookback | Block A | Block B | Block B CAGR | Block B edge |
+|---|:---:|:---:|---:|---:|
+| **8** | PASS 10/10 | **PASS 10/10** | 31.44% | +0.45% |
+| **9** | PASS 10/10 | **FAIL G6** (2020 COVID OOS edge −0.07%) | 36.16% | +0.36% |
+| **10** (nominal) | PASS 10/10 | **FAIL G1+G5+G7** (2018-Q4 chop edge −0.45%) | 29.36% | +0.12% |
+| **11** | PASS 10/10 | **PASS 10/10** | 30.65% | +0.48% |
+
+**Pattern**: Aliased Regime Sensitivity (ARS) — aggregate edges in a noise band (~3σ spread), but per-window edges flip sign at regime gates under 1-day shifts, AND pass/fail across the neighborhood is non-monotone. Quant calls this **strictly worse than simple brittleness**: there is no robust operating point because the parameter dimension is the wrong abstraction for the alpha hypothesis.
+
+**G13 ±1 step would have correctly rejected ALL 4 nominal values** (every nominal sits one step from a failing neighbor). Empirically validates G13 as a binding gate.
+
+**Promotion fidelity is NOT bit-equivalent.** `pullback2of3(lookbackDays=9)` diverges from the original VZ3-s3 inline-script lb=9-via-bug (which passed 10/10): the dynamic calendar buffer (`max(20, lookbackDays*2 + 10)` = 28 days at lb=9 vs hardcoded 20 in the inline script) admits ~2 more bars per stock-date, shifting the trade population enough to flip the 2020 COVID edge sign. The buffer is a hidden tunable. Issue #58 (G14 — Implementation Invariance) tracks this gap.
+
+**Sweep informed framework expansion**:
+- Issue #57 (G13 — Parameter Robustness): empirically validated at ±1 step on discrete params
+- Issue #58 (G14 — Implementation Invariance): separate gate for engine-side constant stability
+- Issue #59 (`/condition-screen` skill): diagnostic pre-screen that would have killed `pullback2of3` at design time via ARS detection
+
+**Idunn definitively closed.** Even the standalone-passing values (lb=8, lb=11) are not deployable — ARS means there's no robust operating point.
+
+**Search-area finding**: VZ3 + MR3 + Idunn are all mean-reversion-in-uptrend variants. All REJECTED for different reasons (VZ3 fails late under refined framework + bug invalidation, MR3 fails Block A multi-dim drift, Idunn fails Block B parameter brittleness). Together they signal the mean-reversion-on-pullback design space is exhausted on the current cleaned universe AND that any future promotion must include a parameter-stability check before TRADABLE is accepted.
 
 See [`VZ3_STRATEGY_DEVELOPMENT.md`](VZ3_STRATEGY_DEVELOPMENT.md) and [`MR3_STRATEGY_DEVELOPMENT.md`](MR3_STRATEGY_DEVELOPMENT.md) for per-candidate state.
 
