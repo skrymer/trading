@@ -3,13 +3,21 @@
 # Block A v4 (binding) + Block B v4 (binding) + 25-year aggregate v4 (binding) + Block C (informational).
 #
 # Usage:
-#   run-pipeline.sh <candidate-name> <request-template-path>
+#   run-pipeline.sh <candidate-name> <request-template-path> [inline-script-template-path]
 #
 # Args:
 #   candidate-name           Label used in output paths (e.g. <STRATEGY>-<VARIANT>)
 #   request-template-path    A request JSON with the candidate's full strategy config
 #                            (entryStrategy/exitStrategy/positionSizing/ranker/etc).
-#                            startDate/endDate are overridden per layer.
+#                            startDate/endDate are overridden per layer. For a promoted
+#                            candidate this is the PROMOTED first-class-condition config.
+#   inline-script-template-path  OPTIONAL. The original inline-`script` research config the
+#                            candidate was promoted FROM. When supplied, the firewall runs the
+#                            G14 Implementation Invariance check (via /verify-promotion) BEFORE
+#                            Block A. G14 ERROR halts the pipeline (configs not comparable);
+#                            G14 DIFFERS voids any reusable inline verdict but the pipeline
+#                            still validates the promoted config fully; G14 PASS records that
+#                            the inline verdict transfers. See SKILL.md "G14".
 #
 # Output:
 #   /tmp/validate-<cand>-block{A,B,C}.json   - raw walk-forward results (binding + informational)
@@ -27,15 +35,17 @@
 
 set -uo pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 <candidate-name> <request-template-path>" >&2
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+  echo "Usage: $0 <candidate-name> <request-template-path> [inline-script-template-path]" >&2
   exit 64
 fi
 
 CANDIDATE="$1"
 TEMPLATE="$2"
+INLINE_TEMPLATE="${3:-}"
 ROOT=/home/skrymer/Development/git/trading
 SKILL_DIR="$ROOT/.claude/skills/validate-candidate"
+VERIFY_PROMOTION="$ROOT/.claude/skills/verify-promotion/scripts/run-verify-promotion.sh"
 
 if [[ ! "$CANDIDATE" =~ ^[A-Za-z0-9_.-]+$ ]]; then
   echo "ERROR: candidate-name must match [A-Za-z0-9_.-]+ (no slashes, no shell metacharacters): $CANDIDATE" >&2
@@ -46,6 +56,10 @@ REPO_REPORT="$ROOT/strategy_exploration/validate-${CANDIDATE}.md"
 
 if [[ ! -f "$TEMPLATE" ]]; then
   echo "ERROR: template not found: $TEMPLATE" >&2
+  exit 2
+fi
+if [[ -n "$INLINE_TEMPLATE" && ! -f "$INLINE_TEMPLATE" ]]; then
+  echo "ERROR: inline-script template not found: $INLINE_TEMPLATE" >&2
   exit 2
 fi
 if ! command -v jq >/dev/null; then
@@ -140,6 +154,37 @@ g10_confirmation() {
   return 0
 }
 
+# G14 — Implementation Invariance (fires BEFORE Block A when this is a promoted candidate).
+# Diffs the promoted config's trade list against the inline-script research config it was
+# promoted from, over the full 25y binding window. Per quant 2026-05-29: G14 DIFFERS does NOT
+# auto-REJECT — it voids any reusable inline verdict and forces the promoted config through the
+# full firewall (which the pipeline does next regardless). Only ERROR (configs not comparable)
+# halts the pipeline. The outcome JSON is passed to summarize.py and surfaced in the report.
+G14_OUTCOME="/tmp/validate-${CANDIDATE}-g14.json"
+rm -f "$G14_OUTCOME"
+G14_ARGS=()
+if [[ -n "$INLINE_TEMPLATE" ]]; then
+  echo "" >&2
+  echo "==> G14 Implementation Invariance: diffing promoted config vs inline-script config (2000-2025)" >&2
+  if [[ ! -x "$VERIFY_PROMOTION" ]]; then
+    echo "ERROR: verify-promotion orchestrator not found/executable: $VERIFY_PROMOTION" >&2
+    exit 2
+  fi
+  "$VERIFY_PROMOTION" "$CANDIDATE" "$INLINE_TEMPLATE" "$TEMPLATE" 2000-01-01 2025-12-31
+  g14_rc=$?
+  cp "/tmp/verify-promotion-${CANDIDATE}/diff.json" "$G14_OUTCOME" 2>/dev/null || true
+  if [[ $g14_rc -eq 2 ]]; then
+    echo "==> G14 ERROR: configs are not the same logical strategy. Firewall halted (methodology fault)." >&2
+    echo "    Fix the configs so they differ ONLY in condition representation, then re-run." >&2
+    exit 2
+  elif [[ $g14_rc -eq 1 ]]; then
+    echo "==> G14 DIFFERS: inline-script verdict is VOID. Validating the PROMOTED config from scratch below." >&2
+  else
+    echo "==> G14 PASS: inline-script verdict transfers. Full firewall below confirms the promoted config." >&2
+  fi
+  [[ -s "$G14_OUTCOME" ]] && G14_ARGS=(--g14 "$G14_OUTCOME")
+fi
+
 # Block A (binding)
 if ! run_layer A; then
   rc=$?
@@ -193,6 +238,7 @@ python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
   "/tmp/validate-${CANDIDATE}-eval-blockC.json" \
   --script-conditions "$SCRIPT_CONDITIONS" \
   "${G13_ARGS[@]}" \
+  "${G14_ARGS[@]}" \
   > "$SUMMARY_JSON" 2> "$REPO_REPORT"
 
 VERDICT=$(jq -r '.verdict' "$SUMMARY_JSON")

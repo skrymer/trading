@@ -316,7 +316,8 @@ User-invocable skills orchestrate the full backtest workflows end-to-end and del
 - `/walk-forward` → `walk-forward-analyst` (WFE + per-window stability)
 - `/monte-carlo` → `monte-carlo-analyst` (path risk + edge confidence)
 - `/strategy-screen` → `strategy-screen-analyst` (fast 10y 2005-2015 walk-forward screen with relaxed gates to filter candidate sweeps; cross-candidate failure-mode bucketing; hands surviving candidates to `/validate-candidate`)
-- `/validate-candidate` → `firewall-analyst` (3-block firewall: Block A 2000-2014, Block B 2014-2021-H1 incl COVID, Block C 2021-2025; strict v4 gates + design-isolation + cross-block edge-decay; emits TRADABLE / PROVISIONAL / INCONCLUSIVE_G11 / NEAR_MISS / REJECTED verdict)
+- `/validate-candidate` → `firewall-analyst` (3-block firewall: Block A 2000-2014, Block B 2014-2021-H1 incl COVID, Block C 2021-2025; strict v4 gates + design-isolation + cross-block edge-decay + G14 implementation-invariance pre-check; emits TRADABLE / PROVISIONAL / INCONCLUSIVE_G11 / NEAR_MISS / REJECTED verdict)
+- `/verify-promotion` (no sub-agent) — G14 Implementation Invariance: diffs a promoted first-class condition's trade list against the inline-`script` research candidate's, by `(entry_date, symbol)` over 25y; emits PASS / DIFFERS / ERROR. Reused by `/validate-candidate` as its G14 gate.
 
 All skills call the Udgaard HTTP API directly.
 

@@ -25,6 +25,7 @@ You will be given:
 - `/tmp/validate-<candidate>-25y.json` — raw 25y walk-forward result (22 OOS windows for stability inspection)
 - `/tmp/validate-<candidate>-blockC.json` — raw Block C walk-forward result
 - `/tmp/g13-<candidate>/g13-<candidate>-outcome.json` — **(optional)** the G13 parameter-robustness advisory outcome, if the G13 sweep was run. Surfaced as `g13_advisory` in the summary JSON.
+- `/tmp/validate-<candidate>-g14.json` — **(optional)** the G14 Implementation Invariance trade-list diff, if the candidate was validated as a promotion (inline template supplied). Surfaced as `g14_implementation_invariance` in the summary JSON.
 
 ## Tasks
 
@@ -83,6 +84,16 @@ G13 is **advisory / calibration-pending** — it does NOT change the determinist
 
 Until G13 is calibrated, present its outcome as decision-support, not a gate. Do not let a G13 PASS substitute for the binding-layer verdict, and do not let a G13 REJECTED override a deterministic REJECTED's remediation path.
 
+### 4c. G14 implementation-invariance read (only if `g14_implementation_invariance` is present)
+
+G14 is the promotion-fidelity gate: does the promoted first-class condition reproduce the inline-script research candidate's trade population? It binds differently from the other gates — interpret per quant 2026-05-29:
+
+- **G14 PASS** — entry-set Jaccard 1.0, no exit/PnL divergence. The promoted code is trade-identical to the validated inline config; the firewall verdict transfers cleanly to the shippable code. No caveat.
+- **G14 DIFFERS** — the promoted code produced a *different* trade population. The inline-script verdict is VOID; the deterministic verdict you're analyzing is the **promoted config's own full-firewall result** (validated from scratch this run), which is authoritative. Do NOT treat DIFFERS as a rejection — but DO read the diff: the `first_divergent_trade` names the culprit symbol + date. Recommend the operator inspect that symbol's bar coverage / history-buffer at that date (the Idunn signature was thin-history symbols admitted by an over-wide buffer constant). Flag if the entry divergences cluster in a binding regime window (2008 / 2020 / a chop year) — that's where a small population shift flips a G6/G7 sign.
+- **G14 ERROR** — should not reach you (the pipeline halts upstream). If present, the two configs were not the same logical strategy; the comparison is meaningless and any verdict that rode on it is suspect.
+
+Do not let a G14 PASS substitute for the binding-layer verdict, and do not narrate a DIFFERS into a soft PASS. The promoted config's binding-layer result is the verdict; G14 tells you whether the *prior inline* validation was reusable.
+
 ### 5. Verdict-specific next step recommendation
 
 **TRADABLE**:
@@ -125,7 +136,8 @@ Until G13 is calibrated, present its outcome as decision-support, not a gate. Do
 4. **25y per-window stability scan** (count of negative windows, clustering pattern, late-clustering as edge-decay signal)
 5. **"Passed but barely" margins** (table of gate × layer × margin-to-threshold)
 6. **G13 parameter-robustness read** (only if `g13_advisory` present — advisory yellow flag, names any fragile tunable; never overrides the deterministic verdict)
-7. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
+7. **G14 implementation-invariance read** (only if `g14_implementation_invariance` present — PASS = verdict transfers; DIFFERS = inline verdict void, promoted result authoritative, name the culprit symbol; never narrate DIFFERS into a soft PASS)
+8. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
 
 ## Critical "don't"s
 
@@ -137,3 +149,4 @@ Until G13 is calibrated, present its outcome as decision-support, not a gate. Do
 - **Don't soften the failure boundary because the candidate "almost" passed.** Margin reports are diagnostic, not amnesty.
 - **Don't recommend "average across seeds" as a remediation.** The right move on seed-dispersion findings is more seeds, not averaging.
 - **Don't speculate about regimes the firewall doesn't test.** Block C is 2021-2025; don't pretend to know how the strategy would fare in 2027.
+- **Don't treat a G14 DIFFERS as a rejection, or a G14 PASS as a verdict.** DIFFERS voids the *reusable inline* verdict; the promoted config's binding-layer result is the actual verdict. PASS only certifies the inline validation was reusable — it never substitutes for the binding layers.

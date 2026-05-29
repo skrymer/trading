@@ -55,6 +55,7 @@ A candidate must clear **all three binding layers** (Block A v4, Block B v4, 25-
 | G11 — Cross-block edge decay | edge_B ≥ 0.5 × edge_A AND CAGR_B ≥ 0.5 × CAGR_A (applied between binding blocks). Failure downgrades verdict to PROVISIONAL. |
 | G12 — Block-aggregate trade count | ≥ 100 trades per block |
 | G13 — Parameter robustness | Every alpha-defining tunable's ±-step neighbors must also pass Block A + Block B. **Advisory / calibration-pending — does not bind the verdict yet.** See "G13 — Parameter Robustness" below. |
+| G14 — Implementation invariance | A promoted first-class condition must produce the SAME trade population as the inline-`script` config it was promoted from (trade-list diff by `(entry_date, symbol)`, full 25y). Fires BEFORE Block A when an inline template is supplied. DIFFERS voids the *reusable inline verdict* and forces full promoted-config validation (this run); it does NOT auto-REJECT. ERROR (configs not comparable) halts. See "G14 — Implementation Invariance" below. |
 
 **Block C non-catastrophic check (informational, not a gate):** No `|edge| > 0.5%` AND no DD > 20%. A binding-layer-clearing candidate that breaches non-catastrophic Block C is **PROVISIONAL** (paper-trade only). A binding-layer-clearing candidate with clean Block C is **TRADABLE** (subject to script-condition promotion). Block C's other gates are reported but do not bind the verdict.
 
@@ -68,15 +69,32 @@ A TRADABLE verdict is data-snooping if it only holds at one parameter value. G13
 
 Steps, the discrete/continuous classification map, the ±2 carve-out, floor-flag handling, and the calibration acceptance criteria are in [REFERENCE.md](REFERENCE.md#g13--parameter-robustness).
 
+## G14 — Implementation Invariance (promotion fidelity)
+
+A research candidate authored with inline `{"type":"script"}` conditions is validated as *text in a request JSON*. Before it ships, each script is promoted to a named, version-controlled condition class (via `/create-condition`). G14 proves the promoted code reproduces the trade population the firewall actually validated — caught empirically when Idunn's promoted `Pullback2of3Condition` used a 28-day history buffer where the inline script used 20, shifting the trade population enough to flip the binding 2020 COVID G6 edge sign (+0.31% → −0.07%).
+
+G14 fires **before Block A**, only when the pipeline is given the inline-script template as a third argument. It runs `/verify-promotion`: two single backtests over the full 25y window, then a trade-list diff by `(entry_date, symbol)`. Per quant 2026-05-29:
+
+- **PASS** (entry-set Jaccard 1.0, no exit/PnL divergence) → the prior inline-script firewall verdict **transfers**; the full firewall below confirms it on the shippable code.
+- **DIFFERS** → the inline verdict is **VOID** (it described trades the shippable code does not produce). G14 does **not** auto-REJECT — instead the promoted config runs the full binding firewall on its own this run, and that result is authoritative. The inline result is discarded, never blended.
+- **ERROR** (configs differ in anything but condition representation) → methodology fault; the pipeline halts before firing.
+
+G14 also applies to any change to an existing condition's per-bar `evaluate()` logic, not just inline→promotion. See the [verify-promotion skill](../verify-promotion/SKILL.md) and [REFERENCE.md](REFERENCE.md#g14--implementation-invariance) for match-key, tolerance, and precedence rationale.
+
 ## Quick start
 
 ```bash
+# Standard validation:
 .claude/skills/validate-candidate/scripts/run-pipeline.sh <candidate-name> <request-template>
+
+# Promoted candidate — add the inline-script config it was promoted from to fire G14 first:
+.claude/skills/validate-candidate/scripts/run-pipeline.sh <candidate-name> <promoted-template> <inline-script-template>
 ```
 
-The template is the `/tmp/v3-req-<candidate>.json` produced earlier in the screen, OR any request file with the candidate's full `entryStrategy` / `exitStrategy` / `positionSizing` / `ranker`. The pipeline overrides only `startDate` and `endDate` per block.
+The template is the `/tmp/v3-req-<candidate>.json` produced earlier in the screen, OR any request file with the candidate's full `entryStrategy` / `exitStrategy` / `positionSizing` / `ranker`. The pipeline overrides only `startDate` and `endDate` per block. The optional third argument is the inline-`script` config the candidate was promoted from — supplying it fires G14 (Implementation Invariance) before Block A.
 
 Outputs:
+- `/tmp/validate-<candidate>-g14.json` — G14 trade-list diff outcome (only when an inline template is supplied)
 - `/tmp/validate-<candidate>-block{A,B}.json` — raw walk-forward results (binding layers)
 - `/tmp/validate-<candidate>-25y.json` — raw walk-forward result (binding statistical-power layer)
 - `/tmp/validate-<candidate>-blockC.json` — raw walk-forward result (informational only)

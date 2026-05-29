@@ -186,6 +186,24 @@ The step size is the right resolution when it is the smallest perturbation still
 - **Known-failer sweep (confirms ±1 is not too coarse):** the buggy center is REJECTED at ±1, with the failing neighbor failing **G5 or G7** (matching the CoV-explosion / chop-sign-flip mechanism). A different failing gate means the mechanism doesn't match the diagnosis — investigate. Confirmatory, not blocking (G13 is designed to reject this; if it didn't, that's a logic bug).
 - **Known-passer sweep (confirms ±1/±10% is not too fine — no false-positive):** swept on its alpha params, G13 must **not downgrade the passer below PROVISIONAL** (all-pass TRADABLE, or at worst one continuous near-miss with ±2 recovery). A wide-margin neighbor failure means real fragility the other gates missed; a near-miss failure means ±10% is too fine for that param (relax to ±5% and re-test). **Blocking** for verdict authority.
 
+## G14 — Implementation Invariance
+
+G14 closes the gap between a *validated research candidate* and the *shippable code*. A candidate authored with inline `{"type":"script"}` conditions is validated as text in a request JSON; promotion to a named first-class condition (via `/create-condition`) can silently change behaviour through a hidden tunable the firewall never saw. Idunn (2026-05-29) is the empirical case: the promoted `Pullback2of3Condition` used a dynamic history buffer `max(20, lookbackDays*2+10)` = 28 days where the inline script hardcoded 20. The 8 extra days admitted ~2 more bars of history per stock-date, firing the condition on a few more thin-history symbols. Headline metrics barely moved (Block B edge +0.48% → +0.36%, 912 → 914 trades) but the binding 2020 COVID OOS edge flipped +0.31% → −0.07% across the G6 zero-threshold. An identity check on the trade list would have caught it instantly.
+
+**G14 is an identity gate, not an edge gate.** It diffs the promoted config's trade list against the inline-script config's, keyed by `(entry_date, symbol)`, over the full 25y binding window (the longest window maximizes the population-shift signal on thin-history symbols). The mechanism is the `/verify-promotion` skill; the firewall reuses its `diff.json` verdict.
+
+**Verdict precedence (quant 2026-05-29).** The issue's first draft said "G14 fail = REJECTED regardless of other gates." The quant corrected this — those two halves (auto-REJECT + an escape valve for intentional fixes) are in tension. The right framing:
+
+- **PASS** (entry-set Jaccard 1.0, no exit/PnL divergence) → the inline verdict transfers to the promoted config.
+- **DIFFERS** → the inline-script firewall result is *discarded* (it described a trade population the shippable code does not produce). The promoted config must run the full binding firewall (Block A + Block B + 25y aggregate) on its own and meet TRADABLE independently. The pipeline does exactly this when it continues past a DIFFERS, so the verdict it computes IS the promoted config's own — G14 never flips that binding-PASS to REJECTED. The net effect for a lazy promoter (DIFFERS + no real re-validation) is identical to REJECTED, the right default, without a special case.
+- **ERROR** (the two configs differ in anything but condition representation — universe, dates, sizer, ranker, maxPositions, capital, seed) → methodology fault; halt before firing. A single-path backtest with mismatched seeds false-DIFFERS on noise, so seed mismatch is an ERROR precondition.
+
+**Match key + tolerances** are detailed in [verify-promotion/REFERENCE.md](../verify-promotion/REFERENCE.md): entry-set membership EXACT (a single different entry is a real population shift), exit dates exact, P&L on matched trades within 1e-3 relative (harmless float noise only). Binary PASS/DIFFERS — no graded "minor", because an identity gate with a tolerance band on *which trades exist* is a contradiction.
+
+**Scope.** G14 also fires on any change to an existing first-class condition's per-bar `evaluate()` logic (or a history-buffer constant it depends on), not only inline→promotion — that change invalidates the firewall verdict of every strategy referencing the condition. That half ships as a `/pre-commit`-adjacent advisory until a condition-class → live-verdict registry exists; the promotion case binds now.
+
+**Why G14 is not in `eval-block.py`.** `eval-block.py` evaluates one walk-forward result against the per-window v4 gates. G14 is a cross-*config* trade-list diff over a single backtest — a fundamentally different computation with no per-window structure. It lives in `/verify-promotion` (invoked by `run-pipeline.sh` before Block A) and is surfaced by `summarize.py`, not folded into the per-block evaluator.
+
 ## Failure handling
 
 **Reject on first-block failure.** No retries with different sizer / seed / position count. Each retry is another shot at the same target — exactly the multiple-comparison leak the firewall exists to prevent.
@@ -198,6 +216,7 @@ The skill MUST refuse to "try one more seed" on a rejected candidate. If the use
 
 | Path | Content |
 |---|---|
+| `/tmp/validate-<candidate>-g14.json` | G14 trade-list diff outcome (promoted vs inline-script) — only when an inline template is supplied |
 | `/tmp/validate-<candidate>-block{A,B}.json` | Raw walk-forward results — binding layers |
 | `/tmp/validate-<candidate>-25y.json` | Raw walk-forward result — binding statistical-power layer |
 | `/tmp/validate-<candidate>-blockC.json` | Raw walk-forward result — informational only |
