@@ -54,8 +54,8 @@ curl -X POST http://localhost:8080/udgaard/api/backtest \
   -H "Content-Type: application/json" \
   -d '{
     "stockSymbols": ["AAPL", "GOOGL"],
-    "entryStrategy": {"type": "predefined", "name": "PlanAlpha"},
-    "exitStrategy": {"type": "predefined", "name": "PlanMoney"},
+    "entryStrategy": {"type": "custom", "conditions": [{"type": "marketUptrend"}]},
+    "exitStrategy": {"type": "custom", "conditions": [{"type": "stopLoss", "parameters": {"atrMultiplier": 2.5}}]},
     "startDate": "2020-01-01",
     "endDate": "2025-11-22",
     "maxPositions": 3,
@@ -259,8 +259,11 @@ Run a backtest with full configuration.
   "stockSymbols": ["AAPL", "GOOGL"],
   "assetTypes": ["STOCK"],
   "entryStrategy": {
-    "type": "predefined",
-    "name": "PlanAlpha"
+    "type": "custom",
+    "conditions": [
+      {"type": "marketUptrend"},
+      {"type": "uptrend"}
+    ]
   },
   "exitStrategy": {
     "type": "custom",
@@ -371,13 +374,13 @@ Get available conditions for custom strategies, including parameter metadata.
 Strategies are auto-discovered using the `@RegisteredStrategy` annotation:
 
 ```kotlin
-@RegisteredStrategy(name = "PlanAlpha", type = StrategyType.ENTRY)
-class PlanAlphaEntryStrategy : DetailedEntryStrategy {
+@RegisteredStrategy(name = "MyEntryStrategy", type = StrategyType.ENTRY)
+class MyEntryStrategy : DetailedEntryStrategy {
   private val compositeStrategy = entryStrategy {
-    marketInUptrend()
-    sectorInUptrend()
+    marketUptrend()
+    sectorUptrend()
     uptrend()
-    priceAboveEma(20)
+    priceAbove(20)
   }
 
   override fun test(stock: Stock, quote: StockQuote): Boolean {
@@ -411,20 +414,7 @@ val myExit = exitStrategy {
 
 ### Available Strategies
 
-**Entry Strategies:**
-- `PlanAlpha`: Multi-factor entry with market, sector, and stock conditions
-- `Mjolnir`: Breadth-driven momentum entry with ATR safeguards
-- `PlanQ`: Focused entry strategy variant
-- `OvtlyrPlanEtf`: ETF-focused entry strategy
-- `ProjectX`: Experimental entry strategy
-
-**Exit Strategies:**
-- `PlanMoney`: Money management exit rules (ATR-based stops and targets)
-- `PlanAlpha`: Plan Alpha exit rules
-- `Mjolnir`: Breadth-aware exit with ATR trailing stop
-- `PlanQ`: Focused exit strategy variant
-- `OvtlyrPlanEtf`: ETF-focused exit strategy
-- `ProjectX`: Experimental exit strategy
+**No predefined entry or exit strategies are currently registered.** All prior strategies were either invalidated (VCP — order-block lookahead bug), REJECTED via the v4 firewall, or deprecated (mean-reversion-on-pullback class). Use the custom-strategy request shape (`{type: "custom", conditions: [...]}`) until new candidates land. See `strategy_exploration/NEW_CANDIDATES_2026-05-29.md` for in-flight designs.
 
 ### Available Conditions
 

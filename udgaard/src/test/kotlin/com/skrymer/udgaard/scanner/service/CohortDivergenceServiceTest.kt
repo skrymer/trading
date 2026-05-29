@@ -46,8 +46,8 @@ class CohortDivergenceServiceTest {
       id = 1L,
       signalDate = today,
       scanTimestamp = LocalDateTime.of(today, java.time.LocalTime.of(18, 30)),
-      entryStrategyName = "Vcp",
-      exitStrategyName = "VcpExitStrategy",
+      entryStrategyName = "TestEntryStrategy",
+      exitStrategyName = "TestExitStrategy",
       rankerName = "SectorEdgeWithTightness",
       totalStocksScanned = 3000,
       matchedSymbols = listOf(
@@ -58,13 +58,18 @@ class CohortDivergenceServiceTest {
     )
     val tradeAAPL = trade("AAPL", signalDate = today)
     val tradeNFLX = trade("NFLX", signalDate = today)
-    whenever(scanRunRepo.findByWindow(any(), eq(today), eq("Vcp"), eq("VcpExitStrategy"), eq("SectorEdgeWithTightness")))
+    whenever(scanRunRepo.findByWindow(any(), eq(today), eq("TestEntryStrategy"), eq("TestExitStrategy"), eq("SectorEdgeWithTightness")))
       .thenReturn(listOf(todayScan))
     whenever(scannerTradeRepo.findBySignalDateBetween(any(), eq(today)))
       .thenReturn(listOf(tradeAAPL, tradeNFLX))
 
-    // When: compute with default production-config + 20-day window
-    val report = service.compute(DivergenceConfig())
+    // When: compute with the test fixture's strategy triplet + default 20-day window
+    val report = service.compute(
+      DivergenceConfig(
+        entryStrategy = "TestEntryStrategy",
+        exitStrategy = "TestExitStrategy",
+      ),
+    )
 
     // Then: today's stats reflect the 3 emitted, 2 taken
     assertEquals(today, report.today.scanDate)
@@ -81,9 +86,10 @@ class CohortDivergenceServiceTest {
   @Test
   fun `compute rejects windowDays outside 1-365`() {
     // Given / When / Then: zero, negative, and absurd values all 400 before any repo work
-    assertFailsWith<IllegalArgumentException> { service.compute(DivergenceConfig(windowDays = 0)) }
-    assertFailsWith<IllegalArgumentException> { service.compute(DivergenceConfig(windowDays = -5)) }
-    assertFailsWith<IllegalArgumentException> { service.compute(DivergenceConfig(windowDays = 366)) }
+    val baseConfig = DivergenceConfig(entryStrategy = "TestEntry", exitStrategy = "TestExit")
+    assertFailsWith<IllegalArgumentException> { service.compute(baseConfig.copy(windowDays = 0)) }
+    assertFailsWith<IllegalArgumentException> { service.compute(baseConfig.copy(windowDays = -5)) }
+    assertFailsWith<IllegalArgumentException> { service.compute(baseConfig.copy(windowDays = 366)) }
   }
 
   private fun trade(symbol: String, signalDate: LocalDate) = ScannerTrade(
@@ -97,8 +103,8 @@ class CohortDivergenceServiceTest {
     optionType = null,
     strikePrice = null,
     expirationDate = null,
-    entryStrategyName = "Vcp",
-    exitStrategyName = "VcpExitStrategy",
+    entryStrategyName = "TestEntryStrategy",
+    exitStrategyName = "TestExitStrategy",
     notes = null,
     createdAt = LocalDateTime.now(),
     signalDate = signalDate,

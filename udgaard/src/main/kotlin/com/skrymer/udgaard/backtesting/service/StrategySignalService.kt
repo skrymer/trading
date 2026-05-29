@@ -12,7 +12,6 @@ import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
-import com.skrymer.udgaard.backtesting.strategy.ProjectXExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -393,7 +392,6 @@ class StrategySignalService(
     // Try to get the composite strategy for detailed evaluation
     val compositeStrategy =
       when (exitStrategy) {
-        is ProjectXExitStrategy -> exitStrategy.getCompositeStrategy()
         is CompositeExitStrategy -> exitStrategy
         else -> null
       }

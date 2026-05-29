@@ -284,7 +284,7 @@ onMounted(async () => {
   void loadDataFreshness()
   try {
     loadingMessage.value = 'Loading trades and settings...'
-    await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats(), loadCohortDivergence()])
+    await Promise.all([loadTrades(), loadPositionSizingSettings(), loadDrawdownStats(), loadClosedTrades(), loadClosedTradeStats()])
     if (trades.value.length > 0) {
       const now = Date.now()
       if (now - lastExitCheckAt.value >= EXIT_CHECK_COOLDOWN_MS) {
@@ -336,8 +336,17 @@ async function loadTrades() {
 }
 
 async function loadCohortDivergence() {
+  if (!lastEntryStrategy.value || !lastExitStrategy.value) {
+    cohortDivergenceReport.value = null
+    return
+  }
   try {
-    cohortDivergenceReport.value = await $fetch<CohortDivergenceReport>('/udgaard/api/scanner/cohort-divergence')
+    cohortDivergenceReport.value = await $fetch<CohortDivergenceReport>('/udgaard/api/scanner/cohort-divergence', {
+      query: {
+        entryStrategy: lastEntryStrategy.value,
+        exitStrategy: lastExitStrategy.value
+      }
+    })
   } catch (error) {
     console.error('Error loading cohort divergence report:', error)
   }

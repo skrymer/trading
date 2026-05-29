@@ -29,7 +29,6 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.OvtlyrBuySignalF
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAbovePreviousLowCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceNearDonchianHighCondition
-import com.skrymer.udgaard.backtesting.strategy.condition.entry.Pullback2of3Condition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAboveCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthAcceleratingCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.SectorBreadthEmaAlignmentCondition
@@ -280,14 +279,6 @@ class EntryStrategyBuilder {
     apply {
       conditions.add(PriceNearDonchianHighCondition(maxDistancePercent))
     }
-
-  fun pullback2of3(
-    atrMultiple: Double = 1.5,
-    lookbackDays: Int = 10,
-    minSubConditions: Int = 2,
-  ) = apply {
-    conditions.add(Pullback2of3Condition(atrMultiple, lookbackDays, minSubConditions))
-  }
 
   // External signals
   fun ovtlyrBuySignal() =

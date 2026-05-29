@@ -152,7 +152,7 @@ class StockMcpTools(
       Provides the strategy description from its implementation.
 
       Parameters:
-      - strategyName: Name of the strategy (e.g., 'PlanAlpha', 'PlanMoney')
+      - strategyName: Name of the strategy (e.g., '<entry-strategy-name>', '<exit-strategy-name>')
       - strategyType: Type of strategy - 'entry' or 'exit'
 
       Returns:

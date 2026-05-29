@@ -47,7 +47,7 @@ sealed class StrategyConfig
  * Reference to a predefined strategy by name
  */
 data class PredefinedStrategyConfig(
-  val name: String, // e.g., "PlanEtf", "PlanAlpha"
+  val name: String, // e.g., "MyEntryStrategy", "MyExitStrategy"
 ) : StrategyConfig()
 
 /**
