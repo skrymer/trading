@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""Tests for eval-block.py — focused on the Block-B G6a/G6b regime-mandate split (issue #51).
+
+G6a (2020-H1 crash survival): trades entered Jan-Apr 2020 OOS edge >= -0.5%
+G6b (2020-H2 recovery):       trades entered May-Dec 2020 OOS edge > 0
+
+Both are recomputed from the per-window `outOfSampleStatsByEntryMonth` monthly buckets
+(ADR-0006). Other blocks keep the single G6.
+
+Run: python3 -m pytest test_eval_block.py  (or `python3 test_eval_block.py`)
+"""
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPT = Path(__file__).parent / "eval-block.py"
+
+
+def month_bucket(trades, winners, sum_win_pct, sum_loss_pct):
+    """A TradeStatsSummary as eval-block consumes it — additive fields only."""
+    return {
+        "trades": trades,
+        "winners": winners,
+        "sumWinPercent": sum_win_pct,
+        "sumLossPercent": sum_loss_pct,
+        "grossWinProfit": sum_win_pct,
+        "grossLossProfit": sum_loss_pct,
+    }
+
+
+def window(oos_start, edge=1.0, trades=40, dd=5.0, cagr=35.0, buckets=None):
+    return {
+        "outOfSampleStart": oos_start,
+        "outOfSampleEnd": oos_start[:4] + "-12-31",
+        "outOfSampleEdge": edge,
+        "outOfSampleTrades": trades,
+        "outOfSampleMaxDrawdownPct": dd,
+        "outOfSampleCagr": cagr,
+        "outOfSampleStatsByEntryMonth": buckets or {},
+    }
+
+
+def run_block(windows, block, **agg):
+    data = {
+        "windows": windows,
+        "aggregateOosEdge": agg.get("edge", 1.0),
+        "aggregateOosTrades": agg.get("trades", sum(w["outOfSampleTrades"] for w in windows)),
+        "aggregateOosCagr": agg.get("cagr", 35.0),
+        "aggregateOosMaxDrawdownPct": agg.get("dd", 10.0),
+        "aggregateOosRiskMetrics": {"sharpeRatio": 1.2, "calmarRatio": 1.0},
+    }
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(data, f)
+        path = f.name
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), path, "--block", block],
+        capture_output=True, text=True,
+    )
+    return json.loads(result.stdout)
+
+
+def gate_named(summary, name):
+    return next((g for g in summary["gates"] if g["name"] == name), None)
+
+
+class TestG6aCrashSurvival(unittest.TestCase):
+    def test_g6a_fails_when_jan_apr_2020_edge_below_minus_half_percent(self):
+        # Given a 2020 OOS window whose Jan-Apr trades aggregate to edge = -1.0%
+        # (winners=4 avg +5%, losers=6 avg -5% -> 0.4*5 - 0.6*5 = -1.0)
+        buckets = {"2020-03": month_bucket(trades=10, winners=4, sum_win_pct=20.0, sum_loss_pct=-30.0)}
+        summary = run_block([window("2020-01-01", buckets=buckets)], "B")
+
+        # When Block B is evaluated, G6a exists and fails the -0.5% floor; plain G6 is gone
+        g6a = gate_named(summary, "G6a_crash_survival")
+        self.assertIsNotNone(g6a)
+        self.assertFalse(g6a["passed"])
+        self.assertIsNone(gate_named(summary, "G6_regime_mand"))
+
+    def test_g6a_passes_when_jan_apr_2020_edge_at_or_above_floor(self):
+        # Given Jan-Apr trades aggregating to edge = -0.4% (just above the -0.5% floor)
+        # winners=4 avg +5%, losers=6 avg -4.4%? Use: 0.4*5 - 0.6*4 = 2 - 2.4 = -0.4
+        buckets = {"2020-02": month_bucket(trades=10, winners=4, sum_win_pct=20.0, sum_loss_pct=-24.0)}
+        summary = run_block([window("2020-01-01", buckets=buckets)], "B")
+
+        # Then G6a passes
+        self.assertTrue(gate_named(summary, "G6a_crash_survival")["passed"])
+
+
+class TestG6bRecovery(unittest.TestCase):
+    def test_g6b_fails_when_may_dec_2020_edge_not_positive(self):
+        # Given May-Dec 2020 trades aggregating to edge = 0.0 (winners=5 avg +4%, losers=5 avg -4%)
+        buckets = {"2020-09": month_bucket(trades=10, winners=5, sum_win_pct=20.0, sum_loss_pct=-20.0)}
+        summary = run_block([window("2020-01-01", buckets=buckets)], "B")
+
+        # When evaluated, G6b requires strictly > 0 and so fails at exactly 0
+        g6b = gate_named(summary, "G6b_recovery")
+        self.assertIsNotNone(g6b)
+        self.assertFalse(g6b["passed"])
+
+    def test_g6b_passes_when_may_dec_2020_edge_positive(self):
+        # Given May-Dec 2020 trades aggregating to a positive edge
+        # (winners=6 avg +5%, losers=4 avg -3% -> 0.6*5 - 0.4*3 = 3 - 1.2 = +1.8)
+        buckets = {"2020-08": month_bucket(trades=10, winners=6, sum_win_pct=30.0, sum_loss_pct=-12.0)}
+        summary = run_block([window("2020-01-01", buckets=buckets)], "B")
+
+        # Then G6b passes
+        self.assertTrue(gate_named(summary, "G6b_recovery")["passed"])
+
+    def test_g6a_g6b_isolate_their_halves(self):
+        # Given a crash half that bled (-1.0%) but a recovery half that rallied (+1.8%)
+        buckets = {
+            "2020-03": month_bucket(trades=10, winners=4, sum_win_pct=20.0, sum_loss_pct=-30.0),
+            "2020-08": month_bucket(trades=10, winners=6, sum_win_pct=30.0, sum_loss_pct=-12.0),
+        }
+        summary = run_block([window("2020-01-01", buckets=buckets)], "B")
+
+        # Then the rally cannot rescue the crash gate — each half reads only its own months
+        self.assertFalse(gate_named(summary, "G6a_crash_survival")["passed"])
+        self.assertTrue(gate_named(summary, "G6b_recovery")["passed"])
+
+
+class TestOtherBlocksKeepSingleG6(unittest.TestCase):
+    def test_block_a_keeps_single_g6_no_split(self):
+        # Given a Block A 2008 mandate window with positive edge
+        summary = run_block([window("2008-01-01", edge=2.0)], "A")
+
+        # When evaluated, Block A uses the single window-aggregate G6 and has no G6a/G6b
+        self.assertIsNotNone(gate_named(summary, "G6_regime_mand"))
+        self.assertIsNone(gate_named(summary, "G6a_crash_survival"))
+        self.assertIsNone(gate_named(summary, "G6b_recovery"))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

@@ -34,6 +34,11 @@ GATE_METADATA = {
     "G4b_block_cagr":     {"threshold": 30.0,  "direction": "ge", "type": "percentage"},
     "G5_cov_edge":        {"threshold": 1.5,   "direction": "le", "type": "ratio"},
     "G6_regime_mand":     {"threshold": 0.0,   "direction": "gt", "type": "strict"},
+    # Block-B G6 split (issue #51). Both "strict": a regime-mandate sub-gate failure is
+    # structural (crash survival / regime re-entry), never a tight-margin NEAR_MISS — same
+    # treatment as the single G6.
+    "G6a_crash_survival": {"threshold": -0.5,  "direction": "ge", "type": "strict"},
+    "G6b_recovery":       {"threshold": 0.0,   "direction": "gt", "type": "strict"},
     "G7_regime_chop":     {"threshold": None,  "direction": None, "type": "strict"},
     "G8_min_trades":      {"threshold": 30,    "direction": "ge", "type": "count"},
     "G9_sharpe_calmar":   {"threshold": None,  "direction": None, "type": "ratio"},
@@ -88,7 +93,7 @@ def derive_remediation_hint(failed_gates: list[dict]) -> str:
     if not failed_gates:
         return ""
     names = {g["name"] for g in failed_gates}
-    if "G6_regime_mand" in names:
+    if names & {"G6_regime_mand", "G6a_crash_survival", "G6b_recovery"}:
         return "regime_survival_redesign"
     if "G1_cagr" in names and not (names & {"G3_dd_per_window", "G4_positive_pct"}):
         return "tune_position_sizing"
@@ -372,7 +377,7 @@ def main():
         md_lines.append(f"All 3 binding layers passed but: {' AND '.join(reasons) if reasons else 'a binding-passing-but-degraded condition was triggered'}.")
         md_lines.append("**Paper-trade only.** Per quant 2026-05-28: 6 months of paper-trade-vs-25y-distribution monitoring. If live edge sits in the +0.30 to +0.80% band of the 25y per-window distribution, promote to live capital. If sub-zero, edge decay caught early.")
     elif verdict == "NEAR_MISS":
-        md_lines.append(f"Failed {len(failed_gates_binding)} binding-layer gate(s) but all failures within tight margin (≤2 failures, no G6 fail).")
+        md_lines.append(f"Failed {len(failed_gates_binding)} binding-layer gate(s) but all failures within tight margin (≤2 failures, no regime-mandate fail).")
         md_lines.append("**NEAR_MISS is NOT tradable.** Treat as 'one design iteration away' — not 'almost tradable'.")
         if remediation_hint:
             md_lines.append(f"Recommended remediation axis: **{remediation_hint}**.")

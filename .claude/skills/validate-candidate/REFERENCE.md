@@ -50,7 +50,7 @@ G4 ≥ 75% is retained only when `N ≥ 4` — large enough for the percentage t
 Earlier drafts had 2008 + 2022 in G6 globally, requiring BOTH to be OOS+ in every block evaluation. This breaks on blocks that don't contain those years. The quant-verified split is **one named stress per block**:
 
 - Block A → 2008 GFC (binding — only block with the GFC OOS) — **NEVER passed via 25y aggregate dilution**: if 2008 OOS edge ≤ 0, Block A FAILS regardless of 25y result.
-- Block B → 2020 COVID (binding — only block with COVID OOS — possible because the COVID-inclusive range is the corrected B boundary)
+- Block B → 2020 COVID (binding — only block with COVID OOS — possible because the COVID-inclusive range is the corrected B boundary). **Split into G6a (crash survival, Jan–Apr 2020 entries, edge ≥ −0.5%) + G6b (recovery, May–Dec 2020 entries, edge > 0)** — see "Why G6 is strictly strict" below.
 - Block C → 2022 inflation bear (informational only — the 1-window range makes a binding G6 here structurally untestable)
 - 25y aggregate → 2008 GFC (binding — confirms the Block A G6 result is reproduced in the full-history pass over the same year; structural sanity check)
 
@@ -118,6 +118,8 @@ This applies to the **total** tight failures across all binding layers (Block A 
 ### Why G6 is strictly strict (no near-miss)
 
 The regime mandates exist BECAUSE crash survival is a binary safety check. A strategy that "almost survived" 2008 GFC is one that lost money in a crash. That's not a near-miss — that's the failure mode the gate was designed to catch. Per quant: "Keep the firewall hard here."
+
+**G6a/G6b inherit this (Block B, issue #51).** Block B's G6 splits into G6a (2020 crash survival — trades entered Jan–Apr 2020, OOS edge ≥ −0.5%) and G6b (2020 recovery — trades entered May–Dec 2020, OOS edge > 0). "2020 positive overall" can mask a strategy that bled through the March crash and was rescued by the V-recovery rally; the split forces a separate read on crash survival vs regime re-entry — the exact failure mode the COVID firewall exists to catch. The Jan–Apr / May–Dec boundary is asymmetric and COVID-specific (not a calendar half-year). Each half's edge is recomputed in `eval-block.py` from the walk-forward window's per-month entry-date buckets (`outOfSampleStatsByEntryMonth`, ADR-0006) — Edge is non-linear over subsets, so the additive raw fields are summed across the relevant months and Edge recomputed once. Both sub-gates are `strict`: a failure is structural (REJECTED), never a tight-margin NEAR_MISS. Other blocks keep the single window-aggregate G6.
 
 ### Why ratio gates use a wider band (20% vs 5%)
 

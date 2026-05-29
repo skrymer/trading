@@ -132,6 +132,23 @@ class TestVerdictLogic(unittest.TestCase):
         # Tight band for G1 is value >= 30 * 0.95 = 28.5, so 20 is well outside
         self.assertEqual(result["verdict"], "REJECTED")
 
+    def test_g6a_crash_survival_failure_rejects_not_near_miss(self):
+        # Given: Block B fails only G6a (crash survival) — a regime-mandate sub-gate near its
+        # -0.5% floor. Per issue #51 it is "strict", so it must never qualify as a tight-margin
+        # NEAR_MISS even when it's the sole failure.
+        self.write_eval(
+            "B", overall="FAIL",
+            gates=[{"name": "G6a_crash_survival", "passed": False, "value": "2020 crash survival OOS edge = -0.6"}],
+            first_failure="G6a_crash_survival",
+        )
+        self.write_eval("A", overall="PASS")
+        self.write_eval("25y", overall="PASS")
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
+
+        # Then: REJECTED — a crash-survival failure is structural, not "almost tradable"
+        self.assertEqual(result["verdict"], "REJECTED")
+
     def test_block_c_failure_alone_does_not_trigger_rejected(self):
         # Given: Block A + B + 25y all PASS but Block C FAILS gates (non_catastrophic still True)
         self.write_eval("A", overall="PASS", aggregate_edge=0.7, aggregate_cagr=35.0)
