@@ -6,7 +6,12 @@ dates, so one candidate keeps a single hash across every firewall block. See ADR
 
 Run: python3 test_config_hash.py
 """
+import io
+import json
+import os
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 
 import config_hash
 
@@ -49,6 +54,25 @@ class ConfigHashSeparatesRealConfigs(unittest.TestCase):
         # When each is hashed
         # Then the hashes differ — the interlock can tell the two configs apart
         self.assertNotEqual(config_hash.config_hash(base), config_hash.config_hash(tweaked))
+
+
+class ConfigHashCli(unittest.TestCase):
+    def test_cli_prints_hash_for_template_file(self):
+        # Given a template written to disk (the form run-pipeline.sh's G10 autoconfirm will hash)
+        req = request_with()
+        fd, path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        with open(path, "w") as f:
+            json.dump(req, f)
+
+        # When the CLI is invoked on the file
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            config_hash.main([path])
+        os.unlink(path)
+
+        # Then it prints exactly the library hash — the pipeline can trust it as the source of truth
+        self.assertEqual(buf.getvalue().strip(), config_hash.config_hash(req))
 
 
 if __name__ == "__main__":

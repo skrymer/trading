@@ -137,6 +137,25 @@ g10_confirmation() {
   echo "" >&2
   echo "Freeze date: $(date -Iseconds)" >&2
   echo "" >&2
+  # Autonomous driver mode (ADR 0008): auto-confirm G10 ONLY when G10_AUTOCONFIRM carries the
+  # frozen batch-authorization config_hash AND the live template still hashes to it. This binds the
+  # bypass to the freeze-precedence event — it is NOT a silent "no tty" skip. The hash is computed
+  # by the strategy-exploration config_hash CLI (single source of truth; never re-implemented here).
+  if [[ -n "${G10_AUTOCONFIRM:-}" ]]; then
+    local actual
+    actual=$(python3 "$ROOT/.claude/skills/strategy-exploration/scripts/config_hash.py" "$TEMPLATE") || {
+      echo "ERROR: G10 autoconfirm could not compute config_hash; refusing $next_layer." >&2
+      return 1
+    }
+    if [[ "$actual" == "$G10_AUTOCONFIRM" ]]; then
+      echo "G10 auto-confirmed: template config_hash $actual matches the frozen batch-authorization hash." >&2
+      echo "Decision-precedence holds: A/B/$next_layer fire unconditionally from a template frozen before Block A." >&2
+      return 0
+    fi
+    echo "ERROR: G10 autoconfirm hash mismatch — template changed since freeze (expected $G10_AUTOCONFIRM, got $actual)." >&2
+    echo "$next_layer refused. The autonomous freeze invariant is broken." >&2
+    return 1
+  fi
   echo "If the config above is UNCHANGED since $prior_layers passed, type 'confirmed' to fire $next_layer." >&2
   echo "Any other input aborts. Modifying the config and re-running is data-mining, not validation." >&2
   if [[ ! -e /dev/tty ]] || ! { exec 3</dev/tty; } 2>/dev/null; then
