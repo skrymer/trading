@@ -119,6 +119,8 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 **Data Management:** `GET /api/data-management/stats`, `GET /api/data-management/latest-date`, `POST /api/data-management/refresh/stocks`, `POST /api/data-management/refresh/all-stocks`, `POST /api/data-management/refresh/recalculate-breadth`, `GET /api/data-management/breadth-coverage`, `GET /api/data-management/refresh/progress`, `POST /api/data-management/refresh/clear`
 
+**Conditions:** `POST /api/conditions/screen` (diagnostic condition pre-screen — forward-return lift, firing rate, ARS parameter sweep, SPY-regime lift, Jaccard overlap; `endDate` hard-capped at Block C's 2021-01-01 start per ADR 0007)
+
 **Monte Carlo:** `POST /api/monte-carlo/simulate`
 
 **Options:** `GET /api/options/historical-prices`
@@ -167,7 +169,7 @@ trading/
 │   │   │   ├── model/                # BacktestReport (persisted gzip-compressed in bytea), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult (WalkForwardWindow w/ outOfSampleStatsByEntryMonth per ADR 0006), TradeStatsSummary (additive raw fields for re-aggregating monthly OOS buckets, per ADR 0006), MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
 │   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
 │   │   │   ├── repository/           # BacktestReportJooqRepository (save/findById/listAll/deleteById/deleteByIds)
-│   │   │   ├── service/              # BacktestService, BacktestResultStore (gzip-compressed bytea), StrategyRegistry, ScriptPredicateCompiler (compiles user-supplied Kotlin scripts into entry/exit predicates for the `script` conditions), MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap)
+│   │   │   ├── service/              # BacktestService, BacktestResultStore (gzip-compressed bytea), StrategyRegistry, ScriptPredicateCompiler (compiles user-supplied Kotlin scripts into entry/exit predicates for the `script` conditions), MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap), ConditionScreenService + ConditionScreenStats (diagnostic condition pre-screen: entry-anchored forward-return lift, date-clustered estimates, ARS parameter sweep, SPY-regime lift, Jaccard overlap — raw stats only, no verdict; ADR 0007)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
 │   │   ├── data/                     # Data domain
 │   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
@@ -312,6 +314,7 @@ Strategies use a DSL for declarative composition, auto-discovered via `@Register
 
 User-invocable skills orchestrate the full backtest workflows end-to-end and delegate interpretation to specialized sub-agents:
 
+- `/condition-screen` → `condition-screen-analyst` (diagnostic, design-time pre-screen of a single entry condition / stack *before* it is wired into a strategy: forward-return lift, firing-rate-per-year, ARS parameter sweep, SPY-regime lift, Jaccard overlap; emits raw stats + no verdict — reject-or-proceed, then hands clean conditions to `/strategy-screen`; `endDate` hard-capped at Block C per ADR 0007)
 - `/backtest` → `post-backtest-analyst` (Sharpe / Sortino / drawdown duration / SPY correlation)
 - `/walk-forward` → `walk-forward-analyst` (WFE + per-window stability)
 - `/monte-carlo` → `monte-carlo-analyst` (path risk + edge confidence)
@@ -357,4 +360,4 @@ Perfect fills assumed, no slippage/commission modeling, daily timeframe only
 
 ---
 
-_Last Updated: 2026-05-27_
+_Last Updated: 2026-05-30_

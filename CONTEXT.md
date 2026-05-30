@@ -55,6 +55,26 @@ A third-party buy/sell call from ovtlyr.com for a given symbol on a given date �
 **Current Ovtlyr signal**:
 The derived *state* — the most recent Ovtlyr signal at or before a given date. Whereas an Ovtlyr signal is an event on its own date, the current Ovtlyr signal is BUY (or SELL) on *every* bar between a BUY call and the next SELL, including bars with no stored row. Null before a symbol's first ever call. This is what strategy conditions ask ("does this stock currently have a buy signal?"), not the raw event.
 
+### Condition diagnostics
+
+**Forward return**:
+The N-trading-day price return of a *single entry signal*, anchored to the **fill bar** — `close[t+1+N] / close[t+1] − 1`, where `t` is the signal bar and the fill bar is `t + entryDelayDays` (default 1). Reported at N = 5, 10, 20. A per-signal diagnostic measure used only by the condition screen — explicitly **not** a portfolio or per-trade outcome, so it is never called *Edge* or *return* unqualified. Measuring from the signal bar instead of the fill bar would capture the signal→fill gap the strategy never earns — look-ahead that flatters breakout/momentum conditions.
+
+**Signal→fill gap**:
+The single-day return between a condition's signal bar and its fill bar — `close[t+1] / close[t] − 1`. Reported as its own column, never folded into *Forward return*. A condition whose apparent edge lives entirely in this gap is untradeable by construction.
+
+**Lift**:
+A condition's forward-return (or hit-rate) statistic **minus the universe all-bars baseline** for the same N, date range, and symbol universe. The headline alpha signal of the condition screen. Absolute forward return is uninformative for a high-firing condition because it converges to the universe base rate; lift is what isolates the condition's contribution. Distinct from *Edge*: lift is a pre-trade, exit-agnostic, per-signal measure; edge is a realised per-trade outcome.
+
+**Firing rate**:
+The fraction of evaluated bars on which a condition (or condition stack) matches. A *selectivity* measure, not a performance measure. ≥ 33% marks a condition as low-selectivity (its absolute forward-return stats ≈ the universe, so only *lift* is meaningful); ≥ 60% marks it as effectively a universe filter rather than a signal.
+
+**Aliased Regime Sensitivity (ARS)**:
+The failure mode the condition screen exists to catch: a condition whose *firing rate* stays stable across a parameter's immediate neighbourhood (P−1, P, P+1) while its forward-return *lift* changes sign non-monotonically across those neighbours. Signals that the parameter dimension is structurally inappropriate for the alpha hypothesis rather than merely brittle. The screen flags it when lift sign-flips across an adjacent pair, the swing exceeds 2× the date-clustered standard error, and firing rate stays within ±15% relative.
+
+**Condition screen**:
+A diagnostic, design-time pre-screen of a single entry condition (or AND/OR stack) run *before* it is wired into a strategy — `POST /api/conditions/screen`. Produces *Forward return* / *Lift* / *Firing rate* / *ARS* / regime stats but **no pass/fail verdict**: a condition that fails the screen is rejected without further work; one that passes is *not* validated and still goes through the full firewall. Restricted to the design-safe window (excludes Block C, the firewall's only true out-of-sample block) so that eyeballing its output cannot leak the final validation block.
+
 ## Flagged ambiguities
 
 - "edge" vs "provenEdge" — the same concept under two names. Resolved: **Edge** is the canonical term; `provenEdge` is retained only as the existing field name for the portfolio-aggregate instance.
