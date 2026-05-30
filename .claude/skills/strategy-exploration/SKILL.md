@@ -59,6 +59,22 @@ Re-running a dead config — even one parameter step away — is data-mining, no
 
 `LIVE_READY` requires a `TRADABLE`/`PROVISIONAL` verdict **plus** a recorded Monte Carlo run **plus** — for inline-`script` candidates only — a recorded G14 `PASS` on the promoted first-class config. A `TRADABLE` verdict alone is "validated", not "cleared for capital". Standalone `/walk-forward` is **off** the critical path: `/validate-candidate`'s Block A is the full-period binding layer.
 
+## Autonomous driver mode (ADR 0008)
+
+The skill stays non-executing, but a **driver** (the main agent) may execute the funnel autonomously under one explicit, bounded **batch authorization** — replacing per-step approval — *only* under these binding rules (full rationale in ADR 0008):
+
+1. **Freeze first, timestamped.** Before the first Block A fires, record a batch-authorization dossier event capturing the named candidate set, each frozen template's `config_hash` (incl. `randomSeed`), the stop-boundary, and a freeze timestamp. Everything the run may do is fixed here, *before any OOS result exists*.
+2. **Brake before every fire.** Run `explore.py check` and halt on REFUSE. No `--force`.
+3. **Sequential.** One backtest at a time.
+4. **Unconditional within validate-candidate.** Fire Block A → Block B → 25y aggregate without re-scoping/re-seeding on interim results. Never optional-stop on an interim OOS verdict.
+5. **G10 auto-confirm by precedence, not identity.** Auto-confirm the 25y G10 gate only because the freeze-precedence event proves no interim result steered the proceed decision (and `record` re-hashes config identity). Absent that event → MUST stop at G10 and ask the human. (Requires the `G10_AUTOCONFIRM` bypass in `run-pipeline.sh` — see implementation note below; until that exists, validate-candidate runs are NOT autonomous.)
+6. **Scope = screen → validate only.** Never auto-run Monte Carlo, promotion, or anything past `VALIDATED`. Capital is always human.
+7. **On death: post-mortem, HOLD, continue others.** No autonomous redesign. A successor needs a human premise + a FRESH `quant-analyst` `DISTINCT` judgment — and that gate binds **across batches** (a new-batch candidate that is a single-step G13 neighbour of any prior dead hash is refused until `DISTINCT`).
+8. **No self-review.** The driver applies only mechanical gates; every judgment goes to a fresh `quant-analyst`.
+9. **Halt + ping** on: any death, any `TRADABLE`/`PROVISIONAL`, any `ERROR`/`INCOMPLETE`/`INCONCLUSIVE_G11`/config-mismatch, or all candidates terminal.
+
+**Implementation note (pending):** `run-pipeline.sh` reads `confirmed` from `/dev/tty` for G10. Autonomous validate-candidate needs a `G10_AUTOCONFIRM` env flag (set by the driver *only after* emitting the freeze-precedence event) that makes `g10_confirmation` assert hash-equality-across-blocks instead of reading the tty — never a silent "no tty → skip". Until wired, `/strategy-screen` runs autonomously but `/validate-candidate` stops at G10 for a human.
+
 ## Tests
 
 `python3 scripts/test_config_hash.py` (and `test_dossier`, `test_interlock`, `test_record`, `test_registry`). The verb CLI (`explore.py`) is thin glue over these tested modules.
