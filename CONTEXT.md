@@ -75,6 +75,23 @@ The failure mode the condition screen exists to catch: a condition whose *firing
 **Condition screen**:
 A diagnostic, design-time pre-screen of a single entry condition (or AND/OR stack) run *before* it is wired into a strategy — `POST /api/conditions/screen`. Produces *Forward return* / *Lift* / *Firing rate* / *ARS* / regime stats but **no pass/fail verdict**: a condition that fails the screen is rejected without further work; one that passes is *not* validated and still goes through the full firewall. Restricted to the design-safe window (excludes Block C, the firewall's only true out-of-sample block) so that eyeballing its output cannot leak the final validation block.
 
+### Strategy exploration funnel
+
+**Candidate**:
+A single strategy configuration under exploration — its entry/exit/ranker/sizer/maxPositions/entryDelayDays/seed, identified by a stable *config hash*. The unit the exploration funnel tracks from condition-screen through to a tradability verdict. Distinct from a *strategy* (the registered entry/exit class): a candidate is one concrete parameterisation of one being validated at a point in time.
+
+**Config hash**:
+The canonical fingerprint of a candidate — a hash over exactly the design-isolation freeze set (`entryStrategy`, `exitStrategy`, `ranker`, `rankerConfig`, `maxPositions`, `entryDelayDays`, `positionSizing`, `randomSeed`), the same fields G10 freezes. Deliberately **excludes** `startDate` / `endDate` (those vary per firewall block by design) so the same candidate keeps one hash across Block A / B / 25y. The spine of the anti-data-mining interlock.
+
+**Candidate dossier**:
+The durable, git-tracked, append-only **JSONL** journal of one candidate's passage through the funnel — one self-contained JSON event per line, the last well-formed line being the authoritative current state. The crash-recovery system of record: a mid-write crash truncates at most the final line, leaving all prior events intact. An in-flight backtest is a `FIRED … PENDING` event with no later matching `RECORD`, so a resume after a mid-run crash knows to check for a `backtestId` before re-firing. Written immediately on every transition, never batched.
+
+**Dead config**:
+A *config hash* that reached a terminal failing verdict (`REJECTED` or `NEAR_MISS`) in the firewall. Re-running a dead config — or a ±1-parameter neighbour of one (same neighbour classification G13 uses) — is *data-mining*, not validation, and the funnel hard-refuses it (no override). The only legitimate way forward is a redesigned *candidate* on a new *lineage* line. `PROVISIONAL` / `TRADABLE` are *settled* (advance forward, never re-run for a better verdict); `ERROR` is a methodology fault, not a verdict, and may be re-run once fixed.
+
+**Lineage**:
+The recorded ancestry linking a redesigned candidate to the dead candidate it replaces (`lineage_parent`). Registering a successor requires a recorded quant analysis judging the redesign *structurally distinct* from the corpse — this is what separates a legitimate redesign from a disguised re-run of a dead config.
+
 ## Flagged ambiguities
 
 - "edge" vs "provenEdge" — the same concept under two names. Resolved: **Edge** is the canonical term; `provenEdge` is retained only as the existing field name for the portfolio-aggregate instance.
