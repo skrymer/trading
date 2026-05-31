@@ -50,6 +50,35 @@ Secondary (non-ARS) tells worth printing: **monotone-but-steep** (`|lift(P+1)−
 
 **Advisory bands (analyst, uncalibrated):** max per-year Jaccard **> 0.5** → "likely substantial redundancy"; **> 0.7** → "almost certainly a near-clone, justify why it's not." These flag wasted compute (don't firewall a clone) and hidden correlation (don't stack two near-identical clauses thinking you've diversified) — not rejection. High overlap with a *good* condition can be a fine refinement.
 
+## Library sanity-sweep mode (reduced universe)
+
+**The default universe is the full `STOCK` set (~3,900 symbols), and that is correct for a normal single-condition design-time screen — it's cheap and faithful. Do not reach for the reduced universe for those.**
+
+There is one separate, rarer use: a **whole-library sanity sweep** — screening *every* registered entry condition at once to catch any structurally-unsound one before it gets used. On the full universe this is intractable: most conditions take 1–5 min each, and a few are **non-terminating under the auto-sweep** (one order-block condition ran ~20 h at 100 % CPU and never returned). For that sweep only, use the frozen reduced universe.
+
+**Frozen universe:** `sanity-universe/sanity-universe-v1.json` (quant-approved 2026-05-31; regenerate with `sanity-universe/build-sanity-universe.py` from the committed `symbol-stats.tsv` snapshot — same seed ⇒ identical list).
+- `main` — 300 symbols: sector-proportional, 50/30/20 large/mid/small by avg dollar-volume, price-diverse, **~18 % delisted-in-window** (survivorship mitigation — the most important deviation from a naive large-cap list). Use for all non-order-block conditions.
+- `orderBlock` — 50-symbol stratified subset. Use for the order-block conditions (they iterate `stock.orderBlocks` per bar and are far heavier).
+
+Pass the symbol list via the request's `symbols` field:
+
+```bash
+SYMS=$(python3 -c "import json;print(json.dumps([r['symbol'] for r in json.load(open('.claude/skills/condition-screen/sanity-universe/sanity-universe-v1.json'))['main']]))")
+.claude/scripts/udgaard-post.sh /api/conditions/screen "{\"conditions\":[{\"type\":\"<type>\",\"parameters\":{...}}],\"operator\":\"AND\",\"symbols\":$SYMS}" /tmp/condition-screen-<type>.json
+```
+
+Run conditions **sequentially** (concurrent screens OOM the backend), and put a hard client timeout on each (`curl --max-time`); a timed-out screen leaves an orphaned CPU-pegged server thread — restart udgaard to reclaim it.
+
+**Mandatory output notice (verbatim-equivalent), lead every sanity-sweep report with it:**
+
+> **REDUCED-UNIVERSE SANITY SWEEP — NOT A FULL-UNIVERSE RESULT.** Run on the frozen 300-symbol `condition-screen-sanity-universe-v1`, not the production universe. The reduced universe **widens the date-clustered SEs and is anti-conservative for the ARS 2×SE test** — a fragile condition is *more* likely to pass here. A "clean" result is **not validation**; it only means the condition was not rejected by a coarse net. Re-screen any survivor on the full universe (or run the full-universe firewall) before any tradability claim. Not edge estimates.
+
+**Two binding guardrails for this mode:**
+- **`dateCount` (nDates) < ~30** in a sweep cell or regime bucket (or a median of 1–2 firings/date) ⇒ **INCONCLUSIVE, not clean** — the clustered estimate is too thin to read a sign-flip from. Sparse conditions on 300 symbols hit this; say so rather than reading a flag from noise.
+- **This mode may only *reject* or *flag-for-full-rescreen*** — never promote a condition. A clean sanity result must never substitute for the full-universe screen in any later go/no-go.
+
+**Known coverage gaps (perf cliff, not condition faults):** `marketBreadthIncreasing`, `sectorBreadthIncreasing`, and `aboveBearishOrderBlock` are non-terminating under the auto-sweep even on the reduced universe — the two breadth conditions' cost does **not** scale with the equity universe (breadth is a market-wide series), so shrinking `symbols` cannot rescue them. Treat as unscreened; order-block parameter-robustness is acceptably **deferred to the firewall G13 gate** (quant-authorized). See `project_condition_screen_perf_cliff` memory.
+
 ## Statistics deliberately excluded
 
 Win-rate-at-fixed-exit (exit-choice-sensitive), profit factor (meaningless without capital allocation), "Sharpe of forward returns" (no portfolio; fat-tailed clustered data), and **any pass/fail verdict**. Do not add them back.

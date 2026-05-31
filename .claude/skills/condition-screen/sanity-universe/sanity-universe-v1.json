@@ -1,0 +1,2774 @@
+{
+  "name": "condition-screen-sanity-universe-v1",
+  "purpose": "Frozen reduced universe for the /condition-screen WHOLE-LIBRARY SANITY SWEEP only. NOT for normal single-condition screens (those use the full STOCK universe). Quant-approved 2026-05-31.",
+  "isUniverseDefault": false,
+  "window": "2000-01-01..2021-01-01 (Block C cap)",
+  "seed": 20260531,
+  "builtFrom": "udgaard trading DB stocks+stock_quotes; symbols with >=250 in-window bars; regenerate via build-sanity-universe.py",
+  "constraints": {
+    "minSymbols": 250,
+    "mainCount": 300,
+    "orderBlockCount": 50,
+    "sectorProportional": true,
+    "liquidityTiers": "50/30/20 large/mid/small by avg dollar-volume",
+    "priceDiverse": true,
+    "delistedFraction": "~18% delisted-in-window (survivorship mitigation)",
+    "orderBlockHandling": "OB conditions run on the 50-symbol orderBlock subset; aboveBearishOrderBlock may still time out -> ARS deferred to firewall G13",
+    "inconclusiveGuardrail": "sweep cell with dateCount(nDates)<~30 or median 1-2 firings/date = INCONCLUSIVE, not clean"
+  },
+  "reducedUniverseNotice": "REDUCED-UNIVERSE SANITY SWEEP - NOT A FULL-UNIVERSE RESULT. Widens date-clustered SEs -> anti-conservative for the ARS 2xSE test (fragile conditions MORE likely to pass). A clean result here is NOT validation; re-screen on the full universe or run the firewall before any tradability claim. Not edge estimates.",
+  "main": [
+    {
+      "symbol": "AAVL",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 5.69,
+      "avgDollarVol": 4641069,
+      "bars": 378
+    },
+    {
+      "symbol": "ABCR",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 5.41,
+      "avgDollarVol": 306384,
+      "bars": 446
+    },
+    {
+      "symbol": "ABCW",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 38.65,
+      "avgDollarVol": 1907297,
+      "bars": 378
+    },
+    {
+      "symbol": "ABEV",
+      "sector": "XLP",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 2.53,
+      "avgDollarVol": 29744174,
+      "bars": 4175
+    },
+    {
+      "symbol": "ABFS",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 27.08,
+      "avgDollarVol": 11590426,
+      "bars": 3603
+    },
+    {
+      "symbol": "ABG",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 38.53,
+      "avgDollarVol": 10200046,
+      "bars": 4735
+    },
+    {
+      "symbol": "ABGX",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 22.88,
+      "avgDollarVol": 40091289,
+      "bars": 1570
+    },
+    {
+      "symbol": "ABIO",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 215640.91,
+      "avgDollarVol": 1298969,
+      "bars": 4460
+    },
+    {
+      "symbol": "ABTX",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 31.49,
+      "avgDollarVol": 2353380,
+      "bars": 1318
+    },
+    {
+      "symbol": "ACAS",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 12.71,
+      "avgDollarVol": 25502847,
+      "bars": 4278
+    },
+    {
+      "symbol": "ACC",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 25.34,
+      "avgDollarVol": 20028685,
+      "bars": 4127
+    },
+    {
+      "symbol": "ACF",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 20.02,
+      "avgDollarVol": 25098427,
+      "bars": 3134
+    },
+    {
+      "symbol": "ACIC",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 10.19,
+      "avgDollarVol": 1516799,
+      "bars": 2353
+    },
+    {
+      "symbol": "ACIW",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 13.44,
+      "avgDollarVol": 10332175,
+      "bars": 5284
+    },
+    {
+      "symbol": "ACLI",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 60.45,
+      "avgDollarVol": 13702228,
+      "bars": 1311
+    },
+    {
+      "symbol": "ACMM",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 0.37,
+      "avgDollarVol": 27351,
+      "bars": 882
+    },
+    {
+      "symbol": "ADAPQ",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 25.21,
+      "avgDollarVol": 18026426,
+      "bars": 344
+    },
+    {
+      "symbol": "ADD",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 188767.03,
+      "avgDollarVol": 2428380,
+      "bars": 365
+    },
+    {
+      "symbol": "ADELQ",
+      "sector": "XLC",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 12.01,
+      "avgDollarVol": 26391014,
+      "bars": 1783
+    },
+    {
+      "symbol": "ADN",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 310.51,
+      "avgDollarVol": 3038666,
+      "bars": 370
+    },
+    {
+      "symbol": "ADSK",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 54.95,
+      "avgDollarVol": 130936636,
+      "bars": 5284
+    },
+    {
+      "symbol": "ADY",
+      "sector": "XLP",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 12.93,
+      "avgDollarVol": 1613507,
+      "bars": 2006
+    },
+    {
+      "symbol": "AEO",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 9.62,
+      "avgDollarVol": 46113291,
+      "bars": 5284
+    },
+    {
+      "symbol": "AEP",
+      "sector": "XLU",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 29.07,
+      "avgDollarVol": 77352015,
+      "bars": 5284
+    },
+    {
+      "symbol": "AESK",
+      "sector": "XLC",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 1.59,
+      "avgDollarVol": 67936,
+      "bars": 549
+    },
+    {
+      "symbol": "AET",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 53.04,
+      "avgDollarVol": 157263741,
+      "bars": 4757
+    },
+    {
+      "symbol": "AEZS",
+      "sector": "XLB",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 59915.6,
+      "avgDollarVol": 1526470,
+      "bars": 3833
+    },
+    {
+      "symbol": "AFBC",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 14.09,
+      "avgDollarVol": 23263,
+      "bars": 701
+    },
+    {
+      "symbol": "AFCI",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 23.98,
+      "avgDollarVol": 49240109,
+      "bars": 1234
+    },
+    {
+      "symbol": "AGNC",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 5.13,
+      "avgDollarVol": 25295914,
+      "bars": 3181
+    },
+    {
+      "symbol": "AGP",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 32.3,
+      "avgDollarVol": 26335367,
+      "bars": 2802
+    },
+    {
+      "symbol": "AGY",
+      "sector": "XLC",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 28.33,
+      "avgDollarVol": 8159268,
+      "bars": 1446
+    },
+    {
+      "symbol": "AIK",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 0.42,
+      "avgDollarVol": 33235,
+      "bars": 2410
+    },
+    {
+      "symbol": "AIKI",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 312316.12,
+      "avgDollarVol": 10532760367,
+      "bars": 3520
+    },
+    {
+      "symbol": "AIMCV",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 22.4,
+      "avgDollarVol": 3999908,
+      "bars": 2965
+    },
+    {
+      "symbol": "AIMT",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 22.64,
+      "avgDollarVol": 17661392,
+      "bars": 1305
+    },
+    {
+      "symbol": "AIRTW",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 0.06,
+      "avgDollarVol": 21768,
+      "bars": 322
+    },
+    {
+      "symbol": "AIV",
+      "sector": "XLRE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 1.86,
+      "avgDollarVol": 14683071,
+      "bars": 5284
+    },
+    {
+      "symbol": "AK",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 13.67,
+      "avgDollarVol": 854135,
+      "bars": 614
+    },
+    {
+      "symbol": "ALNA",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 6.08,
+      "avgDollarVol": 1103798,
+      "bars": 796
+    },
+    {
+      "symbol": "ALSN",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 28.76,
+      "avgDollarVol": 34669687,
+      "bars": 2215
+    },
+    {
+      "symbol": "ALYA",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 399.69,
+      "avgDollarVol": 37898447,
+      "bars": 5227
+    },
+    {
+      "symbol": "AMES",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 8.12,
+      "avgDollarVol": 6144450,
+      "bars": 412
+    },
+    {
+      "symbol": "AMRHW",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 0.17,
+      "avgDollarVol": 9446,
+      "bars": 472
+    },
+    {
+      "symbol": "AMSC",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 107.66,
+      "avgDollarVol": 7305686,
+      "bars": 5284
+    },
+    {
+      "symbol": "AMSWA",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 5.32,
+      "avgDollarVol": 497711,
+      "bars": 5284
+    },
+    {
+      "symbol": "AMT",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 56.32,
+      "avgDollarVol": 128660361,
+      "bars": 5284
+    },
+    {
+      "symbol": "ANDAW",
+      "sector": "XLP",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 0.49,
+      "avgDollarVol": 28850,
+      "bars": 529
+    },
+    {
+      "symbol": "ANF",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 26.52,
+      "avgDollarVol": 66619757,
+      "bars": 5284
+    },
+    {
+      "symbol": "AOSL",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 11.83,
+      "avgDollarVol": 1301341,
+      "bars": 2689
+    },
+    {
+      "symbol": "APEN",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 66.74,
+      "avgDollarVol": 129742,
+      "bars": 3497
+    },
+    {
+      "symbol": "APH",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 8.17,
+      "avgDollarVol": 51248517,
+      "bars": 5284
+    },
+    {
+      "symbol": "APL",
+      "sector": "XLU",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 18.37,
+      "avgDollarVol": 5476574,
+      "bars": 3952
+    },
+    {
+      "symbol": "APOL",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 41.38,
+      "avgDollarVol": 102872658,
+      "bars": 4298
+    },
+    {
+      "symbol": "APPN",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 41.33,
+      "avgDollarVol": 34384221,
+      "bars": 908
+    },
+    {
+      "symbol": "APTI",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 16.39,
+      "avgDollarVol": 7906940,
+      "bars": 1241
+    },
+    {
+      "symbol": "ARDM",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 68627.81,
+      "avgDollarVol": 106383357,
+      "bars": 4681
+    },
+    {
+      "symbol": "ARIA",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 7.33,
+      "avgDollarVol": 24238268,
+      "bars": 4308
+    },
+    {
+      "symbol": "ASND",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 63.95,
+      "avgDollarVol": 12867219,
+      "bars": 1494
+    },
+    {
+      "symbol": "ATE",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 8.3,
+      "avgDollarVol": 122573,
+      "bars": 3653
+    },
+    {
+      "symbol": "ATHL",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 39.01,
+      "avgDollarVol": 52737490,
+      "bars": 324
+    },
+    {
+      "symbol": "ATNY",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 3176.07,
+      "avgDollarVol": 53552861,
+      "bars": 2534
+    },
+    {
+      "symbol": "ATR",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 42.52,
+      "avgDollarVol": 11328414,
+      "bars": 5284
+    },
+    {
+      "symbol": "AUD",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 637.2,
+      "avgDollarVol": 249079404,
+      "bars": 4552
+    },
+    {
+      "symbol": "AVCTW",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 0.34,
+      "avgDollarVol": 39850,
+      "bars": 520
+    },
+    {
+      "symbol": "AVGO",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 11.2,
+      "avgDollarVol": 317727141,
+      "bars": 2872
+    },
+    {
+      "symbol": "AWE",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 13.35,
+      "avgDollarVol": 122675834,
+      "bars": 1130
+    },
+    {
+      "symbol": "AXTA",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 28.03,
+      "avgDollarVol": 61024011,
+      "bars": 1545
+    },
+    {
+      "symbol": "AYE",
+      "sector": "XLU",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 22.81,
+      "avgDollarVol": 24067502,
+      "bars": 331
+    },
+    {
+      "symbol": "AYRO",
+      "sector": "XLC",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 71542.61,
+      "avgDollarVol": 4073417,
+      "bars": 1609
+    },
+    {
+      "symbol": "BAA",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 355.38,
+      "avgDollarVol": 4279107,
+      "bars": 3176
+    },
+    {
+      "symbol": "BAGL",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 5.26,
+      "avgDollarVol": 26334,
+      "bars": 359
+    },
+    {
+      "symbol": "BBG",
+      "sector": "XLE",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 24.97,
+      "avgDollarVol": 21378172,
+      "bars": 3340
+    },
+    {
+      "symbol": "BEXP",
+      "sector": "XLE",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 9.4,
+      "avgDollarVol": 17777853,
+      "bars": 2978
+    },
+    {
+      "symbol": "BFC",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 25.55,
+      "avgDollarVol": 209610,
+      "bars": 2361
+    },
+    {
+      "symbol": "BHC",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 38.49,
+      "avgDollarVol": 144023275,
+      "bars": 5284
+    },
+    {
+      "symbol": "BHRB",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 10294.33,
+      "avgDollarVol": 687393,
+      "bars": 2202
+    },
+    {
+      "symbol": "BIOA-WS",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 0.25,
+      "avgDollarVol": 2825119,
+      "bars": 1301
+    },
+    {
+      "symbol": "BIOX-WT",
+      "sector": "XLB",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 0.3,
+      "avgDollarVol": 20101,
+      "bars": 375
+    },
+    {
+      "symbol": "BKI",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 49.95,
+      "avgDollarVol": 37181794,
+      "bars": 1416
+    },
+    {
+      "symbol": "BLNKW",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 2.47,
+      "avgDollarVol": 322832,
+      "bars": 702
+    },
+    {
+      "symbol": "BMS",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 25.12,
+      "avgDollarVol": 19987709,
+      "bars": 4889
+    },
+    {
+      "symbol": "BNSSA",
+      "sector": "XLRE",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 140.11,
+      "avgDollarVol": 71655,
+      "bars": 1851
+    },
+    {
+      "symbol": "BOJA",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 16.65,
+      "avgDollarVol": 5716226,
+      "bars": 936
+    },
+    {
+      "symbol": "BRNC",
+      "sector": "XLE",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 12.7,
+      "avgDollarVol": 4179926,
+      "bars": 1462
+    },
+    {
+      "symbol": "BROGW",
+      "sector": "XLE",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 0.46,
+      "avgDollarVol": 37018,
+      "bars": 491
+    },
+    {
+      "symbol": "BRSL",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 10.63,
+      "avgDollarVol": 33147652,
+      "bars": 5284
+    },
+    {
+      "symbol": "BRSP",
+      "sector": "XLRE",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 7.0,
+      "avgDollarVol": 3087524,
+      "bars": 735
+    },
+    {
+      "symbol": "BTB",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 178334.53,
+      "avgDollarVol": 500219909,
+      "bars": 1340
+    },
+    {
+      "symbol": "BTTR",
+      "sector": "XLP",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 5586.89,
+      "avgDollarVol": 50029,
+      "bars": 736
+    },
+    {
+      "symbol": "BURL",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 108.15,
+      "avgDollarVol": 108228939,
+      "bars": 1826
+    },
+    {
+      "symbol": "BUYX",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 3.55,
+      "avgDollarVol": 6278767,
+      "bars": 382
+    },
+    {
+      "symbol": "BWIN",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 18.98,
+      "avgDollarVol": 6088964,
+      "bars": 299
+    },
+    {
+      "symbol": "BXMT",
+      "sector": "XLRE",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 16.19,
+      "avgDollarVol": 4131396,
+      "bars": 5187
+    },
+    {
+      "symbol": "C",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 132.24,
+      "avgDollarVol": 834646234,
+      "bars": 5284
+    },
+    {
+      "symbol": "CACQ",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 11.16,
+      "avgDollarVol": 2849339,
+      "bars": 977
+    },
+    {
+      "symbol": "CADE",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 13.27,
+      "avgDollarVol": 6422177,
+      "bars": 5284
+    },
+    {
+      "symbol": "CALL",
+      "sector": "XLC",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 52376.4,
+      "avgDollarVol": 11486622,
+      "bars": 4551
+    },
+    {
+      "symbol": "CAR",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 25.22,
+      "avgDollarVol": 63015572,
+      "bars": 5284
+    },
+    {
+      "symbol": "CBPX",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 23.49,
+      "avgDollarVol": 8610852,
+      "bars": 1508
+    },
+    {
+      "symbol": "CBS",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 34.51,
+      "avgDollarVol": 194271727,
+      "bars": 5011
+    },
+    {
+      "symbol": "CBU",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 21.27,
+      "avgDollarVol": 4033662,
+      "bars": 5281
+    },
+    {
+      "symbol": "CCE",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 17.15,
+      "avgDollarVol": 40070903,
+      "bars": 3841
+    },
+    {
+      "symbol": "CCI",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 37.74,
+      "avgDollarVol": 80590121,
+      "bars": 5283
+    },
+    {
+      "symbol": "CCL",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 31.12,
+      "avgDollarVol": 151173025,
+      "bars": 5284
+    },
+    {
+      "symbol": "CCTYQ",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 12.53,
+      "avgDollarVol": 48509750,
+      "bars": 2952
+    },
+    {
+      "symbol": "CDP",
+      "sector": "XLRE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 14.42,
+      "avgDollarVol": 9246472,
+      "bars": 5282
+    },
+    {
+      "symbol": "CDW",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 59.59,
+      "avgDollarVol": 55720675,
+      "bars": 1893
+    },
+    {
+      "symbol": "CDWC",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 55.47,
+      "avgDollarVol": 61548178,
+      "bars": 1956
+    },
+    {
+      "symbol": "CE",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 46.85,
+      "avgDollarVol": 53724307,
+      "bars": 4015
+    },
+    {
+      "symbol": "CEC",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": true,
+      "avgPrice": 29.57,
+      "avgDollarVol": 7196225,
+      "bars": 3551
+    },
+    {
+      "symbol": "CEI",
+      "sector": "XLE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 119156.1,
+      "avgDollarVol": 3987493,
+      "bars": 663
+    },
+    {
+      "symbol": "CFI",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": true,
+      "avgPrice": 0.1,
+      "avgDollarVol": 4690,
+      "bars": 4402
+    },
+    {
+      "symbol": "CGAU",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 10722.14,
+      "avgDollarVol": 71354620,
+      "bars": 2582
+    },
+    {
+      "symbol": "CGG",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": true,
+      "avgPrice": 14162.04,
+      "avgDollarVol": 54775600,
+      "bars": 4259
+    },
+    {
+      "symbol": "CHT",
+      "sector": "XLC",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 17.07,
+      "avgDollarVol": 5874065,
+      "bars": 4397
+    },
+    {
+      "symbol": "CIG",
+      "sector": "XLU",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 0.87,
+      "avgDollarVol": 4211454,
+      "bars": 5274
+    },
+    {
+      "symbol": "CLDX",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 264.06,
+      "avgDollarVol": 8667555,
+      "bars": 5284
+    },
+    {
+      "symbol": "CLVT",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 19.03,
+      "avgDollarVol": 25700671,
+      "bars": 544
+    },
+    {
+      "symbol": "CME",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 57.12,
+      "avgDollarVol": 131434778,
+      "bars": 4549
+    },
+    {
+      "symbol": "CMS",
+      "sector": "XLU",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 18.2,
+      "avgDollarVol": 40354841,
+      "bars": 5284
+    },
+    {
+      "symbol": "CODI",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 7.33,
+      "avgDollarVol": 1435633,
+      "bars": 3687
+    },
+    {
+      "symbol": "COF",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 50.88,
+      "avgDollarVol": 176848570,
+      "bars": 5284
+    },
+    {
+      "symbol": "COO",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 26.81,
+      "avgDollarVol": 46156971,
+      "bars": 5284
+    },
+    {
+      "symbol": "CPK",
+      "sector": "XLU",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 28.82,
+      "avgDollarVol": 1638374,
+      "bars": 5283
+    },
+    {
+      "symbol": "CPRT",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 4.99,
+      "avgDollarVol": 33010036,
+      "bars": 5284
+    },
+    {
+      "symbol": "CRON",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 6.97,
+      "avgDollarVol": 57099577,
+      "bars": 1113
+    },
+    {
+      "symbol": "CRUS",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 23.31,
+      "avgDollarVol": 34405286,
+      "bars": 5284
+    },
+    {
+      "symbol": "CRWD",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 89.63,
+      "avgDollarVol": 443971419,
+      "bars": 394
+    },
+    {
+      "symbol": "CSL",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 50.72,
+      "avgDollarVol": 19430657,
+      "bars": 5284
+    },
+    {
+      "symbol": "CVS",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 33.3,
+      "avgDollarVol": 242854926,
+      "bars": 5284
+    },
+    {
+      "symbol": "CX",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 9.1,
+      "avgDollarVol": 71903296,
+      "bars": 5284
+    },
+    {
+      "symbol": "CXW",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 11.85,
+      "avgDollarVol": 11271875,
+      "bars": 5284
+    },
+    {
+      "symbol": "DBX",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 22.81,
+      "avgDollarVol": 113353164,
+      "bars": 700
+    },
+    {
+      "symbol": "DDOG",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 64.4,
+      "avgDollarVol": 269466907,
+      "bars": 325
+    },
+    {
+      "symbol": "DFS",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 36.72,
+      "avgDollarVol": 120063461,
+      "bars": 3411
+    },
+    {
+      "symbol": "DGX",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 47.3,
+      "avgDollarVol": 63115328,
+      "bars": 5284
+    },
+    {
+      "symbol": "DINO",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 16.05,
+      "avgDollarVol": 41873385,
+      "bars": 5283
+    },
+    {
+      "symbol": "DT",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 31.7,
+      "avgDollarVol": 79373291,
+      "bars": 359
+    },
+    {
+      "symbol": "DXC",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 29.0,
+      "avgDollarVol": 74684252,
+      "bars": 5284
+    },
+    {
+      "symbol": "ECL",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 65.51,
+      "avgDollarVol": 86341830,
+      "bars": 5284
+    },
+    {
+      "symbol": "EDU",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 1554.24,
+      "avgDollarVol": 11475420970,
+      "bars": 3605
+    },
+    {
+      "symbol": "EFX",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 54.96,
+      "avgDollarVol": 47295774,
+      "bars": 5284
+    },
+    {
+      "symbol": "EGP",
+      "sector": "XLRE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 35.78,
+      "avgDollarVol": 6928931,
+      "bars": 5284
+    },
+    {
+      "symbol": "EMN",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 32.27,
+      "avgDollarVol": 45497388,
+      "bars": 5284
+    },
+    {
+      "symbol": "ENR",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 35.08,
+      "avgDollarVol": 25725140,
+      "bars": 1400
+    },
+    {
+      "symbol": "EQIX",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 158.8,
+      "avgDollarVol": 93812240,
+      "bars": 5130
+    },
+    {
+      "symbol": "EQX",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 6.38,
+      "avgDollarVol": 3275796,
+      "bars": 1144
+    },
+    {
+      "symbol": "ESQ",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 20.22,
+      "avgDollarVol": 387511,
+      "bars": 882
+    },
+    {
+      "symbol": "EW",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 18.29,
+      "avgDollarVol": 86633263,
+      "bars": 5226
+    },
+    {
+      "symbol": "EZPW",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 10.49,
+      "avgDollarVol": 5505618,
+      "bars": 5232
+    },
+    {
+      "symbol": "FCX",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 17.15,
+      "avgDollarVol": 324398801,
+      "bars": 5284
+    },
+    {
+      "symbol": "FFIV",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 72.49,
+      "avgDollarVol": 98990120,
+      "bars": 5284
+    },
+    {
+      "symbol": "FHI",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 13.95,
+      "avgDollarVol": 11230170,
+      "bars": 5284
+    },
+    {
+      "symbol": "FLG",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 19.79,
+      "avgDollarVol": 22318519,
+      "bars": 5284
+    },
+    {
+      "symbol": "FSK",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 9.35,
+      "avgDollarVol": 3342297,
+      "bars": 1691
+    },
+    {
+      "symbol": "FTS",
+      "sector": "XLU",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 4186.23,
+      "avgDollarVol": 11910005,
+      "bars": 2269
+    },
+    {
+      "symbol": "GD",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 70.19,
+      "avgDollarVol": 118682965,
+      "bars": 5284
+    },
+    {
+      "symbol": "GDEN",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 9.06,
+      "avgDollarVol": 960000,
+      "bars": 5262
+    },
+    {
+      "symbol": "GE",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 88.41,
+      "avgDollarVol": 764395318,
+      "bars": 5284
+    },
+    {
+      "symbol": "GGB",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 2.57,
+      "avgDollarVol": 21505692,
+      "bars": 5262
+    },
+    {
+      "symbol": "GH",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 77.36,
+      "avgDollarVol": 81551920,
+      "bars": 565
+    },
+    {
+      "symbol": "GHC",
+      "sector": "XLP",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 351.07,
+      "avgDollarVol": 12058462,
+      "bars": 5282
+    },
+    {
+      "symbol": "GIB",
+      "sector": "XLK",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 25.46,
+      "avgDollarVol": 4825625,
+      "bars": 5284
+    },
+    {
+      "symbol": "GIII",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 17.48,
+      "avgDollarVol": 9087242,
+      "bars": 5123
+    },
+    {
+      "symbol": "GIS",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 23.88,
+      "avgDollarVol": 93592793,
+      "bars": 5284
+    },
+    {
+      "symbol": "GME",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 4.17,
+      "avgDollarVol": 53201923,
+      "bars": 4755
+    },
+    {
+      "symbol": "GNW",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 12.53,
+      "avgDollarVol": 64597262,
+      "bars": 4181
+    },
+    {
+      "symbol": "GOLF",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 22.35,
+      "avgDollarVol": 5958432,
+      "bars": 1051
+    },
+    {
+      "symbol": "GRPN",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 113.06,
+      "avgDollarVol": 64345040,
+      "bars": 2304
+    },
+    {
+      "symbol": "GSHD",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 46.53,
+      "avgDollarVol": 8214686,
+      "bars": 676
+    },
+    {
+      "symbol": "GWW",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 124.93,
+      "avgDollarVol": 71724554,
+      "bars": 5284
+    },
+    {
+      "symbol": "HAL",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 24.21,
+      "avgDollarVol": 294440096,
+      "bars": 5284
+    },
+    {
+      "symbol": "HES",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 42.23,
+      "avgDollarVol": 152432195,
+      "bars": 5284
+    },
+    {
+      "symbol": "HIMX",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 3.25,
+      "avgDollarVol": 11203335,
+      "bars": 3715
+    },
+    {
+      "symbol": "HLT",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 65.14,
+      "avgDollarVol": 171788996,
+      "bars": 1776
+    },
+    {
+      "symbol": "HRB",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 13.02,
+      "avgDollarVol": 39091479,
+      "bars": 5284
+    },
+    {
+      "symbol": "HRI",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 42.88,
+      "avgDollarVol": 62953434,
+      "bars": 3555
+    },
+    {
+      "symbol": "HXL",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 26.3,
+      "avgDollarVol": 17895056,
+      "bars": 5284
+    },
+    {
+      "symbol": "IDXX",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 71.42,
+      "avgDollarVol": 42016467,
+      "bars": 5284
+    },
+    {
+      "symbol": "ILMN",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 93.94,
+      "avgDollarVol": 125025958,
+      "bars": 5140
+    },
+    {
+      "symbol": "INDB",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 26.04,
+      "avgDollarVol": 2313865,
+      "bars": 5284
+    },
+    {
+      "symbol": "ITGR",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 34.08,
+      "avgDollarVol": 7006978,
+      "bars": 5095
+    },
+    {
+      "symbol": "ITUB",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 2.55,
+      "avgDollarVol": 68471674,
+      "bars": 4749
+    },
+    {
+      "symbol": "JAZZ",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 88.3,
+      "avgDollarVol": 57808310,
+      "bars": 3420
+    },
+    {
+      "symbol": "JBI",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 10.02,
+      "avgDollarVol": 1962432,
+      "bars": 250
+    },
+    {
+      "symbol": "JHG",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 18.37,
+      "avgDollarVol": 20834972,
+      "bars": 906
+    },
+    {
+      "symbol": "KALV",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 21.31,
+      "avgDollarVol": 1207929,
+      "bars": 1443
+    },
+    {
+      "symbol": "KEX",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 47.12,
+      "avgDollarVol": 20891799,
+      "bars": 5284
+    },
+    {
+      "symbol": "KLIC",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 11.33,
+      "avgDollarVol": 10387765,
+      "bars": 5284
+    },
+    {
+      "symbol": "KMT",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 20.97,
+      "avgDollarVol": 16042275,
+      "bars": 5284
+    },
+    {
+      "symbol": "KNSL",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 77.96,
+      "avgDollarVol": 11365726,
+      "bars": 1116
+    },
+    {
+      "symbol": "KNX",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 17.5,
+      "avgDollarVol": 23112143,
+      "bars": 5283
+    },
+    {
+      "symbol": "KRNY",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 6.62,
+      "avgDollarVol": 1673456,
+      "bars": 3992
+    },
+    {
+      "symbol": "LAZ",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 21.15,
+      "avgDollarVol": 16929953,
+      "bars": 3943
+    },
+    {
+      "symbol": "LEA",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 81.71,
+      "avgDollarVol": 63447148,
+      "bars": 2806
+    },
+    {
+      "symbol": "LNTH",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 13.82,
+      "avgDollarVol": 5908468,
+      "bars": 1391
+    },
+    {
+      "symbol": "LOW",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 37.42,
+      "avgDollarVol": 260267489,
+      "bars": 5284
+    },
+    {
+      "symbol": "LQDA",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 9.48,
+      "avgDollarVol": 1536467,
+      "bars": 614
+    },
+    {
+      "symbol": "LXU",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 11.31,
+      "avgDollarVol": 2917669,
+      "bars": 5217
+    },
+    {
+      "symbol": "MAS",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 20.52,
+      "avgDollarVol": 73127159,
+      "bars": 5284
+    },
+    {
+      "symbol": "MASI",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 60.85,
+      "avgDollarVol": 28402337,
+      "bars": 3375
+    },
+    {
+      "symbol": "MATV",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 15.06,
+      "avgDollarVol": 3257221,
+      "bars": 5284
+    },
+    {
+      "symbol": "MBWM",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 11.72,
+      "avgDollarVol": 390066,
+      "bars": 5268
+    },
+    {
+      "symbol": "MCHP",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 16.29,
+      "avgDollarVol": 84505650,
+      "bars": 5284
+    },
+    {
+      "symbol": "MCO",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 65.37,
+      "avgDollarVol": 83783137,
+      "bars": 5284
+    },
+    {
+      "symbol": "MGA",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 19.88,
+      "avgDollarVol": 28949276,
+      "bars": 5284
+    },
+    {
+      "symbol": "MKSI",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 34.26,
+      "avgDollarVol": 14218916,
+      "bars": 5284
+    },
+    {
+      "symbol": "MKTX",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 93.07,
+      "avgDollarVol": 24546968,
+      "bars": 4067
+    },
+    {
+      "symbol": "MMC",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 38.36,
+      "avgDollarVol": 87268454,
+      "bars": 5284
+    },
+    {
+      "symbol": "MMM",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 60.85,
+      "avgDollarVol": 215980528,
+      "bars": 5284
+    },
+    {
+      "symbol": "MNST",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 10.68,
+      "avgDollarVol": 93564778,
+      "bars": 5262
+    },
+    {
+      "symbol": "MPC",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 33.72,
+      "avgDollarVol": 207554722,
+      "bars": 2398
+    },
+    {
+      "symbol": "MRK",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 30.54,
+      "avgDollarVol": 346809622,
+      "bars": 5284
+    },
+    {
+      "symbol": "MTD",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 236.56,
+      "avgDollarVol": 42262091,
+      "bars": 5284
+    },
+    {
+      "symbol": "MTSI",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 27.65,
+      "avgDollarVol": 14761636,
+      "bars": 2215
+    },
+    {
+      "symbol": "MUX",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 23.67,
+      "avgDollarVol": 42964622,
+      "bars": 5181
+    },
+    {
+      "symbol": "NDSN",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 50.85,
+      "avgDollarVol": 14776380,
+      "bars": 5284
+    },
+    {
+      "symbol": "NEXA",
+      "sector": "XLB",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 8.65,
+      "avgDollarVol": 1474700,
+      "bars": 800
+    },
+    {
+      "symbol": "NI",
+      "sector": "XLU",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 8.42,
+      "avgDollarVol": 32280327,
+      "bars": 5284
+    },
+    {
+      "symbol": "NMIH",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 14.72,
+      "avgDollarVol": 7799406,
+      "bars": 1799
+    },
+    {
+      "symbol": "NMR",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 5.3,
+      "avgDollarVol": 2131503,
+      "bars": 4794
+    },
+    {
+      "symbol": "NRP",
+      "sector": "XLE",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 48.99,
+      "avgDollarVol": 1076890,
+      "bars": 4588
+    },
+    {
+      "symbol": "NVCR",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 41.77,
+      "avgDollarVol": 37032369,
+      "bars": 1322
+    },
+    {
+      "symbol": "NVDA",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 1.44,
+      "avgDollarVol": 767374573,
+      "bars": 5284
+    },
+    {
+      "symbol": "OLLI",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 55.35,
+      "avgDollarVol": 51982024,
+      "bars": 1377
+    },
+    {
+      "symbol": "OPK",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 4.35,
+      "avgDollarVol": 12859743,
+      "bars": 5242
+    },
+    {
+      "symbol": "OPY",
+      "sector": "XLF",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 17.1,
+      "avgDollarVol": 650630,
+      "bars": 5237
+    },
+    {
+      "symbol": "PANW",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 24.69,
+      "avgDollarVol": 213824161,
+      "bars": 2127
+    },
+    {
+      "symbol": "PARA",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 27.06,
+      "avgDollarVol": 140532027,
+      "bars": 5284
+    },
+    {
+      "symbol": "PAYC",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 115.26,
+      "avgDollarVol": 76695924,
+      "bars": 1692
+    },
+    {
+      "symbol": "PBR",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 4.38,
+      "avgDollarVol": 75349236,
+      "bars": 5131
+    },
+    {
+      "symbol": "PEB",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 22.73,
+      "avgDollarVol": 17943899,
+      "bars": 2785
+    },
+    {
+      "symbol": "PM",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 45.9,
+      "avgDollarVol": 254384431,
+      "bars": 3223
+    },
+    {
+      "symbol": "PODD",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 51.15,
+      "avgDollarVol": 28095245,
+      "bars": 3434
+    },
+    {
+      "symbol": "PRDO",
+      "sector": "XLP",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 17.07,
+      "avgDollarVol": 25574353,
+      "bars": 5284
+    },
+    {
+      "symbol": "PRSU",
+      "sector": "XLY",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 25.64,
+      "avgDollarVol": 2732711,
+      "bars": 5284
+    },
+    {
+      "symbol": "PSEC",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 1.96,
+      "avgDollarVol": 3708825,
+      "bars": 4139
+    },
+    {
+      "symbol": "PSNL",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 16.9,
+      "avgDollarVol": 9789264,
+      "bars": 388
+    },
+    {
+      "symbol": "PTEN",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 13.93,
+      "avgDollarVol": 50111330,
+      "bars": 5284
+    },
+    {
+      "symbol": "PWR",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 23.97,
+      "avgDollarVol": 40613389,
+      "bars": 5284
+    },
+    {
+      "symbol": "PXD",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 66.38,
+      "avgDollarVol": 115518260,
+      "bars": 5284
+    },
+    {
+      "symbol": "QGEN",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 20.61,
+      "avgDollarVol": 18053455,
+      "bars": 5283
+    },
+    {
+      "symbol": "R",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 33.94,
+      "avgDollarVol": 23004749,
+      "bars": 5284
+    },
+    {
+      "symbol": "ROAD",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 15.31,
+      "avgDollarVol": 3239869,
+      "bars": 671
+    },
+    {
+      "symbol": "RRC",
+      "sector": "XLE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 28.92,
+      "avgDollarVol": 80062179,
+      "bars": 5284
+    },
+    {
+      "symbol": "RS",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 39.47,
+      "avgDollarVol": 24844715,
+      "bars": 5284
+    },
+    {
+      "symbol": "RVTY",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 36.65,
+      "avgDollarVol": 31455418,
+      "bars": 5284
+    },
+    {
+      "symbol": "RY",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 29.54,
+      "avgDollarVol": 24199215,
+      "bars": 5284
+    },
+    {
+      "symbol": "RYAAY",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 15.84,
+      "avgDollarVol": 20115844,
+      "bars": 5284
+    },
+    {
+      "symbol": "SAIA",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 31.74,
+      "avgDollarVol": 7231268,
+      "bars": 4610
+    },
+    {
+      "symbol": "SANM",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 40.82,
+      "avgDollarVol": 43384391,
+      "bars": 5284
+    },
+    {
+      "symbol": "SBRA",
+      "sector": "XLRE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 9.12,
+      "avgDollarVol": 5573621,
+      "bars": 4644
+    },
+    {
+      "symbol": "SBS",
+      "sector": "XLU",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 0.89,
+      "avgDollarVol": 8391325,
+      "bars": 4686
+    },
+    {
+      "symbol": "SCI",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 13.86,
+      "avgDollarVol": 15389789,
+      "bars": 5284
+    },
+    {
+      "symbol": "SD",
+      "sector": "XLE",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 7.87,
+      "avgDollarVol": 2397883,
+      "bars": 1069
+    },
+    {
+      "symbol": "SEB",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 1989.54,
+      "avgDollarVol": 1834602,
+      "bars": 5204
+    },
+    {
+      "symbol": "SEE",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 22.76,
+      "avgDollarVol": 36705530,
+      "bars": 5284
+    },
+    {
+      "symbol": "SGRY",
+      "sector": "XLV",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 15.2,
+      "avgDollarVol": 5140892,
+      "bars": 1323
+    },
+    {
+      "symbol": "SITC",
+      "sector": "XLRE",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 1.15,
+      "avgDollarVol": 1608468,
+      "bars": 5284
+    },
+    {
+      "symbol": "SLM",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 7.88,
+      "avgDollarVol": 61651875,
+      "bars": 5284
+    },
+    {
+      "symbol": "SNPS",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 45.84,
+      "avgDollarVol": 55430993,
+      "bars": 5284
+    },
+    {
+      "symbol": "SNV",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 28.44,
+      "avgDollarVol": 21168456,
+      "bars": 5283
+    },
+    {
+      "symbol": "SPB",
+      "sector": "XLP",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 39.19,
+      "avgDollarVol": 5742236,
+      "bars": 5159
+    },
+    {
+      "symbol": "SRE",
+      "sector": "XLU",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 23.01,
+      "avgDollarVol": 65154875,
+      "bars": 5284
+    },
+    {
+      "symbol": "STN",
+      "sector": "XLI",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 17.26,
+      "avgDollarVol": 598459,
+      "bars": 3931
+    },
+    {
+      "symbol": "STX",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 19.23,
+      "avgDollarVol": 95552314,
+      "bars": 4546
+    },
+    {
+      "symbol": "SXT",
+      "sector": "XLB",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 29.92,
+      "avgDollarVol": 7378491,
+      "bars": 5284
+    },
+    {
+      "symbol": "TAP",
+      "sector": "XLP",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 35.37,
+      "avgDollarVol": 55013501,
+      "bars": 5284
+    },
+    {
+      "symbol": "TECK",
+      "sector": "XLB",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 18.89,
+      "avgDollarVol": 58080708,
+      "bars": 4463
+    },
+    {
+      "symbol": "TFSL",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 7.29,
+      "avgDollarVol": 2580542,
+      "bars": 3450
+    },
+    {
+      "symbol": "THG",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 42.3,
+      "avgDollarVol": 11084712,
+      "bars": 5284
+    },
+    {
+      "symbol": "TLK",
+      "sector": "XLC",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 9.89,
+      "avgDollarVol": 4331444,
+      "bars": 5284
+    },
+    {
+      "symbol": "TOL",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 24.04,
+      "avgDollarVol": 72227007,
+      "bars": 5284
+    },
+    {
+      "symbol": "TRX",
+      "sector": "XLB",
+      "tier": "small",
+      "delistedInWindow": false,
+      "avgPrice": 2.7,
+      "avgDollarVol": 1182395,
+      "bars": 4314
+    },
+    {
+      "symbol": "TT",
+      "sector": "XLI",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 31.24,
+      "avgDollarVol": 94630998,
+      "bars": 5284
+    },
+    {
+      "symbol": "TTD",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 18.79,
+      "avgDollarVol": 255056024,
+      "bars": 1078
+    },
+    {
+      "symbol": "TTEK",
+      "sector": "XLI",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 5.62,
+      "avgDollarVol": 10947723,
+      "bars": 5284
+    },
+    {
+      "symbol": "TXN",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 35.99,
+      "avgDollarVol": 280939665,
+      "bars": 5284
+    },
+    {
+      "symbol": "UA",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 19.23,
+      "avgDollarVol": 56855092,
+      "bars": 1201
+    },
+    {
+      "symbol": "UBSI",
+      "sector": "XLF",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 16.91,
+      "avgDollarVol": 5880453,
+      "bars": 5284
+    },
+    {
+      "symbol": "UDR",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 15.11,
+      "avgDollarVol": 24839775,
+      "bars": 5284
+    },
+    {
+      "symbol": "UGP",
+      "sector": "XLE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 3.91,
+      "avgDollarVol": 3634769,
+      "bars": 5243
+    },
+    {
+      "symbol": "VIV",
+      "sector": "XLC",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 6.29,
+      "avgDollarVol": 6836616,
+      "bars": 5283
+    },
+    {
+      "symbol": "VREX",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 28.67,
+      "avgDollarVol": 9748725,
+      "bars": 995
+    },
+    {
+      "symbol": "VRNS",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 16.33,
+      "avgDollarVol": 15623808,
+      "bars": 1724
+    },
+    {
+      "symbol": "VTRS",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 20.09,
+      "avgDollarVol": 102162377,
+      "bars": 5284
+    },
+    {
+      "symbol": "WB",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 34.25,
+      "avgDollarVol": 66230477,
+      "bars": 1690
+    },
+    {
+      "symbol": "WELL",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 28.53,
+      "avgDollarVol": 55240489,
+      "bars": 5284
+    },
+    {
+      "symbol": "WES",
+      "sector": "XLE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 16.69,
+      "avgDollarVol": 6586020,
+      "bars": 2031
+    },
+    {
+      "symbol": "WH",
+      "sector": "XLY",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 46.41,
+      "avgDollarVol": 43933528,
+      "bars": 660
+    },
+    {
+      "symbol": "WING",
+      "sector": "XLY",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 51.67,
+      "avgDollarVol": 27593355,
+      "bars": 1400
+    },
+    {
+      "symbol": "WIX",
+      "sector": "XLK",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 80.16,
+      "avgDollarVol": 51607906,
+      "bars": 1801
+    },
+    {
+      "symbol": "WPC",
+      "sector": "XLRE",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 20.39,
+      "avgDollarVol": 8993776,
+      "bars": 5284
+    },
+    {
+      "symbol": "WU",
+      "sector": "XLF",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 10.43,
+      "avgDollarVol": 59391390,
+      "bars": 3596
+    },
+    {
+      "symbol": "WVE",
+      "sector": "XLV",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 25.31,
+      "avgDollarVol": 5798007,
+      "bars": 1294
+    },
+    {
+      "symbol": "WY",
+      "sector": "XLRE",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 13.98,
+      "avgDollarVol": 62076351,
+      "bars": 5284
+    },
+    {
+      "symbol": "Z",
+      "sector": "XLC",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 44.06,
+      "avgDollarVol": 107578461,
+      "bars": 1365
+    },
+    {
+      "symbol": "ZBRA",
+      "sector": "XLK",
+      "tier": "mid",
+      "delistedInWindow": false,
+      "avgPrice": 67.9,
+      "avgDollarVol": 31220012,
+      "bars": 5284
+    },
+    {
+      "symbol": "ZTS",
+      "sector": "XLV",
+      "tier": "large",
+      "delistedInWindow": false,
+      "avgPrice": 65.81,
+      "avgDollarVol": 176282120,
+      "bars": 1994
+    }
+  ],
+  "orderBlock": [
+    "ABCW",
+    "ABIO",
+    "ACIW",
+    "ACMM",
+    "ADD",
+    "ADELQ",
+    "ADN",
+    "ADSK",
+    "AEO",
+    "AESK",
+    "AGNC",
+    "AIMT",
+    "APH",
+    "APTI",
+    "BHRB",
+    "BLNKW",
+    "BWIN",
+    "BXMT",
+    "CE",
+    "CFI",
+    "CGAU",
+    "CRON",
+    "CRUS",
+    "CRWD",
+    "CSL",
+    "CXW",
+    "DDOG",
+    "EDU",
+    "GH",
+    "GHC",
+    "GIB",
+    "GRPN",
+    "HLT",
+    "HRB",
+    "IDXX",
+    "ITGR",
+    "LQDA",
+    "MMM",
+    "MNST",
+    "MTSI",
+    "PBR",
+    "PXD",
+    "RY",
+    "SLM",
+    "SNV",
+    "SPB",
+    "UGP",
+    "VTRS",
+    "WPC",
+    "ZBRA"
+  ]
+}
