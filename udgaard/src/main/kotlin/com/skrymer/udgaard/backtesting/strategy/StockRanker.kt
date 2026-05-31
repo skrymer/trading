@@ -353,3 +353,51 @@ class AdaptiveRanker : StockRanker {
 
   override fun description() = "Adaptive (Volatility in trends, DistanceFrom10Ema in chop)"
 }
+
+/**
+ * Ranks stocks by trailing total return, skipping the most recent [skipDays] bars — i.e. the
+ * cross-sectional "12-1" momentum factor (default: 252-day return ending 21 trading days ago).
+ * Theory: relative outperformers persist; skipping the last ~month sidesteps short-term reversal.
+ *
+ * Score = close[entry − skipDays] / close[entry − lookbackDays] − 1, using only bars *before* entry.
+ * A stock without enough history (or a non-positive base price) cannot be scored on momentum and must
+ * not win a momentum ranking, so it returns [INSUFFICIENT_HISTORY] — strictly below any real return
+ * (which bottoms at −1.0 when price goes to zero), placing it last.
+ *
+ * Cost is O(log n): one binary-search index lookup plus two array reads — no per-bar iteration over
+ * the quote history, so it adds no backtest-time hot-loop scan.
+ *
+ * @param lookbackDays Trailing window length in trading-day bars (must exceed [skipDays]).
+ * @param skipDays Recent bars to exclude from the window end (>= 1, so the window ends strictly
+ *   before the entry bar — this is what guarantees no entry-or-future bar can ever be read).
+ */
+class TrailingReturnRanker(
+  private val lookbackDays: Int = 252,
+  private val skipDays: Int = 21,
+) : StockRanker {
+  init {
+    require(skipDays >= 1) { "skipDays must be >= 1 (window must end before the entry bar), got $skipDays" }
+    require(lookbackDays > skipDays) { "lookbackDays ($lookbackDays) must be greater than skipDays ($skipDays)" }
+  }
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double {
+    val entryIdx = stock.indexOnOrAfter(entryQuote.date)
+    val startIdx = entryIdx - lookbackDays
+    val endIdx = entryIdx - skipDays
+    if (startIdx < 0 || endIdx < 0) return INSUFFICIENT_HISTORY
+    val start = stock.quotes[startIdx].closePrice
+    val end = stock.quotes[endIdx].closePrice
+    if (start <= 0.0) return INSUFFICIENT_HISTORY
+    return end / start - 1.0
+  }
+
+  override fun description() = "Trailing return ($lookbackDays-$skipDays day momentum)"
+
+  companion object {
+    /** Below the −1.0 floor of any real return, so unscoreable stocks always rank last. */
+    private const val INSUFFICIENT_HISTORY = -Double.MAX_VALUE
+  }
+}

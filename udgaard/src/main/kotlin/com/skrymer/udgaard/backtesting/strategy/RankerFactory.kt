@@ -42,6 +42,16 @@ object RankerFactory {
         usesRandomTieBreaks = true,
       ),
       RankerMetadata(
+        type = "TrailingReturn",
+        displayName = "Trailing Return",
+        description =
+          "Ranks stocks by 12-1 cross-sectional momentum: trailing 252-day total return ending " +
+            "21 trading days ago (higher = stronger relative momentum).",
+        parameters = emptyList(),
+        category = "Score-Based",
+        usesRandomTieBreaks = true,
+      ),
+      RankerMetadata(
         type = "SectorStrength",
         displayName = "Sector Strength",
         description = "Ranks stocks by their sector's current bull percentage.",
@@ -121,6 +131,7 @@ object RankerFactory {
       "sectorstrength" -> SectorStrengthRanker()
       "rollingsectorstrength" -> RollingSectorStrengthRanker()
       "sectorstrengthmomentum" -> SectorStrengthMomentumRanker()
+      "trailingreturn" -> TrailingReturnRanker()
       "sectoredge" -> {
         val ranking = rankerConfig?.sectorRanking
         if (ranking.isNullOrEmpty()) null else SectorEdgeRanker(ranking)

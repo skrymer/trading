@@ -380,6 +380,7 @@ CompositeRanker()               // Combines Vol (40%) + Dist10EMA (30%) + Sector
 SectorStrengthRanker()          // Rank by sector bull percentage
 RollingSectorStrengthRanker()   // Avg sector bull % over a trailing window (persistent strength)
 SectorStrengthMomentumRanker()  // Δ sector bull % over a window (sectors gaining breadth)
+TrailingReturnRanker()          // 12-1 cross-sectional momentum (252d return ending 21d ago, higher = better)
 SectorEdgeRanker()              // Rank by user-supplied sector priority order (Sector-Priority category)
 SectorEdgeWithTightnessRanker() // Sector edge + base-tightness (ATR/close) tie-breaker within a sector
 RandomRanker()                  // Random selection (baseline)
