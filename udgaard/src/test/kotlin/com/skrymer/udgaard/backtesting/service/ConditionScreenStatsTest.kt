@@ -310,6 +310,48 @@ class ConditionScreenStatsTest {
   }
 
   @Test
+  fun `integer parameter without an option set sweeps plus and minus one whole step`() {
+    // Given an integer tunable (no allowed-value set) centered at 2
+    // When swept as an integer
+    val variants = ConditionScreenStats.parameterVariants(center = 2.0, options = null, isInteger = true)
+
+    // Then the neighbours are whole ±1 steps, not ±10% (which would truncate 2.2 back onto 2)
+    assertEquals(listOf(1.0, 3.0), variants)
+  }
+
+  @Test
+  fun `integer parameter at its minimum drops the out-of-range lower neighbour`() {
+    // Given an integer tunable centered at its minimum (e.g. ageInDays=0, min=0)
+    // When swept as an integer with that lower bound
+    val variants = ConditionScreenStats.parameterVariants(center = 0.0, options = null, isInteger = true, min = 0.0)
+
+    // Then center-1 (-1) is below min and dropped; only the upper neighbour survives (no degenerate [0,0])
+    assertEquals(listOf(1.0), variants)
+  }
+
+  @Test
+  fun `integer parameter at its maximum drops the out-of-range upper neighbour`() {
+    // Given an integer tunable centered at its maximum (e.g. consecutiveDays=10, max=10)
+    // When swept as an integer with that upper bound
+    val variants = ConditionScreenStats.parameterVariants(center = 10.0, options = null, isInteger = true, max = 10.0)
+
+    // Then center+1 (11) is above max and dropped; only the lower neighbour survives
+    assertEquals(listOf(9.0), variants)
+  }
+
+  @Test
+  fun `continuous parameter at a zero centre uses an additive fallback, not a degenerate zero sweep`() {
+    // Given a continuous tunable whose centre is 0 (relative ±10% would collapse to [0,0])
+    // When swept
+    val variants = ConditionScreenStats.parameterVariants(center = 0.0, options = null)
+
+    // Then an additive ±relativeStep is used so the cells are genuinely distinct from the centre
+    assertEquals(2, variants.size)
+    assertEquals(-0.10, variants[0], EPSILON)
+    assertEquals(0.10, variants[1], EPSILON)
+  }
+
+  @Test
   fun `discrete parameter centre is matched to its option grid by epsilon, not bit-equality`() {
     // Given a centre that carries floating-point drift (0.05 + 0.05 != 0.1 bit-for-bit)
     val drifted = 0.05 + 0.05
