@@ -1,6 +1,6 @@
 ---
 name: strategy-screen
-description: Run a fast 10-year (2005-2015) walk-forward screening pass with relaxed gates to filter candidate sweeps before the full 3-block firewall validation. Use when sweeping multiple strategy variants and full Block A (2000-2015) is too slow for first-pass triage. Survivors must re-run on full Block A before progressing to /walk-forward Block B/C.
+description: Run a fast 10-year (2005-2015) walk-forward screening pass with relaxed gates to filter candidate sweeps before the full 3-block firewall validation. Use when sweeping multiple strategy variants and the full firewall is too slow for first-pass triage. Survivors progress to /validate-candidate, whose Block A is the full-period binding layer.
 argument-hint: "[strategy-name] [variant-label]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[strategy-name] [variant-label]"
 
 Answers one question: **"Is this candidate worth a full Block A run, or can I drop it now?"**
 
-Filters obvious losers fast (~3-5 min per candidate vs ~10+ min on full Block A) so a 10-30 variant sweep takes hours instead of a day. Survivors re-run on full Block A (2000-2015) before progressing to `/walk-forward` Block B / C.
+Filters obvious losers fast (~3-5 min per candidate vs ~10+ min on full Block A) so a 10-30 variant sweep takes hours instead of a day. Survivors progress to `/validate-candidate`, whose Block A (2000-2014) is the full-period binding layer — there is no separate `/walk-forward` Block A / B / C step.
 
 This skill is strategy-neutral. Substitute the user's actual entry / exit / sizing in every example.
 
@@ -82,7 +82,7 @@ Pass **all five** to qualify as a survivor. Reject any candidate that fails any 
 .claude/skills/validate-candidate/scripts/run-pipeline.sh <candidate-name> /tmp/screen-req-<candidate-name>.json
 ```
 
-The pipeline runs Block A (2000-2014) → Block B (2014-2020 incl COVID) → Block C (2021-2025), stops at the first failing block, and emits `strategy_exploration/validate-<candidate-name>.md` with the final TRADABLE / PROVISIONAL / REJECTED verdict.
+The pipeline runs the binding layers (Block A 2000-2014 → Block B 2014-2021 incl COVID → 25-year aggregate), stops at the first failing binding layer, treats Block C (2021-2025) as an informational sanity check, and emits `strategy_exploration/validate-<candidate-name>.md` with the final TRADABLE / PROVISIONAL / REJECTED verdict.
 
 **Skill output requirement** when reporting screen results: for each PASS candidate that also clears the 30% CAGR tradability bar, surface the exact `/validate-candidate` invocation as the recommended next step. Below-30%-CAGR passes go in a separate "filtered out" list — the screen approved them mechanically but they don't meet the user's tradability floor.
 
@@ -98,7 +98,7 @@ For sweep-wide analysis (after all candidates are fired): spawn `strategy-screen
 
 ## Critical warnings
 
-- **Screening is a filter, not a verdict.** A pass means "keep evaluating". Live-trading decisions require full Block A + Block B + Block C, never the 10y screen alone.
+- **Screening is a filter, not a verdict.** A pass means "keep evaluating". Live-trading decisions require the full firewall (`/validate-candidate`: Block A + Block B + 25y aggregate binding, Block C informational), never the 10y screen alone.
 - **Don't tune the screening window or gates.** They're set by the quant. If a strategy fails and you change the gates to make it pass, you've defeated the screen.
 - **Don't screen on 2014-2024 or any window touching 2021-2025** — overlaps Block C and leaks validation data. Stick to 2005-2015.
 - **Background context** in [REFERENCE.md](REFERENCE.md) — quant verdict, statistical power, risks to watch.

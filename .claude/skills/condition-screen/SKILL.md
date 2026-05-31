@@ -41,7 +41,7 @@ The request fields (all optional except `conditions`):
 |---|---|---|
 | `conditions` | — | entry condition stack; inline `script` is first-class |
 | `operator` | `AND` | `AND` / `OR` across the stack |
-| `symbols` | all `STOCK` | explicit universe override |
+| `symbols` | all `STOCK` | explicit universe override. Full set is the default and correct for a single-condition screen. For a **whole-library sanity sweep**, use the frozen reduced universe instead — see REFERENCE "Library sanity-sweep mode" |
 | `assetTypes` | `["STOCK"]` | universe when `symbols` omitted |
 | `startDate` | `2000-01-01` | freely movable earlier |
 | `endDate` | `2021-01-01` | **hard-capped at 2021-01-01** — see leakage rule |
