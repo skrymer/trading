@@ -184,11 +184,25 @@ class ConditionScreenService(
       metadata.parameters.filter { it.type == "number" }.forEach { param ->
         val center = (config.parameters[param.name] as? Number ?: param.defaultValue as? Number)?.toDouble() ?: return@forEach
         val options = param.options?.mapNotNull { it.toDoubleOrNull() }?.takeIf { it.isNotEmpty() }
-        val variants = ConditionScreenStats.parameterVariants(center, options)
+        // An integer-typed tunable (Int/Long default) must sweep ±1 whole units, not ±10% — a relative
+        // step truncates back onto the centre for small counts and gives a degenerate ARS cell.
+        val isInteger = param.defaultValue is Int || param.defaultValue is Long
+        val variants =
+          ConditionScreenStats.parameterVariants(
+            center,
+            options,
+            isInteger = isInteger,
+            min = param.min?.toDouble(),
+            max = param.max?.toDouble(),
+          )
         if (variants.isEmpty()) {
-          if (options != null) {
-            notes += "Tunable ${config.type}.${param.name}=$center not swept — value is not on its allowed-option grid ${param.options}."
-          }
+          val reason =
+            if (options != null) {
+              "value is not on its allowed-option grid ${param.options}"
+            } else {
+              "no in-range neighbours within [${param.min}, ${param.max}]"
+            }
+          notes += "Tunable ${config.type}.${param.name}=$center not swept — $reason."
           return@forEach
         }
         targets +=

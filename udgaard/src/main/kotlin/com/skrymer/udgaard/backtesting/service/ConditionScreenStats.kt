@@ -179,21 +179,38 @@ object ConditionScreenStats {
   }
 
   /**
-   * The ±1-step neighbour values to sweep a parameter through for ARS detection.
+   * The neighbour values to sweep a parameter through for ARS detection.
    *
    * A discrete parameter (one with an allowed-value [options] set, e.g. emaPeriod ∈ {5,10,20,…})
-   * steps to its immediately adjacent allowed values — "±1" is the option grid, not ±1 numerically,
-   * since intermediate values are not legal configs. A continuous parameter (no [options]) sweeps
-   * ±10% around the centre. Integer-count tunables that lack an options set are better swept via an
-   * explicit step (see the screen's sweep spec) than this ±10% default.
+   * steps to its immediately adjacent allowed values — the step is the option grid, not ±1
+   * numerically, since intermediate values are not legal configs. An [isInteger] tunable without an
+   * options set steps ±1 whole unit (a ±10% relative step would truncate back onto the centre for
+   * small counts, e.g. 2→2.2→2, giving a degenerate cell). A continuous parameter steps ±[relativeStep],
+   * except at a zero centre where the relative step would collapse to [0,0] and an additive
+   * ±[relativeStep] is used instead. Neighbours outside [[min], [max]] (when given) or coinciding with
+   * the centre are dropped, so every returned cell is a genuinely distinct, in-range config.
    */
   fun parameterVariants(
     center: Double,
     options: List<Double>?,
     relativeStep: Double = 0.10,
+    isInteger: Boolean = false,
+    min: Double? = null,
+    max: Double? = null,
   ): List<Double> {
     if (options == null) {
-      return listOf(center * (1 - relativeStep), center * (1 + relativeStep))
+      val raw =
+        when {
+          // Round to a whole unit first so a fractional override of an integer param still steps to legal configs.
+          isInteger -> kotlin.math.round(center).let { listOf(it - 1.0, it + 1.0) }
+          center == 0.0 -> listOf(-relativeStep, relativeStep)
+          else -> listOf(center * (1 - relativeStep), center * (1 + relativeStep))
+        }
+      return raw.filter { v ->
+        kotlin.math.abs(v - center) > 1e-9 &&
+          (min == null || v >= min - 1e-9) &&
+          (max == null || v <= max + 1e-9)
+      }
     }
     val sorted = options.sorted()
     // Match the centre on the option grid by epsilon — a JSON-parsed centre (e.g. "0.10" vs 0.1)
