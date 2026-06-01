@@ -118,7 +118,8 @@ midgaard/
 │   │   ├── V11__Remove_bad_print_symbols.sql         # One-time scrub: removes ~48 symbols matching the V-shape bad-print pattern (+ dependent rows in quotes, earnings, ovtlyr_signals, ingestion_status). Future contaminants are detected by BadPrintIntegrityValidator.
 │   │   ├── V12__Remove_split_adjustment_failure_symbols.sql  # One-time scrub: removes ~127 symbols matching BadPrintIntegrityValidator's V2 invariant (split-adjustment failure: close >= 5x prev AND next >= 50% of spike). Same cascade pattern as V11. ~63 of the removed symbols are still-active legitimate large-caps (DAC, WFRD, AU, FE, etc.) — accepted as collateral damage versus bar-level surgery.
 │   │   ├── V13__Remove_v3_split_adjustment_failure_symbols.sql  # One-time scrub: removes 31 symbols matching BadPrintIntegrityValidator's V3 invariant (sub-cent prev with real history — AT-class split-adjustment failure). Same cascade pattern as V11/V12. Future contaminants are detected by V3 on each integrity run.
-│   │   └── V14__Add_leveraged_sector_basket_symbols.sql         # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
+│   │   ├── V14__Add_leveraged_sector_basket_symbols.sql         # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
+│   │   └── V15__Populate_symbols.sql                            # Full idempotent snapshot of the runtime-grown symbols catalogue (supersedes V2 seed) — leveraged-ETF basket + era-spread delisted discovery with EDGAR-resolved sectors, so a from-migrations rebuild reproduces the full catalogue without re-running EODHD/EDGAR discovery. ON CONFLICT DO NOTHING (no-op on existing DB).
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -208,7 +209,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - **quotes**: OHLCV + indicators (symbol + quote_date PK)
   - Indicators: atr, adx, ema_5/10/20/50/100/200, donchian_upper_5, indicator_source
 - **earnings**: Quarterly earnings (symbol + fiscal_date_ending PK)
-- **symbols**: Reference data with asset_type and sector (3,128 entries from V2)
+- **symbols**: Reference data with asset_type and sector. V2 seeded the initial 3,128; V15 is the authoritative full idempotent snapshot of the runtime-grown catalogue (incl. discovered delisted names with EDGAR-resolved sectors)
 - **ingestion_status**: Per-symbol tracking (bar_count, last_bar_date, status)
 - **market_holidays** (V7): US exchange holiday calendar (exchange + holiday_date PK), 349 rows for 1995-2030 sourced from EODHD `/exchange-details/US`. Static seed; revisit before 2030. `IngestionService` filters out provider bars stamped to these dates (initial ingest + daily update) to avoid phantom rows skewing breadth queries.
 - **ovtlyr_signals** (V10): Third-party ovtlyr.com buy/sell calls (symbol + signal_date PK). Sparse by design — one row per (symbol, date) only when ovtlyr emitted a BUY or SELL; days with no call have no row.
