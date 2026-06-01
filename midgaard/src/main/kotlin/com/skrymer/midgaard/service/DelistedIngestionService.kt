@@ -30,8 +30,9 @@ import org.springframework.stereotype.Service
  *   1. Pull EODHD's catalogue (~50k delisted US rows).
  *   2. Filter Common Stock on major exchanges with sane tickers — drops ETFs,
  *      pink-sheet pump-and-dumps, and weird code formats with one cheap pass.
- *   3. Walk the survivors alphabetically; for each, fetch CIK + delistedDate
- *      via cached `EodhdFundamentalsClient` and SIC via `EdgarClient`.
+ *   3. Walk the survivors in a deterministic seeded-shuffle order (see `orderForWalk` —
+ *      NOT alphabetical, so the budget cap doesn't drop late-alphabet delistings); for each,
+ *      fetch CIK + delistedDate via cached `EodhdFundamentalsClient` and SIC via `EdgarClient`.
  *   4. Bucket by sector. Each bucket caps at `perSectorCap` (~137) so we get
  *      sector spread instead of pure liquidity skew. Stop the walk when all
  *      buckets are full OR we hit the safety budget on fundamentals fetches.
@@ -79,7 +80,7 @@ class DelistedIngestionService(
             _lastRunStats = DelistedRunStats(failed = true)
             return
         }
-        val candidates = rawList.filter { isViableCandidate(it) }.sortedBy { it.code }
+        val candidates = orderForWalk(rawList.filter { isViableCandidate(it) }, config.shuffleSeed)
         logger.info("Catalogue ${rawList.size} rows -> ${candidates.size} viable candidates")
 
         val survivors = walkAndBucket(candidates, config)
@@ -99,6 +100,19 @@ class DelistedIngestionService(
                 "after ${survivors.fetchesUsed} fundamentals fetches",
         )
     }
+
+    /**
+     * Orders viable candidates for the budget-limited walk. A deterministic (seeded) shuffle,
+     * NOT alphabetical: the walk only enriches the first `fundamentalsBudget` candidates, so an
+     * alphabetical order systematically drops mid/late-alphabet delistings (e.g. 2008 failures
+     * like LEH/ENE). Shuffling spreads coverage uniformly across the alphabet — and since ticker
+     * is ~uncorrelated with delisting year, uniformly across eras. The fixed seed keeps re-runs
+     * deterministic (same coverage, idempotent upserts).
+     */
+    internal fun orderForWalk(
+        candidates: List<EodhdDelistedSymbolDto>,
+        seed: Long,
+    ): List<EodhdDelistedSymbolDto> = candidates.shuffled(kotlin.random.Random(seed))
 
     private fun isViableCandidate(dto: EodhdDelistedSymbolDto): Boolean =
         dto.type.equals("Common Stock", ignoreCase = true) &&
@@ -194,6 +208,7 @@ class DelistedIngestionService(
         val totalCap: Int = 1_500,
         val perSectorCap: Int = 150,
         val fundamentalsBudget: Int = 4_000,
+        val shuffleSeed: Long = 42,
     )
 
     private data class EnrichedSymbol(

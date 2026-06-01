@@ -20,6 +20,7 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -69,6 +70,23 @@ class DelistedIngestionServiceTest {
         // And the run stats reflect the catalogue filter
         assertEquals(3, fixture.service.lastRunStats?.viableCount)
         assertEquals(3, fixture.service.lastRunStats?.persistedCount)
+    }
+
+    @Test
+    fun `orderForWalk deterministically shuffles candidates so the budget walk is not alphabetically biased`() {
+        // Given a large, alphabetically-sorted viable candidate list
+        val sorted = ('A'..'Z').map { dto("$it$it$it$it", type = "Common Stock", exchange = "NASDAQ") }
+        val service = fixture().service
+
+        // When ordering it for the walk with a fixed seed
+        val ordered = service.orderForWalk(sorted, seed = 42L)
+
+        // Then it is no longer alphabetical (a budget cutoff no longer drops late-alphabet delistings)...
+        assertNotEquals(sorted.map { it.code }, ordered.map { it.code })
+        // ...it keeps every candidate (no drops)...
+        assertEquals(sorted.map { it.code }.toSet(), ordered.map { it.code }.toSet())
+        // ...and it is deterministic (same seed -> identical order -> idempotent re-runs)
+        assertEquals(ordered.map { it.code }, service.orderForWalk(sorted, seed = 42L).map { it.code })
     }
 
     @Test
@@ -129,7 +147,7 @@ class DelistedIngestionServiceTest {
         // When
         runBlocking { fixture.service.runPipeline(DelistedIngestionService.Config(perSectorCap = 5, totalCap = 3)) }
 
-        // Then: walked alphabetically, accepted A/B/C, then stopped at total cap
+        // Then: accepted the first 3 candidates in walk order, then stopped at total cap
         verify(fixture.symbolRepository, times(3)).upsertSymbol(any())
     }
 
