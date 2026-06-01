@@ -117,7 +117,8 @@ midgaard/
 │   │   ├── V10__Add_ovtlyr_signals.sql               # Sparse ovtlyr buy/sell signal storage
 │   │   ├── V11__Remove_bad_print_symbols.sql         # One-time scrub: removes ~48 symbols matching the V-shape bad-print pattern (+ dependent rows in quotes, earnings, ovtlyr_signals, ingestion_status). Future contaminants are detected by BadPrintIntegrityValidator.
 │   │   ├── V12__Remove_split_adjustment_failure_symbols.sql  # One-time scrub: removes ~127 symbols matching BadPrintIntegrityValidator's V2 invariant (split-adjustment failure: close >= 5x prev AND next >= 50% of spike). Same cascade pattern as V11. ~63 of the removed symbols are still-active legitimate large-caps (DAC, WFRD, AU, FE, etc.) — accepted as collateral damage versus bar-level surgery.
-│   │   └── V13__Remove_v3_split_adjustment_failure_symbols.sql  # One-time scrub: removes 31 symbols matching BadPrintIntegrityValidator's V3 invariant (sub-cent prev with real history — AT-class split-adjustment failure). Same cascade pattern as V11/V12. Future contaminants are detected by V3 on each integrity run.
+│   │   ├── V13__Remove_v3_split_adjustment_failure_symbols.sql  # One-time scrub: removes 31 symbols matching BadPrintIntegrityValidator's V3 invariant (sub-cent prev with real history — AT-class split-adjustment failure). Same cascade pattern as V11/V12. Future contaminants are detected by V3 on each integrity run.
+│   │   └── V14__Add_leveraged_sector_basket_symbols.sql         # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
