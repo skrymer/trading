@@ -36,14 +36,22 @@ class DnsPrewarmer(
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:}") private val finnhubBaseUrl: String,
     @param:Value("\${eodhd.api.baseUrl:}") private val eodhdBaseUrl: String,
+    @param:Value("\${edgar.api.baseUrl:}") private val edgarBaseUrl: String,
 ) {
     private val logger = LoggerFactory.getLogger(DnsPrewarmer::class.java)
+
+    // EDGAR (data.sec.gov) is an upstream host too — used by EdgarClient for SIC->sector during
+    // delisted discovery — so it must be pre-warmed alongside the data providers, or its first
+    // burst of parallel lookups hits the same negative-DNS-cache trap.
+    internal fun hostsToWarm(): List<String> = extractHosts(providerUrls())
+
+    private fun providerUrls(): List<String> = listOf(avBaseUrl, massiveBaseUrl, finnhubBaseUrl, eodhdBaseUrl, edgarBaseUrl)
 
     @Async
     @EventListener(ApplicationReadyEvent::class)
     fun prewarmDns() {
-        val urls = listOf(avBaseUrl, massiveBaseUrl, finnhubBaseUrl, eodhdBaseUrl)
-        val hosts = extractHosts(urls)
+        val urls = providerUrls()
+        val hosts = hostsToWarm()
         val configuredCount = urls.count { it.isNotBlank() }
         if (configuredCount > hosts.size) {
             // A non-blank URL slipped through without a host — usually means the env-var
