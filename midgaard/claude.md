@@ -96,7 +96,7 @@ midgaard/
 │       │   ├── SectorNormalizer.kt        # Canonicalize raw provider sector → 1 of 11 UPPERCASE GICS names OR null. VARIANTS map: Financials/Financial → FINANCIAL SERVICES, Materials → BASIC MATERIALS. UNCLASSIFIED: Other/NONE/empty → null
 │       │   └── SicToGicsMapping.kt        # SEC SIC → GICS sector for V6 EDGAR-derived classification
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
-│       ├── IndicatorCalculator.kt         # EMA, ATR, ADX, Donchian computation (used by LOCAL indicator mode)
+│       ├── IndicatorCalculator.kt         # EMA, SMA, ATR, ADX, Donchian, 52-week high/low computation (used by LOCAL indicator mode)
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
 │       ├── ApiKeyService.kt              # API key + provider credential management (incl. ovtlyr cookie userid/token/projectId)
@@ -119,7 +119,8 @@ midgaard/
 │   │   ├── V12__Remove_split_adjustment_failure_symbols.sql  # One-time scrub: removes ~127 symbols matching BadPrintIntegrityValidator's V2 invariant (split-adjustment failure: close >= 5x prev AND next >= 50% of spike). Same cascade pattern as V11. ~63 of the removed symbols are still-active legitimate large-caps (DAC, WFRD, AU, FE, etc.) — accepted as collateral damage versus bar-level surgery.
 │   │   ├── V13__Remove_v3_split_adjustment_failure_symbols.sql  # One-time scrub: removes 31 symbols matching BadPrintIntegrityValidator's V3 invariant (sub-cent prev with real history — AT-class split-adjustment failure). Same cascade pattern as V11/V12. Future contaminants are detected by V3 on each integrity run.
 │   │   ├── V14__Add_leveraged_sector_basket_symbols.sql         # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
-│   │   └── V15__Populate_symbols.sql                            # Full idempotent snapshot of the runtime-grown symbols catalogue (supersedes V2 seed) — leveraged-ETF basket + era-spread delisted discovery with EDGAR-resolved sectors, so a from-migrations rebuild reproduces the full catalogue without re-running EODHD/EDGAR discovery. ON CONFLICT DO NOTHING (no-op on existing DB).
+│   │   ├── V15__Populate_symbols.sql                            # Full idempotent snapshot of the runtime-grown symbols catalogue (supersedes V2 seed) — leveraged-ETF basket + era-spread delisted discovery with EDGAR-resolved sectors, so a from-migrations rebuild reproduces the full catalogue without re-running EODHD/EDGAR discovery. ON CONFLICT DO NOTHING (no-op on existing DB).
+│   │   └── V16__Add_sma_and_52week_indicators.sql               # Adds sma_50/150/200 + high_52_week/low_52_week columns to quotes
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -154,7 +155,7 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 ### Data Flow
 
-1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/Donchian computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence.
+1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/SMA/Donchian/52-week-high-low computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence. (SMA + 52-week are computed only on the full initial-ingest path, not extended on daily updates — incrementally-appended bars carry null SMA/52-week until the next full recompute.)
 2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed). Same holiday + zero-volume filter is applied.
 3. **Serving**: REST API returns enriched quotes with all indicators pre-computed
 4. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. A re-run resumes rather than restarts — symbols already present in `ovtlyr_signals` (via `OvtlyrSignalRepository.findDistinctSymbols()`) are skipped so a partial/blocked backfill only fetches what's missing. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
@@ -180,9 +181,11 @@ API keys for all providers (including EODHD) live in the `provider_config` table
 ### Indicator Computation (`service/IndicatorCalculator.kt`)
 
 - **EMA**: Periods [5, 10, 20, 50, 100, 200], bootstraps with SMA
+- **SMA**: Periods [50, 150, 200], simple trailing mean; null until full window of history exists
 - **ATR**: 14-period, Wilder's smoothing
 - **ADX**: 14-period, directional movement, Wilder's smoothing
 - **Donchian**: 5-period upper band (highest high)
+- **52-week high/low**: 252-bar trailing intraday high/low channel; null until full window of history exists
 
 ### Rate Limiting (`service/RateLimiterService.kt`)
 
@@ -207,7 +210,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 ### Tables (Flyway V1)
 
 - **quotes**: OHLCV + indicators (symbol + quote_date PK)
-  - Indicators: atr, adx, ema_5/10/20/50/100/200, donchian_upper_5, indicator_source
+  - Indicators: atr, adx, ema_5/10/20/50/100/200, sma_50/150/200 (V16), donchian_upper_5, high_52_week/low_52_week (V16), indicator_source
 - **earnings**: Quarterly earnings (symbol + fiscal_date_ending PK)
 - **symbols**: Reference data with asset_type and sector. V2 seeded the initial 3,128; V15 is the authoritative full idempotent snapshot of the runtime-grown catalogue (incl. discovered delisted names with EDGAR-resolved sectors)
 - **ingestion_status**: Per-symbol tracking (bar_count, last_bar_date, status)

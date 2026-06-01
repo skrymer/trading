@@ -24,6 +24,11 @@ data class MidgaardQuoteDto(
   val ema100: BigDecimal?,
   val ema200: BigDecimal?,
   val donchianUpper5: BigDecimal?,
+  val sma50: BigDecimal? = null,
+  val sma150: BigDecimal? = null,
+  val sma200: BigDecimal? = null,
+  val high52Week: BigDecimal? = null,
+  val low52Week: BigDecimal? = null,
 ) {
   fun toStockQuote() = StockQuote(
     symbol = symbol,
@@ -42,6 +47,13 @@ data class MidgaardQuoteDto(
     ema200 = ema200?.toDouble() ?: 0.0,
     volume = volume,
     donchianUpperBand = donchianUpper5?.toDouble() ?: 0.0,
+    // Null-preserving (no `?: 0.0`): an undefined SMA/52-week value must stay null so
+    // conditions can treat "insufficient history" as a fail, not a spurious 0.0 comparison.
+    sma50 = sma50?.toDouble(),
+    sma150 = sma150?.toDouble(),
+    sma200 = sma200?.toDouble(),
+    high52Week = high52Week?.toDouble(),
+    low52Week = low52Week?.toDouble(),
   )
 }
 

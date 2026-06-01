@@ -249,15 +249,21 @@ class IngestionService(
     ): List<Quote> {
         val (atrMap, adxMap) = fetchOrComputeIndicators(symbol, bars)
         val emas = indicatorCalculator.calculateAllEMAs(bars)
+        val smas = indicatorCalculator.calculateAllSMAs(bars)
         val donchian = indicatorCalculator.calculateDonchianUpper(bars)
+        val high52Week = indicatorCalculator.calculate52WeekHigh(bars)
+        val low52Week = indicatorCalculator.calculate52WeekLow(bars)
         return bars.mapIndexed { index, bar ->
             buildQuote(
                 bar = bar,
                 atr = atrMap[bar.date],
                 adx = adxMap[bar.date],
                 emas = emas,
+                smas = smas,
                 index = index,
                 donchianUpper5 = donchian.getOrNull(index),
+                high52Week = high52Week.getOrNull(index),
+                low52Week = low52Week.getOrNull(index),
                 indicatorSource = IndicatorSource.CALCULATED,
             )
         }
@@ -340,6 +346,11 @@ class IngestionService(
         return freshBars
     }
 
+    // Incremental update does NOT extend SMA / 52-week high-low: those need a full trailing
+    // window (200 / 252 bars), not a stateless extend like EMA/ATR. New bars carry null for
+    // them, and the upsert's DO UPDATE clause will null those columns on any existing row.
+    // Accepted only because daily full re-ingest is replacing this path; do not run this
+    // incrementally against rows a full ingest has populated, or their SMA/52-week values are lost.
     private fun buildUpdateQuotes(
         seedQuotes: List<Quote>,
         freshBars: List<RawBar>,
@@ -380,6 +391,9 @@ class IngestionService(
         index: Int,
         donchianUpper5: Double?,
         indicatorSource: IndicatorSource,
+        smas: Map<Int, List<Double?>> = emptyMap(),
+        high52Week: Double? = null,
+        low52Week: Double? = null,
     ): Quote =
         Quote(
             symbol = bar.symbol,
@@ -398,6 +412,11 @@ class IngestionService(
             ema100 = emas[100]?.getOrNull(index)?.toBigDecimal4(),
             ema200 = emas[200]?.getOrNull(index)?.toBigDecimal4(),
             donchianUpper5 = donchianUpper5?.toBigDecimal4(),
+            sma50 = smas[50]?.getOrNull(index)?.toBigDecimal4(),
+            sma150 = smas[150]?.getOrNull(index)?.toBigDecimal4(),
+            sma200 = smas[200]?.getOrNull(index)?.toBigDecimal4(),
+            high52Week = high52Week?.toBigDecimal4(),
+            low52Week = low52Week?.toBigDecimal4(),
             indicatorSource = indicatorSource,
         )
 

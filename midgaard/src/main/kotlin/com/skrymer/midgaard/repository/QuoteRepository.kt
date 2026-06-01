@@ -108,42 +108,39 @@ class QuoteRepository(
         dsl: DSLContext,
         quote: Quote,
     ) {
+        // Same column→value bindings drive both the INSERT and the ON CONFLICT … DO UPDATE
+        // branch, so they are built once into a record and reused for both.
+        val record =
+            dsl.newRecord(QUOTES).apply {
+                symbol = quote.symbol
+                quoteDate = quote.date
+                openPrice = quote.open
+                highPrice = quote.high
+                lowPrice = quote.low
+                closePrice = quote.close
+                volume = quote.volume
+                atr = quote.atr
+                adx = quote.adx
+                ema_5 = quote.ema5
+                ema_10 = quote.ema10
+                ema_20 = quote.ema20
+                ema_50 = quote.ema50
+                ema_100 = quote.ema100
+                ema_200 = quote.ema200
+                donchianUpper_5 = quote.donchianUpper5
+                sma_50 = quote.sma50
+                sma_150 = quote.sma150
+                sma_200 = quote.sma200
+                high_52Week = quote.high52Week
+                low_52Week = quote.low52Week
+                indicatorSource = quote.indicatorSource.name
+            }
         dsl
             .insertInto(QUOTES)
-            .set(QUOTES.SYMBOL, quote.symbol)
-            .set(QUOTES.QUOTE_DATE, quote.date)
-            .set(QUOTES.OPEN_PRICE, quote.open)
-            .set(QUOTES.HIGH_PRICE, quote.high)
-            .set(QUOTES.LOW_PRICE, quote.low)
-            .set(QUOTES.CLOSE_PRICE, quote.close)
-            .set(QUOTES.VOLUME, quote.volume)
-            .set(QUOTES.ATR, quote.atr)
-            .set(QUOTES.ADX, quote.adx)
-            .set(QUOTES.EMA_5, quote.ema5)
-            .set(QUOTES.EMA_10, quote.ema10)
-            .set(QUOTES.EMA_20, quote.ema20)
-            .set(QUOTES.EMA_50, quote.ema50)
-            .set(QUOTES.EMA_100, quote.ema100)
-            .set(QUOTES.EMA_200, quote.ema200)
-            .set(QUOTES.DONCHIAN_UPPER_5, quote.donchianUpper5)
-            .set(QUOTES.INDICATOR_SOURCE, quote.indicatorSource.name)
+            .set(record)
             .onConflict(QUOTES.SYMBOL, QUOTES.QUOTE_DATE)
             .doUpdate()
-            .set(QUOTES.OPEN_PRICE, quote.open)
-            .set(QUOTES.HIGH_PRICE, quote.high)
-            .set(QUOTES.LOW_PRICE, quote.low)
-            .set(QUOTES.CLOSE_PRICE, quote.close)
-            .set(QUOTES.VOLUME, quote.volume)
-            .set(QUOTES.ATR, quote.atr)
-            .set(QUOTES.ADX, quote.adx)
-            .set(QUOTES.EMA_5, quote.ema5)
-            .set(QUOTES.EMA_10, quote.ema10)
-            .set(QUOTES.EMA_20, quote.ema20)
-            .set(QUOTES.EMA_50, quote.ema50)
-            .set(QUOTES.EMA_100, quote.ema100)
-            .set(QUOTES.EMA_200, quote.ema200)
-            .set(QUOTES.DONCHIAN_UPPER_5, quote.donchianUpper5)
-            .set(QUOTES.INDICATOR_SOURCE, quote.indicatorSource.name)
+            .set(record)
             .execute()
     }
 
@@ -165,6 +162,11 @@ class QuoteRepository(
             ema100 = ema_100,
             ema200 = ema_200,
             donchianUpper5 = donchianUpper_5,
+            sma50 = sma_50,
+            sma150 = sma_150,
+            sma200 = sma_200,
+            high52Week = high_52Week,
+            low52Week = low_52Week,
             indicatorSource =
                 indicatorSource?.let { IndicatorSource.valueOf(it) }
                     ?: IndicatorSource.CALCULATED,

@@ -31,6 +31,11 @@ data class Quote(
     val ema100: BigDecimal? = null,
     val ema200: BigDecimal? = null,
     val donchianUpper5: BigDecimal? = null,
+    val sma50: BigDecimal? = null,
+    val sma150: BigDecimal? = null,
+    val sma200: BigDecimal? = null,
+    val high52Week: BigDecimal? = null,
+    val low52Week: BigDecimal? = null,
     val indicatorSource: IndicatorSource = IndicatorSource.CALCULATED,
 )
 

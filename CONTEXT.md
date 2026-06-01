@@ -17,6 +17,14 @@ The fraction of closed trades with positive realised P&L.
 **Profit factor**:
 Gross profit divided by absolute gross loss for a set of closed trades. Undefined (null) when there are no losing trades — never reported as zero or infinity.
 
+### Technical indicators
+
+**Simple moving average (SMA)**:
+The arithmetic mean of the last N daily closes. Distinct from the **EMA** family (`closePriceEMA5`…`ema200`), which weights recent bars more heavily — both moving-average families are maintained side by side because traders read each and the Minervini Trend Template is defined specifically on simple averages. Maintained at periods 50/150/200. Undefined (`null`) on any bar with fewer than N prior bars of history — never reported as 0.
+
+**52-week high / 52-week low**:
+The highest intraday **high** (resp. lowest intraday **low**) over the trailing **252 trading days** (≈ one trading year). An *intraday* extreme — the printed high/low of the bar, not the closing extreme — consistent with the existing Donchian upper band. Undefined (`null`) until 252 bars of history exist: a stock with fewer than 52 weeks of data has no 52-week high/low, and any condition referencing it fails for that stock. Distinct from the Donchian upper band, which is a short (5-bar) channel.
+
 ### Strategy attribution
 
 **Unassigned**:
