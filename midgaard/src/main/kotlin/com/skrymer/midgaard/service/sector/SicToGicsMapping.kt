@@ -13,8 +13,8 @@ package com.skrymer.midgaard.service.sector
  * Coverage strategy: rules ordered by specificity, first match wins. Specific
  * sub-ranges (pharmaceuticals 2830-2839, semiconductors 3674) come before
  * the broader major-group ranges (chemicals 2800-2899, electronic equipment
- * 3600-3699). Unknown codes return null so callers can fall back to a default
- * (the ingest path uses "INDUSTRIALS").
+ * 3600-3699). Unknown (and "nonclassifiable", 9900-9999) codes return null; the
+ * delisted-ingest path SKIPS such symbols rather than guessing a sector.
  *
  * Sources: SEC SIC division headers + S&P GICS Methodology, mapped to the
  * 11 sector taxonomy already in use by `SectorMapping`.
@@ -116,7 +116,7 @@ object SicToGicsMapping {
             8700..8799 to INDUSTRIALS, // Engineering, accounting, research
             8800..8899 to CONSUMER_CYCLICAL, // Private households
             8900..8999 to INDUSTRIALS, // Misc services
-            9100..9999 to INDUSTRIALS, // Public administration / nonclassifiable
+            9100..9899 to INDUSTRIALS, // Public administration (9900-9999 "nonclassifiable" -> null, so caller skips)
         )
 
     fun gicsSectorFor(sicCode: Int): String? = RULES.firstOrNull { sicCode in it.first }?.second
