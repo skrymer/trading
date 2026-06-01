@@ -14,8 +14,12 @@ import java.math.RoundingMode
  * 2. Extension — extend indicators from existing baseline (daily updates)
  *
  * Algorithms match Wilder's smoothing (ATR/ADX) and standard EMA formulas.
+ *
+ * TooManyFunctions is suppressed: this is a cohesive calculator where each indicator family
+ * (EMA/SMA/ATR/ADX/Donchian/52-week) needs its own from-scratch + extend pair.
  */
 @Service
+@Suppress("TooManyFunctions")
 class IndicatorCalculator {
     /**
      * Calculate all EMAs from scratch for a list of bars.
@@ -71,6 +75,52 @@ class IndicatorCalculator {
                 ema = (bar.close - ema) * multiplier + ema
                 ema
             }
+        }
+
+    /**
+     * Calculate all configured SMAs from scratch for a list of bars.
+     * Returns Map of period -> List of SMA values (same length as bars; null where insufficient history).
+     */
+    fun calculateAllSMAs(bars: List<RawBar>): Map<Int, List<Double?>> {
+        val closePrices = bars.map { it.close }
+        return SMA_PERIODS.associateWith { period -> calculateSMA(closePrices, period) }
+    }
+
+    /**
+     * Calculate the simple moving average over a series of prices.
+     * Each value is the arithmetic mean of the trailing [period] prices.
+     * Null until [period] prices of history exist — never fabricated from a partial window.
+     */
+    fun calculateSMA(
+        prices: List<Double>,
+        period: Int,
+    ): List<Double?> =
+        prices.indices.map { i ->
+            if (i < period - 1) null else prices.subList(i - period + 1, i + 1).average()
+        }
+
+    /**
+     * Calculate the 52-week high: the highest intraday high over the trailing [lookback] bars.
+     * Null until [lookback] bars of history exist — a stock with less than a full window has no 52-week high.
+     */
+    fun calculate52WeekHigh(
+        bars: List<RawBar>,
+        lookback: Int = WEEKS_52_LOOKBACK,
+    ): List<Double?> =
+        bars.indices.map { i ->
+            if (i < lookback - 1) null else bars.subList(i - lookback + 1, i + 1).maxOf { it.high }
+        }
+
+    /**
+     * Calculate the 52-week low: the lowest intraday low over the trailing [lookback] bars.
+     * Null until [lookback] bars of history exist — a stock with less than a full window has no 52-week low.
+     */
+    fun calculate52WeekLow(
+        bars: List<RawBar>,
+        lookback: Int = WEEKS_52_LOOKBACK,
+    ): List<Double?> =
+        bars.indices.map { i ->
+            if (i < lookback - 1) null else bars.subList(i - lookback + 1, i + 1).minOf { it.low }
         }
 
     /**
@@ -268,6 +318,8 @@ class IndicatorCalculator {
         const val ATR_PERIOD = 14
         const val ADX_PERIOD = 14
         const val DONCHIAN_PERIOD = 5
+        val SMA_PERIODS = listOf(50, 150, 200)
+        const val WEEKS_52_LOOKBACK = 252
 
         fun Double.toBigDecimal4(): BigDecimal = BigDecimal.valueOf(this).setScale(4, RoundingMode.HALF_UP)
     }

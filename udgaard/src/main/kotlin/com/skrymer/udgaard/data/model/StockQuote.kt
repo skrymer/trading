@@ -23,6 +23,11 @@ data class StockQuote(
   var adx: Double? = null,
   val volume: Long = 0L,
   var donchianUpperBand: Double = 0.0,
+  var sma50: Double? = null,
+  var sma150: Double? = null,
+  var sma200: Double? = null,
+  var high52Week: Double? = null,
+  var low52Week: Double? = null,
 ) {
   fun isInUptrend() = "Uptrend" == trend
 

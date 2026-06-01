@@ -64,6 +64,12 @@ class StockMapper {
       adx = quote.adx?.toDouble(),
       volume = quote.volume ?: 0L,
       donchianUpperBand = quote.donchianUpperBand?.toDouble() ?: 0.0,
+      // Null-preserving: undefined SMA/52-week values stay null (insufficient history), never 0.0.
+      sma50 = quote.sma_50?.toDouble(),
+      sma150 = quote.sma_150?.toDouble(),
+      sma200 = quote.sma_200?.toDouble(),
+      high52Week = quote.high_52Week?.toDouble(),
+      low52Week = quote.low_52Week?.toDouble(),
     )
 
   /**
@@ -155,6 +161,11 @@ class StockMapper {
       closePriceEma50 = quote.closePriceEMA50.toBigDecimal(),
       closePriceEma100 = quote.closePriceEMA100.toBigDecimal(),
       closePriceEma200 = quote.ema200.toBigDecimal(),
+      sma_50 = quote.sma50?.toBigDecimal(),
+      sma_150 = quote.sma150?.toBigDecimal(),
+      sma_200 = quote.sma200?.toBigDecimal(),
+      high_52Week = quote.high52Week?.toBigDecimal(),
+      low_52Week = quote.low52Week?.toBigDecimal(),
       trend = quote.trend,
     )
 

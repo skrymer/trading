@@ -311,26 +311,10 @@ class StockJooqRepository(
       if (stock.quotes.isNotEmpty()) {
         val quoteBatch = ctx.batch(
           stock.quotes.map { quote ->
-            val pojo = mapper.toPojo(quote)
-            ctx
-              .insertInto(STOCK_QUOTES)
-              .set(STOCK_QUOTES.STOCK_SYMBOL, stock.symbol)
-              .set(STOCK_QUOTES.QUOTE_DATE, pojo.quoteDate)
-              .set(STOCK_QUOTES.CLOSE_PRICE, pojo.closePrice)
-              .set(STOCK_QUOTES.OPEN_PRICE, pojo.openPrice)
-              .set(STOCK_QUOTES.HIGH_PRICE, pojo.highPrice)
-              .set(STOCK_QUOTES.LOW_PRICE, pojo.lowPrice)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA10, pojo.closePriceEma10)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA20, pojo.closePriceEma20)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA50, pojo.closePriceEma50)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
-              .set(STOCK_QUOTES.TREND, pojo.trend)
-              .set(STOCK_QUOTES.ATR, pojo.atr)
-              .set(STOCK_QUOTES.ADX, pojo.adx)
-              .set(STOCK_QUOTES.VOLUME, pojo.volume)
-              .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND, pojo.donchianUpperBand)
+            val record = ctx.newRecord(STOCK_QUOTES, mapper.toPojo(quote))
+            record.stockSymbol = stock.symbol
+            record.changed(STOCK_QUOTES.ID, false) // exclude auto-generated id from the insert
+            ctx.insertInto(STOCK_QUOTES).set(record)
           },
         )
         quoteBatch.execute()
@@ -572,70 +556,17 @@ class StockJooqRepository(
     val allQuotes = stocks.flatMap { stock -> stock.quotes.map { stock.symbol to it } }
     if (allQuotes.isEmpty()) return
 
-    val batch = ctx.batch(
-      ctx
-        .insertInto(
-          STOCK_QUOTES,
-          STOCK_QUOTES.STOCK_SYMBOL,
-          STOCK_QUOTES.QUOTE_DATE,
-          STOCK_QUOTES.CLOSE_PRICE,
-          STOCK_QUOTES.OPEN_PRICE,
-          STOCK_QUOTES.HIGH_PRICE,
-          STOCK_QUOTES.LOW_PRICE,
-          STOCK_QUOTES.CLOSE_PRICE_EMA10,
-          STOCK_QUOTES.CLOSE_PRICE_EMA20,
-          STOCK_QUOTES.CLOSE_PRICE_EMA5,
-          STOCK_QUOTES.CLOSE_PRICE_EMA50,
-          STOCK_QUOTES.CLOSE_PRICE_EMA100,
-          STOCK_QUOTES.CLOSE_PRICE_EMA200,
-          STOCK_QUOTES.TREND,
-          STOCK_QUOTES.ATR,
-          STOCK_QUOTES.ADX,
-          STOCK_QUOTES.VOLUME,
-          STOCK_QUOTES.DONCHIAN_UPPER_BAND,
-        ).values(
-          null as String?,
-          null as LocalDate?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as String?,
-          null as java.math.BigDecimal?,
-          null as java.math.BigDecimal?,
-          null as Long?,
-          null as java.math.BigDecimal?,
-        ),
-    )
-    allQuotes.forEach { (symbol, quote) ->
-      val pojo = mapper.toPojo(quote)
-      batch.bind(
-        symbol,
-        pojo.quoteDate,
-        pojo.closePrice,
-        pojo.openPrice,
-        pojo.highPrice,
-        pojo.lowPrice,
-        pojo.closePriceEma10,
-        pojo.closePriceEma20,
-        pojo.closePriceEma5,
-        pojo.closePriceEma50,
-        pojo.closePriceEma100,
-        pojo.closePriceEma200,
-        pojo.trend,
-        pojo.atr,
-        pojo.adx,
-        pojo.volume,
-        pojo.donchianUpperBand,
-      )
+    // Insert each quote from its mapped record so no stock_quotes column can be dropped
+    // from the batch (the mapper is the single source of truth). The symbol comes from the
+    // parent stock and the auto-generated id is excluded. Every record has the same set of
+    // changed columns, so jOOQ batches them into one prepared statement.
+    val inserts = allQuotes.map { (symbol, quote) ->
+      val record = ctx.newRecord(STOCK_QUOTES, mapper.toPojo(quote))
+      record.stockSymbol = symbol
+      record.changed(STOCK_QUOTES.ID, false)
+      ctx.insertInto(STOCK_QUOTES).set(record)
     }
-    batch.execute()
+    ctx.batch(inserts).execute()
   }
 
   private fun batchInsertOrderBlocks(ctx: DSLContext, stocks: List<Stock>) {
