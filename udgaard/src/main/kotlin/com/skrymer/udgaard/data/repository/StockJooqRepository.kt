@@ -311,26 +311,10 @@ class StockJooqRepository(
       if (stock.quotes.isNotEmpty()) {
         val quoteBatch = ctx.batch(
           stock.quotes.map { quote ->
-            val pojo = mapper.toPojo(quote)
-            ctx
-              .insertInto(STOCK_QUOTES)
-              .set(STOCK_QUOTES.STOCK_SYMBOL, stock.symbol)
-              .set(STOCK_QUOTES.QUOTE_DATE, pojo.quoteDate)
-              .set(STOCK_QUOTES.CLOSE_PRICE, pojo.closePrice)
-              .set(STOCK_QUOTES.OPEN_PRICE, pojo.openPrice)
-              .set(STOCK_QUOTES.HIGH_PRICE, pojo.highPrice)
-              .set(STOCK_QUOTES.LOW_PRICE, pojo.lowPrice)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA10, pojo.closePriceEma10)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA20, pojo.closePriceEma20)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA5, pojo.closePriceEma5)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA50, pojo.closePriceEma50)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA100, pojo.closePriceEma100)
-              .set(STOCK_QUOTES.CLOSE_PRICE_EMA200, pojo.closePriceEma200)
-              .set(STOCK_QUOTES.TREND, pojo.trend)
-              .set(STOCK_QUOTES.ATR, pojo.atr)
-              .set(STOCK_QUOTES.ADX, pojo.adx)
-              .set(STOCK_QUOTES.VOLUME, pojo.volume)
-              .set(STOCK_QUOTES.DONCHIAN_UPPER_BAND, pojo.donchianUpperBand)
+            val record = ctx.newRecord(STOCK_QUOTES, mapper.toPojo(quote))
+            record.stockSymbol = stock.symbol
+            record.changed(STOCK_QUOTES.ID, false) // exclude auto-generated id from the insert
+            ctx.insertInto(STOCK_QUOTES).set(record)
           },
         )
         quoteBatch.execute()
