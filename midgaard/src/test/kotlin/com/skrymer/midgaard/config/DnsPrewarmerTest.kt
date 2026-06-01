@@ -2,8 +2,28 @@ package com.skrymer.midgaard.config
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class DnsPrewarmerTest {
+    @Test
+    fun `hostsToWarm includes the EDGAR host so SEC submission lookups dodge the negative-DNS cache`() {
+        // Given a prewarmer configured with all provider base URLs, including EDGAR
+        val prewarmer =
+            DnsPrewarmer(
+                avBaseUrl = "https://www.alphavantage.co/query",
+                massiveBaseUrl = "",
+                finnhubBaseUrl = "https://finnhub.io/api/v1",
+                eodhdBaseUrl = "https://eodhd.com/api",
+                edgarBaseUrl = "https://data.sec.gov",
+            )
+
+        // When computing the hosts to pre-warm
+        val hosts = prewarmer.hostsToWarm()
+
+        // Then EDGAR's host is in the set (alongside the other providers)
+        assertTrue(hosts.contains("data.sec.gov"), "EDGAR host must be pre-warmed; got $hosts")
+    }
+
     @Test
     fun `extractHosts returns the host portion of each URL`() {
         // Given: a mix of provider base URLs
