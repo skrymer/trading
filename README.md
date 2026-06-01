@@ -670,3 +670,19 @@ trading/
 Built with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>
+
+## Claude Code agent memory
+
+Claude Code's per-project auto-memory is version-controlled in this repo at
+`.claude/memory/` (instead of the machine-local default under
+`~/.claude/projects/`), so the learnings are backed up and travel with the code.
+
+The default path is wired to the in-repo store via a symlink, which is
+machine-local and **not** in git. After cloning on a new machine, run once:
+
+```bash
+.claude/scripts/setup-memory-symlink.sh
+```
+
+The script is idempotent and backs up any existing machine-local memory before
+linking.
