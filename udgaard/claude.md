@@ -201,7 +201,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V24)
+│   └── db/migration/                 # Flyway migrations (V1-V25)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -225,7 +225,8 @@ udgaard/
 │       ├── V21__Add_signal_snapshot_to_scanner_trades.sql  # signal_date + signal_snapshot JSONB columns per ADR 0004
 │       ├── V22__Add_scan_runs.sql                          # scan_runs table for cohort-divergence diagnostic
 │       ├── V23__Add_ovtlyr_signals.sql                     # ovtlyr_signals table (mirrors earnings: FK to stocks ON DELETE CASCADE, UNIQUE(stock_symbol, signal_date))
-│       └── V24__Compress_backtest_report.sql               # backtest_reports.report switched from jsonb to gzip-compressed bytea (jsonb ~256 MB cap overflow); clears existing rows
+│       ├── V24__Compress_backtest_report.sql               # backtest_reports.report switched from jsonb to gzip-compressed bytea (jsonb ~256 MB cap overflow); clears existing rows
+│       └── V25__Add_leveraged_sector_basket_symbols.sql    # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
