@@ -39,6 +39,16 @@ class SicToGicsMappingTest {
     }
 
     @Test
+    fun `nonclassifiable SIC codes return null instead of defaulting to INDUSTRIALS`() {
+        // Given: SIC 9999 ("Nonclassifiable Establishments") and 9995 (non-operating) carry no real sector
+        // When / Then: they return null so the caller SKIPS the symbol rather than guessing INDUSTRIALS
+        assertNull(SicToGicsMapping.gicsSectorFor(9999))
+        assertNull(SicToGicsMapping.gicsSectorFor(9995))
+        // And: genuine public administration (9100-9899) is still classified
+        assertEquals("INDUSTRIALS", SicToGicsMapping.gicsSectorFor(9100))
+    }
+
+    @Test
     fun `semiconductors resolve to TECHNOLOGY`() {
         // Given: SIC 3674 (semiconductors and related devices)
         // When / Then
@@ -96,13 +106,6 @@ class SicToGicsMappingTest {
         // Given: SIC 0 (not a valid SIC code) — outside any defined range
         // When / Then
         assertNull(SicToGicsMapping.gicsSectorFor(0))
-    }
-
-    @Test
-    fun `nonclassifiable establishments fall through to INDUSTRIALS`() {
-        // Given: SIC 9999 (nonclassifiable establishments) — the documented catch-all
-        // When / Then
-        assertEquals("INDUSTRIALS", SicToGicsMapping.gicsSectorFor(9999))
     }
 
     @Test

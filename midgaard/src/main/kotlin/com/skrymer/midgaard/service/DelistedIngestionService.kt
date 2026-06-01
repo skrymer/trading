@@ -170,21 +170,28 @@ class DelistedIngestionService(
     }
 
     private suspend fun enrich(dto: EodhdDelistedSymbolDto): EnrichedSymbol? {
-        val fundamentals = fundamentalsClient.fetch(dto.code, "${dto.code}.US") ?: return null
-        val delistedDate = fundamentals.general?.parsedDelistedDate ?: return null
+        val fundamentals = fundamentalsClient.fetch(dto.code, "${dto.code}.US")
+        val delistedDate = fundamentals?.general?.parsedDelistedDate ?: return null
         val cik = fundamentals.general.cik
+        // No sector default: a symbol whose SIC is missing or unmapped is skipped, not guessed.
+        // A wrong sector silently corrupts sector-breadth, so omission beats a fallback bucket.
         val sector = resolveSector(cik)
+        if (sector == null) {
+            // debug, not info: a large fraction of delisted issuers lack an EDGAR SIC, so this
+            // fires hundreds-to-thousands of times per run. The skipped count is implied by
+            // lastRunStats (fundamentalsFetched vs persistedCount).
+            logger.debug("Skipping ${dto.code}: sector could not be resolved (cik=${cik ?: "none"})")
+            return null
+        }
         return EnrichedSymbol(dto, fundamentals, delistedDate, cik, sector)
     }
 
-    private suspend fun resolveSector(cik: String?): String {
+    // Returns null when no sector can be resolved (no CIK, no EDGAR SIC, or an unmapped SIC) —
+    // callers skip such symbols rather than defaulting.
+    private suspend fun resolveSector(cik: String?): String? {
         val sic = cik?.takeIf { it.isNotBlank() }?.let { edgarClient.getSubmission(it)?.sicCode }
-        val raw = sic?.let { SicToGicsMapping.gicsSectorFor(it) } ?: SECTOR_FALLBACK
-        // Defensive: SicToGicsMapping already produces canonical UPPERCASE GICS, so
-        // canonicalize() is a no-op in practice. Documents the invariant ("everything
-        // written by this service is canonicalized") and protects against future
-        // SIC -> GICS table edits that introduce variants.
-        return SectorNormalizer.canonicalize(raw) ?: SECTOR_FALLBACK
+        val gics = sic?.let { SicToGicsMapping.gicsSectorFor(it) } ?: return null
+        return SectorNormalizer.canonicalize(gics)
     }
 
     private fun toSymbol(enriched: EnrichedSymbol): Symbol =
@@ -226,7 +233,6 @@ class DelistedIngestionService(
 
     companion object {
         private val logger = LoggerFactory.getLogger(DelistedIngestionService::class.java)
-        private const val SECTOR_FALLBACK = "INDUSTRIALS"
         private const val PROGRESS_LOG_INTERVAL = 100
 
         // EODHD reports both NYSE and NYSE ARCA distinctly — keep both.

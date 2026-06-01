@@ -26,8 +26,8 @@ import kotlin.test.assertTrue
 
 /**
  * Behaviour tests for the delisted-discovery pipeline. Verifies the catalogue
- * filter, the per-sector cap walk, fallback sector resolution when CIK or SIC
- * are missing, and the safety budget that bounds API spend.
+ * filter, the per-sector cap walk, skipping symbols whose sector cannot be
+ * resolved (no CIK / no SIC), and the safety budget that bounds API spend.
  *
  * The pipeline does not trigger an OHLCV ingest — discovery is decoupled from
  * the bar-fetch step so the symbol catalogue is the contract.
@@ -152,8 +152,8 @@ class DelistedIngestionServiceTest {
     }
 
     @Test
-    fun `defaults to INDUSTRIALS when CIK is missing or EDGAR returns no SIC`() {
-        // Given: one candidate has CIK + valid SIC, one has missing CIK, one has CIK but EDGAR returns null
+    fun `skips candidates whose sector cannot be resolved instead of defaulting`() {
+        // Given: AAAA resolves (CIK 1, SIC 3571 -> TECHNOLOGY); NOCK has no CIK; FRGN has a CIK but no EDGAR SIC
         val catalogue =
             listOf(
                 dto("AAAA", type = "Common Stock", exchange = "NASDAQ"),
@@ -167,7 +167,7 @@ class DelistedIngestionServiceTest {
                     mapOf(
                         "AAAA" to fundamentals(cik = "1", delistedDate = "2020-01-01"),
                         "NOCK" to fundamentals(cik = null, delistedDate = "2020-01-01"),
-                        "FRGN" to fundamentals(cik = "9999", delistedDate = "2020-01-01"),
+                        "FRGN" to fundamentals(cik = "0001234567", delistedDate = "2020-01-01"),
                     ),
                 edgar = mapOf("1" to edgar(sic = "3571")),
             )
@@ -175,13 +175,11 @@ class DelistedIngestionServiceTest {
         // When
         runBlocking { fixture.runDirect() }
 
-        // Then: AAAA → TECHNOLOGY, NOCK + FRGN → INDUSTRIALS
+        // Then: only AAAA (resolvable) is persisted; NOCK + FRGN are skipped, NOT defaulted to a sector
         val captor = argumentCaptor<Symbol>()
-        verify(fixture.symbolRepository, times(3)).upsertSymbol(captor.capture())
-        val sectors = captor.allValues.associateBy { it.symbol }
-        assertEquals("TECHNOLOGY", sectors["AAAA"]?.sector)
-        assertEquals("INDUSTRIALS", sectors["NOCK"]?.sector)
-        assertEquals("INDUSTRIALS", sectors["FRGN"]?.sector)
+        verify(fixture.symbolRepository, times(1)).upsertSymbol(captor.capture())
+        assertEquals("AAAA", captor.firstValue.symbol)
+        assertEquals("TECHNOLOGY", captor.firstValue.sector)
     }
 
     @Test
