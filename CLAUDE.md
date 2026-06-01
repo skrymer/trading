@@ -86,6 +86,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `ScannerService.kt`: Scan for entry signals, check exits, validate entries against live quotes, CRUD trades, roll trades, close trades, drawdown stats; persists a `ScanRun` after each scan
    - `CohortDivergenceService.kt`: Cohort-divergence diagnostic comparing today's matched symbols against a rolling baseline (today vs N-day window)
    - `ScannerController.kt`: REST API for scanner operations (scan, validate entries, trades CRUD, close, roll, exits, drawdown stats, cohort-divergence)
+   - `ScannerTrade`: carries `signalDate` + `signalSnapshot` (`EntrySignalDetails`, persisted JSONB) per ADR 0004
    - `ScannerTradeJooqRepository.kt`: jOOQ persistence for scanner trades (incl. `findBySignalDateBetween`)
    - `ScanRunJooqRepository.kt`: jOOQ persistence for `ScanRun` history
    - `CohortWindow.kt`: aggregate root over a rolling window of scan runs (per ADR 0001)
@@ -103,33 +104,9 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - **Ovtlyr**: Legacy direct-API integration (being removed — breadth now computed from DB; ovtlyr signals now flow through Midgaard)
    - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
-**API Endpoints:**
-
-**Backtesting:** `POST /api/backtest`, `POST /api/backtest/walk-forward`, `GET /api/backtest/{backtestId}/trades`, `GET /api/backtest/{backtestId}/missed-trades`, `GET /api/backtest/strategies`, `GET /api/backtest/rankers`, `GET /api/backtest/conditions`, `GET /api/backtest/reports`, `DELETE /api/backtest/reports/{backtestId}`, `POST /api/backtest/reports/batch-delete`
-
-**Stocks:** `GET /api/stocks`, `GET /api/stocks/symbols`, `GET /api/stocks/symbols/search`, `GET /api/stocks/{symbol}`, `GET /api/stocks/{symbol}/signals`, `GET /api/stocks/{symbol}/evaluate-date/{date}`, `GET /api/stocks/{symbol}/evaluate-exit/{date}`, `POST /api/stocks/{symbol}/condition-signals`, `POST /api/stocks/{symbol}/exit-condition-signals`, `GET /api/stocks/{symbol}/latest-quote`
-
-**Portfolio:** `GET/POST /api/portfolio`, `GET/PUT/DELETE /api/portfolio/{id}`, `POST /api/portfolio/import`, `POST /api/portfolio/{id}/sync`, `GET /api/portfolio/{id}/forex/lots`, `GET /api/portfolio/{id}/forex/disposals`, `GET /api/portfolio/{id}/forex/summary`, `GET /api/portfolio/{id}/cash-transactions`, `GET /api/portfolio/{id}/cash-transactions/summary`, `POST /api/portfolio/broker/test`
-
-**Positions:** `GET /api/positions/{portfolioId}`, `GET /api/positions/{portfolioId}/{positionId}`, `POST /api/positions/{portfolioId}`, `PUT /api/positions/{portfolioId}/{positionId}/close`, `PUT /api/positions/{portfolioId}/{positionId}/metadata`, `DELETE /api/positions/{portfolioId}/{positionId}`, `GET /api/positions/{portfolioId}/stats`, `GET /api/positions/{portfolioId}/unrealized-pnl`, `GET /api/positions/{portfolioId}/equity-curve`, `POST /api/positions/{portfolioId}/recalculate-balance`, `GET /api/positions/{portfolioId}/{positionId}/roll-chain`
-
-**Scanner:** `POST /api/scanner/scan`, `POST /api/scanner/check-exits`, `POST /api/scanner/validate-entries`, `GET/POST /api/scanner/trades`, `PUT/DELETE /api/scanner/trades/{id}`, `PUT /api/scanner/trades/{id}/close`, `POST /api/scanner/trades/reset`, `GET /api/scanner/trades/closed`, `GET /api/scanner/trades/closed/stats`, `GET /api/scanner/drawdown-stats`, `POST /api/scanner/trades/{id}/roll`, `POST /api/scanner/option-contracts`, `GET /api/scanner/cohort-divergence`
-
-**Market Breadth:** `GET /api/breadth/market-daily`, `GET /api/breadth/sector-daily/{symbol}`
-
-**Data Management:** `GET /api/data-management/stats`, `GET /api/data-management/latest-date`, `POST /api/data-management/refresh/stocks`, `POST /api/data-management/refresh/all-stocks`, `POST /api/data-management/refresh/recalculate-breadth`, `GET /api/data-management/breadth-coverage`, `GET /api/data-management/refresh/progress`, `POST /api/data-management/refresh/clear`
-
-**Conditions:** `POST /api/conditions/screen` (diagnostic condition pre-screen — forward-return lift, firing rate, ARS parameter sweep, SPY-regime lift, Jaccard overlap; `endDate` hard-capped at Block C's 2021-01-01 start per ADR 0007)
-
-**Monte Carlo:** `POST /api/monte-carlo/simulate`
-
-**Options:** `GET /api/options/historical-prices`
-
-**Settings:** `GET/POST /api/settings/credentials`, `GET /api/settings/credentials/status`, `GET/POST /api/settings/position-sizing`
-
-**Auth:** `GET /api/auth/check`
-
-**Cache:** `GET /api/cache/status`
+**API Endpoints:** The full route list is the source of truth in the `*Controller` classes (e.g. `BacktestController`, `StockController`, `PortfolioController`, `PositionController`, `ScannerController`, `BreadthController`, `DataManagementController`, `ConditionScreenController`, `MonteCarloController`, `OptionController`, `SettingsController`, `AuthController`, `CacheController`). Two routes carry non-obvious constraints worth noting here:
+- `POST /api/conditions/screen` — diagnostic condition pre-screen (forward-return lift, firing rate, ARS parameter sweep, SPY-regime lift, Jaccard overlap); `endDate` hard-capped at Block C's 2021-01-01 start per ADR 0007.
+- `POST /api/backtest/walk-forward` — rolling IS/OOS validation; risk metrics are nested under `aggregateOosRiskMetrics` (not flat fields).
 
 ### Frontend: Asgaard (Nuxt.js)
 
@@ -155,82 +132,28 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 ## Project Structure
 
+Per-file responsibilities are documented in the **Key Components** sections above; this is the top-level map. Each Kotlin service follows the same `controller/ dto/ mapper/ model/ repository/ service/` package layout per domain.
+
 ```
 trading/
 ├── CLAUDE.md                         # Project-wide context
 ├── CONTEXT.md                        # Domain glossary (Edge, Win rate, Profit factor, Unassigned)
-├── .claude/                          # Claude configuration (commands, skills, settings)
+├── .claude/                          # Claude configuration (commands, skills, settings, memory)
 ├── claude_thoughts/                  # Documentation created by Claude
 ├── docs/                             # Architectural decision records (adr/) + design docs (architecture/)
-├── udgaard/                          # Backend (Kotlin/Spring Boot)
+├── udgaard/                          # Backend (Kotlin/Spring Boot) — domains: backtesting/ data/ portfolio/ scanner/ + mcp/ config/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
-│   │   ├── backtesting/              # Backtesting domain
-│   │   │   ├── controller/           # BacktestController, BacktestReportController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport (persisted gzip-compressed in bytea), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult (WalkForwardWindow w/ outOfSampleStatsByEntryMonth per ADR 0006), TradeStatsSummary (additive raw fields for re-aggregating monthly OOS buckets, per ADR 0006), MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
-│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
-│   │   │   ├── repository/           # BacktestReportJooqRepository (save/findById/listAll/deleteById/deleteByIds)
-│   │   │   ├── service/              # BacktestService, BacktestResultStore (gzip-compressed bytea), StrategyRegistry, ScriptPredicateCompiler (compiles user-supplied Kotlin scripts into entry/exit predicates for the `script` conditions), MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap), ConditionScreenService + ConditionScreenStats (diagnostic condition pre-screen: entry-anchored forward-return lift, date-clustered estimates, ARS parameter sweep, SPY-regime lift, Jaccard overlap — raw stats only, no verdict; ADR 0007)
-│   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
-│   │   ├── data/                     # Data domain
-│   │   │   ├── controller/           # StockController, BreadthController, DataManagementController
-│   │   │   ├── integration/          # Midgaard (incl. MidgaardHttpConfig for connect/read timeouts + getOvtlyrSignals), legacy Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings)
-│   │   │   ├── mapper/               # StockMapper
-│   │   │   ├── model/                # Stock (w/ ovtlyrSignals), StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, OvtlyrSignal, AssetType
-│   │   │   ├── repository/           # StockJooqRepository (incl. findEarnings(symbol) for ingestion fallback), SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
-│   │   │   └── service/              # StockService, StockIngestionService (resolveEarnings(symbol) falls back to stockRepository.findEarnings on provider failure — stale-but-present beats empty-because-we-failed), TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService, ScheduledRefreshService
-│   │   ├── portfolio/                # Portfolio domain
-│   │   │   ├── controller/           # PortfolioController, PositionController, OptionController
-│   │   │   ├── dto/                  # Request/response DTOs
-│   │   │   ├── integration/          # Broker adapters (broker/), IBKR (ibkr/), options providers (options/MidgaardOptionsProvider)
-│   │   │   ├── mapper/               # Entity/DTO mappers
-│   │   │   ├── model/                # Portfolio (rich domain: create/withBalanceUpdated/withSyncCompleted/withRealizedPnlApplied), Position (w/ strategyGroupKey), Execution (w/ closingFor() factory), PortfolioStats, PositionStats (incl. PositionWithExecutions aggregate root w/ realizedPnl, withClosed, withExecutionAdded, recalculated; StrategyBreakdownStats w/ fromPositions factory; byStrategy field on PositionStats), CashTransaction, ForexLot, ForexDisposal, EquityCurveData
-│   │   │   ├── repository/           # PortfolioJooqRepository, PositionJooqRepository (incl. findWithExecutionsById), ExecutionJooqRepository, ForexLotJooqRepository, ForexDisposalJooqRepository, CashTransactionJooqRepository
-│   │   │   └── service/              # PortfolioStatsService, PositionService (thin orchestration; delegates close/recalculate to PositionWithExecutions + Portfolio.withRealizedPnlApplied), BrokerIntegrationService, OptionPriceService, UnrealizedPnlService, ForexTrackingService, CashTransactionService (Portfolio CRUD: controller→PortfolioJooqRepository directly; rich-domain methods on Portfolio.kt)
-│   │   ├── scanner/                  # Scanner domain
-│   │   │   ├── controller/           # ScannerController
-│   │   │   ├── dto/                  # Request/response DTOs (incl. StrategyClosedStats, ClosedTradeStatsResponse, DivergenceConfig, CohortDivergenceReport, TodayMetrics, RollingMetrics, Alerts)
-│   │   │   ├── mapper/               # ScannerTradeMapper
-│   │   │   ├── model/                # ScannerTrade (TradeStatus, close fields, signalDate + signalSnapshot:EntrySignalDetails persisted JSONB per ADR 0004), ScanResult, ScanResponse (latestDataDate), NearMissCandidate, ConditionFailureSummary, ExitCheckResult (usedLiveData, maxProximity, nearExits), ExitProximity, ExitCheckResponse, EntryValidationResult, EntryValidationResponse, ScanRun (+ MatchedSymbol), CohortWindow (aggregate root per ADR 0001)
-│   │   │   ├── repository/           # ScannerTradeJooqRepository (incl. findBySignalDateBetween), ScanRunJooqRepository
-│   │   │   └── service/              # ScannerService (persists ScanRun after each scan), CohortDivergenceService
-│   │   ├── controller/               # Shared controllers (Auth, Cache, Settings)
-│   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
-│   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
-│   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler, ClockConfig — NY-pinned Clock bean)
 │   ├── src/main/resources/           # Config, migrations (V1-V24)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)
 │   ├── init-databases.sql            # Init script for prod PostgreSQL (creates both trading + datastore DBs)
-│   ├── build.gradle                  # Gradle build config (includes springBoot { buildInfo() })
-│   ├── detekt.yml                    # Detekt configuration
-│   └── detekt-baseline.xml           # Detekt baseline for existing issues
+│   ├── build.gradle, detekt.yml, detekt-baseline.xml
 ├── midgaard/                         # Reference data service (Kotlin/Spring Boot, port 8081)
-│   ├── src/main/kotlin/com/skrymer/midgaard/
-│   │   ├── integration/              # Provider abstractions + implementations (AlphaVantage, Massive, Finnhub, EODHD); self-rate-limiting; selection via ProviderConfiguration @ConditionalOnProperty; ovtlyr/ (OvtlyrClient + payload mapper for ovtlyr.com buy/sell signals)
-│   │   ├── service/                  # IngestionService, IndicatorCalculator, RateLimiterService, OvtlyrBackfillService, ApiKeyService, ScheduledIngestionService
-│   │   ├── repository/               # jOOQ repositories (quotes, earnings, symbols, ingestion status, provider config, ovtlyr signals)
-│   │   ├── controller/               # REST API + Thymeleaf UI controllers
-│   │   ├── integrity/                # Data integrity framework — SectorIntegrityValidator (I1-I5), BadPrintIntegrityValidator (V1 CRITICAL V-shape bad-print, V2 HIGH split-adjustment failure with normal-priced prev, V3 HIGH split-adjustment failure with sub-cent prev confirmed by real history via bar_position floor); Spring auto-wires List<DataIntegrityValidator>
-│   │   ├── model/                    # Domain models (Models.kt, OptionContractDto)
-│   │   └── config/                   # Configuration classes (Security, ProviderConfiguration, ExternalConfigLoader, VersionAdvice)
+│   ├── src/main/kotlin/com/skrymer/midgaard/   # integration/ (providers, ovtlyr/), service/, repository/, controller/, integrity/ (SectorIntegrityValidator, BadPrintIntegrityValidator), model/, config/
 │   ├── src/main/resources/           # Config, migrations, Thymeleaf templates
-│   ├── build.gradle                  # Gradle build config
-│   └── detekt.yml                    # Detekt configuration
-├── asgaard/                          # Frontend (Nuxt.js)
-│   ├── app/
-│   │   ├── components/               # Vue components (backtesting, portfolio, scanner, charts, strategy, data-management)
-│   │   ├── layouts/                  # Layouts (default.vue)
-│   │   ├── pages/                    # File-based routing (13 pages + 1 dynamic route)
-│   │   ├── plugins/                  # Nuxt plugins (apexcharts.client, auth-interceptor.client)
-│   │   ├── types/                    # TypeScript definitions
-│   │   ├── app.vue                   # Root component
-│   │   └── error.vue                 # Error page
-│   ├── nuxt.config.ts                # Nuxt configuration (proxy target via NUXT_BACKEND_URL env var)
-│   ├── Dockerfile                    # Multi-stage build (node:24-alpine)
-│   ├── .dockerignore                 # Docker build exclusions
-│   ├── package.json                  # Dependencies
-│   └── claude.md                     # Nuxt-specific context
+│   ├── build.gradle, detekt.yml
+├── asgaard/                          # Frontend (Nuxt.js) — app/ (components/, pages/, plugins/, types/), nuxt.config.ts (proxy via NUXT_BACKEND_URL), Dockerfile, claude.md
 ├── pinescripts/                      # TradingView Pine Script strategies
 ├── strategy_exploration/             # Strategy research and development notes
 ├── reference_check/                  # Python cross-validators for Midgaard/Udgaard calculations (EMA/Donchian diff, VCP condition verifier)
