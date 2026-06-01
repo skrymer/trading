@@ -34,7 +34,7 @@ Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch
 | **backend-reviewer** | When `udgaard/` or `midgaard/` has changes. Tell it which projects changed. Runs tests, ktlint, detekt, compiler warnings. Auto-fixes issues. |
 | **frontend-reviewer** | When `asgaard/` has changes. Runs ESLint, typecheck. Auto-fixes lint issues. |
 | **docs-reviewer** | Always. Reviews and updates CLAUDE.md files for accuracy. When `skill-impact-check.sh` produces non-empty output, also reviews the listed skill files (`.claude/skills/*/SKILL.md`, `SCENARIOS.md`, `REFERENCE.md`) against the changed app code. Pass the script output verbatim. |
-| **voltagent-qa-sec:code-reviewer** *(voltagent plugin)* | One instance per changed project. Reviews changed code for security issues, code quality, and QA concerns. Launched as separate parallel agents (subagents cannot spawn other subagents). |
+| **code-reviewer** *(global agent)* | One instance per changed project. Reviews changed code for security issues, code quality, and QA concerns. Launched as separate parallel agents (subagents cannot spawn other subagents). |
 
 ### Workflow
 
@@ -44,8 +44,8 @@ Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch
    - **backend-reviewer** (if udgaard/ or midgaard/ changed) — tell it which projects: "udgaard", "midgaard", or both
    - **frontend-reviewer** (if asgaard/ changed)
    - **docs-reviewer** (always) — pass the skill-impact-check output if non-empty
-   - **voltagent-qa-sec:code-reviewer** for backend (if udgaard/ or midgaard/ changed) — provide changed backend files
-   - **voltagent-qa-sec:code-reviewer** for frontend (if asgaard/ changed) — provide changed frontend files
+   - **code-reviewer** for backend (if udgaard/ or midgaard/ changed) — provide changed backend files
+   - **code-reviewer** for frontend (if asgaard/ changed) — provide changed frontend files
 4. Wait for all agents to complete
 5. Collect results and present the summary table
 
@@ -74,7 +74,7 @@ If any check has status FAIL (not auto-fixable), show the relevant error output 
 
 If agents auto-fixed issues (status FIXED), list the files that were modified.
 
-If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** severity issues, list them separately after the summary table with file paths and a brief description. These may need fixing before committing.
+If the **code-reviewer** reports any **Critical** or **High** severity issues, list them separately after the summary table with file paths and a brief description. These may need fixing before committing.
 
 ## Important
 
