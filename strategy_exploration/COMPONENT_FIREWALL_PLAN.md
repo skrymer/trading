@@ -2,6 +2,8 @@
 
 _Created 2026-06-03. **This is a scoping/review doc, not executable and not yet a skill.** Nothing fires until the run plan (§3) is approved; no `/validate-component` skill is persisted until the gate thresholds (§4) + days-in-market definition (§6) get quant sign-off (memory `feedback_get_expert_review_before_persisting`). Adapts the quant-drafted Component Firewall table in `MINERVINI_VCP_STRATEGY_DEVELOPMENT.md` (2026-06-02)._
 
+> **Quant review folded in (2026-06-03).** The framework was pressure-tested as text before firing. Four structural fixes were mandated and are incorporated below: **(1)** add **C-PARTICIPATE** (minimum-participation floor — without it "always in cash" trivially passes every gate); **(2)** §5 classifier **OR → AND** (the OR rule let a low-count *participating loss* masquerade as cash discipline — the worst laundering leak); **(3)** **C1c splits** — Calmar on the in-market series, Sharpe stays **blended** (the blended-Sharpe lock is what prevents laundering a weak edge); **(4)** every ★ threshold must be derived from an **external anchor** (portfolio arithmetic / statistical power / position-arithmetic ceiling) and **frozen before** the EX-ATR20×SSM runs are read for pass/fail — the runs *check* the bars, never *choose* them. Sections §4–§7 + §9 reflect these.
+
 ## 0. Where the candidate is
 
 The Minervini VCP **breakout** strategy is a **regime-conditional COMPONENT** (flat in bear/chop; portfolio target 25% CAGR, NOT standalone 30%). Promotion + G14 are done:
@@ -53,34 +55,38 @@ Population column states which trades each gate reads. **In-market** = participa
 
 | Gate | Threshold | Population | v4 origin |
 |---|---|---|---|
-| **C1a ★** in-market (active-period) CAGR | **≥ 30%** | in-market | replaces G1 (the real alpha bar) |
+| **C1a ★** in-market (active-period) CAGR | **≥ 30% (NEEDS-DATA — derive from portfolio arithmetic, §6/§7)** | in-market | replaces G1 (the real alpha bar) |
 | **C1b** blended CAGR (anti-lottery) | **≥ 12%** | blended | new |
-| **C1c** Sharpe ≥ 0.8 AND Calmar ≥ 0.5 | as stated | blended | = G9 |
+| **C1c-Sharpe** Sharpe ≥ 0.8 | as stated | **blended** | = G9 (the anti-laundering lock — see review item 1) |
+| **C1c-Calmar** Calmar ≥ 0.5 | as stated | **in-market** | = G9 (blended Calmar is mechanically diluted by cash calendar time) |
 | **C2** aggregate max DD | ≤ 25% | blended | = G2 |
 | **C3** worst participating-window DD | ≤ 20% | in-market | = G3 |
-| **C5** CoV of per-window edges | ≤ 1.5 | **in-market only** | = G5 (cash windows excluded — a flat window isn't "consistent edge") |
-| **C6-STAND-ASIDE ★** crisis/cash windows | DD ≤ **3%** AND in-market days ≤ **15%** | cash | replaces G6 (cash side) — proves discipline, excluded from edge gates |
+| **C5** CoV of per-window edges | ≤ 1.5 | **in-market only** | = G5. **Binds only on the 25y layer** (in-market N large enough); advisory on A/B when in-market N < ~8 |
+| **C6-STAND-ASIDE ★** crisis/cash windows: DD ≤ **3%** | as stated | cash | replaces G6 (cash side). The "≤15% days" lives ONLY in the §5 classifier now (no double-definition) |
 | **C6-IN-MARKET** participating windows | edge > 0 (v4-strict) | in-market | = G6 (in-market side) |
-| **C7** ≤ 1 negative participating window, passing the W4 acceptance rule | as stated | in-market | replaces G7 |
+| **C7** ≤ 1 negative participating window/block (≤ max(1, 10% of participating windows) on 25y), with magnitude bound + named W4 carve-out | as stated | in-market | replaces G7 |
 | **C8 ★** in-market windows ≥ 30 trades; cash windows exempt; **N_min = 5** | as stated | per window | replaces G8 |
-| **C9** Sharpe ≥ 0.8 ∧ Calmar ≥ 0.5 | (folded into C1c) | blended | = G9 |
-| **C11** edge_B ≥ 0.5 · edge_A | as stated | in-market | = G11 |
+| **C11** edge_B ≥ 0.5 · edge_A (reads **participating-window** edges, not blended-block edge) | as stated | in-market | = G11 |
 | **C12** ≥ 100 trades per block | ≥ 100 | blended | = G12 |
 | **C14** scripts promoted + G14 PASS | ✅ done | — | = G14 |
+| **C-PARTICIPATE ★** (NEW, binding) participating windows ≥ X% of OOS windows AND in-market trading-days ≥ Y% of block OOS trading-days | X/Y NEEDS-DATA | in-market | **new — the dual of the cash gate; without it "always in cash" trivially passes everything** |
+| **C-CASHOVERLAP** (NEW, DEFERRED stub) stand-aside windows must not all coincide with a partner component's cash windows | DEFERRED | — | new — *coverage* gate (distinct from the *survival* Portfolio-blend G6); needs ≥ 2 components |
 | **Portfolio-blend G6** (book survives 2008 + 2020) | DEFERRED | — | new — needs ≥ 2 components |
 
-**Interim KEEP bar (standalone-as-component):** C1a ∧ C6-STAND-ASIDE ∧ C2 ∧ C3 ∧ C5 ∧ C9 ∧ C12 ∧ C14 ∧ (≤ 1 negative participating window passing the W4 rule). The true portfolio-contribution test is deferred until a 2nd component exists.
+**Interim KEEP bar (standalone-as-component):** C1a ∧ **C-PARTICIPATE** ∧ C6-STAND-ASIDE ∧ C2 ∧ C3 ∧ C5 ∧ C1c-Sharpe ∧ C1c-Calmar ∧ C12 ∧ C14 ∧ (≤ 1 negative participating window passing the C7 magnitude bound + named W4 carve-out). The true portfolio-contribution test (C-CASHOVERLAP + Portfolio-blend G6) is deferred until a 2nd component exists.
 
-**W4/2011 acceptance rule (already agreed):** W4 is the one negative *participating* window (component held trades with `spyTrendUp` true, got chopped in 2011's narrow-breadth tape; win rate 17–24% vs ~40%; W4 maxDD 15.5–17.4% < 20%). It is a **disclosed portfolio coverage gap**, bounded-accepted for Track 1 — **not** rescued with a post-hoc regime filter (that's IS-fitting/ARS). Track 2 addresses it structurally as a *new* candidate.
+**W4/2011 acceptance rule (pre-registered — quant review item 6).** The single permitted negative participating window is **pre-named: the 2011-OOS window, bound maxDD ≤ 20%** — NOT "the worst negative window, whatever it turns out to be" (a movable exemption invites post-hoc absorption of a *second* bad window). W4 = component held trades with `spyTrendUp` true, got chopped in 2011's narrow-breadth tape (win 17–24% vs ~40%; maxDD 15.5–17.4% < 20%). It is a **disclosed portfolio coverage gap**, bounded-accepted for Track 1 — **not** rescued with a post-hoc regime filter (IS-fitting/ARS). A second negative participating window, or 2011 breaching DD ≤ 20%, fails C7. Track 2 addresses 2011 structurally as a *new* candidate.
 
 ## 5. Regime classification (window-level) — DRAFT
 
 Each OOS window is labelled exactly once:
 
-- **STAND-ASIDE (cash)** if the window's in-market days ≤ 15% **OR** trade count < N_min (5). These are evaluated ONLY against C6-STAND-ASIDE (discipline) and are **excluded** from C1a / C3 / C5 / C6-IN-MARKET / C7 (never credited, never penalized).
+- **STAND-ASIDE (cash)** iff the window's in-market days ≤ 15% **AND** trade count < N_min (5) — **both** signals must agree (quant review item 3: the original OR let a window with ~18% deployment but only 4 *losing* breakout attempts — W4's exact signature — escape into "cash discipline," laundering a participating loss). Stand-aside windows are evaluated ONLY against C6-STAND-ASIDE (DD ≤ 3%) and are **excluded** from C1a / C3 / C5 / C6-IN-MARKET / C7. A window that participated by *either* measure stays PARTICIPATING and faces the alpha gates (the firewall's conservative default: assume risk was taken unless both signals say otherwise).
 - **PARTICIPATING (in-market)** otherwise. These carry the alpha gates.
 
-Emit a **regime-attribution table** (window → label → edge/CAGR/DD/trades/in-market-days) so the classification is auditable, not a black box. Open question: should the ≤15%-days and <5-trades conditions be AND or OR? (Drafted as OR — either signal alone means the component wasn't really deployed.)
+Emit a **regime-attribution table**: window → label → edge / CAGR / DD / trades-taken / **signals-generated** / in-market-days. The `signals-generated` column (item 3) surfaces a "many signals fired, few survived" window so it can be manually reclassified instead of silently swept into cash. The classification must be auditable, not a black box.
+
+**ARS check on the classifier (item 7).** The classifier's own knobs (15%, N_min=5) are component-invented continuous tunables → run a one-time ±1-step confirmatory sweep on the EX-ATR20×SSM run: if 15%→14%/16% or N_min 4/6 reclassifies a window and flips a gate, the classifier itself has Aliased Regime Sensitivity (`feedback_aliased_regime_sensitivity`) and must be redesigned, not tuned.
 
 ## 6. Days-in-market computation (C1a) — the open definitional question
 
@@ -88,21 +94,27 @@ Emit a **regime-attribution table** (window → label → edge/CAGR/DD/trades/in
 
 **Grounding fact (25y, EX-ATR20×SSM, from the G14 export):** the union of all days with ≥1 position open ≈ **5,410 of ~6,540 trading days (~83%)**. That **portfolio-union fraction is the WRONG denominator for C1a** — it says "something was almost always open" because the book holds up to 10 concurrent names across 25y of mostly-bull tape. It does not isolate "participating vs standing aside."
 
-Two candidate definitions for "in-market CAGR" (quant to choose):
-- **(a) Participating-window annualization** — drop the STAND-ASIDE windows (§5) entirely; annualize the realized return over only the participating windows' calendar span. Matches the C6 stand-aside split; recommended.
-- **(b) Capital-deployment-weighted** — annualize by *deployed-capital-time* (Σ position notional·days / capital·days). Finer but conflates sizing with regime.
+**DECIDED (quant review item 2): definition (a), with geometric compounding.**
+- **(a) Participating-window annualization** — drop the STAND-ASIDE windows (§5); annualize the realized return over only the participating windows' calendar span. Chosen: one denominator, one classifier, matches the C6 split.
+- **(b) Capital-deployment-weighted** — REJECTED: conflates *sizing* with *regime* (it measures the sizer, not the selector).
+- **Sharp edge pinned down:** "annualize over participating calendar span" means **geometric compounding of the per-window returns over participating calendar time**, NOT an arithmetic mean of per-window CAGRs (an arithmetic mean flatters a lumpy series — `feedback_lottery_screen_diagnostic`: the geometric compound of the lumpy CAGR sequence *is* the true number).
 
-C1a's **30%** floor must be re-read against whichever denominator is chosen — the number was set conceptually, not calibrated. **Settle (a) vs (b) before C1a binds.**
+C1a's **30%** floor is **NEEDS-DATA**, not assumed: it was inherited from the standalone gate, but in-market CAGR sits on a *smaller* base, so 30% is not transferable by analogy — quant prior is that the in-market bar should be *higher* than 30% (the drag is removed). Derive it from portfolio arithmetic (§7), do not read it off the candidate.
 
-## 7. The data-gated thresholds needing calibration + quant sign-off
+## 7. Calibration of the ★ thresholds — the anti-snooping rule (quant review item 7)
 
-Per `feedback_get_expert_review_before_persisting`, these stay as text until signed off:
+**Calibrating a pass/fail bar on the same run you then evaluate is circular** — setting C1a's floor after seeing EX-ATR20×SSM's in-market CAGR = choosing the bar to pass the candidate (`feedback_parameter_fragility_must_be_verified`, `feedback_aliased_regime_sensitivity`). The rule:
 
-1. **C1a 30%** — on which in-market denominator (§6a vs §6b)? Calibrate on the EX-ATR20×SSM block runs.
-2. **C6-STAND-ASIDE** — DD ≤ 3% and in-market days ≤ 15%: are these the right discipline bounds for *this* component's actual cash windows (2001/2002/2008)?
-3. **C8 N_min = 5** — confirmed in principle (2026-06-02); re-confirm against the real per-window trade counts.
-4. **C5 in-market-only** and **C7 W4 rule** — confirm the in-market-only scoping and the single-negative-window allowance.
-5. **§5 classifier** — AND vs OR on the two stand-aside conditions.
+> **Every ★ threshold is derived from an EXTERNAL ANCHOR (portfolio arithmetic, statistical power, or a position-arithmetic ceiling) and written into the frozen gate table BEFORE the EX-ATR20×SSM runs are read for pass/fail. The runs are used only to (a) populate the regime-attribution table and (b) sanity-check that realized cash-window DDs sit under their mechanical ceilings — NEVER to choose the thresholds.**
+
+Per-knob anchor:
+
+1. **C1a in-market CAGR floor** — anchor to the **portfolio target**: if the book targets 25% CAGR and this component carries weight w deployed a fraction f of the calendar, the component's in-market CAGR must clear ~25% / (w · f). The *deployment fraction f* is read from the run (a structural property); the *bar* is derived from the 25% target. State the formula; plug in f.
+2. **C6-STAND-ASIDE DD ≤ 3%** — anchor to a **position-arithmetic ceiling**: max possible DD when ≤15% of days are deployed at 1.25% risk × maxPos 10. Set the bound from that ceiling, then *check* the realized 2001/02/08 cash DDs fall under it. A realized cash window *exceeding* the ceiling is a **classifier error** (the window wasn't really cash), not a reason to loosen the gate.
+3. **C8 / N_min = 5** — a **statistical-power floor** (below 5 trades a per-window edge sign is noise). Derive from power; re-confirm it doesn't *exclude a participating window*; never *raise* it to disappear a marginal window.
+4. **C-PARTICIPATE X% / Y%** — anchor to "what minimum participation makes the component a *contributor* not a benchmarker"; read the candidate's actual participating-window fraction against it (do not set the floor below the candidate's number).
+5. **C7 magnitude bound** — anchor to the W4 reference (−3.0 edge / ~17% DD); confirm no *second* window breaches.
+6. **§5 classifier 15% / N_min** — set from structural reasoning (< ~1-in-7 days ≈ not deployed), freeze, then run the ±1-step ARS check (§5).
 
 ## 8. Orientation numbers (25y SINGLE backtest — NOT the firewall inputs)
 
@@ -122,12 +134,21 @@ Per `feedback_get_expert_review_before_persisting`, these stay as text until sig
 
 **The Calmar 0.21 / Sharpe 0.77 / CAGR 10.4% blended numbers are exactly the tension the Component Firewall exists to resolve** — they're depressed by the cash/crisis drag the v4 firewall would penalize. Whether C1c should read *blended* or *in-market* is the single biggest calibration question. Do NOT pre-judge from these single-backtest numbers — the walk-forward OOS per-block decomposition is what decides it.
 
-## 9. Open decisions before firing / persisting
+## 9. Settle-before-firing vs calibrate-after (quant review)
 
-1. **Approve the §3 run plan** (EX-ATR20×SSM first, full WF + single-backtest set).
-2. **Quant sign-off on §4 thresholds + §6 denominator + §5 classifier** (the ★ items) — ideally drafted text → quant review → then encode.
-3. Only after 1+2: build `/validate-component` as a skill (reusing v4's block-firing + WF plumbing, swapping the evaluator for the Component gates).
-4. Track 2 (breadth-gated *new* candidate) stays queued — not part of this validation.
+**SETTLE BEFORE FIRING** (change what the runs must emit, or are anti-snooping decisions that cannot be made after seeing results — all now resolved above, pending user OK):
+1. **C-PARTICIPATE** added (binding) — run must emit participating-window fraction as a first-class field. *Non-negotiable.*
+2. **§5 classifier OR → AND** — closes the participating-loss-as-cash leak.
+3. **C1c split** — run emits Sharpe AND Calmar on BOTH populations (in-market Calmar improvement is audited, not asserted).
+4. **C1a denominator = (a), geometric compounding** stated.
+5. **C7 magnitude bound + named W4 carve-out** (2011, DD ≤ 20%) pre-registered.
+6. **C6 ≤15% redundancy removed** — one definition of the cash boundary (the §5 classifier).
+7. **Anti-snooping calibration rule** (§7) — external anchors, frozen before reading runs.
+8. **C-CASHOVERLAP** named DEFERRED stub added.
+
+**CALIBRATES AFTER THE RUNS** (numbers from external anchors, then *checked* against the regime-attribution table — never chosen to pass): C1a 30%→derived floor · C6 DD ceiling · C-PARTICIPATE X/Y · C7 magnitude bound · C8/N_min re-confirm · §5 classifier ±1-step ARS check.
+
+**Then:** approve §3 run plan (EX-ATR20×SSM first) → fire → calibrate-after items → freeze → run EX-VCPOLD×SSM through frozen gates → only after all that, build `/validate-component` as a skill (reuse v4 block-firing + WF plumbing, swap the evaluator). Track 2 (breadth-gated *new* candidate) stays queued.
 
 ## Reference
 - `MINERVINI_VCP_STRATEGY_DEVELOPMENT.md` (authoritative candidate record; Component Firewall table 2026-06-02)
