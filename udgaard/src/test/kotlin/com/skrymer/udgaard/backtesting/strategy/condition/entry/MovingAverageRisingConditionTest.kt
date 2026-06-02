@@ -159,7 +159,7 @@ class MovingAverageRisingConditionTest {
   }
 
   @Test
-  fun `should expose Minervini default metadata`() {
+  fun `should expose default metadata`() {
     // Given the default condition
     val metadata = MovingAverageRisingCondition().getMetadata()
 

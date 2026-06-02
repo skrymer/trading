@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component
 
 /**
  * Entry condition that requires the close to be at least a given percentage above the
- * 52-week low — Minervini's Trend Template criterion "at least 30% above the 52-week low",
- * which excludes names that have not yet lifted clear of their basing range.
+ * 52-week low (default at least 30%), excluding names that have not yet lifted clear of
+ * their basing range.
  *
  * Reads the pre-computed `low52Week` field directly. When the low is unavailable (fewer
  * than 52 weeks of history), the condition fails — a stock without a full window must not

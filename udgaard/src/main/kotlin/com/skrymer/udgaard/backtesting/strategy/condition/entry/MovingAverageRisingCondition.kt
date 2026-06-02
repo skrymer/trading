@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component
 
 /**
  * Entry condition that checks a moving average is rising — higher today than it was
- * `lookbackBars` trading bars ago. Minervini's Trend Template requires the 200-day MA
- * to be trending up for at least a month, which the defaults (SMA200, 30 bars) encode.
+ * `lookbackBars` trading bars ago. A trend filter for "the long-term average is sloping up
+ * for at least a month", which the defaults (SMA200, 30 bars) encode.
  *
  * Both MA values are read from pre-computed quote fields — today's and the bar
  * `lookbackBars` ago. If either is unavailable (insufficient history), or there aren't

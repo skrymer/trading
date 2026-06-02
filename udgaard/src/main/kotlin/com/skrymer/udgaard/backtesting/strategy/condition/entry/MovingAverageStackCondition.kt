@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component
 
 /**
  * Entry condition that checks a stacked (strictly descending) moving-average alignment —
- * the trend filter at the core of Mark Minervini's Trend Template.
+ * a Stage-2 uptrend trend filter.
  *
  * With the defaults (SMA 50/150/200, requirePriceAboveFast = true) this asserts
- * `close > SMA50 > SMA150 > SMA200`, which collapses the template's price/MA criteria
- * (price above each MA, and 50 > 150 > 200) into one strictly-ordered chain.
+ * `close > SMA50 > SMA150 > SMA200`, collapsing the price/MA criteria (price above each MA,
+ * and 50 > 150 > 200) into one strictly-ordered chain.
  *
  * Each MA is read directly from the pre-computed, persisted quote fields — never recomputed.
  * A MA that is unavailable (null SMA, or a 0.0 EMA placeholder) means insufficient history,
@@ -66,7 +66,7 @@ class MovingAverageStackCondition(
     ConditionMetadata(
       type = "movingAverageStack",
       displayName = "Moving Average Stack",
-      description = "Moving averages are stacked in strictly descending order (Minervini trend filter)",
+      description = "Moving averages are stacked in strictly descending order (Stage-2 trend filter)",
       parameters =
         listOf(
           ParameterMetadata(

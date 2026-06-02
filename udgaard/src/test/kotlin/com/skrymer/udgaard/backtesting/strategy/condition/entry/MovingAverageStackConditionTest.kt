@@ -14,7 +14,7 @@ class MovingAverageStackConditionTest {
   private val today = LocalDate.of(2024, 1, 5)
 
   @Test
-  fun `should pass when price and SMAs form a descending Minervini stack`() {
+  fun `should pass when price and SMAs form a descending stack`() {
     // Given a bar where close > sma50 > sma150 > sma200
     val condition = MovingAverageStackCondition()
     val stock =
@@ -219,7 +219,7 @@ class MovingAverageStackConditionTest {
   }
 
   @Test
-  fun `should expose Minervini default metadata`() {
+  fun `should expose default metadata`() {
     // Given the default condition
     val metadata = MovingAverageStackCondition().getMetadata()
 

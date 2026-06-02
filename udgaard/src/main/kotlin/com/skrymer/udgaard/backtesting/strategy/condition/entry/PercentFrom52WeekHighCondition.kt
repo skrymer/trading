@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component
 
 /**
  * Entry condition that requires the close to be within a given percentage of the
- * 52-week high — Minervini's Trend Template criterion "within 25% of the 52-week high",
- * which keeps entries near the top of the base rather than chasing broken leaders.
+ * 52-week high (default within 25%), keeping entries near the top of the base rather than
+ * chasing broken leaders.
  *
  * Reads the pre-computed `high52Week` field directly. A price at or above the high passes
  * (zero or negative distance). When the high is unavailable (fewer than 52 weeks of

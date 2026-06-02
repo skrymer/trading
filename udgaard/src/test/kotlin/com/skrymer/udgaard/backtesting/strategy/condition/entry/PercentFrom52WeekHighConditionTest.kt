@@ -102,7 +102,7 @@ class PercentFrom52WeekHighConditionTest {
   }
 
   @Test
-  fun `should expose Minervini default metadata`() {
+  fun `should expose default metadata`() {
     // Given the default condition (25% within high)
     val metadata = PercentFrom52WeekHighCondition().getMetadata()
 
