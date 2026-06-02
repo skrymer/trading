@@ -201,7 +201,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V26)
+│   └── db/migration/                 # Flyway migrations (V1-V27)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -226,7 +226,9 @@ udgaard/
 │       ├── V22__Add_scan_runs.sql                          # scan_runs table for cohort-divergence diagnostic
 │       ├── V23__Add_ovtlyr_signals.sql                     # ovtlyr_signals table (mirrors earnings: FK to stocks ON DELETE CASCADE, UNIQUE(stock_symbol, signal_date))
 │       ├── V24__Compress_backtest_report.sql               # backtest_reports.report switched from jsonb to gzip-compressed bytea (jsonb ~256 MB cap overflow); clears existing rows
-│       └── V25__Add_leveraged_sector_basket_symbols.sql    # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
+│       ├── V25__Add_leveraged_sector_basket_symbols.sql    # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
+│       ├── V26__Add_sma_and_52week_indicators.sql          # Adds sma_50/150/200 + 52-week high/low columns to stock_quotes (ingested from Midgaard)
+│       └── V27__Add_relative_strength_percentile.sql       # Adds relative_strength_percentile column to stock_quotes (ingested from Midgaard; ADR 0009)
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

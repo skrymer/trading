@@ -97,6 +97,8 @@ midgaard/
 │       │   └── SicToGicsMapping.kt        # SEC SIC → GICS sector for V6 EDGAR-derived classification
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
 │       ├── IndicatorCalculator.kt         # EMA, SMA, ATR, ADX, Donchian, 52-week high/low computation (used by LOCAL indicator mode)
+│       ├── RelativeStrengthService.kt      # Orchestrates the cross-sectional relative-strength pass (whole-universe stage after per-symbol ingest); reads all closes, ranks into percentiles, writes back (ADR 0009)
+│       ├── RelativeStrengthCalculator.kt   # Pure cross-sectional market-relative strength percentile (0-100) computation
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
 │       ├── ApiKeyService.kt              # API key + provider credential management (incl. ovtlyr cookie userid/token/projectId)
@@ -121,7 +123,8 @@ midgaard/
 │   │   ├── V14__Add_leveraged_sector_basket_symbols.sql         # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
 │   │   ├── V15__Populate_symbols.sql                            # Full idempotent snapshot of the runtime-grown symbols catalogue (supersedes V2 seed) — leveraged-ETF basket + era-spread delisted discovery with EDGAR-resolved sectors, so a from-migrations rebuild reproduces the full catalogue without re-running EODHD/EDGAR discovery. ON CONFLICT DO NOTHING (no-op on existing DB).
 │   │   ├── V16__Add_sma_and_52week_indicators.sql               # Adds sma_50/150/200 + high_52_week/low_52_week columns to quotes
-│   │   └── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
+│   │   ├── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
+│   │   └── V18__Add_relative_strength_percentile.sql            # Adds relative_strength_percentile column to quotes (cross-sectional market-relative strength, 0-100; ADR 0009)
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -158,8 +161,9 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/SMA/Donchian/52-week-high-low computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence. (SMA + 52-week are computed only on the full initial-ingest path, not extended on daily updates — incrementally-appended bars carry null SMA/52-week until the next full recompute.)
 2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed). Same holiday + zero-volume filter is applied.
-3. **Serving**: REST API returns enriched quotes with all indicators pre-computed
-4. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. A re-run resumes rather than restarts — symbols already present in `ovtlyr_signals` (via `OvtlyrSignalRepository.findDistinctSymbols()`) are skipped so a partial/blocked backfill only fetches what's missing. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
+3. **Relative-strength pass**: `RelativeStrengthService.recomputeAll()` runs as a separate whole-universe stage after per-symbol ingest — it reads every symbol's closes, ranks them into market-relative percentiles via `RelativeStrengthCalculator`, and writes the `relative_strength_percentile` (0-100) back to the quotes. It is the only computation that needs the full universe at once (ADR 0009).
+4. **Serving**: REST API returns enriched quotes with all indicators pre-computed
+5. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. A re-run resumes rather than restarts — symbols already present in `ovtlyr_signals` (via `OvtlyrSignalRepository.findDistinctSymbols()`) are skipped so a partial/blocked backfill only fetches what's missing. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
 
 ### Provider Interfaces (`integration/Providers.kt`)
 

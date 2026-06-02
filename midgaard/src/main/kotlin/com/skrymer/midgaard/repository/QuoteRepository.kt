@@ -104,6 +104,69 @@ class QuoteRepository(
 
     fun getTotalQuoteCount(): Int = dsl.fetchCount(QUOTES)
 
+    /** The latest quote date across the whole universe, or null when there are no quotes. */
+    fun maxQuoteDate(): LocalDate? =
+        dsl
+            .select(DSL.max(QUOTES.QUOTE_DATE))
+            .from(QUOTES)
+            .fetchOne()
+            ?.value1()
+
+    /**
+     * Recomputes the market-relative strength percentile for every quote on or after [fromDate],
+     * as a single cross-sectional SQL pass (ADR 0009) — the universe-wide sort, ranking and write
+     * all happen in Postgres, so there is no app-side memory footprint or per-row update storm.
+     *
+     * Metric = `close / LAG(close, lookbackBars) − 1` (null, hence excluded, when there are fewer
+     * than [lookbackBars] prior bars or the base close is ≤ 0). Percentile is the midpoint plotting
+     * position `100·((rank−1) + ½·ties)/n` per date — `rank()` shares the minimum rank across ties,
+     * so `rank−1` is the count strictly below and `ties` the run length. A date is ranked only when
+     * its qualifying-peer count `n ≥ minPeers` and it is on/after [earliestDate].
+     *
+     * Rows in range are reset to null first, so a (symbol, date) that no longer qualifies (data
+     * correction, peer count fell below the floor) loses its stale value rather than keeping it.
+     * History before [fromDate] still feeds each symbol's `LAG`, so a bounded [fromDate] (daily
+     * incremental) yields the same values as a full recompute for the dates it touches.
+     */
+    @Transactional
+    fun recomputeRelativeStrengthPercentiles(
+        fromDate: LocalDate,
+        lookbackBars: Int,
+        minPeers: Int,
+        earliestDate: LocalDate,
+    ) {
+        dsl.execute(
+            "UPDATE quotes SET relative_strength_percentile = NULL WHERE quote_date >= ?",
+            fromDate,
+        )
+        dsl.execute(
+            """
+            WITH metric AS (
+                SELECT symbol, quote_date,
+                       close_price / NULLIF(LAG(close_price, ?) OVER (PARTITION BY symbol ORDER BY quote_date), 0) - 1 AS m
+                FROM quotes
+            ),
+            ranked AS (
+                SELECT symbol, quote_date,
+                       rank() OVER (PARTITION BY quote_date ORDER BY m) AS rnk,
+                       count(*) OVER (PARTITION BY quote_date) AS n,
+                       count(*) OVER (PARTITION BY quote_date, m) AS ties
+                FROM metric
+                WHERE m IS NOT NULL
+            )
+            UPDATE quotes q
+            SET relative_strength_percentile = 100.0 * ((r.rnk - 1) + 0.5 * r.ties) / r.n
+            FROM ranked r
+            WHERE q.symbol = r.symbol AND q.quote_date = r.quote_date
+              AND r.n >= ? AND q.quote_date >= ? AND q.quote_date >= ?
+            """.trimIndent(),
+            lookbackBars,
+            minPeers,
+            earliestDate,
+            fromDate,
+        )
+    }
+
     private fun upsertSingleQuote(
         dsl: DSLContext,
         quote: Quote,
@@ -133,6 +196,7 @@ class QuoteRepository(
                 sma_200 = quote.sma200
                 high_52Week = quote.high52Week
                 low_52Week = quote.low52Week
+                relativeStrengthPercentile = quote.relativeStrengthPercentile
                 indicatorSource = quote.indicatorSource.name
             }
         dsl
@@ -167,6 +231,7 @@ class QuoteRepository(
             sma200 = sma_200,
             high52Week = high_52Week,
             low52Week = low_52Week,
+            relativeStrengthPercentile = relativeStrengthPercentile,
             indicatorSource =
                 indicatorSource?.let { IndicatorSource.valueOf(it) }
                     ?: IndicatorSource.CALCULATED,
