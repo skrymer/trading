@@ -210,7 +210,9 @@ VCP base = **VCP-A ∧ VCP-B**. **ARS discipline:** every lookback/step tunable 
 - **VCP-A → `NarrowingRangeCondition`** (`type=narrowingRange`, param `stepWindow=10`; window-count fixed at 3). `udgaard/.../condition/entry/NarrowingRangeCondition.kt` + 8 unit tests.
 - **VCP-B → `VolumeDryUpCondition`** (`type=volumeDryUp`, params `dryupWindow=10`, `baseWindow=50`, `dryupRatio=0.7`). `udgaard/.../condition/entry/VolumeDryUpCondition.kt` + 8 unit tests.
 
-Tests cover: core pass, non-match, insufficient-history fail-closed, **future-dated-row exclusion (lookahead)**, strict-inequality boundary (A) / zero-base-volume guard (B), `parseConfig` param-application (behavioral), metadata routing-type, `evaluateWithDetails` verdict-mirror. **G14 `/verify-promotion` is the gating next step** — the inline-script firewall verdict stays void until the promoted config diffs identically over 25y (memory `feedback_promotion_invariance_g14`). The `{{param}}` template versions are retained below for the screen/diff reference.
+Tests cover: core pass, non-match, insufficient-history fail-closed, **future-dated-row exclusion (lookahead)**, strict-inequality boundary (A) / zero-base-volume guard (B), `parseConfig` param-application (behavioral), metadata routing-type, `evaluateWithDetails` verdict-mirror, init-validation throw. The `{{param}}` template versions are retained below for the screen/diff reference. Deployed to PRD as udgaard `1.0.81`.
+
+**G14 `/verify-promotion` → PASS (2026-06-03).** The promoted config (`narrowingRange(10)` + `volumeDryUp(10/50/0.7)`) diffed **identically** against the inline-script config over the full 25y (2000–2025), full-universe, EX-ATR20×SSM, seed 42: **946 = 946 trades, entry-set Jaccard 1.000000, 0 ENTRY / 0 EXIT / 0 PNL divergences, aggregate edge identical to 16 d.p.** The inline-script firewall verdict path transfers to the promoted config — C14 satisfied. Configs: `/tmp/g14-minervini-vcp-{inline,promoted}.json` (regenerate via `/tmp/gen-g14-configs.py`); diff artifact `/tmp/verify-promotion-minervini-vcp/diff.json`.
 
 ```kotlin
 // VCP-B — volume dry-up
