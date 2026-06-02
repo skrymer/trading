@@ -86,8 +86,9 @@ Combined `spyTrendUp ∧ MA-stack ∧ MA-rising ∧ %52wH ∧ %52wL ∧ RS≥70 
 
 | Variant | Trades | Edge | Sharpe | CAGR | maxDD | pos/7 | gates |
 |---|---|---|---|---|---|---|---|
-| **EX-ATR20** (2.0ATR+EMA50) | 209 | 3.12 | **1.10** | 13.9 | **18.2** | 5/7 | **PASS 4/4** |
-| **EX-ATR25** (2.5ATR+EMA50) | 187 | **4.42** | 0.76 | 8.8 | 26.1 | 5/7 | **PASS 4/4** |
+| **EX-VCPOLD** (emaCross10/20+2.5ATR+stag3%/15d) | 262 | 4.08 | **1.12** | **15.4** | 21.8 | 5/7 | **PASS 4/4** — NEW FRONT-RUNNER (best Sharpe/CAGR/win%; WFE 1.94 ⚠) |
+| **EX-ATR20** (2.0ATR+EMA50) | 209 | 3.12 | 1.10 | 13.9 | **18.2** | 5/7 | **PASS 4/4** (best DD, budget-consistent) |
+| **EX-ATR25** (2.5ATR+EMA50) | 187 | **4.42** | 0.76 | 8.8 | 26.1 | 5/7 | PASS 4/4 (dropped — VCPOLD dominates) |
 | CHANDELIER | 224 | 2.51 | 1.06 | 13.9 | 24.6 | 4/7 | FAIL G3 (Sharpe propped by 1-trade GFC window) |
 | PIVOT | 189 | 2.88 | 0.65 | 7.6 | 24.3 | 5/7 | FAIL G2 |
 | VOLFAIL | 260 | 2.15 | 0.74 | 7.5 | 19.9 | 5/7 | PASS but dilutive (volFail cuts winners early) |
@@ -95,9 +96,63 @@ Combined `spyTrendUp ∧ MA-stack ∧ MA-rising ∧ %52wH ∧ %52wL ∧ RS≥70 
 
 - **"Cut losses short" won:** the tightest, budget-consistent **2.0 ATR** stop (EX-ATR20) led on Sharpe/Calmar/DD. The looser/chandelier variants did NOT lift CAGR and worsened DD. The flagged 5% percent-stop was not better than the ATR stops → validates the ATR-ruler decision.
 - **CAGR 7.5–13.9% is a SELECTION gap, not an edge gap** (quant): per-trade payoff 4.06, expectancy +3.12%/trade (ATR20) under a *deliberately neutral Random ranker*; WFE 0.89 (not IS-overfit). A real ranker has a credible path to ≥30% → **worth the Stage-2 ranker sweep.**
-- **⚠️ W4 (2011 OOS) — shared, ranker-INVARIANT structural hole.** Every variant negative in W4; trade counts stay full but win rate craters to 14–25% in the low-breadth 2011 chop (breadth 38, uptrend 48.8%). The long-breakout cousin of [[feedback_mean_reversion_pullback_known_weakness]] — `spyTrendUp` too coarse to keep the book out of false breakouts. A momentum ranker will **amplify** W4. **Hard rule: if the Stage-2 winner clears 30% but still posts negative W4, that's a disclosed structural cost — do NOT bolt on a regime filter post-hoc to rescue it (IS-fitting to W4 / ARS).**
+- **⚠️ W4 (2011 OOS) — shared, ranker-INVARIANT structural hole.** Every variant negative in W4; trade counts stay full but win rate craters to 14–25% in the low-breadth 2011 chop (breadth 38, uptrend 48.8%). The long-breakout cousin of [[feedback_mean_reversion_pullback_known_weakness]] — `spyTrendUp` too coarse to keep the book out of false breakouts. A momentum ranker will **amplify** W4. **Hard rule: do NOT bolt on a regime filter post-hoc to rescue W4 (IS-fitting to W4 / ARS).** Under the regime-component framing (item 6 of the funnel), a weak/negative 2011 low-breadth window is **acceptable as a regime handoff** — that's exactly the tape where *other* portfolio components should carry, and this breakout component correctly has no edge. Disclose it as a coverage gap for the portfolio layer to fill; don't distort the component to paper over it.
 
-**Stage 2:** sweep rankers on EX-ATR20 (primary) + EX-ATR25 (secondary) — `SectorEdgeWithTightness` (quant favorite), `TrailingReturn`, a sector-strength representative, `Composite` baseline. Drop CHANDELIER/PIVOT/VOLFAIL/PCT5.
+**Stage 2:** sweep rankers on **EX-VCPOLD (primary)** + **EX-ATR20 (secondary, best DD)** — `TrailingReturn`, `RollingSectorStrength`, `SectorStrengthMomentum`, `Composite` baseline. (`SectorEdgeWithTightness` deferred — second-pass, see §7.) Drop EX-ATR25/CHANDELIER/PIVOT/VOLFAIL/PCT5. Carry the **WFE 1.94** flag on VCPOLD into validation (cross-block edge-decay check).
+
+### 2026-06-02 — Stage-2a ranker sweep (EX-VCPOLD × 4 rankers, full universe) → SectorStrengthMomentum wins
+
+Exit fixed = EX-VCPOLD; ranker varies; everything else as Stage 1 (full universe, seed 42, AtrRisk 1.25/2.0, maxPos 10, 2005–2015). Results `/tmp/screen-minervini-s2-VCPOLD-*-result.json`.
+
+| Ranker | Trades | Edge | Sharpe | CAGR | maxDD | win% |
+|---|---|---|---|---|---|---|
+| **SectorStrengthMomentum** | 245 | **4.87** | **1.25** | **17.5** | 21.4 | **42.9** |
+| Composite | 249 | 3.30 | 1.14 | 16.0 | **21.0** | 40.2 |
+| RollingSectorStrength | 243 | 3.72 | 1.12 | 15.6 | 22.9 | 39.5 |
+| *Random (Stage-1 floor)* | 262 | 4.08 | 1.12 | 15.4 | 21.8 | 39.3 |
+| **TrailingReturn** | 249 | 4.10 | **0.87** | **11.1** | 22.4 | 41.4 |
+
+- **Winner: `SectorStrengthMomentum`** (best Sharpe/CAGR/edge/win%). Sector-strength ranking (leading groups gaining strength) is the value-add — Minervini-faithful ("leaders in leading groups").
+- **`TrailingReturn` LOST to Random** (CAGR 11.1 vs 15.4) — empirical confirmation of the ADR-0009 veto-rate concern: the momentum ranker is ρ≈0.9 redundant with the RS gate, over-concentrates into the same extended names, adds nothing/hurts. **Do NOT pair TrailingReturn with the RS gate.**
+- W4/2011 negative (−3.0) across ALL rankers → exit- AND ranker-invariant; the regime handoff (portfolio layer covers it), not a defect to rescue.
+- **WFE 1.46–1.94 across all** → OOS edge > IS consistently — yellow flag for the firewall cross-block edge-decay check. Carry forward.
+- CAGR 17.5% as a regime-component (flat in bear/chop, Sharpe 1.25) is a credible piece toward the 25% *portfolio* target (item 6); component-contribution is a portfolio-construction question for the quant.
+
+**Stage 2b (done):** EX-ATR20 vs EX-VCPOLD, both × SectorStrengthMomentum — **near-tie:**
+
+| Combo | Trades | Edge | Sharpe | CAGR | maxDD | Calmar | win% | WFE |
+|---|---|---|---|---|---|---|---|---|
+| EX-VCPOLD×SSM | 245 | 4.87 | 1.250 | 17.5 | 21.4 | 0.82 | 42.9 | 1.49 |
+| EX-ATR20×SSM | 195 | 4.22 | 1.245 | 17.0 | **17.9** | **0.95** | 33.8 | 1.59 |
+
+Identical Sharpe/CAGR. VCPOLD: higher edge/win%/sample. ATR20: shallower DD, better Calmar, simpler/budget-consistent. **Ranker LOCKED = `SectorStrengthMomentum`.** **Decision (user 2026-06-02): advance BOTH exits to `/validate-candidate`** — the firewall arbitrates on cross-block stability (esp. the WFE~1.5 OOS>IS flag + the W4/2011 regime decay).
+
+**Candidate configs for the firewall:** `/tmp/screen-minervini-s2-VCPOLD-SectorStrengthMomentum.json` and `/tmp/screen-minervini-s2b-ATR20-SectorStrengthMomentum.json`. **Reminder:** the entry uses inline-`script` VCP-A/VCP-B → even a TRADABLE firewall verdict is **void until promotion via `/create-condition` + `/verify-promotion` (G14)** (memory `feedback_script_conditions_must_be_promoted`). Tradability bar is the relaxed regime-component target (item 6), not standalone 30%.
+
+### 2026-06-02 — Component Firewall methodology (quant) + W4/2011 finding → validation BLOCKED pending KEEP/REDESIGN call
+
+**The standalone v4 firewall mis-fits a regime component** (G1 30% CAGR, G6/G7 regime-positive mandates, G8 30-trades/window all fail by design for a cash-in-crisis strategy). Quant drafted a **Component Firewall** (validate *alpha* in-market and *discipline* in-cash separately — never credit cash, never penalize it):
+
+| Component gate | vs v4 | Population |
+|---|---|---|
+| **C1a** in-market (active-period) CAGR ≥ 30% | replaces G1 | in-market only — the real alpha bar |
+| **C1b** blended CAGR ≥ 12% (anti-lottery) · **C1c** Sharpe≥0.8 ∧ Calmar≥0.5 | new / =G9 | whole/blended |
+| **C6-STAND-ASIDE** crisis/cash windows: DD ≤ **3%**, in-market days ≤15% | replaces G6 (cash side) | cash windows (2008, COVID-crash, <N_min trades); excluded from edge gates |
+| **C6-IN-MARKET** participating windows: edge > 0 (v4-strict) | =G6 (in-market side) | in-market windows |
+| **C7** ≤1 negative participating window, passing the W4 acceptance rule | replaces G7 | in-market |
+| **C2/C3** DD≤25% / worst-window≤20% · **C5** CoV≤1.5 (in-market only) · **C11** edge_B≥0.5·edge_A (in-market) · **C12** ≥100/block · **C14** scripts-promoted | = v4 | mixed |
+| **C8** in-market windows ≥30 trades; cash exempt; N_min=5 | replaces G8 | per window |
+| **Portfolio-blend G6** (book survives 2008+2020) | new | **DEFERRED to ≥2 components** |
+
+Keep calendar blocks (coverage guarantee) but **regime-classify windows within them**; emit a regime-attribution table. Interim "standalone-as-component" KEEP bar = C1a ∧ C6-STAND-ASIDE ∧ C2/C3/C5/C9/C12/C14 ∧ (≤1 neg participating window passing W4 rule). True portfolio-contribution test deferred until ≥2 components exist. Make it a **reusable `/validate-component` skill** — but calibrate the 3 data-gated thresholds on this candidate + quant sign-off BEFORE persisting as code (per `feedback_get_expert_review_before_persisting`).
+
+**W4/2011 finding (the deciding data, pulled from screen results):** the component **participated heavily** in 2011 (trades spread Mar–Dec, 29–34 of them) with `spyTrendUp` true, and got **chopped** (win rate 17–24% vs ~40%). This is "SPY-held-true-but-lost" — `spyTrendUp` is too coarse to detect 2011's narrow-breadth/mega-cap-masking chop. **Loss is bounded** (W4 maxDD 15.5–17.4% < 20%; only negative participating window). Per quant: this is an **alpha/regime-gate-coarseness flag**, not a clean handoff → the principled fix is a **breadth-confirmed market gate** (Minervini's "M" = *broad* market health; the battle plan explicitly warns against SPY-price-only gates). **Tension:** adding breadth must be a *from-scratch redesign re-screened as a new candidate*, NOT a post-hoc patch to rescue W4 (that's IS-fitting/ARS). **DECISION (user 2026-06-02): two tracks.**
+- **Track 1 — validate current candidates** (EX-ATR20×SSM, EX-VCPOLD×SSM) through the Component Firewall, accepting the bounded W4/2011 loss as a *disclosed portfolio coverage gap* (other components own 2011-style chop). It's the first GFC-defensive *selector* component, bounded-acceptable.
+- **Track 2 — breadth-gated variant as a NEW candidate** (re-screened from Stage 1, NOT a post-hoc W4 patch): add broad-breadth confirmation to the market gate (`marketUptrend` / breadth-EMA / sector-breadth alongside `spyTrendUp`) — Minervini's "M" = *broad* market health, the battle-plan-endorsed fix for SPY mega-cap masking. Queued.
+
+N_min=5 confirmed; W4 bounded-accept confirmed; **days-in-market (C1a feasibility) still needs a trade-level export.**
+
+**Track-1 prerequisites before a real TRADABLE verdict:** (a) no `/validate-component` skill exists yet → run the raw blocks (A 2000-14, B 2014-21, 25y, C) and apply the component gates above (manually / via a component-analyst), don't use the v4 `run-pipeline.sh` as-is (it applies G1/G6 → false REJECT); (b) **C14 — promote the inline VCP-A/VCP-B scripts** via `/create-condition` + `/verify-promotion` (blocks TRADABLE); (c) measure days-in-market for C1a; (d) finalize + quant-sign the component-gate thresholds before persisting `/validate-component`.
 
 ### G13 parameter scoping — two-tier framework (quant, 2026-06-02; pending skill-wording review)
 
@@ -216,6 +271,7 @@ Minervini's selling is two-sided, and the holding period is **asymmetric by desi
 - **EX-VOLFAIL** (overlay on EX-CHANDELIER): OR `script(close < pivot on rising volume = distribution)` — highest-signal failed-breakout tell
 - **ATR sub-sweep {2.0/2.5/3.0}** applied to the winning structure.
 - *Flagged comparison only:* EX-PCT5 (`script` 5% from entry OR `priceBelowEma(50)`) — to SEE percent behavior; ruler-inconsistent, not a candidate to ship.
+- **EX-VCPOLD** (user-requested 2026-06-02): the **old `VcpExitStrategy`** recovered from git history (deleted in `947dccc`, pre-deletion source) = `emaCross(10,20) OR stopLoss(2.5 ATR) OR stagnation(3%, 15d)`. All first-class conditions (no scripts). Distinct profile: faster 10/20 EMA-cross trend exit + 2.5 ATR stop + aggressive 3%-in-15-days dead-money cut. Run on the same Stage-1 footing (full universe, Random seed 42) to compare head-to-head with EX-ATR20/25. (Memory `feedback_vcp_exit_strategy`: this was the canonical VCP exit.)
 
 **Do NOT** add `percentGain`/`profitTarget` as a primary exit — a hard target caps the right tail and is anti-thesis for a fat-payoff-ratio strategy ("let winners run"). `stagnation` fires only on exactly `windowDays` (single-shot, leaky) → overlay-only; for capital recycling prefer a daily-re-evaluated `script` (below-entry AND >N days).
 
@@ -228,7 +284,7 @@ Minervini's selling is two-sided, and the holding period is **asymmetric by desi
 ### 7. Ranker (which leaders to buy first) — **FAITHFUL**
 
 Buy the strongest leaders in leading groups → **ranker sweep (Stage 2)** — quant-revised order:
-- **`SectorEdgeWithTightness`** — quant's recommended favorite: strongest group **+ base-tightness tiebreak** = "strongest group, tightest base," the most on-thesis ranker available.
+- **`SectorEdgeWithTightness`** — strongest group **+ base-tightness tiebreak** ("strongest group, tightest base"), the most on-thesis ranker — **but a SECOND-PASS ranker, implementable only AFTER we have a working strategy.** It needs a `sectorRanking` (sector-priority order), and that order is **not arbitrary/user-picked** (which would be data-snooping): the intended workflow is **run the strategy, extract each sector's measured edge from the results, then feed that ordering back as the ranker's `sectorRanking`.** Leakage discipline: the sector ranking must be **IS-derived for OOS** (WalkForwardService already does IS-derived sector ranking for OOS) — never rank OOS on edges measured on the same window. **DEFERRED** until a Stage-2 strategy exists to extract sector edges from; revisit as a second pass once a base ranker is chosen.
 - **`TrailingReturn`** (12-1 momentum; ρ≈0.9 with the RS gate by design — ranks the strongest *of the qualifiers*).
 - **`RollingSectorStrength`** / **`SectorStrengthMomentum`** (leading / accelerating industry groups — Minervini emphasis).
 - **`Composite`** baseline only — double-counts extension via `DistanceFrom10Ema` (we want *proximity to the pivot*, i.e. base tightness, not 10-EMA distance); don't expect it to win.
@@ -268,7 +324,7 @@ Other confirmations: G14 promotion correctly deferred (inline TRADABLE verdict i
 3. `/validate-candidate` (3-block firewall: Block A 2000–2014 binding, Block B COVID-inclusive binding, 25y aggregate binding, Block C informational; v4 gates + G13 parameter-robustness).
 4. Promote inline `script` conditions via `/create-condition` + `/verify-promotion` (G14 trade-list diff) — **a candidate using inline scripts is NOT tradable even after a TRADABLE verdict** (memory `feedback_script_conditions_must_be_promoted`).
 5. `/monte-carlo` (path risk + edge confidence).
-6. **Min CAGR for tradable = 30%** (memory `feedback_min_cagr_tradable`).
+6. **Tradability bar — RELAXED for this candidate (user, 2026-06-02):** this is a **regime-conditional COMPONENT**, not a standalone strategy — it deliberately sits in cash in bear/low-breadth tape (2001/2002/2008/W4-2011), where *other* strategies cover. So the standalone **30% CAGR gate does NOT apply**; it will be combined with other strategies and the **portfolio target is ≥ 25% CAGR**. Judge this strategy on its *contribution* to that blend (regime coverage, cash-overlap, correlation), not a standalone number. The exact component-acceptance criterion vs the 25% portfolio target is a portfolio-construction question to settle with the quant. Connects to [[project_regime_conditional_portfolio_framework]]; supersedes the standalone `feedback_min_cagr_tradable` 30% for this candidate.
 
 Track the candidate through `/strategy-exploration` (the non-executing state-machine dossier).
 
