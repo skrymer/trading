@@ -206,6 +206,12 @@ VCP base = **VCP-A ∧ VCP-B**. **ARS discipline:** every lookback/step tunable 
 
 **Vetted scripts (2026-06-02, via `/create-condition`).** Both fixed for P3 (no `indexOfFirst` — use public O(log N) `quotesInRange`) and P4 (no boxing — `sumOf`/`maxOf`/`minOf`, no `.map{}.average()`); lookahead-safe (`quotesInRange(…, quote.date)` is inclusive-today/exclusive-future); fail-closed on insufficient history; current bar **included** in all windows (S1). VCP-A chose the **range-step proxy** (i).
 
+**PROMOTED to first-class conditions (2026-06-03, via `/create-condition` + `/tdd`).** Both scripts below are now first-class `@Component` `EntryCondition`s, strategy-neutral (named by mechanic, memory `feedback_conditions_strategy_neutral`), replicating the inline scripts **byte-for-byte** (same 400-day `quotesInRange` lookback, same `subList` slicing, same `Long` volume / `Double` close arithmetic, same fail-closed + `meanClose<=0 ⇒ MAX_VALUE` / `baseAvg<=0 ⇒ fail` guards) so the pending `/verify-promotion` G14 trade-list diff PASSes:
+- **VCP-A → `NarrowingRangeCondition`** (`type=narrowingRange`, param `stepWindow=10`; window-count fixed at 3). `udgaard/.../condition/entry/NarrowingRangeCondition.kt` + 8 unit tests.
+- **VCP-B → `VolumeDryUpCondition`** (`type=volumeDryUp`, params `dryupWindow=10`, `baseWindow=50`, `dryupRatio=0.7`). `udgaard/.../condition/entry/VolumeDryUpCondition.kt` + 8 unit tests.
+
+Tests cover: core pass, non-match, insufficient-history fail-closed, **future-dated-row exclusion (lookahead)**, strict-inequality boundary (A) / zero-base-volume guard (B), `parseConfig` param-application (behavioral), metadata routing-type, `evaluateWithDetails` verdict-mirror. **G14 `/verify-promotion` is the gating next step** — the inline-script firewall verdict stays void until the promoted config diffs identically over 25y (memory `feedback_promotion_invariance_g14`). The `{{param}}` template versions are retained below for the screen/diff reference.
+
 ```kotlin
 // VCP-B — volume dry-up
 val win = stock.quotesInRange(quote.date.minusDays(400), quote.date)
