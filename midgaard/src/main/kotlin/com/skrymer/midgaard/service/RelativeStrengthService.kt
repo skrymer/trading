@@ -24,10 +24,14 @@ class RelativeStrengthService(
     @Volatile
     private var currentJob: Job? = null
 
+    @Volatile
+    private var lastRunRowsWritten: Int? = null
+
     /** Full recompute from the earliest trusted date, over the quotes already stored. */
     fun recomputeAll() {
         logger.info("Relative-strength pass: full recompute from $EARLIEST_DATE")
         val written = quoteRepository.recomputeRelativeStrengthPercentiles(EARLIEST_DATE, LOOKBACK_BARS, MIN_PEERS, EARLIEST_DATE)
+        lastRunRowsWritten = written
         logger.info("Relative-strength pass: complete — wrote percentiles to $written rows")
     }
 
@@ -54,6 +58,9 @@ class RelativeStrengthService(
 
     /** Whether a recompute is currently running — surfaced to the UI so it can show progress. */
     fun isRecomputeActive(): Boolean = currentJob?.isActive == true
+
+    /** Rows the most recent completed recompute wrote, or null if none has run this session. */
+    fun lastRunRowsWritten(): Int? = lastRunRowsWritten
 
     companion object {
         /** Trailing window for the return metric, in trading bars (≈ one year). */

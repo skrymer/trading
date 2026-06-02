@@ -170,6 +170,11 @@
         <span class="text-muted ms-2">Cross-sectional recompute in progress — this can take a few minutes.</span>
         <script>setTimeout(function() { window.location.reload(); }, 5000);</script>
       </div>
+      <div th:if="${!relativeStrengthActive and relativeStrengthLastRun != null}" class="mt-2">
+        <span class="badge bg-success">Complete</span>
+        <span class="text-muted ms-2">Last recompute populated
+          <strong th:text="${#numbers.formatInteger(relativeStrengthLastRun, 0, 'COMMA')}">0</strong> rows.</span>
+      </div>
     </div>
   </div>
 </div>

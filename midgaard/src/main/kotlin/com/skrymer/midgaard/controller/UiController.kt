@@ -128,6 +128,7 @@ class UiController(
         model.addAttribute("ovtlyrConfigured", apiKeyService.getStatus()["ovtlyrConfigured"] ?: false)
         model.addAttribute("ovtlyrProgress", ovtlyrBackfillService.progress)
         model.addAttribute("relativeStrengthActive", relativeStrengthService.isRecomputeActive())
+        model.addAttribute("relativeStrengthLastRun", relativeStrengthService.lastRunRowsWritten())
         return "ingestion"
     }
 
