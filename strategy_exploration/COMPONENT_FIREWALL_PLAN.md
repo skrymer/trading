@@ -77,6 +77,24 @@ Population column states which trades each gate reads. **In-market** = participa
 
 **W4/2011 acceptance rule (pre-registered — quant review item 6).** The single permitted negative participating window is **pre-named: the 2011-OOS window, bound maxDD ≤ 20%** — NOT "the worst negative window, whatever it turns out to be" (a movable exemption invites post-hoc absorption of a *second* bad window). W4 = component held trades with `spyTrendUp` true, got chopped in 2011's narrow-breadth tape (win 17–24% vs ~40%; maxDD 15.5–17.4% < 20%). It is a **disclosed portfolio coverage gap**, bounded-accepted for Track 1 — **not** rescued with a post-hoc regime filter (IS-fitting/ARS). A second negative participating window, or 2011 breaching DD ≤ 20%, fails C7. Track 2 addresses 2011 structurally as a *new* candidate.
 
+## 4b. FROZEN pre-registered thresholds (2026-06-03, before any run)
+
+Per the §7 anti-snooping rule, every data-gated bar is fixed here from an **external anchor** — none is read off the candidate (the candidate's in-market CAGR, cash-window DDs, and participation fraction are all still unknown). The runs only (a) populate the regime-attribution table and (b) *check* realized values against these frozen bars.
+
+| Gate | FROZEN value | External anchor (independent of candidate results) | Run checks |
+|---|---|---|---|
+| **C1a** in-market CAGR (geometric, §6 def-a) | **Formula primary:** `(1+g)^f·(1+p)^(1-f) − 1 ≥ 25%`. **Interim floor: g ≥ 30%** (lower bound); blend math puts the real bar at **~31–38%** | Portfolio target 25%; this component deploys in the *best* tape so it must over-deliver vs defensive partners running below target in their windows. Symmetric floor = 25%; with partner CAGR p≈8–12% and active fraction f≈0.6–0.7 → g≈31–38%. f comes from the run; p is portfolio-era. 30% is the floor it may not go below | f (deployment fraction); finalize g-floor once f known + partner p set |
+| **C6-STAND-ASIDE** cash-window DD | **≤ 3%** | 0.60× the **5% position-arithmetic ceiling** (a <5-trade stand-aside window can lose at most 4×1.25% = 5% if all stops hit concurrently); the 2pp gap is the discipline margin | realized 2001/02/08 cash DDs: ≤3% pass · 3–5% discipline flag · **>5% = classifier error** (the window wasn't really cash) |
+| **C-PARTICIPATE** windows (X) | **≥ 40% of OOS windows** | anti-benchwarmer minimum — below 40% the component is idle most of the time and can't be a portfolio contributor. NOT the expected ~60–70%; a floor set so "always cash" fails | participating-window fraction (must be emitted as a first-class field) |
+| **C-PARTICIPATE** days (Y) | **≥ 30% of block OOS trading-days** | anti-benchwarmer minimum (dual of the day-based cash boundary) | in-market days / block OOS days |
+| **C7** permitted negative participating window | **maxDD ≤ 20% AND in-market CAGR ≥ −10% AND edge ≥ −5%**, window **pre-named = 2011-OOS** | W4 reference (−3.0 edge, ~17% DD) + margin; a *second* negative window or 2011 breaching any bound fails | the 2011-OOS window vs all three bounds; assert no other negative participating window |
+| **§5 classifier** | in-market days **≤ 15%** AND trades **< 5** | "< ~1-in-7 days deployed ≈ not deployed"; N_min=5 statistical-power floor | ±1-step ARS check (15%→14%/16%, N_min 4/6): a reclassification that flips a gate = classifier is ARS-broken → redesign |
+| **C8** | **≥ 30 trades/in-market window; cash exempt; N_min = 5** | v4 G8 + statistical-power floor | per-window counts; confirm no participating window wrongly exempted |
+
+**Inherited-fixed (not data-gated — standard v4 ratio/percentage floors, carried verbatim):** C1b blended CAGR ≥ 12% · C1c-Sharpe ≥ 0.8 (blended) · C1c-Calmar ≥ 0.5 (in-market) · C2 ≤ 25% · C3 ≤ 20% · C5 ≤ 1.5 (in-market, 25y-binding) · C11 edge_B ≥ 0.5·edge_A · C12 ≥ 100/block.
+
+**These bars are frozen. After the EX-ATR20×SSM runs, the calibrate-after step (§9) only plugs `f` into the C1a formula and checks realized values against the frozen ceilings — it may NOT move a bar to make the candidate pass** (`feedback_parameter_fragility_must_be_verified`).
+
 ## 5. Regime classification (window-level) — DRAFT
 
 Each OOS window is labelled exactly once:
