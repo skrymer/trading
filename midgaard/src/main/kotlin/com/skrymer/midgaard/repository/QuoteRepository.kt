@@ -104,14 +104,6 @@ class QuoteRepository(
 
     fun getTotalQuoteCount(): Int = dsl.fetchCount(QUOTES)
 
-    /** The latest quote date across the whole universe, or null when there are no quotes. */
-    fun maxQuoteDate(): LocalDate? =
-        dsl
-            .select(DSL.max(QUOTES.QUOTE_DATE))
-            .from(QUOTES)
-            .fetchOne()
-            ?.value1()
-
     /**
      * Recomputes the market-relative strength percentile for every quote on or after [fromDate],
      * as a single cross-sectional SQL pass (ADR 0009) — the universe-wide sort, ranking and write
@@ -123,10 +115,12 @@ class QuoteRepository(
      * so `rank−1` is the count strictly below and `ties` the run length. A date is ranked only when
      * its qualifying-peer count `n ≥ minPeers` and it is on/after [earliestDate].
      *
-     * Rows in range are reset to null first, so a (symbol, date) that no longer qualifies (data
-     * correction, peer count fell below the floor) loses its stale value rather than keeping it.
-     * History before [fromDate] still feeds each symbol's `LAG`, so a bounded [fromDate] (daily
-     * incremental) yields the same values as a full recompute for the dates it touches.
+     * The cross-sectional sort spans the whole table and spills badly on the tiny default work_mem,
+     * so it is raised transaction-locally first. Stale rows in range are nulled only where a value
+     * actually exists, so after a fresh re-ingest (column already null) this is a no-op rather than
+     * a full-table rewrite. History before [fromDate] still feeds each symbol's `LAG`.
+     *
+     * @return the number of (symbol, date) rows a percentile was written to.
      */
     @Transactional
     fun recomputeRelativeStrengthPercentiles(
@@ -134,12 +128,14 @@ class QuoteRepository(
         lookbackBars: Int,
         minPeers: Int,
         earliestDate: LocalDate,
-    ) {
+    ): Int {
+        dsl.fetch("SELECT set_config('work_mem', ?, true)", RECOMPUTE_WORK_MEM)
         dsl.execute(
-            "UPDATE quotes SET relative_strength_percentile = NULL WHERE quote_date >= ?",
+            "UPDATE quotes SET relative_strength_percentile = NULL " +
+                "WHERE quote_date >= ? AND relative_strength_percentile IS NOT NULL",
             fromDate,
         )
-        dsl.execute(
+        return dsl.execute(
             """
             WITH metric AS (
                 SELECT symbol, quote_date,
@@ -236,4 +232,16 @@ class QuoteRepository(
                 indicatorSource?.let { IndicatorSource.valueOf(it) }
                     ?: IndicatorSource.CALCULATED,
         )
+
+    companion object {
+        /**
+         * Transaction-local work_mem for the relative-strength recompute. The whole-universe sort
+         * spills ~1.4 GB on the 4 MB default; this keeps it in memory. Applied via
+         * `set_config('work_mem', ?, is_local=true)` rather than `SET LOCAL` precisely so the value
+         * can be a bind parameter; it resets on commit and never affects other sessions. The real
+         * ceiling is a multiple of this (per parallel worker × per sort/hash node), so it relies on
+         * ample container headroom and the @Synchronized guarantee that no two recomputes overlap.
+         */
+        private const val RECOMPUTE_WORK_MEM = "1GB"
+    }
 }

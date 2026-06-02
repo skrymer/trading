@@ -5,15 +5,14 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
 import org.mockito.kotlin.stub
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
-import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class RelativeStrengthServiceTest {
     @Test
@@ -54,13 +53,16 @@ class RelativeStrengthServiceTest {
         }
 
     @Test
-    fun `recomputeAllAsync returns the in-flight job instead of launching a second overlapping pass`() =
+    fun `recomputeAllAsync is active while running, idle after, and never overlaps a second call`() =
         runBlocking {
             // Given a recompute that blocks until released, so the first job stays active
             val latch = CountDownLatch(1)
             val quoteRepository: QuoteRepository = mock()
             quoteRepository.stub {
-                on { recomputeRelativeStrengthPercentiles(any(), any(), any(), any()) } doAnswer { latch.await() }
+                on { recomputeRelativeStrengthPercentiles(any(), any(), any(), any()) } doAnswer {
+                    latch.await()
+                    0
+                }
             }
             val service = RelativeStrengthService(quoteRepository)
 
@@ -68,43 +70,12 @@ class RelativeStrengthServiceTest {
             val first = service.recomputeAllAsync()
             val second = service.recomputeAllAsync()
 
-            // Then the same in-flight job is returned and the pass runs only once
+            // Then a recompute is reported active, the same in-flight job is returned, and it runs once
+            assertTrue(service.isRecomputeActive())
             assertSame(first, second)
             latch.countDown()
             first.join()
+            assertFalse(service.isRecomputeActive())
             verify(quoteRepository, times(1)).recomputeRelativeStrengthPercentiles(any(), any(), any(), any())
         }
-
-    @Test
-    fun `recomputeRecent recomputes only the trailing buffer before the latest date`() {
-        // Given the latest quote in the universe is 2024-06-20
-        val quoteRepository: QuoteRepository = mock()
-        quoteRepository.stub { on { maxQuoteDate() } doReturn LocalDate.of(2024, 6, 20) }
-        val service = RelativeStrengthService(quoteRepository)
-
-        // When an incremental recompute is requested
-        service.recomputeRecent()
-
-        // Then it recomputes from the latest date minus the buffer, not the whole history
-        verify(quoteRepository).recomputeRelativeStrengthPercentiles(
-            LocalDate.of(2024, 6, 20).minusDays(RelativeStrengthService.RECENT_BUFFER_DAYS),
-            RelativeStrengthService.LOOKBACK_BARS,
-            RelativeStrengthService.MIN_PEERS,
-            RelativeStrengthService.EARLIEST_DATE,
-        )
-    }
-
-    @Test
-    fun `recomputeRecent does nothing when the universe is empty`() {
-        // Given no quotes exist
-        val quoteRepository: QuoteRepository = mock()
-        quoteRepository.stub { on { maxQuoteDate() } doReturn null }
-        val service = RelativeStrengthService(quoteRepository)
-
-        // When an incremental recompute is requested
-        service.recomputeRecent()
-
-        // Then no recompute is attempted
-        verify(quoteRepository, never()).recomputeRelativeStrengthPercentiles(any(), any(), any(), any())
-    }
 }

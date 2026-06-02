@@ -127,6 +127,7 @@ class UiController(
         model.addAttribute("violationCount", dataIntegrityService.violationCount())
         model.addAttribute("ovtlyrConfigured", apiKeyService.getStatus()["ovtlyrConfigured"] ?: false)
         model.addAttribute("ovtlyrProgress", ovtlyrBackfillService.progress)
+        model.addAttribute("relativeStrengthActive", relativeStrengthService.isRecomputeActive())
         return "ingestion"
     }
 

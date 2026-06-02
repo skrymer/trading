@@ -39,12 +39,6 @@
           Discover Delisted Symbols
         </button>
       </form>
-      <form method="post" action="/ingestion/recompute-relative-strength" class="d-inline">
-        <button type="submit" class="btn btn-outline-secondary"
-                title="Recompute the market-relative strength percentile across the whole universe from the quotes already stored — a pure cross-sectional SQL pass, no OHLCV re-fetch. Runs automatically after a bulk ingest; use this to repopulate it on its own.">
-          Recompute Relative Strength
-        </button>
-      </form>
     </div>
 
     <div th:if="${delistedRunStats != null}" class="card mt-4">
@@ -154,6 +148,27 @@
             setTimeout(function() { window.location.reload(); }, 5000);
           </script>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Relative Strength — cross-sectional, independent of OHLCV ingestion -->
+  <div class="card mt-4">
+    <div class="card-header"><strong>Relative Strength</strong></div>
+    <div class="card-body">
+      <p class="text-muted mb-3">
+        Market-relative strength percentile (0–100): each stock's trailing 252-bar return ranked
+        cross-sectionally against the whole universe per day. A pure SQL pass over the quotes
+        already stored — no OHLCV re-fetch. Run it after a re-ingest to repopulate the column.
+      </p>
+      <form method="post" action="/ingestion/recompute-relative-strength" class="d-inline"
+            th:if="${!relativeStrengthActive}">
+        <button type="submit" class="btn btn-primary">Recompute Relative Strength</button>
+      </form>
+      <div th:if="${relativeStrengthActive}" class="mt-2">
+        <span class="badge bg-info">Running…</span>
+        <span class="text-muted ms-2">Cross-sectional recompute in progress — this can take a few minutes.</span>
+        <script>setTimeout(function() { window.location.reload(); }, 5000);</script>
       </div>
     </div>
   </div>

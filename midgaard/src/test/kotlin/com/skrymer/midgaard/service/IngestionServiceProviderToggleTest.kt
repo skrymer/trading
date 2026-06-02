@@ -262,7 +262,6 @@ class IngestionServiceProviderToggleTest {
                         stub { on { findHolidayDates(any()) } doReturn holidays }
                     },
                 dataIntegrityService = mock(),
-                relativeStrengthService = mock(),
                 indicatorsMode = indicatorsMode,
             )
 

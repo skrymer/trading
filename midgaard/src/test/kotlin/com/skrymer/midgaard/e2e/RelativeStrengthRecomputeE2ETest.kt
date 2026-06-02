@@ -71,9 +71,11 @@ class RelativeStrengthRecomputeE2ETest : AbstractIntegrationTest() {
         )
 
         // When the pass recomputes with a 1-bar lookback and no peer floor
-        quoteRepository.recomputeRelativeStrengthPercentiles(earliest, lookbackBars = 1, minPeers = 1, earliestDate = earliest)
+        val written =
+            quoteRepository.recomputeRelativeStrengthPercentiles(earliest, lookbackBars = 1, minPeers = 1, earliestDate = earliest)
 
-        // Then day 2 gets midpoint percentiles 100*((rank-1)+0.5*ties)/n, and day 1 has none (no prior bar)
+        // Then it reports the 3 day-2 rows written, day 2 gets midpoint percentiles, day 1 has none
+        assertEquals(3, written)
         assertEquals(100.0 * 0.5 / 3, percentileOn("RSAB", d2)!!, 1e-3)
         assertEquals(100.0 * 1.5 / 3, percentileOn("RSAA", d2)!!, 1e-3)
         assertEquals(100.0 * 2.5 / 3, percentileOn("RSAC", d2)!!, 1e-3)

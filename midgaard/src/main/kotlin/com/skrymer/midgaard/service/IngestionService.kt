@@ -60,7 +60,6 @@ class IngestionService(
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val marketHolidayRepository: MarketHolidayRepository,
     private val dataIntegrityService: DataIntegrityService,
-    private val relativeStrengthService: RelativeStrengthService,
     @param:Value("\${app.ingest.indicators:LOCAL}") private val indicatorsMode: IndicatorsMode,
 ) {
     @Volatile
@@ -178,7 +177,6 @@ class IngestionService(
                 }.forEach { it.join() }
             logger.info("$label ingest: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
             runIntegrityCheck("$label ingest")
-            recomputeRelativeStrength("$label ingest") { relativeStrengthService.recomputeAll() }
         }
         return job
     }
@@ -199,7 +197,6 @@ class IngestionService(
             }
             logger.info("Bulk update: ${progress.succeeded.get()} succeeded, ${progress.failed.get()} failed")
             runIntegrityCheck("bulk update")
-            recomputeRelativeStrength("bulk update") { relativeStrengthService.recomputeRecent() }
         }
         return job
     }
@@ -213,20 +210,6 @@ class IngestionService(
         runCatching { dataIntegrityService.runAll() }
             .onSuccess { logger.info("$label: data integrity check found ${it.size} violations") }
             .onFailure { logger.error("$label: data integrity check failed", it) }
-    }
-
-    /**
-     * Recompute market-relative strength percentiles after a bulk operation (ADR 0009): a full
-     * recompute after an initial/bulk rebuild, an incremental trailing-window pass after a daily
-     * update. Failures are logged, never crash the ingest (it already succeeded).
-     */
-    private fun recomputeRelativeStrength(
-        label: String,
-        recompute: () -> Unit,
-    ) {
-        runCatching { recompute() }
-            .onSuccess { logger.info("$label: recomputed relative-strength percentiles") }
-            .onFailure { logger.error("$label: relative-strength recompute failed", it) }
     }
 
     private suspend fun fetchInitialBars(symbol: String): List<RawBar>? {

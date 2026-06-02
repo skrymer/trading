@@ -225,7 +225,6 @@ class IngestionServiceSectorWriteTest {
                     stub { on { findHolidayDates(any()) } doReturn emptySet() }
                 },
             dataIntegrityService = mock<DataIntegrityService>(),
-            relativeStrengthService = mock<RelativeStrengthService>(),
             indicatorsMode = IndicatorsMode.LOCAL,
         )
     }
