@@ -168,6 +168,35 @@ Per-knob anchor:
 
 **Then:** approve §3 run plan (EX-ATR20×SSM first) → fire → calibrate-after items → freeze → run EX-VCPOLD×SSM through frozen gates → only after all that, build `/validate-component` as a skill (reuse v4 block-firing + WF plumbing, swap the evaluator). Track 2 (breadth-gated *new* candidate) stays queued.
 
+## 10. RESULT — EX-ATR20×SSM **REJECTED** (2026-06-03, quant-confirmed)
+
+Fired the 4 binding walk-forwards (full universe, 36/12/12). Results `/tmp/cf-wf-{blockA,blockB,25y,blockC}-result.json`; evaluator `/tmp/eval-cf.py`. **Six binding gates fail; verdict REJECTED — decisive, not a near-miss.**
+
+| Gate | Block A | Block B | 25y | |
+|---|---|---|---|---|
+| **C1a** in-mkt geom CAGR ≥30% | 16.9% ❌ | 20.8% ❌ | **9.6%** ❌ | FAIL all 3 (below even the 25% symmetric floor) |
+| C1b blended CAGR ≥12% | 10.1% ❌ | 20.8% ✓ | 12.7% ✓ | A fail |
+| C1c-Sharpe (blended) ≥0.8 | 1.31 ✓ | 1.27 ✓ | 0.88 ✓ | pass |
+| C1c-Calmar (in-mkt) ≥0.5 | 0.87 ✓ | 1.45 ✓ | 0.42 ❌ | 25y fail |
+| C2 maxDD ≤25% | 22.6 ✓ | 20.1 ✓ | **42.3** ❌ | 25y fail |
+| C3 worst-part DD ≤20% | 19.5 ✓ | 14.3 ✓ | 22.6 ❌ | 25y fail |
+| C5 in-mkt edge CoV ≤1.5 | 1.26 ✓ | 1.29 ✓ | 1.86 ❌ | 25y fail |
+| **C7** ≤1 neg participating window | **3** ❌ | 0 ✓ | **8** ❌ | FAIL A + 25y |
+| C8 in-mkt ≥30 trades | 2@29 ⚠ | ✓ | 3<30 ⚠ | near |
+| C11 edge_B≥0.5·edge_A | — | 0.95 ✓ | — | pass |
+| C12 ≥100/block | 353 ✓ | 152 ✓ | 755 ✓ | pass |
+| C-PARTICIPATE ≥40% | 91% ✓ | 100% ✓ | 95% ✓ | pass |
+
+**Failure mode (quant): participate-and-lose in narrow-leadership chop — the breakout cousin of [[feedback_mean_reversion_pullback_known_weakness]].** NOT ARS (stable high trade counts 30–47, clustered consistent losses, no parameter flip) and NOT lottery (Block B has a genuine broad-regime edge: 0 neg windows, 20.8% in-mkt CAGR, real 2020 +56.5% recovery alpha). **`spyTrendUp` is too coarse** — it only stands the book aside in outright crisis (2008: 1 trade, 0.8% DD). In narrow-breadth-but-index-up tape (2015–16, 2021–23) it stays deployed with full trade counts and bleeds (2023 −19.4%, 2015 −14.7%, 2021 −10.3% CAGR). 8 of 21 participating windows negative on 25y.
+
+**Diagnostic tell — the in-market geom CAGR 9.6% < blended 12.7% inversion is REAL, not a methodology artifact:** geometric compounding of the lumpy active-window sequence is the true alpha number; the cash/partial-year stitching *smooths* the blend, so the active-only sequence compounding *below* it means returns are **dispersion-dominated, not alpha-dominated** (`feedback_lottery_screen_diagnostic`).
+
+**Why the 10y screen passed it:** the 2005–2015 strategy-screen (Sharpe 1.25, CAGR 17.5) straddled the broad 2009–13 recovery and never saw a sustained narrow-leadership cluster. The 25y firewall doing its job.
+
+**EX-VCPOLD×SSM — NO-GO (quant):** an exit change cannot fix an entry-population failure (it can't un-take the failed breakouts); EX-VCPOLD trades looser/more in exactly the negative windows; and its only role was the post-calibration leg, moot once the shared entry is rejected. Skipped — wasted compute.
+
+**Forward — Track 2 validated as the structural fix:** a **breadth-confirmed market gate** replacing the binary `spyTrendUp`, as a **NEW candidate re-screened from Stage 1** (breadth trustworthy from 2000 = Block A start, fully firewall-testable). **Keep the breakout premise + the promoted G14-PASS conditions** (Block B proves the edge is real in its native regime) — replace ONLY the regime selector. **NOT a post-hoc breadth filter bolted onto this REJECTED config** (IS-fitting/ARS on the single 25y realization; memory `feedback_mean_reversion_pullback_known_weakness`). Do not re-touch this config.
+
 ## Reference
 - `MINERVINI_VCP_STRATEGY_DEVELOPMENT.md` (authoritative candidate record; Component Firewall table 2026-06-02)
 - `.claude/skills/validate-candidate/` (v4 firewall — block ranges, cadence, G10/G11/G14, eval-block.py to adapt)
