@@ -5,6 +5,7 @@ import com.skrymer.midgaard.model.IngestionStatus
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
+import com.skrymer.midgaard.service.RelativeStrengthService
 import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -19,6 +20,7 @@ class IngestionController(
     private val ingestionService: IngestionService,
     private val delistedIngestionService: DelistedIngestionService,
     private val ingestionStatusRepository: IngestionStatusRepository,
+    private val relativeStrengthService: RelativeStrengthService,
 ) {
     @GetMapping("/status")
     fun getIngestionStatus(): List<IngestionStatus> = ingestionStatusRepository.findAll()
@@ -55,6 +57,12 @@ class IngestionController(
     fun triggerUpdateAll(): ResponseEntity<Map<String, String>> {
         ingestionService.updateAll()
         return ResponseEntity.ok(mapOf("message" to "Bulk update started"))
+    }
+
+    @PostMapping("/recompute-relative-strength")
+    fun triggerRelativeStrengthRecompute(): ResponseEntity<Map<String, String>> {
+        relativeStrengthService.recomputeAllAsync()
+        return ResponseEntity.ok(mapOf("message" to "Relative-strength recompute started"))
     }
 
     @PostMapping("/delisted/discover")

@@ -39,6 +39,12 @@
           Discover Delisted Symbols
         </button>
       </form>
+      <form method="post" action="/ingestion/recompute-relative-strength" class="d-inline">
+        <button type="submit" class="btn btn-outline-secondary"
+                title="Recompute the market-relative strength percentile across the whole universe from the quotes already stored — a pure cross-sectional SQL pass, no OHLCV re-fetch. Runs automatically after a bulk ingest; use this to repopulate it on its own.">
+          Recompute Relative Strength
+        </button>
+      </form>
     </div>
 
     <div th:if="${delistedRunStats != null}" class="card mt-4">

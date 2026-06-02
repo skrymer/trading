@@ -43,9 +43,9 @@ midgaard/
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
 │   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical — depends on `@Qualifier("fx") FxProvider`, wraps suspend calls with `runBlocking`
 │   │   ├── StatusController.kt            # GET /api/status
-│   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
+│   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}, /api/ingestion/recompute-relative-strength (async)
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
-│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill)
+│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute)
 │   ├── integration/
 │   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
@@ -97,7 +97,7 @@ midgaard/
 │       │   └── SicToGicsMapping.kt        # SEC SIC → GICS sector for V6 EDGAR-derived classification
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
 │       ├── IndicatorCalculator.kt         # EMA, SMA, ATR, ADX, Donchian, 52-week high/low computation (used by LOCAL indicator mode)
-│       ├── RelativeStrengthService.kt      # Orchestrates the cross-sectional relative-strength pass (whole-universe stage after per-symbol ingest); reads all closes, ranks into percentiles, writes back (ADR 0009)
+│       ├── RelativeStrengthService.kt      # Orchestrates the cross-sectional relative-strength pass (whole-universe stage after per-symbol ingest); reads all closes, ranks into percentiles, writes back (ADR 0009); recomputeAllAsync() runs recomputeAll() off the calling thread (returns Job) for the manual recompute trigger
 │       ├── RelativeStrengthCalculator.kt   # Pure cross-sectional market-relative strength percentile (0-100) computation
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
@@ -208,7 +208,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - Controlled by `@ConditionalOnProperty("app.ui.enabled")`, enabled by default
 - Set `APP_UI_ENABLED=false` in production to disable entirely
 - Pages: dashboard, symbols, symbol-detail, ingestion progress, providers, integrity
-- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress
+- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress and a "Recompute Relative Strength" trigger
 
 ## Database Schema
 

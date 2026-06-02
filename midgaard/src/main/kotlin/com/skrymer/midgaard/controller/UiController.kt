@@ -13,6 +13,7 @@ import com.skrymer.midgaard.service.IngestionService
 import com.skrymer.midgaard.service.OvtlyrBackfillService
 import com.skrymer.midgaard.service.ProviderRateLimitStats
 import com.skrymer.midgaard.service.RateLimiterService
+import com.skrymer.midgaard.service.RelativeStrengthService
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -39,6 +40,7 @@ class UiController(
     private val apiKeyService: ApiKeyService,
     private val dataIntegrityService: DataIntegrityService,
     private val ovtlyrBackfillService: OvtlyrBackfillService,
+    private val relativeStrengthService: RelativeStrengthService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
@@ -171,6 +173,12 @@ class UiController(
     @PostMapping("/ingestion/delisted/discover")
     fun startDelistedDiscovery(): String {
         delistedIngestionService.discoverDelisted()
+        return "redirect:/ingestion"
+    }
+
+    @PostMapping("/ingestion/recompute-relative-strength")
+    fun startRelativeStrengthRecompute(): String {
+        relativeStrengthService.recomputeAllAsync()
         return "redirect:/ingestion"
     }
 
