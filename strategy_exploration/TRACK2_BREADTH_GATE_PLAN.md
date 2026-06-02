@@ -22,7 +22,19 @@ Everything is held identical to the rejected candidate EXCEPT the market-gate el
 
 The promoted `NarrowingRange`/`VolumeDryUp` conditions (G14-PASS, unit-tested, deployed) carry over untouched — no re-promotion, no new G14.
 
-## 3. The design choice — which breadth gate (DECISION NEEDED)
+## 3. The design choice — **LOCKED: Option A** (quant-confirmed 2026-06-03)
+
+**Decision: fire Option A (`spyTrendUp ∧ breadthEma10Above50`). No new condition.** Quant verdict:
+- **Option D (build a divergence condition) REJECTED — it is the dangerous choice.** Its only motivated purpose right now is to catch the one borderline window (2023) we've already peeked at → that is snooping a fix to a single 25y realization, with a fresh ARS surface (band floor + width). The parameter-free gate's **zero snooping surface is the whole point**; D destroys it. D is admissible ONLY as a post-result new candidate (see the 2023 forward branch below), never built speculatively.
+- **Keep `spyTrendUp` (reject Option B).** spyTrendUp and breadthEma10Above50 encode two *independent* failure modes (crisis index-breakdown vs narrow-leadership); they merely co-incide in 2008. Dropping the *proven* GFC-defensive element to save nothing (A adds no tunable) is a bad trade. Both = Minervini's M (price AND breadth).
+- **Reject Option C** (`marketBreadthAbove(50)`): re-introduces a raw-breadth `threshold` tunable (ARS surface) + daily whipsaw; the EMA-smoothed parameter-free gate dominates it.
+- **2023: accept a possible residual, do NOT pre-fix.** ema10≈51 is a single mid-year snapshot; the gate evaluates daily and likely dips below 50 for parts of 2023, taking far fewer trades than Track-1's 30–47. Let the firewall run; adjudicate 2023 against the **frozen C7 carve-out — which is named to 2011, NOT relocatable to 2023** (the anti-snooping feature working). A 2023 residual is a disclosed finding, not an auto-pass.
+- **2023 forward branch (pre-registered, parameter-free):** IF (and only if) A passes all gates with a clean *isolated* 2023 residual, the next move is a **NEW re-screened candidate (Track-2b)** adding the parameter-free `sectorBreadthGreaterThanMarket` dimension ("is the stock's own sector broad?" — a genuinely independent axis). Never a patch on A; re-enters from Stage 1.
+- **PIT/leakage: CLEAN (quant-confirmed).** Same-day breadth gating is point-in-time-safe (breadth on date D is computed from D-and-earlier bars; entry fills next session via `entryDelayDays 1`). Walk-forward IS/OOS is **not** compromised — breadth is a market-wide *exogenous, parameter-free* input (nothing IS-fitted to leak); the IS-derived sector ranking WalkForwardService isolates is untouched.
+
+_Original option analysis retained below for the record._
+
+### 3a. (record) — which breadth gate, options considered
 
 The failure was a low *breadth level* while index trend held → the fix is a **breadth-level** gate (not a breadth-momentum gate, which can be true off a low base). Three principled constructions:
 
@@ -85,10 +97,10 @@ A pass is only credible if the breadth gate fixes the *specific* failure, not if
 - **`breadthEma10Above50` fail-closed behavior:** returns false when no breadth row exists → on un-covered dates the book stands aside (safe, but could over-suppress if coverage is patchy). Confirm coverage density.
 - **`/condition-screen` perf cliff** (memory `project_condition_screen_perf_cliff`): `marketBreadthIncreasing`/`sectorBreadthIncreasing` are non-terminating under the auto-sweep. `breadthEma10Above50` is parameter-free so it won't auto-sweep — but do NOT condition-screen the breadth-momentum variants. (We're skipping the isolated condition-screen anyway — a market-level regime gate's real test is the in-strategy firewall, not standalone forward-return lift.)
 
-## 8. Open decisions
-1. **Approve the gate construction** (§3 — Option A recommended).
-2. **Verify breadth coverage** (§7) before assembling.
-3. Then: assemble → light Stage-1 sanity → Component Firewall (frozen gates) + §5 success-signature check.
+## 8. Status / next actions
+1. ~~Gate construction~~ **LOCKED — Option A** (`spyTrendUp ∧ breadthEma10Above50`), quant-confirmed; no new condition.
+2. ~~Breadth coverage~~ **VERIFIED** full 2000–2025.
+3. **NEXT: assemble** the Option-A config (swap the market gate in the Track-1 generators) → light Stage-1 sanity → **Component Firewall (frozen gates)** + §5 success-signature check (must stand aside in 2015/16/21/22; preserve Block B 2020 alpha). Then adjudicate 2023 vs frozen C7.
 
 ## Reference
 - [[project-minervini-vcp-breakout-rejected]], `COMPONENT_FIREWALL_PLAN.md` (frozen gates §4b, result §10)
