@@ -1,7 +1,21 @@
 # George — 52-Week-High Anchoring strategy development
 
-_Created: 2026-06-04 · Status: **SPEC (pre-build)** · Premise class: 52-week-high anchoring (price-LEVEL)._
-_First candidate of the research-widened search (`STRATEGY_LEDGER.md` §C, rank 1). Quant-signed spec._
+_Created: 2026-06-04 · Status: **DEPRECATED — capped premise (lost to Random baseline) 2026-06-04**._
+_First candidate of the research-widened search (`STRATEGY_LEDGER.md` §A). Quant-signed throughout._
+
+> **⛔ VERDICT (2026-06-04): CAPPED PREMISE — DEPRECATED (long-only liquid form).** The
+> nearness-to-52wk-high ranker **did not beat a byte-identical Random baseline**: Random matched
+> per-trade edge (~1%) and beat George on blended CAGR (6.6 vs 1.1%), positive windows (6/7 vs
+> 5/7), DD, and GFC survival (−2.1 vs −14.3%). The ~1% edge is **entry-universe beta**, and the
+> anchoring tilt is a *worse-than-noise* GFC liability (concentrates into the most-extended
+> momentum names). George's win-rate (53.4 vs 50) + WFE (1.21) wins are payoff-shape artifacts, not
+> alpha. **No defended successor** (it would defend a no-information selector). The anchoring
+> *class* was tested in its weakest habitat (long-only — the engine can't express George-Hwang's
+> short leg; liquidity-pre-filtered — stripped the down-cap tier where the effect survives); the
+> only honest re-test is a long-short decile on a down-cap universe, **not buildable in a long-only
+> engine** → class deprecated in the tradable universe. **Reusable artifacts kept:** the
+> `nearness52WeekHigh` ranker + `maxHoldingDays` / `belowPercentOf52WeekHigh` conditions (PR #90)
+> are general, tested building blocks. Full method: `BACKTESTING_FUNNEL.md` §6.
 
 ## Premise
 
@@ -25,12 +39,27 @@ the long top-tranche leg — it captures the winners-near-high underreaction, no
 
 | Stage | State |
 |---|---|
-| Spec | ✅ quant-signed (this doc) |
-| Build (ranker, TDD) | ⏳ next |
-| `/strategy-screen` 2005–2015 | pending build + user go (never fire without approval) |
-| `/validate-candidate` (Block A) | gated on screen PASS |
-| Promote script exit + G13 + G14 | gated — **George is NOT tradable until the script exit is promoted** |
-| `/monte-carlo` | gated on validation |
+| Spec | ✅ quant-signed |
+| Build (ranker + 2 exits, TDD, first-class) | ✅ done (PR #90) |
+| `/strategy-screen` 2005–2015 | ✅ run — **FAIL** G2 (Sharpe 0.14) + G4 (GFC DD 44.7%) |
+| **G-RANDOM baseline** | ✅ run — **George LOST to Random** (capped premise) |
+| `/validate-candidate` … `/monte-carlo` | ⛔ not reached — DEPRECATED at screen |
+
+**Screen numbers (2005–2015, 7 OOS windows, seed 42):**
+
+| Metric | George (nearness52WeekHigh) | Random (identical skeleton) |
+|---|---|---|
+| Edge / trade | +1.01% | **+1.08%** |
+| Blended OOS CAGR | +1.08% | **+6.63%** |
+| Aggregate maxDD | 51.3% | **46.1%** |
+| Win rate | **53.4%** | 50.0% |
+| Positive windows | 5/7 | **6/7** |
+| WFE | **1.21** | 0.86 |
+| 2008 GFC window edge | **−14.3%** | **−2.1%** |
+| Trades | 556 | 1695 |
+
+Per-window George OOS edges: [−14.3, +3.1, +8.0, −0.2, +7.9, +12.3, +2.7]. The 2008 window alone
+sinks the aggregate; the Random baseline shows even that aside, the ranker carries no information.
 
 ## The new artifact to build (TDD)
 
