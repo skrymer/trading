@@ -97,10 +97,32 @@ A pass is only credible if the breadth gate fixes the *specific* failure, not if
 - **`breadthEma10Above50` fail-closed behavior:** returns false when no breadth row exists → on un-covered dates the book stands aside (safe, but could over-suppress if coverage is patchy). Confirm coverage density.
 - **`/condition-screen` perf cliff** (memory `project_condition_screen_perf_cliff`): `marketBreadthIncreasing`/`sectorBreadthIncreasing` are non-terminating under the auto-sweep. `breadthEma10Above50` is parameter-free so it won't auto-sweep — but do NOT condition-screen the breadth-momentum variants. (We're skipping the isolated condition-screen anyway — a market-level regime gate's real test is the in-strategy firewall, not standalone forward-return lift.)
 
-## 8. Status / next actions
-1. ~~Gate construction~~ **LOCKED — Option A** (`spyTrendUp ∧ breadthEma10Above50`), quant-confirmed; no new condition.
-2. ~~Breadth coverage~~ **VERIFIED** full 2000–2025.
-3. **NEXT: assemble** the Option-A config (swap the market gate in the Track-1 generators) → light Stage-1 sanity → **Component Firewall (frozen gates)** + §5 success-signature check (must stand aside in 2015/16/21/22; preserve Block B 2020 alpha). Then adjudicate 2023 vs frozen C7.
+## 8. RESULT — Option A **REJECTED, worse than Track-1** (2026-06-03, quant-confirmed)
+
+Fired the 4 Component Firewall walk-forwards (`/tmp/t2-wf-*-result.json`, gen `/tmp/gen-track2-runs.py`, eval `/tmp/eval-t2.py`). The breadth gate did **"thinning, not selecting"** — the §5 red flag, pre-registered as a reject trigger, tripped:
+
+- **Trades ~halved in every window** (uniform suppression, not selective stand-aside) — a scalar market gate has **zero cross-sectional resolution**: on a breadth-low day it suppresses the genuine leader and the junk breakout identically.
+- **3 good windows flipped positive→negative** (gate killed winners): 2006 (+6.9→−5.2), 2018 (+1.7→−2.8), 2019 (+9.0→−3.2).
+- **2 bad windows got BIGGER losses** (2011 −4.6→−14.3, 2016 −1.8→−7.4) — the tell that survivors weren't higher-quality, just fewer (thinning amplifies noise, doesn't change edge).
+- **Block B (the proof-of-premise) destroyed:** 0 negative windows → 2; in-mkt CAGR 20.8→12.1; C12 152→**77 (<100, fails)**.
+- 25y: C7 neg windows **8→10** (worse), C5 CoV 1.86→2.19 (worse), C1a still fails 30% everywhere, C8 trade counts collapsed (2022=5, 2015=7).
+
+**Law for the dossier:** a scalar market-regime gate cannot solve a cross-sectional (per-name) selection problem. The breakouts themselves are what fail in narrow tape; a market on/off switch can't see *which* breakout fails, so it can only thin the whole stream.
+
+### 8b. Track-2b — the ONE remaining pre-registered shot (`sectorBreadthGreaterThanMarket`)
+
+The quant permits **exactly one** more firewall run, because `sectorBreadthGreaterThanMarket` is a **per-name** predicate (cross-sectional resolution — can pass a broad-sector name and reject a narrow-sector name on the same day), the one untried principled axis. **Real risk:** in narrow-leadership tape the few broad sectors are the *crowded* ones where late breakouts fail back hardest → it may thin *toward* losers. **Pre-registered kill rule (frozen BEFORE firing):**
+- (a) Block B retains ≥ Track-1 trade count AND stays **0 negative windows** (don't destroy the proof);
+- (b) 2006 / 2018 / 2019 stay **positive**;
+- (c) **NO bad window may get more negative** (the Track-2 signature → instant reject regardless of aggregate gates);
+- (d) trade-count reduction must be **concentrated in the narrow windows**, not uniform across Block B.
+
+### 8c. DEPRECATION TRIGGER (frozen)
+
+**If Track-2b fails by the same thinning/deepening signature, the breakout-in-uptrend premise class is DEPRECATED** (3 same-direction strikes: no-gate participate-and-lose → scalar-gate-worse → cross-sectional-gate-worse = the failure is in the *entry premise*, not the selector; no selector fixes it). Park it; no further regime-filter iteration (IS-fitting). The *only* survival outcome is a clean **selecting** signature (cuts concentrated in narrow windows, bad windows compressing toward zero, Block B preserved).
+
+### 8d. If deprecated — forward (quant)
+Regime-conditional search is **still 0 passing**, multiple strikes across two premise families (breakout + leveraged-long-ETF), **both dying in narrow-leadership tape** — the exact regime the framework exists to survive. Pivot away from long *participants*: build the framework's required **defensive/crisis-specialist component** (the cash-overlap partner — its C-PARTICIPATE floor is re-derived, NOT the breakout's 40%) and/or a **leadership-concentration premise that USES narrow tape as its edge** (adjacent to the RS-gate / single-name pivot). A per-name post-breakout follow-through filter is a *new premise*, not a rescue — hold in reserve.
 
 ## Reference
 - [[project-minervini-vcp-breakout-rejected]], `COMPONENT_FIREWALL_PLAN.md` (frozen gates §4b, result §10)

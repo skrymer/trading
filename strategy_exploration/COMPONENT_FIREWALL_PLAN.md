@@ -197,6 +197,8 @@ Fired the 4 binding walk-forwards (full universe, 36/12/12). Results `/tmp/cf-wf
 
 **Forward — Track 2 validated as the structural fix:** a **breadth-confirmed market gate** replacing the binary `spyTrendUp`, as a **NEW candidate re-screened from Stage 1** (breadth trustworthy from 2000 = Block A start, fully firewall-testable). **Keep the breakout premise + the promoted G14-PASS conditions** (Block B proves the edge is real in its native regime) — replace ONLY the regime selector. **NOT a post-hoc breadth filter bolted onto this REJECTED config** (IS-fitting/ARS on the single 25y realization; memory `feedback_mean_reversion_pullback_known_weakness`). Do not re-touch this config.
 
+> **Track-2 UPDATE (2026-06-03): Option A (`+breadthEma10Above50`) ALSO REJECTED — worse.** A scalar market-breadth gate did "thinning not selecting" (killed Block B's 0-negative proof, deepened bad windows). One pre-registered shot remains — **Track-2b `sectorBreadthGreaterThanMarket`** (per-name/cross-sectional) under a frozen kill rule; if it fails the same way the breakout premise is DEPRECATED. Full result + kill rule + deprecation trigger in `TRACK2_BREADTH_GATE_PLAN.md` §8.
+
 ## Reference
 - `MINERVINI_VCP_STRATEGY_DEVELOPMENT.md` (authoritative candidate record; Component Firewall table 2026-06-02)
 - `.claude/skills/validate-candidate/` (v4 firewall — block ranges, cadence, G10/G11/G14, eval-block.py to adapt)
