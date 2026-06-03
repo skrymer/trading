@@ -83,7 +83,40 @@ Gate conditions are all on the passing side by construction, so this shows *marg
   - **One operational caveat:** delisted re-ingestion is *code-merged, full re-run pending* (~1,500 tickers; 21 delistings present = *some* ingested). If incomplete, the backtest is slightly **optimistic** (missing failure trades) → makes the REJECTED verdict **more** robust, never rescues it.
   - **Conclusion:** the concentration (§1) / breadth (§2) / discrimination (§4) findings are NOT survivorship artifacts. No rescue hides in the universe. Operational follow-up (independent of this strategy): complete the delisted re-ingestion so the failure population is fully represented for all future breakout work.
 
+### 7c. Condition ablation — RESULTS (2026-06-03, quant-reviewed)
+
+Baseline = full 10-condition entry, 25y single backtest, full universe. Each row drops one condition (or +ADX). `mon50/mon10` = baseline top-50 / top-10 monster winners the variant still captures. Script `diagnostics/ablation_contribution.py`.
+
+| variant | trades | CAGR | edge | PF | Calmar | mon50 |
+|---|---|---|---|---|---|---|
+| BASELINE | 946 | 10.4 | 3.63 | 2.5 | 0.21 | 50/50 |
+| +ADX(30,100) | 396 | 11.3 | 5.94 | 11.8 | 0.32 | **12/50** |
+| −spyTrendUp | 1168 | 12.6 | 3.12 | **1.3** | 0.23 | 36/50 |
+| −movingAverageStack | 1094 | 13.2 | 3.07 | 2.9 | 0.54 | 36/50 |
+| −movingAverageRising | 959 | 12.1 | 4.12 | 2.8 | 0.25 | 46/50 |
+| −percentFrom52WeekHigh | 1011 | 10.9 | 2.49 | 2.2 | 0.22 | 39/50 |
+| −percentFrom52WeekLow | 931 | 12.5 | 3.58 | 2.6 | 0.29 | 43/50 |
+| −relativeStrengthPercentile | 1109 | 15.2 | 2.97 | **1.0** | 0.56 | 31/50 |
+| −narrowingRange | **OOM** — primary thinner (candidate set explodes) |
+| −volumeDryUp | **OOM** — primary thinner |
+| −priceNearDonchianHigh | 1371 | 17.6 | 3.89 | **0.7** | 0.49 | 24/50 |
+| −volumeAboveAverage | **OOM** — primary thinner |
+
+**THE HEADLINE (quant): the ablation independently PROVES the §10 selector death from a new angle.** Removing almost any filter *raises* blended CAGR (12–17.6 vs 10.4) while PF *craters toward 1.0/0.7 (gross-breakeven-to-losing)*. That means **the trade mass the filters remove is gross-breakeven-to-losing — the filters CONCENTRATE the tail, they do NOT create or select edge.** The entry stack's whole positive expectancy lives in a tail the filters concentrate but can't generate. This is the trade-level fingerprint of *participate-and-lose* — a second, independent corroboration of the in-market-CAGR-inversion verdict. **There is no lever in this table; its value is portable design principles for the NEXT candidate.**
+
+**Metric trust (quant-corrected — I over-read PF/monster-retention):** blended CAGR is misleading (AtrRisk + maxPos 10 make it a near-monotone function of *trade count* = more lottery tickets on a tail-carried edge — order the rows by trades, CAGR tracks). But PF and monster-retention are **NOT clean scalars** either: PF is tail-dominated + each ablation is a *different* trade population; monster-retention is **sizer/concurrency-contaminated** (a monster is "lost" when dropping a filter admits 200 names that out-rank it for the 10 slots — a scheduling artifact, not the filter gating it). **No single-realization capital-aware ablation yields a trustworthy scalar contribution.** Read the *coherent joint pattern* (PF + monsters + trade-count moving together) qualitatively; a clean metric needs a sizer-free `/condition-screen` + multiple realizations.
+
+**Portable design principles for the NEXT (risk-on breakout) candidate — typed hypotheses, re-tested via fresh `/condition-screen`, NEVER inherited as fact:**
+1. **A breakout-event trigger + a SPY-regime crash filter are load-bearing for trade quality.** Dropping `priceNearDonchianHigh` makes the system gross-losing (PF 0.7 — you're buying non-breakouts); dropping `spyTrendUp` halves PF (2.5→1.3). Large, coherent, mechanism-obvious → carry the *class* (start a breakout candidate with both).
+2. **ADX-as-a-gate is contraindicated for tail-edge premises.** +ADX lifts PF to 11.8 but keeps only 12/50 monsters — it cuts the very tail that IS the edge. Realization-independent (follows from the payoff structure). Durable design principle, not "don't use ADX."
+3. **The VCP base IS the primary selectivity** — `narrowingRange`+`volumeDryUp`+`volumeAboveAverage` can't even be dropped tractably (OOM = they thin candidates *before* the combinatorial fan-out). So the other 7 conditions are *refinements on the VCP base's output* — a future breakout candidate's primary thinner should be a VCP-style base+volume contraction, with trend/RS/distance as secondary refiners, not the reverse.
+4. **Monster names enter far-from-quiet** (high %above-52wLow, at/through the high) — a *ranker*-design input for the maxPos-10 binding constraint, robust because it describes the captured tail.
+
+**NOT actionable (single-realization noise — flagged over-reads I corrected):** the "MA-rising is redundant, drop it" call is an over-read — dropping it changes the funnel by +13 trades (near-zero), exactly the regime where one realization tells you least; redundancy is a *hypothesis to re-test in a fresh screen*, not a drop. Same for `%52wLow`. No specific thresholds (IS-fitting). The line for carry-forward: **large + monotone-across-metrics effect AND an a-priori mechanism** (trigger/spyTrendUp/ADX-cuts-tail clear it; MA-rising clears neither).
+
+**Firewall-methodology implication (quant): do NOT re-weight the firewall to PF / tail-retention as gates** — they're more sizer-decoupled but equally dispersion-dominated + population-dependent; gating on them would move the snooping surface and recreate the lottery-screen failure (`feedback_lottery_screen_diagnostic`). **The firewall's existing binding metric (in-market geometric CAGR + per-window edge-sign stability) is already right and CAUGHT this — it didn't fail, it worked.** Worth adding only as an explicit *flag* (not a gate): **blended-vs-geometric(in-market) CAGR divergence** = the cleanest single tell of a dispersion-dominated premise.
+
 ## Reference
 - `COMPONENT_FIREWALL_PLAN.md` §10 (Track-1 REJECTED), `TRACK2_BREADTH_GATE_PLAN.md` §8 (Track-2 REJECTED + Track-2b)
 - [[project-minervini-vcp-breakout-rejected]], `feedback_lottery_screen_diagnostic`, `feedback_mean_reversion_pullback_known_weakness`, `project_regime_conditional_portfolio_framework`
-- Scripts: `diagnostics/trade_anatomy.py`, `diagnostics/entry_discrimination.py`
+- Scripts: `diagnostics/trade_anatomy.py`, `diagnostics/entry_discrimination.py`, `diagnostics/ablation_contribution.py`
