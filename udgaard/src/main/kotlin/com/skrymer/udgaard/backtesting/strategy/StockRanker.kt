@@ -401,3 +401,32 @@ class TrailingReturnRanker(
     private const val INSUFFICIENT_HISTORY = -Double.MAX_VALUE
   }
 }
+
+/**
+ * Ranks stocks by nearness to their own 52-week high: score = min(close / 52-week high, 1.0),
+ * higher = closer to the high = better.
+ *
+ * The cap at 1.0 is deliberate and load-bearing. A close *at* the 52-week high is already the
+ * maximally-near state; a close that has printed *above* the prior high is an overshoot, not a
+ * "nearer" state. Without the cap an 8%-above-high quote (ratio 1.08) would outrank a quote sitting
+ * exactly at its high — which would make this a breakout/overshoot ranker rather than a nearness
+ * ranker. Capping collapses every at-or-above-high quote to the same top score 1.0 (ties resolved by
+ * the usual jitter). There is no low-side floor: a far-from-high ratio (e.g. 0.3) is a legitimately
+ * weak reading and should rank low.
+ */
+class NearnessTo52WeekHighRanker : StockRanker {
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double {
+    val high = entryQuote.high52Week ?: return INSUFFICIENT_DATA
+    if (high <= 0.0 || entryQuote.closePrice <= 0.0) return INSUFFICIENT_DATA
+    return minOf(entryQuote.closePrice / high, 1.0)
+  }
+
+  override fun description() = "Nearness to 52-week high (min(close / 52-week high, 1.0); higher = closer)"
+
+  companion object {
+    private const val INSUFFICIENT_DATA = -Double.MAX_VALUE
+  }
+}

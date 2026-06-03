@@ -384,6 +384,7 @@ SectorStrengthRanker()          // Rank by sector bull percentage
 RollingSectorStrengthRanker()   // Avg sector bull % over a trailing window (persistent strength)
 SectorStrengthMomentumRanker()  // Δ sector bull % over a window (sectors gaining breadth)
 TrailingReturnRanker()          // 12-1 cross-sectional momentum (252d return ending 21d ago, higher = better)
+NearnessTo52WeekHighRanker()    // Nearness to own 52-week high (min(close / 52wk-high, 1.0), closer = better)
 SectorEdgeRanker()              // Rank by user-supplied sector priority order (Sector-Priority category)
 SectorEdgeWithTightnessRanker() // Sector edge + base-tightness (ATR/close) tie-breaker within a sector
 RandomRanker()                  // Random selection (baseline)
