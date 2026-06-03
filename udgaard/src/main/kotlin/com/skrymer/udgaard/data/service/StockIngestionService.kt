@@ -1,10 +1,12 @@
 package com.skrymer.udgaard.data.service
 
+import com.skrymer.udgaard.data.dto.ReconcileResult
 import com.skrymer.udgaard.data.dto.RefreshProgress
 import com.skrymer.udgaard.data.dto.RefreshTask
 import com.skrymer.udgaard.data.dto.RefreshType
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
+import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.Stock
@@ -80,6 +82,37 @@ class StockIngestionService(
   }
 
   /**
+   * Reconcile the local universe with Midgaard's catalogue, then queue a full refresh.
+   *
+   * Midgaard is the single source of truth for which symbols exist (ADR 0011): any local
+   * stock absent from the catalogue is a drifted-dead ticker and is pruned (cascading to its
+   * quotes / order blocks / earnings). A null or empty catalogue is treated as an unusable
+   * response and leaves the universe untouched, so a transient Midgaard outage can never
+   * wipe it.
+   */
+  fun reconcileAndRefreshAll(): ReconcileResult {
+    val catalogue = midgaardClient.getAllSymbols()
+    if (catalogue.isNullOrEmpty()) {
+      logger.warn("Midgaard catalogue lookup returned no symbols; leaving the universe untouched")
+      return ReconcileResult(reconciled = false, queued = 0, pruned = 0)
+    }
+    val catalogueSymbols = catalogue.map { it.symbol }
+    val pruned = pruneStocksNotIn(catalogueSymbols)
+    queueStockRefresh(catalogueSymbols)
+    return ReconcileResult(reconciled = true, queued = catalogueSymbols.size, pruned = pruned)
+  }
+
+  private fun pruneStocksNotIn(catalogueSymbols: List<String>): Int {
+    val catalogue = catalogueSymbols.toSet()
+    val drifted = stockRepository.findAllSymbols().filterNot { it in catalogue }
+    if (drifted.isNotEmpty()) {
+      logger.info("Pruning ${drifted.size} stock(s) absent from the Midgaard catalogue: ${drifted.joinToString(", ")}")
+      stockRepository.batchDelete(drifted)
+    }
+    return drifted.size
+  }
+
+  /**
    * Queue stock symbols for async batch refresh with progress tracking.
    */
   fun queueStockRefresh(symbols: List<String>) {
@@ -117,6 +150,7 @@ class StockIngestionService(
       val ovtlyrSignals = midgaardClient.getOvtlyrSignals(symbol) ?: emptyList()
       Stock(
         symbol = symbol,
+        assetType = resolveAssetType(symbolInfo?.assetType, symbol),
         sectorSymbol = symbolInfo?.sectorSymbol,
         quotes = sortedQuotes,
         orderBlocks = orderBlocks.toMutableList(),
@@ -152,6 +186,19 @@ class StockIngestionService(
         val cutoff = LocalDate.now().minusDays(90)
         if (lastDate.isBefore(cutoff)) lastDate else null
       }
+
+  // Map Midgaard's asset-type string onto Udgaard's enum. An unknown value (the two enums
+  // live in separate deployables and can drift) is logged loudly and stored as null rather
+  // than thrown — a single unrecognised type must not silently drop the symbol from ingestion.
+  // Null is treated as STOCK downstream (the overwhelming majority).
+  private fun resolveAssetType(rawAssetType: String?, symbol: String): AssetType? {
+    if (rawAssetType == null) return null
+    return runCatching { AssetType.valueOf(rawAssetType) }
+      .getOrElse {
+        logger.warn("Unknown asset type '$rawAssetType' from provider for $symbol; storing null (treated as STOCK)")
+        null
+      }
+  }
 
   private fun fetchQuotes(symbol: String): List<StockQuote> =
     stockProvider.getDailyAdjustedTimeSeries(symbol)

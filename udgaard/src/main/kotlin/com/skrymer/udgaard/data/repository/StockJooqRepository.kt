@@ -1,7 +1,9 @@
 package com.skrymer.udgaard.data.repository
 
 import com.skrymer.udgaard.data.dto.SimpleStockInfo
+import com.skrymer.udgaard.data.dto.SymbolRecord
 import com.skrymer.udgaard.data.mapper.StockMapper
+import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
@@ -118,8 +120,25 @@ class StockJooqRepository(
       .filterNotNull()
 
   /**
+   * The trading universe as (symbol, asset type) pairs — the stocks table is the catalogue
+   * (ADR 0011). A null asset_type (a stock ingested before the column existed and not yet
+   * re-ingested) defaults to STOCK, the overwhelming majority.
+   */
+  fun findAllSymbolRecords(): List<SymbolRecord> =
+    dsl
+      .select(STOCKS.SYMBOL, STOCKS.ASSET_TYPE)
+      .from(STOCKS)
+      .orderBy(STOCKS.SYMBOL.asc())
+      .fetch { record ->
+        SymbolRecord(
+          symbol = record[STOCKS.SYMBOL]!!,
+          assetType = record[STOCKS.ASSET_TYPE]?.let { AssetType.valueOf(it) } ?: AssetType.STOCK,
+        )
+      }
+
+  /**
    * Get simple stock info for all stocks using a lightweight aggregate query.
-   * Joins symbols table to get sector data. No quote/order block/earnings data is loaded into memory.
+   * Reads sector directly off the stocks table. No quote/order block/earnings data is loaded into memory.
    */
   fun findAllSimpleInfo(): List<SimpleStockInfo> {
     val quoteCount =
@@ -287,16 +306,18 @@ class StockJooqRepository(
     return dsl.transactionResult { configuration ->
       val ctx = configuration.dsl()
 
-      // 1. Upsert Stock (including sector and listing dates)
+      // 1. Upsert Stock (including sector, asset type, and listing dates)
       ctx
         .insertInto(STOCKS)
         .set(STOCKS.SYMBOL, stock.symbol)
         .set(STOCKS.SECTOR, stock.sectorSymbol)
+        .set(STOCKS.ASSET_TYPE, stock.assetType?.name)
         .set(STOCKS.LISTING_DATE, stock.listingDate)
         .set(STOCKS.DELISTING_DATE, stock.delistingDate)
         .onConflict(STOCKS.SYMBOL)
         .doUpdate()
         .set(STOCKS.SECTOR, stock.sectorSymbol)
+        .set(STOCKS.ASSET_TYPE, stock.assetType?.name)
         .set(STOCKS.LISTING_DATE, stock.listingDate)
         .set(STOCKS.DELISTING_DATE, stock.delistingDate)
         .execute()
@@ -489,11 +510,13 @@ class StockJooqRepository(
               .insertInto(STOCKS)
               .set(STOCKS.SYMBOL, stock.symbol)
               .set(STOCKS.SECTOR, stock.sectorSymbol)
+              .set(STOCKS.ASSET_TYPE, stock.assetType?.name)
               .set(STOCKS.LISTING_DATE, stock.listingDate)
               .set(STOCKS.DELISTING_DATE, stock.delistingDate)
               .onConflict(STOCKS.SYMBOL)
               .doUpdate()
               .set(STOCKS.SECTOR, stock.sectorSymbol)
+              .set(STOCKS.ASSET_TYPE, stock.assetType?.name)
               .set(STOCKS.LISTING_DATE, stock.listingDate)
               .set(STOCKS.DELISTING_DATE, stock.delistingDate)
           },
@@ -534,10 +557,12 @@ class StockJooqRepository(
       // 1. Insert stocks
       val stockBatch = ctx.batch(
         ctx
-          .insertInto(STOCKS, STOCKS.SYMBOL, STOCKS.SECTOR, STOCKS.LISTING_DATE, STOCKS.DELISTING_DATE)
-          .values(null as String?, null as String?, null as LocalDate?, null as LocalDate?),
+          .insertInto(STOCKS, STOCKS.SYMBOL, STOCKS.SECTOR, STOCKS.ASSET_TYPE, STOCKS.LISTING_DATE, STOCKS.DELISTING_DATE)
+          .values(null as String?, null as String?, null as String?, null as LocalDate?, null as LocalDate?),
       )
-      stocks.forEach { stock -> stockBatch.bind(stock.symbol, stock.sectorSymbol, stock.listingDate, stock.delistingDate) }
+      stocks.forEach { stock ->
+        stockBatch.bind(stock.symbol, stock.sectorSymbol, stock.assetType?.name, stock.listingDate, stock.delistingDate)
+      }
       stockBatch.execute()
 
       // 2. Insert all child records

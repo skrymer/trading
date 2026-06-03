@@ -12,7 +12,6 @@ import com.skrymer.udgaard.data.service.DataStatsService
 import com.skrymer.udgaard.data.service.MarketBreadthService
 import com.skrymer.udgaard.data.service.SectorBreadthService
 import com.skrymer.udgaard.data.service.StockIngestionService
-import com.skrymer.udgaard.data.service.SymbolService
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController
 class DataManagementController(
   private val dataStatsService: DataStatsService,
   private val stockIngestionService: StockIngestionService,
-  private val symbolService: SymbolService,
   private val sectorBreadthService: SectorBreadthService,
   private val marketBreadthService: MarketBreadthService,
   private val marketBreadthRepository: MarketBreadthRepository,
@@ -69,16 +67,22 @@ class DataManagementController(
   }
 
   /**
-   * Queue all stocks for refresh (from symbols table)
+   * Reconcile the local universe with Midgaard's catalogue, then queue a full refresh.
+   * Midgaard is the single source of truth for which symbols exist (ADR 0011); drifted-dead
+   * tickers it no longer lists are pruned. An unavailable catalogue leaves the universe
+   * untouched rather than wiping it.
    */
   @PostMapping("/refresh/all-stocks")
   fun refreshAllStocks(): RefreshResponse {
-    val allSymbols = symbolService.getAll().map { it.symbol }
-    logger.info("Queueing all ${allSymbols.size} stocks for refresh")
-    stockIngestionService.queueStockRefresh(allSymbols)
+    val result = stockIngestionService.reconcileAndRefreshAll()
+    if (!result.reconciled) {
+      logger.warn("Symbol catalogue unavailable from Midgaard; full refresh skipped")
+      return RefreshResponse(queued = 0, message = "Symbol catalogue unavailable from Midgaard; refresh skipped")
+    }
+    logger.info("Reconciled universe: pruned ${result.pruned} drifted symbol(s), queued ${result.queued} for refresh")
     return RefreshResponse(
-      queued = allSymbols.size,
-      message = "Queued ${allSymbols.size} stocks for refresh",
+      queued = result.queued,
+      message = "Pruned ${result.pruned} drifted symbol(s); queued ${result.queued} stocks for refresh",
     )
   }
 

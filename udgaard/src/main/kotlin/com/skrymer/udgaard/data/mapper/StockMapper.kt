@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.data.mapper
 
+import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
@@ -40,6 +41,7 @@ class StockMapper {
       ovtlyrSignals = ovtlyrSignals.map { toDomain(it) },
       listingDate = stock.listingDate,
       delistingDate = stock.delistingDate,
+      assetType = stock.assetType?.let { AssetType.valueOf(it) },
     )
 
   /**
@@ -131,6 +133,7 @@ class StockMapper {
   fun toPojo(stock: Stock): Stocks =
     Stocks(
       symbol = stock.symbol,
+      assetType = stock.assetType?.name,
     )
 
   /**

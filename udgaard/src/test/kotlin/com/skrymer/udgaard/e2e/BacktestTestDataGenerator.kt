@@ -6,7 +6,6 @@ import com.skrymer.udgaard.jooq.tables.references.ORDER_BLOCKS
 import com.skrymer.udgaard.jooq.tables.references.SECTOR_BREADTH_DAILY
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
-import com.skrymer.udgaard.jooq.tables.references.SYMBOLS
 import org.jooq.BatchBindStep
 import org.jooq.DSLContext
 import java.math.BigDecimal
@@ -65,8 +64,7 @@ object BacktestTestDataGenerator {
    * populate(...) call cache-hits and returns silently with extra rows still in place,
    * breaking deterministic assertions on counts (e.g., `assertEquals(204, totalTrades)`).
    *
-   * Truncates only date-scoped tables; `stocks` and `symbols` are UPSERT-idempotent and
-   * stay populated.
+   * Truncates only date-scoped tables; `stocks` is UPSERT-idempotent and stays populated.
    */
   fun reset(dsl: DSLContext) {
     synchronized(BacktestTestDataGenerator) {
@@ -90,7 +88,6 @@ object BacktestTestDataGenerator {
       synchronized(BacktestTestDataGenerator) {
         random.setSeed(42L)
         val tradingDays = generateTradingDays(startDate, endDate)
-        insertSymbols(dsl)
         insertStocksAndQuotes(dsl, tradingDays)
         insertEarnings(dsl, tradingDays)
         insertOrderBlocks(dsl, tradingDays)
@@ -106,31 +103,8 @@ object BacktestTestDataGenerator {
       .filter { it.dayOfWeek != DayOfWeek.SATURDAY && it.dayOfWeek != DayOfWeek.SUNDAY }
       .toList()
 
-  private fun insertSymbols(dsl: DSLContext) {
-    // Symbols may already exist from V2 migration - sector is on stocks table, not symbols
-    SECTOR_STOCKS.forEach { (_, symbols) ->
-      symbols.forEach { symbol ->
-        dsl
-          .insertInto(SYMBOLS)
-          .set(SYMBOLS.SYMBOL, symbol)
-          .set(SYMBOLS.ASSET_TYPE, "STOCK")
-          .onConflict(SYMBOLS.SYMBOL)
-          .doNothing()
-          .execute()
-      }
-    }
-    // SPY is an index - no sector
-    dsl
-      .insertInto(SYMBOLS)
-      .set(SYMBOLS.SYMBOL, "SPY")
-      .set(SYMBOLS.ASSET_TYPE, "INDEX")
-      .onConflict(SYMBOLS.SYMBOL)
-      .doNothing()
-      .execute()
-  }
-
   private fun insertStocksAndQuotes(dsl: DSLContext, tradingDays: List<LocalDate>) {
-    insertStock(dsl, "SPY", tradingDays, basePrice = 470.0, volatility = 0.008, sector = null)
+    insertStock(dsl, "SPY", tradingDays, basePrice = 470.0, volatility = 0.008, sector = null, assetType = "INDEX")
     SECTOR_STOCKS.forEach { (sector, symbols) ->
       symbols.forEach { symbol ->
         val basePrice = 50.0 + random.nextDouble() * 300.0
@@ -147,11 +121,13 @@ object BacktestTestDataGenerator {
     basePrice: Double,
     volatility: Double,
     sector: String?,
+    assetType: String = "STOCK",
   ) {
     dsl
       .insertInto(STOCKS)
       .set(STOCKS.SYMBOL, symbol)
       .set(STOCKS.SECTOR, sector)
+      .set(STOCKS.ASSET_TYPE, assetType)
       .onConflict(STOCKS.SYMBOL)
       .doNothing()
       .execute()

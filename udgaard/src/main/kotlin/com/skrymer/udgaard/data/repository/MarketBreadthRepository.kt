@@ -3,8 +3,8 @@ package com.skrymer.udgaard.data.repository
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.jooq.tables.references.MARKET_BREADTH_DAILY
+import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
-import com.skrymer.udgaard.jooq.tables.references.SYMBOLS
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
@@ -128,9 +128,11 @@ class MarketBreadthRepository(
                 .mul(BigDecimal("100.0"))
                 .div(DSL.count().cast(BigDecimal::class.java)),
             ).from(STOCK_QUOTES)
-            .join(SYMBOLS)
-            .on(STOCK_QUOTES.STOCK_SYMBOL.eq(SYMBOLS.SYMBOL))
-            .where(SYMBOLS.ASSET_TYPE.eq(AssetType.STOCK.name))
+            .join(STOCKS)
+            .on(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
+            // null asset_type (lookup failed at ingestion) defaults to STOCK, matching the
+            // stocks-derived universe read path (StockJooqRepository.findAllSymbolRecords).
+            .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name).or(STOCKS.ASSET_TYPE.isNull))
             .groupBy(STOCK_QUOTES.QUOTE_DATE),
         ).execute()
     }
