@@ -11,6 +11,7 @@ class MidgaardQuoteDtoTest {
     sma200: BigDecimal? = null,
     high52Week: BigDecimal? = null,
     low52Week: BigDecimal? = null,
+    relativeStrengthPercentile: BigDecimal? = null,
   ) = MidgaardQuoteDto(
     symbol = "AAPL",
     date = LocalDate.of(2020, 1, 2),
@@ -33,6 +34,7 @@ class MidgaardQuoteDtoTest {
     sma200 = sma200,
     high52Week = high52Week,
     low52Week = low52Week,
+    relativeStrengthPercentile = relativeStrengthPercentile,
   )
 
   @Test
@@ -47,12 +49,19 @@ class MidgaardQuoteDtoTest {
     assertNull(stockQuote.sma200)
     assertNull(stockQuote.high52Week)
     assertNull(stockQuote.low52Week)
+    assertNull(stockQuote.relativeStrengthPercentile)
   }
 
   @Test
   fun `toStockQuote carries through a populated SMA and 52-week value`() {
-    // Given a Midgaard quote with computed SMA/52-week values
-    val quote = dto(sma200 = BigDecimal("101.5"), high52Week = BigDecimal("120.0"), low52Week = BigDecimal("80.0"))
+    // Given a Midgaard quote with computed SMA/52-week/relative-strength values
+    val quote =
+      dto(
+        sma200 = BigDecimal("101.5"),
+        high52Week = BigDecimal("120.0"),
+        low52Week = BigDecimal("80.0"),
+        relativeStrengthPercentile = BigDecimal("72.5"),
+      )
 
     // When mapped to the domain StockQuote
     val stockQuote = quote.toStockQuote()
@@ -61,5 +70,6 @@ class MidgaardQuoteDtoTest {
     assertEquals(101.5, stockQuote.sma200)
     assertEquals(120.0, stockQuote.high52Week)
     assertEquals(80.0, stockQuote.low52Week)
+    assertEquals(72.5, stockQuote.relativeStrengthPercentile)
   }
 }

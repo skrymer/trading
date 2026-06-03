@@ -36,6 +36,7 @@ data class Quote(
     val sma200: BigDecimal? = null,
     val high52Week: BigDecimal? = null,
     val low52Week: BigDecimal? = null,
+    val relativeStrengthPercentile: BigDecimal? = null,
     val indicatorSource: IndicatorSource = IndicatorSource.CALCULATED,
 )
 

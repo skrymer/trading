@@ -43,9 +43,9 @@ midgaard/
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
 │   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical — depends on `@Qualifier("fx") FxProvider`, wraps suspend calls with `runBlocking`
 │   │   ├── StatusController.kt            # GET /api/status
-│   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}
+│   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}, /api/ingestion/recompute-relative-strength (async)
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
-│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill)
+│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute)
 │   ├── integration/
 │   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
@@ -97,6 +97,7 @@ midgaard/
 │       │   └── SicToGicsMapping.kt        # SEC SIC → GICS sector for V6 EDGAR-derived classification
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
 │       ├── IndicatorCalculator.kt         # EMA, SMA, ATR, ADX, Donchian, 52-week high/low computation (used by LOCAL indicator mode)
+│       ├── RelativeStrengthService.kt      # Drives the cross-sectional relative-strength pass (ADR 0009): delegates the whole-universe sort/rank/write to one SQL window-function statement in QuoteRepository. Manual-only (decoupled from ingest); recomputeAllAsync() runs it off the request thread (@Synchronized, idempotent, returns Job); isRecomputeActive() for the UI
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
 │       ├── ApiKeyService.kt              # API key + provider credential management (incl. ovtlyr cookie userid/token/projectId)
@@ -121,7 +122,8 @@ midgaard/
 │   │   ├── V14__Add_leveraged_sector_basket_symbols.sql         # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
 │   │   ├── V15__Populate_symbols.sql                            # Full idempotent snapshot of the runtime-grown symbols catalogue (supersedes V2 seed) — leveraged-ETF basket + era-spread delisted discovery with EDGAR-resolved sectors, so a from-migrations rebuild reproduces the full catalogue without re-running EODHD/EDGAR discovery. ON CONFLICT DO NOTHING (no-op on existing DB).
 │   │   ├── V16__Add_sma_and_52week_indicators.sql               # Adds sma_50/150/200 + high_52_week/low_52_week columns to quotes
-│   │   └── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
+│   │   ├── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
+│   │   └── V18__Add_relative_strength_percentile.sql            # Adds relative_strength_percentile column to quotes (cross-sectional market-relative strength, 0-100; ADR 0009)
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -158,8 +160,9 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 
 1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/SMA/Donchian/52-week-high-low computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence. (SMA + 52-week are computed only on the full initial-ingest path, not extended on daily updates — incrementally-appended bars carry null SMA/52-week until the next full recompute.)
 2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed). Same holiday + zero-volume filter is applied.
-3. **Serving**: REST API returns enriched quotes with all indicators pre-computed
-4. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. A re-run resumes rather than restarts — symbols already present in `ovtlyr_signals` (via `OvtlyrSignalRepository.findDistinctSymbols()`) are skipped so a partial/blocked backfill only fetches what's missing. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
+3. **Relative-strength pass** (manual, decoupled from ingest): `RelativeStrengthService.recomputeAll()` runs one cross-sectional SQL statement in `QuoteRepository` — `LAG`-based trailing return + `rank()`/`count()` window percentile + a single `UPDATE … FROM`, with `work_mem` raised transaction-locally so the whole-universe sort stays in memory — writing `relative_strength_percentile` (0-100) back to the quotes. Triggered by the "Recompute Relative Strength" button / `POST /api/ingestion/recompute-relative-strength`, not by ingestion, so a fast re-ingest is never slowed by it (ADR 0009).
+4. **Serving**: REST API returns enriched quotes with all indicators pre-computed
+5. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. A re-run resumes rather than restarts — symbols already present in `ovtlyr_signals` (via `OvtlyrSignalRepository.findDistinctSymbols()`) are skipped so a partial/blocked backfill only fetches what's missing. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
 
 ### Provider Interfaces (`integration/Providers.kt`)
 
@@ -204,7 +207,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - Controlled by `@ConditionalOnProperty("app.ui.enabled")`, enabled by default
 - Set `APP_UI_ENABLED=false` in production to disable entirely
 - Pages: dashboard, symbols, symbol-detail, ingestion progress, providers, integrity
-- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress
+- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress and a "Recompute Relative Strength" trigger
 
 ## Database Schema
 

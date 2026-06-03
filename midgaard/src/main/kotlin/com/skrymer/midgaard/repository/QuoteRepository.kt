@@ -104,6 +104,65 @@ class QuoteRepository(
 
     fun getTotalQuoteCount(): Int = dsl.fetchCount(QUOTES)
 
+    /**
+     * Recomputes the market-relative strength percentile for every quote on or after [fromDate],
+     * as a single cross-sectional SQL pass (ADR 0009) — the universe-wide sort, ranking and write
+     * all happen in Postgres, so there is no app-side memory footprint or per-row update storm.
+     *
+     * Metric = `close / LAG(close, lookbackBars) − 1` (null, hence excluded, when there are fewer
+     * than [lookbackBars] prior bars or the base close is ≤ 0). Percentile is the midpoint plotting
+     * position `100·((rank−1) + ½·ties)/n` per date — `rank()` shares the minimum rank across ties,
+     * so `rank−1` is the count strictly below and `ties` the run length. A date is ranked only when
+     * its qualifying-peer count `n ≥ minPeers` and it is on/after [earliestDate].
+     *
+     * The cross-sectional sort spans the whole table and spills badly on the tiny default work_mem,
+     * so it is raised transaction-locally first. Stale rows in range are nulled only where a value
+     * actually exists, so after a fresh re-ingest (column already null) this is a no-op rather than
+     * a full-table rewrite. History before [fromDate] still feeds each symbol's `LAG`.
+     *
+     * @return the number of (symbol, date) rows a percentile was written to.
+     */
+    @Transactional
+    fun recomputeRelativeStrengthPercentiles(
+        fromDate: LocalDate,
+        lookbackBars: Int,
+        minPeers: Int,
+        earliestDate: LocalDate,
+    ): Int {
+        dsl.fetch("SELECT set_config('work_mem', ?, true)", RECOMPUTE_WORK_MEM)
+        dsl.execute(
+            "UPDATE quotes SET relative_strength_percentile = NULL " +
+                "WHERE quote_date >= ? AND relative_strength_percentile IS NOT NULL",
+            fromDate,
+        )
+        return dsl.execute(
+            """
+            WITH metric AS (
+                SELECT symbol, quote_date,
+                       close_price / NULLIF(LAG(close_price, ?) OVER (PARTITION BY symbol ORDER BY quote_date), 0) - 1 AS m
+                FROM quotes
+            ),
+            ranked AS (
+                SELECT symbol, quote_date,
+                       rank() OVER (PARTITION BY quote_date ORDER BY m) AS rnk,
+                       count(*) OVER (PARTITION BY quote_date) AS n,
+                       count(*) OVER (PARTITION BY quote_date, m) AS ties
+                FROM metric
+                WHERE m IS NOT NULL
+            )
+            UPDATE quotes q
+            SET relative_strength_percentile = 100.0 * ((r.rnk - 1) + 0.5 * r.ties) / r.n
+            FROM ranked r
+            WHERE q.symbol = r.symbol AND q.quote_date = r.quote_date
+              AND r.n >= ? AND q.quote_date >= ? AND q.quote_date >= ?
+            """.trimIndent(),
+            lookbackBars,
+            minPeers,
+            earliestDate,
+            fromDate,
+        )
+    }
+
     private fun upsertSingleQuote(
         dsl: DSLContext,
         quote: Quote,
@@ -133,6 +192,7 @@ class QuoteRepository(
                 sma_200 = quote.sma200
                 high_52Week = quote.high52Week
                 low_52Week = quote.low52Week
+                relativeStrengthPercentile = quote.relativeStrengthPercentile
                 indicatorSource = quote.indicatorSource.name
             }
         dsl
@@ -167,8 +227,21 @@ class QuoteRepository(
             sma200 = sma_200,
             high52Week = high_52Week,
             low52Week = low_52Week,
+            relativeStrengthPercentile = relativeStrengthPercentile,
             indicatorSource =
                 indicatorSource?.let { IndicatorSource.valueOf(it) }
                     ?: IndicatorSource.CALCULATED,
         )
+
+    companion object {
+        /**
+         * Transaction-local work_mem for the relative-strength recompute. The whole-universe sort
+         * spills ~1.4 GB on the 4 MB default; this keeps it in memory. Applied via
+         * `set_config('work_mem', ?, is_local=true)` rather than `SET LOCAL` precisely so the value
+         * can be a bind parameter; it resets on commit and never affects other sessions. The real
+         * ceiling is a multiple of this (per parallel worker × per sort/hash node), so it relies on
+         * ample container headroom and the @Synchronized guarantee that no two recomputes overlap.
+         */
+        private const val RECOMPUTE_WORK_MEM = "1GB"
+    }
 }

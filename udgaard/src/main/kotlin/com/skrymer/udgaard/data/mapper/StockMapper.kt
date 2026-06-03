@@ -70,6 +70,7 @@ class StockMapper {
       sma200 = quote.sma_200?.toDouble(),
       high52Week = quote.high_52Week?.toDouble(),
       low52Week = quote.low_52Week?.toDouble(),
+      relativeStrengthPercentile = quote.relativeStrengthPercentile?.toDouble(),
     )
 
   /**
@@ -166,6 +167,7 @@ class StockMapper {
       sma_200 = quote.sma200?.toBigDecimal(),
       high_52Week = quote.high52Week?.toBigDecimal(),
       low_52Week = quote.low52Week?.toBigDecimal(),
+      relativeStrengthPercentile = quote.relativeStrengthPercentile?.toBigDecimal(),
       trend = quote.trend,
     )
 

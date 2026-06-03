@@ -40,7 +40,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 - Gradle 9.1.0 build system
 - Spring AI MCP Server for Claude integration
 - ktlint 1.5.0 + Detekt 2.0.0-alpha.2 for code quality
-- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, SMAs, Donchian, 52-week high/low), live quotes (Finnhub), options data, FX rates, and ovtlyr buy/sell signals
+- **Midgaard** (standalone reference data service on port 8081) for OHLCV data with pre-computed indicators (ATR, ADX, EMAs, SMAs, Donchian, 52-week high/low, market-relative strength percentile), live quotes (Finnhub), options data, FX rates, and ovtlyr buy/sell signals
 - Ovtlyr direct API integration in Udgaard (legacy, being removed — breadth data now computed from DB tables; ovtlyr buy/sell signals are now ingested via Midgaard)
 
 **Key Components (modularized into `backtesting/`, `data/`, `portfolio/`, `scanner/` packages):**
@@ -99,7 +99,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
 
 6. **Integration** (`data/integration/`)
    - `StockProvider.kt`: Interface for OHLCV data + live quotes + earnings (`LatestQuote`, `getLatestQuote`, `getLatestQuotes`, `getEarnings`); used by ScannerService, StockController, UnrealizedPnlService, and StockIngestionService
-   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, SMAs, Donchian, 52-week high/low) via REST client; also provides live quotes (via Finnhub) for scanner exit checks, earnings (via `MidgaardEarningDto`), and ovtlyr buy/sell signals (via `MidgaardClient.getOvtlyrSignals` / `MidgaardOvtlyrSignalDto`, loaded into `Stock.ovtlyrSignals` during ingestion); HTTP timeouts configured in `MidgaardHttpConfig` (RestClientCustomizer)
+   - **Midgaard**: Implements `StockProvider`; OHLCV data with pre-computed indicators (ATR, ADX, EMAs, SMAs, Donchian, 52-week high/low, market-relative strength percentile) via REST client; also provides live quotes (via Finnhub) for scanner exit checks, earnings (via `MidgaardEarningDto`), and ovtlyr buy/sell signals (via `MidgaardClient.getOvtlyrSignals` / `MidgaardOvtlyrSignalDto`, loaded into `Stock.ovtlyrSignals` during ingestion); HTTP timeouts configured in `MidgaardHttpConfig` (RestClientCustomizer)
    - **Ovtlyr**: Legacy direct-API integration (being removed — breadth now computed from DB; ovtlyr signals now flow through Midgaard)
    - Options data now provided by Midgaard (via `portfolio/integration/options/MidgaardOptionsProvider.kt`)
 
@@ -197,7 +197,7 @@ trading/
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
 │   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler, ClockConfig — NY-pinned Clock bean)
-│   ├── src/main/resources/           # Config, migrations (V1-V26)
+│   ├── src/main/resources/           # Config, migrations (V1-V27)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)

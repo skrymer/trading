@@ -29,6 +29,7 @@ data class MidgaardQuoteDto(
   val sma200: BigDecimal? = null,
   val high52Week: BigDecimal? = null,
   val low52Week: BigDecimal? = null,
+  val relativeStrengthPercentile: BigDecimal? = null,
 ) {
   fun toStockQuote() = StockQuote(
     symbol = symbol,
@@ -54,6 +55,7 @@ data class MidgaardQuoteDto(
     sma200 = sma200?.toDouble(),
     high52Week = high52Week?.toDouble(),
     low52Week = low52Week?.toDouble(),
+    relativeStrengthPercentile = relativeStrengthPercentile?.toDouble(),
   )
 }
 

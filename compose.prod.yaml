@@ -55,6 +55,11 @@ services:
       dockerfile: Dockerfile
     container_name: trading-prd-udgaard
     restart: always
+    # Hard cgroup ceiling above the 18g JVM heap (Dockerfile -Xmx18432m). Caps total
+    # container memory so a heap/off-heap overshoot is killed at the container level
+    # (OOMKilled) instead of the kernel OOM-killing the host. ~2g over -Xmx leaves room
+    # for off-heap/metaspace so the JVM throws a graceful heap OOME before this cap.
+    mem_limit: 20g
     depends_on:
       postgres:
         condition: service_healthy
