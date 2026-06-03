@@ -70,8 +70,8 @@ Population column states which trades each gate reads. **In-market** = participa
 | **C12** ≥ 100 trades per block | ≥ 100 | blended | = G12 |
 | **C14** scripts promoted + G14 PASS | ✅ done | — | = G14 |
 | **C-PARTICIPATE ★** (NEW, binding) participating windows ≥ X% of OOS windows AND in-market trading-days ≥ Y% of block OOS trading-days | X/Y NEEDS-DATA | in-market | **new — the dual of the cash gate; without it "always in cash" trivially passes everything** |
-| **C-CASHOVERLAP** (NEW, DEFERRED stub) stand-aside windows must not all coincide with a partner component's cash windows | DEFERRED | — | new — *coverage* gate (distinct from the *survival* Portfolio-blend G6); needs ≥ 2 components |
-| **Portfolio-blend G6** (book survives 2008 + 2020) | DEFERRED | — | new — needs ≥ 2 components |
+| **C-CASHOVERLAP** (NEW, DEFERRED stub) — **crisis-exempt** coverage: excluding crisis/bear windows, the components' stand-aside windows must not all coincide; measured as the fraction of **non-crisis** OOS days where ALL components are in cash, below a frozen ceiling | DEFERRED | — | new — *coverage* gate (distinct from the *survival* Portfolio-blend G6); needs ≥ 2 components. **Crisis cash is EXEMPT — it is mandatory shared survival, credited by G6, never penalized.** The original "all stand-aside windows must not coincide" form was a gate bug: in a long-only engine every valid component shares crisis cash by construction, so it false-rejected every valid book and contradicted G6 (quant 2026-06-03). Ceiling needs an external anchor frozen before reads |
+| **Portfolio-blend G6** (book survives 2008 + 2020) | DEFERRED | — | new — needs ≥ 2 components. **Satisfied by all long components sharing crisis cash (a survival gate rewards *not losing*, not *winning*) — contingent on the Track #2 read-out's crisis classifier being sharper than `spyTrendUp`.** No bear/inverse "defender" component: the long-only engine cannot express a positive-edge crisis specialist (inverse ETFs = capped family + decay; bonds/gold = no pre-2002 instrument; cash = no edge). Defense = read-out → cash |
 
 **Interim KEEP bar (standalone-as-component):** C1a ∧ **C-PARTICIPATE** ∧ C6-STAND-ASIDE ∧ C2 ∧ C3 ∧ C5 ∧ C1c-Sharpe ∧ C1c-Calmar ∧ C12 ∧ C14 ∧ (≤ 1 negative participating window passing the C7 magnitude bound + named W4 carve-out). The true portfolio-contribution test (C-CASHOVERLAP + Portfolio-blend G6) is deferred until a 2nd component exists.
 
@@ -96,6 +96,17 @@ Per the §7 anti-snooping rule, every data-gated bar is fixed here from an **ext
 **These bars are frozen. After the EX-ATR20×SSM runs, the calibrate-after step (§9) only plugs `f` into the C1a formula and checks realized values against the frozen ceilings — it may NOT move a bar to make the candidate pass** (`feedback_parameter_fragility_must_be_verified`).
 
 ## 5. Regime classification (window-level) — DRAFT
+
+> **To be subsumed by the market-defined classifier (2026-06-03).** This window-level
+> deployed-vs-cash classifier is the *strategy-relative* version (it reads the candidate's
+> own in-market days / trade count). The **market-defined** regime read-out
+> (`REGIME_READOUT_PREREGISTRATION.md`, FROZEN v1) supersedes it for regime-*attribution*:
+> its 3-bucket gate-binding collapse (**PARTICIPATE-BROAD / STAND-ASIDE-NARROW / CRISIS**,
+> from breadth × leadership-concentration-gap × vol) is market-defined, not strategy-fit, so
+> it makes attribution principled and shared across components. The strategy-relative
+> deployed-vs-cash test below is retained as a *cross-check* (did the candidate actually take
+> risk in a window the market labelled broad?), not as the sole labeller. Adopt the
+> market-defined buckets once the classifier is built + OOS-validated.
 
 Each OOS window is labelled exactly once:
 

@@ -87,6 +87,40 @@ The failure mode the condition screen exists to catch: a condition whose *firing
 **Condition screen**:
 A diagnostic, design-time pre-screen of a single entry condition (or AND/OR stack) run *before* it is wired into a strategy — `POST /api/conditions/screen`. Produces *Forward return* / *Lift* / *Firing rate* / *ARS* / regime stats but **no pass/fail verdict**: a condition that fails the screen is rejected without further work; one that passes is *not* validated and still goes through the full firewall. Restricted to the design-safe window (excludes Block C, the firewall's only true out-of-sample block) so that eyeballing its output cannot leak the final validation block.
 
+### Market regimes
+
+**Market regime**:
+A label for the prevailing market-structure state, defined as a property of the **market** and **never fitted to any strategy's good/bad years** — doing so is Aliased Regime Sensitivity on a single realisation (the failure mode the firewall exists to catch). Regime is derived independently of any strategy's P&L, pre-registered, and validated out-of-sample; its history is trustworthy only from **2000-01-01** (the breadth trust floor). The regime read-out classifies on **three cheap orthogonal axes** — **breadth** (level + slope), the **leadership-concentration gap** (below), and **realized volatility** (SPY trailing 20-day, low/high band) — *not* on a magnitude-only "dispersion" measure (a single magnitude is sign-blind and cannot separate thrust from narrow-leadership). The expensive full-universe cross-sectional return-dispersion pass is **ruled out** (collinear with these three; changes no stance). Five canonical labels are kept strictly distinct — the phrase "narrow-leadership chop / crisis" is a **conflation to avoid**, because a component native to one is not native to the others.
+_Avoid_: a single "dispersion" signal as the discriminator; treating "narrow-leadership", "chop", and "crisis" as one regime.
+
+**Leadership-concentration gap**:
+The signed **20-trading-day rolling-return gap between the cap-weighted index and an equal-weighted proxy** — `SPY return(20d) − equal-weight return(20d)`. The equal-weight side is the **mean daily return of the STOCK-type universe**, computed in the *same daily pass* as breadth (cheap; full history to 2000, definition-stable), cross-checked against **SPY − RSP** where RSP exists (2003+). Its **sign is the participation tell** and is the *only* clean thrust-vs-narrow discriminator: **gap < 0** (equal-weight leads) ⇒ broad participation (small/mid-caps surge — a thrust); **gap > 0** (cap-weight leads) ⇒ a few mega-caps carry the index (narrow-leadership). Structural, not coincidental: EW-beats-CW *requires* broad participation, CW-beats-EW *requires* concentration. A single-day gap is noise — the regime tell is the persistent multi-week drift. Distinct from a **per-name concentration ceiling** (a position-level guard inside a specialist — see *Coverage* / the grind specialist build): the gap is a *market-level regime gate* (when a specialist may deploy); a per-name ceiling controls *what* it holds. A scalar market gate cannot see which names a selector holds — conflating the two is the "thinning-not-selecting" error.
+
+**Broad-rally thrust** (a.k.a. **broad risk-on**):
+Index up, **breadth high and rising**, leadership-concentration **gap < 0** (equal-weight leads), bases firing off a washout. The native regime of the shelved Minervini breakout component (a recovery-trend specialist).
+
+**Low-dispersion grind**:
+Index up, **breadth positive-but-flat**, **gap ≈ 0**, **low realized vol**, no washout (so no bases for the breakout to fire on — it sits flat here). The native regime of the to-build **low-volatility / quality grind specialist** (Track #1). Distinct from broad-rally thrust (which has firing breadth + gap < 0) — the volatility axis is what separates a genuine grind from a quiet-but-deteriorating early-narrow drift.
+
+**Narrow-leadership**:
+Index **up** while **breadth is weak or falling** and the leadership-concentration **gap > 0** (cap-weight leads — a few mega-caps carry the index): 2H-2021, 2023, 2024. The tape in which **both** dead premise families (the breakout and the leveraged-long-ETF attempts) *participate-and-lose*, and the death tape of the rejected cross-sectional RS-momentum *twin*. **No long component survives here — stand aside.** Distinct from **crisis** (the index is still rising) and from **chop** (which has no sustained index direction).
+
+**Chop**:
+Rangebound, trendless whipsaw with no sustained direction. Distinct from narrow-leadership (which has a rising index).
+
+**Crisis** (a.k.a. **correlated risk-off drawdown**):
+A broad, correlated decline across names — everything falls together (2008, 2020). Defended by **standing in cash** (the read-out routes every long specialist flat — there is no bear *component*; see *Crisis defense*). Explicitly **not** the same regime as narrow-leadership: a component native to crisis would not be native to an index-up/breadth-down tape, and fusing the two is the trap that lets a "long the narrowing leadership" premise masquerade as a defender when it actually carries the breakout's exposure.
+
+**Regime specialist**:
+A strategy component whose edge is real only in its **one** native *market regime* and which is meant to sit flat (in cash) in every other regime. The unit of the regime-conditional portfolio: the book is a blend of specialists, deployed by a transition layer (the regime read-out) that reads the current regime and picks which to run. Distinct from a general-purpose strategy expected to trade across all tapes.
+_Status (2026-06-03):_ the **regime-conditional portfolio program is abandoned** (`strategy_exploration/REGIME_CONDITIONAL_BATTLE_PLAN.md` post-mortem) — a long-only engine yields no viable second specialist, so this term and *Coverage* / *Crisis defense* below are **historical**. The *market-regime labels* and the *leadership-concentration gap* above remain live market-structure vocabulary.
+
+**Crisis defense** (the dissolved "defender"):
+In a **long-only engine** (no short, no negative quantity, P&L = `exit − entry`), there is **no crisis-specialist component** — defense is an **allocation state, not a strategy with alpha**. Every positive-edge bear instrument is disqualified: inverse 3× ETFs are the already-capped thin-ETF family *plus* daily-rebalance decay drag; bonds/gold have no instrument before ~2002 (no coverage for the 2000–02 crisis window) and re-trigger the thin-palette problem; pure cash has no edge (and is exactly what `C-PARTICIPATE` exists to reject). Therefore crisis defense = the **regime read-out routing every long specialist to cash**. Portfolio-blend G6 (book survives 2008 + 2020) is a *survival* gate satisfied by that shared crisis cash — it rewards *not losing*, never *winning* — **contingent on the read-out's crisis classifier being sharper than `spyTrendUp`** (which stayed deployed-and-bleeding in narrow-down tape). _Avoid_: framing a bear/inverse-ETF "defender component"; treating "≥2 components" as a defense requirement (it is a *coverage* requirement — see below).
+
+**Coverage** (the reason for ≥2 components):
+Why the portfolio wants more than one specialist: **diversification across risk-on sub-regimes**, *not* an attack/defend pairing. The expressible components are all **long risk-on specialists**; they each correctly share cash in *crisis* (mandatory, credited by G6) but should be active in **different non-crisis up-tapes** so the book is rarely all-cash when opportunity exists. This is what `C-CASHOVERLAP` measures — coincidence of stand-aside windows **in non-crisis windows only** (crisis cash is exempt). The diversification axis is "which risk-on tape each specialist harvests," and a second component earns its slot only by demonstrably trading *and winning* in tape where the first one's regime is off or marginal — otherwise it collapses into the first one's beta.
+
 ### Strategy exploration funnel
 
 **Candidate**:
