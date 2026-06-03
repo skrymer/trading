@@ -64,7 +64,7 @@ This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (
    - `TechnicalIndicatorService.kt`: EMAs, Donchian channels, ATR, trend determination
    - `MarketBreadthService.kt` / `SectorBreadthService.kt`: Market & sector breadth
    - `OrderBlockCalculator.kt`: Order block detection via ROC momentum
-   - `SymbolService.kt`: Stock symbol management (DB-backed with caching)
+   - `SymbolService.kt`: The trading universe — symbols derived from the ingested `stocks` table (ADR 0011); Udgaard keeps no separate symbol catalogue
    - `ScheduledRefreshService.kt`: Scheduled automatic data refresh
 
 3. **Portfolio** (`portfolio/`)
@@ -176,7 +176,7 @@ trading/
 │   │   │   ├── integration/          # Midgaard (incl. MidgaardHttpConfig for connect/read timeouts + getOvtlyrSignals), legacy Ovtlyr clients + StockProvider interface (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings)
 │   │   │   ├── mapper/               # StockMapper
 │   │   │   ├── model/                # Stock (w/ ovtlyrSignals), StockQuote, OrderBlock, MarketBreadthDaily, SectorBreadthDaily, Earning, OvtlyrSignal, AssetType
-│   │   │   ├── repository/           # StockJooqRepository (incl. findEarnings(symbol) for ingestion fallback), SymbolJooqRepository, MarketBreadthRepository, SectorBreadthRepository
+│   │   │   ├── repository/           # StockJooqRepository (incl. findEarnings(symbol) for ingestion fallback + findAllSymbolRecords() — the stocks-derived universe), MarketBreadthRepository, SectorBreadthRepository
 │   │   │   └── service/              # StockService, StockIngestionService (resolveEarnings(symbol) falls back to stockRepository.findEarnings on provider failure — stale-but-present beats empty-because-we-failed), TechnicalIndicatorService, OrderBlockCalculator, MarketBreadthService, SectorBreadthService, SymbolService, DataStatsService, ScheduledRefreshService
 │   │   ├── portfolio/                # Portfolio domain
 │   │   │   ├── controller/           # PortfolioController, PositionController, OptionController
@@ -197,7 +197,7 @@ trading/
 │   │   ├── service/                  # Shared services (SettingsService, UserSettingsJooqRepository)
 │   │   ├── mcp/                      # MCP server (config/McpConfiguration, service/StockMcpTools)
 │   │   └── config/                   # Configuration classes (Security, Cache, ApiKeyAuth, UserSeeder, GlobalExceptionHandler, ClockConfig — NY-pinned Clock bean)
-│   ├── src/main/resources/           # Config, migrations (V1-V27)
+│   ├── src/main/resources/           # Config, migrations (V1-V28)
 │   ├── src/test/kotlin/              # Unit + E2E tests (TestContainers)
 │   ├── compose.yaml                  # Docker Compose (PostgreSQL for local dev)
 │   ├── Dockerfile                    # Runtime image (eclipse-temurin:25-jre-alpine)

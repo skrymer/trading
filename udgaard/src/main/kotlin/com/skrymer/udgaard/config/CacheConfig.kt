@@ -21,7 +21,7 @@ class CacheConfig {
         .expireAfterWrite(30, TimeUnit.MINUTES)
         .recordStats(),
     )
-    cacheManager.setCacheNames(listOf("stocks", "backtests", "marketBreadth", "symbols"))
+    cacheManager.setCacheNames(listOf("stocks", "backtests", "marketBreadth"))
     return cacheManager
   }
 }

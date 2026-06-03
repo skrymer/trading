@@ -115,8 +115,7 @@ udgaard/
 │   │   │   ├── MarketBreadthDaily.kt
 │   │   │   └── SectorBreadthDaily.kt
 │   │   ├── repository/               # jOOQ repositories
-│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) used by ingestion fallback
-│   │   │   ├── SymbolJooqRepository.kt
+│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) used by ingestion fallback + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
 │   │   │   ├── MarketBreadthRepository.kt
 │   │   │   └── SectorBreadthRepository.kt
 │   │   └── service/
@@ -201,7 +200,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V27)
+│   └── db/migration/                 # Flyway migrations (V1-V28)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -228,7 +227,8 @@ udgaard/
 │       ├── V24__Compress_backtest_report.sql               # backtest_reports.report switched from jsonb to gzip-compressed bytea (jsonb ~256 MB cap overflow); clears existing rows
 │       ├── V25__Add_leveraged_sector_basket_symbols.sql    # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
 │       ├── V26__Add_sma_and_52week_indicators.sql          # Adds sma_50/150/200 + 52-week high/low columns to stock_quotes (ingested from Midgaard)
-│       └── V27__Add_relative_strength_percentile.sql       # Adds relative_strength_percentile column to stock_quotes (ingested from Midgaard; ADR 0009)
+│       ├── V27__Add_relative_strength_percentile.sql       # Adds relative_strength_percentile column to stock_quotes (ingested from Midgaard; ADR 0009)
+│       └── V28__Drop_symbols_table_move_asset_type_to_stocks.sql  # Drops the symbols catalogue; asset_type moves to stocks, backfilled in place (ADR 0011)
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

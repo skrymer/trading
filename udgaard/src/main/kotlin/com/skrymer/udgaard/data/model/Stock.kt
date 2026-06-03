@@ -21,6 +21,7 @@ data class Stock(
   val ovtlyrSignals: List<OvtlyrSignal> = emptyList(),
   val listingDate: LocalDate? = null,
   val delistingDate: LocalDate? = null,
+  val assetType: AssetType? = null,
 ) {
   init {
     require(quotes.zipWithNext().all { (a, b) -> !a.date.isAfter(b.date) }) {

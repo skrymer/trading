@@ -1,7 +1,15 @@
 package com.skrymer.udgaard.data.dto
 
+import com.skrymer.udgaard.data.model.AssetType
 import java.time.LocalDate
 import java.time.LocalDateTime
+
+// A symbol in the trading universe with its asset type. The universe is derived from the
+// ingested `stocks` table (ADR 0011) — there is no separate symbol catalogue.
+data class SymbolRecord(
+  val symbol: String,
+  val assetType: AssetType,
+)
 
 // Database Statistics DTOs
 data class DatabaseStats(
@@ -72,6 +80,15 @@ data class RefreshProgress(
 data class RefreshResponse(
   val queued: Int,
   val message: String,
+)
+
+// Outcome of a full-universe reconcile: how many stocks were pruned as drifted-dead and how
+// many catalogue symbols were queued. reconciled = false means the catalogue lookup was
+// unusable (null/empty) and the universe was left untouched.
+data class ReconcileResult(
+  val reconciled: Boolean,
+  val queued: Int,
+  val pruned: Int,
 )
 
 enum class RefreshType {

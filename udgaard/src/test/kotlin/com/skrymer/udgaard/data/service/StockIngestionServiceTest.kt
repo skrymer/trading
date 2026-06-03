@@ -3,6 +3,7 @@ package com.skrymer.udgaard.data.service
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
+import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OvtlyrSignal
@@ -11,8 +12,10 @@ import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.service.UserSettingsJooqRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
@@ -277,6 +280,90 @@ class StockIngestionServiceTest {
     assertNotNull(result)
     assertEquals(stored, result!!.earnings)
     verify(stockRepository).findEarnings(eq("AAPL"))
+  }
+
+  @Test
+  fun `fetchAndBuildStock stamps the asset type from the Midgaard symbol info`() {
+    // Given Midgaard classifies the symbol as a leveraged ETF
+    stubSuccessfulFetch()
+    whenever(midgaardClient.getSymbolInfo("LABU"))
+      .thenReturn(MidgaardSymbolDto(symbol = "LABU", assetType = "LEVERAGED_ETF", sector = null))
+
+    // When the stock is built
+    val result = service.fetchAndBuildStock("LABU")
+
+    // Then the asset type is carried onto the built Stock
+    assertEquals(AssetType.LEVERAGED_ETF, result?.assetType)
+  }
+
+  @Test
+  fun `fetchAndBuildStock keeps the stock with a null asset type when Midgaard sends an unknown value`() {
+    // Given Midgaard reports an asset type Udgaard's enum does not know
+    stubSuccessfulFetch()
+    whenever(midgaardClient.getSymbolInfo("WTF"))
+      .thenReturn(MidgaardSymbolDto(symbol = "WTF", assetType = "MUTUAL_FUND", sector = null))
+
+    // When the stock is built
+    val result = service.fetchAndBuildStock("WTF")
+
+    // Then the stock still ingests (not silently dropped); the unknown type is stored as null
+    assertNotNull(result)
+    assertNull(result!!.assetType)
+  }
+
+  @Test
+  fun `reconcileAndRefreshAll prunes stocks absent from the Midgaard catalogue and queues the catalogue`() {
+    // Given the local universe still holds a drifted-dead ticker the catalogue no longer lists
+    whenever(midgaardClient.getAllSymbols()).thenReturn(
+      listOf(
+        MidgaardSymbolDto(symbol = "AAPL", assetType = "STOCK", sector = null),
+        MidgaardSymbolDto(symbol = "MSFT", assetType = "STOCK", sector = null),
+      ),
+    )
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL", "MSFT", "CIGA"))
+
+    // When the full-universe reconcile runs
+    val result = service.reconcileAndRefreshAll()
+
+    // Then the drifted ticker is pruned and the live catalogue is queued for refresh
+    verify(stockRepository).batchDelete(listOf("CIGA"))
+    assertTrue(result.reconciled)
+    assertEquals(2, result.queued)
+    assertEquals(1, result.pruned)
+
+    service.clearQueue()
+  }
+
+  @Test
+  fun `reconcileAndRefreshAll leaves the universe untouched when the catalogue lookup returns null`() {
+    // Given the catalogue source is unreachable (returns null)
+    whenever(midgaardClient.getAllSymbols()).thenReturn(null)
+
+    // When the full-universe reconcile runs
+    val result = service.reconcileAndRefreshAll()
+
+    // Then nothing is pruned, nothing is queued, and the local stocks are not even inspected
+    assertFalse(result.reconciled)
+    assertEquals(0, result.queued)
+    assertEquals(0, result.pruned)
+    verify(stockRepository, never()).batchDelete(any())
+    verify(stockRepository, never()).findAllSymbols()
+  }
+
+  @Test
+  fun `reconcileAndRefreshAll leaves the universe untouched when the catalogue is empty`() {
+    // Given the catalogue source returns an empty list (e.g. mid-redeploy)
+    whenever(midgaardClient.getAllSymbols()).thenReturn(emptyList())
+
+    // When the full-universe reconcile runs
+    val result = service.reconcileAndRefreshAll()
+
+    // Then a single bad response cannot wipe the universe
+    assertFalse(result.reconciled)
+    assertEquals(0, result.queued)
+    assertEquals(0, result.pruned)
+    verify(stockRepository, never()).batchDelete(any())
+    verify(stockRepository, never()).findAllSymbols()
   }
 
   private fun earning(symbol: String, fiscalDate: LocalDate): Earning =
