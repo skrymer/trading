@@ -52,6 +52,16 @@ object RankerFactory {
         usesRandomTieBreaks = true,
       ),
       RankerMetadata(
+        type = "nearness52WeekHigh",
+        displayName = "Nearness to 52-Week High",
+        description =
+          "Ranks stocks by nearness to their own 52-week high (min(close / 52-week high, 1.0)); " +
+            "names at or above the high share the top score, undefined-high names rank last.",
+        parameters = emptyList(),
+        category = "Score-Based",
+        usesRandomTieBreaks = true,
+      ),
+      RankerMetadata(
         type = "SectorStrength",
         displayName = "Sector Strength",
         description = "Ranks stocks by their sector's current bull percentage.",
@@ -132,6 +142,7 @@ object RankerFactory {
       "rollingsectorstrength" -> RollingSectorStrengthRanker()
       "sectorstrengthmomentum" -> SectorStrengthMomentumRanker()
       "trailingreturn" -> TrailingReturnRanker()
+      "nearness52weekhigh" -> NearnessTo52WeekHighRanker()
       "sectoredge" -> {
         val ranking = rankerConfig?.sectorRanking
         if (ranking.isNullOrEmpty()) null else SectorEdgeRanker(ranking)
