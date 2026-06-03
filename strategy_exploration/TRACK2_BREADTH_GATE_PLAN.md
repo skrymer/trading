@@ -121,7 +121,18 @@ The quant permits **exactly one** more firewall run, because `sectorBreadthGreat
 
 **If Track-2b fails by the same thinning/deepening signature, the breakout-in-uptrend premise class is DEPRECATED** (3 same-direction strikes: no-gate participate-and-lose → scalar-gate-worse → cross-sectional-gate-worse = the failure is in the *entry premise*, not the selector; no selector fixes it). Park it; no further regime-filter iteration (IS-fitting). The *only* survival outcome is a clean **selecting** signature (cuts concentrated in narrow windows, bad windows compressing toward zero, Block B preserved).
 
-### 8d. If deprecated — forward (quant)
+### 8e. Track-2b RESULT — REJECTED, kill rule FAILED → premise DEPRECATED (2026-06-03)
+
+Fired the 4 WFs (`/tmp/t2b-wf-*-result.json`, gen `/tmp/gen-track2b-runs.py`). The per-name sector-breadth gate behaved **better than the scalar gate but still thinned-and-deepened** — exactly the predicted failure:
+
+- **Kill rule (c) FAILED (instant reject):** 2011 deepened **−4.6 → −13.2**, 2023 deepened **−19.4 → −25.9** (the two worst chop windows got *worse*). The per-name gate thinned *toward* the crowded-leader losers, as the quant warned.
+- **Kill rule (a) FAILED:** Block B trades **152 → 106** (< Track-1) — it thinned the proof window too (0 neg windows preserved, but on a thinner book).
+- **Kill rule (b) PASSED:** 2006/2018/2019 stayed positive (+5.0/+12.7/+5.6) — better than the scalar gate (which flipped them). So per-name resolution *helped some windows* (2005/2007/2016 also fixed) but couldn't save the worst chop.
+- **Core gates still fail decisively:** C1a in-mkt CAGR **9.2%** (≪30%, unchanged across all 3 attempts), C2 25y DD 34.8%, C5 CoV 1.85, C7 **6 negative windows**, Block C 2024 now **negative** (−2.7%).
+
+**DEPRECATION TRIGGER FIRED (per §8c).** Three operator classes tried — no gate (Track-1), scalar market gate (Track-2), per-name cross-sectional gate (Track-2b) — **all fail the same thinning/deepening way.** That is three same-direction strikes ⇒ the failure is in the **entry premise** (breakouts fail back in narrow tape *as a property of the breakout itself*), NOT the selector. **No selector fixes it. The breakout-in-uptrend entry-time-regime search is DEPRECATED.** Per §8c: no Track-2c. Shelf the breakout edge as a known-real risk-on building block (Block B earned it) for when a *separately-validated* regime-transition layer (issue #83) exists to deploy it.
+
+### 8d. Forward (quant) — now ACTIVE (premise deprecated)
 Regime-conditional search is **still 0 passing**, multiple strikes across two premise families (breakout + leveraged-long-ETF), **both dying in narrow-leadership tape** — the exact regime the framework exists to survive. Pivot away from long *participants*: build the framework's required **defensive/crisis-specialist component** (the cash-overlap partner — its C-PARTICIPATE floor is re-derived, NOT the breakout's 40%) and/or a **leadership-concentration premise that USES narrow tape as its edge** (adjacent to the RS-gate / single-name pivot). A per-name post-breakout follow-through filter is a *new premise*, not a rescue — hold in reserve.
 
 ## Reference
