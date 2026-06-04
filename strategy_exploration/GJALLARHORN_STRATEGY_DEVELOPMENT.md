@@ -1,7 +1,21 @@
 # Gjallarhorn — Breadth-Thrust Exhaustion-Reversal strategy development
 
-_Created: 2026-06-04 · Status: **PARKED on engine [#97](https://github.com/skrymer/trading/issues/97) (daily MTM equity curve). NULL test PASSED (timing alpha confirmed); composite A/B blocked pending daily-NAV exposure.**_
+_Created: 2026-06-04 · Status: **SHELVED — timing alpha CONFIRMED (NULL +22σ), composite A/B NO-GO. Certified-but-homeless matched pair with the shelved breakout. No iteration.**_
 _Single-strategy search candidate turned regime-overlay research (`STRATEGY_LEDGER.md` §C.2). Spec + every pivot routed to and signed by `quant-analyst`._
+
+> **TERMINAL VERDICT (2026-06-04): SHELVED.** Gjallarhorn's crisis-bottom timing is **real** (NULL test:
+> per-trade edge +2.19% beats all 20 conditional-within-regime null seeds by +22σ — random same-regime
+> dip-buying loses). But the **composite A/B is a NO-GO**: as a fixed 30% overlay sleeve on the shelved
+> breakout, full-period **MAR +5% / DD +0%** vs breakout+T-bills (benefit real but crisis-confined: Block B
+> +31% MAR, Block C +46%/−7%DD). All three pre-registered NO-GO triggers fired. **Structural, not fixable:**
+> a mostly-cash crisis leg (~10% active) as a *fixed* sleeve is ~30% cash drag → can't move the book; and its
+> crisis-timed drawdowns overlap the breakout's (long-only ⇒ everything correlates in crises, ADR 0010) → no
+> DD offset. The only construction that would capture its value is **dynamic regime-switching** = the
+> ABANDONED regime-portfolio program, which stays **triple-walled** (engine can't express the switch; the
+> ~4-6% CAGR arithmetic can't reach the MAR ≥3× SPY revival bar; the confirmed alpha fills the named gap but
+> clears neither wall). **No iteration** (tuning sleeves/exits = IS-fitting). **Durable assets kept:** the
+> three washout conditions, the conditional-within-regime NULL methodology, the breadth-oscillator
+> distribution + 17-event crisis map. **Next: BTC+Tyr standalone** (`STRATEGY_LEDGER.md` §C.2). [[project_regime_conditional_portfolio_framework]]
 
 > **LATEST (2026-06-04).** #93 (nested groups) merged. Built `marketBreadthSustainedWashoutWithin(15,10,40)`
 > → **cadence PASS** (13 crisis episodes/26y, 0.50/yr, zero calm years, fires on recovery) → **NULL test
