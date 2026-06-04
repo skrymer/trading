@@ -123,7 +123,8 @@ midgaard/
 │   │   ├── V15__Populate_symbols.sql                            # Full idempotent snapshot of the runtime-grown symbols catalogue (supersedes V2 seed) — leveraged-ETF basket + era-spread delisted discovery with EDGAR-resolved sectors, so a from-migrations rebuild reproduces the full catalogue without re-running EODHD/EDGAR discovery. ON CONFLICT DO NOTHING (no-op on existing DB).
 │   │   ├── V16__Add_sma_and_52week_indicators.sql               # Adds sma_50/150/200 + high_52_week/low_52_week columns to quotes
 │   │   ├── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
-│   │   └── V18__Add_relative_strength_percentile.sql            # Adds relative_strength_percentile column to quotes (cross-sectional market-relative strength, 0-100; ADR 0009)
+│   │   ├── V18__Add_relative_strength_percentile.sql            # Adds relative_strength_percentile column to quotes (cross-sectional market-relative strength, 0-100; ADR 0009)
+│   │   └── V19__Add_RSP_etf.sql                                 # idempotent INSERT adding the RSP (equal-weight S&P 500) ETF symbol to the symbols catalogue
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
