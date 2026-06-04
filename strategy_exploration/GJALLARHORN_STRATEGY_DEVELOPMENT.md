@@ -48,22 +48,42 @@ Build = window-walk cloned from `MarketBreadthIncreasingCondition` + the thresho
 `MarketBreadthNearDonchianLowCondition`. Both exist → low build/test risk (unit-test against synthetic
 breadth series). **This is the only new code.** All exits below are already first-class.
 
-## Candidate spec (assembled strategy "Gjallarhorn")
+## ⚠ Screen run #1 (2026-06-04) — DEAD INSTANTIATION, premise survives → rebuilt
+
+The first screen (relative-Donchian washout stack) **crashed (in-JVM heap OOM) in window-1 OOS** and the
+partial run was decisive: window-1 IS produced **544 trades / 29,268 missed** ⇒ ~1,000+ liquid names
+eligible per market-wide fire day ⇒ **~7-10 entry events/year**, ~20-40× the intended crisis cadence.
+
+**Quant diagnosis (signed):** the breadth Donchian channel is only **20 days** (`MarketBreadthService.kt:32`),
+so `marketBreadthNearDonchianLow(0.10)` is a *20-day local-minimum detector*, not a crisis floor — it is
+**scale-free, and crisis is a scale phenomenon.** Paired with `marketBreadthRecovering` (EMA10-recross,
+fires at every dip-bounce) the stack reads "20-day local low + just ticked up" = **routine dip-recovery**.
+Wrong dimension, not a tuning issue. The OOM is downstream (the engine records an `EntryDecisionContext`
+per missed candidate; ~1,000/fire-day × windows → heap blowup). **The premise (crisis-bottom timing)
+survives; the operationalization was wrong → rebuilt below.** (The original relative `marketBreadthWashoutWithin`
+condition is kept as a reusable *dip-recovery* primitive — strategy-neutral, not used by Gjallarhorn.)
+
+## Candidate spec (assembled strategy "Gjallarhorn") — REBUILT 2026-06-04
+
+### NEW condition #2 (built first-class, TDD): `marketBreadthAbsoluteWashoutWithin`
+Clone of `marketBreadthWashoutWithin` with the washout test changed to an **absolute** breadth-bull-% floor
+(`breadthPercent <= threshold`) instead of the range-relative Donchian-low. An absolute floor only fires in
+genuine market-wide capitulations (the teens: 2008/2011/2015/2020). Params `threshold=15.0`, `lookbackDays=30`.
+7 unit tests. **Thresholds are the quant's DRAFT — Step 0 fire-date confirmation precedes any durable persistence.**
 
 ### Entry stack (AND — all on the fill-trigger bar)
 
 | # | Condition | Params | Rationale |
 |---|---|---|---|
-| 1 | `marketBreadthWashoutWithin` (NEW) | `percentile=0.10`, `lookbackDays=15` | "We were genuinely washed out in the last 3 weeks." The crisis-bottom premise. |
-| 2 | `marketBreadthRecovering` | — | THE turn-up trigger: breadth recrosses its EMA10 from below — the snapback firing bar. |
-| 3 | `minimumPrice` | `5.0` | Tradability hygiene — exclude sub-$5 penny noise (dominates a 3,900-symbol delisted universe at bottoms). |
-| 4 | `averageDollarVolumeAbove` | `usd=5_000_000`, `days=20` | Tradability hygiene — liquid names only; keeps the test breadth-timing, not a microcap-bounce artifact. |
+| 1 | `marketBreadthAbsoluteWashoutWithin` (NEW) | `threshold=15.0`, `lookbackDays=30` | "Breadth hit an absolute crisis floor (≤15%) within the last 30 days." True capitulation memory. |
+| 2 | `marketBreadthIncreasing` | `days=3` | Turn confirmation — breadth rising 3 consecutive readings. A *much* stiffer "it's turning" test than EMA10-recross (which fired on every one-day bounce → the run-#1 over-firing). |
+| 3 | `minimumPrice` | `5.0` | Tradability hygiene. |
+| 4 | `averageDollarVolumeAbove` | `thresholdUsd=5_000_000`, `lookbackDays=20` | Tradability hygiene — liquid names only; keeps the test breadth-timing, not a microcap-bounce artifact. |
 
-**Deliberately NOT included:** `spyTrendUp`, `marketUptrend`, `spyPriceUptrend`, `breadthEma10Above50`,
-`marketBreadthAbove`. Gjallarhorn fires *before* an uptrend exists — at a bottom SPY is below its 200EMA
-and breadth EMA10 is below 50 by definition. Any trend/level gate nulls the premise. **This is the one
-strategy where omitting `spyTrendUp` is correct, not an oversight.** Conditions 1+2 are pure market-timing
-(identical for every symbol on a day); 3+4 are *liquidity-only* (not quality/trend) to keep the read clean.
+**Dropped from run #1:** the relative `marketBreadthWashoutWithin` and `marketBreadthRecovering` (the
+over-firing pair). **Still NOT included:** `spyTrendUp`/`marketUptrend`/etc. — Gjallarhorn fires *before* an
+uptrend exists; any trend/level gate nulls the premise. Conditions 1+2 are pure market-timing (identical for
+every symbol on a day); 3+4 are *liquidity-only* (not quality/trend) to keep the read clean.
 
 ### Ranker / what we buy — broad liquid basket + `Random` ranker
 
@@ -171,9 +191,14 @@ went up off that bottom), so the breadth-recross timing may add little over rand
 | Spec | ✅ quant-signed (2026-06-04) |
 | Operator go on build+screen | ✅ go (2026-06-04 — accepted as research/component result; may sit shelved until a host exists) |
 | Build `marketBreadthWashoutWithin` (TDD, first-class) | ✅ done (8 unit tests, `@Component`-registered) |
-| PRD deploy (new condition) | ⬜ gated — needs permission |
-| `/strategy-screen` 2005-2015 + Gjallarhorn-NULL (same session) | ⬜ |
-| `/validate-candidate` → `/monte-carlo` → 30% floor | ⬜ |
+| PRD deploy (new condition) | ✅ udgaard 1.0.83 (condition live, verified via discovery endpoint) |
+| `/condition-screen` firing-rate check | ⏭️ SKIPPED — quant fallback: the `marketBreadth*` family is non-terminating under the condition-screen auto-sweep even on the reduced universe (REFERENCE.md §perf-cliff), no API flag to disable it for a registered condition. Firing rate surfaces in the screen instead. |
+| `/strategy-screen` run #1 (relative-Donchian stack) | ❌ DEAD INSTANTIATION — OOM + ~7-10/yr over-firing (wrong primitive, see above). Premise survives. |
+| Rebuild: `marketBreadthAbsoluteWashoutWithin` (TDD, first-class) | ✅ done (7 unit tests) |
+| **Step 0 — firing-rate/fire-date confirmation** (corrected stack, 300-sym, 2005-2015 single backtest) | ⬜ NEXT — needs PRD redeploy + approval |
+| `/strategy-screen` run #2 (300-sym, corrected stack) | ⬜ only if Step 0 lands on real crises ≤2/yr |
+| Gjallarhorn-NULL (20-seed random-entry-timing, matched firing) | ⬜ |
+| `/validate-candidate` → `/monte-carlo` → 30% floor | ⬜ (quant prior ~10-12%: likely dies at firewall on *insufficient events*, not edge) |
 
 ## Reference
 - Anchor: Zweig Breadth Thrust; capitulation-reversal literature.
