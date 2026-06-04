@@ -1,7 +1,20 @@
 # Gjallarhorn — Breadth-Thrust Exhaustion-Reversal strategy development
 
-_Created: 2026-06-04 · Status: **PARKED — pursuing regime-overlay path; blocked on engine issue [#93](https://github.com/skrymer/trading/issues/93) (nested condition groups). NOT funnel-disqualified (operator override of quant stop).**_
+_Created: 2026-06-04 · Status: **ACTIVE — overlay research. #93 landed; sustained-washout cadence PASS; random-entry-timing NULL test in flight (the timing-alpha vs crisis-beta gate).**_
 _Single-strategy search candidate turned regime-overlay research (`STRATEGY_LEDGER.md` §C.2). Spec + every pivot routed to and signed by `quant-analyst`._
+
+> **LATEST (2026-06-04).** Engine #93 (nested condition groups) merged → composite strategies now
+> expressible. Built `marketBreadthSustainedWashoutWithin(15,10,40)` (the correctly-shaped crisis gate)
+> → **cadence PASS:** the stack `sustainedWashout(15,10,40) AND marketBreadthAbove(20) AND
+> marketBreadthIncreasing(2)` fires on exactly **13 crisis episodes over 2000-2026 (0.50/yr), zero calm
+> years**, on the *recovery* bar (COVID fires 2020-04, not the Feb washout). Standalone: 493 trades,
+> per-trade edge **+2.19%**, win 54.6%, CAGR 2.39% (cash most of the calendar). Now running the
+> **conditional random-entry-timing NULL** (quant-specced): null buys random days from the same
+> comparable-stress population (`breadthPercent ≤ 25`) at matched rate (P_FIRE=0.1486), 20 seeds —
+> isolates the timing rule's marginal value over naive same-regime dip-buying. PASS gate: Gjallarhorn
+> edge +2.19% > null p95 (≥~2σ); CAGR > null median. Early tell: the *full* bare-mask (buy every
+> breadth≤25 day) edge is only +0.11% vs Gjallarhorn's +2.19% (20×). Then (if PASS) → breakout+Gjallarhorn
+> composite A/B via #93.
 
 > **WHERE THIS STANDS (2026-06-04).** Two design iterations of the standalone crisis-washout
 > stack were tried and both over-fired (relative-Donchian = local minima; absolute single-touch ≤15%
@@ -16,6 +29,27 @@ _Single-strategy search candidate turned regime-overlay research (`STRATEGY_LEDG
 > **composite** can be validated as one firewall-certifiable unit (it trades every window, unlike the
 > standalone leg). **Then** run the random-entry-timing NULL test (timing-alpha-vs-crisis-beta gate)
 > + the composite A/B. The 30% CAGR floor is a known downstream risk (breakout+cash ≈ 4-6% blended).
+
+## NULL test result (2026-06-04) — TIMING ALPHA CONFIRMED ✅
+
+The conditional random-entry-timing NULL (quant-specced) ran: 20 seeds, entries drawn from the same
+comparable-stress population (`breadthPercent ≤ 25`) at matched rate (P_FIRE=0.1486 = 81/545), all else
+byte-identical (Random seed 42, 5%×20, same exits, 300-sym, 2000-2026).
+
+| Metric | Gjallarhorn | Null (20 seeds) | Verdict |
+|---|---|---|---|
+| Entry dates | 81 | ~76 (matched) | rate-matched ✓ |
+| **Per-trade edge** (primary) | **+2.19%** | mean −0.17%, sd 0.11, **max −0.005%** (all 20 negative) | **beats 20/20, +22σ, ≫ p95** ✅ |
+| Blended CAGR (confirmatory) | +2.39% | median −0.78% (all 20 negative) | > null median ✅ |
+
+**PASS on both gates.** The mechanism is the textbook timing-alpha signature: **random same-regime
+dip-buying LOSES per trade (−0.17%, catching falling knives), while Gjallarhorn's sustained-washout-THEN-
+recovery timing makes +2.19%.** This is **not crisis beta** — the specific timing rule carries the edge.
+(The full unmatched bare-mask — buy *every* breadth≤25 day, 7702 trades — also only +0.11%/trade. The
+null fired ~1460 trades vs Gjallarhorn's 493 on matched entry dates: a downstream slot/turnover artifact
+that per-trade edge normalizes away.) Standalone CAGR (2.39%) is low because it's cash most of the
+calendar — *exactly the profile of an overlay component*, per the quant. → proceed to the
+breakout+Gjallarhorn composite A/B (via #93). **The 30% CAGR floor is the composite's real test.**
 
 ## Premise
 
