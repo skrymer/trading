@@ -124,6 +124,19 @@ Inline `entryStrategy`/`exitStrategy` with conditions. Conditions need parameter
 
 Common pitfall: nesting parameters at the top level instead of under `"parameters"` silently ignores them.
 
+**Nested condition groups (boolean tree).** A `conditions` entry may be a *group* instead of a leaf — `{"operator": "AND"|"OR"|"NOT", "conditions": [...child nodes...]}` — and groups nest to arbitrary depth. This expresses trees a flat single-operator list cannot, e.g. `(A AND B) OR (C AND D)`:
+
+```json
+"conditions": [
+  {"operator": "OR", "conditions": [
+    {"operator": "AND", "conditions": [{"type": "<A>"}, {"type": "<B>"}]},
+    {"operator": "AND", "conditions": [{"type": "<C>"}, {"type": "<D>"}]}
+  ]}
+]
+```
+
+A node with `conditions` is a group; otherwise it's a leaf. A group requires ≥1 child and `NOT` requires exactly one (else a 400). Existing flat configs (leaves only, joined by the strategy's top-level `operator`) are unchanged.
+
 **The `script` condition** (entry and exit) is a special case: its `script` parameter is a Kotlin expression — over `stock` / `quote` / `context` for entry, `stock` / `entryQuote` / `quote` for exit — that must yield `Boolean`. It expresses signals not covered by the fixed catalogue; several `script` conditions can appear in one strategy, and a malformed script fails the request with a compile error.
 
 ## 5. Targeted symbol subset

@@ -3,6 +3,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitConditionGroup
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.PriceBelowEmaExit
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ProfitTargetExit
@@ -340,6 +341,91 @@ class CompositeExitStrategyTest {
     // Then
     assertEquals(listOf("first", "third"), proximities.map { it.conditionType })
   }
+
+  @Test
+  fun `nested OR-of-AND-groups exits only when a whole premise is satisfied`() {
+    // Given two disjoint AND-premises (A AND B) OR (C AND D), with only A satisfied.
+    val a = fixedExit(true)
+    val b = fixedExit(false)
+    val c = fixedExit(false)
+    val d = fixedExit(false)
+    val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
+
+    val nested =
+      CompositeExitStrategy(
+        exitConditions =
+          listOf(
+            ExitConditionGroup(LogicalOperator.AND, listOf(a, b)),
+            ExitConditionGroup(LogicalOperator.AND, listOf(c, d)),
+          ),
+        operator = LogicalOperator.OR,
+      )
+    // A flat OR over the same leaves exits on the lone A — the wrong answer.
+    val flatOr = CompositeExitStrategy(exitConditions = listOf(a, b, c, d), operator = LogicalOperator.OR)
+
+    // Then nested correctly holds (no complete premise) while flat OR wrongly exits.
+    assertFalse(nested.match(stock, null, quote))
+    assertTrue(flatOr.match(stock, null, quote))
+  }
+
+  @Test
+  fun `getConditions returns the flattened leaf set across nested groups`() {
+    // Given an exit strategy whose first member is a nested group of two leaves
+    val priceBelow = PriceBelowEmaExit(10)
+    val emaCross = EmaCrossExit(10, 20)
+    val profitTarget = ProfitTargetExit(3.0, 20)
+    val strategy =
+      CompositeExitStrategy(
+        exitConditions =
+          listOf(
+            ExitConditionGroup(LogicalOperator.AND, listOf(priceBelow, emaCross)),
+            profitTarget,
+          ),
+        operator = LogicalOperator.OR,
+      )
+
+    // When
+    val leaves = strategy.getConditions()
+
+    // Then the group is expanded so stateful conditions inside it still get reset
+    assertEquals(listOf(priceBelow, emaCross, profitTarget), leaves)
+  }
+
+  @Test
+  fun `exitProximities surfaces proximities of leaves nested inside a group`() {
+    // Given a leaf with a proximity wrapped inside an exit group
+    val innerProximity = ExitProximity(conditionType = "inner", proximity = 0.5, detail = "halfway")
+    val strategy =
+      CompositeExitStrategy(
+        exitConditions =
+          listOf(
+            ExitConditionGroup(
+              LogicalOperator.AND,
+              listOf(fakeConditionWithProximity(innerProximity), fakeConditionWithProximity(null)),
+            ),
+          ),
+        operator = LogicalOperator.OR,
+      )
+
+    // When
+    val proximities = strategy.exitProximities(stock, null, StockQuote(date = LocalDate.of(2024, 1, 15)))
+
+    // Then the grouped leaf's warning chip is not lost
+    assertEquals(listOf("inner"), proximities.map { it.conditionType })
+  }
+
+  private fun fixedExit(result: Boolean): ExitCondition =
+    object : ExitCondition {
+      override fun shouldExit(stock: Stock, entryQuote: StockQuote?, quote: StockQuote): Boolean = result
+
+      override fun exitReason(): String = "fixed"
+
+      override fun description(): String = if (result) "T" else "F"
+
+      override fun getMetadata(): ConditionMetadata = throw UnsupportedOperationException("stub")
+
+      override fun parseConfig(parameters: Map<String, Any>): ExitCondition = this
+    }
 
   private fun fakeConditionWithProximity(result: ExitProximity?): ExitCondition =
     object : ExitCondition {

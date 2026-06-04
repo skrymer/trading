@@ -1,0 +1,19 @@
+# Custom strategies are a recursive boolean condition tree, via the Composite pattern
+
+A custom strategy's condition config was a **flat** `List<ConditionConfig>` joined by a **single** top-level operator (`CompositeEntryStrategy` / `CompositeExitStrategy` evaluated one `when(operator) { AND -> all; OR -> any; NOT -> !first }`). That cannot express `(A AND B) OR (C AND D)`: `operator = OR` makes every leaf individually sufficient (a lone `minimumPrice` fires entries daily), and `operator = AND` conjoins premises that are mutually exclusive by construction (a breakout premise AND a washout premise never co-fire → empty set). This is the structural blocker that makes **regime-overlay / multi-premise** strategies — a base premise that also opens trades on a second, disjoint premise — inexpressible in-engine (issue #93).
+
+We made the condition config a **recursive boolean tree** using the **Composite (GoF) pattern**: a node is either a **leaf** (an existing `{type, parameters}` condition) or a **group** (`{operator, conditions: [...nodes]}`). `EntryConditionGroup` / `ExitConditionGroup` *implement the same `EntryCondition` / `ExitCondition` interface as a leaf* and hold child nodes, so a group is just another condition to everything upstream. `DynamicStrategyBuilder` builds the tree recursively; a node with `conditions` becomes a group, otherwise a registry-built leaf. Groups nest to arbitrary depth.
+
+## Considered Options
+
+- **Two-level form only** (`groups: [...]` joined by a top-level operator, no deeper nesting): satisfies the immediate `(A AND B) OR (C AND D)` use case but caps expressiveness arbitrarily and needs a distinct `groups` field alongside `conditions`. Rejected — a recursive tree is cleaner and fully general for the same implementation cost.
+- **A separate sealed `EntryNode` / `EntryGroupNode` hierarchy** held by the strategy as `List<EntryNode>`: conceptually tidy but forces the strategy constructor to take nodes instead of `List<EntryCondition>`, rewriting every existing call site (DSL, ~20 tests) and breaking the byte-identical backward-compat requirement. Rejected.
+- **Chosen: Composite pattern — a group *is an* `EntryCondition`/`ExitCondition`.** The existing strategy constructors, DSL, `test`, `testWithDetails`, and `description` keep working unchanged because they operate over the condition interface; only `getConditions()` and the builder change.
+
+## Consequences
+
+- **Backward compatible by construction.** An existing flat config (only `conditions` + `operator`, no nested `conditions`) builds a tree whose root children are all leaves — byte-identical evaluation. `ConditionConfig.type` gained a default of `""` and two optional fields (`operator`, `conditions`); no existing request shape or predefined strategy changes.
+- **`getConditions()` returns the flattened leaf set**, recursing into groups (`EntryConditionGroup.leaves()`), so a stateful condition nested inside a group is still reachable for lifecycle reset between backtests.
+- **Groups are never registered** with `ConditionRegistry` (no `@Component`), carry no discoverable wire-type, and throw from `getMetadata()` — `GET /api/backtest/conditions` and the discovery surface stay leaf-only.
+- **Diagnostics stay a flat list.** `evaluateWithDetails` surfaces each top-level child as one `ConditionEvaluationResult`; a group child collapses to a single summary result (`conditionType = "ConditionGroup"`, child pass/fail in `message`). Existing scanner near-miss / condition-signal consumers see the same shape — a flat config produces identical details.
+- **Validation lives in the group:** a group requires ≥1 child and `NOT` requires exactly one, enforced in `init` (surfaces as a 400). The single-condition-evaluation endpoints (`condition-signals`, `condition-screen`) still take flat leaf lists and are unchanged — nesting is a custom-strategy (backtest) capability only.
