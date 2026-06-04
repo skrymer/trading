@@ -143,6 +143,13 @@ Each has a signature, a meaning, and the stage it's caught at. A REJECTED config
 
 ## 4. Cross-cutting discipline (non-negotiable)
 
+- **Data-span feasibility check — do this FIRST, before scoping a candidate.** The candidate's
+  core signal/instrument must have data **spanning the firewall window** — screenable on 2005-2015
+  AND validatable on Block A (2000-14) + Block B (2014-21). A signal confined to the recent ~5y
+  sits inside Block C (the only OOS block), so it can't be screened (no pre-2015 data) and can't be
+  validated without leaking the OOS block → **funnel-disqualified**. Recurs constantly: leveraged
+  ETFs (post-2009), RSP (2003), bonds/gold (pre-2002 gap), Ovtlyr (~5y → Forseti), listing-date
+  (Vidar). Check the span before investing any design effort. `[operator]`
 - **Never fire a backtest/screen without explicit approval** — always show the POST and wait for
   an explicit "go" (`/backtest`, `/walk-forward`, `/strategy-screen`, `/monte-carlo`). `[operator]`
 - **The IS-fitting line.** You may NOT rescue a failed candidate by fitting a regime/parameter to
