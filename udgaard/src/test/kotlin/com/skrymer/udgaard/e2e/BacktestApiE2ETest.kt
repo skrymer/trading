@@ -92,6 +92,45 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
   }
 
   @Test
+  fun `POST backtest with nested OR-of-AND entry groups should work end to end`() {
+    // (uptrend AND marketbreadthabove) OR (uptrend AND sectorbreadthabove) — a shape a flat
+    // single-operator condition list cannot express.
+    val request = BacktestRequest(
+      stockSymbols = BacktestTestDataGenerator.ALL_SYMBOLS,
+      entryStrategy = CustomStrategyConfig(
+        operator = "OR",
+        conditions = listOf(
+          ConditionConfig(
+            operator = "AND",
+            conditions = listOf(
+              ConditionConfig(type = "uptrend"),
+              ConditionConfig(type = "marketbreadthabove", parameters = mapOf("threshold" to 40.0)),
+            ),
+          ),
+          ConditionConfig(
+            operator = "AND",
+            conditions = listOf(
+              ConditionConfig(type = "uptrend"),
+              ConditionConfig(type = "sectorbreadthabove", parameters = mapOf("threshold" to 20.0)),
+            ),
+          ),
+        ),
+      ),
+      exitStrategy = PredefinedStrategyConfig(name = "TestExit"),
+      startDate = "2024-01-02",
+      endDate = "2024-03-29",
+      useUnderlyingAssets = false,
+    )
+
+    val response = postBacktest(request)
+
+    assertEquals(HttpStatus.OK, response.statusCode)
+    val body = response.body!!
+    assertNotNull(body.backtestId)
+    assertTrue(body.totalTrades > 0, "Nested OR-of-AND entry should produce trades")
+  }
+
+  @Test
   fun `POST backtest with maxPositions should cap concurrent trades`() {
     val maxPositions = 3
     val request = BacktestRequest(

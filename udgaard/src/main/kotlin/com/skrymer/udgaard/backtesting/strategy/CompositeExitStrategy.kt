@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ExitSignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitConditionGroup
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.ExitProximity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -140,10 +141,12 @@ class CompositeExitStrategy(
   }
 
   /**
-   * Returns all exit conditions in this composite strategy.
-   * Used for automatic metadata extraction.
+   * Returns the flattened leaf exit conditions of this composite strategy, recursing into
+   * any nested [ExitConditionGroup]s, so a stateful condition nested inside a group is still
+   * reachable for lifecycle reset between backtests.
    */
-  fun getConditions(): List<ExitCondition> = exitConditions
+  fun getConditions(): List<ExitCondition> =
+    exitConditions.flatMap { if (it is ExitConditionGroup) it.leaves() else listOf(it) }
 
   override fun exitProximities(
     stock: Stock,
@@ -155,6 +158,12 @@ class CompositeExitStrategy(
     // composite triggering" — the opposite of what users expect a warning chip to
     // represent. Simpler and safer to stay silent than to flip or mask the value.
     if (operator == LogicalOperator.NOT) return emptyList()
-    return exitConditions.mapNotNull { it.proximity(stock, entryQuote, quote) }
+    return exitConditions.flatMap {
+      if (it is ExitConditionGroup) {
+        it.leafProximities(stock, entryQuote, quote)
+      } else {
+        listOfNotNull(it.proximity(stock, entryQuote, quote))
+      }
+    }
   }
 }

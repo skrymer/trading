@@ -60,11 +60,21 @@ data class CustomStrategyConfig(
 ) : StrategyConfig()
 
 /**
- * Configuration for a single trading condition
+ * A node in a custom strategy's condition tree — either a leaf or a group.
+ *
+ * - Leaf: a single condition identified by [type] with optional [parameters].
+ * - Group: a nested boolean group of child [conditions] joined by [operator]
+ *   (AND/OR/NOT). A group lets a custom strategy express `(A AND B) OR (C AND D)`,
+ *   which a flat single-operator list cannot. Groups nest to arbitrary depth.
+ *
+ * A node is treated as a group when [conditions] is non-null; otherwise it is a leaf.
+ * Existing flat configs (only [type] + [parameters]) keep working unchanged.
  */
 data class ConditionConfig(
-  val type: String, // e.g., "uptrend", "priceAboveEma", "stopLoss"
+  val type: String = "", // e.g., "uptrend", "priceAboveEma", "stopLoss" (empty for groups)
   val parameters: Map<String, Any> = emptyMap(), // Condition-specific params
+  val operator: String? = null, // Group only: AND/OR/NOT joining child conditions
+  val conditions: List<ConditionConfig>? = null, // Group only: child nodes (leaf or group)
 )
 
 /**

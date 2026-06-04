@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.strategy
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EmaAlignmentCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryConditionGroup
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.PriceAboveEmaCondition
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.UptrendCondition
 import com.skrymer.udgaard.data.model.Stock
@@ -11,6 +12,22 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
+
+private class FixedCondition(
+  private val result: Boolean
+) : com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition {
+  override fun evaluate(stock: Stock, quote: StockQuote, context: BacktestContext): Boolean = result
+
+  override fun description(): String = if (result) "T" else "F"
+
+  override fun getMetadata() = throw UnsupportedOperationException("stub")
+
+  override fun evaluateWithDetails(stock: Stock, quote: StockQuote, context: BacktestContext) =
+    com.skrymer.udgaard.backtesting.dto
+      .ConditionEvaluationResult("FixedCondition", description(), result)
+
+  override fun parseConfig(parameters: Map<String, Any>) = this
+}
 
 class CompositeEntryStrategyTest {
   private val stock = Stock()
@@ -207,6 +224,55 @@ class CompositeEntryStrategyTest {
       )
 
     assertEquals("Custom strategy", strategy.description())
+  }
+
+  @Test
+  fun `nested OR-of-AND-groups fires only when a whole premise is satisfied`() {
+    // Given two disjoint AND-premises (A AND B) OR (C AND D), with only A satisfied.
+    val a = FixedCondition(true)
+    val b = FixedCondition(false)
+    val c = FixedCondition(false)
+    val d = FixedCondition(false)
+    val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
+
+    val nested =
+      CompositeEntryStrategy(
+        conditions =
+          listOf(
+            EntryConditionGroup(LogicalOperator.AND, listOf(a, b)),
+            EntryConditionGroup(LogicalOperator.AND, listOf(c, d)),
+          ),
+        operator = LogicalOperator.OR,
+      )
+    // A flat OR over the same leaves fires on the lone A — the wrong answer.
+    val flatOr = CompositeEntryStrategy(conditions = listOf(a, b, c, d), operator = LogicalOperator.OR)
+
+    // Then nested correctly rejects (no complete premise) while flat OR wrongly fires.
+    assertFalse(nested.test(stock, quote, BacktestContext.EMPTY))
+    assertTrue(flatOr.test(stock, quote, BacktestContext.EMPTY))
+  }
+
+  @Test
+  fun `getConditions returns the flattened leaf set across nested groups`() {
+    // Given a strategy whose first member is a nested group of two leaves
+    val uptrend = UptrendCondition()
+    val priceAbove = PriceAboveEmaCondition(10)
+    val emaAlignment = EmaAlignmentCondition(10, 20)
+    val strategy =
+      CompositeEntryStrategy(
+        conditions =
+          listOf(
+            EntryConditionGroup(LogicalOperator.AND, listOf(uptrend, priceAbove)),
+            emaAlignment,
+          ),
+        operator = LogicalOperator.OR,
+      )
+
+    // When
+    val leaves = strategy.getConditions()
+
+    // Then the group is expanded so stateful conditions inside it still get reset
+    assertEquals(listOf(uptrend, priceAbove, emaAlignment), leaves)
   }
 
   @Test

@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.EntrySignalDetails
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryConditionGroup
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 
@@ -52,10 +53,13 @@ class CompositeEntryStrategy(
   }
 
   /**
-   * Returns all conditions in this composite strategy.
-   * This is useful for backtest lifecycle management (e.g., resetting stateful conditions).
+   * Returns the flattened leaf conditions of this composite strategy, recursing into any
+   * nested [EntryConditionGroup]s. This is useful for backtest lifecycle management (e.g.,
+   * resetting stateful conditions) — a stateful condition nested inside a group must still
+   * be reachable here or it won't get reset between backtests.
    */
-  fun getConditions(): List<EntryCondition> = conditions
+  fun getConditions(): List<EntryCondition> =
+    conditions.flatMap { if (it is EntryConditionGroup) it.leaves() else listOf(it) }
 
   /**
    * Evaluates the strategy and returns detailed condition results.
