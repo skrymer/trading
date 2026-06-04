@@ -1,7 +1,21 @@
 # Gjallarhorn — Breadth-Thrust Exhaustion-Reversal strategy development
 
-_Created: 2026-06-04 · Status: **SPEC — quant-signed; awaiting operator go on build+screen**._
-_Next candidate of the single-strategy search (`STRATEGY_LEDGER.md` §C.2). Spec routed to and signed by `quant-analyst`._
+_Created: 2026-06-04 · Status: **PARKED — pursuing regime-overlay path; blocked on engine issue [#93](https://github.com/skrymer/trading/issues/93) (nested condition groups). NOT funnel-disqualified (operator override of quant stop).**_
+_Single-strategy search candidate turned regime-overlay research (`STRATEGY_LEDGER.md` §C.2). Spec + every pivot routed to and signed by `quant-analyst`._
+
+> **WHERE THIS STANDS (2026-06-04).** Two design iterations of the standalone crisis-washout
+> stack were tried and both over-fired (relative-Donchian = local minima; absolute single-touch ≤15%
+> = ~7th-percentile, fires every year). A 3rd shape (sustained washout, ≤15% for ≥10 consecutive
+> days → ~17 real crises/26y) was speced but NOT built: the quant ruled the premise
+> **un-validatable as a standalone** under the per-window firewall (cadence ceiling — ~17 events ⇒
+> Block C n≈2, most walk-forward OOS windows have zero trades; it IS the lottery pattern by
+> construction). **Operator chose to pursue it as a regime OVERLAY** (crisis-reentry leg on the
+> shelved breakout) rather than stop. The quant found **no in-engine overlay is expressible** — the
+> custom strategy is a flat condition stack with one operator (no OR-of-AND-groups). **Operator
+> decision: fix the engine first** (issue #93, nested condition groups) so a breakout+Gjallarhorn
+> **composite** can be validated as one firewall-certifiable unit (it trades every window, unlike the
+> standalone leg). **Then** run the random-entry-timing NULL test (timing-alpha-vs-crisis-beta gate)
+> + the composite A/B. The 30% CAGR floor is a known downstream risk (breakout+cash ≈ 4-6% blended).
 
 ## Premise
 
@@ -194,11 +208,35 @@ went up off that bottom), so the breadth-recross timing may add little over rand
 | PRD deploy (new condition) | ✅ udgaard 1.0.83 (condition live, verified via discovery endpoint) |
 | `/condition-screen` firing-rate check | ⏭️ SKIPPED — quant fallback: the `marketBreadth*` family is non-terminating under the condition-screen auto-sweep even on the reduced universe (REFERENCE.md §perf-cliff), no API flag to disable it for a registered condition. Firing rate surfaces in the screen instead. |
 | `/strategy-screen` run #1 (relative-Donchian stack) | ❌ DEAD INSTANTIATION — OOM + ~7-10/yr over-firing (wrong primitive, see above). Premise survives. |
-| Rebuild: `marketBreadthAbsoluteWashoutWithin` (TDD, first-class) | ✅ done (7 unit tests) |
-| **Step 0 — firing-rate/fire-date confirmation** (corrected stack, 300-sym, 2005-2015 single backtest) | ⬜ NEXT — needs PRD redeploy + approval |
-| `/strategy-screen` run #2 (300-sym, corrected stack) | ⬜ only if Step 0 lands on real crises ≤2/yr |
-| Gjallarhorn-NULL (20-seed random-entry-timing, matched firing) | ⬜ |
-| `/validate-candidate` → `/monte-carlo` → 30% floor | ⬜ (quant prior ~10-12%: likely dies at firewall on *insufficient events*, not edge) |
+| Rebuild #1: `marketBreadthAbsoluteWashoutWithin` (TDD, first-class) | ✅ done (7 unit tests), deployed PRD 1.0.84 |
+| Step 0 — firing-rate confirmation (300-sym, 2005-2015 single backtest) | ✅ run — **OVER-FIRES** (1100 trades, every year; breadth ≤15% is ~7th pctile, not crisis-only — see breadth finding below) |
+| Rebuild #2 spec: `marketBreadthSustainedWashoutWithin(15, 10, 40)` | ✅ quant-speced, ⬜ NOT built (un-validatable standalone → pivoted to overlay) |
+| **Engine #93 — nested condition groups** (regime-overlay support) | 🔄 issue raised, handed to another session |
+| Build `marketBreadthSustainedWashoutWithin` (for the composite/NULL) | ⬜ after #93 |
+| Random-entry-timing NULL test (timing-alpha vs crisis-beta gate) | ⬜ after #93 + sustained condition — THE decisive cheap experiment |
+| Composite (breakout OR Gjallarhorn) A/B + firewall as one unit | ⬜ after NULL passes |
+
+## Breadth-series finding (durable — reusable engine knowledge)
+
+`marketBreadthDaily.breadthPercent` (2000-2026, n=6644) is a **short-horizon breadth oscillator** (% of
+names in a short-term uptrend), **NOT** a slow "% above 200DMA" series: **mean 42.5, median 43.6, max only
+88.3 (never ~100), min 0**; percentiles 1st=4.2, 5th=11.4, 10th=17.2, 25th=29.4. So **breadth ≤15% is ≈
+the 7th percentile — a routine pullback level touched every year**, not a crisis signature. A single-touch
+"washed out ≤15% within N days" gate therefore fires constantly. The breadth Donchian channel is only
+**20 days** (`MarketBreadthService.kt:32`) — "near the Donchian low" is a 20-day local-minimum, also routine.
+**Implication for any future breadth-condition work:** don't treat a single low touch as a crisis; crises are
+distinguished by *sustained depth* (duration), not level.
+
+### Crisis-episode ground truth (run-length map, ≤threshold for ≥K consecutive days)
+- **≤15% for ≥10 consecutive days → 17 episodes/26y:** 2001-09, 2002-07, 2004-05, 2008 (Jun/Sep/Nov), 2009-02, 2011 (Jun/Aug/Sep), 2014-09, 2015-08, 2016-01, 2018 (Oct/Dec), 2020-02 (31d), 2022-09.
+- **≤10% for ≥10 consecutive days → 8 episodes:** 2002-07, 2008 (×2), 2009-02, 2011-08, 2016-01, 2018-12, 2020-02 (28d) — major crises only.
+
+### Sustained-washout spec (drafted, build after #93 — for the composite/NULL only)
+`MarketBreadthSustainedWashoutWithinCondition`: longest consecutive run of `breadthPercent ≤ threshold`
+within last M readings ≥ K. **threshold=15, consecutiveDays=10 (consecutive, NOT N-of-M — N-of-M readmits
+calm-year scatter), lookbackDays=40** (M=40 leaves recovery-budget after even the 31-day COVID run).
+Turn trigger: `marketBreadthAbove(20) AND marketBreadthIncreasing(2)` (a real lift-off the floor, not the
+EMA10-recross that over-fired). Cadence target: ~0.5-0.65 episodes/yr, near-zero in calm years.
 
 ## Reference
 - Anchor: Zweig Breadth Thrust; capitulation-reversal literature.
