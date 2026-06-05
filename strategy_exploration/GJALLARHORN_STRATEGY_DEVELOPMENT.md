@@ -1,7 +1,59 @@
 # Gjallarhorn — Breadth-Thrust Exhaustion-Reversal strategy development
 
-_Created: 2026-06-04 · Status: **PARKED — pursuing regime-overlay path; blocked on engine issue [#93](https://github.com/skrymer/trading/issues/93) (nested condition groups). NOT funnel-disqualified (operator override of quant stop).**_
+_Created: 2026-06-04 · Status: **SHELVED — timing alpha CONFIRMED (NULL +22σ), composite A/B NO-GO. Certified-but-homeless matched pair with the shelved breakout. No iteration.**_
 _Single-strategy search candidate turned regime-overlay research (`STRATEGY_LEDGER.md` §C.2). Spec + every pivot routed to and signed by `quant-analyst`._
+
+> **TERMINAL VERDICT (2026-06-04): SHELVED.** Gjallarhorn's crisis-bottom timing is **real** (NULL test:
+> per-trade edge +2.19% beats all 20 conditional-within-regime null seeds by +22σ — random same-regime
+> dip-buying loses). But the **composite A/B is a NO-GO**: as a fixed 30% overlay sleeve on the shelved
+> breakout, full-period **MAR +5% / DD +0%** vs breakout+T-bills (benefit real but crisis-confined: Block B
+> +31% MAR, Block C +46%/−7%DD). All three pre-registered NO-GO triggers fired. **Structural, not fixable:**
+> a mostly-cash crisis leg (~10% active) as a *fixed* sleeve is ~30% cash drag → can't move the book; and its
+> crisis-timed drawdowns overlap the breakout's (long-only ⇒ everything correlates in crises, ADR 0010) → no
+> DD offset. The only construction that would capture its value is **dynamic regime-switching** = the
+> ABANDONED regime-portfolio program, which stays **triple-walled** (engine can't express the switch; the
+> ~4-6% CAGR arithmetic can't reach the MAR ≥3× SPY revival bar; the confirmed alpha fills the named gap but
+> clears neither wall). **No iteration** (tuning sleeves/exits = IS-fitting). **Durable assets kept:** the
+> three washout conditions, the conditional-within-regime NULL methodology, the breadth-oscillator
+> distribution + 17-event crisis map. **Next: BTC+Tyr standalone** (`STRATEGY_LEDGER.md` §C.2). [[project_regime_conditional_portfolio_framework]]
+
+> **LATEST (2026-06-04).** #93 (nested groups) merged. Built `marketBreadthSustainedWashoutWithin(15,10,40)`
+> → **cadence PASS** (13 crisis episodes/26y, 0.50/yr, zero calm years, fires on recovery) → **NULL test
+> PASS: timing alpha confirmed** (per-trade edge +2.19% beats all 20 conditional-null seeds, +22σ; null
+> mean −0.17%, all negative; CAGR +2.39% > null median −0.78%). Same-regime random dip-buying loses; the
+> sustained-washout-reversal timing rule carries the edge — NOT crisis beta. **Next = breakout+Gjallarhorn
+> composite A/B (offline two-curve blend), now PARKED on engine #97.**
+>
+> **Why #97, and why NOT #93's in-engine composite:** the quant ruled the A/B must be an **offline
+> two-curve blend** (B), not an in-engine #93 composite (A). #93 makes entry `breakout OR gjallarhorn`
+> expressible, but a strategy still has ONE ranker/sizer/exit/maxPositions — forcing shared mechanics
+> would decapitate the breakout's right-tail runner (a 15% profit cap) and run Gjallarhorn in its
+> forbidden AtrRisk sizer → confounded. The offline blend preserves each leg's validated config. But the
+> blend's go/no-go is **blended max-DD / MAR**, which needs a **daily mark-to-market NAV curve per leg** —
+> the backtest API exposes per-trade returns + DD summaries only (no daily NAV). The engine *computes*
+> daily MTM internally (`PositionSizingService.kt:74`) but discards it. → **issue #97** exposes it; resume
+> the blend when it lands.
+
+### Standalone baselines (300-sym, 2000-2026) — the A/B inputs (captured, ready to blend)
+| Leg | config | CAGR | maxDD | MAR (Calmar) | Sharpe | result file |
+|---|---|---|---|---|---|---|
+| Breakout (Minervini EX-ATR20×SSM) | AtrRisk(1.25,2.0), SectorStrengthMomentum, maxPos 10 | 5.32% | 22.1% | 0.241 | 0.66 | `/tmp/breakout-alone-300-result.json` |
+| Gjallarhorn (sustained washout) | PercentEquity 5%, Random 42, maxPos 20 | 2.39% | 20.9% | 0.114 | **1.04** | `/tmp/step0b-result.json` |
+
+### Composite A/B spec (quant-signed, ready to run once #97 lands)
+- **Offline two-curve blend**, fixed sleeves, no rebalance: **70% breakout / 30% Gjallarhorn** headline,
+  **swept 25/75 · 30/70 · 35/65** (mandatory anti-fit — verdict must hold across all three).
+- Idle cash credited **~3%/yr** (SGOV/IBKR) in both arms. Combine as dollar curves on a common daily axis.
+- **A arm** = breakout 70% + 30% T-bills; **B arm** = breakout 70% + Gjallarhorn 30%. Report **per firewall
+  block (A/B/C) + continuous 2000-2026**: blended CAGR, **MAR/Calmar**, max-DD, DD-duration.
+- **Decisive sub-test:** the narrow-leadership windows the breakout bleeds in — **2011, 2015-16, 2021-23**.
+  Expect Gjallarhorn to help in 2011/2015-16 (breadth washouts in its fire set), little in 2021-23 (no
+  breadth capitulation). Help located in a crisis window = real; smoothing-only = just de-risking.
+- **GO** (continue overlay): composite **MAR ≥ 1.20× breakout-alone AND maxDD ≤ 0.85× breakout-alone**,
+  holding across all 3 splits, with located crisis-window contribution. **The 30% CAGR floor does NOT
+  apply** (category error — it's a defensive overlay, not a standalone). **NO-GO** → shelve as a matched
+  pair with the breakout (both certified, neither standalone-tradable, awaiting a portfolio framework the
+  long-only engine can't currently provide — ADR 0010); **no iteration** (tuning sleeves/exits = IS-fitting).
 
 > **WHERE THIS STANDS (2026-06-04).** Two design iterations of the standalone crisis-washout
 > stack were tried and both over-fired (relative-Donchian = local minima; absolute single-touch ≤15%
@@ -16,6 +68,27 @@ _Single-strategy search candidate turned regime-overlay research (`STRATEGY_LEDG
 > **composite** can be validated as one firewall-certifiable unit (it trades every window, unlike the
 > standalone leg). **Then** run the random-entry-timing NULL test (timing-alpha-vs-crisis-beta gate)
 > + the composite A/B. The 30% CAGR floor is a known downstream risk (breakout+cash ≈ 4-6% blended).
+
+## NULL test result (2026-06-04) — TIMING ALPHA CONFIRMED ✅
+
+The conditional random-entry-timing NULL (quant-specced) ran: 20 seeds, entries drawn from the same
+comparable-stress population (`breadthPercent ≤ 25`) at matched rate (P_FIRE=0.1486 = 81/545), all else
+byte-identical (Random seed 42, 5%×20, same exits, 300-sym, 2000-2026).
+
+| Metric | Gjallarhorn | Null (20 seeds) | Verdict |
+|---|---|---|---|
+| Entry dates | 81 | ~76 (matched) | rate-matched ✓ |
+| **Per-trade edge** (primary) | **+2.19%** | mean −0.17%, sd 0.11, **max −0.005%** (all 20 negative) | **beats 20/20, +22σ, ≫ p95** ✅ |
+| Blended CAGR (confirmatory) | +2.39% | median −0.78% (all 20 negative) | > null median ✅ |
+
+**PASS on both gates.** The mechanism is the textbook timing-alpha signature: **random same-regime
+dip-buying LOSES per trade (−0.17%, catching falling knives), while Gjallarhorn's sustained-washout-THEN-
+recovery timing makes +2.19%.** This is **not crisis beta** — the specific timing rule carries the edge.
+(The full unmatched bare-mask — buy *every* breadth≤25 day, 7702 trades — also only +0.11%/trade. The
+null fired ~1460 trades vs Gjallarhorn's 493 on matched entry dates: a downstream slot/turnover artifact
+that per-trade edge normalizes away.) Standalone CAGR (2.39%) is low because it's cash most of the
+calendar — *exactly the profile of an overlay component*, per the quant. → proceed to the
+breakout+Gjallarhorn composite A/B (via #93). **The 30% CAGR floor is the composite's real test.**
 
 ## Premise
 
