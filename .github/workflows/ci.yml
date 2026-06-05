@@ -8,6 +8,12 @@ on:
     branches:
       - main
 
+# Needed by the test-reporter to publish a check run + annotate failing tests in the PR diff.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   backend-test:
     name: Backend Tests
@@ -54,6 +60,14 @@ jobs:
         working-directory: udgaard
         run: ./gradlew test --no-daemon
 
+      - name: Publish backend test report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: 'udgaard/build/test-results/test/*.xml'
+          check_name: Backend Test Report
+          detailed_summary: true
+
       - name: Build backend JAR
         working-directory: udgaard
         run: ./gradlew bootJar --no-daemon
@@ -67,7 +81,7 @@ jobs:
           retention-days: 7
 
       - name: Upload build reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: backend-build-reports
@@ -118,6 +132,14 @@ jobs:
         working-directory: midgaard
         run: ./gradlew test --no-daemon
 
+      - name: Publish midgaard test report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: 'midgaard/build/test-results/test/*.xml'
+          check_name: Midgaard Test Report
+          detailed_summary: true
+
       - name: Build midgaard JAR
         working-directory: midgaard
         run: ./gradlew bootJar --no-daemon
@@ -131,7 +153,7 @@ jobs:
           retention-days: 7
 
       - name: Upload build reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: midgaard-build-reports
