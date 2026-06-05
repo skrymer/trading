@@ -1,8 +1,10 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.PortfolioEquityPoint
+import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.PositionSizingResult
 import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -134,6 +136,93 @@ class RiskMetricsServiceTest {
     // Then Sortino is non-null and (since the strategy underperforms MAR every day) is negative
     val sortino = requireNotNull(analysis.riskMetrics.sortinoRatio)
     assertTrue(sortino < 0.0, "expected negative Sortino when strategy underperforms MAR, got $sortino")
+  }
+
+  @Test
+  fun `sharpe with aligned per-day rf recovers the risky-leg Sharpe, neutralizing the idle coupon`() {
+    // Given a risky daily-return signal, and the SAME signal with each day's rf coupon added on top
+    // (the credited portfolio return = risky leg + idle coupon)
+    val provider = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val risky = listOf(0.01, -0.005, 0.008, -0.002, 0.012)
+    val credited = risky.mapIndexed { i, r ->
+      val from = LocalDate.of(2024, 1, 1).plusDays(i.toLong())
+      val to = from.plusDays(1)
+      RiskMetricsService.DatedReturn(from, to, r + provider.stepRate(from, to))
+    }
+
+    // When computing Sharpe on the credited returns with the aligned rf provider subtracted
+    val aligned = service.sharpe(credited, provider)
+
+    // Then it equals the raw Sharpe of the risky leg alone — the rf coupon nets to zero excess
+    val rawRiskyLeg = service.sharpe(risky, 0.0)
+    assertEquals(requireNotNull(rawRiskyLeg), requireNotNull(aligned), EPSILON)
+  }
+
+  @Test
+  fun `idle-credited equity curve returns equal the rf step credited — same rf_step feeds both legs`() {
+    // Given a fully-idle book sized with crediting on, so its only daily return IS the coupon
+    val provider = RiskFreeRateProvider(
+      mapOf(LocalDate.of(2024, 1, 1) to 3.6, LocalDate.of(2024, 1, 4) to 10.8),
+      expensePct = 0.10,
+    )
+    val config = PositionSizingConfig(startingCapital = 100_000.0, sizer = AtrRiskSizerConfig(1.5, 2.0))
+    val calendar = (0..5L).map { LocalDate.of(2024, 1, 1).plusDays(it) }
+    val curve = PositionSizingService()
+      .applyPositionSizing(
+        listOf(idleTrade(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 6))),
+        config,
+        tradingCalendar = calendar,
+        riskFreeRateProvider = provider,
+        creditIdleCash = true,
+      ).equityCurve
+
+    // When subtracting the same provider's rf_step from each credited return
+    val excess = service.datedDailyReturns(curve).map { it.ret - provider.stepRate(it.fromDate, it.toDate) }
+
+    // Then every day's excess is zero — the rate credited to cash is exactly the rate Sharpe removes
+    assertTrue(excess.isNotEmpty())
+    excess.forEach { assertEquals(0.0, it, 1e-12) }
+  }
+
+  @Test
+  fun `SPY baseline curve carries zero idle credit — it is the raw close series (F2)`() {
+    // Given a strategy curve over five trading days and a SPY close series on the same dates.
+    // SPY buy-and-hold is always 100pct invested, so it has no uninvested balance to accrue on —
+    // the baseline must be the raw closes, never lifted by an idle-cash coupon (would narrow the gate).
+    val strategyCurve = (0..4L).map { point(START.plusDays(it), 100_000.0 + it * 10) }
+    val spyCloses = listOf(400.0, 402.0, 401.0, 405.0, 410.0)
+    val benchmarkQuotes = spyCloses.mapIndexed { i, close -> quote(START.plusDays(i.toLong()), close) }
+
+    // When the engine builds SPY's own equity curve over the strategy's date span
+    val baseline = service.benchmarkEquityCurve(strategyCurve, benchmarkQuotes)
+
+    // Then every point equals the SPY close exactly — zero idle credit on any date
+    assertEquals(spyCloses.size, baseline.size)
+    baseline.forEachIndexed { i, p -> assertEquals(spyCloses[i], p.portfolioValue, 0.0) }
+  }
+
+  @Test
+  fun `compute uses the rf provider for Sharpe when supplied — a zero provider reproduces raw Sharpe`() {
+    // Given a curve evaluated two ways: scalar rf=0, and a zero-rate provider
+    val daily = listOf(0.0005, 0.0003, 0.0007).repeat(84)
+    val curve = buildCurveFromDailyReturns(START, 100_000.0, daily)
+
+    // When computing with the scalar rf=0 path and with an all-zero rf provider
+    val viaScalar = service.compute(emptyList(), curve, sizing(curve), benchmarkQuotes = null)
+    val viaProvider = service.compute(
+      emptyList(),
+      curve,
+      sizing(curve),
+      benchmarkQuotes = null,
+      riskFreeRateProvider = RiskFreeRateProvider(emptyMap(), expensePct = 0.0),
+    )
+
+    // Then the provider path is wired in and a zero provider matches raw Sharpe exactly
+    assertEquals(
+      requireNotNull(viaScalar.riskMetrics.sharpeRatio),
+      requireNotNull(viaProvider.riskMetrics.sharpeRatio),
+      EPSILON,
+    )
   }
 
   // ===== CALMAR (FIXED FORMULA) =====
@@ -526,6 +615,21 @@ class RiskMetricsServiceTest {
   }
 
   // ===== HELPERS =====
+
+  /** A trade that sizes to zero shares (huge ATR), so the whole book stays idle across the span. */
+  private fun idleTrade(entryDate: LocalDate, exitDate: LocalDate): Trade {
+    val entryQuote = StockQuote(symbol = "IDLE", date = entryDate, closePrice = 50.0, atr = 1_000_000.0)
+    val exitQuote = StockQuote(symbol = "IDLE", date = exitDate, closePrice = 50.0)
+    return Trade(
+      stockSymbol = "IDLE",
+      entryQuote = entryQuote,
+      quotes = listOf(exitQuote),
+      exitReason = "Test exit",
+      profit = 0.0,
+      startDate = entryDate,
+      sector = "Technology",
+    )
+  }
 
   private fun point(date: LocalDate, value: Double) = PortfolioEquityPoint(date = date, portfolioValue = value)
 

@@ -559,6 +559,261 @@ class PositionSizingServiceTest {
     }
   }
 
+  @Test
+  fun `idle cash earns interest on the full balance when no capital is deployed`() {
+    // Given a trade that is skipped (zero shares from a huge ATR), so the whole 100k sits idle
+    // across a two-day spine, and a 3.6pct gross series (net 3.5pct after the 0.10pct expense)
+    val idleTrade = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 100_000.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 2),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))
+
+    // When sizing with idle-cash crediting on
+    val result = service.applyPositionSizing(
+      listOf(idleTrade),
+      defaultConfig,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then one ACT/360 step of interest is credited on the full 100k: 100000 * 0.035 * 1/360
+    val expectedInterest = 100_000.0 * 0.035 * 1.0 / 360.0
+    assertEquals(100_000.0 + expectedInterest, result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `a fully-invested book earns essentially no idle interest`() {
+    // Given a trade sized to deploy the entire 100k at cost basis (atr 0.375 → 2000 shares × $50 = 100k),
+    // open across the whole span, so idle = cash - openNotional = 0 throughout
+    val fullyDeployed = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 0.375,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 2),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))
+
+    // When sizing with idle-cash crediting on
+    val result = service.applyPositionSizing(
+      listOf(fullyDeployed),
+      defaultConfig,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then no interest accrues — the deployed dollars earn the equity return, not the cash rate
+    assertEquals(2000, result.trades[0].shares)
+    assertEquals(100_000.0, result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `a partially-invested book earns interest only on the undeployed remainder`() {
+    // Given a trade deploying half the book (atr 0.75 → 1000 shares × $50 = 50k), so idle = 50k
+    val halfDeployed = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 0.75,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 2),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))
+
+    // When sizing with idle-cash crediting on
+    val result = service.applyPositionSizing(
+      listOf(halfDeployed),
+      defaultConfig,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then interest accrues on the 50k remainder only: 50000 * 0.035 * 1/360
+    assertEquals(1000, result.trades[0].shares)
+    val expectedInterest = 50_000.0 * 0.035 * 1.0 / 360.0
+    assertEquals(100_000.0 + expectedInterest, result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `a levered book clamps negative idle to zero — no interest, never a debit`() {
+    // Given leverage 2x and a tiny-ATR trade that deploys 200k notional on 100k cash (idle = -100k)
+    val config = defaultConfig.copy(leverageRatio = 2.0)
+    val levered = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 0.1,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 2),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))
+
+    // When sizing with idle-cash crediting on
+    val result = service.applyPositionSizing(
+      listOf(levered),
+      config,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then the negative idle (a margin borrow) is clamped to zero: no credit, and crucially no debit
+    assertEquals(4000, result.trades[0].shares)
+    assertEquals(100_000.0, result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `idle interest uses cost basis — a winner and a loser at the same cost accrue identical interest`() {
+    // Given two trades that each deploy 50k at cost (1000 shares × $50), one a big winner, one a big
+    // loser, open across the same one-step span
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))
+
+    fun size(profit: Double) =
+      service.applyPositionSizing(
+        listOf(
+          createTrade(
+            profit = profit,
+            entryPrice = 50.0,
+            atr = 0.75,
+            entryDate = LocalDate.of(2024, 1, 1),
+            exitDate = LocalDate.of(2024, 1, 2),
+          ),
+        ),
+        defaultConfig,
+        tradingCalendar = calendar,
+        riskFreeRateProvider = rf,
+        creditIdleCash = true,
+      )
+
+    // When sizing a +$20/share winner and a -$20/share loser
+    val winner = size(20.0)
+    val loser = size(-20.0)
+
+    // Then both accrued the SAME interest on the 50k cost-basis remainder (not on market value):
+    // each final capital is 100k ± realized P&L + the identical interest term
+    val interest = 50_000.0 * 0.035 * 1.0 / 360.0
+    assertEquals(100_000.0 + 1000 * 20.0 + interest, winner.finalCapital, 0.01)
+    assertEquals(100_000.0 - 1000 * 20.0 + interest, loser.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `idle interest credits calendar days — Friday to Monday is three days, not one`() {
+    // Given an all-idle book over a Friday→Monday spine that skips the weekend trading days
+    val idleTrade = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 100_000.0,
+      entryDate = LocalDate.of(2025, 5, 2),
+      exitDate = LocalDate.of(2025, 5, 5),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2025, 5, 2) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2025, 5, 2), LocalDate.of(2025, 5, 5))
+
+    // When sizing with idle-cash crediting on
+    val result = service.applyPositionSizing(
+      listOf(idleTrade),
+      defaultConfig,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then cash earns over the weekend: 3 calendar days, not 1 trading day (100000 * 0.035 * 3/360)
+    val expectedInterest = 100_000.0 * 0.035 * 3.0 / 360.0
+    assertEquals(100_000.0 + expectedInterest, result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `idle interest compounds daily — two steps multiply, not add`() {
+    // Given an all-idle book over three consecutive trading days
+    val idleTrade = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 100_000.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 3),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2), LocalDate.of(2024, 1, 3))
+
+    // When sizing with idle-cash crediting on
+    val result = service.applyPositionSizing(
+      listOf(idleTrade),
+      defaultConfig,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then the two daily steps compound: 100000 * (1 + dailyRate)^2, not 100000 * (1 + 2*dailyRate)
+    val dailyRate = 0.035 * 1.0 / 360.0
+    assertEquals(100_000.0 * (1 + dailyRate) * (1 + dailyRate), result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `creditIdleCash false credits nothing even when a calendar and rate provider are supplied`() {
+    // Given an all-idle book with a calendar and a non-zero rate provider, but crediting OFF
+    val idleTrade = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 100_000.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 2),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val calendar = listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))
+
+    // When sizing with creditIdleCash explicitly false
+    val result = service.applyPositionSizing(
+      listOf(idleTrade),
+      defaultConfig,
+      tradingCalendar = calendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = false,
+    )
+
+    // Then no interest is credited — the book ends exactly at starting capital
+    assertEquals(100_000.0, result.finalCapital, 0.01)
+  }
+
+  @Test
+  fun `idle accrues only within the activity span, never across a calendar gap beyond the trades`() {
+    // Given a book active only Jan 1→2, but a calendar spanning the whole year. In a walk-forward this
+    // is the IS gap after a window's last trade — interest must NOT accrue across it (F7).
+    val idleTrade = createTrade(
+      profit = 0.0,
+      entryPrice = 50.0,
+      atr = 100_000.0,
+      entryDate = LocalDate.of(2024, 1, 1),
+      exitDate = LocalDate.of(2024, 1, 2),
+    )
+    val rf = RiskFreeRateProvider(mapOf(LocalDate.of(2024, 1, 1) to 3.6), expensePct = 0.10)
+    val yearCalendar = (0..364L).map { LocalDate.of(2024, 1, 1).plusDays(it) }
+
+    // When sizing with idle-cash crediting on and a full-year calendar
+    val result = service.applyPositionSizing(
+      listOf(idleTrade),
+      defaultConfig,
+      tradingCalendar = yearCalendar,
+      riskFreeRateProvider = rf,
+      creditIdleCash = true,
+    )
+
+    // Then only the single in-span step accrues (Jan 1→2), not a year of phantom interest
+    val expectedInterest = 100_000.0 * 0.035 * 1.0 / 360.0
+    assertEquals(100_000.0 + expectedInterest, result.finalCapital, 0.01)
+  }
+
   private fun createTrade(
     profit: Double,
     entryPrice: Double,

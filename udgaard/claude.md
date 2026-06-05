@@ -32,7 +32,7 @@ udgaard/
 │   │   │   ├── BacktestReportController.kt  # GET /api/backtest/reports, DELETE /{id}, POST /batch-delete
 │   │   │   └── MonteCarloController.kt
 │   │   ├── dto/                      # DTOs
-│   │   │   ├── StrategyConfigDto.kt     # BacktestRequest incl. costBps (net-by-default 10 bps; 0 = gross) + riskFreeRatePct
+│   │   │   ├── StrategyConfigDto.kt     # BacktestRequest incl. costBps (net-by-default 10 bps; 0 = gross) + riskFreeRatePct + creditIdleCash (default-ON, ADR 0016); WalkForwardRequest also incl. creditIdleCash
 │   │   │   ├── MonteCarloRequestDto.kt
 │   │   │   ├── ConditionSignalDtos.kt   # ConditionEvaluationRequest, StockConditionSignals (entry); ExitConditionEvaluationRequest, StockExitConditionSignals (exit)
 │   │   │   ├── ConditionEvaluationResult.kt
@@ -44,7 +44,7 @@ udgaard/
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
 │   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha) + benchmarkCagr/MaxDrawdownPct/Calmar/Sharpe (benchmark's standalone metrics; diagnostic leg of the SPY baseline gate, ADR 0013)
 │   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
-│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross)
+│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016)
 │   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006); spyBaselineComparison: SpyBaselineComparison? — SPY buy-and-hold Calmar baseline gate verdict (ADR 0013)
@@ -55,12 +55,14 @@ udgaard/
 │   │   │   └── BacktestReportJooqRepository.kt  # save / findById / listAll / deleteById / deleteByIds; stores/reads the report as ByteArray
 │   │   ├── service/                  # Business logic
 │   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades; nets costBps round-trip cost into per-share Trade.profit at close (net-by-default)
-│   │   │   ├── RiskMetricsService.kt # Computes Sharpe/Sortino/Calmar/SQN/tailRatio + SPY benchmark comparison + drawdown episodes from position-sized equity curve (USD-only)
+│   │   │   ├── RiskMetricsService.kt # Computes Sharpe/Sortino/Calmar/SQN/tailRatio + SPY benchmark comparison + drawdown episodes from position-sized equity curve (USD-only); per-day rf via RiskFreeRateProvider keeps idle-cash crediting Sharpe-neutral (ADR 0016)
+│   │   │   ├── RiskFreeRateService.kt # Loads the Midgaard treasury series, builds the single rf_step(t) RiskFreeRateProvider, loud 0% fallback when missing (ADR 0016)
+│   │   │   ├── RiskFreeRateProvider.kt # Gross-yield series + SGOV expense haircut (subtracted once); most-recent-on-or-before (no look-ahead), ACT/360 stepRate fed to both the cash credit and the Sharpe rf (ADR 0016)
 │   │   │   ├── StrategyRegistry.kt   # Strategy discovery/management
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation
 │   │   │   ├── DynamicStrategyBuilder.kt # Runtime strategy creation
 │   │   │   ├── MonteCarloService.kt
-│   │   │   ├── PositionSizingService.kt  # Orchestrator: daily M2M drawdown + drawdown-responsive scaling via PositionSizer.scale()
+│   │   │   ├── PositionSizingService.kt  # Orchestrator: daily M2M drawdown + drawdown-responsive scaling via PositionSizer.scale(); full daily spine + idle-cash interest credit on max(0, cash − openNotional) when enabled (ADR 0016)
 │   │   │   ├── sizer/                # Pluggable position sizers
 │   │   │   │   ├── PositionSizer.kt          # Interface + SizingContext
 │   │   │   │   ├── SizerConfig.kt           # Polymorphic DTO (atrRisk|percentEquity|kelly|volTarget)

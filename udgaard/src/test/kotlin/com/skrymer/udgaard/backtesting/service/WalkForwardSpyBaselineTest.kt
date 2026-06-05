@@ -20,6 +20,7 @@ class WalkForwardSpyBaselineTest {
     positionSizingService = mock(),
     riskMetricsService = RiskMetricsService(),
     stockRepository = mock(),
+    riskFreeRateService = mock(),
   )
 
   @Test

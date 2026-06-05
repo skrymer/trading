@@ -54,6 +54,8 @@ The real go/no-go run. Required before recommending live trading. See [§3 Ranki
 
 Always include `leverageRatio: 1.0` for stocks unless the user explicitly enables leverage. Without it, ATR-based sizers can produce extreme leverage on low-ATR names. Optional `drawdownScaling` overlay reduces risk in deeper drawdowns — see the project README or ask the user if relevant.
 
+`creditIdleCash` (top-level on the request, optional, **default ON**) credits uninvested cash the historical short rate per ADR 0016 — Sharpe-neutral by construction, but it **raises CAGR/Calmar for cash-heavy strategies** (the cash leg earns the T-bill coupon at no extra drawdown). Leave it on for realistic CAGR/Calmar; set `creditIdleCash: false` only to reproduce old 0%-cash results.
+
 ## 3. Ranking
 
 Ranking only matters when `maxPositions` is set (scenario 2). On any bar where more entry signals fire than open slots, the ranker decides which ones get taken. In an unlimited backtest every signal is taken, so the ranker is unused.

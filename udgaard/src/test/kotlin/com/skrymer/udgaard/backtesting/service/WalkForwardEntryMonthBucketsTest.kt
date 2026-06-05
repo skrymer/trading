@@ -16,6 +16,7 @@ class WalkForwardEntryMonthBucketsTest {
     positionSizingService = mock(),
     riskMetricsService = mock(),
     stockRepository = mock(),
+    riskFreeRateService = mock(),
   )
 
   @Test

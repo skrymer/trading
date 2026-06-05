@@ -40,12 +40,13 @@ midgaard/
 │   │   ├── SymbolController.kt            # GET /api/symbols, /api/symbols/{symbol}
 │   │   ├── EarningsController.kt          # GET /api/earnings/{symbol}
 │   │   ├── OvtlyrSignalController.kt      # GET /api/ovtlyr-signals/{symbol}
+│   │   ├── TreasuryYieldController.kt     # GET /api/treasury-yields/{maturity} — gross treasury-yield series (e.g. US3M) for idle-cash crediting (ADR 0016)
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
 │   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical — depends on `@Qualifier("fx") FxProvider`, wraps suspend calls with `runBlocking`
 │   │   ├── StatusController.kt            # GET /api/status
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}, /api/ingestion/recompute-relative-strength (async)
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
-│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute)
+│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute) + POST /ingestion/treasury-yields (trigger treasury-yield ingest, ADR 0016)
 │   ├── integration/
 │   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
@@ -63,6 +64,8 @@ midgaard/
 │   │   ├── eodhd/
 │   │   │   ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider; FX delegates to EodhdFxClient
 │   │   │   ├── EodhdFxClient.kt           # Sibling-class for cross-boundary @Cacheable interception; wraps `/real-time/{pair}.FOREX` + `/eod/{pair}.FOREX` into series cache
+│   │   │   ├── EodhdGovBondClient.kt      # Fetches the gross gov-bond/T-bill yield series (US3M.GBOND) for idle-cash crediting (ADR 0016)
+│   │   │   ├── TreasuryYieldMapper.kt     # Maps raw EODHD gov-bond payload → TreasuryYield rows (gross, no haircut — ADR 0016 F4)
 │   │   │   └── dto/
 │   │   ├── edgar/                         # SEC EDGAR client for V6 SIC→GICS sector classification baseline
 │   │   │   ├── EdgarClient.kt
@@ -72,7 +75,7 @@ midgaard/
 │   │       ├── OvtlyrPayloadDto.kt        # Raw ovtlyr response shape
 │   │       └── OvtlyrPayloadMapper.kt     # Maps raw payload → OvtlyrSignal domain rows
 │   ├── model/
-│   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, OvtlyrSignal, OvtlyrSignalType, enums
+│   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, OvtlyrSignal, OvtlyrSignalType, TreasuryYield (gross yield, ADR 0016), enums
 │   │   └── OptionContractDto.kt
 │   ├── repository/
 │   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count)
@@ -81,6 +84,7 @@ midgaard/
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
 │   │   ├── ProviderConfigRepository.kt    # Provider configuration data
 │   │   ├── OvtlyrSignalRepository.kt      # Sparse ovtlyr buy/sell signals (symbol + signal_date PK)
+│   │   ├── TreasuryYieldRepository.kt     # Sparse treasury-yield series (maturity + yield_date PK); findByMaturity for idle-cash crediting (ADR 0016)
 │   │   └── MarketHolidayRepository.kt     # Read-only US exchange holiday lookup (used by IngestionService to drop phantom bars)
 │   ├── integrity/                         # Data integrity framework (Spring auto-wires List<DataIntegrityValidator>)
 │   │   ├── DataIntegrityValidator.kt      # Interface — implementations are @Component
@@ -100,6 +104,7 @@ midgaard/
 │       ├── RelativeStrengthService.kt      # Drives the cross-sectional relative-strength pass (ADR 0009): delegates the whole-universe sort/rank/write to one SQL window-function statement in QuoteRepository. Manual-only (decoupled from ingest); recomputeAllAsync() runs it off the request thread (@Synchronized, idempotent, returns Job); isRecomputeActive() for the UI
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
+│       ├── TreasuryYieldIngestionService.kt # ingest() fetches the gross US3M yield series via EodhdGovBondClient and upserts TreasuryYield rows; triggered via POST /ingestion/treasury-yields (ADR 0016)
 │       ├── ApiKeyService.kt              # API key + provider credential management (incl. ovtlyr cookie userid/token/projectId)
 │       └── ScheduledIngestionService.kt  # Scheduled automatic data ingestion
 ├── src/main/resources/
@@ -124,7 +129,8 @@ midgaard/
 │   │   ├── V16__Add_sma_and_52week_indicators.sql               # Adds sma_50/150/200 + high_52_week/low_52_week columns to quotes
 │   │   ├── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
 │   │   ├── V18__Add_relative_strength_percentile.sql            # Adds relative_strength_percentile column to quotes (cross-sectional market-relative strength, 0-100; ADR 0009)
-│   │   └── V19__Add_RSP_etf.sql                                 # idempotent INSERT adding the RSP (equal-weight S&P 500) ETF symbol to the symbols catalogue
+│   │   ├── V19__Add_RSP_etf.sql                                 # idempotent INSERT adding the RSP (equal-weight S&P 500) ETF symbol to the symbols catalogue
+│   │   └── V20__Add_treasury_yields.sql                         # treasury_yields table (maturity + yield_date PK), gross yield_pct stored (haircut applied once downstream in Udgaard); ADR 0016
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)

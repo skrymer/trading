@@ -42,6 +42,7 @@ class WalkForwardService(
   private val positionSizingService: PositionSizingService,
   private val riskMetricsService: RiskMetricsService,
   private val stockRepository: StockJooqRepository,
+  private val riskFreeRateService: RiskFreeRateService,
 ) {
   private val logger = LoggerFactory.getLogger(WalkForwardService::class.java)
 
@@ -59,6 +60,7 @@ class WalkForwardService(
     randomSeed: Long? = null,
     positionSizingConfig: PositionSizingConfig? = null,
     riskFreeRatePct: Double = RAW_RISK_FREE_RATE,
+    creditIdleCash: Boolean = true,
   ): WalkForwardResult {
     val windows = generateWindows(config)
     logger.info(
@@ -80,6 +82,12 @@ class WalkForwardService(
       ?: emptyMap()
     logger.info("Pre-loaded shared context for ${windows.size} windows (${spyCloseByDate.size} SPY closes)")
 
+    // Idle-cash crediting (ADR 0016): one rf provider + the SPY trading-day calendar, shared across
+    // windows. Accrual is bounded per-window by each window's activity span, so it never crosses the
+    // stitched IS gaps (F7).
+    val rfProvider = riskFreeRateService.loadProvider(BacktestContext.DEFAULT_IDLE_CASH_EXPENSE_PCT)
+    val spyCalendar = spyCloseByDate.keys.sorted()
+
     val params = BacktestParams(
       entryStrategy = entryStrategy,
       exitStrategy = exitStrategy,
@@ -93,6 +101,9 @@ class WalkForwardService(
       randomSeed = randomSeed,
       positionSizingConfig = positionSizingConfig,
       riskFreeRatePct = riskFreeRatePct,
+      creditIdleCash = creditIdleCash,
+      rfProvider = rfProvider,
+      tradingCalendar = spyCalendar,
     )
 
     val concurrency = Semaphore(MAX_CONCURRENT_WINDOWS)
@@ -104,7 +115,7 @@ class WalkForwardService(
           }
         }.awaitAll()
     }
-    return aggregateResults(results, params.riskFreeRatePct)
+    return aggregateResults(results, params.riskFreeRatePct, params.rfProvider, params.creditIdleCash)
   }
 
   /**
@@ -157,7 +168,7 @@ class WalkForwardService(
         "edge=${String.format("%.2f", oosReport.edge)}",
     )
 
-    val perWindowMetrics = computeOosRiskMetrics(oosReport, params.positionSizingConfig, params.riskFreeRatePct)
+    val perWindowMetrics = computeOosRiskMetrics(oosReport, params)
 
     val (isUptrendPct, isBreadthAvg) =
       computeRegimeMetrics(window.isStart, window.isEnd, sharedContext.marketBreadthMap)
@@ -224,17 +235,30 @@ class WalkForwardService(
 
   private fun computeOosRiskMetrics(
     oosReport: BacktestReport,
-    positionSizingConfig: PositionSizingConfig?,
-    riskFreeRatePct: Double,
+    params: BacktestParams,
   ): PerWindowMetrics {
-    if (positionSizingConfig == null) {
-      return PerWindowMetrics(null, null, null, null)
-    }
-    val sizing = positionSizingService.applyPositionSizing(oosReport.trades, positionSizingConfig)
-    val dailyReturns = riskMetricsService.dailyReturns(sizing.equityCurve)
+    val positionSizingConfig = params.positionSizingConfig ?: return PerWindowMetrics(null, null, null, null)
+    // Credit idle cash within this window's OOS span only (F7) — the spine never extends across the
+    // IS gap to the next window because applyPositionSizing bounds it by the trades' activity span.
+    val sizing = positionSizingService.applyPositionSizing(
+      oosReport.trades,
+      positionSizingConfig,
+      tradingCalendar = params.tradingCalendar,
+      riskFreeRateProvider = params.rfProvider,
+      creditIdleCash = params.creditIdleCash,
+    )
     val cagr = riskMetricsService.cagr(sizing.equityCurve)
-    val sharpe = riskMetricsService.sharpe(dailyReturns, riskFreeRatePct)
-    val sortino = riskMetricsService.sortino(dailyReturns, riskFreeRatePct)
+    val sharpe: Double?
+    val sortino: Double?
+    if (params.creditIdleCash) {
+      val dated = riskMetricsService.datedDailyReturns(sizing.equityCurve)
+      sharpe = riskMetricsService.sharpe(dated, params.rfProvider)
+      sortino = riskMetricsService.sortino(dated, params.rfProvider)
+    } else {
+      val dailyReturns = riskMetricsService.dailyReturns(sizing.equityCurve)
+      sharpe = riskMetricsService.sharpe(dailyReturns, params.riskFreeRatePct)
+      sortino = riskMetricsService.sortino(dailyReturns, params.riskFreeRatePct)
+    }
     val calmar = riskMetricsService.calmar(cagr, sizing.maxDrawdownPct)
     val sqn = riskMetricsService.sqn(oosReport.trades)
     val tailRatio = riskMetricsService.tailRatio(oosReport.trades)
@@ -303,6 +327,8 @@ class WalkForwardService(
   internal fun aggregateResults(
     computations: List<WindowComputation>,
     riskFreeRatePct: Double = RAW_RISK_FREE_RATE,
+    rfProvider: RiskFreeRateProvider = ZERO_RF_PROVIDER,
+    creditIdleCash: Boolean = false,
   ): WalkForwardResult {
     if (computations.isEmpty()) {
       return emptyResult()
@@ -328,7 +354,9 @@ class WalkForwardService(
     }
     val wfe = if (weightedIsEdge != 0.0) weightedOosEdge / weightedIsEdge else 0.0
 
-    val stitched = stitchedAggregate(computations, riskFreeRatePct)
+    // Strategy leg credits idle cash (Sharpe via aligned rf); the SPY leg is always 100% invested
+    // (idle ≡ 0, F2), so its stitch never credits and keeps a raw Sharpe.
+    val stitched = stitchedAggregate(computations, riskFreeRatePct, rfProvider, creditIdleCash)
     val spyBaseline = computeSpyBaseline(computations, stitched, riskFreeRatePct)
 
     logger.info(
@@ -378,7 +406,8 @@ class WalkForwardService(
       .filter { it.benchmarkEquityCurve != null && it.benchmarkEquityCurve.size >= 2 }
       .map { it.benchmarkEquityCurve!! }
     if (spyCurves.isEmpty()) return null
-    val spy = stitchCurves(spyCurves, riskFreeRatePct) ?: return null
+    // SPY buy-and-hold is always fully invested → idle ≡ 0 (F2): never credit its stitch.
+    val spy = stitchCurves(spyCurves, riskFreeRatePct, ZERO_RF_PROVIDER, creditIdleCash = false) ?: return null
 
     val strategyCalmar = strategy.riskMetrics?.calmarRatio
     val strategyMaxDd = strategy.maxDrawdownPct
@@ -420,9 +449,14 @@ class WalkForwardService(
    * the conservative direction. Returns the empty `StitchedAggregate` (all null) when no
    * window contributed an equity curve with at least two points.
    */
-  private fun stitchedAggregate(computations: List<WindowComputation>, riskFreeRatePct: Double): StitchedAggregate {
+  private fun stitchedAggregate(
+    computations: List<WindowComputation>,
+    riskFreeRatePct: Double,
+    rfProvider: RiskFreeRateProvider,
+    creditIdleCash: Boolean,
+  ): StitchedAggregate {
     val sized = computations.filter { it.equityCurve != null && it.equityCurve.size >= 2 }
-    val curve = stitchCurves(sized.map { it.equityCurve!! }, riskFreeRatePct)
+    val curve = stitchCurves(sized.map { it.equityCurve!! }, riskFreeRatePct, rfProvider, creditIdleCash)
       ?: return StitchedAggregate(null, null, null, null)
 
     val allTrades = sized.flatMap { it.trades }
@@ -446,11 +480,19 @@ class WalkForwardService(
    * cross-window (seam-straddling) drawdowns a per-window max cannot. Returns null when no curve
    * has at least two points.
    */
-  private fun stitchCurves(curves: List<List<PortfolioEquityPoint>>, riskFreeRatePct: Double): StitchedCurve? {
+  private fun stitchCurves(
+    curves: List<List<PortfolioEquityPoint>>,
+    riskFreeRatePct: Double,
+    rfProvider: RiskFreeRateProvider,
+    creditIdleCash: Boolean,
+  ): StitchedCurve? {
     val sized = curves.filter { it.size >= 2 }
     if (sized.isEmpty()) return null
 
     val stitchedReturns = mutableListOf<Double>()
+    // When crediting idle cash, Sharpe/Sortino subtract the per-day rf_step over each return's own
+    // calendar gap, so the idle leg nets to zero excess — the same coherence the single backtest uses.
+    val stitchedExcess = mutableListOf<Double>()
     val syntheticCurve = mutableListOf(1.0)
     var carry = 1.0
 
@@ -458,6 +500,9 @@ class WalkForwardService(
       val first = curve.first().portfolioValue
       if (first <= 0.0) continue
       stitchedReturns.addAll(riskMetricsService.dailyReturns(curve))
+      riskMetricsService
+        .datedDailyReturns(curve)
+        .mapTo(stitchedExcess) { it.ret - rfProvider.stepRate(it.fromDate, it.toDate) }
       for (point in curve.drop(1)) {
         syntheticCurve.add(carry * (point.portfolioValue / first))
       }
@@ -472,11 +517,23 @@ class WalkForwardService(
     } else {
       null
     }
+    val sharpe =
+      if (creditIdleCash) {
+        riskMetricsService.sharpe(stitchedExcess, RAW_RISK_FREE_RATE)
+      } else {
+        riskMetricsService.sharpe(stitchedReturns, riskFreeRatePct)
+      }
+    val sortino =
+      if (creditIdleCash) {
+        riskMetricsService.sortino(stitchedExcess, RAW_RISK_FREE_RATE)
+      } else {
+        riskMetricsService.sortino(stitchedReturns, riskFreeRatePct)
+      }
     return StitchedCurve(
       cagr = cagr,
       maxDrawdownPct = maxDd,
-      sharpe = riskMetricsService.sharpe(stitchedReturns, riskFreeRatePct),
-      sortino = riskMetricsService.sortino(stitchedReturns, riskFreeRatePct),
+      sharpe = sharpe,
+      sortino = sortino,
       calmar = riskMetricsService.calmar(cagr, maxDd),
       stitchedReturnsCount = stitchedReturns.size,
     )
@@ -572,6 +629,9 @@ class WalkForwardService(
     val randomSeed: Long?,
     val positionSizingConfig: PositionSizingConfig?,
     val riskFreeRatePct: Double,
+    val creditIdleCash: Boolean,
+    val rfProvider: RiskFreeRateProvider,
+    val tradingCalendar: List<LocalDate>,
   )
 
   companion object {
@@ -582,6 +642,10 @@ class WalkForwardService(
     // is needed for the v4 candidate sweep against the full ~4000-stock universe.
     private const val MAX_CONCURRENT_WINDOWS = 1
     private const val RAW_RISK_FREE_RATE = 0.0
+
+    // Idle-cash crediting off by default in the aggregate path (the public test entry point); the
+    // real walk-forward run injects a Midgaard-backed provider + creditIdleCash=true via runWalkForward.
+    private val ZERO_RF_PROVIDER = RiskFreeRateProvider(emptyMap(), expensePct = 0.0)
     private const val DAYS_PER_CALENDAR_YEAR = 365.25
     private const val PERCENT_SCALE = 100.0
     private const val BENCHMARK_SYMBOL = "SPY"

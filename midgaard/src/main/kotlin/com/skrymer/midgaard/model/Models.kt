@@ -165,3 +165,15 @@ enum class OvtlyrSignalType {
     BUY,
     SELL,
 }
+
+/**
+ * The gross (un-haircut) end-of-day yield, in percent, for a treasury maturity on a date — the
+ * reference short rate the backtest engine credits idle cash at. `maturity` is the series key
+ * (e.g. "US3M" for the 3-month T-bill that SGOV tracks). Stored gross: the SGOV expense haircut
+ * is applied once downstream in Udgaard, never in the stored series. See ADR 0016.
+ */
+data class TreasuryYield(
+    val maturity: String,
+    val date: LocalDate,
+    val yieldPct: Double,
+)

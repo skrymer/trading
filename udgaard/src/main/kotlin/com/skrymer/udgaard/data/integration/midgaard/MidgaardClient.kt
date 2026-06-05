@@ -8,6 +8,7 @@ import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardOvtlyrSignalDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardTreasuryYieldDto
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.StockQuote
@@ -181,6 +182,27 @@ class MidgaardClient(
       return response?.map { it.toOvtlyrSignal() } ?: emptyList()
     } catch (e: Exception) {
       logger.warn("Failed to fetch ovtlyr signals from Midgaard for $symbol: ${e.message}")
+      return null
+    }
+  }
+
+  /**
+   * Get the gross treasury-yield series for a maturity (e.g. "US3M") as a date→yield (percent) map —
+   * the short rate the backtest engine credits idle cash at (ADR 0016). Returns null on failure so
+   * the engine can fall back loudly to a 0% rate rather than credit a silently-wrong series.
+   */
+  fun getTreasuryYields(maturity: String): Map<LocalDate, Double>? {
+    try {
+      val response = restClient
+        .get()
+        .uri("/api/treasury-yields/{maturity}", maturity)
+        .retrieve()
+        .body(object : ParameterizedTypeReference<List<MidgaardTreasuryYieldDto>>() {})
+      // An empty array means the series isn't ingested yet — return null (not an empty map) so the
+      // engine takes the loud 0% fallback rather than silently crediting a wrong (zero) rate.
+      return response?.takeIf { it.isNotEmpty() }?.associate { it.date to it.yieldPct }
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch treasury yields from Midgaard for $maturity: ${e.message}")
       return null
     }
   }

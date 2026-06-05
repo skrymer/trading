@@ -17,6 +17,7 @@ class WalkForwardWindowGenerationTest {
     positionSizingService = mock(),
     riskMetricsService = mock(),
     stockRepository = mock(),
+    riskFreeRateService = mock(),
   )
 
   private val start = LocalDate.of(2016, 1, 1)
