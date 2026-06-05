@@ -67,8 +67,8 @@ class BrokerIntegrationServiceTest {
 
     whenever(adapterFactory.getAdapter(any())).thenReturn(adapter)
     whenever(portfolioRepository.save(any())).thenAnswer { invocation ->
-      val p = invocation.arguments[0] as Portfolio
-      if (p.id == null) p.copy(id = portfolioId) else p
+      val portfolio = invocation.arguments[0] as Portfolio
+      if (portfolio.id == null) portfolio.copy(id = portfolioId) else portfolio
     }
   }
 

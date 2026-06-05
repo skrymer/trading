@@ -345,23 +345,23 @@ class CompositeExitStrategyTest {
   @Test
   fun `nested OR-of-AND-groups exits only when a whole premise is satisfied`() {
     // Given two disjoint AND-premises (A AND B) OR (C AND D), with only A satisfied.
-    val a = fixedExit(true)
-    val b = fixedExit(false)
-    val c = fixedExit(false)
-    val d = fixedExit(false)
+    val exitA = fixedExit(true)
+    val exitB = fixedExit(false)
+    val exitC = fixedExit(false)
+    val exitD = fixedExit(false)
     val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
 
     val nested =
       CompositeExitStrategy(
         exitConditions =
           listOf(
-            ExitConditionGroup(LogicalOperator.AND, listOf(a, b)),
-            ExitConditionGroup(LogicalOperator.AND, listOf(c, d)),
+            ExitConditionGroup(LogicalOperator.AND, listOf(exitA, exitB)),
+            ExitConditionGroup(LogicalOperator.AND, listOf(exitC, exitD)),
           ),
         operator = LogicalOperator.OR,
       )
     // A flat OR over the same leaves exits on the lone A — the wrong answer.
-    val flatOr = CompositeExitStrategy(exitConditions = listOf(a, b, c, d), operator = LogicalOperator.OR)
+    val flatOr = CompositeExitStrategy(exitConditions = listOf(exitA, exitB, exitC, exitD), operator = LogicalOperator.OR)
 
     // Then nested correctly holds (no complete premise) while flat OR wrongly exits.
     assertFalse(nested.match(stock, null, quote))

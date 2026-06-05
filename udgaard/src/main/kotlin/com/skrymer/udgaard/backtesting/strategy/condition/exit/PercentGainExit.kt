@@ -25,9 +25,9 @@ class PercentGainExit(
     entryQuote: StockQuote?,
     quote: StockQuote,
   ): Boolean {
-    val e = entryQuote ?: return false
-    if (e.closePrice <= 0.0) return false
-    val gain = (quote.closePrice - e.closePrice) / e.closePrice
+    val entry = entryQuote ?: return false
+    if (entry.closePrice <= 0.0) return false
+    val gain = (quote.closePrice - entry.closePrice) / entry.closePrice
     return gain >= targetPct / 100.0
   }
 
@@ -59,13 +59,13 @@ class PercentGainExit(
     entryQuote: StockQuote?,
     quote: StockQuote,
   ): ConditionEvaluationResult {
-    val e = entryQuote
+    val entry = entryQuote
     val message =
       when {
-        e == null -> "No entry quote — cannot evaluate"
-        e.closePrice <= 0.0 -> "Entry close non-positive — cannot evaluate"
+        entry == null -> "No entry quote — cannot evaluate"
+        entry.closePrice <= 0.0 -> "Entry close non-positive — cannot evaluate"
         else -> {
-          val gainPct = (quote.closePrice - e.closePrice) / e.closePrice * 100.0
+          val gainPct = (quote.closePrice - entry.closePrice) / entry.closePrice * 100.0
           val triggered = gainPct >= targetPct
           val verdict = if (triggered) "TRIGGER" else "hold"
           "Gain %.2f%% vs target %.2f%% — %s".format(gainPct, targetPct, verdict)

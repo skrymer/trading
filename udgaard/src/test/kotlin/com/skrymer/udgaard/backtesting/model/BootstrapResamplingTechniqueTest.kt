@@ -175,7 +175,7 @@ class BootstrapResamplingTechniqueTest {
     val oneScenarios = BootstrapResamplingTechnique(blockSize = 1).generateScenarios(backtest, 100, seed)
 
     // Then trade-by-trade identity holds — both code paths take the same RNG calls
-    // (effectiveBlock=1 makes the CBB loop call random.nextInt(n) per trade with no extra
+    // (effectiveBlock=1 makes the CBB loop call random.nextInt(count) per trade with no extra
     // calls, mirroring the legacy IID loop). A statistical test would silently pass even
     // if a future regression made one path slightly biased — bit-identity is the actual
     // invariant, so assert it.
@@ -199,19 +199,19 @@ class BootstrapResamplingTechniqueTest {
   fun `CBB structural — blockSize=N produces a single contiguous wrap-around slice`() {
     // Given a backtest with N distinguishable trades
     val backtest = createBacktestWithDistinctProfits() // 5 trades with profits 10, 20, 30, -5, -10
-    val n = backtest.trades.size
+    val count = backtest.trades.size
 
     // When CBB runs with blockSize == N (only one block needed per scenario)
     val seed = 7L
-    val technique = BootstrapResamplingTechnique(blockSize = n)
+    val technique = BootstrapResamplingTechnique(blockSize = count)
     val scenarios = technique.generateScenarios(backtest, 10, seed)
 
     // Then each scenario's resampled trade sequence is exactly trades[start], trades[start+1 mod N], ...
     // for the start picked by the per-iteration RNG
     scenarios.forEachIndexed { i, scenario ->
       val iteration = i + 1
-      val expectedStart = Random(seed + iteration).nextInt(n)
-      val expectedSequence = (0 until n).map { backtest.trades[(expectedStart + it) % n].profitPercentage }
+      val expectedStart = Random(seed + iteration).nextInt(count)
+      val expectedSequence = (0 until count).map { backtest.trades[(expectedStart + it) % count].profitPercentage }
       val actualSequence = scenario.trades.map { it.profitPercentage }
       assertEquals(
         expectedSequence,
@@ -234,7 +234,7 @@ class BootstrapResamplingTechniqueTest {
   @Test
   fun `block bootstrap widens sample-mean variance vs IID — sanity smoke on AR(1) fixture`() {
     // Given an AR(1) regime-correlated fixture (rho=0.3, the realistic upper bound)
-    val backtest = createAr1Backtest(rho = 0.3, n = 200, seed = 42L)
+    val backtest = createAr1Backtest(rho = 0.3, count = 200, seed = 42L)
     val mcSeed = 999L
     val iterations = 5000
 
@@ -255,7 +255,7 @@ class BootstrapResamplingTechniqueTest {
   fun `blockSize larger than N is silently capped at N`() {
     // Given a 5-trade backtest and a request for blockSize 1000
     val backtest = createBacktestWithDistinctProfits()
-    val n = backtest.trades.size
+    val count = backtest.trades.size
     val technique = BootstrapResamplingTechnique(blockSize = 1000)
 
     // When generating scenarios
@@ -264,8 +264,8 @@ class BootstrapResamplingTechniqueTest {
     // Then no error; effective blockSize is N so each scenario is a single contiguous wrap-around slice
     assertEquals(10, scenarios.size)
     scenarios.forEachIndexed { i, scenario ->
-      val expectedStart = Random(11L + i + 1).nextInt(n)
-      val expectedSequence = (0 until n).map { backtest.trades[(expectedStart + it) % n].profitPercentage }
+      val expectedStart = Random(11L + i + 1).nextInt(count)
+      val expectedSequence = (0 until count).map { backtest.trades[(expectedStart + it) % count].profitPercentage }
       assertEquals(expectedSequence, scenario.trades.map { it.profitPercentage })
     }
   }
@@ -294,8 +294,8 @@ class BootstrapResamplingTechniqueTest {
    */
   private fun assertCbbVarianceMatches(rho: Double, blockSize: Int) {
     // Given an AR(1) fixture with the requested autocorrelation
-    val n = 200
-    val (backtest, profits) = createAr1BacktestWithProfits(rho = rho, n = n, seed = 42L)
+    val count = 200
+    val (backtest, profits) = createAr1BacktestWithProfits(rho = rho, count = count, seed = 42L)
     val mcSeed = 999L
     val iterations = 10000
 
@@ -320,12 +320,12 @@ class BootstrapResamplingTechniqueTest {
 
   /** Bartlett kernel computed from the sequence's own sample autocorrelations. */
   private fun bartlettRatioFromSampleAutocorr(values: DoubleArray, blockSize: Int): Double {
-    val n = values.size
+    val count = values.size
     val mean = values.average()
-    val gamma0 = values.sumOf { (it - mean) * (it - mean) } / n
+    val gamma0 = values.sumOf { (it - mean) * (it - mean) } / count
     var sum = 0.0
     for (k in 1 until blockSize) {
-      val gammaK = (0 until n - k).sumOf { (values[it] - mean) * (values[it + k] - mean) } / n
+      val gammaK = (0 until count - k).sumOf { (values[it] - mean) * (values[it + k] - mean) } / count
       val rhoK = gammaK / gamma0
       val kernelWeight = max(0.0, 1.0 - k.toDouble() / blockSize)
       sum += kernelWeight * rhoK
@@ -341,22 +341,22 @@ class BootstrapResamplingTechniqueTest {
    * Even/odd split between winning/losing lists is irrelevant because BacktestReport.trades sorts on
    * entryQuote.date — the resulting sequence has the AR(1) structure regardless.
    */
-  private fun createAr1Backtest(rho: Double, n: Int, seed: Long): BacktestReport =
-    createAr1BacktestWithProfits(rho, n, seed).first
+  private fun createAr1Backtest(rho: Double, count: Int, seed: Long): BacktestReport =
+    createAr1BacktestWithProfits(rho, count, seed).first
 
   /** Same as createAr1Backtest, but also returns the underlying profit array for sample-stat use. */
-  private fun createAr1BacktestWithProfits(rho: Double, n: Int, seed: Long): Pair<BacktestReport, DoubleArray> {
+  private fun createAr1BacktestWithProfits(rho: Double, count: Int, seed: Long): Pair<BacktestReport, DoubleArray> {
     val rng = Random(seed)
     val noiseScale = sqrt(1.0 - rho * rho)
-    val profits = DoubleArray(n)
+    val profits = DoubleArray(count)
     var prev = 0.0
-    for (i in 0 until n) {
+    for (i in 0 until count) {
       val eps = gaussian(rng)
-      val p = rho * prev + noiseScale * eps
-      profits[i] = p
-      prev = p
+      val value = rho * prev + noiseScale * eps
+      profits[i] = value
+      prev = value
     }
-    val trades = profits.mapIndexed { i, p -> createTrade(p, LocalDate.of(2024, 1, 1).plusDays(i.toLong())) }
+    val trades = profits.mapIndexed { i, value -> createTrade(value, LocalDate.of(2024, 1, 1).plusDays(i.toLong())) }
     val (winners, losers) = trades.partition { it.profitPercentage > 0 }
     return BacktestReport(winningTrades = winners, losingTrades = losers) to profits
   }

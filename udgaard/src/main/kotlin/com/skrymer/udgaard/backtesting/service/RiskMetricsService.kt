@@ -363,28 +363,28 @@ private class DrawdownState(
   private var troughDate: LocalDate = initialDate
 
   fun advance(point: PortfolioEquityPoint, episodes: MutableList<DrawdownEpisode>) {
-    val v = point.portfolioValue
+    val value = point.portfolioValue
     when {
-      v > runningPeak -> {
+      value > runningPeak -> {
         if (inEpisode) {
           episodes += closedEpisode(point.date)
           inEpisode = false
         }
-        runningPeak = v
+        runningPeak = value
         runningPeakDate = point.date
       }
       !inEpisode -> {
-        val drawdownPct = (runningPeak - v) / runningPeak * 100.0
+        val drawdownPct = (runningPeak - value) / runningPeak * 100.0
         if (drawdownPct > DRAWDOWN_NOISE_PCT_THRESHOLD) {
           inEpisode = true
           episodePeak = runningPeak
           episodePeakDate = runningPeakDate
-          troughValue = v
+          troughValue = value
           troughDate = point.date
         }
       }
-      v < troughValue -> {
-        troughValue = v
+      value < troughValue -> {
+        troughValue = value
         troughDate = point.date
       }
     }

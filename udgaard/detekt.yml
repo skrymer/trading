@@ -33,6 +33,11 @@ style:
     active: true
     maxLineLength: 140
 
+naming:
+  VariableMinLength:
+    active: true
+    minimumVariableNameLength: 2
+
 exceptions:
   TooGenericExceptionCaught:
     active: false

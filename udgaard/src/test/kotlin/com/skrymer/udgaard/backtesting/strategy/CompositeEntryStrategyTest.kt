@@ -229,23 +229,23 @@ class CompositeEntryStrategyTest {
   @Test
   fun `nested OR-of-AND-groups fires only when a whole premise is satisfied`() {
     // Given two disjoint AND-premises (A AND B) OR (C AND D), with only A satisfied.
-    val a = FixedCondition(true)
-    val b = FixedCondition(false)
-    val c = FixedCondition(false)
-    val d = FixedCondition(false)
+    val conditionA = FixedCondition(true)
+    val conditionB = FixedCondition(false)
+    val conditionC = FixedCondition(false)
+    val conditionD = FixedCondition(false)
     val quote = StockQuote(date = LocalDate.of(2024, 1, 15))
 
     val nested =
       CompositeEntryStrategy(
         conditions =
           listOf(
-            EntryConditionGroup(LogicalOperator.AND, listOf(a, b)),
-            EntryConditionGroup(LogicalOperator.AND, listOf(c, d)),
+            EntryConditionGroup(LogicalOperator.AND, listOf(conditionA, conditionB)),
+            EntryConditionGroup(LogicalOperator.AND, listOf(conditionC, conditionD)),
           ),
         operator = LogicalOperator.OR,
       )
     // A flat OR over the same leaves fires on the lone A — the wrong answer.
-    val flatOr = CompositeEntryStrategy(conditions = listOf(a, b, c, d), operator = LogicalOperator.OR)
+    val flatOr = CompositeEntryStrategy(conditions = listOf(conditionA, conditionB, conditionC, conditionD), operator = LogicalOperator.OR)
 
     // Then nested correctly rejects (no complete premise) while flat OR wrongly fires.
     assertFalse(nested.test(stock, quote, BacktestContext.EMPTY))

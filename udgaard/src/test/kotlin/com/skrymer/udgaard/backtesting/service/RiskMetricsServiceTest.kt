@@ -550,20 +550,20 @@ class RiskMetricsServiceTest {
     dailyReturns: List<Double>,
   ): List<PortfolioEquityPoint> {
     val points = mutableListOf(point(start, initial))
-    var v = initial
+    var value = initial
     for ((i, r) in dailyReturns.withIndex()) {
-      v *= (1.0 + r)
-      points += point(start.plusDays((i + 1).toLong()), v)
+      value *= (1.0 + r)
+      points += point(start.plusDays((i + 1).toLong()), value)
     }
     return points
   }
 
   private fun buildPriceSeriesFromDailyReturns(initial: Double, dailyReturns: List<Double>): List<Double> {
     val series = mutableListOf(initial)
-    var p = initial
+    var price = initial
     for (r in dailyReturns) {
-      p *= (1.0 + r)
-      series += p
+      price *= (1.0 + r)
+      series += price
     }
     return series
   }

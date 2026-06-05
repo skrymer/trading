@@ -41,13 +41,13 @@ class NarrowingRangeCondition(
     context: BacktestContext,
   ): Boolean {
     val win = stock.quotesInRange(quote.date.minusDays(LOOKBACK_CALENDAR_DAYS), quote.date)
-    val n = win.size
-    val w = stepWindow
-    if (n < WINDOW_COUNT * w) return false
+    val barCount = win.size
+    val stepSize = stepWindow
+    if (barCount < WINDOW_COUNT * stepSize) return false
 
-    val r1 = normalizedRange(win, n - w, n)
-    val r2 = normalizedRange(win, n - 2 * w, n - w)
-    val r3 = normalizedRange(win, n - 3 * w, n - 2 * w)
+    val r1 = normalizedRange(win, barCount - stepSize, barCount)
+    val r2 = normalizedRange(win, barCount - 2 * stepSize, barCount - stepSize)
+    val r3 = normalizedRange(win, barCount - 3 * stepSize, barCount - 2 * stepSize)
     return r1 < r2 && r2 < r3
   }
 
@@ -93,15 +93,15 @@ class NarrowingRangeCondition(
     context: BacktestContext,
   ): ConditionEvaluationResult {
     val win = stock.quotesInRange(quote.date.minusDays(LOOKBACK_CALENDAR_DAYS), quote.date)
-    val n = win.size
-    val w = stepWindow
-    if (n < WINDOW_COUNT * w) {
-      return failedResult("Insufficient data ($n/${WINDOW_COUNT * w} bars)")
+    val barCount = win.size
+    val stepSize = stepWindow
+    if (barCount < WINDOW_COUNT * stepSize) {
+      return failedResult("Insufficient data ($barCount/${WINDOW_COUNT * stepSize} bars)")
     }
 
-    val r1 = normalizedRange(win, n - w, n)
-    val r2 = normalizedRange(win, n - 2 * w, n - w)
-    val r3 = normalizedRange(win, n - 3 * w, n - 2 * w)
+    val r1 = normalizedRange(win, barCount - stepSize, barCount)
+    val r2 = normalizedRange(win, barCount - 2 * stepSize, barCount - stepSize)
+    val r3 = normalizedRange(win, barCount - 3 * stepSize, barCount - 2 * stepSize)
     val passed = r1 < r2 && r2 < r3
     val mark = if (passed) "✓" else "✗"
     return ConditionEvaluationResult(

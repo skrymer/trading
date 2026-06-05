@@ -710,12 +710,12 @@ class BacktestService(
 
     val (timeStats, exitAnalysis, sectorPerf, stockPerf, atrDrawdown) =
       runBlocking {
-        val d = Dispatchers.Default
-        val t1 = async(d) { calculateTimeBasedStats(trades) }
-        val t2 = async(d) { calculateExitReasonAnalysis(trades) }
-        val t3 = async(d) { calculateSectorPerformance(trades) }
-        val t4 = async(d) { calculateStockPerformance(trades) }
-        val t5 = async(d) { calculateATRDrawdownStats(winningTrades, losingTrades) }
+        val dispatcher = Dispatchers.Default
+        val t1 = async(dispatcher) { calculateTimeBasedStats(trades) }
+        val t2 = async(dispatcher) { calculateExitReasonAnalysis(trades) }
+        val t3 = async(dispatcher) { calculateSectorPerformance(trades) }
+        val t4 = async(dispatcher) { calculateStockPerformance(trades) }
+        val t5 = async(dispatcher) { calculateATRDrawdownStats(winningTrades, losingTrades) }
         AnalyticsResult(t1.await(), t2.await(), t3.await(), t4.await(), t5.await())
       }
 
