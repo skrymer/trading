@@ -29,8 +29,8 @@ class BootstrapResamplingTechnique(
     val trades = backtestResult.trades
     if (trades.isEmpty()) return emptyList()
 
-    val n = trades.size
-    val effectiveBlock = (blockSize ?: 1).coerceIn(1, n)
+    val tradeCount = trades.size
+    val effectiveBlock = (blockSize ?: 1).coerceIn(1, tradeCount)
     if (effectiveBlock >= 2) requireSortedByEntryDate(trades)
     val baseSeed = seed ?: System.nanoTime()
 
@@ -39,7 +39,7 @@ class BootstrapResamplingTechnique(
       .parallelStream()
       .map { iteration ->
         val random = Random(baseSeed + iteration)
-        val resampled = circularBlockBootstrap(trades, n, effectiveBlock, random)
+        val resampled = circularBlockBootstrap(trades, tradeCount, effectiveBlock, random)
         if (positionSizing != null) {
           createScenarioWithSizing(iteration, resampled, positionSizing)
         } else {

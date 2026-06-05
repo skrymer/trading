@@ -5,6 +5,7 @@ import com.skrymer.udgaard.backtesting.model.PositionSizingResult
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -171,6 +172,25 @@ class RiskMetricsServiceTest {
     assertNull(analysis.riskMetrics.calmarRatio)
   }
 
+  // ===== MAX DRAWDOWN OVER AN EQUITY CURVE =====
+
+  @Test
+  fun `maxDrawdownPct returns the worst peak-to-trough decline as a positive percent`() {
+    // Given a curve that peaks at 12_000 then troughs at 9_000 before partly recovering
+    val curve = listOf(
+      point(START, 10_000.0),
+      point(START.plusDays(1), 12_000.0), // running peak
+      point(START.plusDays(2), 9_000.0), // trough: (12000-9000)/12000 = 25%
+      point(START.plusDays(3), 11_000.0),
+    )
+
+    // When
+    val maxDd = service.maxDrawdownPct(curve)
+
+    // Then it is the peak-to-trough magnitude as a positive percent
+    assertEquals(25.0, maxDd, EPSILON)
+  }
+
   // ===== SQN / TAILRATIO (PORTED FROM BacktestReport) =====
 
   @Test
@@ -257,6 +277,11 @@ class RiskMetricsServiceTest {
     assertNull(benchmark.correlation, "correlation should be null when overlap < 60")
     assertNull(benchmark.beta)
     assertNull(benchmark.activeReturnVsBenchmark)
+    // The standalone SPY diagnostics are also suppressed below the overlap floor.
+    assertNull(benchmark.benchmarkCagr)
+    assertNull(benchmark.benchmarkMaxDrawdownPct)
+    assertNull(benchmark.benchmarkCalmar)
+    assertNull(benchmark.benchmarkSharpe)
   }
 
   @Test
@@ -311,6 +336,31 @@ class RiskMetricsServiceTest {
     val benchmark = requireNotNull(analysis.benchmarkComparison)
     assertNull(benchmark.correlation)
     assertNull(benchmark.beta)
+  }
+
+  @Test
+  fun `benchmark standalone risk-adjusted diagnostics populate when overlap is sufficient`() {
+    // Given a strategy curve and an 80-day SPY price series that peaks at 120 then troughs at 90
+    // (a 25% peak-to-trough decline) before recovering — overlap is well above the 60-day floor.
+    val strategyDaily = List(80) { 0.0005 + (it % 5 - 2) * 0.0002 }
+    val curve = buildCurveFromDailyReturns(START, 100_000.0, strategyDaily)
+    val spyPrices = buildList {
+      addAll((0..30).map { 100.0 + it * (20.0 / 30.0) }) // 100 -> 120
+      addAll((1..20).map { 120.0 - it * (30.0 / 20.0) }) // 120 -> 90 (25% DD)
+      addAll((1..29).map { 90.0 + it * (20.0 / 29.0) }) // 90 -> ~110
+    }
+    val benchmarkQuotes = spyPrices.mapIndexed { i, price -> quote(START.plusDays(i.toLong()), price) }
+
+    // When
+    val analysis = service.compute(emptyList(), curve, sizing(curve), benchmarkQuotes = benchmarkQuotes)
+
+    // Then SPY's own CAGR / maxDD / Calmar / Sharpe are reported (the gate's benchmark leg)
+    val benchmark = requireNotNull(analysis.benchmarkComparison)
+    assertEquals(25.0, requireNotNull(benchmark.benchmarkMaxDrawdownPct), EPSILON)
+    val benchmarkCagr = requireNotNull(benchmark.benchmarkCagr)
+    val benchmarkCalmar = requireNotNull(benchmark.benchmarkCalmar)
+    assertEquals(benchmarkCagr / 25.0, benchmarkCalmar, EPSILON)
+    assertNotNull(benchmark.benchmarkSharpe)
   }
 
   @Test
@@ -500,20 +550,20 @@ class RiskMetricsServiceTest {
     dailyReturns: List<Double>,
   ): List<PortfolioEquityPoint> {
     val points = mutableListOf(point(start, initial))
-    var v = initial
+    var value = initial
     for ((i, r) in dailyReturns.withIndex()) {
-      v *= (1.0 + r)
-      points += point(start.plusDays((i + 1).toLong()), v)
+      value *= (1.0 + r)
+      points += point(start.plusDays((i + 1).toLong()), value)
     }
     return points
   }
 
   private fun buildPriceSeriesFromDailyReturns(initial: Double, dailyReturns: List<Double>): List<Double> {
     val series = mutableListOf(initial)
-    var p = initial
+    var price = initial
     for (r in dailyReturns) {
-      p *= (1.0 + r)
-      series += p
+      price *= (1.0 + r)
+      series += price
     }
     return series
   }

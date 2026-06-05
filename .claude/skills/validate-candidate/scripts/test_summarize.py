@@ -149,6 +149,36 @@ class TestVerdictLogic(unittest.TestCase):
         # Then: REJECTED — a crash-survival failure is structural, not "almost tradable"
         self.assertEqual(result["verdict"], "REJECTED")
 
+    def test_g16_spy_baseline_failure_rejects_not_near_miss(self):
+        # Given: Block A fails only G16 (strategy loses to buy-and-hold SPY on Calmar) — a binding,
+        # structural failure (delivering index beta), never an "almost tradable" tight margin.
+        self.write_eval(
+            "A", overall="FAIL",
+            gates=[{"name": "G16_spy_baseline", "passed": False,
+                    "value": "FAIL (strategy Calmar=0.9 vs SPY Calmar=1.4)"}],
+            first_failure="G16_spy_baseline",
+        )
+        self.write_eval("B", overall="PASS")
+        self.write_eval("25y", overall="PASS")
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
+
+        # Then: REJECTED — beating the passive alternative is structural, not a near-miss
+        self.assertEqual(result["verdict"], "REJECTED")
+
+    def test_inconclusive_spy_baseline_on_25y_aggregate_is_surfaced_loudly(self):
+        # Given: all binding layers PASS but the 25y aggregate's SPY-baseline came back INCONCLUSIVE
+        # (should never happen on 25y of data → signals something degenerate upstream).
+        self.write_eval("A", overall="PASS", aggregate_edge=0.7, aggregate_cagr=35.0)
+        self.write_eval("B", overall="PASS", aggregate_edge=0.5, aggregate_cagr=30.0)
+        self.write_eval("25y", overall="PASS", spy_baseline_inconclusive_aggregate=True)
+        self.write_eval("C", overall="PASS", non_catastrophic=True)
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"], self.paths["C"])
+
+        # Then: the loud flag is carried in the summary for the analyst to surface
+        self.assertTrue(result["spy_baseline_inconclusive_aggregate"])
+
     def test_block_c_failure_alone_does_not_trigger_rejected(self):
         # Given: Block A + B + 25y all PASS but Block C FAILS gates (non_catastrophic still True)
         self.write_eval("A", overall="PASS", aggregate_edge=0.7, aggregate_cagr=35.0)

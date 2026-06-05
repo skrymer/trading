@@ -52,6 +52,16 @@ def run_block(windows, block, **agg):
         "aggregateOosMaxDrawdownPct": agg.get("dd", 10.0),
         "aggregateOosRiskMetrics": {"sharpeRatio": 1.2, "calmarRatio": 1.0},
     }
+    if "spy" in agg:
+        data["spyBaselineComparison"] = {
+            "verdict": agg["spy"],
+            "strategyCalmar": 2.0,
+            "benchmarkCalmar": 1.0,
+            "benchmarkCagr": 8.0,
+            "benchmarkMaxDrawdownPct": 8.0,
+            "benchmarkSharpe": 0.9,
+            "inconclusiveReason": agg.get("spy_reason"),
+        }
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
         json.dump(data, f)
         path = f.name
@@ -120,6 +130,55 @@ class TestG6bRecovery(unittest.TestCase):
         # Then the rally cannot rescue the crash gate — each half reads only its own months
         self.assertFalse(gate_named(summary, "G6a_crash_survival")["passed"])
         self.assertTrue(gate_named(summary, "G6b_recovery")["passed"])
+
+
+class TestG16SpyBaseline(unittest.TestCase):
+    def test_g16_fail_on_binding_block_fails_the_block(self):
+        # Given a binding block whose engine SPY-baseline verdict is FAIL (strategy Calmar < SPY)
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", spy="FAIL")
+
+        # Then G16 is present, failed, and drags the block overall to FAIL
+        g16 = gate_named(summary, "G16_spy_baseline")
+        self.assertIsNotNone(g16)
+        self.assertFalse(g16["passed"])
+        self.assertEqual("FAIL", summary["overall"])
+
+    def test_g16_pass_when_verdict_pass(self):
+        # Given a binding block whose SPY-baseline verdict is PASS
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", spy="PASS")
+
+        # Then G16 passes
+        self.assertTrue(gate_named(summary, "G16_spy_baseline")["passed"])
+
+    def test_g16_inconclusive_does_not_bind(self):
+        # Given a binding block whose SPY-baseline verdict is INCONCLUSIVE (no-bind guardrail)
+        summary = run_block(
+            [window("2008-01-01", edge=2.0)], "A",
+            spy="INCONCLUSIVE", spy_reason="strategy stitched maxDD < 3.0%",
+        )
+
+        # Then G16 passes (does not bind, never auto-fails) but records the reason
+        g16 = gate_named(summary, "G16_spy_baseline")
+        self.assertTrue(g16["passed"])
+        self.assertIn("INCONCLUSIVE", g16["value"])
+
+    def test_g16_absent_benchmark_is_non_fatal(self):
+        # Given a binding block with no spyBaselineComparison (e.g. SPY data unavailable)
+        summary = run_block([window("2008-01-01", edge=2.0)], "A")
+
+        # Then G16 passes (non-fatal — the gate cannot bind without a benchmark)
+        self.assertTrue(gate_named(summary, "G16_spy_baseline")["passed"])
+
+    def test_g16_inconclusive_25y_aggregate_is_flagged_loudly(self):
+        # Given an INCONCLUSIVE verdict on the 25-year aggregate (should never happen on 25y of data)
+        summary = run_block(
+            [window("2008-01-01", edge=2.0)], "25y",
+            spy="INCONCLUSIVE", spy_reason="stitched OOS series < 60 trading days",
+        )
+
+        # Then it does not fail the block but is surfaced as a loud aggregate flag
+        self.assertTrue(gate_named(summary, "G16_spy_baseline")["passed"])
+        self.assertTrue(summary["spy_baseline_inconclusive_aggregate"])
 
 
 class TestOtherBlocksKeepSingleG6(unittest.TestCase):

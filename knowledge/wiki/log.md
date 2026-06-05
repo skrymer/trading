@@ -20,3 +20,5 @@ to separate quant-signed facts from Claude synthesis — demonstrated on [[parti
 [[long-premise-in-narrow-leadership]], full backfill ongoing during lint. Skipped the manifest/confidence-
 formula/tier/env-config/companion-skill machinery (over-engineering at 16 pages). Operations-as-`/wiki-*`-
 skills filed as the #84 follow-up.
+## [2026-06-05] ingest | component-firewall G16 — added the SPY buy-and-hold Calmar baseline gate (#102, ADR 0013) to the roster; beta-delivery page deferred until a real instance
+## [2026-06-05] ingest | beta-delivery (seed) — failure-mode page for the G16 SPY-baseline detector; anatomy + detector settled, instances empty until first rejection

@@ -121,8 +121,9 @@ class EntryConditionGroupTest {
     // Then
     assertEquals("ConditionGroup", result.conditionType)
     assertFalse(result.passed)
-    assertTrue(result.message!!.contains("A: PASS"))
-    assertTrue(result.message!!.contains("B: FAIL"))
+    val message = requireNotNull(result.message)
+    assertTrue(message.contains("A: PASS"))
+    assertTrue(message.contains("B: FAIL"))
   }
 
   @Test

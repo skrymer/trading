@@ -59,4 +59,8 @@ data class WalkForwardResult(
   val aggregateOosRiskMetrics: RiskMetrics?,
   val aggregateOosCagr: Double?,
   val aggregateOosMaxDrawdownPct: Double?,
+  // SPY buy-and-hold Calmar baseline gate (ADR 0013): strategy stitched-OOS Calmar vs SPY's over
+  // the identical OOS support, with a PASS/FAIL/INCONCLUSIVE verdict. Null when the run is un-sized
+  // (no stitched strategy curve) or no SPY curve was available to stitch.
+  val spyBaselineComparison: SpyBaselineComparison? = null,
 )

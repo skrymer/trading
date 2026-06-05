@@ -21,7 +21,7 @@ This skill is strategy-neutral. Substitute the user's actual candidate label / r
 | **25-year aggregate** | 2000-01-01 → 2025-12-31 (26y) | ~22 OOS | **Binding** | Aggregate v4 (statistical-power layer) | Continue to Block C |
 | **Block C (informational)** | 2021-01-01 → 2025-12-31 (5y) | 1 OOS | Informational only | 2022 inflation bear (yellow flag if negative) | Verdict computed from binding layers; Block C surfaces risk |
 
-**TRADABLE iff:** Block A v4 PASS AND Block B v4 PASS AND 25-year aggregate v4 PASS AND Block C non-catastrophic (no `|edge| > 0.5%`, no DD > 20%).
+**TRADABLE iff:** Block A v4 PASS AND Block B v4 PASS AND 25-year aggregate v4 PASS AND Block C non-catastrophic (no `|edge| > 0.5%`, no DD > 20%). The v4 gate set includes **G16 (SPY buy-and-hold Calmar baseline)** binding on Block A, Block B, and the 25-year aggregate.
 
 A candidate that clears the binding layers but fails Block C's non-catastrophic check is **PROVISIONAL** (paper-trade only, do not commit capital until 2024-style regime is more cleanly survived). A candidate that fails any binding layer is **REJECTED**.
 
@@ -58,6 +58,7 @@ A candidate must clear **all three binding layers** (Block A v4, Block B v4, 25-
 | G12 — Block-aggregate trade count | ≥ 100 trades per block |
 | G13 — Parameter robustness | Every alpha-defining tunable's ±-step neighbors must also pass Block A + Block B. **Advisory / calibration-pending — does not bind the verdict yet.** See "G13 — Parameter Robustness" below. |
 | G14 — Implementation invariance | A promoted first-class condition must produce the SAME trade population as the inline-`script` config it was promoted from (trade-list diff by `(entry_date, symbol)`, full 25y). Fires BEFORE Block A when an inline template is supplied. DIFFERS voids the *reusable inline verdict* and forces full promoted-config validation (this run); it does NOT auto-REJECT. ERROR (configs not comparable) halts. See "G14 — Implementation Invariance" below. |
+| G16 — SPY buy-and-hold Calmar baseline | **Engine-computed** (`spyBaselineComparison.verdict` on the WF result): strategy stitched-OOS Calmar ≥ SPY's over the identical OOS support. **Binding on Block A, Block B, 25y aggregate**; informational on Block C. `FAIL` on a binding block ⇒ REJECTED. `INCONCLUSIVE` (< 60 OOS days or strategy stitched maxDD < 3%) does NOT bind and does NOT auto-fail; an INCONCLUSIVE **25y aggregate** is surfaced loudly (something upstream is degenerate). The skill READS the verdict — no Calmar comparison logic lives in the skill. SPY-*relative*; distinct from the absolute Calmar floor (ADR 0015). See "G16 — SPY buy-and-hold Calmar baseline" below. (ADR 0013) |
 
 **Block C non-catastrophic check (informational, not a gate):** No `|edge| > 0.5%` AND no DD > 20%. A binding-layer-clearing candidate that breaches non-catastrophic Block C is **PROVISIONAL** (paper-trade only). A binding-layer-clearing candidate with clean Block C is **TRADABLE** (subject to script-condition promotion). Block C's other gates are reported but do not bind the verdict.
 
@@ -82,6 +83,17 @@ G14 fires **before Block A**, only when the pipeline is given the inline-script 
 - **ERROR** (configs differ in anything but condition representation) → methodology fault; the pipeline halts before firing.
 
 G14 also applies to any change to an existing condition's per-bar `evaluate()` logic, not just inline→promotion. See the [verify-promotion skill](../verify-promotion/SKILL.md) and [REFERENCE.md](REFERENCE.md#g14--implementation-invariance) for match-key, tolerance, and precedence rationale.
+
+## G16 — SPY buy-and-hold Calmar baseline (binding, engine-computed)
+
+A long-only book that cannot beat *just holding SPY* on a risk-adjusted basis is delivering index beta, not alpha. G16 makes that explicit. It is **computed by the engine, not the skill** — the walk-forward response carries `spyBaselineComparison`, and the skill only reads `.verdict`. The engine stitches a SPY buy-and-hold curve through the *identical* OOS-stitched path as the strategy curve (per-window `dailyReturns` concatenated, same wall-clock CAGR, same gap-excluded maxDD — ADR 0005) so both legs sit on the same trading-day support, then gates `strategy stitched Calmar ≥ SPY stitched Calmar` (ADR 0013).
+
+- **Calmar-only.** Sharpe is reported (`benchmarkSharpe`) but never gated — a part-in-cash long-only timer is structurally penalised on Sharpe in low-vol bull blocks, while Calmar is neutral to sitting in cash. The absolute Calmar floor (G15, ADR 0015) is a *separate* gate: G16 is SPY-relative ("beat the passive alternative"), G15 is absolute ("minimum tradable quality"). A candidate can clear one and fail the other; both bind.
+- **Binding scope.** Block A, Block B, and the 25-year aggregate. **Informational on Block C** (the off-binding-path data-snooping rationale is a property of the block, and "beat recent SPY" is *more* snoopable, not less).
+- **Verdict mapping.** `PASS` on a binding block → no action. `FAIL` on a binding block → **REJECTED** (delivering beta). `INCONCLUSIVE` → the block does not bind and does not auto-fail; report it. An `INCONCLUSIVE` **25-year aggregate** is a **loud flag** — over 25 years the support should never be too short or the maxDD too tiny, so it signals something degenerate upstream (investigate before trusting the verdict).
+- **INCONCLUSIVE triggers** (engine, not skill): stitched OOS series < 60 trading days, or strategy stitched maxDD < 3% (a tiny denominator manufactures an explosive Calmar that would falsely "beat" SPY). The 3% floor and the strategy-maxDD-only scope are quant-adjudicated (top of ADR 0013's ~2–3% band).
+
+Read the verdict from each block's WF result JSON: `.spyBaselineComparison.verdict` (`PASS`/`FAIL`/`INCONCLUSIVE`), with `.strategyCalmar`, `.benchmarkCalmar`, `.benchmarkCagr`, `.benchmarkMaxDrawdownPct`, `.benchmarkSharpe`, and `.inconclusiveReason` for the summary.
 
 ## Quick start
 

@@ -41,11 +41,11 @@ class VolumeDryUpCondition(
     context: BacktestContext,
   ): Boolean {
     val win = stock.quotesInRange(quote.date.minusDays(LOOKBACK_CALENDAR_DAYS), quote.date)
-    val n = win.size
-    if (n < baseWindow) return false
+    val barCount = win.size
+    if (barCount < baseWindow) return false
 
-    val recent = win.subList(n - dryupWindow, n)
-    val base = win.subList(n - baseWindow, n)
+    val recent = win.subList(barCount - dryupWindow, barCount)
+    val base = win.subList(barCount - baseWindow, barCount)
     val recentAvg = recent.sumOf { it.volume }.toDouble() / recent.size
     val baseAvg = base.sumOf { it.volume }.toDouble() / base.size
     return baseAvg > 0.0 && recentAvg < dryupRatio * baseAvg
@@ -95,13 +95,13 @@ class VolumeDryUpCondition(
     context: BacktestContext,
   ): ConditionEvaluationResult {
     val win = stock.quotesInRange(quote.date.minusDays(LOOKBACK_CALENDAR_DAYS), quote.date)
-    val n = win.size
-    if (n < baseWindow) {
-      return failedResult("Insufficient data ($n/$baseWindow bars)")
+    val barCount = win.size
+    if (barCount < baseWindow) {
+      return failedResult("Insufficient data ($barCount/$baseWindow bars)")
     }
 
-    val recent = win.subList(n - dryupWindow, n)
-    val base = win.subList(n - baseWindow, n)
+    val recent = win.subList(barCount - dryupWindow, barCount)
+    val base = win.subList(barCount - baseWindow, barCount)
     val recentAvg = recent.sumOf { it.volume }.toDouble() / recent.size
     val baseAvg = base.sumOf { it.volume }.toDouble() / base.size
     if (baseAvg <= 0.0) {

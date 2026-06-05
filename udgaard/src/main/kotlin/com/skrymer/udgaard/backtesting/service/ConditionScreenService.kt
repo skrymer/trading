@@ -351,8 +351,8 @@ private fun spyRegimeReports(
 ): List<RegimeHorizonReport> {
   val spy20d = spy20dReturns(context)
   return horizons.map { n ->
-    val r = ConditionScreenStats.spyRegimeBreakdown(spy20d, conditionSignals, universe, n)
-    RegimeHorizonReport(n, r.down.toReport(), r.flat.toReport(), r.up.toReport())
+    val regimeBreakdown = ConditionScreenStats.spyRegimeBreakdown(spy20d, conditionSignals, universe, n)
+    RegimeHorizonReport(n, regimeBreakdown.down.toReport(), regimeBreakdown.flat.toReport(), regimeBreakdown.up.toReport())
   }
 }
 
@@ -384,10 +384,10 @@ private fun sweepCell(
   val liftByHorizon = mutableMapOf<Int, Double>()
   val seByHorizon = mutableMapOf<Int, Double>()
   for (n in horizons) {
-    val c = ConditionScreenStats.summariseAt(conditionSignals, n)
-    val u = ConditionScreenStats.summariseAt(universeSignals, n)
-    liftByHorizon[n] = ConditionScreenStats.lift(c, u).meanLift
-    seByHorizon[n] = c.clustered.stdError
+    val conditionSummary = ConditionScreenStats.summariseAt(conditionSignals, n)
+    val universeSummary = ConditionScreenStats.summariseAt(universeSignals, n)
+    liftByHorizon[n] = ConditionScreenStats.lift(conditionSummary, universeSummary).meanLift
+    seByHorizon[n] = conditionSummary.clustered.stdError
   }
   return SweepCell(
     parameterValue = value,

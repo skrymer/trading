@@ -42,12 +42,13 @@ udgaard/
 │   │   │   ├── BacktestReportMetadata.kt # Metadata + Summary + ListItem for backtest_reports table
 │   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized); grossMinusNetEdgeSpread (avg round-trip cost in return terms, 0 on a gross run)
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
-│   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha)
+│   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha) + benchmarkCagr/MaxDrawdownPct/Calmar/Sharpe (benchmark's standalone metrics; diagnostic leg of the SPY baseline gate, ADR 0013)
 │   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
 │   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross)
 │   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
-│   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006)
+│   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006); spyBaselineComparison: SpyBaselineComparison? — SPY buy-and-hold Calmar baseline gate verdict (ADR 0013)
+│   │   │   ├── SpyBaselineComparison.kt # SPY buy-and-hold Calmar baseline gate (ADR 0013): verdict (PASS/FAIL/INCONCLUSIVE), strategyCalmar, benchmark Calmar/CAGR/maxDD/Sharpe; stitched-OOS, Calmar-only, INCONCLUSIVE < 60 OOS days or strategy maxDD < 3%
 │   │   │   ├── TradeStatsSummary.kt     # Month-agnostic closed-trade summary w/ additive raw fields; re-aggregate arbitrary month ranges + recompute Edge/Win rate/Profit factor (ADR 0006)
 │   │   │   └── TradePerformanceMetrics.kt
 │   │   ├── repository/               # jOOQ repositories
@@ -68,7 +69,7 @@ udgaard/
 │   │   │   │   ├── KellySizer.kt            # Fractional Kelly from win rate + win/loss ratio
 │   │   │   │   ├── VolatilityTargetSizer.kt # Target daily vol% with kATR proxy
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
-│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows); bucketByEntryMonth() builds per-window OOS monthly TradeStatsSummary buckets (ADR 0006)
+│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows); bucketByEntryMonth() builds per-window OOS monthly TradeStatsSummary buckets (ADR 0006); computeSpyBaseline() stitches a SPY buy-and-hold curve through the identical OOS path (ADR 0013/0005) → spyBaselineComparison (Calmar-only gate)
 │   │   │   ├── BacktestResultStore.kt    # Backtest result store (backtest_reports table); gzip-compresses the report into a bytea column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), decompresses on read
 │   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
 │   │   │   ├── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override

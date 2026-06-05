@@ -292,6 +292,30 @@ def main():
         ">= 100 trades in block aggregate",
     ))
 
+    # G16: SPY buy-and-hold Calmar baseline (ADR 0013). Engine-computed verdict — the skill only
+    # reads it, no Calmar comparison here. Binding on A/B/25y, informational on C. Only a FAIL
+    # binds; INCONCLUSIVE (no-bind guardrail) and an absent benchmark (no SPY data) are non-fatal.
+    spy = data.get("spyBaselineComparison") or {}
+    spy_verdict = spy.get("verdict")
+    if spy_verdict is None:
+        g16_value = "no SPY benchmark available (non-fatal)"
+    elif spy_verdict == "INCONCLUSIVE":
+        g16_value = f"INCONCLUSIVE: {spy.get('inconclusiveReason')}"
+    else:
+        g16_value = (
+            f"{spy_verdict} (strategy Calmar={spy.get('strategyCalmar')} "
+            f"vs SPY Calmar={spy.get('benchmarkCalmar')})"
+        )
+    gates.append(gate(
+        "G16_spy_baseline",
+        spy_verdict != "FAIL",
+        g16_value,
+        "strategy stitched Calmar >= SPY (binding A/B/25y; informational C)",
+    ))
+    # Loud flag: an INCONCLUSIVE verdict on the 25-year aggregate should never happen on 25y of
+    # data — too-short support or trivially-tiny maxDD signals something degenerate upstream.
+    spy_baseline_inconclusive_aggregate = args.block == "25y" and spy_verdict == "INCONCLUSIVE"
+
     passed_count = sum(1 for g in gates if g["passed"])
     failed = [g for g in gates if not g["passed"]]
     overall = "PASS" if not failed else "FAIL"
@@ -316,6 +340,8 @@ def main():
         "failed_gates": len(failed),
         "total_gates": len(gates),
         "non_catastrophic": non_catastrophic,
+        "spy_baseline_verdict": spy_verdict,
+        "spy_baseline_inconclusive_aggregate": spy_baseline_inconclusive_aggregate,
         "aggregate_edge": agg_edge,
         "aggregate_cagr": agg_cagr,
         "aggregate_max_dd": agg_dd,

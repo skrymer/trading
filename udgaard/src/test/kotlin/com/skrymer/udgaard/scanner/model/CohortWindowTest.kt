@@ -72,22 +72,22 @@ class CohortWindowTest {
     //   2026-05-13: emitted [EEE], taken []        → Jaccard 0     — below   (calendar gap May 10–12 has no scan runs)
     //   2026-05-19: emitted [FFF], taken [FFF]     → Jaccard 1     — above (resets counter to 0)
     // Final counter value at end-of-window: 0 (the above-threshold day on 5/19 resets it).
-    val d = LocalDate.parse("2026-05-01")
+    val startDate = LocalDate.parse("2026-05-01")
     val window = CohortWindow(
       scanRuns = listOf(
-        scanRun(d, matchedSymbols = listOf("AAA")),
-        scanRun(d.plusDays(3), matchedSymbols = listOf("BBB")),
-        scanRun(d.plusDays(6), matchedSymbols = listOf("CCC")),
-        scanRun(d.plusDays(8), matchedSymbols = listOf("DDD")),
-        scanRun(d.plusDays(12), matchedSymbols = listOf("EEE")),
-        scanRun(d.plusDays(18), matchedSymbols = listOf("FFF")),
+        scanRun(startDate, matchedSymbols = listOf("AAA")),
+        scanRun(startDate.plusDays(3), matchedSymbols = listOf("BBB")),
+        scanRun(startDate.plusDays(6), matchedSymbols = listOf("CCC")),
+        scanRun(startDate.plusDays(8), matchedSymbols = listOf("DDD")),
+        scanRun(startDate.plusDays(12), matchedSymbols = listOf("EEE")),
+        scanRun(startDate.plusDays(18), matchedSymbols = listOf("FFF")),
       ),
       tradesEntered = listOf(
-        trade("BBB", signalDate = d.plusDays(3)),
-        trade("FFF", signalDate = d.plusDays(18)),
+        trade("BBB", signalDate = startDate.plusDays(3)),
+        trade("FFF", signalDate = startDate.plusDays(18)),
       ),
-      windowStart = d,
-      windowEnd = d.plusDays(18),
+      windowStart = startDate,
+      windowEnd = startDate.plusDays(18),
     )
 
     // When
@@ -101,20 +101,20 @@ class CohortWindowTest {
   fun `jaccardBelowThresholdConsecutiveDays accumulates across skipped calendar days but resets on a good scan-run day`() {
     // Given: trailing run of 3 below-threshold scan-run days (with a calendar gap in the middle).
     // The gap should NOT reset the counter — per option c, skipped days are no-ops.
-    val d = LocalDate.parse("2026-05-01")
+    val startDate = LocalDate.parse("2026-05-01")
     val window = CohortWindow(
       scanRuns = listOf(
-        scanRun(d, matchedSymbols = listOf("AAA")), // taken — resets
-        scanRun(d.plusDays(2), matchedSymbols = listOf("BBB")), // below — counter 1
+        scanRun(startDate, matchedSymbols = listOf("AAA")), // taken — resets
+        scanRun(startDate.plusDays(2), matchedSymbols = listOf("BBB")), // below — counter 1
         // Calendar gap days 5/4 - 5/9 (no scan runs)
-        scanRun(d.plusDays(10), matchedSymbols = listOf("CCC")), // below — counter 2 (gap was no-op)
-        scanRun(d.plusDays(14), matchedSymbols = listOf("DDD")), // below — counter 3
+        scanRun(startDate.plusDays(10), matchedSymbols = listOf("CCC")), // below — counter 2 (gap was no-op)
+        scanRun(startDate.plusDays(14), matchedSymbols = listOf("DDD")), // below — counter 3
       ),
       tradesEntered = listOf(
-        trade("AAA", signalDate = d),
+        trade("AAA", signalDate = startDate),
       ),
-      windowStart = d,
-      windowEnd = d.plusDays(14),
+      windowStart = startDate,
+      windowEnd = startDate.plusDays(14),
     )
 
     // When
@@ -133,35 +133,35 @@ class CohortWindowTest {
     //   day 4: (12, 1)  rich, skipRate 11/12=0.92→ above, counter 2
     //   day 5: (15, 2)  rich, skipRate 13/15=0.87→ above, counter 3
     // Trailing-run counter = 3.
-    val d = LocalDate.parse("2026-05-01")
+    val startDate = LocalDate.parse("2026-05-01")
     val window = CohortWindow(
       scanRuns = listOf(
-        scanRun(d.plusDays(0), matchedSymbols = (1..12).map { "S$it" }), // 12 rich
-        scanRun(d.plusDays(1), matchedSymbols = (1..15).map { "S$it" }), // 15 rich
-        scanRun(d.plusDays(2), matchedSymbols = (1..5).map { "T$it" }), // 5 thin
-        scanRun(d.plusDays(3), matchedSymbols = (1..12).map { "U$it" }), // 12 rich
-        scanRun(d.plusDays(4), matchedSymbols = (1..15).map { "V$it" }), // 15 rich
+        scanRun(startDate.plusDays(0), matchedSymbols = (1..12).map { "S$it" }), // 12 rich
+        scanRun(startDate.plusDays(1), matchedSymbols = (1..15).map { "S$it" }), // 15 rich
+        scanRun(startDate.plusDays(2), matchedSymbols = (1..5).map { "T$it" }), // 5 thin
+        scanRun(startDate.plusDays(3), matchedSymbols = (1..12).map { "U$it" }), // 12 rich
+        scanRun(startDate.plusDays(4), matchedSymbols = (1..15).map { "V$it" }), // 15 rich
       ),
       tradesEntered = listOf(
         // day 1 — 6 takes (50% — at threshold, not above, resets)
-        trade("S1", signalDate = d.plusDays(0)),
-        trade("S2", signalDate = d.plusDays(0)),
-        trade("S3", signalDate = d.plusDays(0)),
-        trade("S4", signalDate = d.plusDays(0)),
-        trade("S5", signalDate = d.plusDays(0)),
-        trade("S6", signalDate = d.plusDays(0)),
+        trade("S1", signalDate = startDate.plusDays(0)),
+        trade("S2", signalDate = startDate.plusDays(0)),
+        trade("S3", signalDate = startDate.plusDays(0)),
+        trade("S4", signalDate = startDate.plusDays(0)),
+        trade("S5", signalDate = startDate.plusDays(0)),
+        trade("S6", signalDate = startDate.plusDays(0)),
         // day 2 — 3 takes (skipRate 0.8 — above)
-        trade("S1", signalDate = d.plusDays(1)),
-        trade("S2", signalDate = d.plusDays(1)),
-        trade("S3", signalDate = d.plusDays(1)),
+        trade("S1", signalDate = startDate.plusDays(1)),
+        trade("S2", signalDate = startDate.plusDays(1)),
+        trade("S3", signalDate = startDate.plusDays(1)),
         // day 4 — 1 take (skipRate 0.92 — above)
-        trade("U1", signalDate = d.plusDays(3)),
+        trade("U1", signalDate = startDate.plusDays(3)),
         // day 5 — 2 takes (skipRate 0.87 — above)
-        trade("V1", signalDate = d.plusDays(4)),
-        trade("V2", signalDate = d.plusDays(4)),
+        trade("V1", signalDate = startDate.plusDays(4)),
+        trade("V2", signalDate = startDate.plusDays(4)),
       ),
-      windowStart = d,
-      windowEnd = d.plusDays(4),
+      windowStart = startDate,
+      windowEnd = startDate.plusDays(4),
     )
 
     // When
@@ -175,12 +175,17 @@ class CohortWindowTest {
   @Test
   fun `executionDriftAlert fires only when below-threshold Jaccard sustains for 10 scan-run days`() {
     // Given: 10 consecutive scan-run days with no trades taken — daily Jaccard 0 on each
-    val d = LocalDate.parse("2026-05-01")
+    val startDate = LocalDate.parse("2026-05-01")
     val runs = (0..9).map { i ->
-      scanRun(d.plusDays(i.toLong()), matchedSymbols = listOf("X$i"))
+      scanRun(startDate.plusDays(i.toLong()), matchedSymbols = listOf("X$i"))
     }
-    val windowAt10 = CohortWindow(scanRuns = runs, tradesEntered = emptyList(), windowStart = d, windowEnd = d.plusDays(9))
-    val windowAt9 = CohortWindow(scanRuns = runs.dropLast(1), tradesEntered = emptyList(), windowStart = d, windowEnd = d.plusDays(8))
+    val windowAt10 = CohortWindow(scanRuns = runs, tradesEntered = emptyList(), windowStart = startDate, windowEnd = startDate.plusDays(9))
+    val windowAt9 = CohortWindow(
+      scanRuns = runs.dropLast(1),
+      tradesEntered = emptyList(),
+      windowStart = startDate,
+      windowEnd = startDate.plusDays(8),
+    )
 
     // When / Then: alert fires at 10, not at 9
     assertEquals(true, windowAt10.executionDriftAlert())
@@ -190,12 +195,17 @@ class CohortWindowTest {
   @Test
   fun `traderFilteringAlert fires only when above-threshold skip rate sustains for 5 scanner-rich days`() {
     // Given: 5 consecutive scanner-rich days (match_count 10), 0 trades taken (skip = 1.0)
-    val d = LocalDate.parse("2026-05-01")
+    val startDate = LocalDate.parse("2026-05-01")
     val runs = (0..4).map { i ->
-      scanRun(d.plusDays(i.toLong()), matchedSymbols = (1..10).map { "Y${i}_$it" })
+      scanRun(startDate.plusDays(i.toLong()), matchedSymbols = (1..10).map { "Y${i}_$it" })
     }
-    val windowAt5 = CohortWindow(scanRuns = runs, tradesEntered = emptyList(), windowStart = d, windowEnd = d.plusDays(4))
-    val windowAt4 = CohortWindow(scanRuns = runs.dropLast(1), tradesEntered = emptyList(), windowStart = d, windowEnd = d.plusDays(3))
+    val windowAt5 = CohortWindow(scanRuns = runs, tradesEntered = emptyList(), windowStart = startDate, windowEnd = startDate.plusDays(4))
+    val windowAt4 = CohortWindow(
+      scanRuns = runs.dropLast(1),
+      tradesEntered = emptyList(),
+      windowStart = startDate,
+      windowEnd = startDate.plusDays(3),
+    )
 
     // When / Then
     assertEquals(true, windowAt5.traderFilteringAlert())

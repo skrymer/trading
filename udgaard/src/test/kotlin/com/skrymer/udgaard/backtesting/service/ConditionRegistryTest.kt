@@ -17,13 +17,13 @@ class ConditionRegistryTest {
   @Test
   fun `duplicate entry condition types throw at construction`() {
     // Given: two entry conditions reporting the same type
-    val a = stubEntryCondition("dup", "A")
-    val b = stubEntryCondition("dup", "B")
+    val conditionA = stubEntryCondition("dup", "A")
+    val conditionB = stubEntryCondition("dup", "B")
 
     // When / Then
     val ex =
       assertThrows(IllegalStateException::class.java) {
-        ConditionRegistry(entryConditions = listOf(a, b), exitConditions = emptyList())
+        ConditionRegistry(entryConditions = listOf(conditionA, conditionB), exitConditions = emptyList())
       }
     assertTrue(ex.message!!.contains("dup"), "expected message to mention duplicate type, got: ${ex.message}")
   }
@@ -31,13 +31,13 @@ class ConditionRegistryTest {
   @Test
   fun `duplicate exit condition types throw at construction`() {
     // Given: two exit conditions reporting the same type
-    val a = stubExitCondition("dup", "A")
-    val b = stubExitCondition("dup", "B")
+    val conditionA = stubExitCondition("dup", "A")
+    val conditionB = stubExitCondition("dup", "B")
 
     // When / Then
     val ex =
       assertThrows(IllegalStateException::class.java) {
-        ConditionRegistry(entryConditions = emptyList(), exitConditions = listOf(a, b))
+        ConditionRegistry(entryConditions = emptyList(), exitConditions = listOf(conditionA, conditionB))
       }
     assertTrue(ex.message!!.contains("dup"), "expected message to mention duplicate type, got: ${ex.message}")
   }

@@ -26,6 +26,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[aliased-regime-sensitivity]] — non-monotone pass/fail + per-window sign-flips = the parameter is the wrong abstraction.
 - [[lottery-vs-signature]] — edge concentrated in 1-2 windows = regime detector, not selector; the timing-NULL signature test.
 - [[crisis-timer-cadence-ceiling]] — < ~1 event/yr premises are un-validatable standalone; the data-span sibling rule.
+- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — no instance yet).
 
 ## Entities — candidates
 

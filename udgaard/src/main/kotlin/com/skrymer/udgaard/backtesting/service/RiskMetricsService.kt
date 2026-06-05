@@ -136,6 +136,26 @@ class RiskMetricsService {
     return cagr / abs(maxDrawdownPct)
   }
 
+  /**
+   * Worst peak-to-trough decline over an equity curve, as a positive percent (25.0 = 25%).
+   * For a curve without a `PositionSizingResult` (e.g. a buy-and-hold benchmark curve), this is
+   * the standalone source of the Calmar denominator. Returns 0.0 for a curve that never declines.
+   */
+  internal fun maxDrawdownPct(curve: List<PortfolioEquityPoint>): Double {
+    if (curve.isEmpty()) return 0.0
+    var peak = curve.first().portfolioValue
+    var maxDrawdown = 0.0
+    for (point in curve) {
+      val value = point.portfolioValue
+      if (value > peak) peak = value
+      if (peak > 0.0) {
+        val drawdown = (peak - value) / peak * 100.0
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown
+      }
+    }
+    return maxDrawdown
+  }
+
   // ===== TRADE-LIST-DERIVED METRICS (ported from BacktestReport.kt helpers) =====
 
   internal fun sqn(trades: List<Trade>): Double? {
@@ -196,12 +216,39 @@ class RiskMetricsService {
     val benchmarkAnn = benchmarkReturns.average() * annualizationFactor * 100.0
     val activeReturn = strategyAnn - beta * benchmarkAnn
 
+    val benchmarkCurve = benchmarkEquityCurve(equityCurve, benchmarkQuotes)
+    val benchmarkCagr = cagr(benchmarkCurve)
+    val benchmarkMaxDd = maxDrawdownPct(benchmarkCurve)
+    val benchmarkSharpe = sharpe(dailyReturns(benchmarkCurve), 0.0)
+
     return BenchmarkComparison(
       benchmarkSymbol = benchmarkSymbol,
       correlation = correlation,
       beta = beta,
       activeReturnVsBenchmark = activeReturn,
+      benchmarkCagr = benchmarkCagr,
+      benchmarkMaxDrawdownPct = benchmarkMaxDd,
+      benchmarkCalmar = calmar(benchmarkCagr, benchmarkMaxDd),
+      benchmarkSharpe = benchmarkSharpe,
     )
+  }
+
+  /**
+   * Builds the benchmark's own equity curve (date, closePrice) over the strategy curve's date
+   * span, so the benchmark's standalone CAGR / maxDD / Sharpe are measured on the same support
+   * the strategy was. ADR 0013: the baseline is "what holding the benchmark alone did on these
+   * days" — symmetric support, not full-span.
+   */
+  internal fun benchmarkEquityCurve(
+    equityCurve: List<PortfolioEquityPoint>,
+    benchmarkQuotes: List<StockQuote>,
+  ): List<PortfolioEquityPoint> {
+    if (equityCurve.isEmpty()) return emptyList()
+    val span = equityCurve.first().date..equityCurve.last().date
+    return benchmarkQuotes
+      .filter { it.date in span }
+      .sortedBy { it.date }
+      .map { PortfolioEquityPoint(date = it.date, portfolioValue = it.closePrice) }
   }
 
   // ===== DRAWDOWN EPISODES (Magdon-Ismail state machine) =====
@@ -229,12 +276,14 @@ class RiskMetricsService {
     val drawdownEpisodes: List<DrawdownEpisode>,
   )
 
-  private companion object {
-    const val TOP_N_DRAWDOWNS = 10
+  companion object {
+    // Minimum overlapping/stitched OOS trading days for a statistically meaningful comparison.
+    // Reused as the SPY-baseline gate's min-OOS-days guard (ADR 0013).
     const val MIN_OVERLAP_DAYS_FOR_CORRELATION = 60
-    const val MIN_TRADES_FOR_TAIL_RATIO = 20
-    const val TRADING_DAYS_PER_YEAR = 252
-    const val DAYS_PER_CALENDAR_YEAR = 365.25
+    private const val TOP_N_DRAWDOWNS = 10
+    private const val MIN_TRADES_FOR_TAIL_RATIO = 20
+    private const val TRADING_DAYS_PER_YEAR = 252
+    private const val DAYS_PER_CALENDAR_YEAR = 365.25
   }
 }
 
@@ -314,28 +363,28 @@ private class DrawdownState(
   private var troughDate: LocalDate = initialDate
 
   fun advance(point: PortfolioEquityPoint, episodes: MutableList<DrawdownEpisode>) {
-    val v = point.portfolioValue
+    val value = point.portfolioValue
     when {
-      v > runningPeak -> {
+      value > runningPeak -> {
         if (inEpisode) {
           episodes += closedEpisode(point.date)
           inEpisode = false
         }
-        runningPeak = v
+        runningPeak = value
         runningPeakDate = point.date
       }
       !inEpisode -> {
-        val drawdownPct = (runningPeak - v) / runningPeak * 100.0
+        val drawdownPct = (runningPeak - value) / runningPeak * 100.0
         if (drawdownPct > DRAWDOWN_NOISE_PCT_THRESHOLD) {
           inEpisode = true
           episodePeak = runningPeak
           episodePeakDate = runningPeakDate
-          troughValue = v
+          troughValue = value
           troughDate = point.date
         }
       }
-      v < troughValue -> {
-        troughValue = v
+      value < troughValue -> {
+        troughValue = value
         troughDate = point.date
       }
     }

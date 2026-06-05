@@ -574,8 +574,8 @@ class ScannerService(
 
     fun incrementalEma(prevEma: Double, period: Int): Double {
       if (prevEma == 0.0) return 0.0
-      val k = 2.0 / (period + 1)
-      return (price - prevEma) * k + prevEma
+      val multiplier = 2.0 / (period + 1)
+      return (price - prevEma) * multiplier + prevEma
     }
 
     val high = if (liveQuote.high > 0) liveQuote.high else price
