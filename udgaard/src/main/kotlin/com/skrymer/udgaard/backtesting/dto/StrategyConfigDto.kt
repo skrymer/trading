@@ -30,6 +30,8 @@ data class BacktestRequest(
   val rankerConfig: RankerConfig? = null, // Optional ranker-specific parameters
   val randomSeed: Long? = null, // Fixed seed for deterministic tie-breaking in ranker (null = random each run)
   val riskFreeRatePct: Double? = null, // Annualized RF in percent for Sharpe (excess return) and Sortino MAR. Null = 0 = raw Sharpe.
+  // Round-trip transaction cost (commission + slippage) in bps, netted into per-trade P&L. Net-by-default; 0 = gross.
+  val costBps: Double = 10.0,
 )
 
 /**

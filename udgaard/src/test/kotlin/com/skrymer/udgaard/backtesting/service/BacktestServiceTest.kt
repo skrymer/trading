@@ -131,6 +131,7 @@ class BacktestServiceTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        costBps = 0.0, // pins gross edge/win amounts; cost-netting is covered in BacktestServiceCostTest
       )
     Assertions.assertEquals(3, report.numberOfWinningTrades)
     Assertions.assertEquals(0.6, report.winRate)
@@ -317,6 +318,7 @@ class BacktestServiceTest {
         LocalDate.now(),
         useUnderlyingAssets = true,
         customUnderlyingMap = customMap,
+        costBps = 0.0, // pins gross TQQQ-priced profit; cost-netting is covered in BacktestServiceCostTest
       )
 
     // Verify we got exactly 1 trade
@@ -1324,6 +1326,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         entryDelayDays = 1,
+        costBps = 0.0, // pins gross delayed-entry profit; cost-netting is covered in BacktestServiceCostTest
       )
 
     Assertions.assertEquals(1, report.totalTrades, "Should have 1 trade")

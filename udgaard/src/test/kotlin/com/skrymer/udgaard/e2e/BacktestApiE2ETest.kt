@@ -57,6 +57,33 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
   }
 
   @Test
+  fun `POST backtest nets transaction cost by default and reports the gross-minus-net spread`() {
+    // Given the same request run gross (costBps = 0) and at the net-by-default cost (omitted = 10)
+    val grossRun = postBacktest(testBacktestRequest()) // testBacktestRequest pins costBps = 0
+    val netRun = postBacktest(
+      BacktestRequest(
+        stockSymbols = BacktestTestDataGenerator.ALL_SYMBOLS,
+        entryStrategy = PredefinedStrategyConfig(name = "TestEntry"),
+        exitStrategy = PredefinedStrategyConfig(name = "TestExit"),
+        startDate = "2024-01-02",
+        endDate = "2024-03-29",
+        useUnderlyingAssets = false,
+        // costBps omitted — exercises the DTO default reaching the engine end to end
+      ),
+    )
+
+    assertEquals(HttpStatus.OK, netRun.statusCode)
+    val gross = grossRun.body!!
+    val net = netRun.body!!
+
+    // Then the same trades are taken, but the net run charges friction
+    assertEquals(gross.totalTrades, net.totalTrades)
+    assertEquals(0.0, gross.grossMinusNetEdgeSpread, DELTA, "gross run charges nothing")
+    assertTrue(net.grossMinusNetEdgeSpread > 0.0, "net-by-default run reports a positive cost spread")
+    assertTrue(net.edge < gross.edge, "net Edge ${net.edge} should be below gross Edge ${gross.edge}")
+  }
+
+  @Test
   fun `POST backtest with custom conditions covering all data types should work`() {
     val request = BacktestRequest(
       stockSymbols = BacktestTestDataGenerator.ALL_SYMBOLS,
@@ -391,6 +418,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     startDate = "2024-01-02",
     endDate = "2024-03-29",
     useUnderlyingAssets = false,
+    costBps = 0.0, // assertTradeMetrics pins gross numbers; net-by-default is covered by its own test below
   )
 
   private fun postBacktest(request: BacktestRequest): ResponseEntity<BacktestResponseDto> =

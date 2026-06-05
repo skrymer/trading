@@ -24,6 +24,9 @@ class Trade(
   var profit: Double = 0.0,
   var startDate: LocalDate?,
   var sector: String,
+  // Round-trip transaction cost per share already netted out of [profit]. Drives the report's
+  // gross-minus-net Edge spread; 0.0 on a cost-free (costBps = 0) run.
+  var costPerShare: Double = 0.0,
 ) {
   // The four runtime-only fields below are populated by the engine and consumed within
   // the same request. `@Transient` blocks Java serialization; `@get:JsonIgnore` blocks

@@ -73,15 +73,17 @@ class BacktestInvariantsE2ETest : AbstractIntegrationTest() {
 
       assertTrue(entryDate.isBefore(exitDate), "${trade.stockSymbol}: entry $entryDate must precede exit $exitDate")
 
-      // Engine sets profit = exitPrice - entryClose (BacktestService.kt:210); CompositeExitStrategy.exitPrice
-      // returns `quote.closePrice` when >= 1.0 (else falls back to the previous close for penny edge cases).
-      // For normal-price test data the simpler predicate always holds.
-      val expectedProfit = exitQuote.closePrice - trade.entryQuote.closePrice
+      // Engine sets profit = exitPrice - entryClose - costPerShare (round-trip transaction cost netted
+      // once at trade close). CompositeExitStrategy.exitPrice returns `quote.closePrice` when >= 1.0
+      // (else falls back to the previous close for penny edge cases). For normal-price test data the
+      // simpler predicate always holds. costPerShare is positive under the net-by-default cost.
+      val expectedProfit = exitQuote.closePrice - trade.entryQuote.closePrice - trade.costPerShare
+      assertTrue(trade.costPerShare > 0.0, "${trade.stockSymbol}: net-by-default run should charge a round-trip cost")
       assertEquals(
         expectedProfit,
         trade.profit,
         1e-6,
-        "${trade.stockSymbol} ($entryDate..$exitDate): profit ${trade.profit} != exitClose-entryClose $expectedProfit",
+        "${trade.stockSymbol} ($entryDate..$exitDate): profit ${trade.profit} != exitClose-entryClose-cost $expectedProfit",
       )
 
       // profitPercentage is a computed property; asserting it confirms DTO serialization round-trips correctly.

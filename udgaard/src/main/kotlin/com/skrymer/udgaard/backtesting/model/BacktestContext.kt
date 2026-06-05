@@ -14,6 +14,9 @@ data class BacktestContext(
   val sectorBreadthMap: Map<String, Map<LocalDate, SectorBreadthDaily>>,
   val marketBreadthMap: Map<LocalDate, MarketBreadthDaily>,
   val spyQuoteMap: Map<LocalDate, StockQuote> = emptyMap(),
+  // Round-trip transaction cost in basis points (commission + slippage), netted into per-share
+  // Trade.profit at trade close. Default 10 = net-by-default; 0 reproduces gross perfect-fill runs.
+  val costBps: Double = 10.0,
 ) {
   fun getSectorBreadth(sectorSymbol: String?, date: LocalDate): SectorBreadthDaily? =
     sectorSymbol?.let { sectorBreadthMap[it]?.get(date) }

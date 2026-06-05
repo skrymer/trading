@@ -85,6 +85,9 @@ data class BacktestResponseDto(
   val averageLossPercent: Double,
   val edge: Double,
   val profitFactor: Double?,
+  // Average round-trip transaction cost in return terms — the gross-minus-net Edge spread.
+  // Early-warning scalar: compare to edge to spot the "edge eaten by friction" zone. 0 on a gross run.
+  val grossMinusNetEdgeSpread: Double,
   // Risk-adjusted ratios + benchmark comparison + drawdown episodes (populated when sized).
   val riskMetrics: RiskMetrics? = null,
   val benchmarkComparison: BenchmarkComparison? = null,

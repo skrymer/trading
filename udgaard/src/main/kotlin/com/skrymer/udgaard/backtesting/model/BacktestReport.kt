@@ -65,7 +65,7 @@ data class StockPerformance(
     "averageLossPercent", "totalTrades", "edge", "profitFactor", "numberOfWinningTrades",
     "numberOfLosingTrades", "stockProfits", "exitReasonCount", "tradesGroupedByDate",
     "missedOpportunitiesCount", "missedProfitPercentage", "missedAverageProfitPercentage",
-    "sectorStats", "trades",
+    "sectorStats", "trades", "grossMinusNetEdgeSpread",
   ],
   ignoreUnknown = true,
 )
@@ -185,6 +185,19 @@ class BacktestReport(
    */
   val edge: Double
     get() = (this.averageWinPercent * this.winRate) - ((1.0 - this.winRate) * this.averageLossPercent)
+
+  /**
+   * Early-warning scalar: the average round-trip transaction cost in return terms — each trade's
+   * netted [Trade.costPerShare] as a percentage of its entry price, averaged across all trades.
+   * It *is* the gross-minus-net spread on per-trade return, so comparing it to [edge] reveals the
+   * "edge eaten by friction" danger zone. Zero on a cost-free (costBps = 0) run.
+   */
+  val grossMinusNetEdgeSpread: Double
+    get() {
+      val all = winningTrades + losingTrades
+      if (all.isEmpty()) return 0.0
+      return all.sumOf { (it.costPerShare / it.entryQuote.closePrice) * 100.0 } / all.size
+    }
 
   /**
    * Profit Factor = Gross Profit / Gross Loss
@@ -405,6 +418,7 @@ fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
     averageLossPercent = averageLossPercent,
     edge = edge,
     profitFactor = profitFactor,
+    grossMinusNetEdgeSpread = grossMinusNetEdgeSpread,
     riskMetrics = riskMetrics,
     benchmarkComparison = benchmarkComparison,
     cagr = cagr,

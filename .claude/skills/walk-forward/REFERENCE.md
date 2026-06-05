@@ -75,7 +75,7 @@ Additional checks beyond aggregate WFE:
 | OOS-positive windows | ≥ 70% | "Every window 0.6" vs "half 1.2 / half 0.0" both give WFE 0.6 — only the first is tradeable |
 | Std-dev of OOS edge | < IS edge | High dispersion across windows means edge is regime-dependent |
 | Smallest OOS window trade count | ≥ 30 | Single-window OOS metrics below this are noise |
-| Aggregate OOS edge | ≥ 1.5% | Trades-after-costs threshold — OOS edge above this clears the live-trading bar |
+| Aggregate OOS edge | ≥ 1.5% | Live-trading bar — OOS edge is already net of the modelled `costBps` (default 10 bps round-trip) |
 
 Reject if any of: aggregate WFE < 0.30, < 50% OOS-positive windows, OOS edge < 0% in the most recent window with `n ≥ 30`.
 
@@ -86,4 +86,4 @@ Tracked here so the backend roadmap closes them; the skill works around each in 
 - **`derivedSectorRanking` is informational only.** Per the API contract, the IS-derived sector ranking does NOT re-rank OOS trades. Treat as an overfitting signal (does the ranking churn across windows?), not as evidence the strategy uses IS sector data live.
 - **Small window counts.** With 10y of data and default 5y IS / 1y OOS / 1y step, you get ~5–6 windows. Aggregate metrics are trade-weighted, so windows with more trades dominate. Per-window WFEs can be wildly dispersed (0 to 1.5+) on small samples.
 - **Walk-forward tests parameter durability, not optimization procedure.** Running walk-forward with fixed parameters validates that those parameters survive OOS. It does NOT validate that re-optimizing on each IS window would survive — that requires a different harness.
-- Same daily-bar / no-slippage / survivorship-bias caveats as `/backtest` apply.
+- Same daily-bar / flat-`costBps` (cost modelled but liquidity-blind) / survivorship-bias caveats as `/backtest` apply. WFE is a ratio of net OOS edge to net IS edge — cost nets out of both halves, so it barely moves WFE while it does lower the absolute OOS edge gate.
