@@ -39,6 +39,42 @@ Review each of these files for accuracy:
 
 5. **New additions** - Check for significant new files/features not yet documented
 
+## Task: ADR & CONTEXT.md Compliance (always)
+
+The checks above verify the docs describe the code. This task is the inverse: verify the **changed code conforms to the decisions already recorded** in `docs/adr/` and the domain model in `CONTEXT.md`. This runs on every invocation.
+
+1. Get the diff for the staged/working changes:
+
+   ```bash
+   git diff HEAD -- udgaard midgaard asgaard
+   git ls-files --others --exclude-standard -- udgaard midgaard asgaard
+   ```
+
+2. Identify which ADRs and which `CONTEXT.md` terms the changed code touches. You don't need to read every ADR — match by area:
+   - Domain entities / services with `withX()`/factory methods, or a service holding a one-line rule → **ADR 0001** (rich domain objects / aggregate roots). Flag anemic-domain regressions (logic leaking from an entity into a service, dependent rows passed as args instead of an aggregate owning them).
+   - Provider integrations (Midgaard/Ovtlyr/broker clients), provider-name references in domain services → **ADR 0003** (provider abstractions). Flag provider names leaking into provider-agnostic services.
+   - Scanner trade persistence / `signalSnapshot` → **ADR 0004**.
+   - Walk-forward aggregation / per-window OOS bucketing → **ADR 0005, 0006**.
+   - `/condition-screen` endpoint, `endDate` cap, leakage boundary → **ADR 0007**.
+   - `/strategy-exploration` orchestrator behaviour (non-executing, refuses dead configs) → **ADR 0008**.
+   - Market-relative-strength percentile indicator → **ADR 0009**.
+   - Crisis-defense / allocation-state logic, any long-only "defender component" → **ADR 0010**.
+   - Symbol catalogue / universe derivation from `stocks` → **ADR 0011**.
+   - Custom-strategy condition tree (`EntryConditionGroup`/`ExitConditionGroup`) → **ADR 0012**.
+   - Firewall baselines / Calmar / Sharpe / Deflated-Sharpe gates → **ADR 0013, 0014, 0015**.
+   - Idle-cash short-rate accrual → **ADR 0016**.
+
+   Read only the ADRs whose area the diff actually touches. (Match the live `docs/adr/` listing — new ADRs may exist beyond this map; `ls docs/adr/` to confirm.)
+
+3. For each touched ADR, check whether the change **honours or contradicts** its decision. For `CONTEXT.md`, check that any new domain term in the changed code (method names, DTO fields, test names, comments) uses the glossary's vocabulary rather than a synonym the glossary avoids (e.g. **Edge**, not "expectancy").
+
+4. Report — do **not** auto-fix ADR/CONTEXT violations. These are design decisions; surface them for the human:
+   - For a contradiction, emit `ADR CONFLICT` with the ADR number, the `file:line`, and one line on how the change diverges, phrased as the domain doc suggests: _"Contradicts ADR-NNNN (title) — <what diverges>"_.
+   - For glossary drift, emit `CONTEXT DRIFT` with the `file:line` and the off-glossary term → the term it should use.
+   - If a change looks like it *should* have a new ADR or a `CONTEXT.md` term but doesn't (a genuinely new architectural decision or domain concept), note it as `UNDOCUMENTED DECISION` so the human can run `/grill-with-docs`.
+
+   If the diff touches no ADR-governed area and introduces no domain vocabulary, report `COMPLIANT (no ADR/CONTEXT-governed changes)`.
+
 ## Task: Review Skill Files (when invoked with skill-impact-check output)
 
 When the caller passes the output of `.claude/scripts/skill-impact-check.sh`, also review the skill files it lists. The script flags backend changes that touch code documented in `.claude/skills/{backtest,walk-forward,monte-carlo}/`.
@@ -67,6 +103,8 @@ Return a structured result with:
 
 1. **CLAUDE.md status**: `UP TO DATE` or `UPDATED`
 2. **Skill files status**: `UP TO DATE` or `UPDATED` or `SKIPPED (no impact)` or `MANUAL REVIEW NEEDED`
-3. **Changes made** (if any): List each file updated and what was changed
-4. **Manual-review items** (if any): One bullet per skill change that requires a human decision, with file path + what's now wrong
-5. **Verification**: Confirm which CLAUDE.md and skill files were checked
+3. **ADR/CONTEXT compliance**: `COMPLIANT` or `VIOLATIONS FOUND` (or `COMPLIANT (no ADR/CONTEXT-governed changes)`)
+4. **Changes made** (if any): List each file updated and what was changed
+5. **ADR/CONTEXT findings** (if any): One bullet per `ADR CONFLICT` / `CONTEXT DRIFT` / `UNDOCUMENTED DECISION`, each with the ADR number or term, `file:line`, and the one-line divergence. These are NOT auto-fixed.
+6. **Manual-review items** (if any): One bullet per skill change that requires a human decision, with file path + what's now wrong
+7. **Verification**: Confirm which CLAUDE.md and skill files were checked, and which ADRs were read
