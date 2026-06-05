@@ -206,6 +206,20 @@ G14 closes the gap between a *validated research candidate* and the *shippable c
 
 **Why G14 is not in `eval-block.py`.** `eval-block.py` evaluates one walk-forward result against the per-window v4 gates. G14 is a cross-*config* trade-list diff over a single backtest — a fundamentally different computation with no per-window structure. It lives in `/verify-promotion` (invoked by `run-pipeline.sh` before Block A) and is surfaced by `summarize.py`, not folded into the per-block evaluator.
 
+## G16 — SPY buy-and-hold Calmar baseline
+
+G16 (ADR 0013) requires the candidate to beat *just holding SPY* on Calmar — a long-only book that cannot is delivering index beta, not alpha. Unlike G1–G12 (skill-evaluated from the WF result) the comparison itself is **engine-computed**: `WalkForwardService` stitches a SPY buy-and-hold curve through the identical OOS-stitched path as the strategy curve (per-window `dailyReturns` concatenated, wall-clock CAGR, gap-excluded synthetic-curve maxDD — ADR 0005) and emits `spyBaselineComparison.verdict`. `eval-block.py` only reads that verdict; it never re-derives the Calmar comparison.
+
+**Calmar-only, not Sharpe.** `strategy Sharpe ≥ SPY Sharpe` is structurally biased against a part-in-cash long-only timer — in a low-vol bull block its zero-return cash days drag the per-day mean while always-invested SPY sits at Sharpe ~1+. Calmar is neutral to sitting in cash (flat days don't draw down) and rewards the crash-avoidance the strategy exists for. `benchmarkSharpe` is reported for context but never gated.
+
+**Stitched-OOS SPY, not full-span.** The strategy's stitched curve omits IS-period drawdowns; benchmarking it against full-span SPY (whose maxDD includes those crashes) would manufacture fake defensive alpha proportional to how many crashes fall in IS gaps. Stitching SPY identically keeps both legs on the same trading-day support — the only difference is *what was held*. Symmetry of convention validates the gate, so the ADR-0005 wall-clock/maxDD asymmetry is applied to both legs, never "fixed" on one side.
+
+**Binding scope + verdict mapping.** Binding on Block A, Block B, and the 25-year aggregate; informational on Block C. The 25y aggregate is restitched over the full pooled OOS support so its maxDD captures A/B-seam-straddling drawdowns the sub-blocks cannot (Calmar is non-additive — aggregate PASS/FAIL genuinely diverges from per-block, which is why the conjunction lowers false positives rather than inflating multiple-testing). In `eval-block.py`: `FAIL` → `G16_spy_baseline` failed → block `overall` FAIL → REJECTED (strict in `summarize.py`, never a NEAR_MISS). `PASS` / `INCONCLUSIVE` / absent benchmark → gate passes (non-fatal).
+
+**INCONCLUSIVE guardrails.** A block does not bind (does not auto-fail) when the stitched OOS series is shorter than `RiskMetricsService.MIN_OVERLAP_DAYS_FOR_CORRELATION` (60) trading days, or the **strategy's** stitched maxDD is below 3% — a trivially tiny denominator manufactures an explosive Calmar that would falsely "beat" SPY. The 3% floor (top of the ADR's ~2–3% band) and the strategy-maxDD-only scope are quant-adjudicated; SPY's maxDD over the same 60+-day support is never trivially tiny, so guarding it would wrongly suppress legitimately strong defensive blocks. An INCONCLUSIVE **25-year aggregate** (`spy_baseline_inconclusive_aggregate`) is surfaced loudly — over 25y the support should never be degenerate, so it signals something upstream is wrong.
+
+G16 is SPY-*relative* and complementary to the absolute Calmar floor (ADR 0015); a candidate can clear one and fail the other, and both bind.
+
 ## Failure handling
 
 **Reject on first-block failure.** No retries with different sizer / seed / position count. Each retry is another shot at the same target — exactly the multiple-comparison leak the firewall exists to prevent.

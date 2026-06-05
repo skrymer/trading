@@ -100,6 +100,15 @@ G14 is the promotion-fidelity gate: does the promoted first-class condition repr
 
 Do not let a G14 PASS substitute for the binding-layer verdict, and do not narrate a DIFFERS into a soft PASS. The promoted config's binding-layer result is the verdict; G14 tells you whether the *prior inline* validation was reusable.
 
+### 4d. G16 SPY-baseline read (engine-computed, per binding layer)
+
+G16 (ADR 0013) asks whether the candidate beats *just holding SPY* on Calmar over the same OOS-stitched support. It is computed by the engine — each layer's eval carries `spy_baseline_verdict` (and the raw WF result carries `spyBaselineComparison` with `strategyCalmar` / `benchmarkCalmar` / `benchmarkCagr` / `benchmarkMaxDrawdownPct` / `benchmarkSharpe`). You only interpret it.
+
+- **PASS** — strategy stitched Calmar ≥ SPY's. The candidate's risk-adjusted return is its own, not index beta. No caveat; note the margin (strategyCalmar − benchmarkCalmar) as a robustness read — a razor-thin pass on a binding block is a "passed but barely".
+- **FAIL** on a binding block → drives **REJECTED** (the engine marked `G16_spy_baseline` failed and the block `overall` FAIL). The candidate delivers beta. Recommend a structurally different premise, not a sizer tweak — Calmar-vs-SPY is about whether the *selection/timing* adds value, which a sizer cannot manufacture.
+- **INCONCLUSIVE** — the block did not bind (stitched OOS < 60 days or strategy stitched maxDD < 3%). Report it, do not treat it as a pass *or* a fail. On Block A/B it's usually a thin-support artifact of that block. **On the 25-year aggregate it is a LOUD flag** (`spy_baseline_inconclusive_aggregate` in the summary): 25y should never be too short or too shallow — surface it prominently and recommend investigating the stitched curve before trusting any verdict.
+- **Calmar-only.** `benchmarkSharpe` is reported for context but never gated — do not narrate a SPY-Sharpe comparison into a verdict. G16 is SPY-*relative*; it is complementary to the absolute Calmar floor (G15/G9), so call out when a candidate clears one but not the other.
+
 ### 5. Verdict-specific next step recommendation
 
 **TRADABLE**:
@@ -132,6 +141,7 @@ Do not let a G14 PASS substitute for the binding-layer verdict, and do not narra
   - G7 (chop) → similar; chop survival usually requires structural change
   - G8/G12 (trade count) → universe expansion or signal-frequency tweak
   - G9 (Sharpe + Calmar) → vol target / position-size adjustment
+  - G16 (SPY baseline) → strategy loses to buy-and-hold SPY on Calmar = delivering beta. Structural — redesign the selection/timing premise; a sizer or exit tweak cannot create SPY-relative alpha.
 - Recommend re-entry via `/strategy-screen`, NOT a re-run of `/validate-candidate` with tweaked params
 
 ## Output format
@@ -143,7 +153,8 @@ Do not let a G14 PASS substitute for the binding-layer verdict, and do not narra
 5. **"Passed but barely" margins** (table of gate × layer × margin-to-threshold)
 6. **G13 parameter-robustness read** (only if `g13_advisory` present — advisory yellow flag, names any fragile tunable; never overrides the deterministic verdict)
 7. **G14 implementation-invariance read** (only if `g14_implementation_invariance` present — PASS = verdict transfers; DIFFERS = inline verdict void, promoted result authoritative, name the culprit symbol; never narrate DIFFERS into a soft PASS)
-8. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
+8. **G16 SPY-baseline read** (per binding layer: PASS margin / FAIL = beta-delivery REJECTED / INCONCLUSIVE; surface a 25y-aggregate INCONCLUSIVE as a loud flag)
+9. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
 
 ## Critical "don't"s
 
@@ -156,3 +167,4 @@ Do not let a G14 PASS substitute for the binding-layer verdict, and do not narra
 - **Don't recommend "average across seeds" as a remediation.** The right move on seed-dispersion findings is more seeds, not averaging.
 - **Don't speculate about regimes the firewall doesn't test.** Block C is 2021-2025; don't pretend to know how the strategy would fare in 2027.
 - **Don't treat a G14 DIFFERS as a rejection, or a G14 PASS as a verdict.** DIFFERS voids the *reusable inline* verdict; the promoted config's binding-layer result is the actual verdict. PASS only certifies the inline validation was reusable — it never substitutes for the binding layers.
+- **Don't gate G16 on Sharpe, and don't recompute the Calmar comparison yourself.** The engine emits the G16 verdict (Calmar-only, by design); you interpret `spy_baseline_verdict`, never re-derive it. An INCONCLUSIVE is not a quiet pass — and an INCONCLUSIVE 25y aggregate is a loud flag, not a footnote.

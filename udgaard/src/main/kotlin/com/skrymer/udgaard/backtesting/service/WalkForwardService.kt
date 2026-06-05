@@ -5,6 +5,8 @@ import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.PortfolioEquityPoint
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.RiskMetrics
+import com.skrymer.udgaard.backtesting.model.SpyBaselineComparison
+import com.skrymer.udgaard.backtesting.model.SpyBaselineVerdict
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.TradeStatsSummary
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
@@ -18,6 +20,7 @@ import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
+import com.skrymer.udgaard.data.repository.StockJooqRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,6 +41,7 @@ class WalkForwardService(
   private val marketBreadthRepository: MarketBreadthRepository,
   private val positionSizingService: PositionSizingService,
   private val riskMetricsService: RiskMetricsService,
+  private val stockRepository: StockJooqRepository,
 ) {
   private val logger = LoggerFactory.getLogger(WalkForwardService::class.java)
 
@@ -67,7 +71,14 @@ class WalkForwardService(
       marketBreadthMap = marketBreadthRepository.findAllAsMap(),
     )
     val sharedBreadthByDate = marketBreadthRepository.calculateBreadthByDate()
-    logger.info("Pre-loaded shared context for ${windows.size} windows")
+    // SPY closes for the buy-and-hold Calmar baseline (ADR 0013). Loaded once; each window's SPY
+    // curve is aligned to that window's strategy OOS support. Absent SPY data → null gate (non-fatal).
+    val spyCloseByDate = stockRepository
+      .findBySymbol(BENCHMARK_SYMBOL, quotesAfter = config.startDate)
+      ?.quotes
+      ?.associate { it.date to it.closePrice }
+      ?: emptyMap()
+    logger.info("Pre-loaded shared context for ${windows.size} windows (${spyCloseByDate.size} SPY closes)")
 
     val params = BacktestParams(
       entryStrategy = entryStrategy,
@@ -88,7 +99,9 @@ class WalkForwardService(
     val results = runBlocking(Dispatchers.Default) {
       windows
         .map { window ->
-          async { concurrency.withPermit { processWindow(window, params, sharedContext, sharedBreadthByDate) } }
+          async {
+            concurrency.withPermit { processWindow(window, params, sharedContext, sharedBreadthByDate, spyCloseByDate) }
+          }
         }.awaitAll()
     }
     return aggregateResults(results, params.riskFreeRatePct)
@@ -103,6 +116,10 @@ class WalkForwardService(
     val window: WalkForwardWindow,
     val equityCurve: List<PortfolioEquityPoint>?,
     val trades: List<Trade>,
+    // SPY buy-and-hold equity curve for this window's OOS support, stitched through the same path
+    // as `equityCurve` to produce the SPY leg of the Calmar baseline gate (ADR 0013). Null when no
+    // SPY data was available for the window.
+    val benchmarkEquityCurve: List<PortfolioEquityPoint>? = null,
   )
 
   private fun processWindow(
@@ -110,6 +127,7 @@ class WalkForwardService(
     params: BacktestParams,
     sharedContext: BacktestContext,
     sharedBreadthByDate: Map<LocalDate, Double>,
+    spyCloseByDate: Map<LocalDate, Double>,
   ): WindowComputation {
     logger.info(
       "Window: IS ${window.isStart} to ${window.isEnd}, " +
@@ -171,7 +189,25 @@ class WalkForwardService(
       window = walkForwardWindow,
       equityCurve = perWindowMetrics.equityCurve,
       trades = oosReport.trades,
+      benchmarkEquityCurve = perWindowMetrics.equityCurve?.let { benchmarkCurveFor(it, spyCloseByDate) },
     )
+  }
+
+  /**
+   * Builds the SPY buy-and-hold curve for this window by mapping every date on the strategy's OOS
+   * equity curve to that day's SPY close. Anchoring to the strategy curve's dates guarantees the
+   * two legs share identical trading-day support (ADR 0013) — the gate compares "what holding SPY
+   * did on exactly these days" against the strategy. Returns null when fewer than two SPY closes
+   * line up (no usable benchmark curve to stitch).
+   */
+  private fun benchmarkCurveFor(
+    strategyCurve: List<PortfolioEquityPoint>,
+    spyCloseByDate: Map<LocalDate, Double>,
+  ): List<PortfolioEquityPoint>? {
+    val benchmarkCurve = strategyCurve.mapNotNull { point ->
+      spyCloseByDate[point.date]?.let { close -> PortfolioEquityPoint(date = point.date, portfolioValue = close) }
+    }
+    return benchmarkCurve.takeIf { it.size >= 2 }
   }
 
   /**
@@ -293,6 +329,7 @@ class WalkForwardService(
     val wfe = if (weightedIsEdge != 0.0) weightedOosEdge / weightedIsEdge else 0.0
 
     val stitched = stitchedAggregate(computations, riskFreeRatePct)
+    val spyBaseline = computeSpyBaseline(computations, stitched, riskFreeRatePct)
 
     logger.info(
       "Walk-forward complete: WFE=${String.format("%.2f", wfe)}, " +
@@ -309,6 +346,65 @@ class WalkForwardService(
       aggregateOosRiskMetrics = stitched.riskMetrics,
       aggregateOosCagr = stitched.cagr,
       aggregateOosMaxDrawdownPct = stitched.maxDrawdownPct,
+      spyBaselineComparison = spyBaseline,
+    )
+  }
+
+  /**
+   * SPY buy-and-hold Calmar baseline gate (ADR 0013). Stitches the per-window SPY curves through
+   * the IDENTICAL path as the strategy curve (per-window `dailyReturns` concatenated, same
+   * wall-clock CAGR, same gap-excluded synthetic-curve maxDD) and compares Calmars. Only windows
+   * that contributed BOTH a strategy and a SPY curve participate, so neither leg ever sees a
+   * cross-window jump and both share the same OOS support.
+   *
+   * The gate is PASS when the strategy's stitched Calmar is at least SPY's. It is INCONCLUSIVE
+   * (binds nothing, never auto-fails) when the stitched OOS series is shorter than
+   * [RiskMetricsService.MIN_OVERLAP_DAYS_FOR_CORRELATION] trading days, or when the strategy's
+   * stitched maxDD is below [MIN_STITCHED_MAXDD_PCT] — a trivially tiny denominator manufactures
+   * an explosive Calmar that would falsely "beat" SPY (quant-adjudicated floor, top of ADR 0013's
+   * ~2–3% band). The guard is on the strategy maxDD only: it is the denominator that can explode;
+   * SPY's maxDD over the same 60+-day support is never trivially tiny.
+   *
+   * Returns null when the run is un-sized (no stitched strategy curve) or no SPY curve was
+   * available — mirrors the aggregate-metrics null semantics.
+   */
+  private fun computeSpyBaseline(
+    computations: List<WindowComputation>,
+    strategy: StitchedAggregate,
+    riskFreeRatePct: Double,
+  ): SpyBaselineComparison? {
+    val spyCurves = computations
+      .filter { it.equityCurve != null && it.equityCurve.size >= 2 }
+      .filter { it.benchmarkEquityCurve != null && it.benchmarkEquityCurve.size >= 2 }
+      .map { it.benchmarkEquityCurve!! }
+    if (spyCurves.isEmpty()) return null
+    val spy = stitchCurves(spyCurves, riskFreeRatePct) ?: return null
+
+    val strategyCalmar = strategy.riskMetrics?.calmarRatio
+    val strategyMaxDd = strategy.maxDrawdownPct
+    val strategyReturnsCount = strategy.stitchedReturnsCount
+
+    val (verdict, reason) = when {
+      strategyReturnsCount == null || strategyReturnsCount < RiskMetricsService.MIN_OVERLAP_DAYS_FOR_CORRELATION ->
+        SpyBaselineVerdict.INCONCLUSIVE to
+          "stitched OOS series < ${RiskMetricsService.MIN_OVERLAP_DAYS_FOR_CORRELATION} trading days"
+      strategyMaxDd == null || strategyMaxDd < MIN_STITCHED_MAXDD_PCT ->
+        SpyBaselineVerdict.INCONCLUSIVE to
+          "strategy stitched maxDD < $MIN_STITCHED_MAXDD_PCT% (explosive-Calmar small-sample artifact)"
+      strategyCalmar == null || spy.calmar == null ->
+        SpyBaselineVerdict.INCONCLUSIVE to "Calmar could not be computed on one leg"
+      strategyCalmar >= spy.calmar -> SpyBaselineVerdict.PASS to null
+      else -> SpyBaselineVerdict.FAIL to null
+    }
+
+    return SpyBaselineComparison(
+      verdict = verdict,
+      strategyCalmar = strategyCalmar,
+      benchmarkCalmar = spy.calmar,
+      benchmarkCagr = spy.cagr,
+      benchmarkMaxDrawdownPct = spy.maxDrawdownPct,
+      benchmarkSharpe = spy.sharpe,
+      inconclusiveReason = reason,
     )
   }
 
@@ -326,40 +422,49 @@ class WalkForwardService(
    */
   private fun stitchedAggregate(computations: List<WindowComputation>, riskFreeRatePct: Double): StitchedAggregate {
     val sized = computations.filter { it.equityCurve != null && it.equityCurve.size >= 2 }
-    if (sized.isEmpty()) return StitchedAggregate(null, null, null)
+    val curve = stitchCurves(sized.map { it.equityCurve!! }, riskFreeRatePct)
+      ?: return StitchedAggregate(null, null, null, null)
+
+    val allTrades = sized.flatMap { it.trades }
+    val riskMetrics = RiskMetrics(
+      sharpeRatio = curve.sharpe,
+      sortinoRatio = curve.sortino,
+      calmarRatio = curve.calmar,
+      sqn = riskMetricsService.sqn(allTrades),
+      tailRatio = riskMetricsService.tailRatio(allTrades),
+    )
+    return StitchedAggregate(riskMetrics, curve.cagr, curve.maxDrawdownPct, curve.stitchedReturnsCount)
+  }
+
+  /**
+   * Core stitch shared by the strategy and SPY legs (ADR 0005 / ADR 0013). Each per-window curve
+   * is normalised to its own starting value and chained multiplicatively into a synthetic
+   * continuous-compounding curve; per-window `dailyReturns` are concatenated (never one series
+   * over a price-concatenated curve, so no window join produces a spurious jump return). CAGR
+   * annualises the compounded growth over the wall-clock span from the first window's first bar to
+   * the last window's last bar; maxDD is the peak-to-trough of the synthetic curve, so it captures
+   * cross-window (seam-straddling) drawdowns a per-window max cannot. Returns null when no curve
+   * has at least two points.
+   */
+  private fun stitchCurves(curves: List<List<PortfolioEquityPoint>>, riskFreeRatePct: Double): StitchedCurve? {
+    val sized = curves.filter { it.size >= 2 }
+    if (sized.isEmpty()) return null
 
     val stitchedReturns = mutableListOf<Double>()
-    val syntheticCurve = mutableListOf<Double>()
+    val syntheticCurve = mutableListOf(1.0)
     var carry = 1.0
-    syntheticCurve.add(carry)
 
-    for (computation in sized) {
-      val curve = computation.equityCurve!!
+    for (curve in sized) {
       val first = curve.first().portfolioValue
       if (first <= 0.0) continue
       stitchedReturns.addAll(riskMetricsService.dailyReturns(curve))
       for (point in curve.drop(1)) {
-        val growth = point.portfolioValue / first
-        syntheticCurve.add(carry * growth)
+        syntheticCurve.add(carry * (point.portfolioValue / first))
       }
       carry *= curve.last().portfolioValue / first
     }
 
-    val wallClockDays = ChronoUnit.DAYS.between(
-      sized
-        .first()
-        .equityCurve!!
-        .first()
-        .date,
-      sized
-        .last()
-        .equityCurve!!
-        .last()
-        .date,
-    )
-
-    val sharpe = riskMetricsService.sharpe(stitchedReturns, riskFreeRatePct)
-    val sortino = riskMetricsService.sortino(stitchedReturns, riskFreeRatePct)
+    val wallClockDays = ChronoUnit.DAYS.between(sized.first().first().date, sized.last().last().date)
     val maxDd = peakToTroughDrawdownPct(syntheticCurve)
     val cagr = if (wallClockDays > 0L && syntheticCurve.first() > 0.0) {
       val growth = syntheticCurve.last() / syntheticCurve.first()
@@ -367,38 +472,44 @@ class WalkForwardService(
     } else {
       null
     }
-    val calmar = riskMetricsService.calmar(cagr, maxDd)
-    val allTrades = sized.flatMap { it.trades }
-    val sqn = riskMetricsService.sqn(allTrades)
-    val tailRatio = riskMetricsService.tailRatio(allTrades)
-
-    val riskMetrics = RiskMetrics(
-      sharpeRatio = sharpe,
-      sortinoRatio = sortino,
-      calmarRatio = calmar,
-      sqn = sqn,
-      tailRatio = tailRatio,
+    return StitchedCurve(
+      cagr = cagr,
+      maxDrawdownPct = maxDd,
+      sharpe = riskMetricsService.sharpe(stitchedReturns, riskFreeRatePct),
+      sortino = riskMetricsService.sortino(stitchedReturns, riskFreeRatePct),
+      calmar = riskMetricsService.calmar(cagr, maxDd),
+      stitchedReturnsCount = stitchedReturns.size,
     )
-    return StitchedAggregate(riskMetrics, cagr, maxDd)
   }
 
   private fun peakToTroughDrawdownPct(curve: List<Double>): Double {
     var peak = curve.first()
-    var maxDd = 0.0
+    var maxDrawdown = 0.0
     for (value in curve) {
       if (value > peak) peak = value
       if (peak > 0.0) {
-        val dd = (peak - value) / peak * PERCENT_SCALE
-        if (dd > maxDd) maxDd = dd
+        val drawdown = (peak - value) / peak * PERCENT_SCALE
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown
       }
     }
-    return maxDd
+    return maxDrawdown
   }
+
+  /** Metrics from a single stitched curve (one leg). `stitchedReturnsCount` feeds the OOS-day guard. */
+  private data class StitchedCurve(
+    val cagr: Double?,
+    val maxDrawdownPct: Double?,
+    val sharpe: Double?,
+    val sortino: Double?,
+    val calmar: Double?,
+    val stitchedReturnsCount: Int,
+  )
 
   private data class StitchedAggregate(
     val riskMetrics: RiskMetrics?,
     val cagr: Double?,
     val maxDrawdownPct: Double?,
+    val stitchedReturnsCount: Int?,
   )
 
   private fun emptyResult(): WalkForwardResult = WalkForwardResult(
@@ -473,6 +584,14 @@ class WalkForwardService(
     private const val RAW_RISK_FREE_RATE = 0.0
     private const val DAYS_PER_CALENDAR_YEAR = 365.25
     private const val PERCENT_SCALE = 100.0
+    private const val BENCHMARK_SYMBOL = "SPY"
+
+    // SPY-baseline gate INCONCLUSIVE floor (ADR 0013). Below this stitched maxDD the Calmar
+    // denominator is small enough that the ratio explodes and would falsely "beat" SPY as a
+    // small-sample artifact. Quant-adjudicated to the top of the ADR's ~2–3% band: an asymmetric
+    // cost favours the protective end, and a real tradable book's stitched-OOS maxDD sits well
+    // clear of 3%. Guard fires on the STRATEGY maxDD only (the denominator that can explode).
+    private const val MIN_STITCHED_MAXDD_PCT = 3.0
     private val ENTRY_MONTH_KEY = DateTimeFormatter.ofPattern("yyyy-MM")
   }
 }

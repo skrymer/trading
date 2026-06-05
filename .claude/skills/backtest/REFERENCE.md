@@ -9,7 +9,7 @@ The API returns a `BacktestResponseDto` with pre-computed analytics. Key fields 
 - Scalars: `totalTrades`, `winRate`, `edge`, `profitFactor`, `cagr` — **all net of transaction cost** (`costBps`, default 10 bps round-trip; set `costBps: 0` in the request for a gross run)
 - `grossMinusNetEdgeSpread` — average round-trip cost in return terms (the per-trade gross-minus-net Edge gap; 0 on a gross run). Early-warning scalar: when it approaches `edge`, the edge is being eaten by friction.
 - Risk-adjusted ratios: `riskMetrics.{sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio}` (only populated for position-sized backtests; null otherwise)
-- Benchmark vs SPY: `benchmarkComparison.{benchmarkSymbol, correlation, beta, activeReturnVsBenchmark}` (null when overlap < 60 days or sized backtest absent)
+- Benchmark vs SPY: `benchmarkComparison.{benchmarkSymbol, correlation, beta, activeReturnVsBenchmark, benchmarkCagr, benchmarkMaxDrawdownPct, benchmarkCalmar, benchmarkSharpe}` — the last four are the benchmark's own standalone risk-adjusted metrics over the overlap support (the diagnostic leg of the SPY buy-and-hold baseline gate, ADR 0013). All metric fields null when overlap < 60 days, benchmark has zero variance, or sized backtest absent
 - Drawdown episodes: `drawdownEpisodes[]` — top-10 (peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays)
 - Equity: `equityCurveData`, `positionSizing.equityCurve` (daily M2M)
 - Stability: `edgeConsistencyScore` (0–100 + `yearlyEdges`)

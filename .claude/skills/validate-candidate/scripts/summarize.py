@@ -43,6 +43,10 @@ GATE_METADATA = {
     "G8_min_trades":      {"threshold": 30,    "direction": "ge", "type": "count"},
     "G9_sharpe_calmar":   {"threshold": None,  "direction": None, "type": "ratio"},
     "G12_block_trades":   {"threshold": 100,   "direction": "ge", "type": "count_pct"},
+    # G16 (ADR 0013): losing to buy-and-hold SPY on Calmar is structural beta-delivery, never a
+    # tight-margin near-miss. INCONCLUSIVE doesn't fail the gate (eval-block marks it passed), so
+    # only a FAIL reaches here — and a FAIL is always REJECTED, like the other strict gates.
+    "G16_spy_baseline":   {"threshold": None,  "direction": None, "type": "strict"},
 }
 
 # Binding-layer labels. Block C is informational only — its failures don't trigger
@@ -196,6 +200,14 @@ def main():
     if layers["C"] is not None:
         block_c_non_catastrophic = layers["C"].get("non_catastrophic")
 
+    # G16 loud flag: an INCONCLUSIVE SPY-baseline on the 25-year aggregate should never happen on
+    # 25y of data (ADR 0013) — it signals degenerate stitched support, not a real no-bind. Surface
+    # it regardless of the verdict so the analyst investigates before trusting the result.
+    spy_baseline_inconclusive_aggregate = (
+        layers["25y"] is not None
+        and layers["25y"].get("spy_baseline_inconclusive_aggregate") is True
+    )
+
     # Failed gates across BINDING layers only. Block C tight margins don't count
     # toward the NEAR_MISS cap because Block C is informational.
     failed_gates_binding = []
@@ -251,6 +263,7 @@ def main():
         "layers": {k: v for k, v in layers.items() if v is not None},
         "g11_cross_block_decay": g11,
         "block_c_non_catastrophic": block_c_non_catastrophic,
+        "spy_baseline_inconclusive_aggregate": spy_baseline_inconclusive_aggregate,
         "failed_gates_count_binding": len(failed_gates_binding),
         "tight_margin_failures_binding": sum(1 for g in failed_gates_binding if is_tight_margin(g)),
         "remediation_hint": remediation_hint,
@@ -267,6 +280,13 @@ def main():
     md_lines.append("")
     md_lines.append(f"_Framework: {summary['framework']}_")
     md_lines.append("")
+    if spy_baseline_inconclusive_aggregate:
+        md_lines.append(
+            "> ⚠️ **G16 SPY-baseline INCONCLUSIVE on the 25-year aggregate.** Over 25 years the "
+            "stitched OOS support should never be too short or its maxDD too tiny — this signals "
+            "something degenerate upstream. Investigate before trusting the verdict (ADR 0013)."
+        )
+        md_lines.append("")
     md_lines.append("## Per-layer summary")
     md_lines.append("")
     md_lines.append("| Layer | Binding | Range | Verdict | First failure | CAGR | DD | Sharpe | Calmar | Trades |")

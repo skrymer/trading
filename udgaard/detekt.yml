@@ -12,6 +12,10 @@ complexity:
   TooManyFunctions:
     active: true
     allowedFunctionsPerFile: 25
+    # detekt 2.0 split TooManyFunctions into per-scope thresholds; the per-class default (11) is
+    # below the per-file intent (25) and trips the cohesive metrics/walk-forward service classes.
+    # Align per-class with the per-file threshold the project already chose.
+    allowedFunctionsPerClass: 25
   LongParameterList:
     active: true
     allowedFunctionParameters: 10
