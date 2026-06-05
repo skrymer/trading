@@ -33,7 +33,7 @@ Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch
 |-----------|------------|
 | **backend-reviewer** | When `udgaard/` or `midgaard/` has changes. Tell it which projects changed. Runs tests, ktlint, detekt, compiler warnings. Auto-fixes issues. |
 | **frontend-reviewer** | When `asgaard/` has changes. Runs ESLint, typecheck. Auto-fixes lint issues. |
-| **docs-reviewer** | Always. Reviews and updates CLAUDE.md files for accuracy. When `skill-impact-check.sh` produces non-empty output, also reviews the listed skill files (`.claude/skills/*/SKILL.md`, `SCENARIOS.md`, `REFERENCE.md`) against the changed app code. Pass the script output verbatim. |
+| **docs-reviewer** | Always. (1) Reviews and updates CLAUDE.md files for accuracy. (2) Verifies the changed code complies with the decisions in `docs/adr/` and the domain vocabulary in `CONTEXT.md` — reports `ADR CONFLICT` / `CONTEXT DRIFT` / `UNDOCUMENTED DECISION` without auto-fixing. (3) When `skill-impact-check.sh` produces non-empty output, also reviews the listed skill files (`.claude/skills/*/SKILL.md`, `SCENARIOS.md`, `REFERENCE.md`) against the changed app code. Pass the script output verbatim. |
 | **voltagent-qa-sec:code-reviewer** *(voltagent plugin)* | One instance per changed project. Reviews changed code for security issues, code quality, and QA concerns. Launched as separate parallel agents (subagents cannot spawn other subagents). |
 
 ### Workflow
@@ -65,6 +65,7 @@ After all agents complete, present a unified summary table. Only include rows fo
 | Frontend Lint (ESLint) | PASS / FAIL / FIXED / SKIPPED |
 | Frontend Typecheck | PASS / FAIL / FIXED / SKIPPED |
 | CLAUDE.md files | UP TO DATE / UPDATED |
+| ADR / CONTEXT.md compliance | COMPLIANT / VIOLATIONS FOUND |
 | Skill files (API docs) | UP TO DATE / UPDATED / SKIPPED (no impact) |
 | Backend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 | Frontend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
@@ -75,6 +76,8 @@ If any check has status FAIL (not auto-fixable), show the relevant error output 
 If agents auto-fixed issues (status FIXED), list the files that were modified.
 
 If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** severity issues, list them separately after the summary table with file paths and a brief description. These may need fixing before committing.
+
+If **docs-reviewer** reports `VIOLATIONS FOUND` (any `ADR CONFLICT`, `CONTEXT DRIFT`, or `UNDOCUMENTED DECISION`), list each one after the summary table with the ADR number / term, `file:line`, and the divergence. These are **not** auto-fixed — they are design decisions. Surface them to the user and pause: an `ADR CONFLICT` either means the code should change to honour the ADR, or the ADR should be reopened (`/grill-with-docs`) — the user decides. Do not commit over an unresolved violation without explicit acknowledgement.
 
 ## Important
 
