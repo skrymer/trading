@@ -20,6 +20,7 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
@@ -100,17 +101,25 @@ class OvtlyrBackfillServiceTest {
 
     @Test
     fun `runBackfill does not start a second run while one is already active`() {
-        // Given: enough symbols that the first run is still in flight when we re-call
+        // Given: the first run is held mid-fetch by a gate, so it is provably still active when we
+        // re-call. Without the gate the 5 mocked symbols finish instantly and the first run can
+        // complete between the two calls (flaky: the second call then legitimately starts a new run).
         whenever(symbolRepository.findAll()).thenReturn((1..5).map { symbol("S$it") })
-        whenever(ovtlyrClient.getStockInformation(any(), any()))
-            .thenAnswer { payload(it.getArgument(0), "2026-05-12", "Buy") }
+        val gate = CountDownLatch(1)
+        whenever(ovtlyrClient.getStockInformation(any(), any())).thenAnswer {
+            gate.await()
+            payload(it.getArgument(0), "2026-05-12", "Buy")
+        }
 
-        // When: a second trigger fires while the first run is active
+        // When: a second trigger fires while the first run is parked on the gate (active)
         val first = service.runBackfill()
         val second = service.runBackfill()
 
         // Then: the second call returns the in-flight job — no overlapping run launched
         assertSame(first, second)
+
+        // Release the gate and let the run drain.
+        gate.countDown()
         runBlocking { first.join() }
     }
 

@@ -4,6 +4,9 @@
 <div th:fragment="content">
   <h2 class="mb-4">Ingestion Progress</h2>
 
+  <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+  <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
   <div class="mb-3">
     <a href="/integrity"
        class="btn"
@@ -175,6 +178,36 @@
         <span class="text-muted ms-2">Last recompute populated
           <strong th:text="${#numbers.formatInteger(relativeStrengthLastRun, 0, 'COMMA')}">0</strong> rows.</span>
       </div>
+    </div>
+  </div>
+
+  <!-- Treasury Yields — the idle-cash short rate (ADR 0016), independent of OHLCV ingestion -->
+  <div class="card mt-4">
+    <div class="card-header"><strong>Treasury Yields</strong></div>
+    <div class="card-body">
+      <p class="text-muted mb-3">
+        Gross 3-month T-bill yield (EODHD <code>US3M.GBOND</code>, the series SGOV tracks) — the short
+        rate the backtest engine credits idle cash at. One EODHD fetch, full history; runs in a few
+        seconds. Re-run any time to refresh to the latest print.
+      </p>
+
+      <div th:if="${treasuryYieldStatus.count > 0}" class="mb-3">
+        <span class="badge bg-success">Ingested</span>
+        <span class="text-muted ms-2">
+          <strong th:text="${#numbers.formatInteger(treasuryYieldStatus.count, 0, 'COMMA')}">0</strong> rows,
+          latest <strong th:text="${treasuryYieldStatus.latestDate}">—</strong>.
+        </span>
+      </div>
+      <div th:if="${treasuryYieldStatus.count == 0}" class="alert alert-warning">
+        Not ingested yet — idle-cash crediting falls back to 0% until this series is loaded.
+      </div>
+
+      <form method="post" action="/ingestion/treasury-yields" class="d-inline">
+        <button type="submit" class="btn btn-primary"
+                th:text="${treasuryYieldStatus.count > 0} ? 'Refresh Treasury Yields' : 'Ingest Treasury Yields'">
+          Ingest Treasury Yields
+        </button>
+      </form>
     </div>
   </div>
 </div>

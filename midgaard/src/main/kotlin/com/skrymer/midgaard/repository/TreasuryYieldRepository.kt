@@ -3,8 +3,16 @@ package com.skrymer.midgaard.repository
 import com.skrymer.midgaard.jooq.tables.references.TREASURY_YIELDS
 import com.skrymer.midgaard.model.TreasuryYield
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
+
+/** How many yields are stored for a maturity and the most-recent date — drives the ingestion-page status. */
+data class TreasuryYieldStatus(
+    val count: Int,
+    val latestDate: LocalDate?,
+)
 
 @Repository
 class TreasuryYieldRepository(
@@ -23,6 +31,16 @@ class TreasuryYieldRepository(
                     yieldPct = record.yieldPct.toDouble(),
                 )
             }
+
+    fun status(maturity: String): TreasuryYieldStatus {
+        val record =
+            dsl
+                .select(DSL.count(), DSL.max(TREASURY_YIELDS.YIELD_DATE))
+                .from(TREASURY_YIELDS)
+                .where(TREASURY_YIELDS.MATURITY.eq(maturity))
+                .fetchOne()
+        return TreasuryYieldStatus(count = record?.value1() ?: 0, latestDate = record?.value2())
+    }
 
     @Transactional
     fun upsert(yields: List<TreasuryYield>) {
