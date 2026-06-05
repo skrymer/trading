@@ -8,7 +8,7 @@ Per block, the engine computes a **stitched-OOS SPY buy-and-hold curve through t
 
 > **strategy block Calmar ≥ SPY block Calmar**, binding on **Block A, Block B, and the 25-year aggregate**; **informational on Block C**.
 
-Sharpe (strategy and SPY) is **reported for diagnostics but is not gated**. The existing 30% CAGR floor remains the separate absolute-return gate.
+Sharpe (strategy and SPY) is **reported for diagnostics but is not gated**. The CAGR floor (25%, G1) and the absolute Calmar floor (1.5, G15 — ADR 0015) remain separate gates.
 
 ## Why Calmar-only and not Sharpe (or both)
 
