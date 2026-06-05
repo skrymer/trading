@@ -6,7 +6,8 @@ Output shape, report template, decision thresholds, and known limitations. See [
 
 The API returns a `BacktestResponseDto` with pre-computed analytics. Key fields the report uses:
 
-- Scalars: `totalTrades`, `winRate`, `edge`, `profitFactor`, `cagr`
+- Scalars: `totalTrades`, `winRate`, `edge`, `profitFactor`, `cagr` — **all net of transaction cost** (`costBps`, default 10 bps round-trip; set `costBps: 0` in the request for a gross run)
+- `grossMinusNetEdgeSpread` — average round-trip cost in return terms (the per-trade gross-minus-net Edge gap; 0 on a gross run). Early-warning scalar: when it approaches `edge`, the edge is being eaten by friction.
 - Risk-adjusted ratios: `riskMetrics.{sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio}` (only populated for position-sized backtests; null otherwise)
 - Benchmark vs SPY: `benchmarkComparison.{benchmarkSymbol, correlation, beta, activeReturnVsBenchmark}` (null when overlap < 60 days or sized backtest absent)
 - Drawdown episodes: `drawdownEpisodes[]` — top-10 (peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays)
@@ -68,7 +69,7 @@ These are not strategy-specific — they're the conventional bar for a systemati
 
 | Signal | Threshold | Verdict |
 |--------|-----------|---------|
-| Edge | ≥ 1.5% | Tradeable after costs |
+| Edge | ≥ 1.5% | Tradeable (already net of the modelled `costBps`) |
 | Edge consistency score | ≥ 60 | Reliable |
 | Calmar (CAGR / max DD) | > 1.0 | Healthy risk-adjusted (industry standard; values prior to the formula fix used totalReturn/maxDD and were inflated by ~N years) |
 | Sharpe | > 1.0 | Decent risk-adjusted |
@@ -86,6 +87,6 @@ Tracked here so the backend roadmap closes them; the skill works around each in 
 
 - **USD-only equity curves.** `RiskMetricsService` assumes a USD-denominated portfolio. Multi-currency portfolios (e.g. AUD-base / USD-trade) are out of scope; their Sharpe / Sortino / CAGR would conflate strategy performance with FX vol, and benchmark beta vs SPY (USD) is essentially nonsense.
 - **Survivorship bias.** All risk-adjusted metrics inherit survivorship bias from the underlying universe. Sharpe and active-return-vs-benchmark are inflated by an estimated 1–2pp annualized relative to a survivorship-free universe; Calmar is less affected (denominator survives). V18 mitigates but doesn't eliminate.
-- **Daily bars only** — no intraday slippage modelling. Edge < 1.5% likely doesn't survive live costs.
+- **Daily bars only** — no intraday/per-bar fill-price modelling. Transaction cost IS modelled as a flat round-trip `costBps` (commission + slippage, default 10 bps, netted into per-trade P&L), but it does not vary with name liquidity or order size, so it understates cost for sub-$10 or thin names.
 - **Survivorship bias** — universe currently excludes most delisted-during-period stocks (V18 mitigates but doesn't eliminate).
-- **Assumes perfect fills at close** — `entryDelayDays: 1` partially mitigates.
+- **Assumes perfect fills at the close price** — `entryDelayDays: 1` partially mitigates fill timing; the `costBps` charge then nets execution friction off the perfect-fill price.

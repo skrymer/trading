@@ -32,7 +32,7 @@ udgaard/
 │   │   │   ├── BacktestReportController.kt  # GET /api/backtest/reports, DELETE /{id}, POST /batch-delete
 │   │   │   └── MonteCarloController.kt
 │   │   ├── dto/                      # DTOs
-│   │   │   ├── StrategyConfigDto.kt
+│   │   │   ├── StrategyConfigDto.kt     # BacktestRequest incl. costBps (net-by-default 10 bps; 0 = gross) + riskFreeRatePct
 │   │   │   ├── MonteCarloRequestDto.kt
 │   │   │   ├── ConditionSignalDtos.kt   # ConditionEvaluationRequest, StockConditionSignals (entry); ExitConditionEvaluationRequest, StockExitConditionSignals (exit)
 │   │   │   ├── ConditionEvaluationResult.kt
@@ -40,12 +40,12 @@ udgaard/
 │   │   ├── model/                    # Domain models
 │   │   │   ├── BacktestReport.kt        # Persisted gzip-compressed in a bytea column; additive-only schema evolution
 │   │   │   ├── BacktestReportMetadata.kt # Metadata + Summary + ListItem for backtest_reports table
-│   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized)
+│   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized); grossMinusNetEdgeSpread (avg round-trip cost in return terms, 0 on a gross run)
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
 │   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha)
 │   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
-│   │   │   ├── BacktestContext.kt
-│   │   │   ├── Trade.kt              # Trade + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
+│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross)
+│   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006)
 │   │   │   ├── TradeStatsSummary.kt     # Month-agnostic closed-trade summary w/ additive raw fields; re-aggregate arbitrary month ranges + recompute Edge/Win rate/Profit factor (ADR 0006)
@@ -53,7 +53,7 @@ udgaard/
 │   │   ├── repository/               # jOOQ repositories
 │   │   │   └── BacktestReportJooqRepository.kt  # save / findById / listAll / deleteById / deleteByIds; stores/reads the report as ByteArray
 │   │   ├── service/                  # Business logic
-│   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades
+│   │   │   ├── BacktestService.kt    # Core backtesting engine w/ capital-aware selection; records EntryDecisionContext on selected + missed trades; nets costBps round-trip cost into per-share Trade.profit at close (net-by-default)
 │   │   │   ├── RiskMetricsService.kt # Computes Sharpe/Sortino/Calmar/SQN/tailRatio + SPY benchmark comparison + drawdown episodes from position-sized equity curve (USD-only)
 │   │   │   ├── StrategyRegistry.kt   # Strategy discovery/management
 │   │   │   ├── StrategySignalService.kt  # Signal evaluation

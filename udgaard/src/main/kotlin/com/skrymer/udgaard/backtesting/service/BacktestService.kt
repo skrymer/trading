@@ -206,14 +206,14 @@ class BacktestService(
         val tradingExitQuote = quoteIndexes[entry.stockPair.tradingStock]?.getQuote(exitDate)
 
         return if (tradingExitQuote != null) {
-          buildTradeWithStrategyExit(entry, exitStrategy, exitReport, tradingExitQuote, exitDate)
+          buildTradeWithStrategyExit(entry, exitStrategy, exitReport, tradingExitQuote, exitDate, context.costBps)
         } else {
           // Trading stock has no quote on the strategy's exit date — almost always
           // because it delisted before that date. Force-close on the trading stock's
           // last available bar so the loss surfaces in the backtest instead of
           // vanishing via a silent drop. Returning null here is what caused
           // pre-2010 walk-forwards to under-report drawdown.
-          buildForceClosedTradeOnDelisting(entry, exitDate)
+          buildForceClosedTradeOnDelisting(entry, exitDate, context.costBps)
         }
       }
     }
@@ -222,15 +222,31 @@ class BacktestService(
     // strategy ran out of bars without ever signalling — force-close on the last
     // available bar with the DELISTED reason instead of dropping. Without this
     // guard, late-cycle losses on delisted symbols vanish from the report.
-    return forceCloseIfDelisted(entry)
+    return forceCloseIfDelisted(entry, context.costBps)
   }
 
-  private fun forceCloseIfDelisted(entry: PotentialEntry): Trade? {
+  private fun forceCloseIfDelisted(entry: PotentialEntry, costBps: Double): Trade? {
     val tradingStock = entry.stockPair.tradingStock
     val delistingDate = tradingStock.delistingDate ?: return null
     val entryDate = entry.tradingEntryQuote.date
     if (!delistingDate.isAfter(entryDate)) return null
-    return buildForceClosedTradeOnDelisting(entry, delistingDate)
+    return buildForceClosedTradeOnDelisting(entry, delistingDate, costBps)
+  }
+
+  /**
+   * Round-trip transaction cost per share. The cost is split evenly across both fills — half the
+   * basis points on each leg's own notional — so the per-share charge is
+   * `(entryPrice + exitPrice) * (costBps / 2 / 10000)`. Independent of share count, it is netted
+   * once into [Trade.profit] at trade close, from which every downstream metric inherits the net
+   * figure. costBps = 0 → 0 → gross.
+   */
+  private fun roundTripCostPerShare(
+    entryPrice: Double,
+    exitPrice: Double,
+    costBps: Double,
+  ): Double {
+    val perLegRate = costBps / 2.0 / 10000.0
+    return (entryPrice * perLegRate) + (exitPrice * perLegRate)
   }
 
   private fun buildTradeWithStrategyExit(
@@ -239,9 +255,12 @@ class BacktestService(
     exitReport: com.skrymer.udgaard.data.model.ExitReport,
     tradingExitQuote: StockQuote,
     exitDate: LocalDate,
+    costBps: Double,
   ): Trade {
     val exitPrice = exitStrategy.exitPrice(entry.stockPair.tradingStock, entry.tradingEntryQuote, tradingExitQuote)
-    val profit = exitPrice - entry.tradingEntryQuote.closePrice
+    val entryPrice = entry.tradingEntryQuote.closePrice
+    val costPerShare = roundTripCostPerShare(entryPrice, exitPrice, costBps)
+    val profit = exitPrice - entryPrice - costPerShare
     val entryDate = entry.tradingEntryQuote.date
     val tradingQuotes = entry.stockPair.tradingStock.quotesInRange(entryDate, exitDate)
     return Trade(
@@ -253,12 +272,14 @@ class BacktestService(
       profit,
       entry.tradingEntryQuote.date,
       entry.stockPair.tradingStock.sectorSymbol ?: "",
+      costPerShare,
     )
   }
 
   private fun buildForceClosedTradeOnDelisting(
     entry: PotentialEntry,
     strategyExitDate: LocalDate,
+    costBps: Double,
   ): Trade? {
     val entryDate = entry.tradingEntryQuote.date
     // Last bar between the day after entry and the strategy's intended exit date.
@@ -270,7 +291,9 @@ class BacktestService(
         .lastOrNull()
         ?: return null
     val exitPrice = lastAvailableBar.closePrice
-    val profit = exitPrice - entry.tradingEntryQuote.closePrice
+    val entryPrice = entry.tradingEntryQuote.closePrice
+    val costPerShare = roundTripCostPerShare(entryPrice, exitPrice, costBps)
+    val profit = exitPrice - entryPrice - costPerShare
     val tradingQuotes = entry.stockPair.tradingStock.quotesInRange(entryDate, lastAvailableBar.date)
     return Trade(
       entry.stockPair.tradingStock.symbol,
@@ -281,6 +304,7 @@ class BacktestService(
       profit,
       entryDate,
       entry.stockPair.tradingStock.sectorSymbol ?: "",
+      costPerShare,
     )
   }
 
@@ -330,6 +354,7 @@ class BacktestService(
     sharedBreadthByDate: Map<LocalDate, Double>? = null,
     randomSeed: Long? = null,
     positionSizingConfig: PositionSizingConfig? = null,
+    costBps: Double = 10.0,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
@@ -348,12 +373,12 @@ class BacktestService(
     val backtestContext = if (sharedContext != null) {
       // Re-use shared context but update SPY quotes for this window's date range
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
-      sharedContext.copy(spyQuoteMap = spyQuoteMap)
+      sharedContext.copy(spyQuoteMap = spyQuoteMap, costBps = costBps)
     } else {
       val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
       val marketBreadthMap = marketBreadthRepository.findAllAsMap()
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
-      BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap).also {
+      BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap, costBps = costBps).also {
         logger.info(
           "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
             "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes",

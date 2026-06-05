@@ -166,8 +166,8 @@ trading/
 │   ├── src/main/kotlin/com/skrymer/udgaard/
 │   │   ├── backtesting/              # Backtesting domain
 │   │   │   ├── controller/           # BacktestController, BacktestReportController, MonteCarloController
-│   │   │   ├── model/                # BacktestReport (persisted gzip-compressed in bytea), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext), BacktestContext, PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult (WalkForwardWindow w/ outOfSampleStatsByEntryMonth per ADR 0006), TradeStatsSummary (additive raw fields for re-aggregating monthly OOS buckets, per ADR 0006), MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
-│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct, MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
+│   │   │   ├── model/                # BacktestReport (persisted gzip-compressed in bytea), BacktestReportMetadata (Metadata + Summary + ListItem), BacktestResponseDto (riskMetrics/benchmarkComparison/cagr/drawdownEpisodes/grossMinusNetEdgeSpread), RiskMetrics, BenchmarkComparison, DrawdownEpisode, Trade (w/ EntryDecisionContext + costPerShare), BacktestContext (w/ costBps), PositionSizingConfig (DrawdownScaling, DrawdownThreshold), WalkForwardResult (WalkForwardWindow w/ outOfSampleStatsByEntryMonth per ADR 0006), TradeStatsSummary (additive raw fields for re-aggregating monthly OOS buckets, per ADR 0006), MonteCarloResult, TradeShufflingTechnique, BootstrapResamplingTechnique (CBB w/ optional blockSize)
+│   │   │   ├── dto/                  # DTOs (StrategyConfigDto incl. riskFreeRatePct + costBps (net-by-default 10 bps), MonteCarloRequestDto incl. drawdownThresholds + blockSize, ConditionSignalDtos, etc.)
 │   │   │   ├── repository/           # BacktestReportJooqRepository (save/findById/listAll/deleteById/deleteByIds)
 │   │   │   ├── service/              # BacktestService, BacktestResultStore (gzip-compressed bytea), StrategyRegistry, ScriptPredicateCompiler (compiles user-supplied Kotlin scripts into entry/exit predicates for the `script` conditions), MonteCarloService, RiskMetricsService (Sharpe/Sortino/Calmar/SQN/tailRatio + benchmark vs SPY + drawdown episodes), PositionSizingService, WalkForwardService + sizer/ (PositionSizer, SizerConfig, AtrRiskSizer, PercentEquitySizer, KellySizer, VolatilityTargetSizer, LeverageCap), ConditionScreenService + ConditionScreenStats (diagnostic condition pre-screen: entry-anchored forward-return lift, date-clustered estimates, ARS parameter sweep, SPY-regime lift, Jaccard overlap — raw stats only, no verdict; ADR 0007)
 │   │   │   └── strategy/             # Strategies, DSL, conditions, rankers
@@ -329,7 +329,7 @@ All skills call the Udgaard HTTP API directly.
 
 ## Known Limitations
 
-Perfect fills assumed, no slippage/commission modeling, daily timeframe only
+Perfect fills assumed (no per-bar fill-price modeling); daily timeframe only. Transaction cost IS modeled — a round-trip `costBps` (commission + slippage, net-by-default 10 bps) netted once into per-trade P&L at trade close (see CONTEXT.md *Transaction cost*).
 
 ---
 
