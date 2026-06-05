@@ -34,8 +34,8 @@ One git-tracked, append-only JSONL file per candidate under `strategy_exploratio
 | `next <candidate>` | From the current stage, print the **exact leaf-skill invocation** to run next (e.g. `run /validate-candidate MR4 <template>`). Never the raw API call. |
 | `check <candidate>` | `python3 scripts/explore.py check <dossier-dir> <template>` → interlock decision. **REFUSE ⇒ stop.** |
 | `fire <candidate>` | After the operator runs the leaf skill, `explore.py fire …` records the `FIRED…PENDING` event. |
-| `record <candidate>` | `explore.py record <dossier> <summarize.json> <template>` → parses the verdict, **asserts the fired config matches** what was printed, appends the `RECORD`, then **spawn the matching analyst** (see below). |
-| `new <candidate> [--lineage <corpse>]` | Register a DRAFT. A successor to a dead candidate is gated — see "The brake". |
+| `record <candidate>` | `explore.py record <dossier> <summarize.json> <template>` → parses the verdict, **asserts the fired config matches** what was printed, appends the `RECORD`, **spawn the matching analyst**, then **`/wiki-ingest`** the durable findings (see "Wiki maintenance"). |
+| `new <candidate> [--lineage <corpse>]` | **`/wiki-lint` first** (consult clean knowledge before scoping), then register a DRAFT. A successor to a dead candidate is gated — see "The brake". |
 | `abandon <candidate>` | Append an `ABANDONED` event. |
 
 ## The brake (non-negotiable — ADR 0008)
@@ -50,6 +50,22 @@ Re-running a dead config — even one parameter step away — is data-mining, no
 ## record always annotates
 
 `record` parses the machine token only (never an operator-typed verdict), asserts the hash, then **always spawns the matching analyst** to fold a narrative into the dossier: `firewall-analyst` (validate-candidate), `strategy-screen-analyst` (screen), `monte-carlo-analyst` (MC), `condition-screen-analyst` (condition screen), `post-backtest-analyst` (backtest).
+
+## Wiki maintenance — the knowledge that compounds (#84/#108)
+
+The `knowledge/` strategy-research wiki only survives if maintenance hangs off the funnel steps you
+already run (a passive wiki decays like the handover docs it replaced). Two triggers, both **skill-step,
+no hooks**:
+
+- **On `new` → `/wiki-lint` first.** Before scoping a candidate, health-check the wiki so you consult
+  *clean* knowledge — and so the candidate gets checked against the documented failure modes
+  (`knowledge/wiki/concepts/`) up front.
+- **On `record` → `/wiki-ingest`.** After the analyst returns (and emits its `KNOWLEDGE-UPDATE:` lines),
+  fold the durable findings into the wiki: the candidate's `entities/` page, the failure-mode `concepts/`
+  page it hit, a dated `sources/` summary, the `index`/`log`. `/wiki-ingest` reads the **dossier RECORD
+  event** (not the evaluator's output), so it survives the #54 backend migration.
+
+`/wiki-query` is on-demand (no trigger) — use it to ask "what do we know about X?" before designing.
 
 ## Verdict → interlock state
 
