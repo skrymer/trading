@@ -102,14 +102,17 @@ write time; older pages get marked during lint.
 
 ## The three operations
 
-- **ingest** (new run / screen / quant consult): write a `sources/` summary → update every affected
-  `concepts/`/`entities/` page (a single source typically touches several) → add the entity's verdict
-  → append one [`log.md`](wiki/log.md) line. Karpathy's rule of thumb: a source touches ~10–15 pages
-  in a mature wiki; here, fewer until it grows.
-- **query** ("what do we know about X?"): read `index.md` → the relevant pages → synthesize **with
-  `[[citations]]`**. If the answer is good and reusable, file it back as a `queries/` page.
-- **lint** (periodic health-check): hunt contradictions, stale claims, orphan pages (no inbound
-  links), missing cross-references, and important concepts with no page. Emit the next questions.
+Each is an **invocable skill** (#108), wired to a funnel trigger so maintenance happens automatically:
+
+- **ingest** → **`/wiki-ingest`** (triggered from `/strategy-exploration record`): write a `sources/`
+  summary → update every affected `concepts/`/`entities/` page (a single source typically touches
+  several) → add the entity's verdict → append one [`log.md`](wiki/log.md) line. Reads the dossier RECORD
+  event, not the evaluator's output (survives #54).
+- **query** → **`/wiki-query`** (on demand): read `index.md` → relevant pages (cheapest-first) →
+  synthesize **with `[[citations]]`** → file a good answer back as a `queries/` page.
+- **lint** → **`/wiki-lint`** (triggered from `/strategy-exploration new`; also periodic): deterministic
+  checks (`scripts/wiki_lint.py` — dangling links, orphans, frontmatter/summary, index drift, status,
+  provenance) + judgment checks (contradictions, synthesis gaps, missing pages). Report-only.
 
 ### `log.md` line format
 
