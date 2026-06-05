@@ -26,6 +26,37 @@ class TreasuryYieldRepositoryE2ETest : AbstractIntegrationTest() {
     }
 
     @Test
+    fun `status reports the stored row count and the latest date for a maturity`() {
+        // Given three yields persisted for one maturity (distinct key for container isolation)
+        repository.upsert(
+            listOf(
+                TreasuryYield("STAT3M", LocalDate.of(2024, 1, 2), 5.20),
+                TreasuryYield("STAT3M", LocalDate.of(2024, 1, 4), 5.22),
+                TreasuryYield("STAT3M", LocalDate.of(2024, 1, 3), 5.21),
+            ),
+        )
+
+        // When
+        val status = repository.status("STAT3M")
+
+        // Then the count and the most-recent date are reported (so the UI can show populated-and-fresh)
+        assertEquals(3, status.count)
+        assertEquals(LocalDate.of(2024, 1, 4), status.latestDate)
+    }
+
+    @Test
+    fun `status of an un-ingested maturity is zero rows and no date`() {
+        // Given nothing persisted for this maturity (the freshly-migrated empty-table case)
+
+        // When
+        val status = repository.status("NOPE3M")
+
+        // Then the count is zero and the latest date is null — the UI shows "not ingested"
+        assertEquals(0, status.count)
+        assertEquals(null, status.latestDate)
+    }
+
+    @Test
     fun `upsert is idempotent — re-running on an existing key replaces the yield, never duplicates`() {
         // Given: a yield persisted for one maturity+date (a provisional same-day print).
         // A distinct maturity key isolates this test from the shared (non-rolled-back) container.

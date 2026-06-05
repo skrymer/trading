@@ -84,7 +84,7 @@ midgaard/
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
 │   │   ├── ProviderConfigRepository.kt    # Provider configuration data
 │   │   ├── OvtlyrSignalRepository.kt      # Sparse ovtlyr buy/sell signals (symbol + signal_date PK)
-│   │   ├── TreasuryYieldRepository.kt     # Sparse treasury-yield series (maturity + yield_date PK); findByMaturity for idle-cash crediting (ADR 0016)
+│   │   ├── TreasuryYieldRepository.kt     # Sparse treasury-yield series (maturity + yield_date PK); findByMaturity for idle-cash crediting + status(maturity)→TreasuryYieldStatus (row count + latest date) for the /ingestion page badge (ADR 0016)
 │   │   └── MarketHolidayRepository.kt     # Read-only US exchange holiday lookup (used by IngestionService to drop phantom bars)
 │   ├── integrity/                         # Data integrity framework (Spring auto-wires List<DataIntegrityValidator>)
 │   │   ├── DataIntegrityValidator.kt      # Interface — implementations are @Component
@@ -214,7 +214,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - Controlled by `@ConditionalOnProperty("app.ui.enabled")`, enabled by default
 - Set `APP_UI_ENABLED=false` in production to disable entirely
 - Pages: dashboard, symbols, symbol-detail, ingestion progress, providers, integrity
-- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress and a "Recompute Relative Strength" trigger
+- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress, a "Recompute Relative Strength" trigger, and a Treasury Yields card (ingested/not-ingested status badge + ingest/refresh trigger, ADR 0016)
 
 ## Database Schema
 

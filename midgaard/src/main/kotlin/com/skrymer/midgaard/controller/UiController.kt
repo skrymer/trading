@@ -7,6 +7,7 @@ import com.skrymer.midgaard.model.IngestionState
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.repository.QuoteRepository
 import com.skrymer.midgaard.repository.SymbolRepository
+import com.skrymer.midgaard.repository.TreasuryYieldRepository
 import com.skrymer.midgaard.service.ApiKeyService
 import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
@@ -16,6 +17,7 @@ import com.skrymer.midgaard.service.RateLimiterService
 import com.skrymer.midgaard.service.RelativeStrengthService
 import com.skrymer.midgaard.service.TreasuryYieldIngestionService
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Controller
@@ -42,12 +44,15 @@ class UiController(
     private val dataIntegrityService: DataIntegrityService,
     private val ovtlyrBackfillService: OvtlyrBackfillService,
     private val treasuryYieldIngestionService: TreasuryYieldIngestionService,
+    private val treasuryYieldRepository: TreasuryYieldRepository,
     private val relativeStrengthService: RelativeStrengthService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
     @param:Value("\${eodhd.api.baseUrl:https://eodhd.com/api}") private val eodhdBaseUrl: String,
 ) {
+    private val logger = LoggerFactory.getLogger(UiController::class.java)
+
     @GetMapping("/")
     fun dashboard(model: Model): String {
         model.addAttribute("totalStocks", symbolRepository.countByAssetType(AssetType.STOCK))
@@ -131,6 +136,7 @@ class UiController(
         model.addAttribute("ovtlyrProgress", ovtlyrBackfillService.progress)
         model.addAttribute("relativeStrengthActive", relativeStrengthService.isRecomputeActive())
         model.addAttribute("relativeStrengthLastRun", relativeStrengthService.lastRunRowsWritten())
+        model.addAttribute("treasuryYieldStatus", treasuryYieldRepository.status(TreasuryYieldIngestionService.MATURITY_US3M))
         return "ingestion"
     }
 
@@ -293,8 +299,22 @@ class UiController(
 
     @PostMapping("/ingestion/treasury-yields")
     fun ingestTreasuryYields(redirectAttributes: RedirectAttributes): String {
-        val count = runBlocking { treasuryYieldIngestionService.ingest() }
-        redirectAttributes.addFlashAttribute("success", "Ingested $count treasury-yield rows")
+        try {
+            val count = runBlocking { treasuryYieldIngestionService.ingest() }
+            if (count > 0) {
+                redirectAttributes.addFlashAttribute("success", "Ingested $count treasury-yield rows.")
+            } else {
+                // The provider returned no data (e.g. missing EODHD key or US3M.GBOND unavailable) — the
+                // ingestion "succeeds" but writes nothing. Surface it instead of a silent no-op.
+                redirectAttributes.addFlashAttribute(
+                    "error",
+                    "No treasury-yield rows ingested — EODHD returned no data. Check the EODHD API key and US3M.GBOND availability.",
+                )
+            }
+        } catch (e: Exception) {
+            logger.warn("Treasury-yield ingestion failed", e)
+            redirectAttributes.addFlashAttribute("error", "Treasury-yield ingestion failed: ${e.message}")
+        }
         return "redirect:/ingestion"
     }
 
