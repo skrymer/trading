@@ -121,3 +121,10 @@ data class MidgaardOvtlyrSignalDto(
   fun toOvtlyrSignal(): OvtlyrSignal =
     OvtlyrSignal(symbol = symbol, signalDate = signalDate, signal = signal)
 }
+
+/** One gross (un-haircut) treasury-yield point served by Midgaard — the idle-cash short rate (ADR 0016). */
+data class MidgaardTreasuryYieldDto(
+  val maturity: String,
+  val date: LocalDate,
+  val yieldPct: Double,
+)

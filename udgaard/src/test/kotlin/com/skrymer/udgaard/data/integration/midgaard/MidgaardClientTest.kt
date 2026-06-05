@@ -150,4 +150,52 @@ class MidgaardClientTest {
     // When / Then: the failure surfaces as null, not an exception
     assertNull(client.getOvtlyrSignals("BROKE"))
   }
+
+  @Test
+  fun `getTreasuryYields returns a date-keyed gross-yield map on 200 OK`() {
+    // Given Midgaard serves the gross US3M treasury-yield series
+    val responseJson =
+      """
+      [
+        {"maturity": "US3M", "date": "2014-06-02", "yieldPct": 0.035},
+        {"maturity": "US3M", "date": "2025-05-01", "yieldPct": 4.2931}
+      ]
+      """.trimIndent()
+    mockServer
+      .expect(requestTo("http://midgaard-test.invalid/api/treasury-yields/US3M"))
+      .andExpect(method(HttpMethod.GET))
+      .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON))
+
+    // When the client fetches the series
+    val result = client.getTreasuryYields("US3M")
+
+    // Then it flattens into the date→gross-yield map the RiskFreeRateProvider consumes
+    assertNotNull(result)
+    assertEquals(2, result.size)
+    assertEquals(0.035, result[LocalDate.of(2014, 6, 2)])
+    assertEquals(4.2931, result[LocalDate.of(2025, 5, 1)])
+  }
+
+  @Test
+  fun `getTreasuryYields returns null on server error so the engine can fall back loudly to 0pct`() {
+    // Given the provider responds with a 5xx
+    mockServer
+      .expect(requestTo("http://midgaard-test.invalid/api/treasury-yields/US3M"))
+      .andRespond(withServerError())
+
+    // When / Then: the failure surfaces as null, never a silently-empty series
+    assertNull(client.getTreasuryYields("US3M"))
+  }
+
+  @Test
+  fun `getTreasuryYields returns null on an empty series so the engine takes the loud 0pct fallback`() {
+    // Given the series has not been ingested yet — Midgaard serves 200 with an empty array.
+    // This must be treated as "no data" (null), not a silently-empty 0pct series (ADR 0016 loud fallback).
+    mockServer
+      .expect(requestTo("http://midgaard-test.invalid/api/treasury-yields/US3M"))
+      .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON))
+
+    // When / Then
+    assertNull(client.getTreasuryYields("US3M"))
+  }
 }

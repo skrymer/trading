@@ -50,6 +50,9 @@ class RiskMetricsService {
    * @param benchmarkQuotes daily benchmark close series (e.g. SPY); null disables benchmark fields
    * @param benchmarkSymbol propagated to the response so consumers know what was compared
    * @param riskFreeRatePct annualized RF in percent (e.g. 4.0 for 4%). Default 0 = raw Sharpe.
+   * @param riskFreeRateProvider when supplied, Sharpe/Sortino subtract the per-day `rf_step(t)` from
+   *   this provider (the same series credited to idle cash), so the idle leg nets to zero excess
+   *   (ADR 0016). When null, the scalar [riskFreeRatePct] path is used (raw Sharpe at 0).
    */
   fun compute(
     trades: List<Trade>,
@@ -58,11 +61,20 @@ class RiskMetricsService {
     benchmarkQuotes: List<StockQuote>?,
     benchmarkSymbol: String = "SPY",
     riskFreeRatePct: Double = 0.0,
+    riskFreeRateProvider: RiskFreeRateProvider? = null,
   ): RiskAnalysis {
     val dailyReturns = dailyReturns(equityCurve)
     val cagr = cagr(equityCurve)
-    val sharpe = sharpe(dailyReturns, riskFreeRatePct)
-    val sortino = sortino(dailyReturns, riskFreeRatePct)
+    val sharpe: Double?
+    val sortino: Double?
+    if (riskFreeRateProvider != null) {
+      val datedReturns = datedDailyReturns(equityCurve)
+      sharpe = sharpe(datedReturns, riskFreeRateProvider)
+      sortino = sortino(datedReturns, riskFreeRateProvider)
+    } else {
+      sharpe = sharpe(dailyReturns, riskFreeRatePct)
+      sortino = sortino(dailyReturns, riskFreeRatePct)
+    }
     val calmar = calmar(cagr, sizingResult.maxDrawdownPct)
     val sqn = sqn(trades)
     val tail = tailRatio(trades)
@@ -92,6 +104,45 @@ class RiskMetricsService {
     return curve.zipWithNext { prev, next ->
       if (prev.portfolioValue == 0.0) 0.0 else (next.portfolioValue - prev.portfolioValue) / prev.portfolioValue
     }
+  }
+
+  /**
+   * Daily returns carrying the (from, to) dates of each transition, so Sharpe/Sortino can subtract
+   * the per-step `rf_step(t)` aligned to the exact same calendar gap the sizing spine credited —
+   * the coherence that nets the idle-cash leg to zero excess (ADR 0016).
+   */
+  internal fun datedDailyReturns(curve: List<PortfolioEquityPoint>): List<DatedReturn> {
+    if (curve.size < 2) return emptyList()
+    return curve.zipWithNext { prev, next ->
+      val ret = if (prev.portfolioValue == 0.0) 0.0 else (next.portfolioValue - prev.portfolioValue) / prev.portfolioValue
+      DatedReturn(fromDate = prev.date, toDate = next.date, ret = ret)
+    }
+  }
+
+  /**
+   * Sharpe with a per-day risk-free series: each return's excess subtracts `rfProvider.stepRate`
+   * over its own (from, to) gap — the same value credited to idle cash. A zero provider reproduces
+   * raw Sharpe. Annualized by sqrt(252) after the per-step cancellation (the day-count layers differ
+   * by design — see ADR 0016).
+   */
+  internal fun sharpe(datedReturns: List<DatedReturn>, rfProvider: RiskFreeRateProvider): Double? {
+    if (datedReturns.size < 2) return null
+    val excess = datedReturns.map { it.ret - rfProvider.stepRate(it.fromDate, it.toDate) }
+    val mean = excess.average()
+    val variance = excess.map { (it - mean) * (it - mean) }.average()
+    val stdDev = sqrt(variance)
+    if (stdDev == 0.0) return null
+    return mean / stdDev * sqrt(TRADING_DAYS_PER_YEAR.toDouble())
+  }
+
+  /** Sortino with a per-day risk-free series used as the MAR threshold (see [sharpe] overload). */
+  internal fun sortino(datedReturns: List<DatedReturn>, rfProvider: RiskFreeRateProvider): Double? {
+    if (datedReturns.size < 2) return null
+    val excess = datedReturns.map { it.ret - rfProvider.stepRate(it.fromDate, it.toDate) }
+    val downsideSquares = excess.map { if (it < 0) it * it else 0.0 }
+    val downsideDev = sqrt(downsideSquares.average())
+    if (downsideDev == 0.0) return null
+    return excess.average() / downsideDev * sqrt(TRADING_DAYS_PER_YEAR.toDouble())
   }
 
   internal fun sharpe(dailyReturns: List<Double>, riskFreeRatePct: Double): Double? {
@@ -274,6 +325,13 @@ class RiskMetricsService {
     val benchmarkComparison: BenchmarkComparison?,
     val cagr: Double?,
     val drawdownEpisodes: List<DrawdownEpisode>,
+  )
+
+  /** A daily return tagged with the calendar dates of its equity-curve transition. */
+  data class DatedReturn(
+    val fromDate: LocalDate,
+    val toDate: LocalDate,
+    val ret: Double,
   )
 
   companion object {

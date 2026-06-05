@@ -14,6 +14,7 @@ import com.skrymer.midgaard.service.OvtlyrBackfillService
 import com.skrymer.midgaard.service.ProviderRateLimitStats
 import com.skrymer.midgaard.service.RateLimiterService
 import com.skrymer.midgaard.service.RelativeStrengthService
+import com.skrymer.midgaard.service.TreasuryYieldIngestionService
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -40,6 +41,7 @@ class UiController(
     private val apiKeyService: ApiKeyService,
     private val dataIntegrityService: DataIntegrityService,
     private val ovtlyrBackfillService: OvtlyrBackfillService,
+    private val treasuryYieldIngestionService: TreasuryYieldIngestionService,
     private val relativeStrengthService: RelativeStrengthService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
@@ -286,6 +288,13 @@ class UiController(
     @PostMapping("/ingestion/ovtlyr/backfill")
     fun startOvtlyrBackfill(): String {
         ovtlyrBackfillService.runBackfill()
+        return "redirect:/ingestion"
+    }
+
+    @PostMapping("/ingestion/treasury-yields")
+    fun ingestTreasuryYields(redirectAttributes: RedirectAttributes): String {
+        val count = runBlocking { treasuryYieldIngestionService.ingest() }
+        redirectAttributes.addFlashAttribute("success", "Ingested $count treasury-yield rows")
         return "redirect:/ingestion"
     }
 

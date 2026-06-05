@@ -32,6 +32,8 @@ data class BacktestRequest(
   val riskFreeRatePct: Double? = null, // Annualized RF in percent for Sharpe (excess return) and Sortino MAR. Null = 0 = raw Sharpe.
   // Round-trip transaction cost (commission + slippage) in bps, netted into per-trade P&L. Net-by-default; 0 = gross.
   val costBps: Double = 10.0,
+  // Credit idle (uninvested) cash the historical short rate (ADR 0016). Null = default ON; false reproduces 0%-cash.
+  val creditIdleCash: Boolean? = null,
 )
 
 /**
@@ -155,4 +157,6 @@ data class WalkForwardRequest(
   // the single-backtest endpoint's default. Used by WalkForwardService when computing per-window
   // and stitched-aggregate risk-adjusted metrics per ADR-0005.
   val riskFreeRatePct: Double? = null,
+  // Credit idle cash the historical short rate within each OOS window (ADR 0016). Null = default ON.
+  val creditIdleCash: Boolean? = null,
 )

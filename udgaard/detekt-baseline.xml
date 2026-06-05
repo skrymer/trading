@@ -14,6 +14,7 @@
     <ID>LargeClass:ScannerService.kt:ScannerService</ID>
     <ID>LargeClass:ScannerServiceTest.kt:ScannerServiceTest</ID>
     <ID>LargeClass:BacktestServiceTest.kt:BacktestServiceTest</ID>
+    <ID>LargeClass:PositionSizingServiceTest.kt:PositionSizingServiceTest</ID>
     <ID>LargeClass:StockJooqRepository.kt:StockJooqRepository</ID>
     <ID>LongMethod:AboveBearishOrderBlockCondition.kt:AboveBearishOrderBlockCondition$override fun evaluateWithDetails: ConditionEvaluationResult</ID>
     <ID>LongMethod:BacktestService.kt:BacktestService$fun backtest: BacktestReport</ID>

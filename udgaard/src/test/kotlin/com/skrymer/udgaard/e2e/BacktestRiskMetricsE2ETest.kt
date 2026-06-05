@@ -99,9 +99,11 @@ class BacktestRiskMetricsE2ETest : AbstractIntegrationTest() {
 
   @Test
   fun `riskFreeRatePct=4 reduces Sharpe vs default`() {
-    // Given the same backtest with RF=0 (default) and RF=4
-    val rfZero = postBacktest(sizedRequest()).body!!
-    val rfFour = postBacktest(sizedRequest().copy(riskFreeRatePct = 4.0)).body!!
+    // Given the same backtest with RF=0 (default) and RF=4. The scalar riskFreeRatePct only governs
+    // Sharpe when idle-cash crediting is OFF — with creditIdleCash on (ADR 0016 default) the rf
+    // provider drives Sharpe and the scalar is ignored. Disable crediting here to exercise the scalar path.
+    val rfZero = postBacktest(sizedRequest().copy(creditIdleCash = false)).body!!
+    val rfFour = postBacktest(sizedRequest().copy(creditIdleCash = false, riskFreeRatePct = 4.0)).body!!
 
     // Then Sharpe drops when RF rises (excess return is smaller)
     val sharpeZero = rfZero.riskMetrics?.sharpeRatio

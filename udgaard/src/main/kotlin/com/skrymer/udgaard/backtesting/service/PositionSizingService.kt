@@ -14,15 +14,25 @@ import kotlin.math.max
 
 @Service
 class PositionSizingService {
+  /**
+   * @param tradingCalendar full set of trading days (e.g. SPY quote dates) used to build the daily
+   *   spine when crediting idle cash; empty falls back to trade-activity dates (legacy curve).
+   * @param riskFreeRateProvider the single `rf_step(t)` source of truth (ADR 0016); also fed to
+   *   the Sharpe/Sortino rf so the idle leg nets to zero excess.
+   * @param creditIdleCash when true (and a calendar is supplied), idle cash accrues interest daily.
+   */
   fun applyPositionSizing(
     trades: List<Trade>,
     config: PositionSizingConfig,
+    tradingCalendar: List<LocalDate> = emptyList(),
+    riskFreeRateProvider: RiskFreeRateProvider = ZERO_RATE_PROVIDER,
+    creditIdleCash: Boolean = false,
   ): PositionSizingResult {
     if (trades.isEmpty()) {
       return emptyResult(config)
     }
 
-    return processTradesChronologically(trades, config)
+    return processTradesChronologically(trades, config, tradingCalendar, riskFreeRateProvider, creditIdleCash)
   }
 
   /**
@@ -37,6 +47,9 @@ class PositionSizingService {
   private fun processTradesChronologically(
     trades: List<Trade>,
     config: PositionSizingConfig,
+    tradingCalendar: List<LocalDate>,
+    riskFreeRateProvider: RiskFreeRateProvider,
+    creditIdleCash: Boolean,
   ): PositionSizingResult {
     // Build per-trade quote lookup: date -> closePrice
     val tradeQuoteMap = buildTradeQuoteMaps(trades)
@@ -47,13 +60,27 @@ class PositionSizingService {
     // Collect all unique trading dates from all trades (entry dates + quote dates)
     val tradingDates = collectTradingDates(trades)
 
+    // When crediting idle cash, iterate a full daily spine (calendar days within the activity span)
+    // so interest accrues on every calendar day and the equity curve has a point per day (ADR 0016).
+    // The span bounds keep accrual OOS-only — no interest across stitched IS gaps (F7).
+    val useSpine = creditIdleCash && tradingCalendar.isNotEmpty()
+    val processingDates = if (useSpine) spineDates(tradingCalendar, tradingDates) else tradingDates
+
     val state = PortfolioState(config.startingCapital)
     val openPositions = mutableMapOf<Trade, OpenPosition>()
 
     // Index into events list for efficient processing
     var eventIndex = 0
+    // Idle balance carried from the previous spine day, and that day's date — the basis for ACT/360 accrual.
+    var idleCarried = 0.0
+    var prevDate: LocalDate? = null
 
-    for (date in tradingDates) {
+    for (date in processingDates) {
+      // Credit interest for the elapsed period on the idle balance held since the previous day (F-day-count).
+      if (useSpine && prevDate != null) {
+        state.cash += idleCarried * riskFreeRateProvider.stepRate(prevDate, date)
+      }
+
       // Process all events for this date (entries before exits)
       while (eventIndex < events.size && events[eventIndex].date == date) {
         when (val event = events[eventIndex]) {
@@ -63,24 +90,18 @@ class PositionSizingService {
         eventIndex++
       }
 
-      // Daily mark-to-market: compute portfolio value from cash + unrealized P/L of open positions
-      // Note: cash tracks starting capital + realized P/L (not reduced by purchases),
-      // so open position value must be unrealized P/L only (not full market value).
-      if (openPositions.isNotEmpty()) {
-        val unrealizedPnl = computeUnrealizedPnl(openPositions, tradeQuoteMap, date)
-        val dailyPortfolioValue = state.cash + unrealizedPnl
-        state.lastPortfolioValue = dailyPortfolioValue
-        updateDrawdown(state, dailyPortfolioValue)
-        state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = dailyPortfolioValue))
-      } else if (state.equityCurve.isEmpty() || state.equityCurve.last().date != date) {
-        // No open positions -- record cash-only equity point on event days
-        val hasEventsToday = eventIndex > 0 && events[eventIndex - 1].date == date
-        if (hasEventsToday || state.equityCurve.isEmpty()) {
-          state.lastPortfolioValue = state.cash
-          updateDrawdown(state, state.cash)
-          state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = state.cash))
-        }
-      }
+      // Daily mark-to-market: record the equity point for this date. On the full spine this also
+      // returns the idle balance carried into tomorrow's interest accrual; off-spine it returns null.
+      idleCarried = recordDailyEquity(
+        date = date,
+        useSpine = useSpine,
+        state = state,
+        openPositions = openPositions,
+        tradeQuoteMap = tradeQuoteMap,
+        events = events,
+        eventIndex = eventIndex,
+      ) ?: idleCarried
+      if (useSpine) prevDate = date
     }
 
     val finalValue = state.cash
@@ -101,6 +122,54 @@ class PositionSizingService {
       trades = state.sizedTrades,
       equityCurve = state.equityCurve,
     )
+  }
+
+  /**
+   * Records this date's equity point (daily mark-to-market) onto [state]. Cash tracks starting
+   * capital + realized P/L (not reduced by purchases), so an open position contributes only its
+   * unrealized P/L, never full market value.
+   *
+   * On the full spine a point is recorded every calendar day and the new idle balance (uninvested
+   * cash, the basis for tomorrow's interest accrual) is returned. Off-spine a point is recorded only
+   * on days with open positions or events and null is returned (no idle basis to carry).
+   */
+  @Suppress("LongParameterList")
+  private fun recordDailyEquity(
+    date: LocalDate,
+    useSpine: Boolean,
+    state: PortfolioState,
+    openPositions: Map<Trade, OpenPosition>,
+    tradeQuoteMap: Map<Trade, Map<LocalDate, Double>>,
+    events: List<TradeEvent>,
+    eventIndex: Int,
+  ): Double? {
+    if (useSpine) {
+      // Full spine: record a point every calendar day.
+      val unrealizedPnl =
+        if (openPositions.isNotEmpty()) computeUnrealizedPnl(openPositions, tradeQuoteMap, date) else 0.0
+      val dailyPortfolioValue = state.cash + unrealizedPnl
+      state.lastPortfolioValue = dailyPortfolioValue
+      updateDrawdown(state, dailyPortfolioValue)
+      state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = dailyPortfolioValue))
+      // Idle = uninvested cash (cost-basis subtrahend); clamp negatives (a levered margin borrow) to zero.
+      return max(0.0, state.cash - state.openNotional)
+    }
+    if (openPositions.isNotEmpty()) {
+      val unrealizedPnl = computeUnrealizedPnl(openPositions, tradeQuoteMap, date)
+      val dailyPortfolioValue = state.cash + unrealizedPnl
+      state.lastPortfolioValue = dailyPortfolioValue
+      updateDrawdown(state, dailyPortfolioValue)
+      state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = dailyPortfolioValue))
+    } else if (state.equityCurve.isEmpty() || state.equityCurve.last().date != date) {
+      // No open positions -- record cash-only equity point on event days
+      val hasEventsToday = eventIndex > 0 && events[eventIndex - 1].date == date
+      if (hasEventsToday || state.equityCurve.isEmpty()) {
+        state.lastPortfolioValue = state.cash
+        updateDrawdown(state, state.cash)
+        state.equityCurve.add(PortfolioEquityPoint(date = date, portfolioValue = state.cash))
+      }
+    }
+    return null
   }
 
   private fun processEntry(
@@ -214,6 +283,24 @@ class PositionSizingService {
     }
 
   /**
+   * The daily spine: every calendar trading day within the trades' activity span [first, last],
+   * unioned with the trade-activity dates so no entry/exit day is ever missing. Restricting to the
+   * activity span is what keeps idle accrual out-of-sample only — a window's spine never extends
+   * across the in-sample gap to the next window (ADR 0005 / F7).
+   */
+  private fun spineDates(
+    tradingCalendar: List<LocalDate>,
+    tradingDates: List<LocalDate>,
+  ): List<LocalDate> {
+    val first = tradingDates.first()
+    val last = tradingDates.last()
+    val dates = sortedSetOf<LocalDate>()
+    dates.addAll(tradingDates)
+    tradingCalendar.filterTo(dates) { !it.isBefore(first) && !it.isAfter(last) }
+    return dates.toList()
+  }
+
+  /**
    * Collect all unique trading dates across all trades, sorted.
    */
   private fun collectTradingDates(trades: List<Trade>): List<LocalDate> {
@@ -290,6 +377,9 @@ class PositionSizingService {
   }
 
   companion object {
+    /** A rate provider that always returns 0 — the default when idle-cash crediting is off (raw rf ≡ 0). */
+    private val ZERO_RATE_PROVIDER = RiskFreeRateProvider(emptyMap(), expensePct = 0.0)
+
     /**
      * Build the effective sizer for a trade entry given the config and current portfolio state.
      * Applies drawdown scaling if configured: the matched threshold's multiplier is passed to

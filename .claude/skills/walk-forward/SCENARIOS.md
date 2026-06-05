@@ -85,6 +85,8 @@ See `/backtest` SCENARIOS.md §2 for sizer options. Position-sized walk-forward 
 
 `riskFreeRatePct` (optional, default 0.0 = raw Sharpe) is consumed by both per-window `outOfSampleRiskMetrics` and the stitched `aggregateOosRiskMetrics` — same field and convention as the single-backtest endpoint.
 
+`creditIdleCash` (optional, **default ON**) credits uninvested cash the historical short rate within each window's OOS span per ADR 0016 — accrual is bounded per-window so it never crosses the stitched IS gaps (F7), and the SPY baseline earns zero idle credit (always fully invested, F2). Sharpe-neutral by construction; raises CAGR/Calmar for cash-heavy candidates. Set `creditIdleCash: false` only to reproduce old 0%-cash results.
+
 ## 4. Ranking
 
 Ranking only matters when `maxPositions` is set (scenario 3). The `ranker` + `rankerConfig` you supply is applied **independently in each IS and OOS sub-backtest** — same ranker drives both halves of every window.

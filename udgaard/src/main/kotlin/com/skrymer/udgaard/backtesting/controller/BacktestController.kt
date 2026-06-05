@@ -7,6 +7,7 @@ import com.skrymer.udgaard.backtesting.dto.PredefinedStrategyConfig
 import com.skrymer.udgaard.backtesting.dto.RankerMetadata
 import com.skrymer.udgaard.backtesting.dto.StrategyConfig
 import com.skrymer.udgaard.backtesting.dto.WalkForwardRequest
+import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.BacktestReportMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestResponseDto
@@ -19,6 +20,8 @@ import com.skrymer.udgaard.backtesting.service.BacktestService
 import com.skrymer.udgaard.backtesting.service.ConditionRegistry
 import com.skrymer.udgaard.backtesting.service.DynamicStrategyBuilder
 import com.skrymer.udgaard.backtesting.service.PositionSizingService
+import com.skrymer.udgaard.backtesting.service.RiskFreeRateProvider
+import com.skrymer.udgaard.backtesting.service.RiskFreeRateService
 import com.skrymer.udgaard.backtesting.service.RiskMetricsService
 import com.skrymer.udgaard.backtesting.service.StrategyRegistry
 import com.skrymer.udgaard.backtesting.service.WalkForwardService
@@ -65,6 +68,7 @@ class BacktestController(
   private val positionSizingService: PositionSizingService,
   private val riskMetricsService: RiskMetricsService,
   private val walkForwardService: WalkForwardService,
+  private val riskFreeRateService: RiskFreeRateService,
 ) {
   /**
    * Run backtest with request body.
@@ -299,6 +303,7 @@ class BacktestController(
       randomSeed = request.randomSeed,
       positionSizingConfig = request.positionSizing,
       riskFreeRatePct = request.riskFreeRatePct ?: 0.0,
+      creditIdleCash = request.creditIdleCash ?: true,
     )
 
     logger.info(
@@ -416,6 +421,7 @@ class BacktestController(
           start = start,
           positionSizingService = positionSizingService,
           riskMetricsService = riskMetricsService,
+          riskFreeRateService = riskFreeRateService,
           stockRepository = stockRepository,
           logger = logger,
         )
@@ -460,21 +466,48 @@ private fun applyPositionSizingAndRiskMetrics(
   start: LocalDate,
   positionSizingService: PositionSizingService,
   riskMetricsService: RiskMetricsService,
+  riskFreeRateService: RiskFreeRateService,
   stockRepository: StockJooqRepository,
   logger: Logger,
 ): BacktestReport {
   val sizingConfig = requireNotNull(request.positionSizing) { "positionSizing required here" }
-  val sizingResult = positionSizingService.applyPositionSizing(backtestReport.trades, sizingConfig)
+
+  // Risk metrics: fetch SPY for benchmark comparison (existing path also used by BacktestService).
+  // SPY-fetch failures are non-fatal — the service produces null benchmark fields when quotes are absent.
+  val benchmarkQuotes = stockRepository.findBySymbol(BacktestController.BENCHMARK_SYMBOL, quotesAfter = start)?.quotes
+
+  // Idle-cash crediting (ADR 0016): default ON. The SPY quote dates are the trading-day calendar for
+  // the daily spine; the same rf provider feeds both the cash credit and the Sharpe/Sortino rf.
+  val creditIdleCash = request.creditIdleCash ?: true
+  // Only consult Midgaard when crediting is on; an off run uses a never-read zero provider.
+  val rfProvider =
+    if (creditIdleCash) {
+      riskFreeRateService.loadProvider(BacktestContext.DEFAULT_IDLE_CASH_EXPENSE_PCT)
+    } else {
+      RiskFreeRateProvider(emptyMap(), expensePct = 0.0)
+    }
+  val tradingCalendar = benchmarkQuotes?.map { it.date }?.sorted() ?: emptyList()
+  if (creditIdleCash && tradingCalendar.isEmpty()) {
+    logger.warn(
+      "Idle-cash crediting requested but no SPY calendar (benchmark quotes absent) — " +
+        "the daily spine is disabled and idle cash earns 0% for this run.",
+    )
+  }
+
+  val sizingResult = positionSizingService.applyPositionSizing(
+    backtestReport.trades,
+    sizingConfig,
+    tradingCalendar = tradingCalendar,
+    riskFreeRateProvider = rfProvider,
+    creditIdleCash = creditIdleCash,
+  )
   val postHocZeroed = backtestReport.trades.size - sizingResult.trades.size
   logger.info(
     "Position sizing applied: ${sizingResult.startingCapital} → ${String.format("%.2f", sizingResult.finalCapital)}, " +
       "return=${String.format("%.2f", sizingResult.totalReturnPct)}%, " +
       "maxDD=${String.format("%.2f", sizingResult.maxDrawdownPct)}%, " +
-      "postHocZeroed=$postHocZeroed",
+      "postHocZeroed=$postHocZeroed, creditIdleCash=$creditIdleCash",
   )
-  // Risk metrics: fetch SPY for benchmark comparison (existing path also used by BacktestService).
-  // SPY-fetch failures are non-fatal — the service produces null benchmark fields when quotes are absent.
-  val benchmarkQuotes = stockRepository.findBySymbol(BacktestController.BENCHMARK_SYMBOL, quotesAfter = start)?.quotes
   val analysis = riskMetricsService.compute(
     trades = backtestReport.trades,
     equityCurve = sizingResult.equityCurve,
@@ -482,6 +515,7 @@ private fun applyPositionSizingAndRiskMetrics(
     benchmarkQuotes = benchmarkQuotes,
     benchmarkSymbol = BacktestController.BENCHMARK_SYMBOL,
     riskFreeRatePct = request.riskFreeRatePct ?: 0.0,
+    riskFreeRateProvider = if (creditIdleCash) rfProvider else null,
   )
   return BacktestReport(
     winningTrades = backtestReport.winningTrades,
