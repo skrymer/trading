@@ -34,7 +34,7 @@ All gates evaluate on the stitched-OOS curve (ADR 0005), the same Calmar the ADR
 ## Consequences
 
 - Implementation is a coordinated multi-file change: `eval-block.py` (G1 floor 30→25, drop G9 Calmar, lower G9 Sharpe, add G15), `summarize.py` GATE_METADATA, the gate tables in `validate-candidate` SKILL.md / REFERENCE.md, `firewall-analyst.md`, and tests. Tracked in its own issue.
-- The idle-cash 0%→~3% fix (deferred, separate issue) shrinks the Sharpe drag; G9's 0.5 floor may be revisited upward once it lands.
+- The idle-cash 0%→~3% fix (ADR 0016) was expected to shrink the Sharpe drag, suggesting a possible upward G9 revisit. **Superseded:** ADR 0016 wires the idle-cash rate as the Sharpe `rf` so the idle leg nets to zero excess — crediting is **Sharpe-neutral**, so G9's 0.5 needs no revisit. The credit does raise Calmar for cash-heavy candidates (G15/relative bar modestly easier — see ADR 0016), with no threshold change.
 
 ## What this does NOT decide
 
