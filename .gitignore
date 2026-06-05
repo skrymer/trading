@@ -67,3 +67,6 @@ logs/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Obsidian vault config (knowledge/ wiki — config is local, markdown is the committed artifact)
+.obsidian/

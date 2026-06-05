@@ -1,0 +1,41 @@
+---
+type: source
+title: Gjallarhorn conditional within-regime NULL (2026-06-04)
+summary: The 20-seed conditional within-regime NULL that confirmed Gjallarhorn's +2.19% edge is timing alpha (+22σ), not crisis beta.
+status: stable
+tags: [run, null-test, timing]
+sources: ["strategy_exploration/GJALLARHORN_STRATEGY_DEVELOPMENT.md"]
+related: ["[[gjallarhorn]]", "[[lottery-vs-signature]]"]
+updated: 2026-06-05
+---
+
+# Source summary — Gjallarhorn timing-alpha NULL (2026-06-04)
+
+**What was run.** The conditional random-entry-timing NULL (quant-specced) for [[gjallarhorn]]: 20 seeds,
+entries drawn from the same comparable-stress population (`breadthPercent ≤ 25`) at matched firing rate
+(P_FIRE = 0.1486 = 81/545), all else byte-identical (Random seed 42, 5%×20 sizer, same exits, 300-sym,
+2000-2026).
+
+## Headline numbers
+
+| Metric | Gjallarhorn | Null (20 seeds) | Verdict |
+|---|---|---|---|
+| Entry dates | 81 | ~76 (matched) | rate-matched ✓ |
+| **Per-trade edge** (primary) | **+2.19%** | mean −0.17%, sd 0.11, max −0.005% (all 20 negative) | **+22σ, ≫ p95** ✅ |
+| Blended CAGR (confirmatory) | +2.39% | median −0.78% (all 20 negative) | > null median ✅ |
+
+## What it taught
+
+- **Timing alpha, not crisis beta.** Random same-regime dip-buying *loses* per trade (−0.17%, catching
+  falling knives); Gjallarhorn's sustained-washout-then-recovery timing makes +2.19%. This is the textbook
+  signature in [[lottery-vs-signature]]. The bare-mask (buy every breadth ≤ 25 day, 7702 trades) was only
+  +0.11%/trade — corroborating.
+- **Standalone CAGR is low *because* it's cash most of the calendar** — the overlay-component profile, not
+  a standalone strategy.
+- Confirms the **conditional within-regime null** is the right gate for *timing* candidates (uniform-random
+  would have proved only crisis beta).
+
+## Pages updated
+
+[[gjallarhorn]] (verdict table + NULL result), [[lottery-vs-signature]] (added the +22σ signature
+example), [[crisis-timer-cadence-ceiling]] (instance link).

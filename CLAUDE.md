@@ -12,6 +12,12 @@ This file provides comprehensive context for the Trading Platform project.
 - **Backend work** (Kotlin/Spring Boot/Strategies): Read `udgaard/claude.md`
   - Includes strategy development patterns, backtesting engine details, service patterns, testing guidelines
 
+- **Strategy-research knowledge** (failure modes, candidate histories, firewall methodology): the
+  `knowledge/` wiki (Karpathy LLM-Wiki pattern, issue #84). Read `knowledge/wiki/index.md` first, then
+  the relevant `concepts/`/`entities/` pages. Maintain it incrementally — `knowledge/CLAUDE.md` defines
+  the schema and the wiki-vs-memory boundary. This is the analyst-consulted research layer; it does NOT
+  replace the memory system, ADRs, or CONTEXT.md.
+
 ## Project Overview
 
 This is a stock trading backtesting platform with a Kotlin/Spring Boot backend (Udgaard) and a Nuxt.js frontend (Asgaard). The platform enables users to backtest trading strategies using historical stock data with advanced technical indicators and market sentiment analysis.
