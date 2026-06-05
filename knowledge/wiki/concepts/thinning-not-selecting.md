@@ -1,6 +1,7 @@
 ---
 type: concept
 title: Thinning, Not Selecting
+summary: A rescue filter that removes trades uniformly without improving the keep set; a scalar regime gate can't solve a per-name cross-sectional selection problem.
 status: stable
 tags: [failure-mode, methodology]
 sources: ["project_minervini_vcp_breakout_rejected", "feedback_ablation_metric_confound_capital_aware", "feedback_random_ranker_baseline_mandatory", "strategy_exploration/TRACK2_BREADTH_GATE_PLAN.md"]

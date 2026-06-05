@@ -1,6 +1,7 @@
 ---
 type: concept
 title: The Backtesting Funnel
+summary: The 5-stage map from idea to tradable/rejected — condition-screen → strategy-screen → validate-candidate → promotion/G14 → monte-carlo.
 status: stable
 tags: [methodology]
 sources: ["strategy_exploration/BACKTESTING_FUNNEL.md"]

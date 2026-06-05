@@ -1,6 +1,7 @@
 ---
 type: concept
 title: Aliased Regime Sensitivity (ARS)
+summary: Non-monotone pass/fail across a parameter neighborhood plus per-window edge sign-flips = the parameter dimension is the wrong abstraction; reject, don't tune.
 status: stable
 tags: [failure-mode]
 sources: ["feedback_aliased_regime_sensitivity"]

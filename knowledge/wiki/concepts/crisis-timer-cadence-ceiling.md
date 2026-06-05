@@ -1,6 +1,7 @@
 ---
 type: concept
 title: Crisis-Timer Cadence Ceiling
+summary: A premise firing <~1 event/yr can't populate per-window OOS folds — funnel-disqualified standalone before Step 0; the data-span rule is its sibling.
 status: stable
 tags: [failure-mode, methodology]
 sources: ["feedback_crisis_timer_cadence_ceiling", "feedback_signal_must_span_firewall_window"]

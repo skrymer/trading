@@ -1,6 +1,7 @@
 ---
 type: entity
 title: Gjallarhorn
+summary: Breadth-washout crisis-bottom timer; passed its timing-alpha NULL at +22σ but is funnel-disqualified standalone — a shelved overlay component awaiting a host.
 status: active
 tags: [candidate, timing, overlay]
 sources: ["strategy_exploration/GJALLARHORN_STRATEGY_DEVELOPMENT.md", "strategy_exploration/dossier/", "project_engine_flat_condition_stack_no_overlay"]

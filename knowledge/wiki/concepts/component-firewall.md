@@ -1,6 +1,7 @@
 ---
 type: concept
 title: The Component Firewall
+summary: The binding 3-block + 25y validation (Block C informational), its anti-data-mining interlocks (G10/G11/G13/G14), and the absolute gates.
 status: stable
 tags: [methodology]
 sources: ["strategy_exploration/COMPONENT_FIREWALL_PLAN.md", "strategy_exploration/BACKTESTING_FUNNEL.md"]

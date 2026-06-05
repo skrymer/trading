@@ -1,6 +1,7 @@
 ---
 type: concept
 title: Lottery vs Signature
+summary: Edge concentrated in 1-2 OOS windows = regime detector, not selector (reject at screen); the conditional within-regime NULL is the timing-alpha signature test.
 status: stable
 tags: [failure-mode]
 sources: ["feedback_lottery_screen_diagnostic", "feedback_conditional_within_regime_null"]

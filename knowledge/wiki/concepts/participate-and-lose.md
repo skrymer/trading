@@ -1,6 +1,7 @@
 ---
 type: concept
 title: Participate-and-Lose
+summary: A long premise that stays fully deployed through the regime where its edge inverts — bleeding with full trade counts because the regime selector is too coarse.
 status: stable
 tags: [failure-mode]
 sources: ["feedback_mean_reversion_pullback_known_weakness", "project_minervini_vcp_breakout_rejected", "strategy_exploration/TRADE_ANATOMY_ANALYSIS.md"]
@@ -58,7 +59,7 @@ the single OOS window).
 
 Both the long-pullback and breakout families fail the same way: a **too-coarse index-trend regime gate
 that can't see breadth rot**. This is why "escape from mean-reversion to breakout" is *not* a clean
-escape — same root cause, different entry. The deprecated premise classes in [[purpose]] all share it.
+escape — same root cause, different entry. The deprecated premise classes in [[purpose]] all share it.^[inferred — the shared spyTrendUp root cause is quant-stated for the MR and breakout families; extending it to all four deprecated classes is synthesis]
 
 ## Related
 

@@ -1,6 +1,7 @@
 ---
 type: source
 title: Gjallarhorn conditional within-regime NULL (2026-06-04)
+summary: The 20-seed conditional within-regime NULL that confirmed Gjallarhorn's +2.19% edge is timing alpha (+22σ), not crisis beta.
 status: stable
 tags: [run, null-test, timing]
 sources: ["strategy_exploration/GJALLARHORN_STRATEGY_DEVELOPMENT.md"]

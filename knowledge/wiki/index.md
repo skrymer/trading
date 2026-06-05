@@ -1,6 +1,7 @@
 ---
 type: synthesis
 title: Index — content catalog
+summary: One-line catalog of every wiki page — read first on any query, then open the relevant pages.
 status: active
 tags: [index]
 updated: 2026-06-05

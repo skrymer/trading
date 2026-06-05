@@ -1,6 +1,7 @@
 ---
 type: synthesis
 title: Long premises in narrow-leadership tape
+summary: Why long premises (pullback-MR, breakout, RS-momentum) struggle in post-2020 narrow-leadership tape — shared root cause and the open question of what survives.
 status: active
 tags: [synthesis, regime]
 related: ["[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[gjallarhorn]]"]
@@ -37,7 +38,7 @@ validated regime-transition layer** (#83), not a better entry filter bolted onto
 - **Open question:** is there *any* long entry premise with genuine cross-sectional resolution that
   survives narrow-leadership tape — or is every long premise structurally regime-beta, making the real
   answer a regime-transition layer rather than a better entry? BTC+Tyr (the current search) is the next
-  test of this.
+  test of this.^[inferred — framing of the open question, not a quant verdict]
 
 ## Related
 

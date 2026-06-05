@@ -1,6 +1,7 @@
 ---
 type: synthesis
 title: Overview — state of the search
+summary: State of the search — zero tradable strategies, four deprecated premise classes, one shelved overlay (Gjallarhorn), active search BTC+Tyr.
 status: active
 tags: [overview]
 updated: 2026-06-05

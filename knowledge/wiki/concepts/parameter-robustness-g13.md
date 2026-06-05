@@ -1,6 +1,7 @@
 ---
 type: concept
 title: Parameter Robustness (G13)
+summary: A TRADABLE verdict must survive ±1 step on every discrete tunable and ±10% on every continuous one — else the edge is alignment-fitting, not structural.
 status: stable
 tags: [methodology, failure-mode]
 sources: ["feedback_parameter_fragility_must_be_verified"]

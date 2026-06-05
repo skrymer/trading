@@ -1,6 +1,7 @@
 ---
 type: synthesis
 title: Purpose — the hunt
+summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, the four deprecated premise classes, and the open questions driving the search.
 status: active
 tags: [purpose, thesis]
 updated: 2026-06-05
