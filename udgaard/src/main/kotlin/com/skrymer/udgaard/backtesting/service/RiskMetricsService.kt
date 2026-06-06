@@ -302,6 +302,90 @@ class RiskMetricsService {
       .map { PortfolioEquityPoint(date = it.date, portfolioValue = it.closePrice) }
   }
 
+  // ===== DEFLATED / PROBABILISTIC SHARPE (Bailey–López de Prado, ADR 0014) =====
+
+  /**
+   * Probabilistic Sharpe Ratio: the probability the true Sharpe exceeds [benchmarkSharpe], given
+   * the observed Sharpe's estimation error inflated by non-normal returns (Bailey–López de Prado).
+   *
+   * All Sharpe inputs are PER-OBSERVATION (non-annualized). Annualization is not scale-invariant
+   * here — the skew/kurtosis correction has an `observedSharpe²` term — so the caller must
+   * de-annualize (divide an annualized Sharpe by √periodsPerYear) before calling.
+   *
+   * @param skew skewness of the return series (0 = symmetric)
+   * @param kurtosis non-excess kurtosis (3 = Gaussian)
+   * @param nObs number of return observations behind the Sharpe estimate (≥ 2)
+   */
+  @Suppress("VariableMinLength") // `z` is the conventional standard-score symbol
+  fun probabilisticSharpe(
+    observedSharpe: Double,
+    benchmarkSharpe: Double,
+    skew: Double,
+    kurtosis: Double,
+    nObs: Int,
+  ): Double {
+    require(nObs >= 2) { "probabilisticSharpe needs at least 2 observations, got $nObs" }
+    require(kurtosis >= 1.0) { "non-excess kurtosis must be >= 1, got $kurtosis" }
+    require(observedSharpe.isFinite() && benchmarkSharpe.isFinite() && skew.isFinite() && kurtosis.isFinite()) {
+      "probabilisticSharpe inputs must be finite (observedSharpe=$observedSharpe, " +
+        "benchmarkSharpe=$benchmarkSharpe, skew=$skew, kurtosis=$kurtosis)"
+    }
+    val variance = 1.0 - skew * observedSharpe + (kurtosis - 1.0) / 4.0 * observedSharpe * observedSharpe
+    require(variance > 0.0) {
+      "degenerate Sharpe-estimator variance term ($variance) — skew/kurtosis too extreme for this Sharpe"
+    }
+    val stdErr = sqrt(variance / (nObs - 1.0))
+    val z = (observedSharpe - benchmarkSharpe) / stdErr
+    return normalCdf(z)
+  }
+
+  /**
+   * Deflated Sharpe Ratio: [probabilisticSharpe] benchmarked against the *expected maximum* Sharpe
+   * under the null over [nEff] independent trials (Bailey–López de Prado, ADR 0014). It answers
+   * "how much of this survivor's Sharpe is plausibly best-of-search luck."
+   *
+   * Search-agnostic: [nEff] (effective trial count) and [trialSharpeVariance] (cross-trial variance
+   * of the per-observation Sharpe estimates) are supplied by the caller. [nEff] may be fractional
+   * (a correlation-haircut endpoint). `nEff ≤ 1` ⇒ no deflation (benchmark = 0).
+   */
+  fun deflatedSharpe(
+    observedSharpe: Double,
+    nEff: Double,
+    trialSharpeVariance: Double,
+    skew: Double,
+    kurtosis: Double,
+    nObs: Int,
+  ): Double = probabilisticSharpe(
+    observedSharpe = observedSharpe,
+    benchmarkSharpe = expectedMaxSharpe(nEff, trialSharpeVariance),
+    skew = skew,
+    kurtosis = kurtosis,
+    nObs = nObs,
+  )
+
+  /**
+   * Expected maximum of [nEff] iid standard-Gaussian Sharpe draws scaled by √[trialSharpeVariance]
+   * (Bailey–López de Prado's `E[max]` null). `nEff ≤ 1` ⇒ 0 (one look = nothing to deflate).
+   *
+   * Floored at 0 (quant-confirmed 2026-06-06): a deflation null is non-negative by construction and
+   * must never RAISE confidence. Reachable only via the fractional `nEff` of the phase-2 N_low
+   * correlation haircut; integer N_high (phase 1) never lands here.
+   */
+  internal fun expectedMaxSharpe(nEff: Double, trialSharpeVariance: Double): Double {
+    require(nEff.isFinite()) { "nEff must be finite, got $nEff" }
+    require(trialSharpeVariance.isFinite() && trialSharpeVariance >= 0.0) {
+      "trialSharpeVariance must be finite and non-negative, got $trialSharpeVariance"
+    }
+    if (nEff <= 1.0) return 0.0
+    val sd = sqrt(trialSharpeVariance)
+    val z1 = inverseNormalCdf(1.0 - 1.0 / nEff)
+    val z2 = inverseNormalCdf(1.0 - 1.0 / (nEff * Math.E))
+    // The BLdP two-point E[max] asymptotic goes spuriously negative for nEff < ~1.27 (it's an
+    // extreme-value expansion evaluated below its valid range). Floor is load-bearing — don't drop
+    // it: a negative benchmark would make the DSR exceed the undeflated PSR.
+    return (sd * ((1.0 - EULER_MASCHERONI) * z1 + EULER_MASCHERONI * z2)).coerceAtLeast(0.0)
+  }
+
   // ===== DRAWDOWN EPISODES (Magdon-Ismail state machine) =====
 
   internal fun findDrawdownEpisodes(curve: List<PortfolioEquityPoint>): List<DrawdownEpisode> {
@@ -342,6 +426,7 @@ class RiskMetricsService {
     private const val MIN_TRADES_FOR_TAIL_RATIO = 20
     private const val TRADING_DAYS_PER_YEAR = 252
     private const val DAYS_PER_CALENDAR_YEAR = 365.25
+    private const val EULER_MASCHERONI = 0.5772156649015329
   }
 }
 
@@ -388,6 +473,83 @@ private fun pairedReturn(
   val benchmarkReturn = (benchmarkClose - benchmarkPrev) / benchmarkPrev
   return strategyReturn to benchmarkReturn
 }
+
+/**
+ * Standard normal CDF Φ(x) via the Abramowitz & Stegun 7.1.26 erf approximation
+ * (max abs error ≈ 1.5e-7) — no `commons-math` on the classpath.
+ */
+internal fun normalCdf(x: Double): Double = 0.5 * (1.0 + erf(x / sqrt(2.0)))
+
+@Suppress("VariableMinLength") // `t` matches the Abramowitz & Stegun 7.1.26 formula symbol
+private fun erf(x: Double): Double {
+  val sign = if (x < 0) -1.0 else 1.0
+  val ax = abs(x)
+  val t = 1.0 / (1.0 + ERF_P * ax)
+  val poly = t * (ERF_A1 + t * (ERF_A2 + t * (ERF_A3 + t * (ERF_A4 + t * ERF_A5))))
+  return sign * (1.0 - poly * kotlin.math.exp(-ax * ax))
+}
+
+private const val ERF_P = 0.3275911
+private const val ERF_A1 = 0.254829592
+private const val ERF_A2 = -0.284496736
+private const val ERF_A3 = 1.421413741
+private const val ERF_A4 = -1.453152027
+private const val ERF_A5 = 1.061405429
+
+/**
+ * Inverse standard normal CDF Φ⁻¹(p) via Acklam's rational approximation (rel. error ≈ 1.15e-9).
+ * Used for the Deflated-Sharpe `E[max]` benchmark; `p` is clamped to the open (0, 1) interval.
+ */
+@Suppress("VariableMinLength") // `q`/`r` match Acklam's rational-approximation formula symbols
+internal fun inverseNormalCdf(p: Double): Double {
+  val pp = p.coerceIn(MIN_PROB, 1.0 - MIN_PROB)
+  val low = PROBIT_TAIL_BREAK
+  val high = 1.0 - low
+  return when {
+    pp < low -> {
+      val q = sqrt(-2.0 * kotlin.math.ln(pp))
+      (((((PROBIT_C1 * q + PROBIT_C2) * q + PROBIT_C3) * q + PROBIT_C4) * q + PROBIT_C5) * q + PROBIT_C6) /
+        ((((PROBIT_D1 * q + PROBIT_D2) * q + PROBIT_D3) * q + PROBIT_D4) * q + 1.0)
+    }
+    pp <= high -> {
+      val q = pp - 0.5
+      val r = q * q
+      (((((PROBIT_A1 * r + PROBIT_A2) * r + PROBIT_A3) * r + PROBIT_A4) * r + PROBIT_A5) * r + PROBIT_A6) * q /
+        (((((PROBIT_B1 * r + PROBIT_B2) * r + PROBIT_B3) * r + PROBIT_B4) * r + PROBIT_B5) * r + 1.0)
+    }
+    else -> {
+      val q = sqrt(-2.0 * kotlin.math.ln(1.0 - pp))
+      -(((((PROBIT_C1 * q + PROBIT_C2) * q + PROBIT_C3) * q + PROBIT_C4) * q + PROBIT_C5) * q + PROBIT_C6) /
+        ((((PROBIT_D1 * q + PROBIT_D2) * q + PROBIT_D3) * q + PROBIT_D4) * q + 1.0)
+    }
+  }
+}
+
+private const val MIN_PROB = 1e-12
+
+// Acklam's central-region / tail break point: |p − 0.5| beyond this uses the tail rational branch.
+private const val PROBIT_TAIL_BREAK = 0.02425
+private const val PROBIT_A1 = -3.969683028665376e+01
+private const val PROBIT_A2 = 2.209460984245205e+02
+private const val PROBIT_A3 = -2.759285104469687e+02
+private const val PROBIT_A4 = 1.383577518672690e+02
+private const val PROBIT_A5 = -3.066479806614716e+01
+private const val PROBIT_A6 = 2.506628277459239e+00
+private const val PROBIT_B1 = -5.447609879822406e+01
+private const val PROBIT_B2 = 1.615858368580409e+02
+private const val PROBIT_B3 = -1.556989798598866e+02
+private const val PROBIT_B4 = 6.680131188771972e+01
+private const val PROBIT_B5 = -1.328068155288572e+01
+private const val PROBIT_C1 = -7.784894002430293e-03
+private const val PROBIT_C2 = -3.223964580411365e-01
+private const val PROBIT_C3 = -2.400758277161838e+00
+private const val PROBIT_C4 = -2.549732539343734e+00
+private const val PROBIT_C5 = 4.374664141464968e+00
+private const val PROBIT_C6 = 2.938163982698783e+00
+private const val PROBIT_D1 = 7.784695709041462e-03
+private const val PROBIT_D2 = 3.224671290700398e-01
+private const val PROBIT_D3 = 2.445134137142996e+00
+private const val PROBIT_D4 = 3.754408661907416e+00
 
 private fun variance(values: List<Double>): Double {
   if (values.isEmpty()) return 0.0

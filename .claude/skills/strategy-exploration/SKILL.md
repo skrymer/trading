@@ -34,7 +34,8 @@ One git-tracked, append-only JSONL file per candidate under `strategy_exploratio
 | `next <candidate>` | From the current stage, print the **exact leaf-skill invocation** to run next (e.g. `run /validate-candidate MR4 <template>`). Never the raw API call. |
 | `check <candidate>` | `python3 scripts/explore.py check <dossier-dir> <template>` → interlock decision. **REFUSE ⇒ stop.** |
 | `fire <candidate>` | After the operator runs the leaf skill, `explore.py fire …` records the `FIRED…PENDING` event. |
-| `record <candidate>` | `explore.py record <dossier> <summarize.json> <template>` → parses the verdict, **asserts the fired config matches** what was printed, appends the `RECORD`, **spawn the matching analyst**, then **`/wiki-ingest`** the durable findings (see "Wiki maintenance"). |
+| `record <candidate>` | `explore.py record <dossier> <summarize.json> <template>` → parses the verdict, **asserts the fired config matches** what was printed, appends the `RECORD`, **spawn the matching analyst**, then **`/wiki-ingest`** the durable findings (see "Wiki maintenance"). After a `/validate-candidate` RECORD, also run the **Deflated-Sharpe flag** (below). |
+| `dsr-flag <candidate>` | After a firewall RECORD: `explore.py dsr-flag <dossier-dir> <summarize.json> <n-obs>` assembles the search-agnostic `POST /api/risk/deflated-sharpe` payload + the itemized lineage list. You POST it, then append a `DSR_FLAG` event. See "Deflated-Sharpe flag". |
 | `new <candidate> [--lineage <corpse>]` | **`/wiki-lint` first** (consult clean knowledge before scoping), then register a DRAFT. A successor to a dead candidate is gated — see "The brake". |
 | `abandon <candidate>` | Append an `ABANDONED` event. |
 
@@ -50,6 +51,32 @@ Re-running a dead config — even one parameter step away — is data-mining, no
 ## record always annotates
 
 `record` parses the machine token only (never an operator-typed verdict), asserts the hash, then **always spawns the matching analyst** to fold a narrative into the dossier: `firewall-analyst` (validate-candidate), `strategy-screen-analyst` (screen), `monte-carlo-analyst` (MC), `condition-screen-analyst` (condition screen), `post-backtest-analyst` (backtest).
+
+## Deflated-Sharpe flag (multiple-testing readout — ADR 0014)
+
+The whole funnel is one multiple-testing experiment: every firewall trial competes on the same
+2000–2025 data. After a `/validate-candidate` RECORD (any verdict — a REJECTED run still consumed a
+look at the binding Sharpe), assemble a reported Deflated-Sharpe flag — **never an auto-reject**, it
+only tells the operator how much of a survivor's Sharpe is plausibly best-of-search luck.
+
+The engine owns the math (search-agnostic `RiskMetricsService.deflatedSharpe`); this skill owns the
+*search* half — the global trial register and the effective trial count:
+
+1. `python3 scripts/explore.py dsr-flag <dossier-dir> <summarize.json> <n-obs>` — collects the
+   global firewall-trial register (`registry.collect_firewall_trials`, RECORD with a validate
+   verdict, deduped by `config_hash`, across **all** dossiers), clusters by lineage (one dossier
+   file = one cluster) for `N_high`, reads each trial's `layers.25y.aggregate_sharpe`, de-annualizes
+   to per-observation units, and prints the `POST /api/risk/deflated-sharpe` payload + the itemized
+   lineage list. `n-obs` = the candidate's stitched-OOS trading-day count (from its 25y result).
+2. `POST` the payload to `/api/risk/deflated-sharpe`.
+3. Append a `DSR_FLAG` event to the candidate's dossier: `{"ev":"DSR_FLAG","hash":<candidate>,
+   "deflated_sharpe":<resp.deflatedSharpe>,"n_high":<N>,"tier":"AMBER"|"CLEAR","lineages":[…]}`.
+   **AMBER** when `deflatedSharpe < 0.95`, else **CLEAR**. The DSR_FLAG is the only newly persisted
+   datum — no dossier schema change (the trial population is derived from existing RECORD fields).
+
+Phase 1 ships the conservative `N_high` endpoint only (amber-or-clear); the `N_low` correlation
+haircut (the red tier) is a fast follow. `firewall-analyst` surfaces the flag with the phase-1
+caveat. The flag **augments**, does not replace, the binding screen-stage G5 gate.
 
 ## Wiki maintenance — the knowledge that compounds (#84/#108)
 

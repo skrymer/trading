@@ -38,6 +38,7 @@ Split along the engine/search boundary (consistent with "keep calculations in th
 
 - No dossier schema change: the trial population is derivable from existing `RECORD` events (`hash`, `target`, `verdict`) grouped by file; the only new persisted datum is the flag itself on the RECORD event.
 - Disclosure is the point: the itemized lineage list is published with every flag — *hidden N is the sin, not uncertain N* (Bailey-Borwein-López de Prado-Zhu). This ADR is part of that disclosure.
+- `E[max]` floor (numerical footnote, quant-confirmed 2026-06-06): the BLdP expected-max-Sharpe approximation goes spuriously negative for fractional `N_eff < ~1.27`, which would *raise* the DSR above the undeflated PSR. The engine floors `E[max]` at 0 (a deflation null is non-negative by construction). This is inert for phase-1 integer `N_high` and becomes load-bearing only when the phase-2 `N_low` correlation haircut produces a sub-2 effective count.
 
 ## What this does NOT decide
 
