@@ -30,7 +30,17 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Entities — candidates
 
+- [[btc-tyr]] — **active search**: breadth-thrust continuation + institutional-breakout-on-breadth-recovery; fresh premise via the breadth regime gate.
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
+- [[minervini-vcp-breakout]] — breakout-in-uptrend; REJECTED (participate-and-lose), but the broad-thrust edge is real → shelved building block.
+- [[george]] — 52-week-high anchoring ranker; DEPRECATED — lost to a Random baseline (the canonical beta-delivery case).
+- [[vz3]] — pullback mean-reversion (EMA20); passed A+B, REJECTED Block C on a 2024 per-trade-edge sign-flip.
+- [[idunn]] — the promoted [[vz3]]; an off-by-one lookback exposed Aliased Regime Sensitivity → REJECTED Block B.
+- [[mr3]] — mean-reversion proper; REJECTED Block A on multi-dimensional drift (3 tight gate fails).
+- [[dv1]] — bullish-divergence + EMA20; REJECTED near-miss Block A (G1 0.14pp short under the then-30% floor, G6 2008).
+- [[baldr]] — Value Zone Accumulation (dip-buy); rejected at design-time `/condition-screen` — anti-predictive.
+- [[fenrir]] — Sector Rotation Momentum gate; rejected at design-time `/condition-screen` — no detectable edge.
+- [[order-block-breakout-condition]] — order-block breakout entry condition; 50-sym sanity lift didn't replicate on the representative universe.
 
 ## Sources — run summaries
 
