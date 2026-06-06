@@ -6,7 +6,7 @@ status: stable
 tags: [methodology]
 sources: ["strategy_exploration/COMPONENT_FIREWALL_PLAN.md", "strategy_exploration/BACKTESTING_FUNNEL.md"]
 related: ["[[the-funnel]]", "[[participate-and-lose]]", "[[parameter-robustness-g13]]", "[[beta-delivery]]"]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 
 # The Component Firewall
@@ -43,7 +43,9 @@ never derived from sub-block Calmars — the worst drawdown can straddle the A/B
 
 The firewall moved from *relative* baselines (beat-VCP) to **absolute** floors: CAGR ≥ 25% (G1),
 maxDD ≤ 25% (G2), Sharpe ≥ 0.5 (G9), absolute Calmar ≥ 1.5 (G15). *(The G15/G9/G1 recalibration + DSR
-flag are ADRs 0014-0016; tracked in #103/#105/#106 — decisions recorded, code pending as of 2026-06-05.)*
+flag are ADRs 0014-0016. The G1/G9/G15 gate recalibration landed in the `validate-candidate` scripts
+in #106 on 2026-06-06 — G9 is now Sharpe-only (the old Calmar ≥ 0.5 conjunct re-homed as the higher
+G15 floor); the DSR multiple-testing flag in #105.)*
 
 ## G16 — the SPY buy-and-hold baseline (the one surviving *relative* gate)
 

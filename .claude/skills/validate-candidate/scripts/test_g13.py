@@ -268,23 +268,37 @@ class TestVerdictAggregation(unittest.TestCase):
         self.assertFalse(rec["passed"])
         self.assertEqual([g["name"] for g in rec["failing_gates"]], ["G5_cov_edge"])
 
-    def test_build_neighbor_result_parses_g9_sharpe_calmar(self):
-        # Given: a failing G9 gate whose value is the "sharpe=.. calmar=.." string eval-block emits
+    def test_g9_sharpe_only_near_miss_reads_the_numeric_value(self):
+        # Given: a failing G9 gate whose value is the bare Sharpe number eval-block now emits
+        # (Sharpe-only since ADR 0015 — no more "sharpe=.. calmar=.." compound string)
         meta = {"tunable": "t.nAtr", "name": "nAtr", "direction": "x1.1", "step": 1,
                 "classification": "CONTINUOUS", "floor_flag": False}
         eval_a = {"overall": "PASS", "gates": []}
         eval_b = {"overall": "FAIL", "gates": [
-            {"name": "G9_sharpe_calmar", "passed": False, "value": "sharpe=0.75 calmar=0.48"}]}
+            {"name": "G9_sharpe", "passed": False, "value": 0.47}]}
 
         # When
         rec = g13_aggregate.neighbor_result_from_evals(meta, eval_a, eval_b)
 
-        # Then: sharpe/calmar parsed onto the gate so the near-miss test can read them
+        # Then: the gate carries its numeric value and 0.47 (>= 0.5 * 0.9 = 0.45) is a near-miss
         g9 = rec["failing_gates"][0]
-        self.assertAlmostEqual(g9["sharpe"], 0.75)
-        self.assertAlmostEqual(g9["calmar"], 0.48)
-        # And this G9 near-miss (0.75>=0.72, 0.48>=0.45) qualifies as a continuous near-miss
+        self.assertEqual(g9["value"], 0.47)
         self.assertTrue(g13_aggregate.is_continuous_near_miss(g9))
+
+    def test_g9_sharpe_outside_band_is_not_near_miss(self):
+        # Given: G9 Sharpe at 0.40 — below the 0.45 near-miss floor
+        self.assertFalse(g13_aggregate.is_continuous_near_miss(
+            {"name": "G9_sharpe", "value": 0.40}))
+
+    def test_g15_calmar_near_miss_within_ten_percent(self):
+        # Given: G15 absolute Calmar at 1.40 — within 10% rel of the 1.5 floor (>= 1.35)
+        self.assertTrue(g13_aggregate.is_continuous_near_miss(
+            {"name": "G15_calmar", "value": 1.40}))
+
+    def test_g15_calmar_outside_band_is_not_near_miss(self):
+        # Given: G15 Calmar at 1.30 — below the 1.35 near-miss floor (marginal book)
+        self.assertFalse(g13_aggregate.is_continuous_near_miss(
+            {"name": "G15_calmar", "value": 1.30}))
 
     def test_provisional_when_floor_flagged_and_all_pass(self):
         # Given: all neighbors pass but one tunable is floor-pinned (one-sided)

@@ -107,7 +107,7 @@ G16 (ADR 0013) asks whether the candidate beats *just holding SPY* on Calmar ove
 - **PASS** — strategy stitched Calmar ≥ SPY's. The candidate's risk-adjusted return is its own, not index beta. No caveat; note the margin (strategyCalmar − benchmarkCalmar) as a robustness read — a razor-thin pass on a binding block is a "passed but barely".
 - **FAIL** on a binding block → drives **REJECTED** (the engine marked `G16_spy_baseline` failed and the block `overall` FAIL). The candidate delivers beta. Recommend a structurally different premise, not a sizer tweak — Calmar-vs-SPY is about whether the *selection/timing* adds value, which a sizer cannot manufacture.
 - **INCONCLUSIVE** — the block did not bind (stitched OOS < 60 days or strategy stitched maxDD < 3%). Report it, do not treat it as a pass *or* a fail. On Block A/B it's usually a thin-support artifact of that block. **On the 25-year aggregate it is a LOUD flag** (`spy_baseline_inconclusive_aggregate` in the summary): 25y should never be too short or too shallow — surface it prominently and recommend investigating the stitched curve before trusting any verdict.
-- **Calmar-only.** `benchmarkSharpe` is reported for context but never gated — do not narrate a SPY-Sharpe comparison into a verdict. G16 is SPY-*relative*; it is complementary to the absolute Calmar floor (G15/G9), so call out when a candidate clears one but not the other.
+- **Calmar-only.** `benchmarkSharpe` is reported for context but never gated — do not narrate a SPY-Sharpe comparison into a verdict. G16 is SPY-*relative*; it is complementary to the absolute Calmar floor (G15), so call out when a candidate clears one but not the other.
 
 ### 4e. Deflated-Sharpe flag read (multiple-testing readout, ADR 0014)
 
@@ -153,7 +153,8 @@ It is a **reported flag, NEVER an auto-reject**. A human-pruned tree search has 
   - G6 (regime mandate) → fundamental — strategy doesn't survive that regime; pick a different design
   - G7 (chop) → similar; chop survival usually requires structural change
   - G8/G12 (trade count) → universe expansion or signal-frequency tweak
-  - G9 (Sharpe + Calmar) → vol target / position-size adjustment
+  - G9 (Sharpe ≥ 0.5, Sharpe-only since ADR 0015) → vol target / position-size adjustment; a jagged/lumpy return path
+  - G15 (absolute Calmar ≥ 1.5) → return-per-unit-of-pain too low. Either lift CAGR (sizer/ranker) or cut maxDD (exit tightening / position-count) — but a sub-1.2 Calmar (outside the near-miss band) usually signals the premise itself runs too deep a drawdown for its return, i.e. structural. Distinct from G16: G15 is the *absolute* quality floor, G16 is *relative*-to-SPY; a candidate can fail one and clear the other.
   - G16 (SPY baseline) → strategy loses to buy-and-hold SPY on Calmar = delivering beta. Structural — redesign the selection/timing premise; a sizer or exit tweak cannot create SPY-relative alpha.
 - Recommend re-entry via `/strategy-screen`, NOT a re-run of `/validate-candidate` with tweaked params
 

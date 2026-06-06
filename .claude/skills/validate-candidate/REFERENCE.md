@@ -123,7 +123,7 @@ The regime mandates exist BECAUSE crash survival is a binary safety check. A str
 
 ### Why ratio gates use a wider band (20% vs 5%)
 
-G5 (CoV) and G9 (Sharpe/Calmar) are ratio-of-ratios metrics — they're noisier than absolute percentage gates. A 5% relative band is too tight for the underlying signal's natural variance. 20% reflects that CoV / Sharpe oscillate more across sample paths even when underlying behaviour is unchanged. Per quant: "15% is too tight for ratio-of-ratios metrics."
+G5 (CoV), G9 (Sharpe), and G15 (absolute Calmar) are ratio-of-ratios metrics — they're noisier than absolute percentage gates. A 5% relative band is too tight for the underlying signal's natural variance. 20% reflects that CoV / Sharpe / Calmar oscillate more across sample paths even when underlying behaviour is unchanged. Per quant: "15% is too tight for ratio-of-ratios metrics." G9 and G15 are treated identically — both are single-metric continuous ratio gates that became tight-margin eligible when ADR 0015 split the old compound G9 (Sharpe ≥ 0.8 AND Calmar ≥ 0.5, which had no single tight band) into G9 (Sharpe-only) and G15 (Calmar-only).
 
 ### `remediation_hint` derivation
 
@@ -174,8 +174,8 @@ A neighbor PASSES iff both its Block A and Block B evals return `overall == PASS
 | Outcome | Verdict |
 |---|---|
 | All neighbors PASS | **TRADABLE** retained |
-| Exactly 1 neighbor fails, *near-miss on a continuous gate* (G1 within 10% rel of threshold, **G5 failing but ≤ 1.65 — within 0.15 absolute above the 1.5 ceiling**, G9 within 10% rel) AND one-directional (opposite ±1 neighbor passes clean) | **PROVISIONAL** (reason `g13_regime_sensitive_neighbor`) — *subject to the ±2 carve-out below, which may downgrade to REJECTED* |
-| Any neighbor failure on a regime/binary gate (G4, G6, G7), any continuous-gate failure outside its near-miss band (G1/G9 beyond 10% rel; **G5 above 1.65, i.e. beyond 0.15 absolute above the 1.5 ceiling**), or ≥2 failing neighbors | **REJECTED** (reason `g13_parameter_fragile`) |
+| Exactly 1 neighbor fails, *near-miss on a continuous gate* (G1 within 10% rel of threshold → ≥ 22.5; **G5 failing but ≤ 1.65 — within 0.15 absolute above the 1.5 ceiling**; G9 within 10% rel → Sharpe ≥ 0.45; G15 within 10% rel → Calmar ≥ 1.35) AND one-directional (opposite ±1 neighbor passes clean) | **PROVISIONAL** (reason `g13_regime_sensitive_neighbor`) — *subject to the ±2 carve-out below, which may downgrade to REJECTED* |
+| Any neighbor failure on a regime/binary gate (G4, G6, G7), any continuous-gate failure outside its near-miss band (G1/G9/G15 beyond 10% rel; **G5 above 1.65, i.e. beyond 0.15 absolute above the 1.5 ceiling**), or ≥2 failing neighbors | **REJECTED** (reason `g13_parameter_fragile`) |
 
 **No gate-specific escape valve.** An earlier draft forgave a single neighbor that failed only on G5 or G7 — but those are precisely the gates the motivating failure tripped (CoV explosion, chop sign-flip). Whitelisting them fits the gate to the known failure and reopens the exact door G13 exists to close. The only allowance is a continuous-gate *near-miss* (within sampling error of the threshold), which is genuine noise, not fragility.
 
@@ -205,6 +205,24 @@ G14 closes the gap between a *validated research candidate* and the *shippable c
 **Scope.** G14 also fires on any change to an existing first-class condition's per-bar `evaluate()` logic (or a history-buffer constant it depends on), not only inline→promotion — that change invalidates the firewall verdict of every strategy referencing the condition. That half ships as a `/pre-commit`-adjacent advisory until a condition-class → live-verdict registry exists; the promotion case binds now.
 
 **Why G14 is not in `eval-block.py`.** `eval-block.py` evaluates one walk-forward result against the per-window v4 gates. G14 is a cross-*config* trade-list diff over a single backtest — a fundamentally different computation with no per-window structure. It lives in `/verify-promotion` (invoked by `run-pipeline.sh` before Block A) and is surfaced by `summarize.py`, not folded into the per-block evaluator.
+
+## G9 — Absolute Sharpe floor (Sharpe-only, ≥ 0.5)
+
+G9 (ADR 0015) is the *absolute* Sharpe floor. It was previously a compound gate (`Sharpe ≥ 0.8 AND Calmar ≥ 0.5`); ADR 0015 drops the Calmar conjunct and lowers Sharpe to 0.5.
+
+**Why drop the Calmar conjunct.** The old `Calmar ≥ 0.5` was fully dominated by G1 ∧ G2 — CAGR ≥ 25% and maxDD ≤ 25% together force Calmar ≥ 1.0, so a 0.5 conjunct caught nothing while *documenting 0.5 as the firewall's stated risk-adjusted opinion*, which is misleading. It is re-homed as the standalone, higher G15 (≥ 1.5). Splitting Sharpe-quality and Calmar-quality into separate gates also lets the verdict name which dimension failed instead of burying it in one ANDed gate.
+
+**Why lower Sharpe 0.8 → 0.5.** A part-in-cash long-only timer enters cash days into the daily series as zero-return observations that drag the per-day mean (the same bias ADR 0013 used to drop the *relative* Sharpe gate). 0.8 is an always-invested-equity number; a timer running a genuine ~0.5–0.7 in-market Sharpe is tradable and would be wrongly rejected. Unlike the relative gate, an absolute fixed floor does not regime-fit to the bull tape, and it still catches a jagged/lumpy path that Calmar's single-extremum maxDD misses — so keep an absolute Sharpe floor, recalibrated to 0.5. (The idle-cash crediting fix wires the credit as the Sharpe `rf`, so it's Sharpe-neutral — ADR 0016 — and 0.5 needs no revisit on that account.)
+
+## G15 — Absolute Calmar floor (≥ 1.5)
+
+G15 (ADR 0015) is the *absolute* minimum-tradable-quality floor: `Calmar ≥ 1.5` on the stitched-OOS curve, binding on Block A, Block B, and the 25-year aggregate; informational on Block C (the same binding/informational pattern as every other binding gate). It is evaluated in `eval-block.py` directly from `aggregateOosRiskMetrics.calmarRatio` — no engine round-trip (unlike G16).
+
+**Why an explicit gate, not a tighter G2.** Lowering G1 to 25% dropped the *implied* Calmar floor (G1 ∧ G2 ⇒ Calmar ≥ 25/25 = 1.0, down from the 1.2 the 30% floor implied) to the bare edge of tradability. maxDD (G2) and Calmar are partially the same lever via `Calmar = CAGR / |maxDD|`, but they are not interchangeable: G2 is the *appetite* dimension ("how much pain"), G15 is the *quality* dimension ("return per unit of pain"). Tightening G2 to manufacture a ratio would also reject a high-CAGR / wide-but-acceptable-maxDD candidate purely for breaching a cap tightened for the wrong reason. So G2 stays a pure 25% pain cap and G15 binds quality directly — the binding region is the intersection (a 25%-CAGR candidate now needs maxDD ≤ 16.7%; a 40%-CAGR one can spend the full 25% budget), which correctly demands more risk-discipline from low-return candidates.
+
+**Why 1.5.** 1.0 is marginal, not tradable — the practitioner Calmar/MAR ladder puts 1.0–2.0 as the tradable band, and an *unlevered long-only* book needs the bar higher because there is no leverage drag mechanically suppressing the ratio. The stitched-OOS curve also understates maxDD (it omits IS-window crashes — ADR 0005), so a *measured* Calmar is biased high vs a live curve and the floor must sit above 1.0 to absorb that bias. Not 1.3 (inside the bias band), not 2.0 (overfits the single passer, risks an empty feasible set). 1.5 is the defensible minimum-tradable line with margin.
+
+**Relationship to G16.** G15 is the *absolute* floor (minimum quality regardless of regime); G16 (ADR 0013) is the *relative* floor (beat buy-and-hold SPY, regime-adaptive). They catch different failures and coexist — a candidate can clear absolute 1.5 yet lose to a 2.0-Calmar SPY block, or beat SPY yet sit below 1.5 in a weak-SPY block. Both bind. As a continuous ratio gate, G15 is tight-margin eligible exactly like G9 (20%-rel in the NEAR_MISS band, 10%-rel in the G13 neighbor band).
 
 ## G16 — SPY buy-and-hold Calmar baseline
 

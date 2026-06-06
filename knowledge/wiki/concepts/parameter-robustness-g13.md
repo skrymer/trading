@@ -6,7 +6,7 @@ status: stable
 tags: [methodology, failure-mode]
 sources: ["feedback_parameter_fragility_must_be_verified"]
 related: ["[[aliased-regime-sensitivity]]", "[[component-firewall]]"]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 
 # Parameter Robustness (G13)
@@ -34,9 +34,11 @@ structural feature the variable name claims.
 
 VZ3-s3 had an off-by-one in its higher-low lookback (read 9 trading days back, not 10). Under the buggy
 `lookback=9` it was **TRADABLE** in the smoke test. Under the corrected `lookback=10` (Idunn) it was
-**REJECTED** at Block B (G1 CAGR 29.36% < 30%, G5 CoV 2.86, G7 2018-Q4 −0.45%). The 1-day shift moved
-Block B aggregate edge +0.48% → +0.12%, flipped the 2018-Q4 chop sign, and exploded G5 CoV 0.70 → 2.86 —
-far beyond 220-trade sample noise.
+**REJECTED** at Block B (G5 CoV 2.86, G7 2018-Q4 −0.45%; its CAGR 29.36% failed the 30% G1 floor in
+force then, but *clears* the since-lowered 25% floor of ADR 0015 — the rejection never hinged on G1).
+The 1-day shift moved Block B aggregate edge +0.48% → +0.12%, flipped the 2018-Q4 chop sign, and exploded
+G5 CoV 0.70 → 2.86 — far beyond 220-trade sample noise. The example stands under the recalibrated gates:
+G13 catches parameter fragility through the CoV explosion + chop sign-flip, not the CAGR floor.
 
 ## The selection-bias trap
 
