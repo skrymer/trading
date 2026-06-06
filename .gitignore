@@ -64,6 +64,9 @@ logs/
 # Claude scheduled tasks runtime lock
 .claude/scheduled_tasks.lock
 
+# Claude per-developer local auto-memory store (kept local, not shared)
+/.claude/memory/
+
 # Python bytecode
 __pycache__/
 *.pyc
