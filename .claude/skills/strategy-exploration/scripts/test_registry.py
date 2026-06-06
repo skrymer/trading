@@ -49,5 +49,63 @@ class RegistryAggregatesDeadHashesAcrossDossiers(unittest.TestCase):
         self.assertEqual(closure, {"bbbb11", "cccc22"})
 
 
+class CollectFirewallTrialsForDsrFlag(unittest.TestCase):
+    """The firewall-trial register feeding the Deflated-Sharpe flag (ADR 0014).
+
+    A trial is a distinct config_hash that reached the firewall — a RECORD carrying a
+    /validate-candidate verdict (any of TRADABLE/PROVISIONAL/NEAR_MISS/REJECTED/INCONCLUSIVE,
+    incl. a rejected run). Counted GLOBALLY across every dossier (shared data = one experiment),
+    tagged with its source file (the lineage = clustering boundary for N_eff).
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def test_firewall_records_collected_across_dossiers(self):
+        # Given two candidate dossiers, each with one firewall RECORD (a rejected run still counts)
+        a = os.path.join(self.dir, "MR4.jsonl")
+        b = os.path.join(self.dir, "MR5.jsonl")
+        dossier.append(a, {"ev": "RECORD", "target": "validate:final", "verdict": "REJECTED",
+                           "state": "DEAD", "hash": "a91f3c", "artifact": "/tmp/a.json"})
+        dossier.append(b, {"ev": "RECORD", "target": "validate:final", "verdict": "TRADABLE",
+                           "state": "SETTLED", "hash": "ffffff", "artifact": "/tmp/b.json"})
+
+        # When the firewall-trial register is collected across the directory
+        trials = registry.collect_firewall_trials(self.dir)
+
+        # Then both trials are present, each tagged with its lineage (source dossier file)
+        by_hash = {t["hash"]: t for t in trials}
+        self.assertEqual(set(by_hash), {"a91f3c", "ffffff"})
+        self.assertEqual(by_hash["a91f3c"]["lineage"], "MR4")
+        self.assertEqual(by_hash["ffffff"]["lineage"], "MR5")
+
+    def test_fired_without_record_is_not_a_trial(self):
+        # Given a dossier with an in-flight fire that never produced a RECORD (no Sharpe observed)
+        a = os.path.join(self.dir, "MR4.jsonl")
+        dossier.append(a, {"ev": "FIRED", "target": "validate:final", "status": "PENDING",
+                           "hash": "a91f3c"})
+
+        # When the firewall-trial register is collected
+        trials = registry.collect_firewall_trials(self.dir)
+
+        # Then the pending fire is excluded — a trial requires an observed firewall Sharpe
+        self.assertEqual(trials, [])
+
+    def test_screen_record_is_not_a_firewall_trial(self):
+        # Given a dossier whose only RECORD is a strategy-screen result (PASS/FAIL, a cheaper metric)
+        a = os.path.join(self.dir, "MR4.jsonl")
+        dossier.append(a, {"ev": "RECORD", "target": "screen", "verdict": "PASS",
+                           "state": "SETTLED", "hash": "a91f3c"})
+
+        # When the firewall-trial register is collected
+        trials = registry.collect_firewall_trials(self.dir)
+
+        # Then the screen survivor is excluded — it competed on WFE/edge, not the firewall Sharpe
+        self.assertEqual(trials, [])
+
+
 if __name__ == "__main__":
     unittest.main()

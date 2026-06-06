@@ -109,6 +109,19 @@ G16 (ADR 0013) asks whether the candidate beats *just holding SPY* on Calmar ove
 - **INCONCLUSIVE** — the block did not bind (stitched OOS < 60 days or strategy stitched maxDD < 3%). Report it, do not treat it as a pass *or* a fail. On Block A/B it's usually a thin-support artifact of that block. **On the 25-year aggregate it is a LOUD flag** (`spy_baseline_inconclusive_aggregate` in the summary): 25y should never be too short or too shallow — surface it prominently and recommend investigating the stitched curve before trusting any verdict.
 - **Calmar-only.** `benchmarkSharpe` is reported for context but never gated — do not narrate a SPY-Sharpe comparison into a verdict. G16 is SPY-*relative*; it is complementary to the absolute Calmar floor (G15/G9), so call out when a candidate clears one but not the other.
 
+### 4e. Deflated-Sharpe flag read (multiple-testing readout, ADR 0014)
+
+The funnel runs a multi-month, ~10-premise × many-variant search against ONE 2000–2025 dataset. The Deflated-Sharpe flag quantifies how much of *this* survivor's stitched-OOS Sharpe is plausibly best-of-search luck — the Deflated Sharpe Ratio (Bailey–López de Prado) of the candidate's Sharpe against the expected maximum over `N_eff` firewall trials. It is assembled by the state-machine (`explore.py dsr-flag` → `POST /api/risk/deflated-sharpe`) and surfaced on the dossier's `DSR_FLAG` event.
+
+It is a **reported flag, NEVER an auto-reject**. A human-pruned tree search has no honest scalar N, so the value is *directionally informative but quantitatively soft*. It **augments**, does not replace, the binding screen-stage G5 variant-count gate (different stage, different role). Read it, never gate on it.
+
+- **Always publish the itemized lineage list** (one entry per dossier file with its firewall-trial count). *Hidden N is the sin, not uncertain N.* If the flag has no lineage list, treat the run as incomplete.
+- **AMBER** when the deflated Sharpe (the DSR probability) drops below 0.95 at the `N_high` endpoint. **CLEAR** otherwise.
+- **Phase 1 ships the `N_high` endpoint only.** Surface this caveat verbatim:
+  > "Effective-N: N_high endpoint only (phase 1) — correlation-haircut N_low / red tier pending. AMBER here means PSR < 0.95 at the *most-deflated* endpoint and is an unresolved **upper bound on severity**: this candidate is at-least-amber and may be RED once the within-lineage correlation haircut lands. Treat phase-1 amber as 'flagged, severity-not-yet-bounded-below,' never as 'merely amber.' CLEAR is exact and final — N_low can only deflate further, so a phase-1 CLEAR cannot become flagged in phase 2."
+- A CLEAR phase-1 flag is provably stable (PSR is monotone in N and `N_high ≥ N_low`), so a clear candidate needs no re-grading when N_low ships — only the amber set does. Note that when reporting CLEAR.
+- The flag's `nObs`/skew/kurtosis are the candidate's own (skew/kurtosis default Gaussian in phase 1 — the firewall summary does not carry the return-shape moments; call that out if the DSR sits near the 0.95 boundary, where the Gaussian approximation matters most).
+
 ### 5. Verdict-specific next step recommendation
 
 **TRADABLE**:
@@ -154,7 +167,8 @@ G16 (ADR 0013) asks whether the candidate beats *just holding SPY* on Calmar ove
 6. **G13 parameter-robustness read** (only if `g13_advisory` present — advisory yellow flag, names any fragile tunable; never overrides the deterministic verdict)
 7. **G14 implementation-invariance read** (only if `g14_implementation_invariance` present — PASS = verdict transfers; DIFFERS = inline verdict void, promoted result authoritative, name the culprit symbol; never narrate DIFFERS into a soft PASS)
 8. **G16 SPY-baseline read** (per binding layer: PASS margin / FAIL = beta-delivery REJECTED / INCONCLUSIVE; surface a 25y-aggregate INCONCLUSIVE as a loud flag)
-9. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
+9. **Deflated-Sharpe flag read** (only if a `DSR_FLAG` event is present — AMBER/CLEAR at `N_high`, the itemized lineage list, the phase-1 caveat verbatim; reported, never gating)
+10. **Recommended next step** (per the verdict-specific rules above, includes paper-trade plan for PROVISIONAL and clean TRADABLE)
 
 ## Critical "don't"s
 
@@ -167,4 +181,5 @@ G16 (ADR 0013) asks whether the candidate beats *just holding SPY* on Calmar ove
 - **Don't recommend "average across seeds" as a remediation.** The right move on seed-dispersion findings is more seeds, not averaging.
 - **Don't speculate about regimes the firewall doesn't test.** Block C is 2021-2025; don't pretend to know how the strategy would fare in 2027.
 - **Don't treat a G14 DIFFERS as a rejection, or a G14 PASS as a verdict.** DIFFERS voids the *reusable inline* verdict; the promoted config's binding-layer result is the actual verdict. PASS only certifies the inline validation was reusable — it never substitutes for the binding layers.
+- **Don't gate on the Deflated-Sharpe flag.** It is a reported multiple-testing readout (ADR 0014), never an auto-reject — a TRADABLE candidate carrying an AMBER flag stays TRADABLE. And don't narrate a phase-1 AMBER as "merely amber" (the red tier is pending N_low) or a CLEAR as "no multiple-testing exposure" (CLEAR means below the flag threshold at the searched N, not zero).
 - **Don't gate G16 on Sharpe, and don't recompute the Calmar comparison yourself.** The engine emits the G16 verdict (Calmar-only, by design); you interpret `spy_baseline_verdict`, never re-derive it. An INCONCLUSIVE is not a quiet pass — and an INCONCLUSIVE 25y aggregate is a loud flag, not a footnote.
