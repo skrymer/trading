@@ -4,7 +4,7 @@ title: Index — content catalog
 summary: One-line catalog of every wiki page — read first on any query, then open the relevant pages.
 status: active
 tags: [index]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 
 # Index — read this first
@@ -35,6 +35,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 ## Sources — run summaries
 
 - [[2026-06-04-gjallarhorn-null]] — the conditional within-regime NULL that confirmed Gjallarhorn's timing alpha.
+- [[2026-06-06-gate-basis-and-cagr-floor-feasibility]] — quant: KEEP gates on the cost+idle-cash engine; 25% CAGR floor reachable; funnel dies on regime-survival, not the return floor.
 
 ## Synthesis — cross-cuts
 

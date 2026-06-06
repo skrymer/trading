@@ -47,6 +47,14 @@ flag are ADRs 0014-0016. The G1/G9/G15 gate recalibration landed in the `validat
 in #106 on 2026-06-06 — G9 is now Sharpe-only (the old Calmar ≥ 0.5 conjunct re-homed as the higher
 G15 floor); the DSR multiple-testing flag in #105.)*
 
+**Gate basis re-confirmed against the cost + idle-cash engine (quant, 2026-06-06).** After #101
+(per-trade cost, net 10 bps default) and #103 (idle-cash crediting, default ON) landed, the gates were
+re-reviewed and **all held — run the firewall on that realistic default basis, no recalibration**
+([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]). Idle-cash is Sharpe-neutral by construction
+(zero effect on G9) and only eases Calmar (G15/G16) in the correct direction; 10 bps cost is a
+sub-half-point CAGR / sub-0.05 Sharpe drag inside every margin; the two roughly cancel for a part-in-cash
+candidate. Pinning to the old cost-free/0%-cash basis would re-introduce the biases those changes fixed.
+
 ## G16 — the SPY buy-and-hold baseline (the one surviving *relative* gate)
 
 The move to absolute floors kept exactly one relative gate, because it asks what no absolute floor can:
