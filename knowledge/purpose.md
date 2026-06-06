@@ -4,7 +4,7 @@ title: Purpose — the hunt
 summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, the four deprecated premise classes, and the open questions driving the search.
 status: active
 tags: [purpose, thesis]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 
 # Purpose — what we're hunting and why
@@ -17,7 +17,10 @@ schema in [`CLAUDE.md`](CLAUDE.md). This is the evolving thesis; revise it as th
 Find **one tradable long strategy** for a single operator on US equities, validated through the
 3-block firewall ([[the-funnel]]). "Tradable" is the operator's frozen bar:
 
-- **CAGR ≥ 25%** (lowered from 30% on 2026-06-05; operator appetite, not quant-derived — ADR 0015)
+- **CAGR ≥ 25%** (lowered from 30% on 2026-06-05; operator appetite, not quant-derived — ADR 0015).
+  Quant-confirmed **reachable** 2026-06-06 ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]): it sits
+  at ~the 85–90th percentile of the honest survivor distribution, *below* the demonstrated clean ceiling
+  (~30–40%; VZ3-s3 30.7%, Idunn Block A 41% both cleared it). Holding it costs *patience*, not an empty set.
 - **absolute Calmar ≥ 1.5** (G15) and **Sharpe ≥ 0.5** (G9)
 - survives [[the-funnel]] end to end: condition-screen → strategy-screen → validate-candidate →
   promotion/G14 → monte-carlo, with no data-mining shortcuts.
@@ -53,7 +56,13 @@ reproducible reason, not bad luck:
 
 - Is there a long premise with **genuine cross-sectional resolution** that survives narrow-leadership
   tape, or is every long premise structurally regime-beta and the real answer a *regime-transition
-  layer* (#83) rather than a better entry?
-- Does crediting idle cash ~3% (#103) and per-trade cost (#101, shipped) move any shelved candidate
-  across a gate?
+  layer* (#83) rather than a better entry? **This is the binding wall.** The 2026-06-06 feasibility
+  consult ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]) sharpened it: the funnel is empty
+  because every premise dies on regime-survival / fragility / beta gates (G4/G6/G7/G11/G13), *not* on the
+  return floor — no robust edge was ever rejected merely for sub-25% CAGR. Effort moves the feasible set
+  here, not at G1.
+- ~~Does crediting idle cash ~3% (#103) and per-trade cost (#101, shipped) move any shelved candidate
+  across a gate?~~ **Resolved (2026-06-06):** no — idle-cash is Sharpe-neutral and only modestly eases
+  Calmar; 10 bps cost is a sub-half-point drag; the two roughly cancel for a part-in-cash book. Both
+  shipped; gates re-confirmed unchanged, run on the realistic basis.
 - Can a crisis-bottom timer ever be validated standalone, or only as a composite leg (#93)?

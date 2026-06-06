@@ -4,7 +4,7 @@ title: Overview — state of the search
 summary: State of the search — zero tradable strategies, four deprecated premise classes, one shelved overlay (Gjallarhorn), active search BTC+Tyr.
 status: active
 tags: [overview]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 
 # Overview — state of the search
@@ -30,8 +30,9 @@ premise class chosen to avoid all four deprecated ones.
 | BTC+Tyr candidate | active search; RSP ingest #99; `strategy_exploration/BTC_TYR_STRATEGY_DEVELOPMENT.md` |
 | Gjallarhorn composite | unblocked by #93 (nested condition groups); needs the breakout+Gjallarhorn A/B as one unit |
 | Regime-transition layer | #83 — the missing piece that would host the shelved breakout + Gjallarhorn |
-| Firewall recalibration | ADRs 0013-0016 recorded; engine/skill code pending (#102/#103/#105/#106) |
+| Firewall recalibration | ✅ shipped — G16 (#102), DSR flag (#105), G1/G9/G15 gate recalibration (#106, 2026-06-06). Gates re-confirmed against the cost+idle-cash engine — KEEP, no recalibration ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]) |
 | Transaction-cost model | ✅ shipped (#101) — all metrics now net-by-default 10 bps |
+| Idle-cash crediting | ✅ shipped (#103, ADR 0016) — idle cash earns the historical 3-mo T-bill rate, default ON, Sharpe-neutral |
 
 ## What would change this page
 
