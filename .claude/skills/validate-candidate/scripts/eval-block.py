@@ -133,24 +133,26 @@ def main():
     agg_sharpe = rm.get("sharpeRatio")
     agg_calmar = rm.get("calmarRatio")
 
-    # G1: CAGR floor. Quant-verified at max(10%, SPY+2%, 30%) but 30% dominates
-    # for every block — Block A 2000-2014 SPY CAGR ~4-5%, Block B 2014-2021 ~12-15%,
-    # Block C 2021-2025 ~10-12%; SPY+2 < 30 in all cases. Hardcoded as 30 so
-    # summarize.py's GATE_METADATA stays in sync without a runtime-flag desync risk.
-    # Revisit if SPY CAGR ever exceeds 28% over a relevant block.
+    # G1: CAGR floor — operator appetite (ADR 0015), NOT a quant-derived number. Lowered
+    # 30 -> 25 when the operator dropped the tradability floor; this is the trigger for the
+    # G15 absolute-Calmar gate, not a risk-adjusted decision. SPY+2 stays below 25 for every
+    # block (Block A 2000-2014 SPY CAGR ~4-5%, Block B 2014-2021 ~12-15%, Block C 2021-2025
+    # ~10-12%), so 25 dominates max(10%, SPY+2%). Hardcoded as 25 so summarize.py's
+    # GATE_METADATA stays in sync without a runtime-flag desync risk. Revisit if SPY CAGR
+    # ever exceeds 23% over a relevant block (SPY+2 would then bind above 25).
     #
     # When N<4 windows, G4b enforces the same CAGR check (block-aggregate >=
     # g1_floor). Emitting G1 too would double-count one underlying metric and
     # eat two of the ≤2 tight-margin slots in NEAR_MISS evaluation. So G1 is
     # skipped when G4b will fire.
-    g1_floor = 30.0
+    g1_floor = 25.0
     gates = []
     if n >= 4:
         gates.append(gate(
             "G1_cagr",
             agg_cagr is not None and agg_cagr >= g1_floor,
             agg_cagr,
-            f">= {g1_floor:.2f}% (max of 10, SPY+2, 30) — 30 dominates",
+            f">= {g1_floor:.2f}% (max of 10, SPY+2, 25) — 25 dominates",
         ))
     gates.append(gate(
         "G2_dd_aggregated",
@@ -274,14 +276,30 @@ def main():
         ">= 30 per OOS window",
     ))
 
-    # G9: Sharpe + Calmar
-    sharpe_ok = agg_sharpe is not None and agg_sharpe >= 0.8
-    calmar_ok = agg_calmar is not None and agg_calmar >= 0.5
+    # G9: absolute Sharpe floor (ADR 0015). Sharpe-only — the old Calmar>=0.5 conjunct was
+    # fully dominated by G1∧G2's implied 1.0 and is re-homed as the standalone G15 (>=1.5).
+    # 0.5 (down from 0.8): a part-in-cash long-only timer's zero-return cash days drag the
+    # per-day mean, so 0.8 (an always-invested number) wrongly rejects a genuinely-tradable
+    # ~0.5-0.7 in-market Sharpe. A fixed absolute floor doesn't regime-fit and still catches
+    # a jagged/lumpy path that Calmar's single-extremum maxDD misses.
     gates.append(gate(
-        "G9_sharpe_calmar",
-        sharpe_ok and calmar_ok,
-        f"sharpe={agg_sharpe} calmar={agg_calmar}",
-        "Sharpe >= 0.8 AND Calmar >= 0.5",
+        "G9_sharpe",
+        agg_sharpe is not None and agg_sharpe >= 0.5,
+        agg_sharpe,
+        "Sharpe >= 0.5",
+    ))
+
+    # G15: absolute Calmar floor (ADR 0015). Binding on Block A / Block B / 25y aggregate,
+    # informational on Block C (like every other binding gate — Block C never binds the run).
+    # 1.5, not 1.0 (the G1∧G2 implied marginal floor) and not 2.0 (overfits the single passer):
+    # an unlevered long-only book needs the bar above 1.0 because the stitched-OOS curve omits
+    # IS-window crashes and so reads Calmar biased high vs a live curve. Distinct from G16's
+    # SPY-*relative* Calmar gate (ADR 0013) — this is the absolute minimum-tradable-quality floor.
+    gates.append(gate(
+        "G15_calmar",
+        agg_calmar is not None and agg_calmar >= 1.5,
+        agg_calmar,
+        "Calmar >= 1.5 (absolute floor; binding A/B/25y, informational C)",
     ))
 
     # G12: block-aggregate trade count

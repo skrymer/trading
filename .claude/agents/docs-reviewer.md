@@ -1,6 +1,6 @@
 ---
 name: docs-reviewer
-description: Reviews CLAUDE.md files for accuracy against the current codebase. Checks version numbers, project structure, listed components, and references to deleted features. Use as part of pre-commit workflow.
+description: Reviews CLAUDE.md files for accuracy against the current codebase. Checks version numbers, project structure, listed components, references to deleted features, ADR/CONTEXT compliance, public-API skill docs, and (on methodology changes) knowledge/ research-wiki freshness. Use as part of pre-commit workflow.
 tools: Read, Bash, Glob, Grep, Edit
 model: opus
 permissionMode: bypassPermissions
@@ -97,6 +97,22 @@ For each `Changed under: <path>` block in the input:
 
 Skip skill files that don't appear in the impact-check output — no need to read them.
 
+## Task: Knowledge-wiki freshness (when invoked with wiki-impact-check output)
+
+When the caller passes the output of `.claude/scripts/wiki-impact-check.sh`, the change touched strategy-research **methodology surfaces** the `knowledge/` wiki restates (firewall gates, funnel mechanics, failure-mode definitions). The wiki is the analyst-consulted research layer (see `knowledge/CLAUDE.md`); a methodology change that leaves it stale silently corrupts future verdicts.
+
+1. Read the diff for the changed methodology surfaces (the files the script listed):
+
+   ```bash
+   git diff HEAD -- docs/adr CONTEXT.md .claude/skills/validate-candidate .claude/skills/strategy-screen .claude/skills/condition-screen .claude/skills/strategy-exploration .claude/agents
+   ```
+
+2. From the diff, extract what actually changed that the wiki might restate: a **threshold** (e.g. `30% → 25%`), a **gate name** (e.g. `G9_sharpe_calmar → G9_sharpe`, new `G15`), a **term/definition**, or a **failure-mode rule**. Note both the OLD and NEW value.
+
+3. `grep -rn` the OLD values across `knowledge/wiki/concepts/` and `knowledge/wiki/entities/` (and `knowledge/purpose.md` / `overview.md`). A hit on an old threshold/gate-name/term that the diff just changed is drift. Distinguish **stale current-state claims** (must fix — "the floor is 30%") from **dated historical records** (a `sources/` run summary or a worked example citing the value in force at the time — leave, or annotate that it's since changed).
+
+4. Report — do **not** auto-fix. The wiki is operator-curated and its write path is `/wiki-ingest` (which also files a `sources/` summary + `log.md` line); an ad-hoc edit here bypasses that discipline. Emit `WIKI DRIFT` per hit with the `file:line`, the stale value, and what it should now reflect. If the grep finds no stale current-state references, report `UP TO DATE`.
+
 ## Output Format
 
 Return a structured result with:
@@ -104,7 +120,9 @@ Return a structured result with:
 1. **CLAUDE.md status**: `UP TO DATE` or `UPDATED`
 2. **Skill files status**: `UP TO DATE` or `UPDATED` or `SKIPPED (no impact)` or `MANUAL REVIEW NEEDED`
 3. **ADR/CONTEXT compliance**: `COMPLIANT` or `VIOLATIONS FOUND` (or `COMPLIANT (no ADR/CONTEXT-governed changes)`)
-4. **Changes made** (if any): List each file updated and what was changed
-5. **ADR/CONTEXT findings** (if any): One bullet per `ADR CONFLICT` / `CONTEXT DRIFT` / `UNDOCUMENTED DECISION`, each with the ADR number or term, `file:line`, and the one-line divergence. These are NOT auto-fixed.
-6. **Manual-review items** (if any): One bullet per skill change that requires a human decision, with file path + what's now wrong
-7. **Verification**: Confirm which CLAUDE.md and skill files were checked, and which ADRs were read
+4. **Knowledge-wiki freshness**: `UP TO DATE` or `DRIFT FOUND` or `SKIPPED (no impact)`
+5. **Changes made** (if any): List each file updated and what was changed
+6. **ADR/CONTEXT findings** (if any): One bullet per `ADR CONFLICT` / `CONTEXT DRIFT` / `UNDOCUMENTED DECISION`, each with the ADR number or term, `file:line`, and the one-line divergence. These are NOT auto-fixed.
+7. **WIKI DRIFT findings** (if any): One bullet per stale `knowledge/` reference, with `file:line`, the stale value, and what it should now reflect. These are NOT auto-fixed — recommend `/wiki-ingest`.
+8. **Manual-review items** (if any): One bullet per skill change that requires a human decision, with file path + what's now wrong
+9. **Verification**: Confirm which CLAUDE.md and skill files were checked, which ADRs were read, and (if run) which `knowledge/` pages were grepped

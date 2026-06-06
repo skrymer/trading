@@ -50,7 +50,10 @@ def run_block(windows, block, **agg):
         "aggregateOosTrades": agg.get("trades", sum(w["outOfSampleTrades"] for w in windows)),
         "aggregateOosCagr": agg.get("cagr", 35.0),
         "aggregateOosMaxDrawdownPct": agg.get("dd", 10.0),
-        "aggregateOosRiskMetrics": {"sharpeRatio": 1.2, "calmarRatio": 1.0},
+        "aggregateOosRiskMetrics": {
+            "sharpeRatio": agg.get("sharpe", 1.2),
+            "calmarRatio": agg.get("calmar", 2.0),
+        },
     }
     if "spy" in agg:
         data["spyBaselineComparison"] = {
@@ -179,6 +182,99 @@ class TestG16SpyBaseline(unittest.TestCase):
         # Then it does not fail the block but is surfaced as a loud aggregate flag
         self.assertTrue(gate_named(summary, "G16_spy_baseline")["passed"])
         self.assertTrue(summary["spy_baseline_inconclusive_aggregate"])
+
+
+class TestG1CagrFloor(unittest.TestCase):
+    def test_g1_passes_at_25_percent(self):
+        # Given a binding block whose aggregate CAGR sits exactly at the recalibrated 25% floor
+        summary = run_block([window(f"200{i}-01-01") for i in range(4)], "A", cagr=25.0)
+
+        # Then G1 passes (floor lowered from 30 to 25 per ADR 0015)
+        self.assertTrue(gate_named(summary, "G1_cagr")["passed"])
+
+    def test_g1_fails_just_below_25_percent(self):
+        # Given aggregate CAGR of 24.9% — a hair under the new floor
+        summary = run_block([window(f"200{i}-01-01") for i in range(4)], "A", cagr=24.9)
+
+        # Then G1 fails (it would have passed under the old 30 floor only via... no — still fails)
+        self.assertFalse(gate_named(summary, "G1_cagr")["passed"])
+
+    def test_g1_passes_at_26_percent_that_old_floor_rejected(self):
+        # Given 26% CAGR — below the retired 30% floor but above the new 25% floor
+        summary = run_block([window(f"200{i}-01-01") for i in range(4)], "A", cagr=26.0)
+
+        # Then G1 now passes where the old framework rejected it
+        self.assertTrue(gate_named(summary, "G1_cagr")["passed"])
+
+
+class TestG9SharpeOnly(unittest.TestCase):
+    def test_g9_passes_at_sharpe_floor_regardless_of_calmar(self):
+        # Given Sharpe exactly 0.5 but a Calmar (1.6) that the old conjunct would still pass —
+        # the point is G9 reads ONLY Sharpe now
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", sharpe=0.5, calmar=1.6)
+
+        # Then G9 passes on Sharpe alone and the gate is renamed off the compound key
+        g9 = gate_named(summary, "G9_sharpe")
+        self.assertIsNotNone(g9)
+        self.assertTrue(g9["passed"])
+        self.assertIsNone(gate_named(summary, "G9_sharpe_calmar"))
+
+    def test_g9_fails_below_sharpe_floor(self):
+        # Given Sharpe 0.49 — just under the recalibrated 0.5 floor
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", sharpe=0.49, calmar=3.0)
+
+        # Then G9 fails
+        self.assertFalse(gate_named(summary, "G9_sharpe")["passed"])
+
+    def test_g9_ignores_low_calmar_when_sharpe_clears(self):
+        # Given a high Sharpe but a Calmar (0.4) the old conjunct would have FAILED on
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", sharpe=1.5, calmar=0.4)
+
+        # Then G9 itself passes (Calmar quality is now G15's job, not G9's)
+        self.assertTrue(gate_named(summary, "G9_sharpe")["passed"])
+
+
+class TestG15AbsoluteCalmar(unittest.TestCase):
+    def test_g15_passes_at_1_5(self):
+        # Given Calmar exactly at the 1.5 absolute floor on a binding block
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", calmar=1.5)
+
+        # Then G15 passes
+        g15 = gate_named(summary, "G15_calmar")
+        self.assertIsNotNone(g15)
+        self.assertTrue(g15["passed"])
+
+    def test_g15_fails_just_below_1_5(self):
+        # Given Calmar 1.49 — a hair under the floor
+        summary = run_block([window("2008-01-01", edge=2.0)], "A", calmar=1.49)
+
+        # Then G15 fails and drags the binding block overall to FAIL
+        self.assertFalse(gate_named(summary, "G15_calmar")["passed"])
+        self.assertEqual("FAIL", summary["overall"])
+
+    def test_g15_binds_on_block_b(self):
+        # Given a sub-floor Calmar on binding Block B
+        summary = run_block([window("2020-01-01", edge=2.0)], "B", calmar=1.0)
+
+        # Then G15 is present and failed (binding on A/B/25y)
+        self.assertFalse(gate_named(summary, "G15_calmar")["passed"])
+
+    def test_g15_binds_on_25y_aggregate(self):
+        # Given a sub-floor Calmar on the 25y aggregate
+        summary = run_block([window("2008-01-01", edge=2.0)], "25y", calmar=1.2)
+
+        # Then G15 fails the 25y aggregate
+        self.assertFalse(gate_named(summary, "G15_calmar")["passed"])
+
+    def test_g15_informational_on_block_c(self):
+        # Given a sub-floor Calmar on informational Block C
+        summary = run_block([window("2024-01-01", edge=0.1)], "C", calmar=1.0)
+
+        # Then G15 is reported as failed but Block C never binds (overall doesn't gate the run)
+        g15 = gate_named(summary, "G15_calmar")
+        self.assertIsNotNone(g15)
+        self.assertFalse(g15["passed"])
+        self.assertFalse(summary["binding"])
 
 
 class TestOtherBlocksKeepSingleG6(unittest.TestCase):

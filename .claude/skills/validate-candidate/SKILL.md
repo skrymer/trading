@@ -21,7 +21,7 @@ This skill is strategy-neutral. Substitute the user's actual candidate label / r
 | **25-year aggregate** | 2000-01-01 → 2025-12-31 (26y) | ~22 OOS | **Binding** | Aggregate v4 (statistical-power layer) | Continue to Block C |
 | **Block C (informational)** | 2021-01-01 → 2025-12-31 (5y) | 1 OOS | Informational only | 2022 inflation bear (yellow flag if negative) | Verdict computed from binding layers; Block C surfaces risk |
 
-**TRADABLE iff:** Block A v4 PASS AND Block B v4 PASS AND 25-year aggregate v4 PASS AND Block C non-catastrophic (no `|edge| > 0.5%`, no DD > 20%). The v4 gate set includes **G16 (SPY buy-and-hold Calmar baseline)** binding on Block A, Block B, and the 25-year aggregate.
+**TRADABLE iff:** Block A v4 PASS AND Block B v4 PASS AND 25-year aggregate v4 PASS AND Block C non-catastrophic (no `|edge| > 0.5%`, no DD > 20%). The v4 gate set includes **G15 (absolute Calmar ≥ 1.5)** and **G16 (SPY buy-and-hold Calmar baseline)**, both binding on Block A, Block B, and the 25-year aggregate.
 
 A candidate that clears the binding layers but fails Block C's non-catastrophic check is **PROVISIONAL** (paper-trade only, do not commit capital until 2024-style regime is more cleanly survived). A candidate that fails any binding layer is **REJECTED**.
 
@@ -40,7 +40,7 @@ A candidate must clear **all three binding layers** (Block A v4, Block B v4, 25-
 
 | Gate | Threshold |
 |---|---|
-| G1 — CAGR | ≥ max(10%, SPY+2%) AND **≥ 30%** (tradability floor) |
+| G1 — CAGR | ≥ max(10%, SPY+2%) AND **≥ 25%** (operator tradability floor — appetite, not quant-derived; ADR 0015) |
 | G2 — Aggregate max DD | ≤ 25% |
 | G3 — Worst-window DD | ≤ 20% |
 | G4 — Positive windows | ≥ 75% (N ≥ 4); on short blocks use G4a + G4b below |
@@ -52,12 +52,13 @@ A candidate must clear **all three binding layers** (Block A v4, Block B v4, 25-
 | G6b — 2020 recovery (Block B only) | Trades entered May–Dec 2020: OOS edge > 0. Strict — failure ⇒ REJECTED. |
 | G7 — Chop regime | Block A: ≥1 of {2004, 2011, 2015-H1} positive. Block B: ≥1 of {2015-H2, 2018-Q4} positive. 25y aggregate: ≥1 of {2004, 2011, 2015-H1} positive. Block C: skipped. |
 | G8 — Min trades per window | ≥ 30 |
-| G9 — Sharpe + Calmar | Sharpe ≥ 0.8 AND Calmar ≥ 0.5 |
+| G9 — Sharpe | **Sharpe ≥ 0.5** (absolute floor; the old Calmar ≥ 0.5 conjunct is dominated by G1∧G2 and re-homed as G15). Lowered from 0.8 because a part-in-cash long-only book's zero-return cash days drag the per-day mean. ADR 0015. |
 | G10 — Design isolation | Skill emits the candidate config + freeze date. User must confirm no config change before any binding layer beyond Block A. |
 | G11 — Cross-block edge decay | edge_B ≥ 0.5 × edge_A AND CAGR_B ≥ 0.5 × CAGR_A (applied between binding blocks). Failure downgrades verdict to PROVISIONAL. |
 | G12 — Block-aggregate trade count | ≥ 100 trades per block |
 | G13 — Parameter robustness | Every alpha-defining tunable's ±-step neighbors must also pass Block A + Block B. **Advisory / calibration-pending — does not bind the verdict yet.** See "G13 — Parameter Robustness" below. |
 | G14 — Implementation invariance | A promoted first-class condition must produce the SAME trade population as the inline-`script` config it was promoted from (trade-list diff by `(entry_date, symbol)`, full 25y). Fires BEFORE Block A when an inline template is supplied. DIFFERS voids the *reusable inline verdict* and forces full promoted-config validation (this run); it does NOT auto-REJECT. ERROR (configs not comparable) halts. See "G14 — Implementation Invariance" below. |
+| G15 — Absolute Calmar floor | **Calmar ≥ 1.5** on the stitched-OOS curve. **Binding on Block A, Block B, 25y aggregate**; informational on Block C. The *absolute* minimum-tradable-quality floor (distinct from G16's SPY-*relative* Calmar gate — both bind). 1.5 not 1.0 (the marginal G1∧G2-implied floor) because an unlevered long-only book carries no leverage drag and the stitched-OOS curve reads Calmar biased high (omits IS-window crashes). G2 stays a pure pain cap; G15 binds quality directly. ADR 0015. |
 | G16 — SPY buy-and-hold Calmar baseline | **Engine-computed** (`spyBaselineComparison.verdict` on the WF result): strategy stitched-OOS Calmar ≥ SPY's over the identical OOS support. **Binding on Block A, Block B, 25y aggregate**; informational on Block C. `FAIL` on a binding block ⇒ REJECTED. `INCONCLUSIVE` (< 60 OOS days or strategy stitched maxDD < 3%) does NOT bind and does NOT auto-fail; an INCONCLUSIVE **25y aggregate** is surfaced loudly (something upstream is degenerate). The skill READS the verdict — no Calmar comparison logic lives in the skill. SPY-*relative*; distinct from the absolute Calmar floor (ADR 0015). See "G16 — SPY buy-and-hold Calmar baseline" below. (ADR 0013) |
 
 **Block C non-catastrophic check (informational, not a gate):** No `|edge| > 0.5%` AND no DD > 20%. A binding-layer-clearing candidate that breaches non-catastrophic Block C is **PROVISIONAL** (paper-trade only). A binding-layer-clearing candidate with clean Block C is **TRADABLE** (subject to script-condition promotion). Block C's other gates are reported but do not bind the verdict.
@@ -137,7 +138,7 @@ Outputs:
 | Gate type | Tight if failure within |
 |---|---|
 | Percentage gates (G1, G2, G3, G4 pct, G4a, G4b) | 5% relative to threshold |
-| Ratio gates (G5, G9) | 20% relative |
+| Ratio gates (G5, G9, G15) | 20% relative |
 | Count gates (G4 by-count, G8) | 1 unit |
 | Trade count (G12) | 20% relative |
 | **G6 regime mandate** | **No near-miss — must be strictly positive** |

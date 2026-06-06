@@ -22,3 +22,4 @@ formula/tier/env-config/companion-skill machinery (over-engineering at 16 pages)
 skills filed as the #84 follow-up.
 ## [2026-06-05] ingest | component-firewall G16 — added the SPY buy-and-hold Calmar baseline gate (#102, ADR 0013) to the roster; beta-delivery page deferred until a real instance
 ## [2026-06-05] ingest | beta-delivery (seed) — failure-mode page for the G16 SPY-baseline detector; anatomy + detector settled, instances empty until first rejection
+## [2026-06-06] ingest | Firewall recalibration landed (#106, ADR 0015) — G1 30→25, G9 Sharpe-only ≥0.5, new G15 absolute Calmar ≥1.5; refreshed [[component-firewall]] (code-landed, was "pending") + [[parameter-robustness-g13]] Idunn example (29.36% CAGR now clears the 25% floor; G13 example never hinged on G1)

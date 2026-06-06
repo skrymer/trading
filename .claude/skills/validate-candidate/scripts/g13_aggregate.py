@@ -15,31 +15,33 @@ reports the outcome but does not let it change the firewall verdict yet.
 
 # Continuous gates eligible for the PROVISIONAL near-miss escape (quant 2026-05-29). Every other
 # gate failure (G2/G3 DD, G4 positivity, G6/G7 regime, G8/G12 counts) is non-eligible -> REJECTED.
-# G4b is the N<4 block-aggregate CAGR fallback for G1 — same 30% floor, same near-miss band.
-_NEAR_MISS_GATES = {"G1_cagr", "G4b_block_cagr", "G5_cov_edge", "G9_sharpe_calmar"}
+# G4b is the N<4 block-aggregate CAGR fallback for G1 — same 25% floor, same near-miss band.
+# G9 (Sharpe-only) and G15 (absolute Calmar) are the ADR-0015 continuous quality gates.
+_NEAR_MISS_GATES = {"G1_cagr", "G4b_block_cagr", "G5_cov_edge", "G9_sharpe", "G15_calmar"}
 
 
 def is_continuous_near_miss(gate):
     """Is this failing gate within G13's continuous near-miss band? (REFERENCE.md verdict table)
 
-    G1/G4b CAGR (>= 30): within 10% relative -> value >= 27.
+    G1/G4b CAGR (>= 25): within 10% relative -> value >= 22.5.
     G5 CoV (<= 1.5, lower better; a failure is ABOVE 1.5): within 0.15 absolute -> value <= 1.65.
-    G9 Sharpe(>=0.8)+Calmar(>=0.5): within 10% relative -> sharpe >= 0.72 AND calmar >= 0.45.
+    G9 Sharpe (>= 0.5): within 10% relative -> value >= 0.45.
+    G15 Calmar (>= 1.5): within 10% relative -> value >= 1.35.
     """
     name = gate.get("name")
     if name not in _NEAR_MISS_GATES:
         return False
+    v = gate.get("value")
+    if not isinstance(v, (int, float)):
+        return False
     if name in ("G1_cagr", "G4b_block_cagr"):
-        v = gate.get("value")
-        return isinstance(v, (int, float)) and v >= 30.0 * 0.9
+        return v >= 25.0 * 0.9
     if name == "G5_cov_edge":
-        v = gate.get("value")
-        return isinstance(v, (int, float)) and v <= 1.5 + 0.15
-    if name == "G9_sharpe_calmar":
-        sharpe = gate.get("sharpe")
-        calmar = gate.get("calmar")
-        return (isinstance(sharpe, (int, float)) and isinstance(calmar, (int, float))
-                and sharpe >= 0.8 * 0.9 and calmar >= 0.5 * 0.9)
+        return v <= 1.5 + 0.15
+    if name == "G9_sharpe":
+        return v >= 0.5 * 0.9
+    if name == "G15_calmar":
+        return v >= 1.5 * 0.9
     return False
 
 
@@ -47,8 +49,8 @@ def neighbor_result_from_evals(meta, eval_a, eval_b):
     """Build a neighbor result record from its Block A + Block B eval-block JSONs.
 
     A neighbor PASSES iff both blocks' overall == PASS. Failing gates are collected across both
-    blocks; G9's "sharpe=X calmar=Y" value string is parsed onto sharpe/calmar so the near-miss
-    test can read them numerically.
+    blocks; every gate's value is a bare number (G9 became Sharpe-only in ADR 0015, so the old
+    "sharpe=X calmar=Y" compound string no longer exists).
     """
     passed = eval_a.get("overall") == "PASS" and eval_b.get("overall") == "PASS"
     failing = []
@@ -56,7 +58,7 @@ def neighbor_result_from_evals(meta, eval_a, eval_b):
         for g in ev.get("gates", []):
             if g.get("passed"):
                 continue
-            failing.append(_normalize_gate(g))
+            failing.append({"name": g.get("name"), "value": g.get("value")})
     return {
         "tunable": meta["tunable"],
         "name": meta["name"],
@@ -67,24 +69,6 @@ def neighbor_result_from_evals(meta, eval_a, eval_b):
         "passed": passed,
         "failing_gates": failing,
     }
-
-
-def _normalize_gate(gate):
-    out = {"name": gate.get("name"), "value": gate.get("value")}
-    if gate.get("name") == "G9_sharpe_calmar":
-        for token in str(gate.get("value", "")).split():
-            if token.startswith("sharpe="):
-                out["sharpe"] = _to_float(token.split("=", 1)[1])
-            elif token.startswith("calmar="):
-                out["calmar"] = _to_float(token.split("=", 1)[1])
-    return out
-
-
-def _to_float(s):
-    try:
-        return float(s)
-    except (TypeError, ValueError):
-        return None
 
 
 def _is_near_miss_neighbor(neighbor):

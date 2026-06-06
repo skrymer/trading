@@ -1,6 +1,6 @@
 ---
 name: pre-commit
-description: Runs all code quality checks (tests, lint, static analysis, typecheck) for changed projects in parallel via specialist sub-agents and verifies CLAUDE.md + skill-doc files are still accurate. Use immediately before creating a git commit — not for ad-hoc lint/test runs.
+description: Runs all code quality checks (tests, lint, static analysis, typecheck) for changed projects in parallel via specialist sub-agents and verifies CLAUDE.md, skill-doc files, and (on methodology changes) the knowledge/ research wiki are still accurate. Use immediately before creating a git commit — not for ad-hoc lint/test runs.
 ---
 
 Run all code quality checks before committing. Only run checks for projects that have changes. This ensures backend tests, linting, static analysis, frontend validation all pass, and documentation is up to date.
@@ -23,6 +23,14 @@ Then check whether backend changes touch code that the public-API skills documen
 
 Non-empty output lists changed files under skill-relevant paths (controllers, DTOs, models, sizers, rankers, conditions, DSL, `BacktestResultStore`) and which skill files may need updating. Pass the full output verbatim to **docs-reviewer** so it reviews the listed skill files alongside CLAUDE.md. Empty output → no skill-staleness risk; record `Skill files (API docs): SKIPPED (no impact)`.
 
+Then check whether the change touches strategy-research **methodology surfaces** the `knowledge/` wiki restates (firewall gates, funnel mechanics, failure-mode definitions):
+
+```bash
+.claude/scripts/wiki-impact-check.sh
+```
+
+Non-empty output lists the changed methodology surfaces (ADRs, `CONTEXT.md`, the `validate-candidate` / `strategy-screen` / `condition-screen` / `strategy-exploration` skills, the funnel analyst agents) and whether `knowledge/` was touched in the same diff. Pass the full output verbatim to **docs-reviewer** so it greps the wiki for stale references to the changed thresholds / gate names / terms. Empty output → no methodology-relevant change; record `Knowledge wiki: SKIPPED (no impact)`.
+
 ## Sub-Agent Delegation
 
 Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch all applicable agents **in parallel as background tasks**.
@@ -33,17 +41,17 @@ Delegate checks to specialized sub-agents (defined in `.claude/agents/`). Launch
 |-----------|------------|
 | **backend-reviewer** | When `udgaard/` or `midgaard/` has changes. Tell it which projects changed. Runs tests, ktlint, detekt, compiler warnings. Auto-fixes issues. |
 | **frontend-reviewer** | When `asgaard/` has changes. Runs ESLint, typecheck. Auto-fixes lint issues. |
-| **docs-reviewer** | Always. (1) Reviews and updates CLAUDE.md files for accuracy. (2) Verifies the changed code complies with the decisions in `docs/adr/` and the domain vocabulary in `CONTEXT.md` — reports `ADR CONFLICT` / `CONTEXT DRIFT` / `UNDOCUMENTED DECISION` without auto-fixing. (3) When `skill-impact-check.sh` produces non-empty output, also reviews the listed skill files (`.claude/skills/*/SKILL.md`, `SCENARIOS.md`, `REFERENCE.md`) against the changed app code. Pass the script output verbatim. |
+| **docs-reviewer** | Always. (1) Reviews and updates CLAUDE.md files for accuracy. (2) Verifies the changed code complies with the decisions in `docs/adr/` and the domain vocabulary in `CONTEXT.md` — reports `ADR CONFLICT` / `CONTEXT DRIFT` / `UNDOCUMENTED DECISION` without auto-fixing. (3) When `skill-impact-check.sh` produces non-empty output, also reviews the listed skill files (`.claude/skills/*/SKILL.md`, `SCENARIOS.md`, `REFERENCE.md`) against the changed app code. (4) When `wiki-impact-check.sh` produces non-empty output, greps the `knowledge/` research wiki for stale references to the changed methodology and reports `WIKI DRIFT` without auto-fixing (wiki edits go through `/wiki-ingest`). Pass both script outputs verbatim. |
 | **voltagent-qa-sec:code-reviewer** *(voltagent plugin)* | One instance per changed project. Reviews changed code for security issues, code quality, and QA concerns. Launched as separate parallel agents (subagents cannot spawn other subagents). |
 
 ### Workflow
 
 1. Detect which projects have changes (`changed-projects.sh`)
-2. Run `skill-impact-check.sh` and capture the output for the docs-reviewer task
+2. Run `skill-impact-check.sh` and `wiki-impact-check.sh` and capture both outputs for the docs-reviewer task
 3. Launch applicable agents in parallel:
    - **backend-reviewer** (if udgaard/ or midgaard/ changed) — tell it which projects: "udgaard", "midgaard", or both
    - **frontend-reviewer** (if asgaard/ changed)
-   - **docs-reviewer** (always) — pass the skill-impact-check output if non-empty
+   - **docs-reviewer** (always) — pass the skill-impact-check and wiki-impact-check outputs if non-empty
    - **voltagent-qa-sec:code-reviewer** for backend (if udgaard/ or midgaard/ changed) — provide changed backend files
    - **voltagent-qa-sec:code-reviewer** for frontend (if asgaard/ changed) — provide changed frontend files
 4. Wait for all agents to complete
@@ -67,6 +75,7 @@ After all agents complete, present a unified summary table. Only include rows fo
 | CLAUDE.md files | UP TO DATE / UPDATED |
 | ADR / CONTEXT.md compliance | COMPLIANT / VIOLATIONS FOUND |
 | Skill files (API docs) | UP TO DATE / UPDATED / SKIPPED (no impact) |
+| Knowledge wiki (research layer) | UP TO DATE / DRIFT FOUND / SKIPPED (no impact) |
 | Backend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 | Frontend Code Review (QA/Security) | PASS / ISSUES FOUND / SKIPPED |
 | Test Coverage (new functionality) | PASS / MISSING TESTS / SKIPPED |
@@ -78,6 +87,8 @@ If agents auto-fixed issues (status FIXED), list the files that were modified.
 If the **voltagent-qa-sec:code-reviewer** reports any **Critical** or **High** severity issues, list them separately after the summary table with file paths and a brief description. These may need fixing before committing.
 
 If **docs-reviewer** reports `VIOLATIONS FOUND` (any `ADR CONFLICT`, `CONTEXT DRIFT`, or `UNDOCUMENTED DECISION`), list each one after the summary table with the ADR number / term, `file:line`, and the divergence. These are **not** auto-fixed — they are design decisions. Surface them to the user and pause: an `ADR CONFLICT` either means the code should change to honour the ADR, or the ADR should be reopened (`/grill-with-docs`) — the user decides. Do not commit over an unresolved violation without explicit acknowledgement.
+
+If **docs-reviewer** reports `WIKI DRIFT` (a stale reference in `knowledge/` to a threshold, gate name, term, or failure-mode definition this change altered), list each hit after the summary table with the `file:line` and the stale value. These are **not** auto-fixed — the wiki is the operator-curated research layer and its proper write path is `/wiki-ingest` (which also files the `sources/` summary + `log.md` entry). Surface them and recommend the user run `/wiki-ingest` for the change; a stale research wiki is not a hard commit blocker, but flag it so it doesn't drift unnoticed.
 
 ## Important
 

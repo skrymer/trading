@@ -26,12 +26,12 @@ from pathlib import Path
 
 # Quant-verified 2026-05-28. MUST stay in sync with eval-block.py's gates.
 GATE_METADATA = {
-    "G1_cagr":            {"threshold": 30.0,  "direction": "ge", "type": "percentage"},
+    "G1_cagr":            {"threshold": 25.0,  "direction": "ge", "type": "percentage"},
     "G2_dd_aggregated":   {"threshold": 25.0,  "direction": "le", "type": "percentage"},
     "G3_dd_per_window":   {"threshold": 20.0,  "direction": "le", "type": "percentage"},
     "G4_positive_pct":    {"threshold": 75.0,  "direction": "ge", "type": "percentage"},
     "G4a_no_blowup":      {"threshold": -5.0,  "direction": "ge", "type": "percentage"},
-    "G4b_block_cagr":     {"threshold": 30.0,  "direction": "ge", "type": "percentage"},
+    "G4b_block_cagr":     {"threshold": 25.0,  "direction": "ge", "type": "percentage"},
     "G5_cov_edge":        {"threshold": 1.5,   "direction": "le", "type": "ratio"},
     "G6_regime_mand":     {"threshold": 0.0,   "direction": "gt", "type": "strict"},
     # Block-B G6 split (issue #51). Both "strict": a regime-mandate sub-gate failure is
@@ -41,8 +41,13 @@ GATE_METADATA = {
     "G6b_recovery":       {"threshold": 0.0,   "direction": "gt", "type": "strict"},
     "G7_regime_chop":     {"threshold": None,  "direction": None, "type": "strict"},
     "G8_min_trades":      {"threshold": 30,    "direction": "ge", "type": "count"},
-    "G9_sharpe_calmar":   {"threshold": None,  "direction": None, "type": "ratio"},
+    # G9 is now Sharpe-only (ADR 0015) — a single continuous ratio gate, so it gets a real
+    # threshold and becomes tight-margin eligible (it was None/strict as the old compound gate).
+    "G9_sharpe":          {"threshold": 0.5,   "direction": "ge", "type": "ratio"},
     "G12_block_trades":   {"threshold": 100,   "direction": "ge", "type": "count_pct"},
+    # G15 absolute Calmar floor (ADR 0015) — continuous ratio gate, treated the same way as G9
+    # (20%-rel tight-margin band).
+    "G15_calmar":         {"threshold": 1.5,   "direction": "ge", "type": "ratio"},
     # G16 (ADR 0013): losing to buy-and-hold SPY on Calmar is structural beta-delivery, never a
     # tight-margin near-miss. INCONCLUSIVE doesn't fail the gate (eval-block marks it passed), so
     # only a FAIL reaches here — and a FAIL is always REJECTED, like the other strict gates.

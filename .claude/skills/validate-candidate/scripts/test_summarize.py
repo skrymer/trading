@@ -128,8 +128,8 @@ class TestVerdictLogic(unittest.TestCase):
 
         result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
 
-        # Then: REJECTED (20% is far from 30% threshold, not a NEAR_MISS)
-        # Tight band for G1 is value >= 30 * 0.95 = 28.5, so 20 is well outside
+        # Then: REJECTED (20% is far from the 25% floor, not a NEAR_MISS)
+        # Tight band for G1 is value >= 25 * 0.95 = 23.75, so 20 is well outside
         self.assertEqual(result["verdict"], "REJECTED")
 
     def test_g6a_crash_survival_failure_rejects_not_near_miss(self):
@@ -199,10 +199,10 @@ class TestVerdictLogic(unittest.TestCase):
         self.assertEqual(result["verdict"], "TRADABLE")
 
     def test_near_miss_when_binding_failure_within_tight_band_under_cap(self):
-        # Given: Block A fails G1 by 4.5% (CAGR 28.65 vs 30 threshold; tight band is value >= 28.5)
+        # Given: Block A fails G1 by 1% (CAGR 24.0 vs 25 threshold; tight band is value >= 23.75)
         self.write_eval(
-            "A", overall="FAIL", aggregate_cagr=28.65,
-            gates=[{"name": "G1_cagr", "passed": False, "value": 28.65}],
+            "A", overall="FAIL", aggregate_cagr=24.0,
+            gates=[{"name": "G1_cagr", "passed": False, "value": 24.0}],
             first_failure="G1_cagr",
         )
         self.write_eval("B", overall="PASS")
@@ -217,9 +217,9 @@ class TestVerdictLogic(unittest.TestCase):
         # Given: Block A has 2 tight binding failures; Block C also fails gates
         # (Block C's failures must not count toward the ≤2 binding-tight-failure cap)
         self.write_eval(
-            "A", overall="FAIL", aggregate_cagr=28.65, aggregate_max_dd=26.0,
+            "A", overall="FAIL", aggregate_cagr=24.0, aggregate_max_dd=26.0,
             gates=[
-                {"name": "G1_cagr", "passed": False, "value": 28.65},
+                {"name": "G1_cagr", "passed": False, "value": 24.0},
                 {"name": "G2_dd_aggregated", "passed": False, "value": 26.0},
             ],
             first_failure="G1_cagr",
@@ -230,7 +230,7 @@ class TestVerdictLogic(unittest.TestCase):
             "C", overall="FAIL", non_catastrophic=True,
             gates=[
                 {"name": "G1_cagr", "passed": False, "value": 4.0},  # not tight in C, but C tights don't count anyway
-                {"name": "G9_sharpe_calmar", "passed": False, "value": "sharpe=0.5 calmar=0.4"},
+                {"name": "G9_sharpe", "passed": False, "value": 0.3},
             ],
             first_failure="G1_cagr",
         )
@@ -240,6 +240,70 @@ class TestVerdictLogic(unittest.TestCase):
         # Then: NEAR_MISS — Block A's 2 tight failures qualify; Block C's failures ignored
         self.assertEqual(result["verdict"], "NEAR_MISS")
         self.assertEqual(result["failed_gates_count_binding"], 2)
+
+    def test_near_miss_when_g9_sharpe_within_tight_ratio_band(self):
+        # Given: Block A fails only G9 (Sharpe-only) at 0.42 — within the 20%-rel ratio band
+        # (0.5 * 0.80 = 0.40), the sole binding failure.
+        self.write_eval(
+            "A", overall="FAIL", aggregate_sharpe=0.42,
+            gates=[{"name": "G9_sharpe", "passed": False, "value": 0.42}],
+            first_failure="G9_sharpe",
+        )
+        self.write_eval("B", overall="PASS")
+        self.write_eval("25y", overall="PASS")
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
+
+        # Then: NEAR_MISS — a Sharpe a hair under the floor is iterational, not structural
+        self.assertEqual(result["verdict"], "NEAR_MISS")
+        self.assertEqual(result["tight_margin_failures_binding"], 1)
+
+    def test_rejected_when_g9_sharpe_outside_tight_ratio_band(self):
+        # Given: Block A fails G9 at 0.30 — below the 0.40 tight floor (wide miss)
+        self.write_eval(
+            "A", overall="FAIL", aggregate_sharpe=0.30,
+            gates=[{"name": "G9_sharpe", "passed": False, "value": 0.30}],
+            first_failure="G9_sharpe",
+        )
+        self.write_eval("B", overall="PASS")
+        self.write_eval("25y", overall="PASS")
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
+
+        # Then: REJECTED — a Sharpe well under the floor is not a near-miss
+        self.assertEqual(result["verdict"], "REJECTED")
+
+    def test_near_miss_when_g15_calmar_within_tight_ratio_band(self):
+        # Given: Block A fails only G15 (absolute Calmar) at 1.25 — within the 20%-rel ratio band
+        # (1.5 * 0.80 = 1.20), the sole binding failure.
+        self.write_eval(
+            "A", overall="FAIL", aggregate_calmar=1.25,
+            gates=[{"name": "G15_calmar", "passed": False, "value": 1.25}],
+            first_failure="G15_calmar",
+        )
+        self.write_eval("B", overall="PASS")
+        self.write_eval("25y", overall="PASS")
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
+
+        # Then: NEAR_MISS — a Calmar a hair under the floor is iterational (mirrors G9)
+        self.assertEqual(result["verdict"], "NEAR_MISS")
+        self.assertEqual(result["tight_margin_failures_binding"], 1)
+
+    def test_rejected_when_g15_calmar_outside_tight_ratio_band(self):
+        # Given: Block A fails G15 at 1.0 — below the 1.20 tight floor (wide miss = marginal book)
+        self.write_eval(
+            "A", overall="FAIL", aggregate_calmar=1.0,
+            gates=[{"name": "G15_calmar", "passed": False, "value": 1.0}],
+            first_failure="G15_calmar",
+        )
+        self.write_eval("B", overall="PASS")
+        self.write_eval("25y", overall="PASS")
+
+        result = run_summarize(self.paths["A"], self.paths["B"], self.paths["25y"])
+
+        # Then: REJECTED
+        self.assertEqual(result["verdict"], "REJECTED")
 
     def test_inconclusive_g11_when_block_a_edge_non_positive(self):
         # Given: A + B + 25y all pass but Block A's aggregate_edge is 0 (G11 can't divide)
