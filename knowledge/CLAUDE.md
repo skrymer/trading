@@ -30,10 +30,25 @@ knowledge/
     queries/     ← good Q&A answers filed back as reusable pages
 ```
 
-The **`raw/` layer is the existing repo** — `strategy_exploration/*.md` (lab-notebook dev docs),
-`strategy_exploration/dossier/*.jsonl` (per-candidate execution logs, ADR 0008), and the run-result
-docs. The wiki is the *generated, atomic, interlinked* layer over that raw material. **Do not copy
-raw docs in here** — summarize them into `sources/` pages and link back via frontmatter `sources[]`.
+This wiki is the **single source of truth** for strategy-research narrative & methodology (issue #121).
+The only `strategy_exploration/` survivor is the **machine ledger** — `strategy_exploration/dossier/*.jsonl`
+(per-candidate append-only execution logs, ADR 0008), read & written by the `/strategy-exploration`
+state machine. The dossier is operational state, **not** documentation, and stays. Everything
+narrative — candidate post-mortems, run results, methodology, plans — lives *here*, never in a
+`strategy_exploration/*.md` dev doc.
+
+**Future run results land here, not in a new dev doc.** `/validate-candidate`'s `run-pipeline.sh`
+writes its human-readable report as a **seed `sources/` draft**
+(`knowledge/wiki/sources/<date>-validate-<candidate>.md`); `/wiki-ingest` then distils it into the
+candidate's `entities/` page and upgrades it off `status: seed`. A freshly-written draft is a
+transient orphan (no inbound link, not in `index.md`) until ingest links + indexes it — that is the
+expected mid-ingest state, not a lint failure to chase.
+
+> Historical note: pre-#121 the `strategy_exploration/*.md` lab-notebook docs were the raw layer the
+> wiki summarized *from*. Those docs are being ingested-then-removed (#121); cite their durable
+> findings via a `sources/` page, not the original path. A `sources[]` frontmatter entry may still
+> reference a not-yet-deleted dev-doc path during the migration, but anchor new pages on the
+> surviving dossier (`strategy_exploration/dossier/<candidate>.jsonl`) where possible.
 
 ---
 
@@ -48,7 +63,7 @@ title: Human Readable Title
 summary: One sentence, ≤200 chars — the gist, read from frontmatter without opening the page.
 status: seed | active | stable | superseded | disputed   # how settled the page is
 tags: [failure-mode, methodology, candidate, ...]
-sources: ["strategy_exploration/GJALLARHORN_STRATEGY_DEVELOPMENT.md", "..."]  # raw traceability
+sources: ["strategy_exploration/dossier/gjallarhorn.jsonl", "..."]  # raw traceability (dossier survives; dev docs are migrating out — #121)
 related: ["[[other-page]]", "..."]
 updated: 2026-06-05
 ---

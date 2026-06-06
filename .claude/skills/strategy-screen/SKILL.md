@@ -82,7 +82,7 @@ Pass **all five** to qualify as a survivor. Reject any candidate that fails any 
 .claude/skills/validate-candidate/scripts/run-pipeline.sh <candidate-name> /tmp/screen-req-<candidate-name>.json
 ```
 
-The pipeline runs the binding layers (Block A 2000-2014 → Block B 2014-2021 incl COVID → 25-year aggregate), stops at the first failing binding layer, treats Block C (2021-2025) as an informational sanity check, and emits `strategy_exploration/validate-<candidate-name>.md` with the final TRADABLE / PROVISIONAL / REJECTED verdict.
+The pipeline runs the binding layers (Block A 2000-2014 → Block B 2014-2021 incl COVID → 25-year aggregate), stops at the first failing binding layer, treats Block C (2021-2025) as an informational sanity check, and emits `knowledge/wiki/sources/<date>-validate-<candidate-name>.md` (a seed `sources/` wiki draft, distilled via `/wiki-ingest`) with the final TRADABLE / PROVISIONAL / REJECTED verdict.
 
 **Skill output requirement** when reporting screen results: for each PASS candidate that also clears the 25% CAGR tradability bar (the operator floor — ADR 0015, lowered from 30%), surface the exact `/validate-candidate` invocation as the recommended next step. Below-25%-CAGR passes go in a separate "filtered out" list — the screen approved them mechanically but they don't meet the user's tradability floor.
 

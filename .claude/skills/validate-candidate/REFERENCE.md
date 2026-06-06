@@ -258,7 +258,7 @@ The skill MUST refuse to "try one more seed" on a rejected candidate. If the use
 | `/tmp/validate-<candidate>-eval-25y.json` | 25y aggregate gate evaluation — binding layer |
 | `/tmp/validate-<candidate>-eval-blockC.json` | Block C informational gate report (yellow flags surfaced, no verdict binding) |
 | `/tmp/validate-<candidate>-summary.json` | Final summary including G11 (A→B), Block C non-catastrophic check + verdict |
-| `strategy_exploration/validate-<candidate>.md` | Human-readable final report (durable) |
+| `knowledge/wiki/sources/<date>-validate-<candidate>.md` | Human-readable final report, written as a seed `sources/` wiki draft (distil via `/wiki-ingest`) |
 
 ## Walk-forward cadence
 

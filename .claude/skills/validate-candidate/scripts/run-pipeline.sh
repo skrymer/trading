@@ -24,7 +24,10 @@
 #   /tmp/validate-<cand>-25y.json            - raw walk-forward result (binding statistical-power layer)
 #   /tmp/validate-<cand>-eval-block{A,B,C}.json + eval-25y.json - per-layer gate evals
 #   /tmp/validate-<cand>-summary.json        - final summary
-#   strategy_exploration/validate-<cand>.md  - human-readable report
+#   knowledge/wiki/sources/<date>-validate-<cand>.md - human-readable report, written as a
+#                            seed sources/ wiki draft (issue #121: the knowledge/ wiki is the
+#                            single source of truth for research narrative; strategy_exploration/
+#                            keeps only the dossier). Distil it into the entity page via /wiki-ingest.
 #
 # Per .claude/skills/validate-candidate/SKILL.md (refined framework). Pipeline stops at
 # the first failing BINDING layer (A, B, or 25y). Block C is informational and ALWAYS
@@ -52,7 +55,8 @@ if [[ ! "$CANDIDATE" =~ ^[A-Za-z0-9_.-]+$ ]]; then
   exit 64
 fi
 
-REPO_REPORT="$ROOT/strategy_exploration/validate-${CANDIDATE}.md"
+REPORT_DATE="$(date +%F)"
+REPO_REPORT="$ROOT/knowledge/wiki/sources/${REPORT_DATE}-validate-${CANDIDATE}.md"
 
 if [[ ! -f "$TEMPLATE" ]]; then
   echo "ERROR: template not found: $TEMPLATE" >&2
@@ -248,8 +252,11 @@ G13_OUTCOME="/tmp/g13-${CANDIDATE}/g13-${CANDIDATE}-outcome.json"
 G13_ARGS=()
 [[ -s "$G13_OUTCOME" ]] && G13_ARGS=(--g13 "$G13_OUTCOME")
 
-# Summarize whatever completed
+# Summarize whatever completed. The human-readable body goes to a temp file first; we then
+# wrap it in a seed sources/ wiki draft (issue #121). /wiki-ingest distils the draft into the
+# candidate's entities/ page and upgrades its status off `seed`.
 SUMMARY_JSON="/tmp/validate-${CANDIDATE}-summary.json"
+REPORT_BODY="/tmp/validate-${CANDIDATE}-report-body.md"
 python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
   "/tmp/validate-${CANDIDATE}-eval-blockA.json" \
   "/tmp/validate-${CANDIDATE}-eval-blockB.json" \
@@ -258,13 +265,35 @@ python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
   --script-conditions "$SCRIPT_CONDITIONS" \
   "${G13_ARGS[@]}" \
   "${G14_ARGS[@]}" \
-  > "$SUMMARY_JSON" 2> "$REPO_REPORT"
+  > "$SUMMARY_JSON" 2> "$REPORT_BODY"
 
 VERDICT=$(jq -r '.verdict' "$SUMMARY_JSON")
+
+# Assemble the seed sources/ draft: minimal valid frontmatter + the summarize.py body.
+# `related: [[<candidate>]]` (lowercased to match the entity-page convention) links the entity
+# page /wiki-ingest will create/update, so the page is lint-clean once ingest indexes it; until
+# then it is an expected transient orphan. Frontmatter `summary:` is kept under the 200-char lint cap.
+ENTITY_LINK="$(printf '%s' "$CANDIDATE" | tr '[:upper:]' '[:lower:]')"
+mkdir -p "$(dirname "$REPO_REPORT")"
+{
+  echo "---"
+  echo "type: source"
+  echo "title: ${CANDIDATE} firewall run (${REPORT_DATE})"
+  echo "summary: Refined-firewall run-result for ${CANDIDATE} (${REPORT_DATE}); verdict ${VERDICT}. Seed draft pending /wiki-ingest distillation."
+  echo "status: seed"
+  echo "tags: [run, firewall]"
+  echo "sources: [\"strategy_exploration/dossier/${CANDIDATE}.jsonl\"]"
+  echo "related: [\"[[${ENTITY_LINK}]]\"]"
+  echo "updated: ${REPORT_DATE}"
+  echo "---"
+  echo ""
+  cat "$REPORT_BODY"
+} > "$REPO_REPORT"
+
 echo "" >&2
 echo "==> FINAL VERDICT: $VERDICT" >&2
 echo "==> Summary JSON: $SUMMARY_JSON" >&2
-echo "==> Report:       $REPO_REPORT" >&2
+echo "==> Report (seed sources/ draft — run /wiki-ingest to distil): $REPO_REPORT" >&2
 
 # G13 (advisory) runs as a separate sweep after a TRADABLE center — it fires neighbor backtests
 # and needs explicit confirmation, so it is not auto-fired here.

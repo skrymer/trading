@@ -114,7 +114,7 @@ Outputs:
 - `/tmp/validate-<candidate>-25y.json` — raw walk-forward result (binding statistical-power layer)
 - `/tmp/validate-<candidate>-blockC.json` — raw walk-forward result (informational only)
 - `/tmp/validate-<candidate>-eval-block{A,B}.json`, `/tmp/validate-<candidate>-eval-25y.json`, `/tmp/validate-<candidate>-eval-blockC.json` — per-layer gate reports
-- `strategy_exploration/validate-<candidate>.md` — final summary with verdict
+- `knowledge/wiki/sources/<date>-validate-<candidate>.md` — final summary with verdict, written as a seed `sources/` wiki draft (distil into the entity page via `/wiki-ingest`)
 
 ## How to run
 
