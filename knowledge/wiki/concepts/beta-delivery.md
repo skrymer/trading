@@ -4,16 +4,17 @@ title: Beta-Delivery
 summary: A long book whose risk-adjusted return is just the index's — profitable in absolute terms but no better than holding SPY; the failure mode G16 catches.
 status: seed
 tags: [failure-mode, methodology]
-sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "strategy_exploration/FUNNEL_DEEPRESEARCH_FINDINGS.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]"]
-updated: 2026-06-05
+sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "strategy_exploration/FUNNEL_DEEPRESEARCH_FINDINGS.md", "strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md"]
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]"]
+updated: 2026-06-06
 ---
 
 # Beta-Delivery
 
-> **status: seed** — the failure-mode anatomy and detector are settled, but no candidate has been
-> rejected by [[component-firewall]]'s G16 gate yet. The *Instances* section is intentionally empty;
-> the first real rejection promotes this to `active` with its numbers (via `/wiki-ingest`).
+> **status: seed** — the failure-mode anatomy and both detectors are settled. The firewall's **G16**
+> gate has not rejected a candidate yet; the **screen-stage random-ranker tell** has — [[george]]
+> (2026-06-04). So the *Instances* section holds George (caught early, before the firewall), and is
+> still awaiting its first G16-firewall rejection. The first G16 FAIL promotes this to `active`.
 
 ## Definition
 
@@ -68,10 +69,18 @@ remediation discipline — see [[the-funnel]]).^[inferred]
 
 ## Instances
 
-_None yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by it at the time of
-writing (2026-06-05). When one is, record it here with: block(s) failed, `strategyCalmar` vs
-`benchmarkCalmar`, whether it nonetheless cleared the absolute floors (G1/G2/G9/G15), and the regime in
-which its beta was sourced.
+- **[[george]]** (2026-06-04) — the **screen-stage** instance, caught by the random-ranker tell, not
+  G16. A 52-week-high anchoring ranker whose per-trade edge (+1.01%) was *matched* by a byte-identical
+  Random-ranker baseline (+1.08%) and whose blended CAGR (+1.1%) was *beaten* by it (Random +6.6%) over
+  2005–2015 — i.e. the ~1% "edge" was entry-universe beta, not ranker alpha (and the anchoring tilt was
+  a worse-than-noise GFC liability, −14.3% vs Random's −2.1% in 2008). Deprecated at `/strategy-screen`
+  via G-RANDOM before ever reaching the firewall, so it has **no G16 read** — it is the cheaper-tell
+  confirmation that this failure mode is real, not a G16 rejection.
+
+_No G16-firewall instance yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by
+the **firewall** gate itself at the time of writing (2026-06-06). When one is, record it here with:
+block(s) failed, `strategyCalmar` vs `benchmarkCalmar`, whether it nonetheless cleared the absolute floors
+(G1/G2/G9/G15), and the regime in which its beta was sourced.
 
 ## Related
 

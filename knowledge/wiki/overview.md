@@ -27,7 +27,7 @@ premise class chosen to avoid all four deprecated ones.
 
 | Thread | State |
 |---|---|
-| BTC+Tyr candidate | active search; RSP ingest #99; `strategy_exploration/BTC_TYR_STRATEGY_DEVELOPMENT.md` |
+| [[btc-tyr]] candidate | active search; scoping; partly blocked on RSP ingest #99 |
 | Gjallarhorn composite | unblocked by #93 (nested condition groups); needs the breakout+Gjallarhorn A/B as one unit |
 | Regime-transition layer | #83 — the missing piece that would host the shelved breakout + Gjallarhorn |
 | Firewall recalibration | ✅ shipped — G16 (#102), DSR flag (#105), G1/G9/G15 gate recalibration (#106, 2026-06-06). Gates re-confirmed against the cost+idle-cash engine — KEEP, no recalibration ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]) |
