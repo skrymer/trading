@@ -29,8 +29,8 @@ Group the candidates into four buckets. Surface the buckets explicitly — they'
 
 | Bucket | Definition |
 |---|---|
-| **TRUE SURVIVORS** | Screen PASS (5/5 gates) AND `aggregate_cagr ≥ 30%` (user's tradability floor) |
-| **PASS-but-below-tradability** | Screen PASS (5/5) AND `aggregate_cagr < 30%` |
+| **TRUE SURVIVORS** | Screen PASS (5/5 gates) AND `aggregate_cagr ≥ 25%` (user's tradability floor — ADR 0015) |
+| **PASS-but-below-tradability** | Screen PASS (5/5) AND `aggregate_cagr < 25%` |
 | **FAILURES** | Screen FAIL (any gate failed) |
 | **LOST / EVAL-ERROR** | HTTP failure, eval crash, missing output |
 
@@ -44,7 +44,7 @@ For each FAILURE, classify into one of these patterns and surface the recommende
 | G4 only, 2008 trade-count near median | Structural ranker brittleness — fewer entries but each is concentrated loser | Change ranker or add quality filter, NOT regime |
 | G3 fail, all windows positive (just inconsistent magnitudes) | Edge inconsistency | Tighten entry quality filter |
 | G3 fail, some windows negative | Real edge collapse | REJECT; don't iterate |
-| G1 only, everything else clean, CAGR < 30% | Below tradability floor | REJECT (bucket already separates these) |
+| G1 only, everything else clean, CAGR < 25% | Below tradability floor | REJECT (bucket already separates these) |
 | G4 + G3 fail together | Strategy is regime-coupled — won't recover | REJECT; ranker tweaks won't fix |
 | Seed-invariant identical metrics across s1/s2/s3 | Deterministic ranker (random seed has no effect) | Collapse to one effective candidate |
 
@@ -82,7 +82,7 @@ Structured report:
 
 1. **Headline counts** — N candidates fired, N true survivors, N pass-below-tradability, N failures, N lost
 2. **TRUE SURVIVORS** table (candidate, edge, Sharpe, CAGR, max DD, Calmar, validate command)
-3. **PASS-but-below-tradability** table (with note "Mechanical PASS only — does NOT meet 30% CAGR floor")
+3. **PASS-but-below-tradability** table (with note "Mechanical PASS only — does NOT meet 25% CAGR floor")
 4. **FAILURES** table with failure pattern + recommended action per candidate
 5. **Patterns detected** (ranker-family clustering, seed-invariant duplicates, contamination tells, trade overlap)
 6. **G4 trade-count anomaly diagnostic** (table per G4-failing candidate)
@@ -92,6 +92,6 @@ Structured report:
 
 - **Don't recommend re-running the screen with the same gates "just to be sure".** The screen is deterministic.
 - **Don't recommend loosening gates to advance a borderline candidate.** Below-floor is below-floor.
-- **Don't ignore the 30% CAGR floor.** Mechanical 5/5 with sub-30% CAGR is NOT a survivor.
+- **Don't ignore the 25% CAGR floor.** Mechanical 5/5 with sub-25% CAGR is NOT a survivor.
 - **Don't recommend "average across seeds" as a remediation.** The right move on seed-dispersion failures is *more seeds* until dispersion stabilizes, not averaging away the noise.
 - **Don't extrapolate a single contaminated window into "the strategy doesn't work".** Surface the contamination as a separate finding; don't conflate it with the strategy verdict.
