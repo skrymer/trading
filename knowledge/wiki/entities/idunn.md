@@ -4,8 +4,8 @@ title: Idunn
 summary: The promoted VZ3-s3 (pullback MR). Correcting an off-by-one lookback exposed Aliased Regime Sensitivity across lookback {8,9,10,11} — no robust operating point. REJECTED Block B.
 status: stable
 tags: [candidate, mean-reversion, rejected, ars, deprecated-class]
-sources: ["strategy_exploration/validation-candidates.md", "strategy_exploration/NEW_CANDIDATES_2026-05-29.md", "strategy_exploration/VZ3_STRATEGY_DEVELOPMENT.md"]
-related: ["[[vz3]]", "[[mr3]]", "[[dv1]]", "[[aliased-regime-sensitivity]]", "[[parameter-robustness-g13]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[component-firewall]]"]
+sources: ["knowledge/wiki/sources/2026-05-28-mean-reversion-firewall-runs.md", "strategy_exploration/dossier/"]
+related: ["[[vz3]]", "[[mr3]]", "[[dv1]]", "[[aliased-regime-sensitivity]]", "[[parameter-robustness-g13]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[component-firewall]]", "[[2026-05-28-mean-reversion-firewall-runs]]"]
 updated: 2026-06-06
 ---
 

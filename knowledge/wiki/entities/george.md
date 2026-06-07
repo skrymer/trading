@@ -4,7 +4,7 @@ title: George
 summary: 52-week-high anchoring RANKER (long top-N); deprecated when a byte-identical Random baseline matched its edge and beat its CAGR — the canonical beta-delivery case.
 status: stable
 tags: [candidate, ranker, deprecated, beta-delivery]
-sources: ["strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md", "strategy_exploration/BACKTESTING_FUNNEL.md", "strategy_exploration/dossier/"]
+sources: ["strategy_exploration/dossier/", "feedback_random_ranker_baseline_mandatory"]
 related: ["[[beta-delivery]]", "[[the-funnel]]", "[[component-firewall]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]"]
 updated: 2026-06-06
 ---

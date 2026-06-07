@@ -4,7 +4,7 @@ title: Fenrir
 summary: Sector Rotation Momentum candidate — binary "sector accelerating + beating breadth" gate. Rejected at /condition-screen — no detectable forward-return lift.
 status: stable
 tags: [candidate, rs-momentum, rejected, design-time]
-sources: ["strategy_exploration/dossier/fenrir.jsonl", "strategy_exploration/STRATEGY_LEDGER.md"]
+sources: ["strategy_exploration/dossier/fenrir.jsonl"]
 related: ["[[thinning-not-selecting]]", "[[beta-delivery]]", "[[long-premise-in-narrow-leadership]]", "[[the-funnel]]", "[[component-firewall]]"]
 updated: 2026-06-06
 ---
@@ -23,7 +23,7 @@ death** — no config_hash was burned, no cross-candidate G13 brake engaged.
 
 ## Funnel history
 
-Drafted 2026-05-31 from `ALTERNATIVE_STRATEGY_PROPOSALS.md`; screened and abandoned the same day,
+Drafted 2026-05-31 as a sector-rotation-momentum proposal; screened and abandoned the same day,
 before reaching `/strategy-screen`.
 
 ## Why it was rejected
@@ -45,7 +45,7 @@ clean and monotone — but tuning a value that is statistically zero is no ARS, 
 
 ## What it teaches / collides with
 
-Fenrir **collides STRATEGY_LEDGER §B-4** — cross-sectional RS-momentum rotation, the **diluted twin**:
+Fenrir **collides the cross-sectional RS-momentum rotation deprecated class**, the **diluted twin**:
 the `SectorStrengthMomentum` ranker already operationalizes this exact mechanic, so the binary gate adds
 no information beyond entry-universe beta ([[beta-delivery]]). A genuine sector-rotation pursuit would
 need a structurally different premise (cross-sectional relative-momentum *rank*, or sector

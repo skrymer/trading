@@ -45,10 +45,10 @@ transient orphan (no inbound link, not in `index.md`) until ingest links + index
 expected mid-ingest state, not a lint failure to chase.
 
 > Historical note: pre-#121 the `strategy_exploration/*.md` lab-notebook docs were the raw layer the
-> wiki summarized *from*. Those docs are being ingested-then-removed (#121); cite their durable
-> findings via a `sources/` page, not the original path. A `sources[]` frontmatter entry may still
-> reference a not-yet-deleted dev-doc path during the migration, but anchor new pages on the
-> surviving dossier (`strategy_exploration/dossier/<candidate>.jsonl`) where possible.
+> wiki summarized *from*. Those docs were ingested-then-removed (#121, completed 2026-06-07) — only
+> `dossier/` survives. Cite durable findings via a `sources/` page; anchor `sources[]` on the surviving
+> dossier (`strategy_exploration/dossier/<candidate>.jsonl`) or an ADR/skill/memory, never a deleted
+> dev-doc path.
 
 ---
 
@@ -63,7 +63,7 @@ title: Human Readable Title
 summary: One sentence, ≤200 chars — the gist, read from frontmatter without opening the page.
 status: seed | active | stable | superseded | disputed   # how settled the page is
 tags: [failure-mode, methodology, candidate, ...]
-sources: ["strategy_exploration/dossier/gjallarhorn.jsonl", "..."]  # raw traceability (dossier survives; dev docs are migrating out — #121)
+sources: ["strategy_exploration/dossier/gjallarhorn.jsonl", "..."]  # raw traceability — dossier / ADR / skill / memory (dev docs retired #121)
 related: ["[[other-page]]", "..."]
 updated: 2026-06-05
 ---

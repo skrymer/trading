@@ -4,8 +4,8 @@ title: Minervini VCP Breakout
 summary: Breakout-in-uptrend candidate; REJECTED at Component Firewall 2026-06-03 (participate-and-lose in narrow-leadership chop). Edge is REAL in broad-thrust tape — shelved as a risk-on building block.
 status: stable
 tags: [candidate, breakout, momentum, rejected, shelved]
-sources: ["strategy_exploration/MINERVINI_VCP_STRATEGY_DEVELOPMENT.md", "strategy_exploration/COMPONENT_FIREWALL_PLAN.md", "strategy_exploration/TRADE_ANATOMY_ANALYSIS.md", "project_minervini_vcp_breakout_rejected"]
-related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]"]
+sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/"]
+related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]"]
 updated: 2026-06-06
 ---
 
@@ -127,7 +127,9 @@ while PF craters toward 1.0/0.7 — the filters concentrate a tail they don't ge
   screen, never inherited as fact): a breakout-event trigger + SPY-regime crash filter are
   load-bearing for trade quality; ADX-as-a-gate is contraindicated for tail-edge premises (cuts the
   very tail that IS the edge); the VCP base should be the *primary* thinner with trend/RS/distance as
-  secondary refiners.
+  secondary refiners. **The loss-cut must reference the breakout *pivot / base-low*, not the entry
+  close** — a stop anchored on the entry close fires on the normal post-breakout retest of the pivot,
+  cutting winners before they run (a reusable exit-design lesson for any breakout premise).
 
 ## Related
 

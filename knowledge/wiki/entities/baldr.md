@@ -4,7 +4,7 @@ title: Baldr
 summary: Value Zone Accumulation candidate — buy-the-dip near EMA20 in washed-out breadth. Rejected at /condition-screen, design-time — the differentiator is ANTI-PREDICTIVE.
 status: stable
 tags: [candidate, mean-reversion, rejected, design-time]
-sources: ["strategy_exploration/dossier/baldr.jsonl", "strategy_exploration/STRATEGY_LEDGER.md"]
+sources: ["strategy_exploration/dossier/baldr.jsonl"]
 related: ["[[vz3]]", "[[mr3]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[component-firewall]]"]
 updated: 2026-06-06
 ---
@@ -24,7 +24,7 @@ death** — no config_hash was burned, no cross-candidate G13 brake engaged. A c
 
 ## Funnel history
 
-Drafted 2026-05-31 from `ALTERNATIVE_STRATEGY_PROPOSALS.md`; screened the same day and abandoned. It
+Drafted 2026-05-31 as a value-zone-accumulation proposal; screened the same day and abandoned. It
 never reached `/strategy-screen` — the differentiator failed its design-time pre-screen outright.
 
 ## Why it was rejected
@@ -50,7 +50,7 @@ trigger (e.g. breadth *turning up*) as a fresh candidate.
 
 ## What it teaches / collides with
 
-Baldr **collides STRATEGY_LEDGER §B-1** — the long-pullback / dip-buy premise, the same narrow-leadership
+Baldr **collides the long-pullback / dip-buy deprecated class** — the same narrow-leadership
 death documented for [[vz3]] and [[mr3]]. The screen confirmed that documented dip-toward-EMA failure
 class directly. See [[long-premise-in-narrow-leadership]] and [[participate-and-lose]].
 

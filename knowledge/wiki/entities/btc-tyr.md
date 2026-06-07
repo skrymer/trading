@@ -4,7 +4,7 @@ title: BTC + Tyr
 summary: Active search — breadth-thrust CONTINUATION (BTC) + institutional-breakout-on-breadth-recovery (Tyr); fresh premise via the breadth-thrust/recovery regime gate. Partly blocked on RSP ingest #99.
 status: active
 tags: [candidate, timing, breadth, breakout]
-sources: ["strategy_exploration/BTC_TYR_STRATEGY_DEVELOPMENT.md", "strategy_exploration/dossier/tyr.jsonl"]
+sources: ["strategy_exploration/dossier/tyr.jsonl"]
 related: ["[[gjallarhorn]]", "[[the-funnel]]", "[[crisis-timer-cadence-ceiling]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[long-premise-in-narrow-leadership]]", "[[purpose]]"]
 updated: 2026-06-06
 ---

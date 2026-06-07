@@ -48,6 +48,31 @@ candidate for a *fresh* `/strategy-screen` → `/validate-candidate` with a **pr
 justification — never a retroactive rescue of the failing config. (And changing a numeric constant
 **invalidates any prior firewall verdict** — re-fire.)
 
+## Scope — two tiers of tunable
+
+Not every numeric constant gets the same treatment; provenance decides:
+
+- **Tier 1 — parameters we invented** (a lookback we chose, a threshold we picked): the full binding
+  ±1-step / ±10% sweep. We have no external justification for the value, so robustness *is* the whole case.
+- **Tier 2 — externally-provenanced constants** (e.g. a published-spec value): a **one-time confirmatory
+  check, no retune.** External provenance kills the *anti-snooping* concern (we didn't choose it to fit our
+  OOS) but **not** the *robustness* concern — so a cliff at the spec value **demotes the verdict** (flag for
+  manual review), it does not license a re-tune. Cheaply-sweepable Tier-2 params are still checked;
+  untestable-by-construction params are **flagged, never silently exempt**.
+
+## One-at-a-time is the weak part (joint fragility) ^[inferred]
+
+The ±1 / ±10% sweep moves **one tunable at a time**. Robust-parameter practice searches **joint,
+multi-dimensional plateaus**, because interactions between tunables create fragility that axis-by-axis
+perturbation misses — a config can pass every one-at-a-time move and still be fragile to a *joint* move.
+[[aliased-regime-sensitivity]] is a discovered instance of joint fragility. A coarse joint grid on the 2-3
+most sensitive tunables would harden G13 (open work — see [[2026-06-05-funnel-deepresearch-findings]]).
+
+> ⚠ Status note ^[ambiguous]: G13 is treated as a **binding** interlock in [[component-firewall]], but its
+> **step-size calibration** (±1 / ±10%) and false-positive rate were flagged pending a confirming
+> known-passer / known-failer sweep + quant sign-off (memory `feedback_parameter_fragility_must_be_verified`).
+> Binding-in-principle, calibration-confirmation outstanding.
+
 ## Relationship to ARS
 
 G13 is the discipline ("verify ±1 robustness before TRADABLE"). [[aliased-regime-sensitivity]] is the

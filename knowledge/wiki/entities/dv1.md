@@ -4,8 +4,8 @@ title: DV1
 summary: Bullish-divergence + EMA20 long candidate. REJECTED — near-miss Block A 2026-05-28: G1 CAGR 29.86% (0.14pp under the then-30% floor) + G6 2008 edge −0.48%. A long-pullback-MR rep.
 status: stable
 tags: [candidate, divergence, rejected, near-miss, long-pullback-mr]
-sources: ["strategy_exploration/validation-candidates.md", "strategy_exploration/v4_block_a_results.md", "strategy_exploration/validate-DV1.md"]
-related: ["[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[component-firewall]]", "[[vz3]]", "[[idunn]]", "[[mr3]]"]
+sources: ["knowledge/wiki/sources/2026-05-28-mean-reversion-firewall-runs.md", "knowledge/wiki/sources/2026-05-27-v4-block-a-sweep.md", "strategy_exploration/dossier/"]
+related: ["[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[component-firewall]]", "[[vz3]]", "[[idunn]]", "[[mr3]]", "[[2026-05-28-mean-reversion-firewall-runs]]", "[[2026-05-27-v4-block-a-sweep]]"]
 updated: 2026-06-06
 ---
 
@@ -54,13 +54,13 @@ have required relaxing gates — which the quant explicitly warned against. The 
 > 30% floor; under today's 25% floor G1 would pass — but G6 (2008 −0.48%) is independent of the CAGR
 > floor and remains a binding failure, so DV1 is not retroactively rescored as a pass. ^[inferred]
 
-> ⚠ Source reconciliation (run reports disagree): the standalone `validate-DV1.md` firewall report
-> (2026-05-28T07:06) shows a **different** Block A run — first failure G1 at **CAGR 23.31%**, DD
-> 24.35%, 2008 edge **−1.35%**, 1,607 trades — and a `minimumPrice ≥ 5` re-fire in
-> `v4_block_a_results.md` failed G3 (CAGR 17.27%). The **near-miss numbers (29.86% / −0.48% / 1,739
-> trades)** in `validation-candidates.md` match the canonical ledger and are treated as authoritative
-> here; the lower-CAGR runs are earlier/variant fires under different universe or price filters.
-> ^[ambiguous]
+> ⚠ Source reconciliation (run reports disagree): a standalone Block A firewall run (2026-05-28T07:06)
+> shows a **different** result — first failure G1 at **CAGR 23.31%**, DD 24.35%, 2008 edge **−1.35%**,
+> 1,607 trades — and a `minimumPrice ≥ 5` re-fire failed G3 (CAGR 17.27%; see
+> [[2026-05-27-v4-block-a-sweep]]). The **near-miss numbers (29.86% / −0.48% / 1,739 trades)** match the
+> canonical ledger and are treated as authoritative here; the lower-CAGR runs are earlier/variant fires
+> under different universe or price filters. Both are recorded in
+> [[2026-05-28-mean-reversion-firewall-runs]]. ^[ambiguous]
 
 ## Why it died
 

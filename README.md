@@ -414,7 +414,7 @@ val myExit = exitStrategy {
 
 ### Available Strategies
 
-**No predefined entry or exit strategies are currently registered.** All prior strategies were either invalidated (VCP — order-block lookahead bug), REJECTED via the v4 firewall, or deprecated (mean-reversion-on-pullback class). Use the custom-strategy request shape (`{type: "custom", conditions: [...]}`) until new candidates land. See `strategy_exploration/NEW_CANDIDATES_2026-05-29.md` for in-flight designs.
+**No predefined entry or exit strategies are currently registered.** All prior strategies were either invalidated (VCP — order-block lookahead bug), REJECTED via the v4 firewall, or deprecated (mean-reversion-on-pullback class). Use the custom-strategy request shape (`{type: "custom", conditions: [...]}`) until new candidates land. See `knowledge/wiki/overview.md` for the state of the search and in-flight candidates.
 
 ### Available Conditions
 

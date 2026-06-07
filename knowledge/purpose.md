@@ -45,7 +45,7 @@ reproducible reason, not bad luck:
 ## Where the search is now (2026-06-05)
 
 - **BTC + Tyr** is the next premise class (ADX + breadth-thrust + RSP/SPY) — fresh, avoids all four
-  deprecated classes. RSP ingest tracked in #99. See `strategy_exploration/BTC_TYR_STRATEGY_DEVELOPMENT.md`.
+  deprecated classes. RSP ingest tracked in #99. See [[btc-tyr]].
 - **[[gjallarhorn]]** (breadth-washout crisis-bottom timer) passed its timing-alpha NULL (+22σ) but is
   **funnel-disqualified standalone** ([[crisis-timer-cadence-ceiling]]) — a shelved overlay component
   awaiting a host, blocked on nested-condition-groups (#93, now resolved) + a regime-transition layer.
@@ -65,4 +65,9 @@ reproducible reason, not bad luck:
   across a gate?~~ **Resolved (2026-06-06):** no — idle-cash is Sharpe-neutral and only modestly eases
   Calmar; 10 bps cost is a sub-half-point drag; the two roughly cancel for a part-in-cash book. Both
   shipped; gates re-confirmed unchanged, run on the realistic basis.
-- Can a crisis-bottom timer ever be validated standalone, or only as a composite leg (#93)?
+- Can a crisis-bottom timer ever be validated standalone, or only as a composite leg (#93)? **Answered
+  for [[gjallarhorn]]:** only as a leg — and even its composite A/B was a NO-GO (long-only crisis-DD
+  correlation, [[regime-conditional-portfolio]]).
+- Is the "narrow leadership kills cross-sectional RS-momentum" death **too strong**? The methodology
+  deep-research ([[2026-06-05-funnel-deepresearch-findings]]) suggests narrow leadership may *feed*
+  leader-momentum (factor- vs stock-specific split) — worth an actual run before treating as settled.
