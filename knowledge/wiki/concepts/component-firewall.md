@@ -1,7 +1,7 @@
 ---
 type: concept
 title: The Component Firewall
-summary: The binding 3-block + 25y validation (Block C informational), its anti-data-mining interlocks (G10/G11/G13/G14), the absolute gates, and the SPY-baseline gate (G16).
+summary: The binding 3-block + 25y validation (Block C informational), its anti-data-mining interlocks (G10/G11/G14 binding; G13 advisory), the absolute gates, and the SPY-baseline gate (G16).
 status: stable
 tags: [methodology]
 sources: [".claude/skills/validate-candidate/SKILL.md", "docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "docs/adr/0015-absolute-calmar-floor-and-g9-sharpe-recalibration.md"]
@@ -34,9 +34,10 @@ never derived from sub-block Calmars — the worst drawdown can straddle the A/B
 
 - **G10 design isolation** — the `config hash` is frozen across blocks; no per-block tuning.
 - **G11 cross-block edge decay** — `edge_B ≥ 0.5 · edge_A`; the edge must persist, not collapse.
-- **G13 parameter robustness** — a TRADABLE verdict must survive ±1 step on every discrete tunable and
-  ±10% on every continuous one. See [[parameter-robustness-g13]]. Picking the value that passes *after*
-  seeing the OOS result is data-snooping.
+- **G13 parameter robustness** *(currently **advisory** — runs & reports, does NOT bind the verdict; see
+  [[parameter-robustness-g13]])* — a TRADABLE verdict should survive ±1 step on every discrete tunable and
+  ±10% on every continuous one. Picking the value that passes *after* seeing the OOS result is data-snooping.
+  Binds only after its known-passer/known-failer calibration sweeps land.
 - **G14 implementation invariance** — a promoted condition must reproduce the inline-script trade list
   by `(entry_date, symbol)` over 25y, or the inline verdict is void.
 

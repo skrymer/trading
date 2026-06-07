@@ -1,7 +1,7 @@
 ---
 type: concept
 title: Parameter Robustness (G13)
-summary: A TRADABLE verdict must survive ±1 step on every discrete tunable and ±10% on every continuous one — else the edge is alignment-fitting, not structural.
+summary: Every alpha-defining tunable must survive ±1 step / ±10%, else the edge is alignment-fitting. ADVISORY today — runs & reports but does NOT bind the verdict until its calibration sweeps land.
 status: stable
 tags: [methodology, failure-mode]
 sources: ["feedback_parameter_fragility_must_be_verified"]
@@ -12,16 +12,31 @@ updated: 2026-06-06
 # Parameter Robustness (G13)
 
 A TRADABLE verdict must survive perturbation of **every** numeric tunable, or the edge is
-*alignment-fitting*, not structural — and won't survive live trading. G13 is the binding firewall gate
-that enforces this; [[aliased-regime-sensitivity]] is the specific failure it catches at its worst.
+*alignment-fitting*, not structural — and won't survive live trading. G13 is the firewall gate (currently
+**advisory** — see status below) that enforces this; [[aliased-regime-sensitivity]] is the specific
+failure it catches at its worst.
+
+> **Status: ADVISORY (calibration-pending) — runs and is reported on every TRADABLE candidate but does
+> NOT change the verdict** (a yellow flag, exactly like informational Block C). Authority: the
+> `/validate-candidate` skill + `g13_aggregate.py` (`"binding": False`); confirmed by quant
+> 2026-06-07 ([[2026-06-07-funnel-correctness-consult]]). G13 binds the verdict only after **two
+> calibration sweeps** pass: (1) a **known-failer** sweep confirming the buggy centre REJECTs at ±1 with
+> the failing neighbour tripping **G5 or G7** (the CoV-explosion / chop-sign-flip mechanism), and (2) a
+> **known-passer** sweep confirming G13 doesn't downgrade a legitimate passer. No known-passer strategy
+> exists yet (zero have cleared the firewall), so the passer sweep runs against the first strategy to clear
+> it. Flipping to binding is a one-line change (`binding=True`) once both pass. **The ±1 / ±10% step sizes
+> are signed off as the design to run; only the *bind* is gated on the sweeps.** Today a G13 neighbour
+> failure is surfaced as a flag alongside the verdict — it does **not** flip TRADABLE → REJECTED (the
+> operator may treat a wide-margin fragility flag as a discretionary stop).
 
 ## The rule
 
 - **Discrete** tunables (lookback days, position counts, history requirements): survive **±1 step**.
 - **Continuous** tunables (thresholds, multipliers, percentages): survive **±10% relative**.
 
-Accept TRADABLE only if all neighbors PASS the binding-layer gates. Skip if the candidate has no
-tunables (e.g. zero-config `marketUptrend`).
+The discipline: prefer TRADABLE only when all neighbors PASS the binding-layer gates. Skip if the
+candidate has no tunables (e.g. zero-config `marketUptrend`). *Advisory today — a neighbour failure is a
+reported flag, not an auto-REJECT (see status above).*
 
 ## Why — the autocorrelation argument
 
@@ -60,18 +75,19 @@ Not every numeric constant gets the same treatment; provenance decides:
   manual review), it does not license a re-tune. Cheaply-sweepable Tier-2 params are still checked;
   untestable-by-construction params are **flagged, never silently exempt**.
 
+The two-tier provenance split is **design intent, not yet wired into the executable scope** ^[inferred]:
+`g13_neighbors.py` classifies tunables by the discrete/continuous param-name map only, with no Tier-1/Tier-2
+provenance dimension. Until it's wired, **every tunable is swept as Tier-1** (conservative over-testing) —
+consistent with the gate being advisory anyway.
+
 ## One-at-a-time is the weak part (joint fragility) ^[inferred]
 
 The ±1 / ±10% sweep moves **one tunable at a time**. Robust-parameter practice searches **joint,
 multi-dimensional plateaus**, because interactions between tunables create fragility that axis-by-axis
 perturbation misses — a config can pass every one-at-a-time move and still be fragile to a *joint* move.
 [[aliased-regime-sensitivity]] is a discovered instance of joint fragility. A coarse joint grid on the 2-3
-most sensitive tunables would harden G13 (open work — see [[2026-06-05-funnel-deepresearch-findings]]).
-
-> ⚠ Status note ^[ambiguous]: G13 is treated as a **binding** interlock in [[component-firewall]], but its
-> **step-size calibration** (±1 / ±10%) and false-positive rate were flagged pending a confirming
-> known-passer / known-failer sweep + quant sign-off (memory `feedback_parameter_fragility_must_be_verified`).
-> Binding-in-principle, calibration-confirmation outstanding.
+most sensitive tunables would harden G13 — doubly non-urgent while G13 is advisory (open work — see
+[[2026-06-05-funnel-deepresearch-findings]]).
 
 ## Relationship to ARS
 

@@ -43,12 +43,13 @@ components, not one uber-strategy." It fired no backtest — it was a strategic 
    cross-block in-market CAGR ≈ **12%** (blocks 9.6 / 20.8 / 9.2 — not the cherry-tested Block-B 20.8%),
    active fraction **f ≈ 0.32** → **blended CAGR ≈ 4-6%** (incl. ~3% cash yield on the idle ~68%). 25%
    blended needs ~120% in-market = the leverage the engine forbids. **Max defensible ≈ 5-7%.**
-5. **The only honest pitch was MAR, not CAGR** (~half SPY return at lower drawdown): MAR ≈ 0.25 vs SPY
-   ≈ 0.15 = only ~1.5-2×, *entirely contingent* on an unbuilt read-out beating `spyTrendUp` (the exact
-   thing that failed before). Not worth solo-operator complexity unless DD reduction is dramatic (MAR ≥ ~3×
-   SPY).
+5. **The only honest pitch was MAR, not CAGR** (~half SPY return at lower drawdown): **~1.5-2× SPY MAR**
+   ^[inferred — source states the ~1.5-2× ratio; absolute MAR ≈ 0.25 vs SPY ≈ 0.15 is a reconstruction],
+   *entirely contingent* on an unbuilt read-out beating `spyTrendUp` (the exact thing that failed before).
+   Not worth solo-operator complexity unless DD reduction is dramatic (MAR ≥ ~3× SPY).
 6. **Breakout-extension-hold rejected** — raises active fraction but holds names into the breakout's
-   documented give-back tape (2015 −14.7%, 2021 −10.3%, 2023 −19.4%); net neutral-to-negative.
+   documented give-back tape (2015 −14.7%, 2021 −10.3%, 2023 −19.4% CAGR — from [[minervini-vcp-breakout]]);
+   net neutral-to-negative.
 
 ## What survives (the program is dead, the parts are not)
 

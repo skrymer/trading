@@ -59,7 +59,7 @@ the single OOS window).
 
 Both the long-pullback and breakout families fail the same way: a **too-coarse index-trend regime gate
 that can't see breadth rot**. This is why "escape from mean-reversion to breakout" is *not* a clean
-escape — same root cause, different entry. The deprecated premise classes in [[purpose]] all share it.^[inferred — the shared spyTrendUp root cause is quant-stated for the MR and breakout families; extending it to all four deprecated classes is synthesis]
+escape — same root cause, different entry. The earned-dead premise classes in [[purpose]] share it.^[inferred — the shared spyTrendUp root cause is quant-stated for the MR and breakout families; extending it to the other ruled-out classes is synthesis. RS-momentum-rotation is downgraded to untested (not earned-dead), so it is excluded here.]
 
 ## Related
 

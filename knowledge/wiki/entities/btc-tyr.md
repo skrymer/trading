@@ -1,7 +1,7 @@
 ---
 type: entity
 title: BTC + Tyr
-summary: Active search — breadth-thrust CONTINUATION (BTC) + institutional-breakout-on-breadth-recovery (Tyr); fresh premise via the breadth-thrust/recovery regime gate. Partly blocked on RSP ingest #99.
+summary: Active search — breadth-thrust continuation + institutional-breakout-on-breadth-recovery; fresh premise. RSP ingested (#99); RSP/SPY leg span-caveated on Block A (2003 inception).
 status: active
 tags: [candidate, timing, breadth, breakout]
 sources: ["strategy_exploration/dossier/tyr.jsonl"]
@@ -13,8 +13,9 @@ updated: 2026-06-06
 
 The **current active search** — the next candidate after [[gjallarhorn]] was shelved. A **fresh
 premise class**, quant-recommended (2026-06-04) as the strongest pick precisely because it avoids all
-four deprecated long families (long-pullback MR, breakout-in-uptrend, leveraged-ETF timing, RS-momentum
-rotation). Still **SCOPING** — design basis only, not yet specced or screened.
+four prior long families (long-pullback MR, breakout-in-uptrend, leveraged-ETF timing, RS-momentum
+rotation — the last now downgraded to untested, [[purpose]] #4). Still **SCOPING** — design basis only,
+not yet specced or screened.
 
 ## Premise
 
@@ -54,9 +55,15 @@ not be double-counted** — both read the same market-breadth transition, just a
 ## Status
 
 **ACTIVE — the live search.** SCOPING stage: design basis collected, formal spec still to be routed to
-`quant-analyst` before any build or screen. **Partly blocked on data:** the RSP/SPY leadership signal
-depends on RSP ingestion (#99) — the internal breadth-thrust is usable now, so the block is partial,
-not total.
+`quant-analyst` before any build or screen. **RSP ingested — data block lifted (#99 CLOSED 2026-06-04).**
+The RSP/SPY leadership leg is now buildable, but carries a **permanent residual caveat** (not removable by
+ingestion): RSP launched **2003-04-30**, so the RSP/SPY ratio is undefined before 2003 — it covers the
+screen window, GFC, COVID, 2022 and all of firewall Blocks B/C, but **truncates Block A to 2003-2014,
+missing the 2000-2002 dot-com bear** (the 2008 GFC G6 mandate is unaffected). So the RSP/SPY leg is
+**fully usable on the screen + Blocks B/C, partially usable on Block A** — disclose the dot-com gap on any
+RSP-based candidate. The *internal* breadth-thrust signal has no such gap (full Block-A span) — prefer it
+as the primary regime signal, with RSP/SPY as the corroborating broad-vs-narrow detector
+([[2026-06-07-funnel-correctness-consult]]).
 
 ## Funnel history
 
@@ -114,9 +121,10 @@ BTC+Tyr re-scoping. (The order-block leg was separately isolated and screened �
   (equal-weight vs cap-weight S&P) is the cleanest *direct* broad-vs-narrow detector (rising = broad,
   falling = narrow/mega-cap concentration). At screen time, compare RSP/SPY-divergence against the
   internal breadth-thrust as BTC+Tyr's regime signal — whichever discriminates good-vs-bad years better
-  in the anatomy wins. **Blocked on #99.** **Data-span caveat:** RSP launched **2003** → covers the
-  2005-2015 screen window + GFC/COVID/2022 + Blocks B/C, but **truncates Block A to 2003-2014 (misses the
-  2000-2002 dot-com bear)** — a partial gap to disclose, not a full disqualifier.
+  in the anatomy wins. **RSP ingested (#99 done) — buildable now.** **Data-span caveat (permanent):** RSP
+  launched **2003** → covers the 2005-2015 screen window + GFC/COVID/2022 + Blocks B/C, but **truncates
+  Block A to 2003-2014 (misses the 2000-2002 dot-com bear)** — a partial gap to disclose, not a full
+  disqualifier; the internal breadth-thrust (full Block-A span) is the preferred primary signal.
 - **Breadth as THRUST/TRANSITION, not LEVEL.** Entry-day breadth *level* does not predict win rate (flat
   ~33-35% from breadth <30 to >60) — it only scales payoff magnitude. A `marketBreadth > 50%` level gate
   only **thins**, never **selects** ([[thinning-not-selecting]]) — empirically why Track-2/2b were
