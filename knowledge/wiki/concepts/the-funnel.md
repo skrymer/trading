@@ -4,7 +4,7 @@ title: The Backtesting Funnel
 summary: The 5-stage map from idea to tradable/rejected — condition-screen → strategy-screen → validate-candidate → promotion/G14 → monte-carlo.
 status: stable
 tags: [methodology]
-sources: ["strategy_exploration/BACKTESTING_FUNNEL.md"]
+sources: [".claude/skills/validate-candidate/SKILL.md", ".claude/skills/strategy-screen/SKILL.md"]
 related: ["[[component-firewall]]", "[[aliased-regime-sensitivity]]", "[[parameter-robustness-g13]]"]
 updated: 2026-06-05
 ---
@@ -12,8 +12,8 @@ updated: 2026-06-05
 # The Backtesting Funnel
 
 How a strategy idea becomes a tradable (or rejected) candidate. Each stage has a skill, an analyst,
-a fixed window, and an artifact. Authoritative detail lives in the skills + ADRs; this page is the
-map. Full source: `strategy_exploration/BACKTESTING_FUNNEL.md`.
+a fixed window, and an artifact. Authoritative detail lives in the funnel skills (`/condition-screen`,
+`/strategy-screen`, `/validate-candidate`, `/monte-carlo`) + the ADRs; this page is the map.
 
 ```
  idea
@@ -46,6 +46,30 @@ map. Full source: `strategy_exploration/BACKTESTING_FUNNEL.md`.
   re-running them is data-mining, hard-refused by the exploration state-machine.
 - The **screen is triage, not a verdict** — survivors are candidates, not winners; always flag
   survivors below the 25% CAGR floor.
+
+## Rejection discipline — config or premise?
+
+Every rejection must answer one question: **is this the *config* or the *premise*?** The answer routes
+the next move:
+
+- **ADVANCE** — cleared the stage; go to the next.
+- **REJECT (config), premise alive** — a working component survives, but *this* config is dead. Carry the
+  working piece into a **separately-designed lineage successor** with an *independently-motivated* fix,
+  validated from scratch — **never a rescue** of the failing config (its `config hash` and ±1 neighbours
+  are dead, ADR 0008).
+- **REJECT (premise)** — the premise *class* is the problem (e.g. long-pullback MR's
+  [[participate-and-lose]]); deprecate the class, don't iterate within it.
+- **REDESIGN** — a structurally different entry premise is warranted.
+
+Two disciplines guard the REJECT→successor path:
+
+- **The IS-fitting line.** You MAY add a design axis motivated *independently* of the observed failure; you
+  MAY NOT fit a regime/parameter to the specific bad window. The difference is *what the change is justified
+  by*, not whether it helps. Fitting to the bad window is [[aliased-regime-sensitivity]] waiting to happen.
+- **Data-span feasibility, checked FIRST.** Before any design effort, confirm the signal spans the firewall
+  window. Recurring disqualifiers: leveraged ETFs (post-2009), RSP (2003+), bonds/gold (no instrument
+  pre-2002), recent-only signals that sit inside Block C. A signal that can't be screened or validated
+  without leaking is funnel-disqualified before Step 0.
 
 ## Why a funnel at all
 

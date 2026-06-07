@@ -4,8 +4,8 @@ title: The Component Firewall
 summary: The binding 3-block + 25y validation (Block C informational), its anti-data-mining interlocks (G10/G11/G13/G14), the absolute gates, and the SPY-baseline gate (G16).
 status: stable
 tags: [methodology]
-sources: ["strategy_exploration/COMPONENT_FIREWALL_PLAN.md", "strategy_exploration/BACKTESTING_FUNNEL.md"]
-related: ["[[the-funnel]]", "[[participate-and-lose]]", "[[parameter-robustness-g13]]", "[[beta-delivery]]"]
+sources: [".claude/skills/validate-candidate/SKILL.md", "docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "docs/adr/0015-absolute-calmar-floor-and-g9-sharpe-recalibration.md"]
+related: ["[[the-funnel]]", "[[participate-and-lose]]", "[[parameter-robustness-g13]]", "[[beta-delivery]]", "[[regime-conditional-portfolio]]"]
 updated: 2026-06-06
 ---
 
@@ -13,8 +13,9 @@ updated: 2026-06-06
 
 The binding validation layer of [[the-funnel]] — `/validate-candidate`. A candidate that clears it is
 *tradable*; one that fails is *rejected* (and its config hash goes dead, ADR 0008). The exact frozen
-gate table lives in the `/validate-candidate` skill + `COMPONENT_FIREWALL_PLAN.md §4b` (don't restate
-it here — it drifts). This page is the *shape and intent*.
+gate table lives in the `/validate-candidate` skill + its `REFERENCE.md` (don't restate it here — it
+drifts). This page is the *shape and intent*. The regime-conditional *component*-firewall variant (C-gates)
+is shelved with its abandoned program — see [[regime-conditional-portfolio]].
 
 ## The four layers
 
@@ -87,6 +88,9 @@ anatomy is a stub until a real instance exists.
 - **Beta-delivery** — a long book whose risk-adjusted return is just the index's, caught by G16's SPY
   Calmar baseline ([[beta-delivery]]).
 
+Every gated metric is downstream of the sizer — the same edge can flip a gate under a different risk-% or
+leverage cap, so the [[position-sizing-and-risk]] choices are part of the frozen config G13 perturbs.
+
 ## Related
 
-[[the-funnel]] · [[participate-and-lose]] · [[lottery-vs-signature]] · [[parameter-robustness-g13]] · [[beta-delivery]]
+[[the-funnel]] · [[participate-and-lose]] · [[lottery-vs-signature]] · [[parameter-robustness-g13]] · [[beta-delivery]] · [[position-sizing-and-risk]]

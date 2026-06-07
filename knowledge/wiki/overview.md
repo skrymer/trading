@@ -19,16 +19,17 @@ breakout-in-uptrend, leveraged-ETF timing, RS-momentum rotation), each for a doc
 reduces to a shared root cause — [[participate-and-lose]] under a too-coarse regime selector, where no
 selector flavor rescues it ([[thinning-not-selecting]]). The regime-conditional *portfolio* ambition is
 abandoned (long-only ⇒ defense = cash ⇒ no viable second long component). [[gjallarhorn]] is the one
-research-confirmed asset — a +22σ timing-alpha crisis-bottom timer — but it's an overlay component awaiting
-a host, not a standalone. The active search is **BTC+Tyr** (ADX + breadth-thrust + RSP/SPY), a fresh
-premise class chosen to avoid all four deprecated ones.
+research-confirmed asset — a +22σ timing-alpha crisis-bottom timer — but its composite A/B with the
+breakout was a **NO-GO** (2026-06-04), leaving it a shelved certified-but-homeless matched pair, not a
+standalone. The active search is **BTC+Tyr** (ADX + breadth-thrust + RSP/SPY), a fresh premise class
+chosen to avoid all four deprecated ones.
 
 ## Live threads
 
 | Thread | State |
 |---|---|
 | [[btc-tyr]] candidate | active search; scoping; partly blocked on RSP ingest #99 |
-| Gjallarhorn composite | unblocked by #93 (nested condition groups); needs the breakout+Gjallarhorn A/B as one unit |
+| Gjallarhorn composite | ❌ composite A/B **NO-GO** (2026-06-04) — structural (fixed crisis sleeve = cash drag + correlated crisis DDs); shelved matched-pair with the breakout, no iteration |
 | Regime-transition layer | #83 — the missing piece that would host the shelved breakout + Gjallarhorn |
 | Firewall recalibration | ✅ shipped — G16 (#102), DSR flag (#105), G1/G9/G15 gate recalibration (#106, 2026-06-06). Gates re-confirmed against the cost+idle-cash engine — KEEP, no recalibration ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]) |
 | Transaction-cost model | ✅ shipped (#101) — all metrics now net-by-default 10 bps |

@@ -4,8 +4,8 @@ title: VZ3-s3
 summary: Mean-reversion-on-pullback (to EMA20) in uptrend. Passed Block A + Block B cleanly, REJECTED at Block C — per-trade edge sign-flipped +0.48% → −0.11% in 2024 narrow-leadership tape.
 status: stable
 tags: [candidate, mean-reversion, rejected, deprecated-class]
-sources: ["strategy_exploration/VZ3_STRATEGY_DEVELOPMENT.md", "strategy_exploration/validate-VZ3-s3-final.md", "strategy_exploration/validation-candidates.md"]
-related: ["[[idunn]]", "[[mr3]]", "[[dv1]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[component-firewall]]", "[[parameter-robustness-g13]]", "[[the-funnel]]"]
+sources: ["knowledge/wiki/sources/2026-05-28-mean-reversion-firewall-runs.md", "strategy_exploration/dossier/"]
+related: ["[[idunn]]", "[[mr3]]", "[[dv1]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[component-firewall]]", "[[parameter-robustness-g13]]", "[[the-funnel]]", "[[2026-05-28-mean-reversion-firewall-runs]]"]
 updated: 2026-06-06
 ---
 

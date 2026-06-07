@@ -4,7 +4,7 @@ title: Order-Block Breakout Entry Condition
 summary: An order-block breakout entry condition. 50-sym sanity screen showed +0.211% 5d lift; the representative 300-sym screen showed NO lift — universe-size optimism that didn't replicate.
 status: stable
 tags: [condition, design-time, rejected]
-sources: ["strategy_exploration/dossier/condition-orderblockbreakout.jsonl", "strategy_exploration/STRATEGY_LEDGER.md"]
+sources: ["strategy_exploration/dossier/condition-orderblockbreakout.jsonl"]
 related: ["[[the-funnel]]", "[[btc-tyr]]", "[[minervini-vcp-breakout]]", "[[lottery-vs-signature]]", "[[beta-delivery]]"]
 updated: 2026-06-06
 ---

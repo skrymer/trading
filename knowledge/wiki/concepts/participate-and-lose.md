@@ -4,8 +4,8 @@ title: Participate-and-Lose
 summary: A long premise that stays fully deployed through the regime where its edge inverts — bleeding with full trade counts because the regime selector is too coarse.
 status: stable
 tags: [failure-mode]
-sources: ["feedback_mean_reversion_pullback_known_weakness", "project_minervini_vcp_breakout_rejected", "strategy_exploration/TRADE_ANATOMY_ANALYSIS.md"]
-related: ["[[thinning-not-selecting]]", "[[aliased-regime-sensitivity]]", "[[lottery-vs-signature]]"]
+sources: ["feedback_mean_reversion_pullback_known_weakness", "project_minervini_vcp_breakout_rejected"]
+related: ["[[thinning-not-selecting]]", "[[aliased-regime-sensitivity]]", "[[lottery-vs-signature]]", "[[minervini-vcp-breakout]]"]
 updated: 2026-06-05
 ---
 

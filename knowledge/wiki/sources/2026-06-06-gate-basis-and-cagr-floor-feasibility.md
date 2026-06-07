@@ -4,8 +4,8 @@ title: Quant consult — gate basis vs new engine + 25% CAGR floor feasibility (
 summary: Pre-restart quant review — KEEP all firewall gates on the realistic cost+idle-cash engine; 25% CAGR floor is reachable, the funnel dies on regime-survival not the return floor.
 status: stable
 tags: [methodology, quant-consult]
-sources: ["docs/adr/0015-absolute-calmar-floor-and-g9-sharpe-recalibration.md", "docs/adr/0016-idle-cash-earns-the-historical-short-rate.md", "docs/adr/0005-walk-forward-aggregation-methodology.md", "strategy_exploration/validate-VZ3-s3-final.md"]
-related: ["[[component-firewall]]", "[[lottery-vs-signature]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[parameter-robustness-g13]]"]
+sources: ["docs/adr/0015-absolute-calmar-floor-and-g9-sharpe-recalibration.md", "docs/adr/0016-idle-cash-earns-the-historical-short-rate.md", "docs/adr/0005-walk-forward-aggregation-methodology.md"]
+related: ["[[component-firewall]]", "[[lottery-vs-signature]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[parameter-robustness-g13]]", "[[2026-05-28-mean-reversion-firewall-runs]]"]
 updated: 2026-06-06
 ---
 

@@ -4,8 +4,8 @@ title: MR3
 summary: Mean-reversion-proper long candidate (3-day pullback + up-day in an uptrend). REJECTED Block A 2026-05-28 on multi-dimensional drift — three tight failures (G3/G4/G5). A long-pullback-MR rep.
 status: stable
 tags: [candidate, mean-reversion, rejected, long-pullback-mr]
-sources: ["strategy_exploration/MR3_STRATEGY_DEVELOPMENT.md", "strategy_exploration/validate-MR3-s1.md", "strategy_exploration/v4_block_a_results.md", "strategy_exploration/validation-candidates.md"]
-related: ["[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[component-firewall]]", "[[vz3]]", "[[idunn]]", "[[dv1]]"]
+sources: ["knowledge/wiki/sources/2026-05-28-mean-reversion-firewall-runs.md", "knowledge/wiki/sources/2026-05-27-v4-block-a-sweep.md", "strategy_exploration/dossier/"]
+related: ["[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[component-firewall]]", "[[vz3]]", "[[idunn]]", "[[dv1]]", "[[2026-05-28-mean-reversion-firewall-runs]]", "[[2026-05-27-v4-block-a-sweep]]"]
 updated: 2026-06-06
 ---
 
@@ -47,8 +47,8 @@ TRADABLE-PENDING-PROMOTION until promoted via `/create-condition`.
 | Screen (s1) | 2005-2015 | PASS (all 5) | — | 36.77% | 17.70% | 2.29 | 2.08 | 2,899 |
 | Firewall Block A | 2000-2014 | **REJECTED** | G3 worst-window DD | 43.83% | 20.47% | 2.58 | 2.14 | 4,830 |
 
-> ⚠ Note: an earlier v4-sweep run of MR3 (`v4_block_a_results.md`, 2000-2015 12-window) failed first on
-> **G5 CoV** (CAGR 40.59%, single-window dominance from a W5-2007 +72% edge outlier), and a
+> ⚠ Note: an earlier v4-sweep run of MR3 (2000-2015 12-window; see [[2026-05-27-v4-block-a-sweep]]) failed
+> first on **G5 CoV** (CAGR 40.59%, single-window dominance from a W5-2007 +72% edge outlier), and a
 > `minimumPrice ≥ 5` re-fire failed G2 (CAGR 20.56%). The canonical rejection is the 2026-05-28
 > 11-window Block A run below; the sweep runs are consistent in verdict (FAIL) but differ on which
 > gate trips first. ^[inferred]

@@ -240,7 +240,7 @@ trading/
 │   ├── package.json                  # Dependencies
 │   └── claude.md                     # Nuxt-specific context
 ├── pinescripts/                      # TradingView Pine Script strategies
-├── strategy_exploration/             # Strategy research and development notes
+├── strategy_exploration/dossier/     # ADR-0008 machine ledger (per-candidate JSONL); research narrative now lives in knowledge/ (#121)
 ├── reference_check/                  # Python cross-validators for Midgaard/Udgaard calculations (EMA/Donchian diff, VCP condition verifier)
 ├── compose.prod.yaml                 # Production Docker Compose (all services: postgres, midgaard, udgaard, asgaard, adminer)
 ├── deploy-prd.fish                   # Production deployment script (version bump, build JARs, deploy containers)

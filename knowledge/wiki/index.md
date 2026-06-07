@@ -18,6 +18,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[the-funnel]] — how an idea becomes tradable/rejected: the 5-stage funnel map.
 - [[component-firewall]] — the binding 3-block + 25y validation layer; gates, interlocks, intent.
 - [[parameter-robustness-g13]] — a TRADABLE verdict must survive ±1 step / ±10% on every tunable.
+- [[position-sizing-and-risk]] — the ATR-risk sizing framework's design rationale (equity basis, DD scaling, leverage cap, sector recalibration).
 
 ## Concepts — failure modes
 
@@ -44,12 +45,17 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Sources — run summaries
 
+- [[2026-05-27-strategy-screen-sweep]] — 16-candidate screen; G4 GFC-stress the dominant failure; a marketUptrend prepend didn't rescue it.
+- [[2026-05-27-v4-block-a-sweep]] — v4 16-candidate Block-A sweep + the minimumPrice bad-print inflation finding.
+- [[2026-05-28-mean-reversion-firewall-runs]] — the firewall + screen runs that deprecated the long-pullback MR class (VZ3/MR3/DV1/Idunn).
 - [[2026-06-04-gjallarhorn-null]] — the conditional within-regime NULL that confirmed Gjallarhorn's timing alpha.
+- [[2026-06-05-funnel-deepresearch-findings]] — /deep-research grading the funnel vs the quant literature; multiple-testing the dominant gap.
 - [[2026-06-06-gate-basis-and-cagr-floor-feasibility]] — quant: KEEP gates on the cost+idle-cash engine; 25% CAGR floor reachable; funnel dies on regime-survival, not the return floor.
 
 ## Synthesis — cross-cuts
 
 - [[long-premise-in-narrow-leadership]] — why long premises struggle post-2020, and what survives.
+- [[regime-conditional-portfolio]] — the ABANDONED long-only regime-conditional portfolio program + its shelved read-out / C-gate methodology.
 - [`../purpose.md`](../purpose.md) — the hunt: goal, deprecated classes, open questions.
 
 ## Queries
@@ -58,5 +64,5 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ---
 
-_Seeded 2026-06-05 (issue #84 skeleton). Pages migrate from `strategy_exploration/` lazily as they're
-touched — this index grows with them._
+_Seeded 2026-06-05 (issue #84 skeleton). The `strategy_exploration/*.md` dev docs were fully migrated in
+and retired (#121, 2026-06-07) — the wiki is now the single source of truth; only `dossier/` survives._
