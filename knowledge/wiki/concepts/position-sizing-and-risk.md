@@ -67,8 +67,9 @@ When more signals fire than open slots, a sector ranker prioritises which names 
 derived from a trailing **3-year** unlimited backtest (sectors sorted by average profit-per-trade) and
 **recalibrated annually** — sector leadership rotates on multi-year cycles, so more frequent updates add
 noise. Sectors with < 30 trades in the window get a neutral mid-pack rank. Walk-forward validation
-confirmed IS-derived rankings beat static full-sample rankings (WFE 0.63 → 0.75) — the in-sample-derived
-ranking is the right call, recalibrated on the cadence that matches leadership persistence.
+confirmed IS-derived rankings beat static full-sample rankings (WFE 0.63 → 0.75 ^[inferred — recalled
+figure from the source dev doc; not traced to a sources/ run page]) — the in-sample-derived ranking is the
+right call, recalibrated on the cadence that matches leadership persistence.
 
 ## Portfolio heat
 

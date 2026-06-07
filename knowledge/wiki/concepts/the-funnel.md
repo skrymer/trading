@@ -19,7 +19,7 @@ a fixed window, and an artifact. Authoritative detail lives in the funnel skills
  idea
   → /condition-screen     design-time pre-screen of ONE condition (lift, firing rate, ARS, regime, overlap). No verdict.
   → /strategy-screen      fast 10y (2005-2015) walk-forward triage, relaxed gates G1-G5. "Worth a full run?"
-  → /validate-candidate   3-block firewall (binding) + Block C informational. Strict v4 + G10/G11/G13.
+  → /validate-candidate   3-block firewall (binding) + Block C informational. Strict v4 + G10/G11 binding, G13 advisory.
   → promotion + G14       inline script → first-class condition, then trade-list diff.
   → /monte-carlo          path risk / risk-of-ruin before sizing up.
   → 25% CAGR floor        final go/no-go [operator].
