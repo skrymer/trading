@@ -51,6 +51,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[2026-06-04-gjallarhorn-null]] — the conditional within-regime NULL that confirmed Gjallarhorn's timing alpha.
 - [[2026-06-05-funnel-deepresearch-findings]] — /deep-research grading the funnel vs the quant literature; multiple-testing the dominant gap.
 - [[2026-06-06-gate-basis-and-cagr-floor-feasibility]] — quant: KEEP gates on the cost+idle-cash engine; 25% CAGR floor reachable; funnel dies on regime-survival, not the return floor.
+- [[2026-06-07-funnel-correctness-consult]] — quant pre-resume: G13 is ADVISORY (not binding); RS-momentum-rotation downgraded to untested; RSP #99 done but Block-A 2003-span caveat remains.
 
 ## Synthesis — cross-cuts
 

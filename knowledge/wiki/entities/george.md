@@ -81,6 +81,11 @@ so the deprecation is scoped to *this engine's tradable universe*, not a refutat
 The only honest re-test — a long-short decile on a down-cap universe — is **not buildable in a long-only
 engine**, so the class is deprecated in the tradable universe rather than strictly killed.
 
+> **Scope note (2026-06-07):** George's death is *this specific 52-week-high anchoring ranker*, not the
+> whole cross-sectional RS-momentum-rotation premise class — that class is **downgraded to
+> untested-hypothesis** (a factor-neutral idiosyncratic-RS variant is un-ruled-out; see [[purpose]] #4 and
+> [[2026-06-07-funnel-correctness-consult]]). Don't read George as foreclosing idiosyncratic-RS.
+
 ## Failure modes hit
 
 - **[[beta-delivery]]** — George is the canonical instance: a long book whose risk-adjusted return is

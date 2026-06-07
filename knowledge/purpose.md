@@ -1,7 +1,7 @@
 ---
 type: synthesis
 title: Purpose — the hunt
-summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, the four deprecated premise classes, and the open questions driving the search.
+summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, three earned-dead premise classes (+ RS-momentum downgraded-to-untested), and the open questions driving the search.
 status: active
 tags: [purpose, thesis]
 updated: 2026-06-06
@@ -34,18 +34,28 @@ abandoned (no viable second long component decorrelated from the first).
 
 ## What's been ruled out (deprecated premise classes)
 
-Do **not** re-open these without a structurally new entry premise — each failed for a documented,
-reproducible reason, not bad luck:
+**Three earned-dead + one downgraded-to-untested** (corrected 2026-06-07,
+[[2026-06-07-funnel-correctness-consult]]). Do **not** re-open #1-#3 without a structurally new entry
+premise — each failed for a documented, reproducible reason, not bad luck:
 
 1. **Long-pullback mean-reversion** (VZ3, MR3, Idunn) — [[participate-and-lose]] + [[aliased-regime-sensitivity]].
 2. **Breakout-in-uptrend** (Minervini VCP breakout) — [[participate-and-lose]]; no regime selector fixed it ([[thinning-not-selecting]]).
 3. **Leveraged-ETF timing** — data-span disqualified (post-2009) + regime fragility.
-4. **Cross-sectional RS-momentum rotation** — entry-universe beta, not ranker alpha (George; see [[thinning-not-selecting]]).
+4. **Cross-sectional RS-momentum rotation** — ⚠ **NOT a clean death — downgraded to untested-hypothesis.**
+   The *instance* that ran ([[george]], a 52-week-high anchoring ranker) is earned-dead: it lost to a Random
+   baseline on blended CAGR AND per-trade edge ([[beta-delivery]]). But the *premise class* was deprecated
+   **on theory with no run**, and the methodology deep-research ([[2026-06-05-funnel-deepresearch-findings]]
+   G1) holds the twin-death analogy is *probably too strong* — momentum splits into factor-momentum (dies
+   in narrow leadership) + a durable **stock-specific/idiosyncratic** component that narrow leadership can
+   *feed*. A **factor-neutral idiosyncratic-RS** variant is **un-ruled-out** and needs an actual run
+   (rank-and-hold `/strategy-screen` vs a mandatory Random baseline, edge measured in narrow-leadership
+   windows) before exclusion. Do not re-open the George *flavour* (price-level anchoring ranker).
 
 ## Where the search is now (2026-06-05)
 
 - **BTC + Tyr** is the next premise class (ADX + breadth-thrust + RSP/SPY) — fresh, avoids all four
-  deprecated classes. RSP ingest tracked in #99. See [[btc-tyr]].
+  prior classes. RSP ingested (#99 done) — data block lifted; the RSP/SPY leg is span-caveated on Block A
+  (2003 inception, dot-com gap), fully usable on the screen + Blocks B/C. See [[btc-tyr]].
 - **[[gjallarhorn]]** (breadth-washout crisis-bottom timer) passed its timing-alpha NULL (+22σ) but is
   **funnel-disqualified standalone** ([[crisis-timer-cadence-ceiling]]) — a shelved overlay component
   awaiting a host, blocked on nested-condition-groups (#93, now resolved) + a regime-transition layer.
