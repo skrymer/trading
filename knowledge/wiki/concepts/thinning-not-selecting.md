@@ -64,6 +64,15 @@ positive-window count — *not* win-rate/WFE (a payoff-shape artifact). A permis
 basket whose ~1% per-trade beta Random harvests for free. George (52-week-high anchoring ranker) lost to
 Random — its concentration was a *liability* (−14.3% GFC window vs Random's −2.1%).
 
+## The level-gate corollary — a "thrust" that's really a level read
+
+A breadth/momentum **level** gate only thins/scales payoff, never selects — so a *transition* premise that
+collapses into a level read inherits the same impotence. The **BTC breadth-thrust gate** (2026-06-08,
+[[2026-06-08-btc-breadth-thrust-screen-reject]]) put all its lift in the loosest near-level sweep cell
+(`high=50`) and lost it as the surge bound tightened (`high=60`) — its `high` axis was a level gate
+masquerading as a thrust detector. When a sweep shows the edge migrating toward the plain-threshold corner,
+the signal is reading level, not transition → [[thrust-degenerates-to-level]].
+
 ## Related
 
-[[participate-and-lose]] · [[lottery-vs-signature]] · [[component-firewall]]
+[[participate-and-lose]] · [[lottery-vs-signature]] · [[thrust-degenerates-to-level]] · [[component-firewall]]

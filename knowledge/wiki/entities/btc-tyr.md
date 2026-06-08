@@ -1,22 +1,30 @@
 ---
 type: entity
 title: BTC + Tyr
-summary: Active search — breadth-thrust continuation + institutional-breakout-on-breadth-recovery; fresh premise. RSP ingested (#99); RSP/SPY leg span-caveated on Block A (2003 inception).
-status: active
-tags: [candidate, timing, breadth, breakout]
-sources: ["strategy_exploration/dossier/tyr.jsonl"]
-request: "btc-tyr.request.json"
-related: ["[[gjallarhorn]]", "[[the-funnel]]", "[[crisis-timer-cadence-ceiling]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[long-premise-in-narrow-leadership]]", "[[purpose]]"]
+summary: DEAD (2026-06-08) — the fresh component (breadth-thrust GATE) failed solo /condition-screen (regime sign-flip, no 10/20d edge, thrust-degenerates-to-level). NOT a firewall death; class re-scopable.
+status: superseded
+tags: [candidate, timing, breadth, breakout, dead]
+sources: ["strategy_exploration/dossier/tyr.jsonl", "strategy_exploration/dossier/condition-breadththrust.jsonl"]
+request: "btc-tyr.breadth-thrust-screen.request.json"
+related: ["[[gjallarhorn]]", "[[the-funnel]]", "[[crisis-timer-cadence-ceiling]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[thrust-degenerates-to-level]]", "[[2026-06-08-btc-breadth-thrust-screen-reject]]", "[[long-premise-in-narrow-leadership]]", "[[purpose]]"]
 updated: 2026-06-08
 ---
 
 # BTC + Tyr
 
-The **current active search** — the next candidate after [[gjallarhorn]] was shelved. A **fresh
-premise class**, quant-recommended (2026-06-04) as the strongest pick precisely because it avoids all
-four prior long families (long-pullback MR, breakout-in-uptrend, leveraged-ETF timing, RS-momentum
-rotation — the last now downgraded to untested, [[purpose]] #4). Still **SCOPING** — design basis only,
-not yet specced or screened.
+> ⛔ **DEAD (2026-06-08).** The genuinely-fresh component — the breadth-thrust **GATE** — failed its solo
+> `/condition-screen` ([[2026-06-08-btc-breadth-thrust-screen-reject]]): SPY-regime sign-flip at all three
+> horizons, no detectable 10/20d edge, and the "thrust" degenerated into a level gate
+> ([[thrust-degenerates-to-level]]) carried by the 2009–14 tape. The whole bet rested on this gate (the
+> order-block trigger is a deprecated-breakout-family cousin already weak in isolation), so the candidate
+> is dead. **NOT a firewall death** — no `config_hash` burned, G13 brake not engaged; the breadth-event
+> premise *class* is re-scopable, but only via a **structurally different transition predicate** (see
+> "What a successor needs" below), never a tune of this gate.
+
+Was the **active search** after [[gjallarhorn]] was shelved — a **fresh premise class**,
+quant-recommended (2026-06-04) as the strongest pick because it avoided all four prior long families
+(long-pullback MR, breakout-in-uptrend, leveraged-ETF timing, RS-momentum rotation — the last downgraded
+to untested, [[purpose]] #4). It got as far as a gate-isolation screen and died there.
 
 ## Premise
 
@@ -55,8 +63,13 @@ not be double-counted** — both read the same market-breadth transition, just a
 
 ## Status
 
-**ACTIVE — the live search.** SCOPING stage: design basis collected, formal spec still to be routed to
-`quant-analyst` before any build or screen. **RSP ingested — data block lifted (#99 CLOSED 2026-06-04).**
+**DEAD — design-time kill (2026-06-08).** The breadth-thrust gate, screened in isolation, failed (details
+below in Funnel history + [[2026-06-08-btc-breadth-thrust-screen-reject]]). Reached only the
+gate-isolation `/condition-screen`; never assembled, never strategy-screened, never validated. The RSP/SPY
+leg and ADX gate (open questions below) were never exercised — moot given the gate's failure.
+
+_Historical scoping context (pre-death):_ formal spec was routed to `quant-analyst` 2026-06-08, which
+returned PROCEED-as-gate-isolation-screen. **RSP ingested — data block lifted (#99 CLOSED 2026-06-04).**
 The RSP/SPY leadership leg is now buildable, but carries a **permanent residual caveat** (not removable by
 ingestion): RSP launched **2003-04-30**, so the RSP/SPY ratio is undefined before 2003 — it covers the
 screen window, GFC, COVID, 2022 and all of firewall Blocks B/C, but **truncates Block A to 2003-2014,
@@ -72,6 +85,33 @@ as the primary regime signal, with RSP/SPY as the corroborating broad-vs-narrow 
 |---|---|---|
 | 2026-05-31 | Tyr solo `/condition-screen` ([[the-funnel]]) | **NO PROCEED → redesign** — *not* a firewall death |
 | 2026-06-04 | Re-scoped: screen **BTC + Tyr together** | active SCOPING |
+| 2026-06-08 | `quant-analyst` spec consult | PROCEED as gate-isolation screen; BUILD-NEW inline-script breadth-thrust gate; internal-thrust primary; ADX & RSP/SPY deferred |
+| 2026-06-08 | **BTC breadth-thrust gate solo `/condition-screen`** | **REJECT (design-time kill) → candidate DEAD** — [[2026-06-08-btc-breadth-thrust-screen-reject]] |
+
+**The death (2026-06-08).** The fresh component — the breadth-thrust **GATE** (dip-then-surge: breadth
+dipped ≤30 within the prior 10 trading days, then ≥55) — was screened in isolation on the 300-sym sanity
+universe (2000–2021, sweeps `window` 10±2 / `low` 30±5 / `high` 55±5). **Step-0 cadence PASSED** (199
+distinct firing dates/21yr, 15/21 years — not a [[crisis-timer-cadence-ceiling]]). Three independent
+binding failures killed it:
+- **SPY-regime sign-flip at all 3 horizons** — 5d down **−1.62%** / flat +0.10% / up +0.29%; 10d flat
+  −0.11%; 20d up −0.23%. The same failure that killed the solo-Tyr screen, here worse and incoherent. The
+  gate fires 6.98% in up-tape vs 0.17% in down-tape → it measures *"market already recovered,"* not the
+  transition *into* recovery. A regime gate can't rescue a regime-sign-flipped premise.
+- **No detectable edge** — 5d meanLift +0.249% (t≈1.23, sub-threshold), hit-rate lift negative at 10d
+  (−1.47pp) and 20d (−0.86pp); horizon shape *decays* (wrong for deploy-and-ride); ~32% of the lone 5d
+  positive eaten by the fill gap.
+- **The "thrust" is a level gate** ([[thrust-degenerates-to-level]]) — all lift in the loosest near-level
+  cell `high=50`, collapsing at `high=60`; firing un-holdable across the grid (+46/+47/−52% per-step). And
+  62% of firings sit in 2009–2014 — a [[lottery-vs-signature]] one-tape artifact.
+
+## What a successor needs (do NOT resurrect this gate)
+
+The breadth-event premise *class* is re-scopable (no `config_hash` burned), but **not by tuning
+`window`/`low`/`high`** (no robust corner) and **not by bolting a SPY-regime gate on top** (= IS-fitting
+the very sign-flip that condemns it). A successor must be a **structurally different transition predicate**
+— a true multi-day thrust/slope measure that is *regime-sign-consistent* (holds positive sign when it
+fires), screened from scratch as a fresh candidate **and** screened-together-with-[[gjallarhorn]] to avoid
+double-counting the same breadth read.
 
 **Tyr's earlier solo `/condition-screen` (2026-05-31) earned NO PROCEED**, on the differentiator
 `marketBreadthRecovering() AND orderBlockBreakout(2,5,0)`. Crucially this was **NOT a firewall death**:

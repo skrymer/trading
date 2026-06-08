@@ -58,6 +58,17 @@ everything else byte-identical, 20 seeds → a distribution.
 same-regime dip-buying *loses* (catching falling knives) while sustained-washout-then-recovery timing
 makes money. That is the lottery's opposite: a signature.
 
+## The lottery can show up at the SCREEN stage too
+
+Lottery concentration is usually a `/strategy-screen` per-window read, but it also surfaces at design-time
+`/condition-screen` as **firing + lift concentrated in one tape**. The **BTC breadth-thrust gate**
+(2026-06-08, [[2026-06-08-btc-breadth-thrust-screen-reject]]) fired **62% in 2009–2014** (72% incl 2020) —
+its already-weak aggregate lift was a single post-GFC-recovery artifact, not a selector working across its
+15 firing years. The continuation sibling of [[gjallarhorn]], but it landed on the lottery's outcome, not
+the signature's: regime-sign-flipped and edgeless beyond the 2009 tape. A one-tape firing distribution at
+the screen is an early lottery tell — read where the lift lives before wiring anything up.
+
 ## Related
 
-[[crisis-timer-cadence-ceiling]] · [[participate-and-lose]] · [[thinning-not-selecting]] · [[gjallarhorn]]
+[[crisis-timer-cadence-ceiling]] · [[participate-and-lose]] · [[thinning-not-selecting]] ·
+[[thrust-degenerates-to-level]] · [[gjallarhorn]]

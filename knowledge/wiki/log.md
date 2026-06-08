@@ -28,3 +28,27 @@ skills filed as the #84 follow-up.
 ## [2026-06-08] ingest | G-RANDOM baseline reproducibility fix (#130) — RandomRanker was unseeded (randomSeed fed only the 1e-10 tie-break jitter), so every "lost to Random" read was non-reproducible. New [[2026-06-08-random-baseline-reproducibility-fix]]; updated [[beta-delivery]] (reproducibility caveat on the random-ranker tell) + [[george]] (reclassification re-validation pending #135, screen-gate FAIL stands) + index. George re-run filed as #135. New MarketResidualMomentum ranker shipped in #130 to settle the factor-neutral idiosyncratic-RS premise vs the now-reproducible baseline.
 ## [2026-06-08] ingest | #135 George Random-baseline re-validation RESULT — re-ran George's class-deprecation against the now-seeded baseline as a 17-draw distribution (seeds 1..17, George seed 42, current 4,997-name universe) per the pre-registered rule. New [[2026-06-08-george-random-revalidation-prereg]] (rule + RESULT). Verdict: **deprecation HOLDS — affirmatively re-confirmed** (E=BETA edge +0.96% at floor ∧ C=BETA CAGR +1.75% below the entire Random 6.6–12.6% cloud ∧ d=BETA K=0/7); stronger than the original single unseeded draw. Updated [[george]] (status → re-validation COMPLETE, seeded 17-draw table + persisted george.request.json per ADR 0017), [[beta-delivery]] (caveat → re-run and HELD), [[2026-06-04-gjallarhorn-null]] (RNG footnote closed), index. George remains non-tradable (independent /strategy-screen FAIL stands).
 ## [2026-06-08] ingest | #130 MRM screen REJECTED — single-factor SPY-beta-residual momentum is anti-selective [[beta-delivery]]. Lost to the now-seeded Random baseline on edge (+2.80 vs +6.21) AND CAGR (8.95 vs 23.05); stronger signature than [[george]] (which only matched on edge). Stage 1 not run (foregone negative). The 23% Random CAGR diagnosed as structural long-beta (cash-dodge 2008 + equal-weight small-cap 2009/2010 rebound; SPY 9.86% over same support), NOT survivorship (universe carries 1500+ delisted names) — corrected after a bad probe. New [[mrm]] + [[2026-06-08-mrm-screen-reject]]; updated [[beta-delivery]] (2nd instance), purpose.md (#4 class stays untested, single-factor recipe crossed off), [[2026-06-08-random-baseline-reproducibility-fix]] (open question resolved), index. Multi-factor-neutral recipe filed as #137.
+## [2026-06-08] ingest | BTC+Tyr DEAD — breadth-thrust gate REJECTED at /condition-screen
+Screened the genuinely-fresh component (breadth-thrust GATE) in isolation per the 2026-06-08 quant spec
+(inline-script dip-then-surge, sweeps window 10±2 / low 30±5 / high 55±5, 300-sym sanity universe). Step-0
+cadence PASSED (199 distinct firing dates/21yr) but three binding failures killed it: SPY-regime sign-flip
+at all 3 horizons (5d down −1.62%), no 10/20d edge (hit-rate lift negative), and the "thrust" degenerating
+into a level gate (all lift in high=50, firing un-holdable; 62% of firings in 2009-14 = lottery). KILLS
+[[btc-tyr]] (the order-block trigger was a deprecated-family cousin already weak solo) — NOT a firewall
+death (no config_hash burned, G13 brake idle). New [[2026-06-08-btc-breadth-thrust-screen-reject]] +
+[[thrust-degenerates-to-level]] concept (seed); updated [[btc-tyr]] (→ superseded/dead), [[lottery-vs-signature]]
++ [[thinning-not-selecting]] (BTC instance), overview.md + purpose.md (funnel now EMPTY; #137 the one filed
+thread), index. Authored the gate via /create-condition (efficient O(1) getMarketBreadth point-lookups,
+strictly anti-lookahead). Dossier: strategy_exploration/dossier/condition-breadththrust.jsonl.
+## [2026-06-08] ingest | PEAD chosen as the new active direction (post-BTC+Tyr) + feasibility GREEN
+After [[btc-tyr]] died and emptied the funnel, routed an open-ended next-premise consult to quant-analyst
+(emphasising the engine is ours/extensible — indicators are buildable, only raw-data span is fixed). Top
+pick: **[[pead]] — Post-Earnings Announcement Drift**, an event-conditioned per-name long (enter on a
+confirmed positive earnings-day price gap, hold the multi-week underreaction drift) — the regime-orthogonal
+"5th class" the deep-research flagged as durable; off the axis that killed all four deprecated families.
+Verified the data kill-switch GREEN: EODHD earnings depth to 1993 (AAPL demo probe), PRD earnings table
+245k rows / 3,712 symbols dense 2000-2019 (1899 sentinel report_dates to filter). New [[pead]] entity
+(active/scoping); updated purpose.md + overview.md (PEAD = new active direction, #137 demoted) + index.
+Next step: author EarningsGapCondition via /create-condition, then /condition-screen (kill on 20d
+SPY-regime sign-flip / thrust-degenerates-to-level / one-tape lottery; decisive test = drift survives
+AFTER next-session entry). #137 stays a lower-priority class-closer.
