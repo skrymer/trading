@@ -50,6 +50,13 @@ premise — each failed for a documented, reproducible reason, not bad luck:
    *feed*. A **factor-neutral idiosyncratic-RS** variant is **un-ruled-out** and needs an actual run
    (rank-and-hold `/strategy-screen` vs a mandatory Random baseline, edge measured in narrow-leadership
    windows) before exclusion. Do not re-open the George *flavour* (price-level anchoring ranker).
+   **Update (2026-06-08):** the first actual run — [[mrm]], a **single-factor** SPY-beta-stripped
+   residual-momentum ranker (#130) — is **REJECTED at `/strategy-screen`**: it lost to a now-seeded Random
+   baseline on both legs (edge +2.80% vs +6.21%, CAGR 8.95% vs 23.05%), an anti-selective [[beta-delivery]]
+   tilt. But that tests only the *weakest* neutralization (market beta only; the residual still carries
+   sector/size/value momentum — the part that dies in narrow leadership). So the **single-factor recipe is
+   crossed off; the class stays untested.** The honest next test is a **multi-factor-neutral** residual
+   (strip sector/size/value), screened the same way — #137. Do not iterate on [[mrm]] (beta-delivery reject).
 
 ## Where the search is now (2026-06-05)
 

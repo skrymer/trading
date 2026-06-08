@@ -5,7 +5,7 @@ summary: A long book whose risk-adjusted return is just the index's — profitab
 status: seed
 tags: [failure-mode, methodology]
 sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "strategy_exploration/FUNNEL_DEEPRESEARCH_FINDINGS.md", "strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[2026-06-08-random-baseline-reproducibility-fix]]"]
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]"]
 updated: 2026-06-08
 ---
 
@@ -86,6 +86,19 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   a worse-than-noise GFC liability, −14.3% vs Random's −2.1% in 2008). Deprecated at `/strategy-screen`
   via G-RANDOM before ever reaching the firewall, so it has **no G16 read** — it is the cheaper-tell
   confirmation that this failure mode is real, not a G16 rejection.
+
+- **[[mrm]]** (2026-06-08) — the **second screen-stage** instance, and a *stronger* beta-delivery signature
+  than George. A single-factor SPY-beta-stripped residual-momentum ranker on a neutral entry (so the ranker
+  is the sole selection signal). It **lost** to a now-seeded byte-identical Random baseline on *both* legs:
+  per-trade edge **+2.80% vs +6.21%**, blended CAGR **8.95% vs 23.05%** (2.2–2.6×), beaten head-to-head in
+  5/7 windows, and it reproduced George's GFC liability (2008 window −12.93% vs Random −2.50%). Where George
+  *matched* Random on per-trade edge (a no-information ranker), MRM *loses* on edge — an **anti-selective**
+  tilt that systematically picks worse names than a random draw. First instance adjudicated against the
+  reproducibly-seeded baseline (the #130 fix). Note the high absolute Random CAGR (23%) is **structural
+  long-beta** of this long-only engine (cash-dodges 2008 → −8% vs SPY −38%, then equal-weight small-cap tilt
+  rides the 2009 +58% / 2010 +53% rebound; SPY buy-hold was 9.86% over the same support) — *not* survivorship
+  (the universe carries 1500+ delisted names) and *not* alpha; both arms share it, so the relative verdict
+  holds. See [[2026-06-08-mrm-screen-reject]].
 
 _No G16-firewall instance yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by
 the **firewall** gate itself at the time of writing (2026-06-06). When one is, record it here with:
