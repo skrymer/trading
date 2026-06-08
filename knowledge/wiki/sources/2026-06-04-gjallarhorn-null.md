@@ -35,6 +35,19 @@ entries drawn from the same comparable-stress population (`breadthPercent ≤ 25
 - Confirms the **conditional within-regime null** is the right gate for *timing* candidates (uniform-random
   would have proved only crisis beta).
 
+## RNG-reproducibility (2026-06-08, #135 footnote — closed)
+
+This null does **not** share George's #130 `RandomRanker` reproducibility bug: it is a random-entry-*timing*
+null (random entry **days** from the `breadthPercent ≤ 25` population at matched rate), not a random-*ranker*
+baseline. `RandomRanker` only orders simultaneous candidates — it cannot generate entries — and `randomSeed`
+plumbs only to the ranker / tie-break paths, never into `script` conditions. So the #130 fix is orthogonal
+to this null's code path. The null's own seeding mechanism is **unverifiable from the repo** (the run config
+was in the retired, uncommitted Gjallarhorn dossier). Stakes are low: Gjallarhorn is SHELVED, and the verdict
+is robust to any RNG concern — all 20 seeds negative + a cluster-free bare-mask corroboration means a
+reproducibility flaw could move the exact σ but cannot flip a uniformly-negative null positive. **If
+Gjallarhorn is ever un-shelved, its null must be re-run with a deliberately-seeded, repo-persisted mechanism
+(ADR 0017; cf. [[2026-06-08-george-random-revalidation-prereg]]).**
+
 ## Pages updated
 
 [[gjallarhorn]] (verdict table + NULL result), [[lottery-vs-signature]] (added the +22σ signature

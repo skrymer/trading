@@ -5,6 +5,7 @@ summary: 52-week-high anchoring RANKER (long top-N); deprecated when a byte-iden
 status: stable
 tags: [candidate, ranker, deprecated, beta-delivery]
 sources: ["strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md", "strategy_exploration/BACKTESTING_FUNNEL.md", "strategy_exploration/dossier/"]
+request: "george.request.json"
 related: ["[[beta-delivery]]", "[[the-funnel]]", "[[component-firewall]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[2026-06-08-random-baseline-reproducibility-fix]]"]
 updated: 2026-06-08
 ---
@@ -28,13 +29,17 @@ strategy is named; the ranker stays strategy-neutral (it names the 52-week-high 
 long-only liquid universe* — not "the paper is wrong" (see the weakest-habitat caveat below). Settled;
 no successor.
 
-> **Re-validation pending (2026-06-08, #135).** The capped-premise *reclassification* rested on the
-> lost-to-Random comparison — but the engine's `RandomRanker` was **unseeded** until #130, so that
-> "byte-identical seed-42 Random" baseline was not actually reproducible
-> ([[2026-06-08-random-baseline-reproducibility-fix]]). The comparison is being **re-run with the now-seeded
-> baseline** (#135). This does **not** reopen George as tradable: its independent `/strategy-screen` FAIL
-> (Sharpe 0.14, GFC drawdown 44.7%) is unaffected and final. Only the *class-deprecation* read — and the
-> lowered prior on the proximity condition — is under re-validation.
+> **Re-validation COMPLETE — deprecation HOLDS, affirmatively re-confirmed (2026-06-08, #135).**
+> The original capped-premise call rested on a *single unseeded* Random draw (`RandomRanker` was unseeded
+> until #130 — [[2026-06-08-random-baseline-reproducibility-fix]]). Re-run on the now-seeded baseline as a
+> **17-seed distribution** (pre-registered rule → [[2026-06-08-george-random-revalidation-prereg]]), on the
+> current 4,997-name universe: George's per-trade edge (+0.96%) sits at the **floor** of the Random edge
+> distribution, its blended CAGR (+1.75%) is **below the entire Random CAGR cloud** (Random 6.6–12.6%),
+> and it beats the Random per-window p95 in **0 of 7 windows** (K=0). E=BETA ∧ C=BETA ∧ d=BETA →
+> deprecation HOLDS, *stronger* than the original single-point read (the seeded distribution turns
+> "matched-then-beaten" into "below the whole cloud, wins no window's tail"). Independent `/strategy-screen`
+> FAIL (Sharpe 0.14, GFC drawdown 44.7%) is unaffected and final — George stays non-tradable. The class
+> deprecation and the lowered prior on the proximity condition both **stand**.
 
 ## Funnel history
 
@@ -70,6 +75,30 @@ Screen window 2005–2015, 7 OOS windows, identical entry / exit / sizer / `maxP
 George wins **only** on win-rate and WFE — both payoff-shape artifacts, not signal. Random **matches**
 the per-trade edge and **beats** George on every bottom-line metric that matters (CAGR, positive
 windows, drawdown, crisis survival).
+
+> **Caveat (now superseded):** the table above is the *original single unseeded* Random draw — `RandomRanker`
+> was unseeded until #130, so it was one non-reproducible realization. See the seeded 17-draw re-validation
+> below, which confirms and strengthens it.
+
+### Seeded re-validation — 17-draw distribution (2026-06-08, #135)
+
+Re-run on the **now-seeded** Random baseline ([[2026-06-08-random-baseline-reproducibility-fix]]) as a
+17-seed distribution against George (seed 42), current 4,997-name universe, per the pre-registered rule
+([[2026-06-08-george-random-revalidation-prereg]]). George is a *point* vs the Random *distribution*:
+
+| Axis | George | Random p50 | Random p95 | Random range | Label |
+|---|---|---|---|---|---|
+| Per-trade edge | +0.96% | 1.10% | 1.73% | 0.95–1.73% | **BETA** (at the floor) |
+| Blended OOS CAGR | +1.75% | 7.98% | 12.65% | **6.64–12.65%** | **BETA** (below the whole cloud) |
+| Positive windows | 6/7 | 6 | 6 | all 6 | INCONCLUSIVE (every seed = 6/7) |
+| Per-window K (George > Random per-window p95) | **0/7** | — | — | — | **BETA** |
+
+**Verdict: deprecation HOLDS — affirmatively re-confirmed** (E=BETA ∧ C=BETA ∧ d=BETA; win-rate/WFE
+excluded by rule). The seeded distribution is *stronger* than the original single point: George's CAGR is
+below the lowest of 17 random selectors by ~5pts, and it wins **no** window's tail (K=0). The 2008 GFC
+remains the discriminating window — George −12.0% vs Random per-window p95 −1.22% — the same anchoring-into-
+extended-names liability, reproduced on the new universe. Numbers differ from the original table (larger
+universe) but the conclusion is identical and more robust.
 
 ## Why it died
 
@@ -112,6 +141,23 @@ engine**, so the class is deprecated in the tradable universe rather than strict
   on the gate form of the same 52-week-high signal (a nearness-to-high *condition*): since the stronger
   *ranker* form turned out to be beta, the weaker *gate* form is even less likely to carry alpha. Screen
   it (if at all) as a falsification test, not a hopeful candidate.
+
+## Reproducing
+
+The exact, validated screen request lives beside this entity at **`george.request.json`** (persisted per
+ADR 0017 — the original dev-doc config was lost to `/tmp` and had to be reconstructed for #135; the
+sibling file prevents the next reconstruction). It is the faithful George skeleton on the 2026-06-08
+universe (confirmed by the universe-invariant four-metric match in
+[[2026-06-08-george-random-revalidation-prereg]]).
+
+```bash
+API_KEY=… .claude/scripts/udgaard-post.sh /api/backtest/walk-forward \
+  @knowledge/wiki/entities/george.request.json /tmp/george.json
+```
+
+The **Random baseline** is the byte-identical file with two edits: `"ranker": "Random"` and
+`"randomSeed": <n>` swept over a contiguous seed list (the #135 re-validation used `1..17`). Everything
+else — entry stack, script exit, sizer, `maxPositions` — stays fixed so only the selector changes.
 
 ## Related
 

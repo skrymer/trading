@@ -53,7 +53,10 @@ single-backtest `BenchmarkComparison` is a yellow flag that the eventual G16 rea
 > fed only the 1e-10 tie-break jitter), so every "lost to Random" read — including [[george]]'s — was
 > not actually reproducible. Fixed in #130: `RandomRanker(seed)` now scores deterministically per
 > `(seed, symbol, date)`, enabling the per-window p95 a multi-seed null needs. See
-> [[2026-06-08-random-baseline-reproducibility-fix]]; George's reclassification is being re-run (#135).
+> [[2026-06-08-random-baseline-reproducibility-fix]]. **George's reclassification was re-run (#135) on a
+> seeded 17-draw distribution and HELD — affirmatively re-confirmed:** George's CAGR fell below the entire
+> Random cloud and it won 0/7 windows' tails. The seeded null *strengthened* the original single-point
+> read rather than overturning it ([[2026-06-08-george-random-revalidation-prereg]]).
 
 ## Why it kills
 
