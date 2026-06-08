@@ -52,3 +52,5 @@ Verified the data kill-switch GREEN: EODHD earnings depth to 1993 (AAPL demo pro
 Next step: author EarningsGapCondition via /create-condition, then /condition-screen (kill on 20d
 SPY-regime sign-flip / thrust-degenerates-to-level / one-tape lottery; decisive test = drift survives
 AFTER next-session entry). #137 stays a lower-priority class-closer.
+
+## [2026-06-09] ingest | pead REJECT (price-gap proxy) — beta-delivery materialised, class alive; sector-quote engine change filed #143

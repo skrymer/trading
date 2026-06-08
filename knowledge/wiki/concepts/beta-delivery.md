@@ -4,17 +4,18 @@ title: Beta-Delivery
 summary: A long book whose risk-adjusted return is just the index's — profitable in absolute terms but no better than holding SPY; the failure mode G16 catches.
 status: seed
 tags: [failure-mode, methodology]
-sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "strategy_exploration/FUNNEL_DEEPRESEARCH_FINDINGS.md", "strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]"]
-updated: 2026-06-08
+sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-08-george-random-revalidation-prereg.md"]
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]"]
+updated: 2026-06-09
 ---
 
 # Beta-Delivery
 
-> **status: seed** — the failure-mode anatomy and both detectors are settled. The firewall's **G16**
-> gate has not rejected a candidate yet; the **screen-stage random-ranker tell** has — [[george]]
-> (2026-06-04). So the *Instances* section holds George (caught early, before the firewall), and is
-> still awaiting its first G16-firewall rejection. The first G16 FAIL promotes this to `active`.
+> **status: seed** — the failure-mode anatomy and the detectors are settled. The firewall's **G16** gate
+> has not rejected a candidate yet; the cheaper **screen-stage** tells have three times — [[george]] and
+> [[mrm]] (random-ranker tell) and [[pead]]'s price-gap proxy (the new SPY-regime-tertile sign-flip tell).
+> So the *Instances* section holds all three screen-stage catches, still awaiting a first G16-firewall
+> rejection. The first G16 FAIL promotes this to `active`.
 
 ## Definition
 
@@ -99,6 +100,19 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   rides the 2009 +58% / 2010 +53% rebound; SPY buy-hold was 9.86% over the same support) — *not* survivorship
   (the universe carries 1500+ delisted names) and *not* alpha; both arms share it, so the relative verdict
   holds. See [[2026-06-08-mrm-screen-reject]].
+
+- **[[pead]] price-gap proxy** (2026-06-09) — the **condition-screen / regime-tertile** instance, and the
+  first *event-driven* one. Not a ranker (George/MRM) and not G16: an inline earnings-gap entry condition
+  whose post-entry forward-return lift, decomposed into SPY 20d-return tertiles, **sign-flipped across the
+  regime** (20d: down **+1.73%** / flat **−0.38%** / up **−0.56%**) — positive only in down-tape, the
+  entire +0.114% headline a blend that nets to noise. The OHLCV price gap was reading the same-day
+  market-direction move (on a strong-tape day the index gaps and drags the name's gap with it), i.e.
+  *delivering beta through the surprise measure itself* — "beta-delivery via the back door." **Detection tell
+  (new, reusable):** for a per-name event-alpha condition the **SPY-regime `flat` bucket must stay solidly
+  positive**; flat-negative with down ≫ up = beta-delivery via event selection, kill at screen. The fix is
+  to neutralise the market component *before* entry (market-neutral residual), not a regime gate. See
+  [[2026-06-09-pead-earnings-gap-screen-reject]]; cross-ref [[aliased-regime-sensitivity]] (the cross-sectional
+  regime-tertile sign-flip variant).
 
 _No G16-firewall instance yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by
 the **firewall** gate itself at the time of writing (2026-06-06). When one is, record it here with:

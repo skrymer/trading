@@ -5,8 +5,8 @@ summary: Non-monotone pass/fail across a parameter neighborhood plus per-window 
 status: stable
 tags: [failure-mode]
 sources: ["feedback_aliased_regime_sensitivity"]
-related: ["[[parameter-robustness-g13]]", "[[participate-and-lose]]", "[[lottery-vs-signature]]"]
-updated: 2026-06-05
+related: ["[[parameter-robustness-g13]]", "[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[thrust-degenerates-to-level]]", "[[beta-delivery]]", "[[pead]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]"]
+updated: 2026-06-09
 ---
 
 # Aliased Regime Sensitivity (ARS)
@@ -46,6 +46,21 @@ signs flipping at 2018-Q4 and 2020 COVID. Aggregate spread 0.36pp sits within 3.
 sample. Classic ARS — the lookback is aliasing against regime cadences (2020 had a ~9-10 day reversal;
 lb=10 catches false-rally bottoms, lb=8/11 sample off-phase).
 
+## Instance — PEAD price-gap proxy (2026-06-09), the non-monotone "island"
+
+`gapAtr` sweep at `/condition-screen`, 20d post-entry lift: **0.5 → −0.18%, 1.0 → +0.11%, 1.5 → −0.20%.**
+Only the centre cell is positive; **both neighbours are negative** — the Idunn island pattern, here on a
+*continuous* threshold tunable. Demanding a *stronger* surprise (1.5 ATR) turns lift negative, the opposite
+of surprise-magnitude monotonicity the underreaction mechanism requires.
+
+⚠ **Caveat — formal 3-clause test inconclusive-by-construction:** detection clause 4 (stable trade counts)
+is **not** satisfiable here — firing is not held within ±15% across the cells (0.5 = +68%, 1.5 = −36% rel),
+because a gap-size threshold *is* a support cliff (like a level-degenerating thrust, [[thrust-degenerates-to-level]]).
+So this is recorded as the **non-monotone-island tell + a cross-sectional regime-tertile sign-flip** (down
+positive / up negative at every horizon — see [[beta-delivery]]), not a formal stable-firing ARS pass. The
+structural verdict is identical to a clean ARS: the gap-size dimension carries no robust drift edge —
+redesign the surprise proxy, don't tune the threshold. See [[2026-06-09-pead-earnings-gap-screen-reject]].
+
 ## Why it kills
 
 The mechanism the variable name claims (e.g. "support N bars ago") is not what the edge tracks — it
@@ -63,4 +78,4 @@ tracks *which specific historical bars the index happens to hit*. "Today's low v
 
 ## Related
 
-[[parameter-robustness-g13]] · [[participate-and-lose]] (Idunn was doubly condemned) · [[lottery-vs-signature]]
+[[parameter-robustness-g13]] · [[participate-and-lose]] (Idunn was doubly condemned) · [[lottery-vs-signature]] · [[thrust-degenerates-to-level]] · [[beta-delivery]] · [[pead]]

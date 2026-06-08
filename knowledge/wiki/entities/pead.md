@@ -1,12 +1,12 @@
 ---
 type: entity
 title: PEAD — Post-Earnings Announcement Drift
-summary: NEW active direction (2026-06-08) — event-conditioned long: enter on a confirmed positive earnings-day gap, hold the underreaction drift. The regime-orthogonal 5th premise class. Feasibility GREEN.
+summary: Active direction; first surprise proxy (OHLCV price gap) REJECTED at /condition-screen (regime sign-flip = beta-delivery). Class survives; proxy in redesign — market-neutral gap residual next.
 status: active
 tags: [candidate, event-driven, earnings, drift]
-sources: ["knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md"]
-related: ["[[participate-and-lose]]", "[[beta-delivery]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[long-premise-in-narrow-leadership]]", "[[btc-tyr]]", "[[purpose]]"]
-updated: 2026-06-08
+sources: ["knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-09-pead-earnings-gap-screen-reject.md", "strategy_exploration/dossier/condition-earningsgap.jsonl"]
+related: ["[[participate-and-lose]]", "[[beta-delivery]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[long-premise-in-narrow-leadership]]", "[[aliased-regime-sensitivity]]", "[[btc-tyr]]", "[[purpose]]"]
+updated: 2026-06-09
 ---
 
 # PEAD — Post-Earnings Announcement Drift
@@ -15,7 +15,13 @@ The **new active search direction** (quant-recommended 2026-06-08, after [[btc-t
 funnel). The first member of an entirely **unexplored premise class: event-conditioned, per-name** entries
 — the only corner off the regime-beta axis that killed all four deprecated families. Flagged as
 "durable and factor-robust" by the funnel's own deep-research (G2, [[2026-06-05-funnel-deepresearch-findings]]).
-Still **SCOPING** — feasibility confirmed, concrete condition spec + screen still to come.
+
+> **Status (2026-06-09):** the first surprise proxy — the OHLCV **price gap** — was **REJECTED** at
+> design-time `/condition-screen` ([[2026-06-09-pead-earnings-gap-screen-reject]]). PEAD's pre-registered
+> most-likely death ([[beta-delivery]] via the gap selecting high-momentum names) **materialised**: the
+> gap reads market-direction microstructure, not firm-specific surprise. **The class survives** — only the
+> OHLCV-gap shortcut died. Next proxy: a **market-neutral gap residual** (see *Redesign* below). This was a
+> design-time reject — no `config_hash` burned, the firewall brake is not engaged.
 
 ## Premise
 
@@ -87,12 +93,39 @@ eligible-only-when-the-name-edge-is-present, the opposite of [[participate-and-l
 |---|---|---|
 | 2026-06-08 | `quant-analyst` next-premise consult (post-[[btc-tyr]] death) | **PEAD = top pick** (event-conditioned, regime-orthogonal 5th class) |
 | 2026-06-08 | Data feasibility check (EODHD depth probe + PRD earnings query) | **GREEN** — AAPL→1993; PRD 245k rows / 3,712 symbols, dense 2000-2019 |
+| 2026-06-09 | `EarningsGapCondition` (OHLCV price-gap proxy, gapAtr 1.0±0.5) — first `/condition-screen` (300-sym sanity) | **REJECT** — 20d SPY-regime sign-flip (down +1.73% / flat −0.38% / up −0.56%), 20d meanLift +0.114% = 0.44× SE (bar +1.5%), non-monotone gap-size island. Proxy dead, class alive ([[2026-06-09-pead-earnings-gap-screen-reject]]) |
 
-## Most-likely death
+## Redesign — next surprise proxy (quant consult 2026-06-09)
 
-[[beta-delivery]] via the back door (the gap selects high-momentum names). Detect early at condition-screen
-by confirming the post-entry drift exists independent of the gap-day move, and by pairing G-RANDOM on the
-event-eligible basket once selection is added.
+The reject condemns the **price-gap surprise proxy**, not the mechanism. The fix must isolate
+firm-specific surprise content **orthogonal to that day's market move**. Ranked successors (each a new,
+screened-from-scratch condition — never an iteration of the dead config):
+
+1. **Market-neutral gap residual** (run first; PIT-clean, OHLCV-only): `residualAtr =
+   (open[g]−close[g−1])/atr[g−1] − (spyOpen[g]−spyClose[g−1])/spyAtr[g−1]`. Subtracting the same-day SPY
+   gap removes the common-factor component the regime tertiles isolate — exactly what flipped the sign.
+   **Feasible today:** `BacktestContext.getSpyQuote(date)` is reachable from an inline script
+   (`ConditionScreenService.buildContext` loads the SPY quote map). Sweep θ center 0.75 ATR ±0.5
+   ({0.25,0.75,1.25}); screen relVol-gate both ways; close-near-high excluded (re-imports momentum).
+   Pre-registered bar unchanged (20d ≥ +1.5%, ≥2×SE) **plus** flat-tape ≥ +1.0% and no regime sign-flip.
+2. **EPS-surprise-gated residual** (reserved fallback): EPS confirms *sign only* (`surprisePercentage > 0`),
+   the PIT-clean residual stays the trigger — never threshold on EPS magnitude (S4 restatement risk). EPS
+   fields are 100% populated 2000-2020, but PIT-suspect, which is why this is second.
+
+**Deferred — sector-neutral residual / sector-regime gating.** Subtracting the *sector* gap, or gating on
+"sector in an uptrend" (operator idea), needs sector **price** at evaluation time — `BacktestContext` today
+exposes only sector *breadth*, not a sector quote map. Sector-ETF OHLCV is available to 1998-12-22
+(firewall-safe), so it's worth adding as a reusable capability — tracked in **issue #143**. ^[inferred]
+Build trigger: the market-neutral residual survives but shows residual sector tilt, **or** we pursue the
+sector-regime-gated composite as a candidate. Per [[lottery-vs-signature]] / [[participate-and-lose]]
+discipline, any regime/sector gate must be designed into a **new** candidate from the start, never bolted
+onto a post-OOS result.
+
+## Most-likely death — MATERIALISED (2026-06-09)
+
+[[beta-delivery]] via the back door (the gap selects high-momentum names) — **confirmed** at the first
+screen: the price gap delivered SPY-direction beta (edge only in down-tape, flat/up negative), not
+firm-specific drift. The redesign's whole job is to strip that beta out *before* entry.
 
 ## Related
 

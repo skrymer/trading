@@ -27,11 +27,11 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[lottery-vs-signature]] — edge concentrated in 1-2 windows = regime detector, not selector; the timing-NULL signature test.
 - [[thrust-degenerates-to-level]] — a transition/thrust premise whose edge sits in the cell nearest a plain level threshold = it's really a level gate.
 - [[crisis-timer-cadence-ceiling]] — < ~1 event/yr premises are un-validatable standalone; the data-span sibling rule.
-- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — no instance yet).
+- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — 3 screen-stage instances incl. PEAD's regime-tertile sign-flip; no G16-firewall instance yet).
 
 ## Entities — candidates
 
-- [[pead]] — **NEW active direction** (2026-06-08): event-conditioned earnings-drift (enter on a confirmed positive earnings-day gap, hold the underreaction drift); the regime-orthogonal 5th class; feasibility GREEN.
+- [[pead]] — **active direction**: event-conditioned earnings-drift. First proxy (OHLCV price gap) **REJECTED** at design-time `/condition-screen` (2026-06-09 — SPY-regime sign-flip = beta-delivery materialised); **class survives**, surprise proxy in redesign (market-neutral gap residual next).
 - [[btc-tyr]] — **DEAD** (2026-06-08): breadth-thrust gate failed solo `/condition-screen` (regime sign-flip + thrust-degenerates-to-level); NOT a firewall death, class re-scopable.
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
 - [[minervini-vcp-breakout]] — breakout-in-uptrend; REJECTED (participate-and-lose), but the broad-thrust edge is real → shelved building block.
@@ -53,6 +53,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[2026-06-08-george-random-revalidation-prereg]] — pre-registered decision rule + RESULT for George's #135 re-test against the seeded baseline; deprecation HOLDS, affirmatively re-confirmed (George below the entire Random CAGR cloud, K=0/7).
 - [[2026-06-08-mrm-screen-reject]] — single-factor residual momentum REJECTED at Stage-0 vs seeded Random (anti-selective beta-delivery); Stage 1 not run; class stays untested (#137).
 - [[2026-06-08-btc-breadth-thrust-screen-reject]] — BTC breadth-thrust gate REJECTED at design-time `/condition-screen` (regime sign-flip all horizons + thrust-degenerates-to-level + 2009-14 one-tape lottery); kills BTC+Tyr — funnel now empty.
+- [[2026-06-09-pead-earnings-gap-screen-reject]] — PEAD price-gap proxy REJECTED at design-time `/condition-screen` (SPY-regime sign-flip + no post-entry edge + non-monotone gap-size island); beta-delivery materialised; class alive, surprise proxy redesign (market-neutral residual next).
 
 ## Synthesis — cross-cuts
 
