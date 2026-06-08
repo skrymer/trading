@@ -34,6 +34,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
 - [[minervini-vcp-breakout]] — breakout-in-uptrend; REJECTED (participate-and-lose), but the broad-thrust edge is real → shelved building block.
 - [[george]] — 52-week-high anchoring ranker; DEPRECATED — lost to a Random baseline (the canonical beta-delivery case); class-deprecation reclassification being re-run on the now-seeded baseline (#135), screen-gate FAIL stands.
+- [[mrm]] — single-factor SPY-beta-stripped residual-momentum ranker; REJECTED at /strategy-screen — anti-selective beta-delivery (lost to seeded Random on edge AND CAGR); class stays untested, multi-factor recipe is next (#137).
 - [[vz3]] — pullback mean-reversion (EMA20); passed A+B, REJECTED Block C on a 2024 per-trade-edge sign-flip.
 - [[idunn]] — the promoted [[vz3]]; an off-by-one lookback exposed Aliased Regime Sensitivity → REJECTED Block B.
 - [[mr3]] — mean-reversion proper; REJECTED Block A on multi-dimensional drift (3 tight gate fails).
@@ -47,6 +48,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[2026-06-04-gjallarhorn-null]] — the conditional within-regime NULL that confirmed Gjallarhorn's timing alpha.
 - [[2026-06-06-gate-basis-and-cagr-floor-feasibility]] — quant: KEEP gates on the cost+idle-cash engine; 25% CAGR floor reachable; funnel dies on regime-survival, not the return floor.
 - [[2026-06-08-random-baseline-reproducibility-fix]] — the G-RANDOM Random baseline was unseeded/non-reproducible; fixed in #130; George's lost-to-Random reclassification being re-run (#135).
+- [[2026-06-08-mrm-screen-reject]] — single-factor residual momentum REJECTED at Stage-0 vs seeded Random (anti-selective beta-delivery); Stage 1 not run; class stays untested (#137).
 
 ## Synthesis — cross-cuts
 

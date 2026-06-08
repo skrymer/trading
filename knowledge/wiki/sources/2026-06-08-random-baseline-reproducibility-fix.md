@@ -53,9 +53,12 @@ The fix was required to settle **#130**: does a **factor-neutral idiosyncratic-R
 narrow-leadership tape? #130 shipped a new `MarketResidualMomentum` ranker — single-factor
 SPY-beta-stripped residual momentum (NOT raw price momentum, NOT 52-week-high anchoring, i.e. NOT
 [[george]]) — to be screened vs the now-reproducible Random baseline, with the discriminator being
-per-window edge > Random p95 *persisting in 2021–2023 / 2024*. Not yet screened; a positive result is
-clean, a null only weakly conclusive (single-factor is the strongest neutralization available without a
-Fama-French factor series). See [[long-premise-in-narrow-leadership]].
+per-window edge > Random p95 *persisting in 2021–2023 / 2024*. A positive result is clean, a null only
+weakly conclusive (single-factor is the strongest neutralization available without a Fama-French factor
+series). **Resolved (2026-06-08):** [[mrm]] was screened and **REJECTED** — it lost to the seeded Random
+baseline on edge AND CAGR (anti-selective [[beta-delivery]]); Stage 1 not run. The single-factor recipe is
+crossed off; the class stays untested (multi-factor recipe = #137). See [[2026-06-08-mrm-screen-reject]] and
+[[long-premise-in-narrow-leadership]].
 
 ## Related
 
