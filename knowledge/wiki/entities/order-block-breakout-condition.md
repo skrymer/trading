@@ -5,8 +5,9 @@ summary: An order-block breakout entry condition. 50-sym sanity screen showed +0
 status: stable
 tags: [condition, design-time, rejected]
 sources: ["strategy_exploration/dossier/condition-orderblockbreakout.jsonl"]
+request: "order-block-breakout-condition.request.json"
 related: ["[[the-funnel]]", "[[btc-tyr]]", "[[minervini-vcp-breakout]]", "[[lottery-vs-signature]]", "[[beta-delivery]]"]
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 
 # Order-Block Breakout Entry Condition
@@ -56,6 +57,37 @@ as promotable. ^[inferred] And, as with [[baldr]] / [[fenrir]], a **design-time 
 config_hash** — it is a cheap early kill, distinct from a firewall death. The condition's front-loaded
 profile (positive at 5d, negative by 20d) also implies any strategy wrapping it would need a *short-hold*
 exit, not a VCP-style multi-week hold.
+
+## Reproducing
+
+The exact `/condition-screen` request that defines this condition is persisted beside this entity at
+**`order-block-breakout-condition.request.json`** (ADR 0017). This is a **conditions-screen** request
+(`POST /api/conditions/screen`) for `orderBlockBreakout(2, 5, 0)`, not a walk-forward backtest — no
+strategy was ever assembled around it. Standard screen window (2000-01-01 → 2021-01-01 leakage cap,
+`entryDelayDays` 1, horizons 5/10/20).
+
+```bash
+# Default full STOCK universe:
+API_KEY=… .claude/scripts/udgaard-post.sh /api/conditions/screen \
+  @knowledge/wiki/entities/order-block-breakout-condition.request.json /tmp/condition-screen-ob.json
+```
+
+**Universe note (the screen that supersedes):** the persisted file carries the condition identity on the
+default full universe. The *authoritative* REJECT was the representative **300-symbol `main`** sanity
+subset (survivorship-honest, sector-proportional) — the 50-symbol orderBlock-subset positive was a
+stratified-sample artifact. To reproduce the superseding 300-sym screen, inject the frozen `main` set as
+`symbols` (the list lives in the condition-screen skill's frozen universe, not duplicated here):
+
+```bash
+SYMS=$(python3 -c "import json;print(json.dumps([r['symbol'] for r in json.load(open('.claude/skills/condition-screen/sanity-universe/sanity-universe-v1.json'))['main']]))")
+API_KEY=… .claude/scripts/udgaard-post.sh /api/conditions/screen \
+  "$(jq --argjson s "$SYMS" '.symbols=$s' knowledge/wiki/entities/order-block-breakout-condition.request.json)" \
+  /tmp/condition-screen-ob-main300.json
+```
+
+The superseding run also supplied `aboveBearishOrderBlock` as a `referenceConditions` Jaccard reference
+(result 0.074 — structurally distinct from the VCP order-block state filter). Re-running confirms the
+no-detectable-lift read; the screen is a *diagnostic*, not a verdict.
 
 ## Related
 

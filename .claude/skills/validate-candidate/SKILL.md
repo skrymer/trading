@@ -115,6 +115,7 @@ Outputs:
 - `/tmp/validate-<candidate>-blockC.json` — raw walk-forward result (informational only)
 - `/tmp/validate-<candidate>-eval-block{A,B}.json`, `/tmp/validate-<candidate>-eval-25y.json`, `/tmp/validate-<candidate>-eval-blockC.json` — per-layer gate reports
 - `knowledge/wiki/sources/<date>-validate-<candidate>.md` — final summary with verdict, written as a seed `sources/` wiki draft (distil into the entity page via `/wiki-ingest`)
+- `knowledge/wiki/entities/<candidate>.request.json` — the exact validated request skeleton, persisted **unconditionally** beside the entity (ADR 0017). The pipeline copies `$TEMPLATE` verbatim (it overrides only `startDate`/`endDate` per layer), so this is the faithful config, never a reconstruction. Persisted regardless of verdict — a REJECTED candidate's config is re-tested when the engine/universe/baseline changes (this is the #135 George loss the ADR fixes). The seed draft's "Reproducing" section tells `/wiki-ingest` to add the frontmatter `request:` pointer to the entity (george.md is the template). A one-field variant (e.g. the Random baseline = `ranker: "Random"` + swept `randomSeed`) gets **no** separate file — document the edit in "Reproducing".
 
 ## How to run
 

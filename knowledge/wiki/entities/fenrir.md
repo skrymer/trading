@@ -5,8 +5,9 @@ summary: Sector Rotation Momentum candidate — binary "sector accelerating + be
 status: stable
 tags: [candidate, rs-momentum, rejected, design-time]
 sources: ["strategy_exploration/dossier/fenrir.jsonl"]
+request: "fenrir.request.json"
 related: ["[[thinning-not-selecting]]", "[[beta-delivery]]", "[[long-premise-in-narrow-leadership]]", "[[the-funnel]]", "[[component-firewall]]"]
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 
 # Fenrir
@@ -51,6 +52,24 @@ no information beyond entry-universe beta ([[beta-delivery]]). A genuine sector-
 need a structurally different premise (cross-sectional relative-momentum *rank*, or sector
 leadership-*transition* anchoring) as a fresh candidate — not a Fenrir threshold tweak. See
 [[thinning-not-selecting]] and [[long-premise-in-narrow-leadership]].
+
+## Reproducing
+
+The exact `/condition-screen` request that defines this candidate is persisted beside this entity at
+**`fenrir.request.json`** (ADR 0017). Fenrir died at *design-time* `/condition-screen`, so its identity
+is a **conditions-screen** request (`POST /api/conditions/screen`), not a walk-forward backtest — the
+differentiator `sectorBreadthAccelerating(3.0) AND sectorBreadthGreaterThanMarket()` on the default full
+`STOCK` universe over the standard screen window (2000-01-01 → 2021-01-01 leakage cap, `entryDelayDays` 1,
+horizons 5/10/20):
+
+```bash
+API_KEY=… .claude/scripts/udgaard-post.sh /api/conditions/screen \
+  @knowledge/wiki/entities/fenrir.request.json /tmp/condition-screen-fenrir.json
+```
+
+A clean screen is not a pass and a screened-out condition is rejected — re-running this only re-confirms
+the no-detectable-lift read. The result is a *diagnostic* (lift / firing-rate / regime sign-flip), not a
+verdict; pre-screening verdicts come from `/strategy-screen` and `/validate-candidate`.
 
 ## Related
 

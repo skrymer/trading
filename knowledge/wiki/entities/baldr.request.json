@@ -1,0 +1,11 @@
+{
+  "conditions": [
+    {"type": "consecutiveHigherHighsInValueZone", "parameters": {"consecutiveDays": 3, "atrMultiplier": 2.0, "emaPeriod": 20}},
+    {"type": "marketBreadthNearDonchianLow", "parameters": {"percentile": 0.15}}
+  ],
+  "operator": "AND",
+  "startDate": "2000-01-01",
+  "endDate": "2021-01-01",
+  "entryDelayDays": 1,
+  "horizons": [5, 10, 20]
+}

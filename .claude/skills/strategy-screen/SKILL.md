@@ -86,6 +86,18 @@ The pipeline runs the binding layers (Block A 2000-2014 → Block B 2014-2021 in
 
 **Skill output requirement** when reporting screen results: for each PASS candidate that also clears the 25% CAGR tradability bar (the operator floor — ADR 0015, lowered from 30%), surface the exact `/validate-candidate` invocation as the recommended next step. Below-25%-CAGR passes go in a separate "filtered out" list — the screen approved them mechanically but they don't meet the user's tradability floor.
 
+## Persist the request (ADR 0017)
+
+A candidate's identity is its exact request JSON, and `/tmp/screen-<label>.json` is ephemeral — a reboot or doc-retirement loses it (this is the #135 George loss the ADR fixes). After a screen completes **for a named candidate** — one that has (or is about to get) a `knowledge/wiki/entities/<name>.md` page — persist its fired request beside the entity:
+
+```bash
+.claude/scripts/persist-request-json.sh <name> /tmp/screen-<label>.json
+```
+
+- **Trigger: a named candidate, regardless of PASS/FAIL.** A screen-only reject still merits its config persisted — rejections get re-tested when the engine / universe / baseline changes (George and MRM are both persisted rejects). Do **not** persist anonymous exploratory variant-labels in a sweep — one canonical skeleton per *named* candidate, not one file per probe.
+- **Persist the validated skeleton only** — the body you actually fired (faithful by construction), not a hand-edited reconstruction.
+- After persisting, add/refresh the entity frontmatter `request: "<name>.request.json"` pointer and a **"Reproducing"** section (george.md is the template). A one-field variant — e.g. the **Random baseline** = the same file with `"ranker": "Random"` + a swept `randomSeed` — gets **no** separate file; document that edit in "Reproducing" instead.
+
 ## Agent delegation
 
 For individual candidate analysis: spawn `walk-forward-analyst` with the path to the saved JSON (per-window stability for that candidate).
