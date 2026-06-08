@@ -1,11 +1,11 @@
 ---
 type: source
 title: Methodology fix — the G-RANDOM Random baseline was non-reproducible (2026-06-08)
-summary: RandomRanker used an unseeded RNG, so the G-RANDOM baseline wasn't reproducible even with a pinned randomSeed; fixed in #130. George's lost-to-Random reclassification is re-run in #135.
+summary: RandomRanker used an unseeded RNG, so the G-RANDOM baseline wasn't reproducible even with a pinned randomSeed; fixed in #130. George's lost-to-Random reclassification was re-run on the seeded baseline in #135 and HELD (deprecation affirmatively re-confirmed).
 status: stable
 tags: [methodology, g-random, random-baseline, bugfix]
 sources: ["https://github.com/skrymer/trading/issues/130", "https://github.com/skrymer/trading/issues/135", "udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/strategy/StockRanker.kt"]
-related: ["[[beta-delivery]]", "[[george]]", "[[thinning-not-selecting]]", "[[gjallarhorn]]", "[[the-funnel]]"]
+related: ["[[beta-delivery]]", "[[george]]", "[[2026-06-08-george-random-revalidation-prereg]]", "[[thinning-not-selecting]]", "[[gjallarhorn]]", "[[the-funnel]]"]
 updated: 2026-06-08
 ---
 
@@ -35,10 +35,11 @@ seed preserves the legacy non-reproducible draw for ad-hoc use. The catalog's lo
 - **[[george]] — load-bearing.** Its reclassification from "[[participate-and-lose]]-in-crisis, build a
   defended successor" → "capped premise, anchoring class deprecated, no successor" rested **entirely** on
   the lost-to-Random comparison (the spec pinned seed 42 — intent was reproducible, engine wasn't). That
-  reclassification is being **re-run with the seeded baseline** (#135). George's **independent
-  `/strategy-screen` FAIL** (G2 Sharpe 0.14, G4 GFC drawdown 44.7%) does **not** touch the Random baseline
-  and stands — **George remains non-tradable either way**; only the class-deprecation read is under
-  re-validation.
+  reclassification was **re-run with the seeded baseline** (#135 → [[2026-06-08-george-random-revalidation-prereg]])
+  as a 17-draw distribution and **HELD — deprecation affirmatively re-confirmed** (George's CAGR below the
+  entire Random cloud, K=0/7 windows). George's **independent `/strategy-screen` FAIL** (G2 Sharpe 0.14,
+  G4 GFC drawdown 44.7%) does **not** touch the Random baseline and stands — **George remains non-tradable
+  either way**.
 - **Leveraged-ETF / Heimdall — not load-bearing.** The "Random tied the smart rankers → selection adds
   nothing" finding was a *generalization*; those candidates were already REJECTED on independent
   CAGR/dispersion gates. The reproducibility bug softens the generalization, not the rejections.
