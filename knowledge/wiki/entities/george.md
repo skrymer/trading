@@ -5,6 +5,7 @@ summary: 52-week-high anchoring RANKER (long top-N); deprecated when a byte-iden
 status: stable
 tags: [candidate, ranker, deprecated, beta-delivery]
 sources: ["strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md", "strategy_exploration/BACKTESTING_FUNNEL.md", "strategy_exploration/dossier/"]
+request: "george.request.json"
 related: ["[[beta-delivery]]", "[[the-funnel]]", "[[component-firewall]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[2026-06-08-random-baseline-reproducibility-fix]]"]
 updated: 2026-06-08
 ---
@@ -140,6 +141,23 @@ engine**, so the class is deprecated in the tradable universe rather than strict
   on the gate form of the same 52-week-high signal (a nearness-to-high *condition*): since the stronger
   *ranker* form turned out to be beta, the weaker *gate* form is even less likely to carry alpha. Screen
   it (if at all) as a falsification test, not a hopeful candidate.
+
+## Reproducing
+
+The exact, validated screen request lives beside this entity at **`george.request.json`** (persisted per
+ADR 0017 — the original dev-doc config was lost to `/tmp` and had to be reconstructed for #135; the
+sibling file prevents the next reconstruction). It is the faithful George skeleton on the 2026-06-08
+universe (confirmed by the universe-invariant four-metric match in
+[[2026-06-08-george-random-revalidation-prereg]]).
+
+```bash
+API_KEY=… .claude/scripts/udgaard-post.sh /api/backtest/walk-forward \
+  @knowledge/wiki/entities/george.request.json /tmp/george.json
+```
+
+The **Random baseline** is the byte-identical file with two edits: `"ranker": "Random"` and
+`"randomSeed": <n>` swept over a contiguous seed list (the #135 re-validation used `1..17`). Everything
+else — entry stack, script exit, sizer, `maxPositions` — stays fixed so only the selector changes.
 
 ## Related
 

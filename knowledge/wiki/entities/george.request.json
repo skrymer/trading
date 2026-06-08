@@ -1,0 +1,33 @@
+{
+  "assetTypes": ["STOCK"],
+  "useUnderlyingAssets": false,
+  "entryStrategy": {
+    "type": "custom",
+    "conditions": [
+      {"type": "minimumHistoryDays", "parameters": {"days": 365}},
+      {"type": "averageDollarVolumeAbove", "parameters": {"thresholdUsd": 10000000, "lookbackDays": 20}},
+      {"type": "minimumPrice", "parameters": {"minimumPrice": 5}}
+    ]
+  },
+  "exitStrategy": {
+    "type": "custom",
+    "conditions": [
+      {"type": "script", "parameters": {"script": "entryQuote != null && (java.time.temporal.ChronoUnit.DAYS.between(entryQuote.date, quote.date) >= 126 || (quote.high52Week != null && quote.closePrice / quote.high52Week!! < 0.75))"}}
+    ]
+  },
+  "startDate": "2005-01-01",
+  "endDate": "2015-01-01",
+  "inSampleMonths": 36,
+  "outOfSampleMonths": 12,
+  "stepMonths": 12,
+  "maxPositions": 30,
+  "entryDelayDays": 1,
+  "ranker": "nearness52WeekHigh",
+  "randomSeed": 42,
+  "positionSizing": {
+    "startingCapital": 100000,
+    "sizer": {"type": "percentEquity", "percent": 3.33},
+    "leverageRatio": 1.0
+  },
+  "riskFreeRatePct": 0.0
+}
