@@ -4,9 +4,9 @@ title: Beta-Delivery
 summary: A long book whose risk-adjusted return is just the index's — profitable in absolute terms but no better than holding SPY; the failure mode G16 catches.
 status: seed
 tags: [failure-mode, methodology]
-sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[2026-06-05-funnel-deepresearch-findings]]"]
-updated: 2026-06-06
+sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "strategy_exploration/FUNNEL_DEEPRESEARCH_FINDINGS.md", "strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md"]
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[2026-06-08-random-baseline-reproducibility-fix]]"]
+updated: 2026-06-08
 ---
 
 # Beta-Delivery
@@ -47,6 +47,13 @@ Adjacent, cheaper tells before the firewall: a permissive-entry + ranker-selects
 a byte-identical **random-ranker baseline** on blended CAGR *and* per-trade edge is delivering
 entry-universe beta (the random-ranker-baseline rule); and a high *correlation*/`beta` to SPY in the
 single-backtest `BenchmarkComparison` is a yellow flag that the eventual G16 read may confirm.
+
+> **Reproducibility caveat (2026-06-08).** The random-ranker baseline must be *reproducibly seeded* to
+> mean anything. Until #130 the engine's `RandomRanker` scored via an **unseeded** RNG (the `randomSeed`
+> fed only the 1e-10 tie-break jitter), so every "lost to Random" read — including [[george]]'s — was
+> not actually reproducible. Fixed in #130: `RandomRanker(seed)` now scores deterministically per
+> `(seed, symbol, date)`, enabling the per-window p95 a multi-seed null needs. See
+> [[2026-06-08-random-baseline-reproducibility-fix]]; George's reclassification is being re-run (#135).
 
 ## Why it kills
 
