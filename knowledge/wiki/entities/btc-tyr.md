@@ -5,8 +5,9 @@ summary: Active search — breadth-thrust continuation + institutional-breakout-
 status: active
 tags: [candidate, timing, breadth, breakout]
 sources: ["strategy_exploration/dossier/tyr.jsonl"]
+request: "btc-tyr.request.json"
 related: ["[[gjallarhorn]]", "[[the-funnel]]", "[[crisis-timer-cadence-ceiling]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[long-premise-in-narrow-leadership]]", "[[purpose]]"]
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 
 # BTC + Tyr
@@ -133,6 +134,25 @@ BTC+Tyr re-scoping. (The order-block leg was separately isolated and screened �
 - **Avoid the dilutive loose tails** — the breakout's `%52wHigh(25)`, `%52wLow(30)`, Donchian-"near"
   tails were dilutive; if BTC+Tyr reuses any trend-template conditions, tighten them as a *fresh*
   hypothesis (validate OOS), don't copy the breakout's loose defaults.
+
+## Reproducing
+
+The one recoverable config so far is **Tyr's solo `/condition-screen`** (2026-05-31), persisted beside
+this entity at **`btc-tyr.request.json`** (ADR 0017). It is a **conditions-screen** request
+(`POST /api/conditions/screen`) — `marketBreadthRecovering() AND orderBlockBreakout(2, 5, 0)` on the
+default full `STOCK` universe over the standard screen window (2000-01-01 → 2021-01-01 leakage cap,
+`entryDelayDays` 1, horizons 5/10/20):
+
+```bash
+API_KEY=… .claude/scripts/udgaard-post.sh /api/conditions/screen \
+  @knowledge/wiki/entities/btc-tyr.request.json /tmp/condition-screen-tyr.json
+```
+
+**Scope caveat:** this captures the *solo-Tyr* differentiator that earned NO PROCEED, **not** the
+combined **BTC + Tyr** candidate — that one is still SCOPING (no spec, no screen), so no combined request
+JSON exists yet. When BTC + Tyr is screened, persist *its* request as the new canonical
+`btc-tyr.request.json` (one skeleton per candidate, ADR 0017) and note the solo-Tyr config here. The
+order-block leg's own standalone screen is persisted separately on [[order-block-breakout-condition]].
 
 ## Related
 

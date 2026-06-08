@@ -269,11 +269,24 @@ python3 "$SKILL_DIR/scripts/summarize.py" "$CANDIDATE" \
 
 VERDICT=$(jq -r '.verdict' "$SUMMARY_JSON")
 
-# Assemble the seed sources/ draft: minimal valid frontmatter + the summarize.py body.
-# `related: [[<candidate>]]` (lowercased to match the entity-page convention) links the entity
-# page /wiki-ingest will create/update, so the page is lint-clean once ingest indexes it; until
-# then it is an expected transient orphan. Frontmatter `summary:` is kept under the 200-char lint cap.
+# Persist the exact request JSON beside the entity (ADR 0017). $TEMPLATE is the canonical,
+# already-fired skeleton (the pipeline overrides only startDate/endDate per layer, so the template
+# IS the faithful config — never a reconstruction). Persisted UNCONDITIONALLY, regardless of
+# verdict: a REJECTED candidate's config is re-tested when the engine / universe / baseline changes
+# (exactly #135 — George was a screen reject whose lost config cost ~half a session), so its request
+# JSON is worth the same one file. ENTITY_LINK (lowercased candidate) matches the entity-page slug.
 ENTITY_LINK="$(printf '%s' "$CANDIDATE" | tr '[:upper:]' '[:lower:]')"
+REQUEST_JSON_REL="knowledge/wiki/entities/${ENTITY_LINK}.request.json"
+if "$ROOT/.claude/scripts/persist-request-json.sh" "$ENTITY_LINK" "$TEMPLATE"; then
+  echo "==> Persisted request JSON (ADR 0017): $REQUEST_JSON_REL" >&2
+else
+  echo "WARN: could not persist request JSON for $ENTITY_LINK (continuing)" >&2
+fi
+
+# Assemble the seed sources/ draft: minimal valid frontmatter + the summarize.py body.
+# `related: [[<candidate>]]` (ENTITY_LINK, lowercased to match the entity-page convention) links the
+# entity page /wiki-ingest will create/update, so the page is lint-clean once ingest indexes it; until
+# then it is an expected transient orphan. Frontmatter `summary:` is kept under the 200-char lint cap.
 mkdir -p "$(dirname "$REPO_REPORT")"
 {
   echo "---"
@@ -288,6 +301,21 @@ mkdir -p "$(dirname "$REPO_REPORT")"
   echo "---"
   echo ""
   cat "$REPORT_BODY"
+  echo ""
+  echo "## Reproducing"
+  echo ""
+  echo "The exact, validated request JSON for this run is persisted beside the entity at"
+  echo "\`${REQUEST_JSON_REL}\` (ADR 0017). When /wiki-ingest distils this draft, carry the pointer"
+  echo "into the entity frontmatter (\`request: \"${ENTITY_LINK}.request.json\"\`) and keep this"
+  echo "Reproducing section (george.md is the template). Re-run:"
+  echo ""
+  echo '```bash'
+  echo "API_KEY=… .claude/scripts/udgaard-post.sh /api/backtest/walk-forward \\"
+  echo "  @${REQUEST_JSON_REL} /tmp/${ENTITY_LINK}.json"
+  echo '```'
+  echo ""
+  echo "The pipeline overrides only \`startDate\`/\`endDate\` per firewall layer; every other field"
+  echo "(entry stack, exit, ranker, sizer, \`maxPositions\`, seed) is the persisted skeleton verbatim."
 } > "$REPO_REPORT"
 
 echo "" >&2

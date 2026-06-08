@@ -5,8 +5,9 @@ summary: Value Zone Accumulation candidate — buy-the-dip near EMA20 in washed-
 status: stable
 tags: [candidate, mean-reversion, rejected, design-time]
 sources: ["strategy_exploration/dossier/baldr.jsonl"]
+request: "baldr.request.json"
 related: ["[[vz3]]", "[[mr3]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[component-firewall]]"]
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 
 # Baldr
@@ -53,6 +54,23 @@ trigger (e.g. breadth *turning up*) as a fresh candidate.
 Baldr **collides the long-pullback / dip-buy deprecated class** — the same narrow-leadership
 death documented for [[vz3]] and [[mr3]]. The screen confirmed that documented dip-toward-EMA failure
 class directly. See [[long-premise-in-narrow-leadership]] and [[participate-and-lose]].
+
+## Reproducing
+
+The exact `/condition-screen` request that defines this candidate is persisted beside this entity at
+**`baldr.request.json`** (ADR 0017). Baldr died at *design-time* `/condition-screen`, so its identity is a
+**conditions-screen** request (`POST /api/conditions/screen`), not a walk-forward backtest — the
+differentiator `consecutiveHigherHighsInValueZone(3, 2.0, 20) AND marketBreadthNearDonchianLow(0.15)` on
+the default full `STOCK` universe over the standard screen window (2000-01-01 → 2021-01-01 leakage cap,
+`entryDelayDays` 1, horizons 5/10/20):
+
+```bash
+API_KEY=… .claude/scripts/udgaard-post.sh /api/conditions/screen \
+  @knowledge/wiki/entities/baldr.request.json /tmp/condition-screen-baldr.json
+```
+
+Re-running only re-confirms the anti-predictive read (negative `meanLift` at every horizon). The result
+is a *diagnostic*, not a verdict; design-time rejection burns no `config_hash`.
 
 ## Related
 

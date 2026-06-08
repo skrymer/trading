@@ -1,0 +1,10 @@
+{
+  "conditions": [
+    {"type": "orderBlockBreakout", "parameters": {"consecutiveDays": 2, "maxDaysSinceBreakout": 5, "ageInDays": 0}}
+  ],
+  "operator": "AND",
+  "startDate": "2000-01-01",
+  "endDate": "2021-01-01",
+  "entryDelayDays": 1,
+  "horizons": [5, 10, 20]
+}
