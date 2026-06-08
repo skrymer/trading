@@ -1,7 +1,7 @@
 ---
 type: synthesis
 title: Overview — state of the search
-summary: State of the search — zero tradable strategies; BTC+Tyr died at screen, replaced by a NEW active direction PEAD (event-conditioned earnings drift, the regime-orthogonal 5th class, feasibility GREEN); one shelved overlay (Gjallarhorn).
+summary: State of the search — zero tradable strategies; active direction PEAD (event-conditioned earnings drift, regime-orthogonal 5th class) had its first surprise proxy (price gap) REJECTED at screen (beta-delivery) — class alive, proxy in redesign; one shelved overlay (Gjallarhorn).
 status: active
 tags: [overview]
 updated: 2026-06-08
@@ -26,16 +26,22 @@ rejected at screen, but a **multi-factor-neutral** residual is un-ruled-out (fil
 regime-conditional *portfolio* ambition is abandoned (long-only ⇒ defense = cash ⇒ no viable second long
 component). [[gjallarhorn]] is the one research-confirmed asset — a +22σ timing-alpha crisis-bottom timer —
 but its composite A/B with the breakout was a **NO-GO** (2026-06-04), leaving it shelved and homeless.
-**The new active direction is [[pead]]** — Post-Earnings Announcement Drift, the first member of an
+**The active direction is [[pead]]** — Post-Earnings Announcement Drift, the first member of an
 unexplored **event-conditioned, per-name** premise class (the regime-orthogonal "5th class" the
 deep-research flagged as durable). Data feasibility is **GREEN** (EODHD earnings to 1993; PRD table 245k
-rows / 3,712 symbols, dense 2000-2019). SCOPING — next step is the EarningsGapCondition `/condition-screen`.
+rows / 3,712 symbols, dense 2000-2019). Its first surprise proxy — the OHLCV **price gap** — was
+**REJECTED** at design-time `/condition-screen` (2026-06-09): a 20d SPY-regime sign-flip (down +1.73% /
+flat −0.38% / up −0.56%) proved the gap delivers market-direction beta, not firm-specific surprise —
+[[beta-delivery]] materialised ([[2026-06-09-pead-earnings-gap-screen-reject]]). **The class survives;**
+the surprise proxy is in redesign — next is a **market-neutral gap residual** (subtract the same-day SPY
+gap; `getSpyQuote` makes it feasible today), EPS-surprise-gated residual reserved. A sector-neutral /
+sector-regime variant is deferred behind a reusable engine change (sector quote map, issue #143).
 
 ## Live threads
 
 | Thread | State |
 |---|---|
-| [[pead]] candidate | **NEW active direction** (2026-06-08) — event-conditioned earnings-drift; feasibility GREEN; SCOPING → first step is EarningsGapCondition `/condition-screen` |
+| [[pead]] candidate | **Active direction** — first proxy (OHLCV price gap) REJECTED at `/condition-screen` (2026-06-09, regime sign-flip = [[beta-delivery]]); class alive; next = market-neutral gap residual (feasible now), sector variant behind issue #143 |
 | [[btc-tyr]] candidate | ⛔ **DEAD** (2026-06-08) — breadth-thrust gate failed solo `/condition-screen`; NOT a firewall death; class re-scopable only via a structurally different transition predicate |
 | #137 residual-momentum | FILED thread (lower priority than PEAD) — a multi-factor-neutral residual-momentum ranker vs a seeded Random baseline; run to close the RS-momentum class ([[mrm]], [[purpose]] #4) |
 | Gjallarhorn composite | ❌ composite A/B **NO-GO** (2026-06-04) — structural (fixed crisis sleeve = cash drag + correlated crisis DDs); shelved matched-pair with the breakout, no iteration |
@@ -46,6 +52,8 @@ rows / 3,712 symbols, dense 2000-2019). SCOPING — next step is the EarningsGap
 
 ## What would change this page
 
-A PEAD `/condition-screen` result (proceed or the first event-class death); a #137 run; a passing composite
-A/B; or a regime-transition layer that lets a shelved component re-enter. Until then the headline is:
-*zero tradable, one fresh event-driven direction (PEAD) entering the funnel, one shelved overlay.*
+The PEAD **market-neutral gap residual** `/condition-screen` result (proceed, or — if the regime sign-flip
+persists — the price-proxy class dies and EPS-surprise is the last test before abandoning the surprise-proxy
+axis); a #137 run; a passing composite A/B; or a regime-transition layer that lets a shelved component
+re-enter. Until then the headline is: *zero tradable; the PEAD class is alive but its first surprise proxy
+died at screen (beta-delivery); one shelved overlay.*

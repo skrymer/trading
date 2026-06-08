@@ -1,0 +1,44 @@
+{
+  "conditions": [
+    {
+      "type": "script",
+      "parameters": {
+        "script": "val prev = stock.getPreviousQuote(quote)\nif (prev == null || prev.closePrice <= 0.0 || prev.atr <= 0.0) false\nelse {\n  val qd = quote.date\n  val e = stock.earnings.filter { it.reportedDate != null && it.reportedDate!!.year > 1900 && !it.reportedDate!!.isAfter(qd) }.maxByOrNull { it.reportedDate!! }\n  if (e == null) false\n  else {\n    val rd = e.reportedDate!!\n    val before = e.reportTime == \"BeforeMarket\"\n    val gapDay = if (before) !qd.isBefore(rd) && prev.date.isBefore(rd) else qd.isAfter(rd) && !prev.date.isAfter(rd)\n    if (!gapDay || stock.countTradingDaysBetween(rd, qd) > 3) false\n    else (quote.openPrice - prev.closePrice) / prev.atr >= {{gapAtr}}\n  }\n}"
+      }
+    }
+  ],
+  "operator": "AND",
+  "symbols": null,
+  "assetTypes": [
+    "STOCK"
+  ],
+  "startDate": "2000-01-01",
+  "endDate": "2021-01-01",
+  "entryDelayDays": 1,
+  "horizons": [
+    5,
+    20,
+    40
+  ],
+  "scriptSweeps": [
+    {
+      "name": "gapAtr",
+      "center": 1.0,
+      "step": 0.5
+    }
+  ],
+  "referenceConditions": [
+    {
+      "label": "any-earnings-no-gap",
+      "conditions": [
+        {
+          "type": "script",
+          "parameters": {
+            "script": "val prev = stock.getPreviousQuote(quote)\nif (prev == null) false\nelse {\n  val qd = quote.date\n  val e = stock.earnings.filter { it.reportedDate != null && it.reportedDate!!.year > 1900 && !it.reportedDate!!.isAfter(qd) }.maxByOrNull { it.reportedDate!! }\n  if (e == null) false\n  else {\n    val rd = e.reportedDate!!\n    val before = e.reportTime == \"BeforeMarket\"\n    val gapDay = if (before) !qd.isBefore(rd) && prev.date.isBefore(rd) else qd.isAfter(rd) && !prev.date.isAfter(rd)\n    gapDay && stock.countTradingDaysBetween(rd, qd) <= 3\n  }\n}"
+          }
+        }
+      ],
+      "operator": "AND"
+    }
+  ]
+}
