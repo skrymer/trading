@@ -144,7 +144,7 @@ object RankerFactory {
 
   fun availableRankers(): List<String> = catalog.map { it.type }
 
-  fun create(name: String, rankerConfig: RankerConfig? = null): StockRanker? =
+  fun create(name: String, rankerConfig: RankerConfig? = null, randomSeed: Long? = null): StockRanker? =
     when (name.lowercase()) {
       "volatility" -> VolatilityRanker()
       "distancefrom10ema" -> DistanceFrom10EmaRanker()
@@ -163,7 +163,7 @@ object RankerFactory {
         val ranking = rankerConfig?.sectorRanking
         if (ranking.isNullOrEmpty()) null else SectorEdgeWithTightnessRanker(ranking)
       }
-      "random" -> RandomRanker()
+      "random" -> RandomRanker(randomSeed)
       "adaptive" -> AdaptiveRanker()
       else -> null
     }

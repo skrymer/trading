@@ -232,15 +232,42 @@ class SectorStrengthMomentumRanker(
 }
 
 /**
- * Simple random ranker for baseline comparison.
+ * Random ranker for the mandatory baseline comparison — a candidate's ranker must beat a
+ * byte-identical Random ordering or its "edge" is just entry-universe beta.
+ *
+ * When a [seed] is supplied the score is a deterministic function of `(seed, symbol, date)`, so the
+ * ordering is reproducible across runs and JVMs and independent of the order in which stocks are
+ * scored. This is what makes the baseline byte-identical and lets a multi-seed sweep produce a
+ * stable Random edge distribution (e.g. per-window p95). A null [seed] preserves the legacy
+ * non-reproducible behaviour (a fresh draw each call) for ad-hoc use.
+ *
+ * @param seed Fixed seed for a reproducible ordering; null = non-reproducible.
  */
-class RandomRanker : StockRanker {
+class RandomRanker(
+  private val seed: Long? = null,
+) : StockRanker {
   override fun score(
     stock: Stock,
     entryQuote: StockQuote,
-  ): Double = kotlin.random.Random.nextDouble() * 100.0
+  ): Double {
+    val fixedSeed = seed ?: return kotlin.random.Random.nextDouble() * SCORE_RANGE
+    var hash = fixedSeed
+    hash = hash * HASH_PRIME + stock.symbol.hashCode()
+    hash = hash * HASH_PRIME + entryQuote.date.hashCode()
+    return kotlin.random.Random(hash).nextDouble() * SCORE_RANGE
+  }
 
-  override fun description() = "Random (baseline)"
+  override fun description() =
+    if (seed == null) "Random (baseline, unseeded — non-reproducible)" else "Random (baseline, seed=$seed)"
+
+  companion object {
+    private const val SCORE_RANGE = 100.0
+
+    // Odd multiplier for the rolling (seed, symbol, date) hash. Long arithmetic wraps on overflow;
+    // that wrap is intentional and deterministic — every Long is a valid Random seed — so do not
+    // "fix" it with Math.multiplyExact, which would throw and break reproducibility.
+    private const val HASH_PRIME = 31L
+  }
 }
 
 /**
