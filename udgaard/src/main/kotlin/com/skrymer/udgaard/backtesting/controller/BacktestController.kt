@@ -124,7 +124,7 @@ class BacktestController(
     val rankerInstance = if (request.ranker == null) {
       entryStrategy.preferredRanker() ?: CompositeRanker()
     } else {
-      requireNotNull(RankerFactory.create(request.ranker, request.rankerConfig)) {
+      requireNotNull(RankerFactory.create(request.ranker, request.rankerConfig, request.randomSeed)) {
         "Unknown ranker: ${request.ranker}"
       }
     }
@@ -258,7 +258,7 @@ class BacktestController(
     val rankerInstance = if (request.ranker == null) {
       entryStrategy.preferredRanker() ?: CompositeRanker()
     } else {
-      requireNotNull(RankerFactory.create(request.ranker, request.rankerConfig)) {
+      requireNotNull(RankerFactory.create(request.ranker, request.rankerConfig, request.randomSeed)) {
         "Unknown ranker: ${request.ranker}"
       }
     }

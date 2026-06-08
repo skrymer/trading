@@ -4,9 +4,9 @@ title: George
 summary: 52-week-high anchoring RANKER (long top-N); deprecated when a byte-identical Random baseline matched its edge and beat its CAGR — the canonical beta-delivery case.
 status: stable
 tags: [candidate, ranker, deprecated, beta-delivery]
-sources: ["strategy_exploration/dossier/", "feedback_random_ranker_baseline_mandatory"]
-related: ["[[beta-delivery]]", "[[the-funnel]]", "[[component-firewall]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]"]
-updated: 2026-06-06
+sources: ["strategy_exploration/GEORGE_STRATEGY_DEVELOPMENT.md", "strategy_exploration/BACKTESTING_FUNNEL.md", "strategy_exploration/dossier/"]
+related: ["[[beta-delivery]]", "[[the-funnel]]", "[[component-firewall]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[2026-06-08-random-baseline-reproducibility-fix]]"]
+updated: 2026-06-08
 ---
 
 # George
@@ -27,6 +27,14 @@ strategy is named; the ranker stays strategy-neutral (it names the 52-week-high 
 **DEPRECATED — capped premise (2026-06-04).** The anchoring *class* is deprecated *in the tradable
 long-only liquid universe* — not "the paper is wrong" (see the weakest-habitat caveat below). Settled;
 no successor.
+
+> **Re-validation pending (2026-06-08, #135).** The capped-premise *reclassification* rested on the
+> lost-to-Random comparison — but the engine's `RandomRanker` was **unseeded** until #130, so that
+> "byte-identical seed-42 Random" baseline was not actually reproducible
+> ([[2026-06-08-random-baseline-reproducibility-fix]]). The comparison is being **re-run with the now-seeded
+> baseline** (#135). This does **not** reopen George as tradable: its independent `/strategy-screen` FAIL
+> (Sharpe 0.14, GFC drawdown 44.7%) is unaffected and final. Only the *class-deprecation* read — and the
+> lowered prior on the proximity condition — is under re-validation.
 
 ## Funnel history
 
@@ -80,11 +88,6 @@ so the deprecation is scoped to *this engine's tradable universe*, not a refutat
 
 The only honest re-test — a long-short decile on a down-cap universe — is **not buildable in a long-only
 engine**, so the class is deprecated in the tradable universe rather than strictly killed.
-
-> **Scope note (2026-06-07):** George's death is *this specific 52-week-high anchoring ranker*, not the
-> whole cross-sectional RS-momentum-rotation premise class — that class is **downgraded to
-> untested-hypothesis** (a factor-neutral idiosyncratic-RS variant is un-ruled-out; see [[purpose]] #4 and
-> [[2026-06-07-funnel-correctness-consult]]). Don't read George as foreclosing idiosyncratic-RS.
 
 ## Failure modes hit
 
