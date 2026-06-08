@@ -58,11 +58,25 @@ premise — each failed for a documented, reproducible reason, not bad luck:
    crossed off; the class stays untested.** The honest next test is a **multi-factor-neutral** residual
    (strip sector/size/value), screened the same way — #137. Do not iterate on [[mrm]] (beta-delivery reject).
 
-## Where the search is now (2026-06-05)
+## Where the search is now (2026-06-08)
 
-- **BTC + Tyr** is the next premise class (ADX + breadth-thrust + RSP/SPY) — fresh, avoids all four
-  prior classes. RSP ingested (#99 done) — data block lifted; the RSP/SPY leg is span-caveated on Block A
-  (2003 inception, dot-com gap), fully usable on the screen + Blocks B/C. See [[btc-tyr]].
+- **NEW active direction: [[pead]] — Post-Earnings Announcement Drift** (quant-recommended, feasibility
+  GREEN). The first member of an unexplored **5th premise class: event-conditioned, per-name** entries
+  (enter on a confirmed positive earnings-day price gap, hold the underreaction drift). It breaks the
+  regime-beta axis that killed all four prior classes — alpha anchored to a per-name dated event, not a
+  market state or universe ranking. Data verified 2026-06-08: EODHD earnings depth to 1993, PRD table has
+  245k rows / 3,712 symbols dense across 2000-2019. SCOPING — next step is `/condition-screen` the
+  EarningsGapCondition. See [[pead]].
+- **BTC + Tyr died at design-time screen (2026-06-08)** — emptied the funnel before PEAD was chosen:
+  its fresh component, the breadth-thrust GATE, failed in isolation (SPY-regime sign-flip at all 3
+  horizons, no 10/20d edge, the "thrust" degenerating into a level gate — [[thrust-degenerates-to-level]];
+  62% of firings in the 2009–14 tape, a [[lottery-vs-signature]] artifact). NOT a firewall death; the
+  breadth-event class is re-scopable only via a *structurally different, regime-sign-consistent* transition
+  predicate, screened from scratch and together with [[gjallarhorn]]. See [[btc-tyr]] +
+  [[2026-06-08-btc-breadth-thrust-screen-reject]].
+- **The one remaining filed thread is #137** — a multi-factor-neutral (sector/size/value-stripped)
+  residual-momentum ranker vs a seeded Random baseline (the honest test that would settle the RS-momentum
+  class, #4 above). Otherwise the next premise is an operator/quant call.
 - **[[gjallarhorn]]** (breadth-washout crisis-bottom timer) passed its timing-alpha NULL (+22σ) but is
   **funnel-disqualified standalone** ([[crisis-timer-cadence-ceiling]]) — a shelved overlay component
   awaiting a host, blocked on nested-condition-groups (#93, now resolved) + a regime-transition layer.
