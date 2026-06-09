@@ -112,6 +112,20 @@ class RankerFactoryMetadataTest {
   }
 
   @Test
+  fun `create resolves MultiFactorResidualMomentum to a MultiFactorResidualMomentumRanker`() {
+    // Given / When: the multi-factor (market+sector) residual-momentum ranker, parameter-less like the
+    // single-factor one
+    val ranker = RankerFactory.create("MultiFactorResidualMomentum")
+
+    // Then
+    assertNotNull(ranker, "factory should resolve MultiFactorResidualMomentum")
+    assertTrue(
+      ranker is MultiFactorResidualMomentumRanker,
+      "expected MultiFactorResidualMomentumRanker, got ${ranker?.javaClass?.simpleName}",
+    )
+  }
+
+  @Test
   fun `create resolves SectorEdgeWithTightness to a SectorEdgeWithTightnessRanker`() {
     // Given: a Sector-Priority ranker request with the canonical sectorRanking config
     val config = com.skrymer.udgaard.backtesting.dto

@@ -21,8 +21,9 @@ component, the breadth-thrust GATE, failed in isolation (SPY-regime sign-flip at
 the 2009–14 tape). Three long premise classes remain earned-dead (long-pullback MR, breakout-in-uptrend,
 leveraged-ETF timing), each reducing to [[participate-and-lose]] under a too-coarse regime selector that
 no flavor rescues ([[thinning-not-selecting]]). A fourth — **cross-sectional RS-momentum rotation** — is
-**downgraded to untested**: the [[george]] flavour is dead and the single-factor [[mrm]] variant was
-rejected at screen, but a **multi-factor-neutral** residual is un-ruled-out (filed as **#137**). The
+**downgraded to untested**: the [[george]] flavour is dead, the single-factor [[mrm]] variant's screen
+reject is **VOID** (warmup-starvation artifact, ADR 0018 — [[2026-06-09-trailing-ranker-warmup-starvation]];
+re-opened, pending re-run), and a **multi-factor-neutral** residual (#137) is built and un-ruled-out. The
 regime-conditional *portfolio* ambition is abandoned (long-only ⇒ defense = cash ⇒ no viable second long
 component). [[gjallarhorn]] is the one research-confirmed asset — a +22σ timing-alpha crisis-bottom timer —
 but its composite A/B with the breakout was a **NO-GO** (2026-06-04), leaving it shelved and homeless.

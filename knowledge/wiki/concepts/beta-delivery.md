@@ -89,18 +89,16 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   via G-RANDOM before ever reaching the firewall, so it has **no G16 read** — it is the cheaper-tell
   confirmation that this failure mode is real, not a G16 rejection.
 
-- **[[mrm]]** (2026-06-08) — the **second screen-stage** instance, and a *stronger* beta-delivery signature
-  than George. A single-factor SPY-beta-stripped residual-momentum ranker on a neutral entry (so the ranker
-  is the sole selection signal). It **lost** to a now-seeded byte-identical Random baseline on *both* legs:
-  per-trade edge **+2.80% vs +6.21%**, blended CAGR **8.95% vs 23.05%** (2.2–2.6×), beaten head-to-head in
-  5/7 windows, and it reproduced George's GFC liability (2008 window −12.93% vs Random −2.50%). Where George
-  *matched* Random on per-trade edge (a no-information ranker), MRM *loses* on edge — an **anti-selective**
-  tilt that systematically picks worse names than a random draw. First instance adjudicated against the
-  reproducibly-seeded baseline (the #130 fix). Note the high absolute Random CAGR (23%) is **structural
-  long-beta** of this long-only engine (cash-dodges 2008 → −8% vs SPY −38%, then equal-weight small-cap tilt
-  rides the 2009 +58% / 2010 +53% rebound; SPY buy-hold was 9.86% over the same support) — *not* survivorship
-  (the universe carries 1500+ delisted names) and *not* alpha; both arms share it, so the relative verdict
-  holds. See [[2026-06-08-mrm-screen-reject]].
+- **[[mrm]]** (2026-06-08) — ⚠ **VOID as a beta-delivery instance (2026-06-09).** Originally read as the
+  second, *stronger* screen-stage instance (single-factor SPY-beta-stripped residual-momentum ranker that
+  "lost" to a seeded Random baseline on both legs: edge **+2.80% vs +6.21%**, CAGR **8.95% vs 23.05%**, and
+  reproduced George's GFC liability). **That reading is withdrawn:** the walk-forward starved the 504-day
+  ranker of its lookback in every OOS window, so MRM was unscoreable in OOS and its "selection" was the
+  tie-break RNG — the screen compared *two different random draws*, which alone explains the 499 vs 527
+  trade counts and the edge gap with **no anti-selection required**. So this is **not** a confirmed
+  beta-delivery instance; the single-factor recipe is re-opened pending a re-run on the fixed engine
+  (ADR 0018). See [[2026-06-09-trailing-ranker-warmup-starvation]] and [[2026-06-08-mrm-screen-reject]]
+  (now void).
 
 - **[[pead]] price-gap proxy** (2026-06-09) — the **condition-screen / regime-tertile** instance, and the
   first *event-driven* one. Not a ranker (George/MRM) and not G16: an inline earnings-gap entry condition

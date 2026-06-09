@@ -43,6 +43,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.ceil
 
 /**
  * Service for running backtests on trading strategies.
@@ -359,8 +360,15 @@ class BacktestService(
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
 
-    // Load SPY for market condition tracking (with date filtering)
-    val spyStock = stockRepository.findBySymbol("SPY", quotesAfter = after)
+    // Trailing-history rankers (residual/trailing momentum) need price history BEFORE the window start
+    // to score the earliest in-window entries; load the factor + stock series from a warmup-buffered
+    // date. Warmup bars are visible to ranker scoring ONLY — entry/trade/stat logic stays gated to
+    // [after, before] (the date guards in collectEntrySignals / the trade loops). 0-warmup rankers
+    // (precomputed-indicator readers) load exactly from `after` as before.
+    val loadAfter = warmupLoadDate(after, ranker)
+
+    // Load SPY for market condition tracking + the market factor (warmup-buffered for trailing rankers)
+    val spyStock = stockRepository.findBySymbol("SPY", quotesAfter = loadAfter)
     if (spyStock == null) {
       logger.warn("SPY stock not found in database - market conditions will not be tracked")
     }
@@ -371,17 +379,26 @@ class BacktestService(
     }
 
     val backtestContext = if (sharedContext != null) {
-      // Re-use shared context but update SPY quotes for this window's date range
+      // Re-use shared context but refresh the warmup-buffered factor series for this window
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
-      sharedContext.copy(spyQuoteMap = spyQuoteMap, costBps = costBps)
+      val sectorEtfQuoteMap = loadSectorEtfQuoteMap(sharedContext.sectorBreadthMap.keys, loadAfter)
+      sharedContext.copy(spyQuoteMap = spyQuoteMap, sectorEtfQuoteMap = sectorEtfQuoteMap, costBps = costBps)
     } else {
       val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
       val marketBreadthMap = marketBreadthRepository.findAllAsMap()
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
-      BacktestContext(sectorBreadthMap, marketBreadthMap, spyQuoteMap, costBps = costBps).also {
+      val sectorEtfQuoteMap = loadSectorEtfQuoteMap(sectorBreadthMap.keys, loadAfter)
+      BacktestContext(
+        sectorBreadthMap,
+        marketBreadthMap,
+        spyQuoteMap,
+        sectorEtfQuoteMap = sectorEtfQuoteMap,
+        costBps = costBps,
+      ).also {
         logger.info(
           "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
-            "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes",
+            "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes, " +
+            "${sectorEtfQuoteMap.size} sector-ETF factor series",
         )
       }
     }
@@ -412,6 +429,7 @@ class BacktestService(
         backtestTwoPass(
           symbols,
           after,
+          loadAfter,
           before,
           entryStrategy,
           exitStrategy,
@@ -506,6 +524,7 @@ class BacktestService(
   private fun backtestTwoPass(
     symbols: List<String>,
     after: LocalDate,
+    loadAfter: LocalDate,
     before: LocalDate,
     entryStrategy: EntryStrategy,
     exitStrategy: ExitStrategy,
@@ -527,6 +546,7 @@ class BacktestService(
     val entrySignals = collectEntrySignals(
       symbols,
       after,
+      loadAfter,
       before,
       entryStrategy,
       ranker,
@@ -537,6 +557,7 @@ class BacktestService(
     )
     val signalStockCount = entrySignals.map { it.tradingSymbol }.distinct().size
     logger.info("Pass 1 complete: ${entrySignals.size} entry signals from $signalStockCount stocks")
+    warnIfWarmupStarved(entrySignals, ranker, logger)
 
     if (entrySignals.isEmpty()) {
       return Pair(emptyList(), emptyList())
@@ -548,7 +569,7 @@ class BacktestService(
     val allSignalSymbols = (signalTradingSymbols + signalStrategySymbols).distinct()
 
     logger.info("Pass 2: Loading ${allSignalSymbols.size} signal stocks...")
-    val stocks = stockRepository.findBySymbols(allSignalSymbols, after)
+    val stocks = stockRepository.findBySymbols(allSignalSymbols, loadAfter)
     val allStocksMap = stocks.associateBy { it.symbol }
 
     val tradingStocks = signalTradingSymbols.mapNotNull { allStocksMap[it] }
@@ -592,6 +613,7 @@ class BacktestService(
   private fun collectEntrySignals(
     symbols: List<String>,
     after: LocalDate,
+    loadAfter: LocalDate,
     before: LocalDate,
     entryStrategy: EntryStrategy,
     ranker: StockRanker,
@@ -606,9 +628,11 @@ class BacktestService(
     batches.forEachIndexed { batchIndex, batch ->
       logger.info("Signal scan batch ${batchIndex + 1}/${batches.size}: ${batch.size} symbols")
 
+      // Load with the warmup buffer so the ranker can score early in-window entries; signals are still
+      // gated to [after, before] below, so warmup bars never become entries.
       val (tradingStocks, allStocksMap) = loadBatchWithUnderlying(
         batch,
-        after,
+        loadAfter,
         useUnderlyingAssets,
         customUnderlyingMap,
       )
@@ -1685,7 +1709,77 @@ class BacktestService(
     )
   }
 
+  /**
+   * The date to load quotes from so a trailing-history ranker has its lookback available before the
+   * window start. Returns `after` unchanged for 0-warmup rankers (precomputed-indicator readers).
+   * Converts the ranker's trading-day warmup to a calendar span and over-loads by [WARMUP_MARGIN];
+   * over-loading is free (warmup bars feed scoring only, never trades), under-loading silently
+   * re-starves the ranker.
+   */
+  internal fun warmupLoadDate(
+    after: LocalDate,
+    ranker: StockRanker,
+  ): LocalDate {
+    val warmupTradingDays = ranker.warmupTradingDays()
+    if (warmupTradingDays <= 0) return after
+    val calendarDays = ceil(warmupTradingDays * CALENDAR_DAYS_PER_TRADING_DAY * WARMUP_MARGIN).toLong()
+    return after.minusDays(calendarDays)
+  }
+
+  /**
+   * Loads each sector ETF (XLK, XLF, ...) as a date-keyed quote series for the multi-factor residual
+   * ranker. Symbols are the sector keys already present in the breadth map; a sector with no ingested
+   * ETF series is simply omitted (stocks in it stay unscoreable, which is the correct fail-closed).
+   */
+  private fun loadSectorEtfQuoteMap(
+    sectorSymbols: Set<String>,
+    quotesAfter: LocalDate,
+  ): Map<String, Map<LocalDate, StockQuote>> =
+    sectorSymbols
+      .mapNotNull { symbol ->
+        stockRepository
+          .findBySymbol(symbol, quotesAfter = quotesAfter)
+          ?.quotes
+          ?.takeIf { it.isNotEmpty() }
+          ?.let { quotes -> symbol to quotes.associateBy { it.date } }
+      }.toMap()
+
+  /**
+   * Tripwire for an under-sized warmup buffer: when a trailing ranker still leaves too many in-window
+   * entries unscoreable, the buffer didn't cover the lookback and the ranker degrades to tie-break
+   * selection — log loudly rather than silently producing a meaningless ranking.
+   */
+  private fun warnIfWarmupStarved(
+    entrySignals: List<EntrySignal>,
+    ranker: StockRanker,
+    logger: org.slf4j.Logger,
+  ) {
+    if (ranker.warmupTradingDays() <= 0 || entrySignals.isEmpty()) return
+    val unscoreable = entrySignals.count { it.rankerScore <= UNSCOREABLE_SENTINEL_THRESHOLD }
+    val fraction = unscoreable.toDouble() / entrySignals.size
+    if (fraction > MAX_UNSCOREABLE_FRACTION) {
+      logger.warn(
+        "Ranker warmup tripwire: ${"%.1f".format(fraction * 100)}% of ${entrySignals.size} in-window " +
+          "entries are unscoreable despite a ${ranker.warmupTradingDays()}-trading-day warmup load — the " +
+          "buffer may be under-sized for this window, degrading selection to tie-break random.",
+      )
+    }
+  }
+
   companion object {
     private const val BATCH_SIZE = 150
+
+    /** ~252 trading days per 365 calendar days — the inverse converts a trailing-ranker warmup in
+     *  trading days to the calendar span to load. */
+    private const val CALENDAR_DAYS_PER_TRADING_DAY = 365.0 / 252.0
+
+    /** Over-load the warmup span by 10% so holidays/long weekends can't silently re-starve the ranker. */
+    private const val WARMUP_MARGIN = 1.10
+
+    /** Scores at or below this are the rankers' unscoreable sentinel (−Double.MAX_VALUE). */
+    private const val UNSCOREABLE_SENTINEL_THRESHOLD = -1e300
+
+    /** Warn when more than this fraction of in-window entries are unscoreable despite a warmup load. */
+    private const val MAX_UNSCOREABLE_FRACTION = 0.05
   }
 }

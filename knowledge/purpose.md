@@ -51,12 +51,14 @@ premise — each failed for a documented, reproducible reason, not bad luck:
    (rank-and-hold `/strategy-screen` vs a mandatory Random baseline, edge measured in narrow-leadership
    windows) before exclusion. Do not re-open the George *flavour* (price-level anchoring ranker).
    **Update (2026-06-08):** the first actual run — [[mrm]], a **single-factor** SPY-beta-stripped
-   residual-momentum ranker (#130) — is **REJECTED at `/strategy-screen`**: it lost to a now-seeded Random
-   baseline on both legs (edge +2.80% vs +6.21%, CAGR 8.95% vs 23.05%), an anti-selective [[beta-delivery]]
-   tilt. But that tests only the *weakest* neutralization (market beta only; the residual still carries
-   sector/size/value momentum — the part that dies in narrow leadership). So the **single-factor recipe is
-   crossed off; the class stays untested.** The honest next test is a **multi-factor-neutral** residual
-   (strip sector/size/value), screened the same way — #137. Do not iterate on [[mrm]] (beta-delivery reject).
+   residual-momentum ranker (#130) — appeared **REJECTED at `/strategy-screen`** (lost to seeded Random on
+   both legs). **VOIDED 2026-06-09:** that verdict is an engine artifact — the walk-forward loaded each
+   window with no warmup buffer, so the 504-day ranker was unscoreable for every OOS entry and "selection"
+   collapsed to tie-break RNG (RNG-vs-RNG, not skill). See [[2026-06-09-trailing-ranker-warmup-starvation]]
+   + ADR 0018. **The single-factor recipe is RE-OPENED, not crossed off** — it must be re-screened on the
+   fixed engine. **Both the single-factor (#130 re-run) AND multi-factor (#137) tests are now live.** The
+   #137 multi-factor ranker (market+sector) is built (ADR 0018 fix shipped with it); the re-run sequence is
+   fix → re-run #130 → screen #137. Do not treat the single-factor recipe as dead.
 
 ## Where the search is now (2026-06-09)
 

@@ -226,6 +226,16 @@ class MarketResidualMomentumRankerTest {
   }
 
   @Test
+  fun `declares its estimation window as the trailing warmup history the engine must load`() {
+    // Given the production-default ranker, whose regression needs 504 trailing days
+    val ranker = MarketResidualMomentumRanker(estimationDays = 504, momentumDays = 252, skipDays = 21)
+
+    // When the engine asks how much pre-window history to load so this ranker is scoreable
+    // Then it is the estimation window — without it every in-window entry would be unscoreable
+    assertEquals(504, ranker.warmupTradingDays())
+  }
+
+  @Test
   fun `a fully SPY-gapped accumulation window is unscoreable, not a neutral zero`() {
     // Given an 11-day estimation window (10 returns); the accumulation window is the last 2 returns,
     // both of which touch date 10. Dropping SPY on date 10 voids exactly those two accumulation

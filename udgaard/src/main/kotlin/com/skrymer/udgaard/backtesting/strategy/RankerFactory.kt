@@ -73,6 +73,17 @@ object RankerFactory {
         usesRandomTieBreaks = true,
       ),
       RankerMetadata(
+        type = "MultiFactorResidualMomentum",
+        displayName = "Multi-Factor-Residual Momentum",
+        description =
+          "Ranks stocks by multi-factor-residual momentum: regresses daily returns on BOTH SPY and the " +
+            "stock's sector ETF over a 504-day window and accumulates the standardized residual over a " +
+            "recent 252-21 day sub-window (market- and sector-stripped relative strength).",
+        parameters = emptyList(),
+        category = "Score-Based",
+        usesRandomTieBreaks = true,
+      ),
+      RankerMetadata(
         type = "SectorStrength",
         displayName = "Sector Strength",
         description = "Ranks stocks by their sector's current bull percentage.",
@@ -154,6 +165,7 @@ object RankerFactory {
       "sectorstrengthmomentum" -> SectorStrengthMomentumRanker()
       "trailingreturn" -> TrailingReturnRanker()
       "marketresidualmomentum" -> MarketResidualMomentumRanker()
+      "multifactorresidualmomentum" -> MultiFactorResidualMomentumRanker()
       "nearness52weekhigh" -> NearnessTo52WeekHighRanker()
       "sectoredge" -> {
         val ranking = rankerConfig?.sectorRanking

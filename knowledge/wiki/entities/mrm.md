@@ -1,12 +1,12 @@
 ---
 type: entity
 title: MRM (MarketResidualMomentum)
-summary: Single-factor SPY-beta-stripped residual-momentum ranker (#130); REJECTED at /strategy-screen — lost to seeded Random on edge AND CAGR (anti-selective beta-delivery). Class stays untested (#137).
-status: stable
-tags: [candidate, ranker, deprecated-instance, beta-delivery, idiosyncratic-momentum]
-sources: ["https://github.com/skrymer/trading/issues/130", "https://github.com/skrymer/trading/issues/137", "knowledge/wiki/sources/2026-06-08-mrm-screen-reject.md"]
-related: ["[[beta-delivery]]", "[[george]]", "[[the-funnel]]", "[[long-premise-in-narrow-leadership]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]"]
-updated: 2026-06-08
+summary: Single-factor SPY-beta-stripped residual-momentum ranker (#130). Its /strategy-screen REJECT is VOID (2026-06-09) — warmup-starvation artifact (ADR 0018), RNG-vs-RNG in OOS; must re-run. Single-factor recipe re-opened.
+status: disputed
+tags: [candidate, ranker, beta-delivery, idiosyncratic-momentum, verdict-void]
+sources: ["https://github.com/skrymer/trading/issues/130", "https://github.com/skrymer/trading/issues/137", "knowledge/wiki/sources/2026-06-08-mrm-screen-reject.md", "knowledge/wiki/sources/2026-06-09-trailing-ranker-warmup-starvation.md", "docs/adr/0018-trailing-ranker-warmup-history-is-loaded-but-never-traded.md"]
+related: ["[[beta-delivery]]", "[[george]]", "[[the-funnel]]", "[[long-premise-in-narrow-leadership]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-trailing-ranker-warmup-starvation]]"]
+updated: 2026-06-09
 ---
 
 # MRM (MarketResidualMomentum)
@@ -25,9 +25,23 @@ is the strongest neutralization available in-engine (no Fama-French factor serie
 
 ## Status
 
-**DEPRECATED-INSTANCE (2026-06-08).** The *single-factor recipe* is dead; the **class stays untested**
-(see [[purpose]] #4 and [[2026-06-08-mrm-screen-reject]]). The next honest test is a multi-factor-neutral
-residual (#137), a structurally different recipe — not an iteration of this one.
+**VERDICT VOID — RE-RUN REQUIRED (2026-06-09).** The #130 screen result below is an **artifact of an
+engine defect**, not evidence about selection skill. The walk-forward engine loaded each window's quotes
+with no warmup buffer (`quotesAfter = windowStart`), so this ranker's 504-day estimation window was
+**unscoreable for every OOS entry** (12-month OOS ≪ 504-day lookback). With every candidate at the
+unscoreable sentinel, "rank top-N" collapsed to the tie-break jitter RNG — a stream independent of the
+Random baseline's score RNG. **So the screen compared two different random draws** (which explains MRM's
+499 OOS trades vs Random's 527 with zero anti-selection needed). The "anti-selective beta-delivery" read
+is **withdrawn**. Fixed by the warmup-loading change ([ADR 0018](../../../docs/adr/0018-trailing-ranker-warmup-history-is-loaded-but-never-traded.md));
+the single-factor recipe must be **re-screened on the fixed engine** before it can be crossed off, and
+[[mrm]]'s sibling test #137 must NOT inherit "the single-factor cousin is already dead" as a prior.
+See [[2026-06-09-trailing-ranker-warmup-starvation]].
+
+> ⚠ CONTRADICTION: the 2026-06-08 verdict (below) condemned the single-factor recipe as beta-delivery;
+> the 2026-06-09 warmup-starvation finding shows that verdict measured RNG-vs-RNG in OOS. Superseded
+> pending the re-run; history retained because the artifact itself is an instructive failure mode.
+
+_Prior (now void):_ DEPRECATED-INSTANCE (2026-06-08) — single-factor recipe "dead", class untested.
 
 ## Funnel history
 

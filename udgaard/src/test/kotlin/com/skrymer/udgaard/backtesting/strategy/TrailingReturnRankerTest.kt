@@ -105,4 +105,14 @@ class TrailingReturnRankerTest {
     // Then the unscoreable base collapses to the sentinel, sorting last
     assertTrue(score < -1.0, "zero-base score $score should be < -1.0")
   }
+
+  @Test
+  fun `declares its lookback window as the trailing warmup history the engine must load`() {
+    // Given the production-default 252-21 momentum ranker, whose window reaches 252 bars back
+    val ranker = TrailingReturnRanker(lookbackDays = 252, skipDays = 21)
+
+    // When the engine asks how much pre-window history to load so this ranker is scoreable
+    // Then it is the lookback window — without it early in-window entries are unscoreable
+    assertEquals(252, ranker.warmupTradingDays())
+  }
 }

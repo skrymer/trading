@@ -59,3 +59,4 @@ AFTER next-session entry). #137 stays a lower-priority class-closer.
 ## [2026-06-09] ingest | PEAD premise-class adjudication — quant RECONSIDER_CLASS, abandon long-only-drift form; #143/sector-residual predicted-dead for PEAD; next class = structurally beta-hedged
 ## [2026-06-09] ingest | structurally-hedged 6th class scoped then DECLINED (operator: 25% CAGR firm, no market-neutral sleeve)
 ## [2026-06-09] ingest | OVTLYR Plan M & ETF assessed — ~5y span (all in Block C), TEST_NOT_WORTHWHILE / LIFT_IDEAS_ONLY; no novel 6th class
+## [2026-06-09] ingest | trailing-ranker warmup starvation found — voids #130 MRM screen (RNG-vs-RNG in OOS); ADR 0018 fix (warmup load, rank-only); single-factor recipe re-opened; #137 multi-factor ranker built

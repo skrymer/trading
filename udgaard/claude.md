@@ -44,7 +44,7 @@ udgaard/
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
 │   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha) + benchmarkCagr/MaxDrawdownPct/Calmar/Sharpe (benchmark's standalone metrics; diagnostic leg of the SPY baseline gate, ADR 0013)
 │   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
-│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016)
+│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016) + sectorEtfQuoteMap (sector-ETF factor series for multi-factor residual rankers, warmup-loaded; ADR 0018)
 │   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006); spyBaselineComparison: SpyBaselineComparison? — SPY buy-and-hold Calmar baseline gate verdict (ADR 0013)
@@ -83,7 +83,7 @@ udgaard/
 │   │       ├── CompositeEntryStrategy.kt
 │   │       ├── CompositeExitStrategy.kt
 │   │       ├── StrategyDsl.kt        # DSL builder
-│   │       ├── StockRanker.kt        # Ranking implementations
+│   │       ├── StockRanker.kt        # Ranking implementations + warmupTradingDays() (pre-window history a trailing ranker needs loaded; default 0, overridden by Trailing/MarketResidual/MultiFactorResidual; ADR 0018)
 │   │       ├── RankerFactory.kt     # Ranker creation + RankerMetadata catalog (served by /api/backtest/rankers)
 │   │       ├── RegisteredStrategy.kt # Auto-discovery annotation
 │   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
@@ -387,6 +387,8 @@ SectorStrengthRanker()          // Rank by sector bull percentage
 RollingSectorStrengthRanker()   // Avg sector bull % over a trailing window (persistent strength)
 SectorStrengthMomentumRanker()  // Δ sector bull % over a window (sectors gaining breadth)
 TrailingReturnRanker()          // 12-1 cross-sectional momentum (252d return ending 21d ago, higher = better)
+MarketResidualMomentumRanker()  // SPY-beta-stripped residual momentum (504d regression, 252-21d residual accum)
+MultiFactorResidualMomentumRanker() // market+sector residual momentum (504d regress on SPY + sector ETF, 252-21d accum)
 NearnessTo52WeekHighRanker()    // Nearness to own 52-week high (min(close / 52wk-high, 1.0), closer = better)
 SectorEdgeRanker()              // Rank by user-supplied sector priority order (Sector-Priority category)
 SectorEdgeWithTightnessRanker() // Sector edge + base-tightness (ATR/close) tie-breaker within a sector

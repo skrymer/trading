@@ -6,6 +6,7 @@ import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -16,7 +17,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -72,6 +76,89 @@ class BacktestServiceTest {
    */
   private fun mockStocksForLoading(vararg stocks: Stock) {
     whenever(stockRepository.findBySymbols(any(), any())).thenReturn(stocks.toList())
+  }
+
+  /** A ranker that declares a trailing-history warmup need but scores a constant (selection is irrelevant here). */
+  private fun trailingRanker(warmupDays: Int) =
+    object : StockRanker {
+      override fun score(
+        stock: Stock,
+        entryQuote: StockQuote,
+      ) = 1.0
+
+      override fun score(
+        stock: Stock,
+        entryQuote: StockQuote,
+        context: BacktestContext,
+      ) = 1.0
+
+      override fun description() = "stub trailing ranker"
+
+      override fun warmupTradingDays() = warmupDays
+    }
+
+  @Test
+  fun `warmupLoadDate buffers the load date by the ranker's trailing-history need`() {
+    // Given the window start
+    val after = LocalDate.of(2024, 1, 1)
+
+    // When a 0-warmup ranker (precomputed-indicator reader) asks for its load date
+    // Then it loads exactly from the window start — no buffer
+    Assertions.assertEquals(after, backtestService.warmupLoadDate(after, trailingRanker(0)))
+
+    // When a 252-trading-day ranker asks
+    val buffered = backtestService.warmupLoadDate(after, trailingRanker(252))
+
+    // Then the load date is pulled back far enough to cover 252 trading days of history (with margin)
+    Assertions.assertTrue(buffered.isBefore(after), "buffered load date should precede the window start")
+    Assertions.assertTrue(
+      !buffered.isAfter(after.minusDays(252)),
+      "buffer must cover at least the trailing-day lookback in calendar terms, was $buffered",
+    )
+  }
+
+  @Test
+  fun `a trailing ranker loads warmup history before the window but never trades it`() {
+    // Given a stock with quotes in a pre-window warmup region (2023) AND the trading window (2024),
+    // and a trailing ranker that needs prior history to score
+    val warmupQuotes = (1..20).map {
+      StockQuote(closePrice = 50.0, openPrice = 50.0, date = LocalDate.of(2023, 6, 1).plusDays(it.toLong()))
+    }
+    val windowQuotes = listOf(
+      StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2024, 1, 2)),
+      StockQuote(closePrice = 98.0, openPrice = 99.0, date = LocalDate.of(2024, 1, 3)),
+    )
+    val stock = Stock("TEST", "XLK", quotes = warmupQuotes + windowQuotes)
+    mockStocksForLoading(stock)
+    // No SPY / sector ETF series needed for the stub ranker
+    whenever(stockRepository.findBySymbol(any(), any())).thenReturn(null)
+    val after = LocalDate.of(2024, 1, 1)
+    val quotesAfterCaptor = argumentCaptor<LocalDate>()
+
+    // When backtested with maxPositions (two-pass / ranker-selects path) and the trailing ranker
+    val report = backtestService.backtest(
+      closePriceIsGreaterThanOrEqualTo100,
+      openPriceIsLessThan100,
+      listOf("TEST"),
+      after,
+      LocalDate.of(2024, 12, 31),
+      maxPositions = 1,
+      ranker = trailingRanker(252),
+      costBps = 0.0,
+    )
+
+    // Then stocks were loaded from a warmup-buffered date strictly before the window start...
+    verify(stockRepository, atLeastOnce()).findBySymbols(any(), quotesAfterCaptor.capture())
+    Assertions.assertTrue(
+      quotesAfterCaptor.allValues.all { it.isBefore(after) },
+      "every stock load should use the warmup-buffered date, were ${quotesAfterCaptor.allValues}",
+    )
+    // ...but no trade ever entered on a warmup bar — warmup history is visible to ranking only
+    val trades = report.winningTrades + report.losingTrades
+    Assertions.assertTrue(
+      trades.all { !it.entryQuote.date.isBefore(after) },
+      "no trade may enter before the window start (warmup bars must not be tradeable)",
+    )
   }
 
   @Test
