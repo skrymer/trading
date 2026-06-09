@@ -1,10 +1,10 @@
 ---
 type: synthesis
 title: Purpose — the hunt
-summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, three earned-dead premise classes (+ RS-momentum downgraded-to-untested), and the open questions driving the search.
+summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, the earned-dead premise classes (RS-momentum sealed via #137), the empty funnel, and the open questions.
 status: active
 tags: [purpose, thesis]
-updated: 2026-06-06
+updated: 2026-06-09
 ---
 
 # Purpose — what we're hunting and why
@@ -41,22 +41,20 @@ premise — each failed for a documented, reproducible reason, not bad luck:
 1. **Long-pullback mean-reversion** (VZ3, MR3, Idunn) — [[participate-and-lose]] + [[aliased-regime-sensitivity]].
 2. **Breakout-in-uptrend** (Minervini VCP breakout) — [[participate-and-lose]]; no regime selector fixed it ([[thinning-not-selecting]]).
 3. **Leveraged-ETF timing** — data-span disqualified (post-2009) + regime fragility.
-4. **Cross-sectional RS-momentum rotation** — ⚠ **NOT a clean death — downgraded to untested-hypothesis.**
-   The *instance* that ran ([[george]], a 52-week-high anchoring ranker) is earned-dead: it lost to a Random
-   baseline on blended CAGR AND per-trade edge ([[beta-delivery]]). But the *premise class* was deprecated
-   **on theory with no run**, and the methodology deep-research ([[2026-06-05-funnel-deepresearch-findings]]
-   G1) holds the twin-death analogy is *probably too strong* — momentum splits into factor-momentum (dies
-   in narrow leadership) + a durable **stock-specific/idiosyncratic** component that narrow leadership can
-   *feed*. A **factor-neutral idiosyncratic-RS** variant is **un-ruled-out** and needs an actual run
-   (rank-and-hold `/strategy-screen` vs a mandatory Random baseline, edge measured in narrow-leadership
-   windows) before exclusion. Do not re-open the George *flavour* (price-level anchoring ranker).
-   **Update (2026-06-08):** the first actual run — [[mrm]], a **single-factor** SPY-beta-stripped
-   residual-momentum ranker (#130) — is **REJECTED at `/strategy-screen`**: it lost to a now-seeded Random
-   baseline on both legs (edge +2.80% vs +6.21%, CAGR 8.95% vs 23.05%), an anti-selective [[beta-delivery]]
-   tilt. But that tests only the *weakest* neutralization (market beta only; the residual still carries
-   sector/size/value momentum — the part that dies in narrow leadership). So the **single-factor recipe is
-   crossed off; the class stays untested.** The honest next test is a **multi-factor-neutral** residual
-   (strip sector/size/value), screened the same way — #137. Do not iterate on [[mrm]] (beta-delivery reject).
+4. **Cross-sectional RS-momentum rotation** — ✅ **EARNED-DEAD (2026-06-09, resolved).** Three flavours
+   now ruled out on real runs: [[george]] (52-week-high anchoring — lost to Random), [[mrm]] (single-factor
+   SPY-residual momentum — anti-selective, K=0/10 vs Random), and [[multifactor-residual-momentum]] (#137,
+   market+sector-residual — *even more* anti-selective, K=0/10). The deep-research hypothesis that narrow
+   leadership *feeds* a durable stock-specific/idiosyncratic momentum component
+   ([[2026-06-05-funnel-deepresearch-findings]] G1, [[long-premise-in-narrow-leadership]]) is **refuted**:
+   the more factors stripped, the *more* anti-selective the residual — there is no cross-sectional alpha in
+   residual relative strength in this universe/period. Per the quant class-killer asymmetry, the
+   market+sector FAIL closes the class **without** needing the Fama-French (size/value) step — stripping
+   more can only remove signal. See [[2026-06-09-rs-momentum-class-earned-dead]].
+   **Caveat that almost hid this:** the first MRM run (#130, 2026-06-08) was a *false* reject — the
+   walk-forward starved the 504-day ranker of its lookback (no warmup buffer), measuring RNG-vs-RNG. Fixed
+   in ADR 0018 ([[2026-06-09-trailing-ranker-warmup-starvation]]); the fixed-engine re-run confirms the
+   death properly. The `MultiFactorResidualMomentumRanker` + the warmup fix are kept as permanent assets.
 
 ## Where the search is now (2026-06-09)
 
@@ -87,9 +85,13 @@ premise — each failed for a documented, reproducible reason, not bad luck:
   breadth-event class is re-scopable only via a *structurally different, regime-sign-consistent* transition
   predicate, screened from scratch and together with [[gjallarhorn]]. See [[btc-tyr]] +
   [[2026-06-08-btc-breadth-thrust-screen-reject]].
-- **The one remaining filed thread is #137** — a multi-factor-neutral (sector/size/value-stripped)
-  residual-momentum ranker vs a seeded Random baseline (the honest test that would settle the RS-momentum
-  class, #4 above). Otherwise the next premise is an operator/quant call.
+- **#137 is CLOSED (2026-06-09)** — the multi-factor-neutral (market+sector) residual-momentum ranker was
+  built and screened vs a seeded Random baseline; it is anti-selective (K=0/10), settling the RS-momentum
+  class as **earned-dead** (#4 above). **No filed threads remain.** The next premise is an operator/quant
+  call — it must be net-long / directional and ~25%-CAGR-capable (the hedged/market-neutral route was
+  declined on appetite). A spin-off: the warmup-starvation fix (ADR 0018) makes any future in-engine
+  trailing-history ranker validly screenable, and the seeded-random-sample reduced universe (N=1,500, both
+  arms identical list) is the established fast path for ranker-selects screens.
 - **[[gjallarhorn]]** (breadth-washout crisis-bottom timer) passed its timing-alpha NULL (+22σ) but is
   **funnel-disqualified standalone** ([[crisis-timer-cadence-ceiling]]) — a shelved overlay component
   awaiting a host, blocked on nested-condition-groups (#93, now resolved) + a regime-transition layer.

@@ -3,6 +3,7 @@ package com.skrymer.udgaard.backtesting.strategy
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
+import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -32,6 +33,15 @@ interface StockRanker {
    * Description of this ranking strategy
    */
   fun description(): String
+
+  /**
+   * Trading days of pre-window price history this ranker needs loaded before the backtest start so it
+   * can score the earliest in-window entries. 0 (the default) for rankers that read precomputed per-quote
+   * indicators; rankers that compute trailing returns in-engine override this with their lookback depth.
+   * The engine loads this much warmup history (visible to scoring only — never traded). Without it a
+   * trailing ranker is unscoreable for every entry inside a window shorter than its lookback.
+   */
+  fun warmupTradingDays(): Int = 0
 
   companion object {
     /**
@@ -425,6 +435,8 @@ class TrailingReturnRanker(
 
   override fun description() = "Trailing return ($lookbackDays-$skipDays day momentum)"
 
+  override fun warmupTradingDays() = lookbackDays
+
   companion object {
     /** Below the −1.0 floor of any real return, so unscoreable stocks always rank last. */
     private const val INSUFFICIENT_HISTORY = -Double.MAX_VALUE
@@ -593,6 +605,8 @@ class MarketResidualMomentumRanker(
     "Market-residual momentum ($estimationDays-day SPY-beta regression, " +
       "$momentumDays-$skipDays day residual accumulation)"
 
+  override fun warmupTradingDays() = estimationDays
+
   companion object {
     /** Below the floor of any real score, so unscoreable stocks always rank last. */
     private const val UNSCOREABLE = -Double.MAX_VALUE
@@ -601,6 +615,235 @@ class MarketResidualMomentumRanker(
     private const val MIN_PAIRED_FRACTION = 0.8
 
     /** Degeneracy floor for the SPY-return variance and the residual stdev. */
+    private const val EPSILON = 1e-12
+  }
+}
+
+/**
+ * Multi-factor generalization of [MarketResidualMomentumRanker]: strips BOTH the market (SPY) and the
+ * stock's sector-ETF co-movement before reading residual momentum, so the score reflects idiosyncratic
+ * relative strength rather than factor (market/sector) momentum — the component theory predicts decays
+ * in narrow-leadership tape.
+ *
+ * Per entry: multivariate OLS regresses the stock's daily returns on [SPY return, sector-ETF return]
+ * over the estimation window, then accumulates the standardized residual over the recent
+ * momentumDays-skipDays sub-window (the same shape as the single-factor ranker).
+ *
+ * Only the residual is consumed; the individual partial betas are intentionally never exposed — with a
+ * cap-weighted sector ETF (~market plus a tilt) the regressors are collinear and the per-factor betas
+ * are unstable, while the fitted value, hence the residual, stays well-defined. The regressors are held
+ * as a column list so additional factors (size/value) drop in without restructuring the solve.
+ */
+class MultiFactorResidualMomentumRanker(
+  private val estimationDays: Int = 504,
+  private val momentumDays: Int = 252,
+  private val skipDays: Int = 21,
+) : StockRanker {
+  init {
+    require(skipDays >= 1) { "skipDays must be >= 1 (accumulation must end before the entry bar), got $skipDays" }
+    require(momentumDays > skipDays) { "momentumDays ($momentumDays) must be greater than skipDays ($skipDays)" }
+    require(estimationDays >= momentumDays + skipDays) {
+      "estimationDays ($estimationDays) must be >= momentumDays + skipDays (${momentumDays + skipDays})"
+    }
+  }
+
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double = score(stock, entryQuote, BacktestContext.EMPTY)
+
+  @Suppress("detekt:ReturnCount")
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+    context: BacktestContext,
+  ): Double {
+    val spyMap = context.spyQuoteMap
+    if (spyMap.isEmpty()) return UNSCOREABLE
+    val sectorMap = stock.sectorSymbol?.let { context.sectorEtfQuoteMap[it] }
+    if (sectorMap.isNullOrEmpty()) return UNSCOREABLE
+
+    val entryIdx = stock.indexOnOrAfter(entryQuote.date)
+    val estStart = entryIdx - estimationDays
+    if (estStart < 0) return UNSCOREABLE
+
+    // Accumulation sub-window covers return indices [accStart .. accEnd], all strictly before entry.
+    val accEnd = entryIdx - skipDays
+    val accStart = accEnd - momentumDays + 1
+
+    val paired = pairReturns(stock, spyMap, sectorMap, estStart, entryIdx, accStart, accEnd)
+    val minPaired = ceil(MIN_PAIRED_FRACTION * (estimationDays - 1)).toInt()
+    if (paired.size < minPaired) return UNSCOREABLE
+
+    return scoreResidual(paired)
+  }
+
+  /**
+   * Pair stock returns to BOTH factor series by date over [estStart+1 .. entryIdx-1]; a return is kept
+   * only when the stock, SPY and the sector ETF all have the bar and the prior bar at positive prices.
+   */
+  private fun pairReturns(
+    stock: Stock,
+    spyMap: Map<LocalDate, StockQuote>,
+    sectorMap: Map<LocalDate, StockQuote>,
+    estStart: Int,
+    entryIdx: Int,
+    accStart: Int,
+    accEnd: Int,
+  ): PairedReturns {
+    val stockReturns = ArrayList<Double>(estimationDays)
+    val marketReturns = ArrayList<Double>(estimationDays)
+    val sectorReturns = ArrayList<Double>(estimationDays)
+    val inAccumulation = ArrayList<Boolean>(estimationDays)
+    for (t in (estStart + 1) until entryIdx) {
+      val curr = stock.quotes[t]
+      val prev = stock.quotes[t - 1]
+      val spyCurr = spyMap[curr.date]
+      val spyPrev = spyMap[prev.date]
+      val secCurr = sectorMap[curr.date]
+      val secPrev = sectorMap[prev.date]
+      if (!barComplete(prev, spyCurr, spyPrev, secCurr, secPrev)) continue
+      stockReturns.add(curr.closePrice / prev.closePrice - 1.0)
+      marketReturns.add(spyCurr!!.closePrice / spyPrev!!.closePrice - 1.0)
+      sectorReturns.add(secCurr!!.closePrice / secPrev!!.closePrice - 1.0)
+      inAccumulation.add(t in accStart..accEnd)
+    }
+    return PairedReturns(stockReturns, listOf(marketReturns, sectorReturns), inAccumulation)
+  }
+
+  /** True when the stock, SPY and sector ETF all have current + positive-priced prior bars. */
+  private fun barComplete(
+    prev: StockQuote,
+    spyCurr: StockQuote?,
+    spyPrev: StockQuote?,
+    secCurr: StockQuote?,
+    secPrev: StockQuote?,
+  ): Boolean {
+    if (spyCurr == null || spyPrev == null) return false
+    if (secCurr == null || secPrev == null) return false
+    return prev.closePrice > 0.0 && spyPrev.closePrice > 0.0 && secPrev.closePrice > 0.0
+  }
+
+  /**
+   * OLS (stock ~ intercept + market + sector) over the paired returns, then the standardized residual
+   * accumulated across the recent sub-window. A singular X'X or degenerate residual -> unscoreable.
+   */
+  private fun scoreResidual(paired: PairedReturns): Double {
+    val pairedCount = paired.size
+    val coefficients = solveOls(paired.factorColumns, paired.stockReturns) ?: return UNSCOREABLE
+    val alpha = coefficients[0]
+
+    var residualSumSq = 0.0
+    var accumulatedResidual = 0.0
+    var accumulatedCount = 0
+    for (i in 0 until pairedCount) {
+      var fitted = alpha
+      for (f in paired.factorColumns.indices) {
+        fitted += coefficients[f + 1] * paired.factorColumns[f][i]
+      }
+      val residual = paired.stockReturns[i] - fitted
+      residualSumSq += residual * residual
+      if (paired.inAccumulation[i]) {
+        accumulatedResidual += residual
+        accumulatedCount++
+      }
+    }
+    // No paired return survived inside the accumulation window: there is no momentum reading, so the
+    // stock is unscoreable rather than a competitive zero that could win a fill on missing data.
+    if (accumulatedCount == 0) return UNSCOREABLE
+    // Sample-stdev normalization (divide by pairedCount - 1), matching the single-factor ranker so the
+    // two scores are read on the same scale; it is a ranking normalizer, not a regression-dof estimate.
+    val residualStdev = sqrt(residualSumSq / (pairedCount - 1))
+    if (residualStdev < EPSILON) return UNSCOREABLE
+
+    val score = accumulatedResidual / residualStdev
+    return if (score.isFinite()) score else UNSCOREABLE
+  }
+
+  override fun description() =
+    "Multi-factor-residual momentum ($estimationDays-day market+sector regression, " +
+      "$momentumDays-$skipDays day residual accumulation)"
+
+  override fun warmupTradingDays() = estimationDays
+
+  /**
+   * OLS by the normal equations for design columns [1, factor_1, ... factor_k]. Returns the coefficient
+   * vector [intercept, beta_1, ... beta_k], or null when X'X is singular (degenerate / collinear data).
+   */
+  private fun solveOls(
+    factorColumns: List<List<Double>>,
+    response: List<Double>,
+  ): DoubleArray? {
+    val rows = response.size
+    val designColumns = ArrayList<DoubleArray>(factorColumns.size + 1)
+    designColumns.add(DoubleArray(rows) { 1.0 })
+    factorColumns.forEach { designColumns.add(it.toDoubleArray()) }
+    val params = designColumns.size
+
+    val xtx = Array(params) { i -> DoubleArray(params) { j -> dot(designColumns[i], designColumns[j], rows) } }
+    val xty = DoubleArray(params) { i -> dotWith(designColumns[i], response, rows) }
+    return gaussianSolve(xtx, xty)
+  }
+
+  private fun dot(left: DoubleArray, right: DoubleArray, rows: Int): Double {
+    var sum = 0.0
+    for (i in 0 until rows) sum += left[i] * right[i]
+    return sum
+  }
+
+  private fun dotWith(left: DoubleArray, right: List<Double>, rows: Int): Double {
+    var sum = 0.0
+    for (i in 0 until rows) sum += left[i] * right[i]
+    return sum
+  }
+
+  /** Gaussian elimination with partial pivoting; null if the matrix is singular within tolerance. */
+  private fun gaussianSolve(
+    matrix: Array<DoubleArray>,
+    rhs: DoubleArray,
+  ): DoubleArray? {
+    val size = rhs.size
+    val aug = Array(size) { i -> matrix[i].copyOf() }
+    val rhsCopy = rhs.copyOf()
+    for (col in 0 until size) {
+      var pivotRow = col
+      for (r in col + 1 until size) {
+        if (kotlin.math.abs(aug[r][col]) > kotlin.math.abs(aug[pivotRow][col])) pivotRow = r
+      }
+      if (kotlin.math.abs(aug[pivotRow][col]) < EPSILON) return null
+      val tmpRow = aug[col]
+      aug[col] = aug[pivotRow]
+      aug[pivotRow] = tmpRow
+      val tmpRhs = rhsCopy[col]
+      rhsCopy[col] = rhsCopy[pivotRow]
+      rhsCopy[pivotRow] = tmpRhs
+      for (r in 0 until size) {
+        if (r == col) continue
+        val factor = aug[r][col] / aug[col][col]
+        for (c in col until size) aug[r][c] -= factor * aug[col][c]
+        rhsCopy[r] -= factor * rhsCopy[col]
+      }
+    }
+    return DoubleArray(size) { i -> rhsCopy[i] / aug[i][i] }
+  }
+
+  /** Date-paired return series across the stock + factor columns, with the accumulation-window mask. */
+  private class PairedReturns(
+    val stockReturns: List<Double>,
+    val factorColumns: List<List<Double>>,
+    val inAccumulation: List<Boolean>,
+  ) {
+    val size: Int get() = stockReturns.size
+  }
+
+  companion object {
+    /** Below the floor of any real score, so unscoreable stocks always rank last. */
+    private const val UNSCOREABLE = -Double.MAX_VALUE
+
+    /** Minimum fraction of estimation-window returns that must pair across all factor series. */
+    private const val MIN_PAIRED_FRACTION = 0.8
+
+    /** Degeneracy floor for the pivot magnitude and the residual stdev. */
     private const val EPSILON = 1e-12
   }
 }

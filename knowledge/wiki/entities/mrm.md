@@ -1,12 +1,12 @@
 ---
 type: entity
 title: MRM (MarketResidualMomentum)
-summary: Single-factor SPY-beta-stripped residual-momentum ranker (#130); REJECTED at /strategy-screen — lost to seeded Random on edge AND CAGR (anti-selective beta-delivery). Class stays untested (#137).
+summary: Single-factor SPY-residual-momentum ranker (#130). EARNED-DEAD — fixed-engine re-run confirms anti-selective: below the entire 10-seed Random cloud on edge AND CAGR (K=0/10).
 status: stable
-tags: [candidate, ranker, deprecated-instance, beta-delivery, idiosyncratic-momentum]
-sources: ["https://github.com/skrymer/trading/issues/130", "https://github.com/skrymer/trading/issues/137", "knowledge/wiki/sources/2026-06-08-mrm-screen-reject.md"]
-related: ["[[beta-delivery]]", "[[george]]", "[[the-funnel]]", "[[long-premise-in-narrow-leadership]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]"]
-updated: 2026-06-08
+tags: [candidate, ranker, deprecated, beta-delivery, idiosyncratic-momentum, rs-momentum]
+sources: ["https://github.com/skrymer/trading/issues/130", "https://github.com/skrymer/trading/issues/137", "knowledge/wiki/sources/2026-06-08-mrm-screen-reject.md", "knowledge/wiki/sources/2026-06-09-trailing-ranker-warmup-starvation.md", "docs/adr/0018-trailing-ranker-warmup-history-is-loaded-but-never-traded.md"]
+related: ["[[beta-delivery]]", "[[george]]", "[[the-funnel]]", "[[long-premise-in-narrow-leadership]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-trailing-ranker-warmup-starvation]]"]
+updated: 2026-06-09
 ---
 
 # MRM (MarketResidualMomentum)
@@ -25,9 +25,21 @@ is the strongest neutralization available in-engine (no Fama-French factor serie
 
 ## Status
 
-**DEPRECATED-INSTANCE (2026-06-08).** The *single-factor recipe* is dead; the **class stays untested**
-(see [[purpose]] #4 and [[2026-06-08-mrm-screen-reject]]). The next honest test is a multi-factor-neutral
-residual (#137), a structurally different recipe — not an iteration of this one.
+**EARNED-DEAD (2026-06-09, re-run confirmed).** The single-factor recipe is anti-selective and genuinely
+dead. The journey: the original #130 screen verdict (2026-06-08, "anti-selective beta-delivery") was
+**voided** when the [[2026-06-09-trailing-ranker-warmup-starvation]] finding showed the walk-forward
+starved this 504-day ranker of its lookback in every OOS window (no warmup buffer → unscoreable → "rank
+top-N" collapsed to tie-break RNG → the screen compared two random draws, ADR 0018). The engine was fixed
+(warmup-buffered loading) and the screen **re-run on the fixed engine** vs a seeded 10-draw Random
+baseline (1,500-sym universe): **MRM edge 0.588 / CAGR 5.52% sits BELOW the entire Random cloud on both
+legs (K=0/10)** — anti-selective, confirmed. So the void verdict's *conclusion* was right; #130 just
+measured it by accident. The fix made the death **defensible**, not different. See
+[[2026-06-09-rs-momentum-class-earned-dead]]. The class-level death is sealed by the multi-factor sibling
+[[multifactor-residual-momentum]] (#137), which is *even more* anti-selective.
+
+> Resolved contradiction: the void (RNG-vs-RNG) and the original beta-delivery read are reconciled — the
+> fixed-engine re-run confirms anti-selection on a trustworthy measurement. History retained below; the
+> artifact itself is an instructive failure mode (a plausible verdict produced by a starved ranker).
 
 ## Funnel history
 

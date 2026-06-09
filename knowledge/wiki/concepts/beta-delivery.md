@@ -89,18 +89,19 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   via G-RANDOM before ever reaching the firewall, so it has **no G16 read** — it is the cheaper-tell
   confirmation that this failure mode is real, not a G16 rejection.
 
-- **[[mrm]]** (2026-06-08) — the **second screen-stage** instance, and a *stronger* beta-delivery signature
-  than George. A single-factor SPY-beta-stripped residual-momentum ranker on a neutral entry (so the ranker
-  is the sole selection signal). It **lost** to a now-seeded byte-identical Random baseline on *both* legs:
-  per-trade edge **+2.80% vs +6.21%**, blended CAGR **8.95% vs 23.05%** (2.2–2.6×), beaten head-to-head in
-  5/7 windows, and it reproduced George's GFC liability (2008 window −12.93% vs Random −2.50%). Where George
-  *matched* Random on per-trade edge (a no-information ranker), MRM *loses* on edge — an **anti-selective**
-  tilt that systematically picks worse names than a random draw. First instance adjudicated against the
-  reproducibly-seeded baseline (the #130 fix). Note the high absolute Random CAGR (23%) is **structural
-  long-beta** of this long-only engine (cash-dodges 2008 → −8% vs SPY −38%, then equal-weight small-cap tilt
-  rides the 2009 +58% / 2010 +53% rebound; SPY buy-hold was 9.86% over the same support) — *not* survivorship
-  (the universe carries 1500+ delisted names) and *not* alpha; both arms share it, so the relative verdict
-  holds. See [[2026-06-08-mrm-screen-reject]].
+- **[[mrm]]** (re-confirmed 2026-06-09) — single-factor SPY-residual-momentum ranker; **anti-selective**.
+  The original #130 screen (2026-06-08) was voided as a warmup-starvation artifact (RNG-vs-RNG in OOS,
+  [[2026-06-09-trailing-ranker-warmup-starvation]], ADR 0018), then **re-run on the fixed engine** vs a
+  seeded 10-draw Random baseline (1,500-sym universe): MRM edge **0.588** / CAGR **5.52%** sit **below the
+  entire Random cloud on both legs (K=0/10)**. So the original beta-delivery read was right — MRM picks
+  *worse* names than random — but it's now a *trustworthy* measurement, not an RNG accident. A stronger
+  signature than [[george]] (which only *matched* Random on edge). See [[2026-06-09-rs-momentum-class-earned-dead]].
+- **[[multifactor-residual-momentum]]** (2026-06-09) — market+sector-residual-momentum ranker (#137); the
+  *most* anti-selective screen-stage instance. Same fixed-engine seeded-Random screen: edge **0.249** /
+  CAGR **2.02%**, **below the entire Random cloud (K=0/10)** and *worse than single-factor [[mrm]]* —
+  stripping the sector factor increased anti-selection. This closes the factor-neutral idiosyncratic-RS
+  class: a market+sector FAIL is conclusive (size/value stripping can only remove more signal). See
+  [[2026-06-09-rs-momentum-class-earned-dead]].
 
 - **[[pead]] price-gap proxy** (2026-06-09) — the **condition-screen / regime-tertile** instance, and the
   first *event-driven* one. Not a ranker (George/MRM) and not G16: an inline earnings-gap entry condition

@@ -14,6 +14,9 @@ data class BacktestContext(
   val sectorBreadthMap: Map<String, Map<LocalDate, SectorBreadthDaily>>,
   val marketBreadthMap: Map<LocalDate, MarketBreadthDaily>,
   val spyQuoteMap: Map<LocalDate, StockQuote> = emptyMap(),
+  // Sector-ETF price series keyed by sector symbol (XLK, XLF, ...) then by date. Supplies the sector
+  // factor for multi-factor residual rankers, the way spyQuoteMap supplies the market factor.
+  val sectorEtfQuoteMap: Map<String, Map<LocalDate, StockQuote>> = emptyMap(),
   // Round-trip transaction cost in basis points (commission + slippage), netted into per-share
   // Trade.profit at trade close. Default 10 = net-by-default; 0 reproduces gross perfect-fill runs.
   val costBps: Double = 10.0,

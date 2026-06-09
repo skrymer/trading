@@ -27,7 +27,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[lottery-vs-signature]] — edge concentrated in 1-2 windows = regime detector, not selector; the timing-NULL signature test.
 - [[thrust-degenerates-to-level]] — a transition/thrust premise whose edge sits in the cell nearest a plain level threshold = it's really a level gate.
 - [[crisis-timer-cadence-ceiling]] — < ~1 event/yr premises are un-validatable standalone; the data-span sibling rule.
-- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — 5 screen-stage instances incl. PEAD's regime-tertile sign-flip thrice [raw gap + market-neutral residual + EPS-sign-gated residual]; no G16-firewall instance yet).
+- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — 6 confirmed screen-stage instances: [[george]], [[mrm]] (re-confirmed anti-selective on the fixed engine), [[multifactor-residual-momentum]] (#137), + PEAD's regime-tertile sign-flip thrice; no G16-firewall instance yet).
 
 ## Entities — candidates
 
@@ -36,7 +36,8 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
 - [[minervini-vcp-breakout]] — breakout-in-uptrend; REJECTED (participate-and-lose), but the broad-thrust edge is real → shelved building block.
 - [[george]] — 52-week-high anchoring ranker; DEPRECATED — lost to a Random baseline (the canonical beta-delivery case); class-deprecation re-confirmed on the now-seeded 17-draw baseline (#135 — George below the entire Random CAGR cloud, K=0/7), deprecation HOLDS, screen-gate FAIL stands.
-- [[mrm]] — single-factor SPY-beta-stripped residual-momentum ranker; REJECTED at /strategy-screen — anti-selective beta-delivery (lost to seeded Random on edge AND CAGR); class stays untested, multi-factor recipe is next (#137).
+- [[mrm]] — single-factor SPY-residual-momentum ranker; EARNED-DEAD — fixed-engine re-run confirms anti-selective (below the entire 10-seed Random cloud on edge AND CAGR, K=0/10). The void #130 reject was a warmup-starvation artifact (ADR 0018); the re-run made the death trustworthy.
+- [[multifactor-residual-momentum]] — market+sector-residual-momentum ranker (#137); EARNED-DEAD — *even more* anti-selective than [[mrm]] (K=0/10); the market+sector FAIL closes the RS-momentum class (no Fama-French step needed).
 - [[vz3]] — pullback mean-reversion (EMA20); passed A+B, REJECTED Block C on a 2024 per-trade-edge sign-flip.
 - [[idunn]] — the promoted [[vz3]]; an off-by-one lookback exposed Aliased Regime Sensitivity → REJECTED Block B.
 - [[mr3]] — mean-reversion proper; REJECTED Block A on multi-dimensional drift (3 tight gate fails).
@@ -51,7 +52,9 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[2026-06-06-gate-basis-and-cagr-floor-feasibility]] — quant: KEEP gates on the cost+idle-cash engine; 25% CAGR floor reachable; funnel dies on regime-survival, not the return floor.
 - [[2026-06-08-random-baseline-reproducibility-fix]] — the G-RANDOM Random baseline was unseeded/non-reproducible; fixed in #130; George's lost-to-Random reclassification re-run (#135) — see below.
 - [[2026-06-08-george-random-revalidation-prereg]] — pre-registered decision rule + RESULT for George's #135 re-test against the seeded baseline; deprecation HOLDS, affirmatively re-confirmed (George below the entire Random CAGR cloud, K=0/7).
-- [[2026-06-08-mrm-screen-reject]] — single-factor residual momentum REJECTED at Stage-0 vs seeded Random (anti-selective beta-delivery); Stage 1 not run; class stays untested (#137).
+- [[2026-06-08-mrm-screen-reject]] — single-factor residual momentum REJECTED at Stage-0 vs seeded Random (anti-selective beta-delivery); Stage 1 not run. ⚠ VOIDED by [[2026-06-09-trailing-ranker-warmup-starvation]].
+- [[2026-06-09-trailing-ranker-warmup-starvation]] — engine defect: walk-forward loaded windows with no warmup buffer, so 504-day residual rankers were unscoreable in OOS → selection became tie-break RNG. Voids #130 (RNG-vs-RNG); fixed by ADR 0018; single-factor recipe re-opened (then re-run, see below).
+- [[2026-06-09-rs-momentum-class-earned-dead]] — fixed-engine re-run of #130 (single-factor) + #137 (multi-factor) vs seeded 10-draw Random: both below the entire Random cloud on edge AND CAGR (K=0/10), anti-selective. Closes the RS-momentum class earned-dead; refutes "narrow leadership feeds idiosyncratic momentum".
 - [[2026-06-08-btc-breadth-thrust-screen-reject]] — BTC breadth-thrust gate REJECTED at design-time `/condition-screen` (regime sign-flip all horizons + thrust-degenerates-to-level + 2009-14 one-tape lottery); kills BTC+Tyr — funnel now empty.
 - [[2026-06-09-pead-earnings-gap-screen-reject]] — PEAD price-gap proxy REJECTED at design-time `/condition-screen` (SPY-regime sign-flip + no post-entry edge + non-monotone gap-size island); beta-delivery materialised; class alive, surprise proxy redesign (market-neutral residual next).
 - [[2026-06-09-pead-market-neutral-residual-screen-reject]] — PEAD market-neutral gap residual REJECTED at `/condition-screen` (both arms): KILL trigger — SPY-regime sign-flip PERSISTED after neutralisation, flat-tape negative. Gap's beta irreducible to the same-day SPY factor; price-proxy class condemned → EPS-gated residual next.
