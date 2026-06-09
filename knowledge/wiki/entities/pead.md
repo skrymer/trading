@@ -1,10 +1,10 @@
 ---
 type: entity
 title: PEAD — Post-Earnings Announcement Drift
-summary: Active direction; first surprise proxy (OHLCV price gap) REJECTED at /condition-screen (regime sign-flip = beta-delivery). Class survives; proxy in redesign — market-neutral gap residual next.
+summary: Active direction; both price-based proxies (raw gap + market-neutral residual) REJECTED at /condition-screen — regime sign-flip persisted after neutralisation. Class survives; EPS-gated residual next.
 status: active
 tags: [candidate, event-driven, earnings, drift]
-sources: ["knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-09-pead-earnings-gap-screen-reject.md", "strategy_exploration/dossier/condition-earningsgap.jsonl"]
+sources: ["knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-09-pead-earnings-gap-screen-reject.md", "knowledge/wiki/sources/2026-06-09-pead-market-neutral-residual-screen-reject.md", "strategy_exploration/dossier/condition-earningsgap.jsonl", "strategy_exploration/dossier/condition-earningsgapresidual.jsonl"]
 related: ["[[participate-and-lose]]", "[[beta-delivery]]", "[[thinning-not-selecting]]", "[[lottery-vs-signature]]", "[[long-premise-in-narrow-leadership]]", "[[aliased-regime-sensitivity]]", "[[btc-tyr]]", "[[purpose]]"]
 updated: 2026-06-09
 ---
@@ -16,12 +16,16 @@ funnel). The first member of an entirely **unexplored premise class: event-condi
 — the only corner off the regime-beta axis that killed all four deprecated families. Flagged as
 "durable and factor-robust" by the funnel's own deep-research (G2, [[2026-06-05-funnel-deepresearch-findings]]).
 
-> **Status (2026-06-09):** the first surprise proxy — the OHLCV **price gap** — was **REJECTED** at
-> design-time `/condition-screen` ([[2026-06-09-pead-earnings-gap-screen-reject]]). PEAD's pre-registered
-> most-likely death ([[beta-delivery]] via the gap selecting high-momentum names) **materialised**: the
-> gap reads market-direction microstructure, not firm-specific surprise. **The class survives** — only the
-> OHLCV-gap shortcut died. Next proxy: a **market-neutral gap residual** (see *Redesign* below). This was a
-> design-time reject — no `config_hash` burned, the firewall brake is not engaged.
+> **Status (2026-06-09):** BOTH price-based surprise proxies are now **REJECTED** at design-time
+> `/condition-screen`. (1) The OHLCV **raw price gap** — beta-delivery, regime sign-flip
+> ([[2026-06-09-pead-earnings-gap-screen-reject]]). (2) Its run-#1 successor, the **market-neutral gap
+> residual** — the SPY-regime sign-flip **PERSISTED after neutralisation** in both arms (no-vol-gate and
+> relVol≥1.5), flat-tape negative ([[2026-06-09-pead-market-neutral-residual-screen-reject]]). Durable
+> finding: the beta the earnings gap delivers is **not** the removable same-night SPY-index-gap term — an
+> OHLCV market-neutral residual cannot strip it, so the whole **price-based surprise-proxy class is
+> condemned**. **The PEAD class still survives** (the slow-diffusion mechanism is untouched). Next + last
+> price-independent proxy: the **EPS-surprise-gated residual** (see *Redesign* below). Both rejects were
+> design-time — no `config_hash` burned, the firewall brake is not engaged.
 
 ## Premise
 
@@ -94,23 +98,25 @@ eligible-only-when-the-name-edge-is-present, the opposite of [[participate-and-l
 | 2026-06-08 | `quant-analyst` next-premise consult (post-[[btc-tyr]] death) | **PEAD = top pick** (event-conditioned, regime-orthogonal 5th class) |
 | 2026-06-08 | Data feasibility check (EODHD depth probe + PRD earnings query) | **GREEN** — AAPL→1993; PRD 245k rows / 3,712 symbols, dense 2000-2019 |
 | 2026-06-09 | `EarningsGapCondition` (OHLCV price-gap proxy, gapAtr 1.0±0.5) — first `/condition-screen` (300-sym sanity) | **REJECT** — 20d SPY-regime sign-flip (down +1.73% / flat −0.38% / up −0.56%), 20d meanLift +0.114% = 0.44× SE (bar +1.5%), non-monotone gap-size island. Proxy dead, class alive ([[2026-06-09-pead-earnings-gap-screen-reject]]) |
+| 2026-06-09 | Market-neutral gap residual (residualAtr, θ 0.75±0.5), arms A (no vol gate) + B (relVol≥1.5) — `/condition-screen` (300-sym sanity), quant-signed-off | **REJECT — KILL TRIGGER** — 20d SPY-regime sign-flip **PERSISTED after neutralisation** in BOTH arms (A down +0.90/flat −0.52/up −0.57; B down +1.07/flat −0.20/up −0.89), flat-tape negative. 20d headline negative+sub-SE (A −0.13%/−0.46×; B −0.08%/−0.30×). θ-1.25 cell negative. Vol gate = thinning-not-selecting. **Price-based proxy class condemned → escalate to EPS-gated residual** ([[2026-06-09-pead-market-neutral-residual-screen-reject]]) |
 
 ## Redesign — next surprise proxy (quant consult 2026-06-09)
 
-The reject condemns the **price-gap surprise proxy**, not the mechanism. The fix must isolate
+The rejects condemn the **price-based surprise proxy class**, not the mechanism. The fix must isolate
 firm-specific surprise content **orthogonal to that day's market move**. Ranked successors (each a new,
-screened-from-scratch condition — never an iteration of the dead config):
+screened-from-scratch condition — never an iteration of a dead config):
 
-1. **Market-neutral gap residual** (run first; PIT-clean, OHLCV-only): `residualAtr =
-   (open[g]−close[g−1])/atr[g−1] − (spyOpen[g]−spyClose[g−1])/spyAtr[g−1]`. Subtracting the same-day SPY
-   gap removes the common-factor component the regime tertiles isolate — exactly what flipped the sign.
-   **Feasible today:** `BacktestContext.getSpyQuote(date)` is reachable from an inline script
-   (`ConditionScreenService.buildContext` loads the SPY quote map). Sweep θ center 0.75 ATR ±0.5
-   ({0.25,0.75,1.25}); screen relVol-gate both ways; close-near-high excluded (re-imports momentum).
-   Pre-registered bar unchanged (20d ≥ +1.5%, ≥2×SE) **plus** flat-tape ≥ +1.0% and no regime sign-flip.
-2. **EPS-surprise-gated residual** (reserved fallback): EPS confirms *sign only* (`surprisePercentage > 0`),
-   the PIT-clean residual stays the trigger — never threshold on EPS magnitude (S4 restatement risk). EPS
-   fields are 100% populated 2000-2020, but PIT-suspect, which is why this is second.
+1. ~~**Market-neutral gap residual** (PIT-clean, OHLCV-only): `residualAtr =
+   (open[g]−close[g−1])/atr[g−1] − (spyOpen[g]−spyClose[g−1])/spyAtr[g−1]`.~~ **RUN + REJECTED 2026-06-09**
+   ([[2026-06-09-pead-market-neutral-residual-screen-reject]]). Subtracting the same-night SPY gap did
+   **not** remove the regime-tertile sign-flip — flat-tape stayed negative in both the no-vol-gate and
+   relVol≥1.5 arms. Durable: the gap's beta is **irreducible to the same-day SPY-index-gap factor**, so the
+   OHLCV market-neutral-residual repair path is dead, not merely one parametrisation of it.
+2. **EPS-surprise-gated residual** (**NOW NEXT TO RUN** — the last price-independent surprise test): EPS
+   confirms *sign only* (`residualAtr ≥ θ AND surprisePercentage > 0`), the PIT-clean residual stays the
+   trigger — never threshold on EPS magnitude (S4 restatement risk). EPS fields are 100% populated
+   2000-2020, but PIT-suspect, which is why this was second. If this *also* sign-flips, PEAD's
+   surprise-proxy axis is exhausted and the premise class should be reconsidered.
 
 **Deferred — sector-neutral residual / sector-regime gating.** Subtracting the *sector* gap, or gating on
 "sector in an uptrend" (operator idea), needs sector **price** at evaluation time — `BacktestContext` today
@@ -123,9 +129,12 @@ onto a post-OOS result.
 
 ## Most-likely death — MATERIALISED (2026-06-09)
 
-[[beta-delivery]] via the back door (the gap selects high-momentum names) — **confirmed** at the first
-screen: the price gap delivered SPY-direction beta (edge only in down-tape, flat/up negative), not
-firm-specific drift. The redesign's whole job is to strip that beta out *before* entry.
+[[beta-delivery]] via the back door (the gap selects high-momentum names) — **confirmed twice**. (1) The
+raw price gap delivered SPY-direction beta (edge only in down-tape, flat/up negative). (2) The
+market-neutral residual — built specifically to strip that beta — **still** sign-flipped (flat-tape
+negative, both arms), proving the gap's beta is irreducible to the same-day SPY-index-gap factor. The
+redesign's whole job (strip the beta *before* entry) is **not achievable through the price gap**; the
+EPS-gated residual is the last price-independent attempt before the surprise-proxy axis is exhausted.
 
 ## Related
 
