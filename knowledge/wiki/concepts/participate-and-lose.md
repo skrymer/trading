@@ -49,7 +49,13 @@ the single OOS window).
 - **Long-pullback mean-reversion** ([[gjallarhorn]]'s opposite): VZ3-s3 passed Block A (+0.62% edge) and
   Block B (+0.48%) but **edge inverted to −0.11% in Block C** (2024), Sharpe 2.32 → 0.62. Flow rotates
   away from laggards before mean-reversion fires; leaders' pullbacks stay too shallow to touch the entry
-  EMA. *(Also struck by [[aliased-regime-sensitivity]] — doubly condemned.)*
+  EMA. **Crucially, VZ3's participate-and-lose evidence is N=1** — a *single* Block-C OOS window (2024,
+  under 36/12/12 cadence) — so unlike the breakout it is NOT regime-gateable: one unfavourable window
+  can't distinguish a regime-conditional edge from one-off degradation, and a gate that dodges 2024 is
+  IS-fitting to that window. The [[aliased-regime-sensitivity]] condemnation belongs specifically to
+  [[idunn]] (the promoted VZ3 — the parameter sweep was run there): its "edge" is an off-by-one artifact
+  with **no robust edge for a gate to preserve**. So the two mean-reversion deaths are *not* gateable the
+  way the breakout is: VZ3 = N=1 evidence, Idunn = ARS (separator is the parameter, not a market regime).
 - **Minervini VCP breakout** (REJECTED 2026-06-03): the breakout cousin. `spyTrendUp` too coarse;
   in-market geometric CAGR 9.6-20.8% ≪ 25% floor; 8/21 negative participating windows on 25y. Block B
   *proves the premise is real* in its native regime (0 neg windows, 20.8% in-mkt CAGR, real 2020 +56.5%
