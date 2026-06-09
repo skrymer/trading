@@ -110,6 +110,18 @@ premise — each failed for a documented, reproducible reason, not bad luck:
   regime-layer rescue was built + run + **ABANDONED 2026-06-09** ([[r1-leadership-gap-breakout]]) — a
   market-level gate can't rescue a participate-and-lose entry, so the breakout can only host on a
   market-timing-level partner (e.g. [[gjallarhorn]]), never a breakout fed by a market-state gate.
+- **Leverageable-Calmar reframe explored (2026-06-10) — quant ADOPT-NARROW; SPY-timing first candidate
+  REJECTED.** Since Calmar is ~leverage-invariant, the hunt *could* target high unlevered Calmar
+  (leverageable to 25%) instead of raw CAGR — but leverage **degrades** Calmar after costs (need unlevered
+  Calmar ≥ 2.0, not 1.5) and the high-Calmar/modest-CAGR space is disproportionately **beta** (revives
+  nothing buried). Verified the on-engine **SPY 25y Calmar = 0.141** (the G16 baseline; makes the relative
+  bar a doormat, the absolute G15 1.5 the sole wall). First candidate — **[[spy-trend-timing]]** (lever a
+  SPY in/out trend timer) — **REJECTED at screen**: best Calmar 0.341 (2.4× SPY, genuine tail-truncation,
+  *immune* to participate-and-lose) but ~4.4× short of 1.5 and its 5.82% base CAGR is too low to lever (2×
+  net-negative). Lesson: a tradable timing premise needs **both** a high base CAGR *and* Calmar ~1.5. See
+  [[2026-06-10-leverageable-calmar-spy-timing-screen]]. **G1-LEV** (a thin secondary leverage acceptance
+  path) remains a possible methodology add, gated on building an honest-cost levered recompute (the engine
+  models leverage cost-free).
 
 ## Open questions (feed the next lint / research)
 

@@ -36,6 +36,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
 - [[minervini-vcp-breakout]] — breakout-in-uptrend; REJECTED (participate-and-lose), but the broad-thrust edge is real → shelved building block. The #83 regime-rescue ([[r1-leadership-gap-breakout]]) failed → market-level-gate host path closed.
 - [[r1-leadership-gap-breakout]] — the breakout + #83 leadership-gap regime gate; **ABANDONED 2026-06-09** — gate deploy signal orthogonal to edge (corr≈0); a market-level gate cannot rescue a participate-and-lose premise (loss is cross-sectional, gate is calendar) — *mechanistically proven*. `SPY−EW` return-gap signal earned-dead.
+- [[spy-trend-timing]] — lever a SPY in/out trend timer; **REJECTED at screen 2026-06-10** — best Calmar 0.341 (2.4× SPY, genuine tail-truncation, *immune* to participate-and-lose) but ~4.4× short of absolute 1.5, and 5.82% base CAGR too low to lever (2× net-negative). Pins the single-instrument-timer Calmar ceiling.
 - [[george]] — 52-week-high anchoring ranker; DEPRECATED — lost to a Random baseline (the canonical beta-delivery case); class-deprecation re-confirmed on the now-seeded 17-draw baseline (#135 — George below the entire Random CAGR cloud, K=0/7), deprecation HOLDS, screen-gate FAIL stands.
 - [[mrm]] — single-factor SPY-residual-momentum ranker; EARNED-DEAD — fixed-engine re-run confirms anti-selective (below the entire 10-seed Random cloud on edge AND CAGR, K=0/10). The void #130 reject was a warmup-starvation artifact (ADR 0018); the re-run made the death trustworthy.
 - [[multifactor-residual-momentum]] — market+sector-residual-momentum ranker (#137); EARNED-DEAD — *even more* anti-selective than [[mrm]] (K=0/10); the market+sector FAIL closes the RS-momentum class (no Fama-French step needed).
@@ -50,6 +51,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 ## Sources — run summaries
 
 - [[2026-06-09-r1-leadership-gap-breakout-abandon]] — R1 (breakout + #83 leadership-gap gate) ABANDONED on its pre-registered diagnostic; gate deploy signal orthogonal to edge (corr≈0), in-market Calmar 0.32 ≈ ungated 0.42; quant proves a market-level gate can't rescue participate-and-lose. `SPY−EW` return-gap earned-dead.
+- [[2026-06-10-leverageable-calmar-spy-timing-screen]] — leverageable-Calmar reframe (quant ADOPT-NARROW: leverage degrades Calmar after costs, the space is mostly beta); verified SPY 25y buy-and-hold Calmar 0.141; SPY trend-timing screened + REJECTED (ceiling 0.341, base CAGR un-leverageable).
 - [[2026-06-04-gjallarhorn-null]] — the conditional within-regime NULL that confirmed Gjallarhorn's timing alpha.
 - [[2026-06-06-gate-basis-and-cagr-floor-feasibility]] — quant: KEEP gates on the cost+idle-cash engine; 25% CAGR floor reachable; funnel dies on regime-survival, not the return floor.
 - [[2026-06-08-random-baseline-reproducibility-fix]] — the G-RANDOM Random baseline was unseeded/non-reproducible; fixed in #130; George's lost-to-Random reclassification re-run (#135) — see below.

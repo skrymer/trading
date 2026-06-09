@@ -5,8 +5,8 @@ summary: A long book whose risk-adjusted return is just the index's — profitab
 status: seed
 tags: [failure-mode, methodology]
 sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-08-george-random-revalidation-prereg.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]"]
-updated: 2026-06-09
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[spy-trend-timing]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]", "[[2026-06-10-leverageable-calmar-spy-timing-screen]]"]
+updated: 2026-06-10
 ---
 
 # Beta-Delivery
@@ -44,6 +44,19 @@ Why **Calmar**, and why **relative** to SPY:
   asks "did it beat *the alternative you already have for free*?". A candidate can clear the absolute
   floor and still fail G16 — high absolute Calmar that is nonetheless ≤ SPY's over the same window is
   still just beta.^[inferred]
+
+**The verified on-engine SPY baseline (2026-06-10): 25y buy-and-hold Calmar = 0.141** (CAGR 7.78%
+total-return, maxDD 55.2% from the 2008-10 → 2009-03 GFC), verified two independent ways — the engine's
+`benchmarkComparison` and a from-scratch Python recompute on the raw dividend-adjusted closes, matching to
+4 sig figs. This is the concrete G16 bar a 25y candidate must clear, and it is **low** (the 55% GFC
+drawdown dominates), so *beating SPY's Calmar is easy* — even R1's dead 0.17 cleared it. The binding wall
+is therefore the **absolute G15 (1.5) ≈ 10.6× SPY**, not G16. Corollary (load-bearing for the
+leverageable-Calmar reframe, [[2026-06-10-leverageable-calmar-spy-timing-screen]]): a *pure* beta book is
+Calmar-invariant at 0.141 under any leverage (leverage scales CAGR and maxDD together, then degrades after
+costs), so **a Calmar above ~1.0 on a SPY-exposure instrument is tail-truncation alpha by construction** —
+beta cannot get there. [[spy-trend-timing]] is the worked case: Calmar 0.341 = 2.4× SPY (clears G16, real
+crash-avoidance alpha) yet ~4.4× short of G15 — confirming the relative bar is a doormat and the absolute
+bar is the wall.
 
 Adjacent, cheaper tells before the firewall: a permissive-entry + ranker-selects candidate that loses to
 a byte-identical **random-ranker baseline** on blended CAGR *and* per-trade edge is delivering
