@@ -79,7 +79,8 @@ class BacktestServiceCostTest {
     sectorBreadthRepository = mock(SectorBreadthRepository::class.java)
     marketBreadthRepository = mock(MarketBreadthRepository::class.java)
     whenever(marketBreadthRepository.calculateBreadthByDate()).thenReturn(emptyMap())
-    backtestService = BacktestService(stockRepository, sectorBreadthRepository, marketBreadthRepository)
+    backtestService =
+      BacktestService(stockRepository, sectorBreadthRepository, marketBreadthRepository, mock(LeadershipRegimeService::class.java))
   }
 
   private fun mockStocksForLoading(vararg stocks: Stock) {

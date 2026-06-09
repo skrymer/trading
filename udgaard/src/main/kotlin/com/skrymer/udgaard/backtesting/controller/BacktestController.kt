@@ -533,5 +533,6 @@ private fun applyPositionSizingAndRiskMetrics(
     benchmarkComparison = analysis.benchmarkComparison,
     cagr = analysis.cagr,
     drawdownEpisodes = analysis.drawdownEpisodes,
+    leadershipRegimeDiagnostics = backtestReport.leadershipRegimeDiagnostics,
   )
 }

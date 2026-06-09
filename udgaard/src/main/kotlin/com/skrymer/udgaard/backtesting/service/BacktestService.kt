@@ -8,6 +8,8 @@ import com.skrymer.udgaard.backtesting.model.EntryDecisionContext
 import com.skrymer.udgaard.backtesting.model.ExcursionMetrics
 import com.skrymer.udgaard.backtesting.model.ExitReasonAnalysis
 import com.skrymer.udgaard.backtesting.model.ExitStats
+import com.skrymer.udgaard.backtesting.model.LeadershipRegimeDaily
+import com.skrymer.udgaard.backtesting.model.LeadershipRegimeDiagnostics
 import com.skrymer.udgaard.backtesting.model.LosingTradesATRStats
 import com.skrymer.udgaard.backtesting.model.MarketConditionSnapshot
 import com.skrymer.udgaard.backtesting.model.PeriodStats
@@ -22,10 +24,12 @@ import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.model.calculateEdgeConsistency
 import com.skrymer.udgaard.backtesting.service.sizer.SizingContext
 import com.skrymer.udgaard.backtesting.service.sizer.applyLeverageCap
+import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.LeadershipGapRegimeOnCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -64,6 +68,7 @@ class BacktestService(
   private val stockRepository: StockJooqRepository,
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
+  private val leadershipRegimeService: LeadershipRegimeService,
 ) {
   /**
    * Holds indexed quotes for fast O(1) date lookups.
@@ -388,17 +393,20 @@ class BacktestService(
       val marketBreadthMap = marketBreadthRepository.findAllAsMap()
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
       val sectorEtfQuoteMap = loadSectorEtfQuoteMap(sectorBreadthMap.keys, loadAfter)
+      val leadershipRegimeMap = loadLeadershipRegimeMap(entryStrategy, after, before, breadthByDate, logger)
       BacktestContext(
         sectorBreadthMap,
         marketBreadthMap,
         spyQuoteMap,
         sectorEtfQuoteMap = sectorEtfQuoteMap,
+        leadershipRegimeMap = leadershipRegimeMap,
         costBps = costBps,
       ).also {
         logger.info(
           "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
             "${marketBreadthMap.size} market breadth days, ${spyQuoteMap.size} SPY quotes, " +
-            "${sectorEtfQuoteMap.size} sector-ETF factor series",
+            "${sectorEtfQuoteMap.size} sector-ETF factor series, " +
+            "${leadershipRegimeMap.size} leadership-regime days",
         )
       }
     }
@@ -460,7 +468,62 @@ class BacktestService(
 
     logger.info("Backtest complete: ${trades.size} trades, ${missedTrades.size} missed in ${mainLoopDuration}ms")
 
-    return buildReport(trades, missedTrades, spyStock, breadthByDate, backtestStartTime, logger)
+    val regimeDiagnostics = inWindowRegimeDiagnostics(backtestContext, after, before, logger)
+
+    return buildReport(trades, missedTrades, spyStock, breadthByDate, backtestStartTime, logger, regimeDiagnostics)
+  }
+
+  /**
+   * The leadership-gap regime series, but only when the strategy actually gates on it — the
+   * full-universe equal-weight aggregate is too costly to compute speculatively. Warns loudly when the
+   * gate is active yet the series comes back empty (which would silently suppress every entry).
+   */
+  private fun loadLeadershipRegimeMap(
+    entryStrategy: EntryStrategy,
+    after: LocalDate,
+    before: LocalDate,
+    breadthByDate: Map<LocalDate, Double>,
+    logger: org.slf4j.Logger,
+  ): Map<LocalDate, LeadershipRegimeDaily> {
+    val usesGate =
+      (entryStrategy as? CompositeEntryStrategy)?.getConditions()?.any { it is LeadershipGapRegimeOnCondition } ?: false
+    if (!usesGate) return emptyMap()
+    val regimeMap = leadershipRegimeService.loadRegimeMap(after, before, breadthByDate)
+    if (regimeMap.isEmpty()) {
+      logger.warn(
+        "Leadership-gap gate is active but the regime series is EMPTY — every entry will be suppressed " +
+          "(all-cash, 0 trades). Check SPY / breadth / universe data for [$after, $before].",
+      )
+    }
+    return regimeMap
+  }
+
+  /**
+   * Leadership-gap regime diagnostics restricted to the traded window `[after, before]` (warm-up
+   * buffer bars are excluded so the on-fraction/flip stats describe the period actually traded).
+   * Returns `null` when the strategy does not gate on the regime (the map is empty). Side-effects a
+   * one-line summary to [logger] so backtest output surfaces the regime shape without a report round-trip.
+   */
+  private fun inWindowRegimeDiagnostics(
+    backtestContext: BacktestContext,
+    after: LocalDate,
+    before: LocalDate,
+    logger: org.slf4j.Logger,
+  ): LeadershipRegimeDiagnostics? {
+    val diagnostics =
+      backtestContext.leadershipRegimeMap
+        .filterKeys { !it.isBefore(after) && !it.isAfter(before) }
+        .takeIf { it.isNotEmpty() }
+        ?.let { leadershipRegimeService.diagnostics(it) }
+        ?: return null
+    logger.info(
+      "Leadership-gap regime (in-window): onFraction=${"%.3f".format(diagnostics.onFraction)}, " +
+        "flips=${diagnostics.flipCount}, medianOnSpell=${diagnostics.medianOnSpellDays}d, " +
+        "medianOffSpell=${diagnostics.medianOffSpellDays}d, " +
+        "untrustworthyDays=${diagnostics.untrustworthyDays}, minN=${diagnostics.minContributingN}, " +
+        "onByYear=${diagnostics.onFractionByYear.toSortedMap().mapValues { "%.2f".format(it.value) }}",
+    )
+    return diagnostics
   }
 
   /**
@@ -710,6 +773,7 @@ class BacktestService(
     breadthByDate: Map<LocalDate, Double>,
     backtestStartTime: Long,
     logger: org.slf4j.Logger,
+    leadershipRegimeDiagnostics: LeadershipRegimeDiagnostics? = null,
   ): BacktestReport {
     logger.info("Calculating trade excursion metrics and market conditions...")
 
@@ -773,6 +837,7 @@ class BacktestService(
       atrDrawdownStats = atrDrawdown,
       marketConditionAverages = marketAvgs,
       edgeConsistencyScore = edgeConsistency,
+      leadershipRegimeDiagnostics = leadershipRegimeDiagnostics,
     )
   }
 

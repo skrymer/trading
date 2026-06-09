@@ -93,6 +93,8 @@ data class BacktestResponseDto(
   val benchmarkComparison: BenchmarkComparison? = null,
   val cagr: Double? = null,
   val drawdownEpisodes: List<DrawdownEpisode>? = null,
+  // Leadership-gap regime observability (issue #83) — null unless the strategy gates on the regime.
+  val leadershipRegimeDiagnostics: LeadershipRegimeDiagnostics? = null,
   val stockProfits: List<Pair<String, Double>>,
   // Missed trades
   val missedOpportunitiesCount: Int,
