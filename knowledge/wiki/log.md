@@ -55,3 +55,5 @@ AFTER next-session entry). #137 stays a lower-priority class-closer.
 
 ## [2026-06-09] ingest | pead REJECT (price-gap proxy) — beta-delivery materialised, class alive; sector-quote engine change filed #143
 ## [2026-06-09] ingest | PEAD market-neutral gap residual REJECTED (condition-screen, both arms) — KILL trigger, regime sign-flip persisted after neutralisation; price-proxy class condemned -> EPS-gated residual next
+## [2026-06-09] ingest | PEAD EPS-gated residual REJECT — surprise-proxy axis exhausted (3rd flat-negative; beta irreducible to gap, SPY-gap, AND EPS sign)
+## [2026-06-09] ingest | PEAD premise-class adjudication — quant RECONSIDER_CLASS, abandon long-only-drift form; #143/sector-residual predicted-dead for PEAD; next class = structurally beta-hedged

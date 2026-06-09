@@ -5,18 +5,18 @@ summary: A long book whose risk-adjusted return is just the index's — profitab
 status: seed
 tags: [failure-mode, methodology]
 sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-08-george-random-revalidation-prereg.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]"]
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]"]
 updated: 2026-06-09
 ---
 
 # Beta-Delivery
 
 > **status: seed** — the failure-mode anatomy and the detectors are settled. The firewall's **G16** gate
-> has not rejected a candidate yet; the cheaper **screen-stage** tells have caught it four times —
-> [[george]] and [[mrm]] (random-ranker tell) and [[pead]]'s price-gap proxy *and* its market-neutral
-> residual successor (the SPY-regime-tertile sign-flip tell, twice). So the *Instances* section holds all
-> four screen-stage catches, still awaiting a first G16-firewall rejection. The first G16 FAIL promotes
-> this to `active`.
+> has not rejected a candidate yet; the cheaper **screen-stage** tells have caught it five times —
+> [[george]] and [[mrm]] (random-ranker tell) and [[pead]]'s **three** surprise proxies (price gap,
+> market-neutral residual, *and* EPS-sign-gated residual — the SPY-regime-tertile sign-flip tell, thrice).
+> So the *Instances* section holds all five screen-stage catches, still awaiting a first G16-firewall
+> rejection. The first G16 FAIL promotes this to `active`.
 
 ## Definition
 
@@ -128,6 +128,22 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   a price-independent surprise signal (EPS-gated) might. **Detection tell (hardened):** the "flat tertile must
   stay solidly positive" rule survives a same-factor neutralisation attempt → flat-negative is a *class*-level
   kill, not a one-parametrisation artifact. See [[2026-06-09-pead-market-neutral-residual-screen-reject]].
+
+- **[[pead]] EPS-surprise-gated residual** (2026-06-09) — the **third condition-screen** instance, and the
+  one that exhausts PEAD's surprise-proxy axis. The residual reused verbatim, with a **price-independent**
+  fundamental EPS sign gate added: fire only when the same earning's `surprise > 0` (`beatEstimates()`,
+  sign-only — never magnitude). A signal owing *nothing* to the price gap. **It failed the same way:** 20d
+  SPY-regime down +0.99% (n=664) / flat **−0.31%** (n=903) / up −0.51% (n=873), flat-tape negative, edge
+  only in down-tape; near-equal tertile firing (a genuine cross-sectional flip). Headline 20d meanLift
+  **−0.0069% = 0.03× SE** — the condition's absolute 20d return exactly equals the universe baseline (pure
+  earnings-day beta, zero lift). The EPS gate thinned the residual population ~21% (3,093→2,443) — the
+  intended removal of the positive-gap/negative-surprise cell — without flipping the flat tertile positive
+  ([[thinning-not-selecting]] w.r.t. this failure mode). **Durable finding (strictly stronger):** the beta
+  an earnings-event long entry delivers is irreducible to **every surprise proxy expressible on current
+  data** — not just a single same-day market factor (the residual finding) but also the **fundamental EPS
+  surprise sign**. The "flat tertile must stay positive" tell now has **three** confirming instances and
+  survives both an OHLCV same-factor neutralisation *and* a price-independent fundamental gate. See
+  [[2026-06-09-pead-eps-gated-residual-screen-reject]].
 
 _No G16-firewall instance yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by
 the **firewall** gate itself at the time of writing (2026-06-06). When one is, record it here with:
