@@ -5,8 +5,8 @@ summary: A rescue filter that removes trades uniformly without improving the kee
 status: stable
 tags: [failure-mode, methodology]
 sources: ["project_minervini_vcp_breakout_rejected", "feedback_ablation_metric_confound_capital_aware", "feedback_random_ranker_baseline_mandatory"]
-related: ["[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[regime-conditional-portfolio]]", "[[2026-05-27-strategy-screen-sweep]]"]
-updated: 2026-06-05
+related: ["[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[regime-conditional-portfolio]]", "[[2026-05-27-strategy-screen-sweep]]", "[[r1-leadership-gap-breakout]]"]
+updated: 2026-06-09
 ---
 
 # Thinning, Not Selecting
@@ -43,6 +43,14 @@ gate (`breadthEma10Above50`, Track-2), and even a **per-name** gate (`sectorBrea
 Track-2b) — all thinned-and-deepened the same way. Conclusion: the failure is the **entry premise**, not
 the selector. Do **not** open a 4th selector flavor — that's searching the design space against one OOS
 realization ([[aliased-regime-sensitivity]] in design clothing).
+
+[[r1-leadership-gap-breakout]] (2026-06-09) supplies the **clean, pre-registered confirmation** the law
+needed — *not* a forbidden 4th post-hoc gate, but the disciplined NEW candidate (a frozen leadership-gap
+regime layer, #83, run over the full 25y). It thinned **orthogonally**: `corr(deploy-fraction, annual
+edge) ≈ 0`, identical deploy fraction in winning and losing years, in-market Calmar 0.32 ≈ the ungated
+0.42. A market-level gate has **zero cross-sectional resolution** by construction, so even a clean,
+correctly-implemented, non-overfit one only thins — the durable law holds whether the gate is a post-hoc
+patch or a pre-registered candidate.
 
 ## The ablation-metric corollary (why you can't shortcut this)
 

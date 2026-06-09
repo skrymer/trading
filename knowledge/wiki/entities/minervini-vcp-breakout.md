@@ -5,8 +5,8 @@ summary: Breakout-in-uptrend candidate; REJECTED at Component Firewall 2026-06-0
 status: stable
 tags: [candidate, breakout, momentum, rejected, shelved]
 sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/"]
-related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]"]
-updated: 2026-06-06
+related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]"]
+updated: 2026-06-09
 ---
 
 # Minervini VCP Breakout
@@ -31,6 +31,15 @@ validated regime-transition layer to host it. "Exhausted" ≠ "edge is fake." Th
 regime-conditional portfolio program that would have been its host is itself ABANDONED — so it sits
 on the shelf with no live host. ^[inferred — that the host program is now abandoned is the broader
 project state, not stated in the candidate docs]
+
+> **Update 2026-06-09 — the market-level regime-rescue path is CLOSED.** The separately-validated
+> regime-transition layer this candidate was waiting on (#83) was built and run as
+> [[r1-leadership-gap-breakout]] — and **ABANDONED**: a market-level gate cannot rescue this breakout
+> because its loss lives in the cross-section (false breaks at fresh highs in thin tape) while a gate
+> acts on the calendar ([[participate-and-lose]], now mechanistically proven). The shelved edge survives,
+> but only as a risk-on leg for a host whose own alpha is **market-timing-level** (e.g. pairing with
+> [[gjallarhorn]]) — **not** as a breakout fed by a market-state ON/OFF gate. Any future regime read must
+> be a *direct, low-frequency concentration* signal, not a `SPY − equal-weight` return-gap (earned-dead).
 
 ## Funnel history
 

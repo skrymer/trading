@@ -17,7 +17,10 @@ schema in [`CLAUDE.md`](CLAUDE.md). This is the evolving thesis; revise it as th
 Find **one tradable long strategy** for a single operator on US equities, validated through the
 3-block firewall ([[the-funnel]]). "Tradable" is the operator's frozen bar:
 
-- **CAGR ≥ 25%** (lowered from 30% on 2026-06-05; operator appetite, not quant-derived — ADR 0015).
+- **CAGR ≥ 25%** (lowered from 30% on 2026-06-05; operator appetite, not quant-derived — ADR 0015) — a
+  long-run **compounded average**, not a per-year floor (a book that's cash in some years can still average
+  ≥25%). Reachable **unlevered**, but leverage is *available* if needed (see the constraint note below):
+  the bar is not a leverage-foreclosure.
   Quant-confirmed **reachable** 2026-06-06 ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]): it sits
   at ~the 85–90th percentile of the honest survivor distribution, *below* the demonstrated clean ceiling
   (~30–40%; VZ3-s3 30.7%, Idunn Block A 41% both cleared it). Holding it costs *patience*, not an empty set.
@@ -32,6 +35,14 @@ A long-only book in a downturn either sits out (cash) or bleeds. This is *why* a
 strategy + cash is the realistic shape, and why the regime-conditional **portfolio** ambition was
 abandoned (no viable second long component decorrelated from the first).
 
+> **Long-only is *direction*, not a leverage ban.** ADR 0010 forbids short/inverse legs; it does **not**
+> forbid leverage — the engine supports `leverageRatio` (0.1–100×) + `applyLeverageCap`, and live leverage
+> is expressed via **options (calls)**. So a tradable edge may be levered into the CAGR target (≤2× into
+> the operator's Calmar-1.5 / 16.7%-DD envelope); leverage cannot, however, rescue a *low-Calmar* edge
+> (Calmar is leverage-invariant). Earlier wiki text that read "25% needs forbidden leverage → earned-dead"
+> was a misconception — the dead classes died of their own mechanics ([[participate-and-lose]], ARS,
+> data-span, [[beta-delivery]]), not a leverage ceiling.
+
 ## What's been ruled out (deprecated premise classes)
 
 **Three earned-dead + one downgraded-to-untested** (corrected 2026-06-07,
@@ -39,7 +50,7 @@ abandoned (no viable second long component decorrelated from the first).
 premise — each failed for a documented, reproducible reason, not bad luck:
 
 1. **Long-pullback mean-reversion** (VZ3, MR3, Idunn) — [[participate-and-lose]] + [[aliased-regime-sensitivity]].
-2. **Breakout-in-uptrend** (Minervini VCP breakout) — [[participate-and-lose]]; no regime selector fixed it ([[thinning-not-selecting]]).
+2. **Breakout-in-uptrend** (Minervini VCP breakout) — [[participate-and-lose]]; no regime selector fixed it ([[thinning-not-selecting]]). The #83 breadth-confirmed regime-rescue ([[r1-leadership-gap-breakout]]) was built, run, and **ABANDONED 2026-06-09**: a market-level gate can't rescue this premise (loss is cross-sectional, gate acts on the calendar) — now *mechanistically* proven, not just observed. The `SPY − equal-weight` trailing-return-gap as a regime signal is itself **earned-dead** (horizon-aliases a multi-quarter regime with a multi-week instrument). A *direct, low-frequency concentration* signal stays open — but only on a market-timing premise, never a breakout.
 3. **Leveraged-ETF timing** — data-span disqualified (post-2009) + regime fragility.
 4. **Cross-sectional RS-momentum rotation** — ✅ **EARNED-DEAD (2026-06-09, resolved).** Three flavours
    now ruled out on real runs: [[george]] (52-week-high anchoring — lost to Random), [[mrm]] (single-factor
@@ -95,8 +106,10 @@ premise — each failed for a documented, reproducible reason, not bad luck:
 - **[[gjallarhorn]]** (breadth-washout crisis-bottom timer) passed its timing-alpha NULL (+22σ) but is
   **funnel-disqualified standalone** ([[crisis-timer-cadence-ceiling]]) — a shelved overlay component
   awaiting a host, blocked on nested-condition-groups (#93, now resolved) + a regime-transition layer.
-- The breakout edge is **shelved** as a real risk-on building block (Block B earned it) pending a
-  separately-validated regime layer (#83).
+- The breakout edge is **shelved** as a real risk-on building block (Block B earned it); the #83
+  regime-layer rescue was built + run + **ABANDONED 2026-06-09** ([[r1-leadership-gap-breakout]]) — a
+  market-level gate can't rescue a participate-and-lose entry, so the breakout can only host on a
+  market-timing-level partner (e.g. [[gjallarhorn]]), never a breakout fed by a market-state gate.
 
 ## Open questions (feed the next lint / research)
 
@@ -106,7 +119,12 @@ premise — each failed for a documented, reproducible reason, not bad luck:
   consult ([[2026-06-06-gate-basis-and-cagr-floor-feasibility]]) sharpened it: the funnel is empty
   because every premise dies on regime-survival / fragility / beta gates (G4/G6/G7/G11/G13), *not* on the
   return floor — no robust edge was ever rejected merely for sub-25% CAGR. Effort moves the feasible set
-  here, not at G1.
+  here, not at G1. **Partly answered (2026-06-09, [[r1-leadership-gap-breakout]]):** the *regime-transition
+  layer* horn is **refuted for a participate-and-lose entry** — a market-level gate can't rescue it (the
+  loss is cross-sectional, the gate is calendar; proven, not observed). So the wall tilts toward the
+  *better-entry* horn: the open question narrows to **"is there a long ENTRY premise with genuine
+  cross-sectional resolution in thin tape?"** A direct concentration *read-out* may still help a premise
+  whose edge is market-timing-level, but it cannot substitute for cross-sectional entry alpha.
 - ~~Does crediting idle cash ~3% (#103) and per-trade cost (#101, shipped) move any shelved candidate
   across a gate?~~ **Resolved (2026-06-06):** no — idle-cash is Sharpe-neutral and only modestly eases
   Calmar; 10 bps cost is a sub-half-point drag; the two roughly cancel for a part-in-cash book. Both

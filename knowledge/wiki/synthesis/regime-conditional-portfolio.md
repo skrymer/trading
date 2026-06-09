@@ -5,8 +5,8 @@ summary: A long-only regime-conditional portfolio (specialist per up-tape, else 
 status: superseded
 tags: [program, abandoned, portfolio, methodology]
 sources: ["docs/adr/0010-crisis-defense-is-an-allocation-state-not-a-long-only-defender-component.md", "project_regime_conditional_portfolio_framework"]
-related: ["[[minervini-vcp-breakout]]", "[[gjallarhorn]]", "[[thinning-not-selecting]]", "[[participate-and-lose]]", "[[beta-delivery]]", "[[purpose]]"]
-updated: 2026-06-07
+related: ["[[minervini-vcp-breakout]]", "[[gjallarhorn]]", "[[thinning-not-selecting]]", "[[participate-and-lose]]", "[[beta-delivery]]", "[[purpose]]", "[[r1-leadership-gap-breakout]]"]
+updated: 2026-06-09
 ---
 
 # The regime-conditional portfolio program (ABANDONED 2026-06-03)
@@ -39,10 +39,20 @@ components, not one uber-strategy." It fired no backtest — it was a strategic 
 3. **So the "portfolio" reduces to ONE timed strategy (the shelved breakout) + cash** — a market-timing
    overlay on a single mediocre strategy, not a portfolio. The multi-component Sharpe-via-orthogonality
    thesis is gone.
-4. **The arithmetic kills the 25% target** (quant 2026-06-03, estimates; `f` not measured): breakout
-   cross-block in-market CAGR ≈ **12%** (blocks 9.6 / 20.8 / 9.2 — not the cherry-tested Block-B 20.8%),
-   active fraction **f ≈ 0.32** → **blended CAGR ≈ 4-6%** (incl. ~3% cash yield on the idle ~68%). 25%
-   blended needs ~120% in-market = the leverage the engine forbids. **Max defensible ≈ 5-7%.**
+4. **The unlevered arithmetic falls short of the 25% target** (quant 2026-06-03, estimates; `f` not
+   measured): breakout cross-block in-market CAGR ≈ **12%** (blocks 9.6 / 20.8 / 9.2 — not the
+   cherry-tested Block-B 20.8%), active fraction **f ≈ 0.32** → **blended CAGR ≈ 4-6%** (incl. ~3% cash
+   yield on the idle ~68%). 25% blended needs ~120% in-market. **Max defensible unlevered ≈ 5-7%.**
+   > ⚠ **Correction 2026-06-09 (leverage reframe, confirmed empirically by [[r1-leadership-gap-breakout]]):**
+   > the original "= the leverage the engine **forbids**" was wrong. ADR 0010's long-only constrains
+   > *direction* (no short/inverse leg), **not leverage** — the engine supports `leverageRatio` (0.1–100×)
+   > + `applyLeverageCap`, and live leverage is expressed via **options (calls)**. So 25% is **not**
+   > foreclosed by a leverage ban, and the "5-7%" ceiling is the *unlevered* figure. Also: **25% CAGR is a
+   > long-run compounded *average*, not a per-year hurdle** — a book that's cash in some years can still
+   > average ≥25%. The program nonetheless stays dead (points 1-3), and leverage **cannot rescue it**:
+   > **Calmar is leverage-invariant**, and the breakout's in-market Calmar (~0.42 ungated, 0.32 gated) sits
+   > far below the tradable Calmar-1.5 / 16.7%-DD envelope — a ≤2× book scales the CAGR but not the
+   > risk-adjusted quality. The binding constraint is the un-leverageable Calmar, **not** a leverage ceiling.
 5. **The only honest pitch was MAR, not CAGR** (~half SPY return at lower drawdown): **~1.5-2× SPY MAR**
    ^[inferred — source states the ~1.5-2× ratio; absolute MAR ≈ 0.25 vs SPY ≈ 0.15 is a reconstruction],
    *entirely contingent* on an unbuilt read-out beating `spyTrendUp` (the exact thing that failed before).
