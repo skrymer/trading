@@ -1,7 +1,7 @@
 ---
 type: synthesis
 title: Purpose — the hunt
-summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, the earned-dead premise classes (RS-momentum sealed via #137), the empty funnel, and the open questions.
+summary: The goal (one tradable long strategy ≥25% CAGR), the long-only constraint, the earned-dead premise classes, and the now-live quality/profitability tilt candidate (#150) — a non-price selector testing the binding open question (does a long entry survive narrow leadership?).
 status: active
 tags: [purpose, thesis]
 updated: 2026-06-09
@@ -66,6 +66,24 @@ premise — each failed for a documented, reproducible reason, not bad luck:
    walk-forward starved the 504-day ranker of its lookback (no warmup buffer), measuring RNG-vs-RNG. Fixed
    in ADR 0018 ([[2026-06-09-trailing-ranker-warmup-starvation]]); the fixed-engine re-run confirms the
    death properly. The `MultiFactorResidualMomentumRanker` + the warmup fix are kept as permanent assets.
+
+## Where the search is now (2026-06-10)
+
+- **Funnel no longer empty — one live candidate: the [[quality-profitability-tilt]] (in build, #150).** The
+  first long premise that selects on a **non-price, persistent** variable (fundamental gross profitability)
+  rather than price state — and the first whose killing regime (narrow leadership) is a **tailwind**, since
+  narrow leadership *is* flow concentrating into high-profitability mega-caps. Architecture locked
+  (`/grill-with-docs` → ADR 0019 + the CONTEXT.md *Point-in-time fundamentals* term, PR #151), signal locked
+  (quant: GP/TA gate + `FundamentalQualityRanker`), EODHD feasibility verified. **Unproven** — a
+  pre-registered flat-SPY-tertile kill-test runs after the build; [[beta-delivery]] (top-quality names *are*
+  the Mag-7) is the most likely death. This is the concrete test of the binding open question below.
+- **Breadth-deploy class RETIRED (2026-06-10).** Proposal B (leader-basket breadth-recovery deploy timer)
+  was **funnel-disqualified without a run** — it is the set-union of [[btc-tyr]] + [[spy-trend-timing]] + the
+  abandoned [[regime-conditional-portfolio]] deployed-basket, every sub-result already on file. The breadth
+  read is now triple-counted ([[gjallarhorn]], [[btc-tyr]], B); don't re-propose a breadth deploy timer
+  without a structurally different, regime-sign-consistent multi-bar breadth-velocity predicate (and even
+  that inherits the cadence ceiling + a ~6× Calmar gap). See
+  [[2026-06-10-proposal-b-breadth-deploy-disqualified]].
 
 ## Where the search is now (2026-06-09)
 
@@ -136,7 +154,11 @@ premise — each failed for a documented, reproducible reason, not bad luck:
   loss is cross-sectional, the gate is calendar; proven, not observed). So the wall tilts toward the
   *better-entry* horn: the open question narrows to **"is there a long ENTRY premise with genuine
   cross-sectional resolution in thin tape?"** A direct concentration *read-out* may still help a premise
-  whose edge is market-timing-level, but it cannot substitute for cross-sectional entry alpha.
+  whose edge is market-timing-level, but it cannot substitute for cross-sectional entry alpha. **Now under
+  live test (2026-06-10):** the [[quality-profitability-tilt]] is the first concrete attempt at the
+  *better-entry* horn with a **non-price** selector (fundamental gross profitability) — its flat-SPY-tertile
+  screen will show whether fundamental quality is genuine cross-sectional resolution in thin tape or just
+  [[beta-delivery]] via the Mag-7 collision.
 - ~~Does crediting idle cash ~3% (#103) and per-trade cost (#101, shipped) move any shelved candidate
   across a gate?~~ **Resolved (2026-06-06):** no — idle-cash is Sharpe-neutral and only modestly eases
   Calmar; 10 bps cost is a sub-half-point drag; the two roughly cancel for a part-in-cash book. Both
