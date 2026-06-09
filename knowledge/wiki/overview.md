@@ -1,7 +1,7 @@
 ---
 type: synthesis
 title: Overview — state of the search
-summary: Zero tradable strategies, funnel EMPTY; five long premise classes ruled out (RS-momentum sealed via #137, 2026-06-09); one shelved overlay (Gjallarhorn). Next premise = operator/quant call.
+summary: Zero TRADABLE strategies, but the funnel is no longer empty — the quality/profitability tilt is a live in-build candidate (#150); B (breadth-deploy timer) disqualified + the breadth-deploy class retired; five long classes still ruled out.
 status: active
 tags: [overview]
 updated: 2026-06-09
@@ -11,6 +11,21 @@ updated: 2026-06-09
 
 The evolving global summary: where strategy research stands right now. Read [[index]] for the catalog and
 [`../purpose.md`](../purpose.md) for the goal; this page is the *current position*.
+
+## One-paragraph state (2026-06-10)
+
+**Zero TRADABLE strategies, but the funnel is no longer empty.** The [[quality-profitability-tilt]] is a
+**live in-build candidate** (build spec = #150) — a cross-sectional gross-profitability gate +
+`FundamentalQualityRanker`, the first long premise whose killing regime (narrow leadership) is a *tailwind*
+rather than a wall (flow concentrates into high-profitability mega-caps = the dispersion a quality tilt
+harvests). Architecture locked (`/grill-with-docs` → ADR 0019 + the CONTEXT.md *Point-in-time fundamentals*
+term, PR #151), signal locked (quant), EODHD feasibility verified — but **unproven**: a pre-registered
+flat-SPY-tertile kill-test runs after the build, with [[beta-delivery]] (top-quality names *are* the Mag-7)
+the most likely death. **Proposal B** (leader-basket breadth-recovery deploy timer) was
+**funnel-disqualified without a run** — the set-union of [[btc-tyr]] + [[spy-trend-timing]] + the abandoned
+[[regime-conditional-portfolio]] deployed-basket — retiring the **breadth-deploy class** (the breadth read
+is now triple-counted: [[gjallarhorn]], [[btc-tyr]], B). The five long premise classes below remain ruled
+out. See [[2026-06-10-quality-tilt-scoping-and-design-lock]] + [[2026-06-10-proposal-b-breadth-deploy-disqualified]].
 
 ## One-paragraph state (2026-06-09)
 
@@ -38,7 +53,8 @@ standalone and its composite A/B with the breakout was a **NO-GO**, leaving it s
 
 | Thread | State |
 |---|---|
-| (next premise) | **OPEN — operator/quant call.** Funnel empty; no filed candidate. Must be net-long / directional and ~25%-CAGR-capable (hedged/market-neutral declined on appetite) |
+| [[quality-profitability-tilt]] | **LIVE — in build** (spec #150). Cross-sectional gross-profitability gate + `FundamentalQualityRanker`; non-price selector, narrow leadership a tailwind. Architecture locked (ADR 0019, PR #151), signal locked; **unproven** — flat-SPY-tertile kill-test pending after build |
+| Proposal B (breadth-deploy timer) | ⛔ **DISQUALIFIED without a run** (2026-06-10) — set-union of [[btc-tyr]] + [[spy-trend-timing]] + the abandoned [[regime-conditional-portfolio]] deployed-basket; **breadth-deploy class retired** (breadth read triple-counted) |
 | [[pead]] candidate | ⛔ **long-only-drift form ABANDONED** (2026-06-09) — 3 surprise proxies all SPY-regime sign-flip ([[beta-delivery]]); quant RECONSIDER_CLASS; mechanism untouched but un-isolable on current data |
 | #137 [[multifactor-residual-momentum]] | ✅ **CLOSED — earned-dead** (2026-06-09); sealed the RS-momentum class ([[mrm]], [[purpose]] #4). Ranker + the ADR-0018 warmup fix kept as permanent assets |
 | [[btc-tyr]] candidate | ⛔ **DEAD** (2026-06-08) — breadth-thrust gate failed solo `/condition-screen`; NOT a firewall death; class re-scopable only via a structurally different transition predicate |
@@ -50,7 +66,8 @@ standalone and its composite A/B with the breakout was a **NO-GO**, leaving it s
 
 ## What would change this page
 
-A new net-long, ~25%-CAGR-capable directional premise from the operator/quant (the funnel is empty); a
-regime-transition layer (#83) that lets a shelved component ([[gjallarhorn]] or the breakout) re-enter; or
-a structurally-different re-scope of a buried class. Until then the headline is: *zero tradable; funnel
-empty; five premise classes ruled out; the next premise is an operator/quant call.*
+The [[quality-profitability-tilt]] clearing (or failing) its flat-SPY-tertile kill-test after the #150
+build; a regime-transition layer (#83) that lets a shelved component ([[gjallarhorn]] or the breakout)
+re-enter; or a structurally-different re-scope of a buried class. Until then the headline is: *zero
+tradable; one live in-build candidate (the quality tilt, #150); breadth-deploy class retired; five long
+premise classes ruled out.*

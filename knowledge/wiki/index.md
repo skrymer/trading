@@ -31,6 +31,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Entities — candidates
 
+- [[quality-profitability-tilt]] — **LIVE (in build, #150)** — cross-sectional gross-profitability gate + ranker; the first long premise whose killing regime (narrow leadership) is a *tailwind*, not a wall; unproven, flat-SPY-tertile kill-test pending.
 - [[pead]] — long-only-drift form **ABANDONED** (quant RECONSIDER_CLASS 2026-06-09): all THREE surprise proxies (raw gap + market-neutral residual + EPS-sign-gated residual) REJECTED at `/condition-screen`, flat-tape sign-flip persisted every time. Beta enters via the **holding-window return, not entry selection** (down-tape mean-reversion); #143/sector-residual **predicted-dead for PEAD**. Mechanism untouched but no current-data entry proxy isolates it → next class = **structurally beta-hedged** (paired/spread/dispersion).
 - [[btc-tyr]] — **DEAD** (2026-06-08): breadth-thrust gate failed solo `/condition-screen` (regime sign-flip + thrust-degenerates-to-level); NOT a firewall death, class re-scopable.
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
@@ -50,6 +51,8 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Sources — run summaries
 
+- [[2026-06-10-quality-tilt-scoping-and-design-lock]] — quant proposed a cross-sectional quality tilt (non-price selector; narrow leadership a tailwind); `/grill-with-docs` locked the architecture (ADR 0019), a 2nd consult locked the signal (GP/TA gate + ranker). Build = #150, arch = PR #151. No run.
+- [[2026-06-10-proposal-b-breadth-deploy-disqualified]] — B (leader-basket breadth-recovery deploy timer) killed without a run: it's the set-union of [[btc-tyr]] + [[spy-trend-timing]] + the abandoned [[regime-conditional-portfolio]] deployed-basket; breadth-deploy class exhausted.
 - [[2026-06-09-r1-leadership-gap-breakout-abandon]] — R1 (breakout + #83 leadership-gap gate) ABANDONED on its pre-registered diagnostic; gate deploy signal orthogonal to edge (corr≈0), in-market Calmar 0.32 ≈ ungated 0.42; quant proves a market-level gate can't rescue participate-and-lose. `SPY−EW` return-gap earned-dead.
 - [[2026-06-10-leverageable-calmar-spy-timing-screen]] — leverageable-Calmar reframe (quant ADOPT-NARROW: leverage degrades Calmar after costs, the space is mostly beta); verified SPY 25y buy-and-hold Calmar 0.141; SPY trend-timing screened + REJECTED (ceiling 0.341, base CAGR un-leverageable).
 - [[2026-06-10-dca-benchmark-and-tactical-dca]] — DCA the benchmark? SKIP (washes out the relative edge; keep time-weighted). Tactical DCA (buy more below SPY 200-EMA) loses to blind DCA every block — beta-timing deployment policy, not a funnel candidate.
