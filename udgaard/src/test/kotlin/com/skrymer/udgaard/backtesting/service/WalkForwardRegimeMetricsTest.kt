@@ -15,6 +15,7 @@ class WalkForwardRegimeMetricsTest {
     riskMetricsService = mock(),
     stockRepository = mock(),
     riskFreeRateService = mock(),
+    leadershipRegimeService = mock(),
   )
 
   private fun row(date: LocalDate, breadth: Double, ema10: Double) =

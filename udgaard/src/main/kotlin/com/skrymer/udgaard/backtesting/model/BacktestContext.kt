@@ -17,6 +17,9 @@ data class BacktestContext(
   // Sector-ETF price series keyed by sector symbol (XLK, XLF, ...) then by date. Supplies the sector
   // factor for multi-factor residual rankers, the way spyQuoteMap supplies the market factor.
   val sectorEtfQuoteMap: Map<String, Map<LocalDate, StockQuote>> = emptyMap(),
+  // Pre-computed leadership-gap regime series (issue #83): per date, whether the equal-weight universe
+  // is leading (deploy) or a thin tape is carrying the index (cash). Empty unless a strategy uses the gate.
+  val leadershipRegimeMap: Map<LocalDate, LeadershipRegimeDaily> = emptyMap(),
   // Round-trip transaction cost in basis points (commission + slippage), netted into per-share
   // Trade.profit at trade close. Default 10 = net-by-default; 0 reproduces gross perfect-fill runs.
   val costBps: Double = 10.0,
@@ -33,6 +36,13 @@ data class BacktestContext(
 
   fun getSpyQuote(date: LocalDate): StockQuote? =
     spyQuoteMap[date]
+
+  /**
+   * The leadership-gap gate for [date]: `true` = deploy regime, `false` = cash. A date with no
+   * pre-computed read defaults to cash — a missing regime read cannot confirm a deploy regime.
+   */
+  fun getLeadershipRegimeOn(date: LocalDate): Boolean =
+    leadershipRegimeMap[date]?.regimeOn ?: false
 
   companion object {
     /** SGOV's expense ratio (~0.10%), the standard idle-cash haircut. Subtracted once (F4, ADR 0016). */

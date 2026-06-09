@@ -2,6 +2,7 @@ package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.BacktestReport
+import com.skrymer.udgaard.backtesting.model.LeadershipRegimeDaily
 import com.skrymer.udgaard.backtesting.model.PortfolioEquityPoint
 import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.RiskMetrics
@@ -12,11 +13,13 @@ import com.skrymer.udgaard.backtesting.model.TradeStatsSummary
 import com.skrymer.udgaard.backtesting.model.WalkForwardConfig
 import com.skrymer.udgaard.backtesting.model.WalkForwardResult
 import com.skrymer.udgaard.backtesting.model.WalkForwardWindow
+import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.CompositeRanker
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.SectorEdgeRanker
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.LeadershipGapRegimeOnCondition
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
@@ -43,6 +46,7 @@ class WalkForwardService(
   private val riskMetricsService: RiskMetricsService,
   private val stockRepository: StockJooqRepository,
   private val riskFreeRateService: RiskFreeRateService,
+  private val leadershipRegimeService: LeadershipRegimeService,
 ) {
   private val logger = LoggerFactory.getLogger(WalkForwardService::class.java)
 
@@ -68,11 +72,13 @@ class WalkForwardService(
         "IS=${config.inSampleMonths}mo, OOS=${config.outOfSampleMonths}mo, step=${config.stepMonths}mo",
     )
 
+    val sharedBreadthByDate = marketBreadthRepository.calculateBreadthByDate()
+    // The leadership-gap regime series is shared across all windows (window-independent), computed once.
     val sharedContext = BacktestContext(
       sectorBreadthMap = sectorBreadthRepository.findAllAsMap(),
       marketBreadthMap = marketBreadthRepository.findAllAsMap(),
+      leadershipRegimeMap = sharedLeadershipRegimeMap(entryStrategy, config, sharedBreadthByDate),
     )
-    val sharedBreadthByDate = marketBreadthRepository.calculateBreadthByDate()
     // SPY closes for the buy-and-hold Calmar baseline (ADR 0013). Loaded once; each window's SPY
     // curve is aligned to that window's strategy OOS support. Absent SPY data → null gate (non-fatal).
     val spyCloseByDate = stockRepository
@@ -132,6 +138,29 @@ class WalkForwardService(
     // SPY data was available for the window.
     val benchmarkEquityCurve: List<PortfolioEquityPoint>? = null,
   )
+
+  /**
+   * The window-independent leadership-gap regime series, computed once over the full config span and
+   * shared across every window — but only when the strategy gates on it (issue #83). Warns loudly when
+   * the gate is active yet the series is empty (which would make every window silently all-cash).
+   */
+  private fun sharedLeadershipRegimeMap(
+    entryStrategy: EntryStrategy,
+    config: WalkForwardConfig,
+    breadthByDate: Map<LocalDate, Double>,
+  ): Map<LocalDate, LeadershipRegimeDaily> {
+    val usesGate =
+      (entryStrategy as? CompositeEntryStrategy)?.getConditions()?.any { it is LeadershipGapRegimeOnCondition } ?: false
+    if (!usesGate) return emptyMap()
+    val regimeMap = leadershipRegimeService.loadRegimeMap(config.startDate, config.endDate, breadthByDate)
+    if (regimeMap.isEmpty()) {
+      logger.warn(
+        "Leadership-gap gate is active but the regime series is EMPTY — every window will be all-cash. " +
+          "Check SPY / breadth / universe data for [${config.startDate}, ${config.endDate}].",
+      )
+    }
+    return regimeMap
+  }
 
   private fun processWindow(
     window: WindowDates,

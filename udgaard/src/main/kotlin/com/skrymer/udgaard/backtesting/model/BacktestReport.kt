@@ -115,6 +115,8 @@ class BacktestReport(
   val cagr: Double? = null,
   // Top-N drawdown excursions over the daily equity curve; null when un-sized.
   val drawdownEpisodes: List<DrawdownEpisode>? = null,
+  // Leadership-gap regime observability (issue #83) — null unless the strategy gates on the regime.
+  val leadershipRegimeDiagnostics: LeadershipRegimeDiagnostics? = null,
 ) {
   /**
    * Calculated as (number of winning trades / total trades)
@@ -423,6 +425,7 @@ fun BacktestReport.toResponseDto(backtestId: String): BacktestResponseDto {
     benchmarkComparison = benchmarkComparison,
     cagr = cagr,
     drawdownEpisodes = drawdownEpisodes,
+    leadershipRegimeDiagnostics = leadershipRegimeDiagnostics,
     stockProfits = stockProfits,
     missedOpportunitiesCount = missedOpportunitiesCount,
     missedProfitPercentage = missedProfitPercentage,

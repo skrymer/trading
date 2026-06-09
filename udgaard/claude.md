@@ -40,11 +40,14 @@ udgaard/
 │   │   ├── model/                    # Domain models
 │   │   │   ├── BacktestReport.kt        # Persisted gzip-compressed in a bytea column; additive-only schema evolution
 │   │   │   ├── BacktestReportMetadata.kt # Metadata + Summary + ListItem for backtest_reports table
-│   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized); grossMinusNetEdgeSpread (avg round-trip cost in return terms, 0 on a gross run)
+│   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized); grossMinusNetEdgeSpread (avg round-trip cost in return terms, 0 on a gross run); leadershipRegimeDiagnostics (null unless the strategy gates on the leadership-gap regime, issue #83)
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
 │   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha) + benchmarkCagr/MaxDrawdownPct/Calmar/Sharpe (benchmark's standalone metrics; diagnostic leg of the SPY baseline gate, ADR 0013)
 │   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
-│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016) + sectorEtfQuoteMap (sector-ETF factor series for multi-factor residual rankers, warmup-loaded; ADR 0018)
+│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016) + sectorEtfQuoteMap (sector-ETF factor series for multi-factor residual rankers, warmup-loaded; ADR 0018) + leadershipRegimeMap + getLeadershipRegimeOn(date) (leadership-gap deploy/cash gate, missing date → cash; empty unless gated on; issue #83)
+│   │   │   ├── LeadershipRegimeDaily.kt # One day's leadership-gap read: gap/gapSmoothed/schmittOn/washoutActive/regimeOn + contributingN/standardError/trustworthy observability (issue #83)
+│   │   │   ├── LeadershipRegimeDiagnostics.kt # In-window regime observability (onFraction, flipCount, spell lengths, onFractionByYear, untrustworthyDays, minContributingN) (issue #83)
+│   │   │   ├── LeadershipRegimeParams.kt # Frozen pre-registered gate spec (FROZEN); lookbackBars/emaPeriod/deadBand/washout*/trust thresholds — changing a value is a methodology change, not a config knob (issue #83)
 │   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006); spyBaselineComparison: SpyBaselineComparison? — SPY buy-and-hold Calmar baseline gate verdict (ADR 0013)
@@ -71,7 +74,8 @@ udgaard/
 │   │   │   │   ├── KellySizer.kt            # Fractional Kelly from win rate + win/loss ratio
 │   │   │   │   ├── VolatilityTargetSizer.kt # Target daily vol% with kATR proxy
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
-│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows); bucketByEntryMonth() builds per-window OOS monthly TradeStatsSummary buckets (ADR 0006); computeSpyBaseline() stitches a SPY buy-and-hold curve through the identical OOS path (ADR 0013/0005) → spyBaselineComparison (Calmar-only gate)
+│   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows); bucketByEntryMonth() builds per-window OOS monthly TradeStatsSummary buckets (ADR 0006); computeSpyBaseline() stitches a SPY buy-and-hold curve through the identical OOS path (ADR 0013/0005) → spyBaselineComparison (Calmar-only gate); shares one window-independent leadership-gap regime series across all windows
+│   │   │   ├── LeadershipRegimeService.kt # Pre-computes the leadership-gap regime (issue #83, ADR 0010 cash read-out): pure computeRegimeSeries (GAP = SPY 20-bar return − equal-weight universe mean, EMA10, Schmitt ±0.5% dead-band, sustained-washout crisis veto → regimeOn) + impure loadRegimeMap (warmup-loads SPY + LeadershipGapRepository over ~180 calendar days so EMA/Schmitt/washout seed before the window); only built when a strategy gates on it; diagnostics() summarises the in-window series
 │   │   │   ├── BacktestResultStore.kt    # Backtest result store (backtest_reports table); gzip-compresses the report into a bytea column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), decompresses on read
 │   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
 │   │   │   ├── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override
@@ -116,9 +120,11 @@ udgaard/
 │   │   │   ├── AssetType.kt
 │   │   │   ├── MarketSymbol.kt
 │   │   │   ├── MarketBreadthDaily.kt
-│   │   │   └── SectorBreadthDaily.kt
+│   │   │   ├── SectorBreadthDaily.kt
+│   │   │   └── EwReturnDaily.kt       # One day's equal-weight cross-section of trailing 20-bar returns (mean/stdev/contributingN) — the equal-weight leg of the leadership gap (issue #83)
 │   │   ├── repository/               # jOOQ repositories
 │   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) used by ingestion fallback + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
+│   │   │   ├── LeadershipGapRepository.kt  # ewReturnByDate(): full-universe equal-weight 20-bar-return aggregate (mean/stdev/contributingN) over the point-in-time STOCK-or-null universe (same population as breadth, ADR 0011); feeds the leadership-gap regime (issue #83)
 │   │   │   ├── MarketBreadthRepository.kt
 │   │   │   └── SectorBreadthRepository.kt
 │   │   └── service/

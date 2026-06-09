@@ -17,6 +17,7 @@ class WalkForwardRiskMetricsTest {
     riskMetricsService = RiskMetricsService(),
     stockRepository = mock(),
     riskFreeRateService = mock(),
+    leadershipRegimeService = mock(),
   )
 
   @Test
