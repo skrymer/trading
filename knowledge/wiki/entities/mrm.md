@@ -1,9 +1,9 @@
 ---
 type: entity
 title: MRM (MarketResidualMomentum)
-summary: Single-factor SPY-beta-stripped residual-momentum ranker (#130). Its /strategy-screen REJECT is VOID (2026-06-09) — warmup-starvation artifact (ADR 0018), RNG-vs-RNG in OOS; must re-run. Single-factor recipe re-opened.
-status: disputed
-tags: [candidate, ranker, beta-delivery, idiosyncratic-momentum, verdict-void]
+summary: Single-factor SPY-residual-momentum ranker (#130). EARNED-DEAD — fixed-engine re-run confirms anti-selective: below the entire 10-seed Random cloud on edge AND CAGR (K=0/10).
+status: stable
+tags: [candidate, ranker, deprecated, beta-delivery, idiosyncratic-momentum, rs-momentum]
 sources: ["https://github.com/skrymer/trading/issues/130", "https://github.com/skrymer/trading/issues/137", "knowledge/wiki/sources/2026-06-08-mrm-screen-reject.md", "knowledge/wiki/sources/2026-06-09-trailing-ranker-warmup-starvation.md", "docs/adr/0018-trailing-ranker-warmup-history-is-loaded-but-never-traded.md"]
 related: ["[[beta-delivery]]", "[[george]]", "[[the-funnel]]", "[[long-premise-in-narrow-leadership]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-trailing-ranker-warmup-starvation]]"]
 updated: 2026-06-09
@@ -25,23 +25,21 @@ is the strongest neutralization available in-engine (no Fama-French factor serie
 
 ## Status
 
-**VERDICT VOID — RE-RUN REQUIRED (2026-06-09).** The #130 screen result below is an **artifact of an
-engine defect**, not evidence about selection skill. The walk-forward engine loaded each window's quotes
-with no warmup buffer (`quotesAfter = windowStart`), so this ranker's 504-day estimation window was
-**unscoreable for every OOS entry** (12-month OOS ≪ 504-day lookback). With every candidate at the
-unscoreable sentinel, "rank top-N" collapsed to the tie-break jitter RNG — a stream independent of the
-Random baseline's score RNG. **So the screen compared two different random draws** (which explains MRM's
-499 OOS trades vs Random's 527 with zero anti-selection needed). The "anti-selective beta-delivery" read
-is **withdrawn**. Fixed by the warmup-loading change ([ADR 0018](../../../docs/adr/0018-trailing-ranker-warmup-history-is-loaded-but-never-traded.md));
-the single-factor recipe must be **re-screened on the fixed engine** before it can be crossed off, and
-[[mrm]]'s sibling test #137 must NOT inherit "the single-factor cousin is already dead" as a prior.
-See [[2026-06-09-trailing-ranker-warmup-starvation]].
+**EARNED-DEAD (2026-06-09, re-run confirmed).** The single-factor recipe is anti-selective and genuinely
+dead. The journey: the original #130 screen verdict (2026-06-08, "anti-selective beta-delivery") was
+**voided** when the [[2026-06-09-trailing-ranker-warmup-starvation]] finding showed the walk-forward
+starved this 504-day ranker of its lookback in every OOS window (no warmup buffer → unscoreable → "rank
+top-N" collapsed to tie-break RNG → the screen compared two random draws, ADR 0018). The engine was fixed
+(warmup-buffered loading) and the screen **re-run on the fixed engine** vs a seeded 10-draw Random
+baseline (1,500-sym universe): **MRM edge 0.588 / CAGR 5.52% sits BELOW the entire Random cloud on both
+legs (K=0/10)** — anti-selective, confirmed. So the void verdict's *conclusion* was right; #130 just
+measured it by accident. The fix made the death **defensible**, not different. See
+[[2026-06-09-rs-momentum-class-earned-dead]]. The class-level death is sealed by the multi-factor sibling
+[[multifactor-residual-momentum]] (#137), which is *even more* anti-selective.
 
-> ⚠ CONTRADICTION: the 2026-06-08 verdict (below) condemned the single-factor recipe as beta-delivery;
-> the 2026-06-09 warmup-starvation finding shows that verdict measured RNG-vs-RNG in OOS. Superseded
-> pending the re-run; history retained because the artifact itself is an instructive failure mode.
-
-_Prior (now void):_ DEPRECATED-INSTANCE (2026-06-08) — single-factor recipe "dead", class untested.
+> Resolved contradiction: the void (RNG-vs-RNG) and the original beta-delivery read are reconciled — the
+> fixed-engine re-run confirms anti-selection on a trustworthy measurement. History retained below; the
+> artifact itself is an instructive failure mode (a plausible verdict produced by a starved ranker).
 
 ## Funnel history
 

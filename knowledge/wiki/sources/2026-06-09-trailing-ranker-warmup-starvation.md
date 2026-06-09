@@ -25,7 +25,7 @@ Every OOS window in the funnel is **12 months** (~250 trading days) — shorter 
 so a residual ranker was **unscoreable for every OOS entry**. When all candidates score the sentinel,
 capital-aware "rank top-N" selection collapses to the **tie-break jitter RNG**
 (`BacktestService.tieBreakRandom`), a stream independent of the `RandomRanker`'s per-`(symbol,date)` hash
-RNG ([[two random seed paths]] ^[inferred]).
+RNG (two independent randomSeed paths ^[inferred]).
 
 ## Why it voids #130
 

@@ -89,16 +89,19 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   via G-RANDOM before ever reaching the firewall, so it has **no G16 read** — it is the cheaper-tell
   confirmation that this failure mode is real, not a G16 rejection.
 
-- **[[mrm]]** (2026-06-08) — ⚠ **VOID as a beta-delivery instance (2026-06-09).** Originally read as the
-  second, *stronger* screen-stage instance (single-factor SPY-beta-stripped residual-momentum ranker that
-  "lost" to a seeded Random baseline on both legs: edge **+2.80% vs +6.21%**, CAGR **8.95% vs 23.05%**, and
-  reproduced George's GFC liability). **That reading is withdrawn:** the walk-forward starved the 504-day
-  ranker of its lookback in every OOS window, so MRM was unscoreable in OOS and its "selection" was the
-  tie-break RNG — the screen compared *two different random draws*, which alone explains the 499 vs 527
-  trade counts and the edge gap with **no anti-selection required**. So this is **not** a confirmed
-  beta-delivery instance; the single-factor recipe is re-opened pending a re-run on the fixed engine
-  (ADR 0018). See [[2026-06-09-trailing-ranker-warmup-starvation]] and [[2026-06-08-mrm-screen-reject]]
-  (now void).
+- **[[mrm]]** (re-confirmed 2026-06-09) — single-factor SPY-residual-momentum ranker; **anti-selective**.
+  The original #130 screen (2026-06-08) was voided as a warmup-starvation artifact (RNG-vs-RNG in OOS,
+  [[2026-06-09-trailing-ranker-warmup-starvation]], ADR 0018), then **re-run on the fixed engine** vs a
+  seeded 10-draw Random baseline (1,500-sym universe): MRM edge **0.588** / CAGR **5.52%** sit **below the
+  entire Random cloud on both legs (K=0/10)**. So the original beta-delivery read was right — MRM picks
+  *worse* names than random — but it's now a *trustworthy* measurement, not an RNG accident. A stronger
+  signature than [[george]] (which only *matched* Random on edge). See [[2026-06-09-rs-momentum-class-earned-dead]].
+- **[[multifactor-residual-momentum]]** (2026-06-09) — market+sector-residual-momentum ranker (#137); the
+  *most* anti-selective screen-stage instance. Same fixed-engine seeded-Random screen: edge **0.249** /
+  CAGR **2.02%**, **below the entire Random cloud (K=0/10)** and *worse than single-factor [[mrm]]* —
+  stripping the sector factor increased anti-selection. This closes the factor-neutral idiosyncratic-RS
+  class: a market+sector FAIL is conclusive (size/value stripping can only remove more signal). See
+  [[2026-06-09-rs-momentum-class-earned-dead]].
 
 - **[[pead]] price-gap proxy** (2026-06-09) — the **condition-screen / regime-tertile** instance, and the
   first *event-driven* one. Not a ranker (George/MRM) and not G16: an inline earnings-gap entry condition

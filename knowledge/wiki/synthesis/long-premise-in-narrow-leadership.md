@@ -19,7 +19,7 @@ post-2020 narrow-leadership (Mag-7-concentrated) equity regime, and what — if 
 |---|---|---|
 | Long-pullback mean-reversion (VZ3, MR3, Idunn) | broad-participation uptrend | edge inverts: flow rotates off laggards, leaders' pullbacks too shallow ([[participate-and-lose]]) + [[aliased-regime-sensitivity]] |
 | Breakout-in-uptrend (Minervini VCP) | broad-participation uptrend | breakouts fail back in narrow chop; `spyTrendUp` too coarse ([[participate-and-lose]]) |
-| Cross-sectional RS-momentum (George) | dispersion / trending | entry-universe beta, ranker loses to Random ([[thinning-not-selecting]]) |
+| Cross-sectional RS-momentum ([[george]], [[mrm]], [[multifactor-residual-momentum]]) | dispersion / trending | EARNED-DEAD (2026-06-09): all three rankers anti-selective — below the entire Random cloud, K=0/10. Stripping market+sector made it *worse*, not better |
 
 ## The shared root cause
 
@@ -35,10 +35,16 @@ validated regime-transition layer** (#83), not a better entry filter bolted onto
 - [[gjallarhorn]] is the one long premise that *doesn't* participate in narrow tape — it's a crisis-bottom
   timer that's cash until a washout reverses. It earned a +22σ timing-alpha signature, but is
   un-validatable standalone ([[crisis-timer-cadence-ceiling]]) and needs a host.
+- **RS-momentum's specific sub-hypothesis is now refuted** (2026-06-09): the deep-research idea that narrow
+  leadership *feeds* a durable stock-specific/idiosyncratic momentum component (so a factor-neutral residual
+  ranker might survive) was tested directly — single-factor ([[mrm]]) and market+sector
+  ([[multifactor-residual-momentum]], #137) residual momentum are both **anti-selective**, and *more*
+  neutralization made it *worse*. Residual relative strength has no cross-sectional alpha here.
+  See [[2026-06-09-rs-momentum-class-earned-dead]].
 - **Open question:** is there *any* long entry premise with genuine cross-sectional resolution that
   survives narrow-leadership tape — or is every long premise structurally regime-beta, making the real
-  answer a regime-transition layer rather than a better entry? BTC+Tyr (the current search) is the next
-  test of this.^[inferred — framing of the open question, not a quant verdict]
+  answer a regime-transition layer rather than a better entry? With RS-momentum now closed, no filed
+  candidate remains — the next directional premise is an operator/quant call.^[inferred — framing of the open question, not a quant verdict]
 
 ## Related
 
