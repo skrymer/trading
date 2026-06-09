@@ -5,17 +5,18 @@ summary: A long book whose risk-adjusted return is just the index's — profitab
 status: seed
 tags: [failure-mode, methodology]
 sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-08-george-random-revalidation-prereg.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]"]
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]"]
 updated: 2026-06-09
 ---
 
 # Beta-Delivery
 
 > **status: seed** — the failure-mode anatomy and the detectors are settled. The firewall's **G16** gate
-> has not rejected a candidate yet; the cheaper **screen-stage** tells have three times — [[george]] and
-> [[mrm]] (random-ranker tell) and [[pead]]'s price-gap proxy (the new SPY-regime-tertile sign-flip tell).
-> So the *Instances* section holds all three screen-stage catches, still awaiting a first G16-firewall
-> rejection. The first G16 FAIL promotes this to `active`.
+> has not rejected a candidate yet; the cheaper **screen-stage** tells have caught it four times —
+> [[george]] and [[mrm]] (random-ranker tell) and [[pead]]'s price-gap proxy *and* its market-neutral
+> residual successor (the SPY-regime-tertile sign-flip tell, twice). So the *Instances* section holds all
+> four screen-stage catches, still awaiting a first G16-firewall rejection. The first G16 FAIL promotes
+> this to `active`.
 
 ## Definition
 
@@ -113,6 +114,20 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   to neutralise the market component *before* entry (market-neutral residual), not a regime gate. See
   [[2026-06-09-pead-earnings-gap-screen-reject]]; cross-ref [[aliased-regime-sensitivity]] (the cross-sectional
   regime-tertile sign-flip variant).
+
+- **[[pead]] market-neutral gap residual** (2026-06-09) — the **second condition-screen** instance and the
+  one that hardens the failure mode into a *class*-level claim. The run-#1 successor was built to kill the
+  price-gap proxy's beta by explicitly subtracting the same-night SPY gap (in ATR units) before entry:
+  `residualAtr = (open[g]−close[g−1])/atr[g−1] − (spyOpen[g]−spyClose[g−1])/spyAtr[g−1]`. **It failed in both
+  arms** (no vol gate, and relVol≥1.5): the 20d SPY-regime sign-flip **persisted** (no-vol down +0.90% / flat
+  **−0.52%** / up −0.57%; relVol down +1.07% / flat **−0.20%** / up −0.89%), flat-tape still negative, headline
+  20d lift negative+sub-SE. **Durable finding:** the beta an earnings gap delivers is *not* the removable
+  same-day SPY-index-gap factor — subtracting that exact term left the sign-flip intact (the relVol arm's
+  regime spread even *widened*, [[thinning-not-selecting]]). So beta-delivery via an event measure can be
+  **irreducible to a single same-day market factor** — an OHLCV market-neutral residual cannot strip it; only
+  a price-independent surprise signal (EPS-gated) might. **Detection tell (hardened):** the "flat tertile must
+  stay solidly positive" rule survives a same-factor neutralisation attempt → flat-negative is a *class*-level
+  kill, not a one-parametrisation artifact. See [[2026-06-09-pead-market-neutral-residual-screen-reject]].
 
 _No G16-firewall instance yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by
 the **firewall** gate itself at the time of writing (2026-06-06). When one is, record it here with:
