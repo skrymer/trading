@@ -58,15 +58,28 @@ premise — each failed for a documented, reproducible reason, not bad luck:
    crossed off; the class stays untested.** The honest next test is a **multi-factor-neutral** residual
    (strip sector/size/value), screened the same way — #137. Do not iterate on [[mrm]] (beta-delivery reject).
 
-## Where the search is now (2026-06-08)
+## Where the search is now (2026-06-09)
 
-- **NEW active direction: [[pead]] — Post-Earnings Announcement Drift** (quant-recommended, feasibility
-  GREEN). The first member of an unexplored **5th premise class: event-conditioned, per-name** entries
-  (enter on a confirmed positive earnings-day price gap, hold the underreaction drift). It breaks the
-  regime-beta axis that killed all four prior classes — alpha anchored to a per-name dated event, not a
-  market state or universe ranking. Data verified 2026-06-08: EODHD earnings depth to 1993, PRD table has
-  245k rows / 3,712 symbols dense across 2000-2019. SCOPING — next step is `/condition-screen` the
-  EarningsGapCondition. See [[pead]].
+- **Funnel EMPTY — five premise families buried, no active candidate.** The 5th class ([[pead]]) is the
+  most recent death and the others are unchanged below.
+- **[[pead]] (Post-Earnings Announcement Drift) — long-only-drift form ABANDONED (2026-06-09).** The 5th
+  class (event-conditioned, per-name) tried three surprise proxies at `/condition-screen` — raw price
+  gap, market-neutral gap residual, EPS-sign-gated residual — and **all three died the same way** (20d
+  SPY-regime flat tertile negative). Quant verdict **RECONSIDER_CLASS**: the beta enters via the
+  holding-window return, not the entry, so no surprise *proxy* fixes it. The mechanism is untouched but
+  un-isolable on current data. See [[pead]] + [[2026-06-09-pead-premise-class-adjudication]].
+- **6th class — structurally-hedged route SCOPED then DECLINED (2026-06-09).** The PEAD adjudication
+  steered toward a beta-hedged premise (net SPY out in the P&L). The quant scoped it (top pick: a
+  cross-sectional earnings-surprise dispersion spread, backtestable as a synthetic NAV with zero engine
+  change), but the operator **declined on appetite** — 25% CAGR is firm, no market-neutral sleeve. So the
+  6th class must be **net-long / directional and ~25%-CAGR-capable.** See
+  [[2026-06-09-hedged-class-scoping-declined]].
+- **OVTLYR Plan M/ETF evaluated as a directional 6th class (2026-06-09) — did NOT supply one.** A vendor
+  long plan; its signals span only ~5y (all in Block C) ⇒ un-validatable, and made honest its
+  behavioral-extreme entry collapses into [[gjallarhorn]]. Quant **LIFT_IDEAS_ONLY** (gap-and-crap exit,
+  earnings-proximity filter, a likely-dead reconstructed F&G-oscillator diagnostic). See
+  [[2026-06-09-ovtlyr-plans-assessment]]. **The directional 6th premise remains unfound — operator/quant
+  call.**
 - **BTC + Tyr died at design-time screen (2026-06-08)** — emptied the funnel before PEAD was chosen:
   its fresh component, the breadth-thrust GATE, failed in isolation (SPY-regime sign-flip at all 3
   horizons, no 10/20d edge, the "thrust" degenerating into a level gate — [[thrust-degenerates-to-level]];

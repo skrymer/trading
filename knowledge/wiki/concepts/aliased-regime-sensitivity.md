@@ -5,7 +5,7 @@ summary: Non-monotone pass/fail across a parameter neighborhood plus per-window 
 status: stable
 tags: [failure-mode]
 sources: ["feedback_aliased_regime_sensitivity"]
-related: ["[[parameter-robustness-g13]]", "[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[thrust-degenerates-to-level]]", "[[beta-delivery]]", "[[pead]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]"]
+related: ["[[parameter-robustness-g13]]", "[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[thrust-degenerates-to-level]]", "[[beta-delivery]]", "[[pead]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]"]
 updated: 2026-06-09
 ---
 
@@ -60,6 +60,17 @@ So this is recorded as the **non-monotone-island tell + a cross-sectional regime
 positive / up negative at every horizon — see [[beta-delivery]]), not a formal stable-firing ARS pass. The
 structural verdict is identical to a clean ARS: the gap-size dimension carries no robust drift edge —
 redesign the surprise proxy, don't tune the threshold. See [[2026-06-09-pead-earnings-gap-screen-reject]].
+
+The same non-monotone-island + regime-tertile-sign-flip recurred on **both residual successors**, on the
+`theta` (residual-threshold) tunable: the [[2026-06-09-pead-market-neutral-residual-screen-reject|market-neutral
+residual]] (20d θ-lift all-negative/near-zero, flat tertile negative) and the
+[[2026-06-09-pead-eps-gated-residual-screen-reject|EPS-sign-gated residual]] (20d θ-lift {−0.056%, −0.0069%,
+−0.070%}, all three cells negative; tertiles down +0.99% / flat **−0.31%** / up −0.51%). Both record the
+same way as the raw-gap proxy — non-monotone-island tell + cross-sectional regime sign-flip, **not** a
+formal stable-firing ARS pass (firing not held within ±15% across cells — `relativeStep` 0.67; and the 20d
+θ-swing ≪ 2× centre SE, so there is no *swing* to be fragile about because there is no edge). Three proxies,
+same structural verdict: the surprise dimension carries no robust drift edge on this premise (see [[pead]] —
+surprise-proxy axis exhausted).
 
 ## Why it kills
 

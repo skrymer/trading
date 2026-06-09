@@ -27,11 +27,11 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[lottery-vs-signature]] — edge concentrated in 1-2 windows = regime detector, not selector; the timing-NULL signature test.
 - [[thrust-degenerates-to-level]] — a transition/thrust premise whose edge sits in the cell nearest a plain level threshold = it's really a level gate.
 - [[crisis-timer-cadence-ceiling]] — < ~1 event/yr premises are un-validatable standalone; the data-span sibling rule.
-- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — 4 screen-stage instances incl. PEAD's regime-tertile sign-flip twice [raw gap + market-neutral residual]; no G16-firewall instance yet).
+- [[beta-delivery]] — a long book whose risk-adjusted return is just the index's; the failure mode G16 catches (seed — 5 screen-stage instances incl. PEAD's regime-tertile sign-flip thrice [raw gap + market-neutral residual + EPS-sign-gated residual]; no G16-firewall instance yet).
 
 ## Entities — candidates
 
-- [[pead]] — **active direction**: event-conditioned earnings-drift. BOTH price-based proxies (raw gap + market-neutral residual) **REJECTED** at design-time `/condition-screen` (2026-06-09 — SPY-regime sign-flip persisted after neutralisation = beta-delivery irreducible to the same-day market factor); **class survives**, price-proxy class condemned → **EPS-surprise-gated residual next** (last price-independent test).
+- [[pead]] — long-only-drift form **ABANDONED** (quant RECONSIDER_CLASS 2026-06-09): all THREE surprise proxies (raw gap + market-neutral residual + EPS-sign-gated residual) REJECTED at `/condition-screen`, flat-tape sign-flip persisted every time. Beta enters via the **holding-window return, not entry selection** (down-tape mean-reversion); #143/sector-residual **predicted-dead for PEAD**. Mechanism untouched but no current-data entry proxy isolates it → next class = **structurally beta-hedged** (paired/spread/dispersion).
 - [[btc-tyr]] — **DEAD** (2026-06-08): breadth-thrust gate failed solo `/condition-screen` (regime sign-flip + thrust-degenerates-to-level); NOT a firewall death, class re-scopable.
 - [[gjallarhorn]] — breadth-washout crisis-bottom timer; +22σ timing-alpha NULL, funnel-disqualified standalone (overlay).
 - [[minervini-vcp-breakout]] — breakout-in-uptrend; REJECTED (participate-and-lose), but the broad-thrust edge is real → shelved building block.
@@ -55,6 +55,10 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[2026-06-08-btc-breadth-thrust-screen-reject]] — BTC breadth-thrust gate REJECTED at design-time `/condition-screen` (regime sign-flip all horizons + thrust-degenerates-to-level + 2009-14 one-tape lottery); kills BTC+Tyr — funnel now empty.
 - [[2026-06-09-pead-earnings-gap-screen-reject]] — PEAD price-gap proxy REJECTED at design-time `/condition-screen` (SPY-regime sign-flip + no post-entry edge + non-monotone gap-size island); beta-delivery materialised; class alive, surprise proxy redesign (market-neutral residual next).
 - [[2026-06-09-pead-market-neutral-residual-screen-reject]] — PEAD market-neutral gap residual REJECTED at `/condition-screen` (both arms): KILL trigger — SPY-regime sign-flip PERSISTED after neutralisation, flat-tape negative. Gap's beta irreducible to the same-day SPY factor; price-proxy class condemned → EPS-gated residual next.
+- [[2026-06-09-pead-eps-gated-residual-screen-reject]] — PEAD EPS-surprise-gated residual REJECTED at `/condition-screen`: pre-registered KILL — a price-independent EPS-sign gate ALSO flat-negative sign-flipped (−0.31%, headline 0.03× SE). Beta irreducible to every surprise proxy expressible on current data; **surprise-proxy axis EXHAUSTED** → reconsider premise class or deferred sector-neutral residual (#143).
+- [[2026-06-09-pead-premise-class-adjudication]] — quant verdict RECONSIDER_CLASS: abandon PEAD's long-only-drift form. The EPS-sign gate is a strictly stronger control than a sector residual, so #143/sector-residual is **predicted-dead for PEAD** (beta enters via the holding-window return, not entry). Next class = structurally beta-hedged (paired/spread/dispersion).
+- [[2026-06-09-hedged-class-scoping-declined]] — quant scoped a structurally-hedged 6th class (earnings-surprise dispersion spread, backtestable as a synthetic NAV with ZERO engine change); operator DECLINED — 25% CAGR firm, no market-neutral sleeve. 6th class must be net-long/directional.
+- [[2026-06-09-ovtlyr-plans-assessment]] — OVTLYR Plan M & ETF assessed: ~5y signal span (all in Block C) ⇒ un-validatable; quant TEST_NOT_WORTHWHILE / LIFT_IDEAS_ONLY (gap-and-crap exit, earnings-proximity filter, reconstructed F&G oscillator as a likely-dead diagnostic). No novel 6th class; F&G-extreme entry collapses into Gjallarhorn.
 
 ## Synthesis — cross-cuts
 
