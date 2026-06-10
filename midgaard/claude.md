@@ -80,7 +80,7 @@ midgaard/
 │   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, OvtlyrSignal, OvtlyrSignalType, TreasuryYield (gross yield, ADR 0016), enums
 │   │   └── OptionContractDto.kt
 │   ├── repository/
-│   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count); recomputeRelativeStrengthPercentiles + recomputeQualityPercentiles cross-sectional SQL passes (work_mem raised transaction-locally for the universe-wide sort; ADR 0009/0019)
+│   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count); recomputeRelativeStrengthPercentiles + recomputeQualityPercentiles cross-sectional SQL passes (work_mem raised transaction-locally for the universe-wide sort; ADR 0009/0019); relativeStrengthStatus()/qualityPercentileStatus()→CrossSectionalStatus (missing/stale/current vs latest ingested quote) for the /ingestion page badges
 │   │   ├── SymbolRepository.kt            # Symbol reference data
 │   │   ├── EarningsRepository.kt          # Earnings data
 │   │   ├── FundamentalsRepository.kt      # Point-in-time quarterly fundamentals (upsert by (symbol, fiscal_date_ending), findBySymbol); raw data for the L2 quality pass (ADR 0019)
@@ -223,7 +223,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - Controlled by `@ConditionalOnProperty("app.ui.enabled")`, enabled by default
 - Set `APP_UI_ENABLED=false` in production to disable entirely
 - Pages: dashboard, symbols, symbol-detail, ingestion progress, providers, integrity
-- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress, a "Recompute Relative Strength" trigger, and a Treasury Yields card (ingested/not-ingested status badge + ingest/refresh trigger, ADR 0016)
+- `/providers` page includes an ovtlyr cookie-credentials form; `/ingestion` page includes an ovtlyr backfill trigger with live progress, a "Recompute Relative Strength" and "Recompute Quality Percentile" trigger (each with a missing/stale/current freshness badge vs the latest ingested quote, ADR 0009/0019), and a Treasury Yields card (ingested/not-ingested status badge + ingest/refresh trigger, ADR 0016)
 
 ## Database Schema
 

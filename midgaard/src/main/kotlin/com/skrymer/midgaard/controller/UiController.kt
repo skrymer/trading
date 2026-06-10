@@ -140,6 +140,8 @@ class UiController(
         model.addAttribute("relativeStrengthLastRun", relativeStrengthService.lastRunRowsWritten())
         model.addAttribute("qualityPercentileActive", qualityPercentileService.isRecomputeActive())
         model.addAttribute("qualityPercentileLastRun", qualityPercentileService.lastRunRowsWritten())
+        model.addAttribute("relativeStrengthStatus", quoteRepository.relativeStrengthStatus())
+        model.addAttribute("qualityPercentileStatus", quoteRepository.qualityPercentileStatus())
         model.addAttribute("treasuryYieldStatus", treasuryYieldRepository.status(TreasuryYieldIngestionService.MATURITY_US3M))
         return "ingestion"
     }
