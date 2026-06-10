@@ -136,7 +136,8 @@ midgaard/
 │   │   ├── V19__Add_RSP_etf.sql                                 # idempotent INSERT adding the RSP (equal-weight S&P 500) ETF symbol to the symbols catalogue
 │   │   ├── V20__Add_treasury_yields.sql                         # treasury_yields table (maturity + yield_date PK), gross yield_pct stored (haircut applied once downstream in Udgaard); ADR 0016
 │   │   ├── V21__Add_fundamentals.sql                            # fundamentals table (one row per (symbol, fiscal_date_ending), filing_date visibility key + income-statement/balance-sheet line items) — point-in-time raw data for the quality metric (ADR 0019)
-│   │   └── V22__Add_quality_percentile.sql                      # Adds quality_percentile column to quotes (cross-sectional gross-profitability GP/TA, 0-100; null until the L2 pass runs; ADR 0019)
+│   │   ├── V22__Add_quality_percentile.sql                      # Adds quality_percentile column to quotes (cross-sectional gross-profitability GP/TA, 0-100; null until the L2 pass runs; ADR 0019)
+│   │   └── V23__Widen_fundamentals_numeric_columns.sql          # Widens fundamentals line-item columns DECIMAL(19,4)→(38,4) to tolerate EODHD bad prints (~1e16) without aborting the symbol's batch upsert (ADR 0019)
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)

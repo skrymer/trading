@@ -118,6 +118,38 @@ class FundamentalQualityRankerTest {
   }
 
   @Test
+  fun `a candidate whose gross profitability exceeds the ceiling is neutral on the level leg, not top`() {
+    // Given a bad-print candidate with GP/TA = 6 (> the 5.0 ceiling) and two normal candidates
+    val bad = qualityStock("BAD", level = 6.0, trendCurrent = 0.10, trendPrior = 0.05)
+    val high = qualityStock("HIGH", level = 0.20, trendCurrent = 0.10, trendPrior = 0.05)
+    val low = qualityStock("LOW", level = 0.10, trendCurrent = 0.05, trendPrior = 0.05)
+
+    // When ranked on the level leg only
+    val scores = FundamentalQualityRanker(levelWeight = 1.0, trendWeight = 0.0).rankCohort(cohortOf(bad, high, low), BacktestContext.EMPTY)
+
+    // Then the implausible-GP/TA candidate is neutral (excluded from the level cohort), NOT ranked top
+    assertEquals(0.0, scores[0], 1e-9)
+    assertEquals(zTwo, scores[1], 1e-6)
+    assertEquals(-zTwo, scores[2], 1e-6)
+  }
+
+  @Test
+  fun `a candidate whose operating margin exceeds the ceiling is neutral on the trend leg, not top`() {
+    // Given a corrupted-margin candidate (opMargin = 6 > the 5.0 ceiling) and two normal ones
+    val bad = qualityStock("BAD", level = 0.15, trendCurrent = 6.0, trendPrior = 0.05)
+    val high = qualityStock("HIGH", level = 0.15, trendCurrent = 0.20, trendPrior = 0.05)
+    val low = qualityStock("LOW", level = 0.15, trendCurrent = 0.06, trendPrior = 0.05)
+
+    // When ranked on the trend leg only
+    val scores = FundamentalQualityRanker(levelWeight = 0.0, trendWeight = 1.0).rankCohort(cohortOf(bad, high, low), BacktestContext.EMPTY)
+
+    // Then the corrupted-margin candidate is neutral (excluded from the trend cohort), NOT ranked top
+    assertEquals(0.0, scores[0], 1e-9)
+    assertEquals(zTwo, scores[1], 1e-6)
+    assertEquals(-zTwo, scores[2], 1e-6)
+  }
+
+  @Test
   fun `reads point-in-time fundamentals so needs no warmup`() {
     assertEquals(0, FundamentalQualityRanker().warmupTradingDays())
   }

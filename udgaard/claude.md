@@ -210,7 +210,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V30)
+│   └── db/migration/                 # Flyway migrations (V1-V31)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -240,7 +240,8 @@ udgaard/
 │       ├── V27__Add_relative_strength_percentile.sql       # Adds relative_strength_percentile column to stock_quotes (ingested from Midgaard; ADR 0009)
 │       ├── V28__Drop_symbols_table_move_asset_type_to_stocks.sql  # Drops the symbols catalogue; asset_type moves to stocks, backfilled in place (ADR 0011)
 │       ├── V29__Add_fundamentals.sql                       # fundamentals table (one row per (stock_symbol, fiscal_date_ending), filing_date visibility key + income-statement/balance-sheet line items, FK to stocks; mirrored from Midgaard; ADR 0019)
-│       └── V30__Add_quality_percentile.sql                 # Adds quality_percentile column to stock_quotes (ingested from Midgaard; ADR 0019)
+│       ├── V30__Add_quality_percentile.sql                 # Adds quality_percentile column to stock_quotes (ingested from Midgaard; ADR 0019)
+│       └── V31__Widen_fundamentals_numeric_columns.sql     # Widens fundamentals line-item columns DECIMAL(19,4)→(38,4) to tolerate EODHD bad prints (~1e16) without aborting the symbol's batch upsert (mirrors Midgaard V23; ADR 0019)
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

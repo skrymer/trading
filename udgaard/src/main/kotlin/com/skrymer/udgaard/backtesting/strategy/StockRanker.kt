@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import java.time.LocalDate
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -912,16 +913,25 @@ class FundamentalQualityRanker(
   ): Double? {
     val grossProfit = stock.grossProfitTtmAsOf(date) ?: return null
     val totalAssets = stock.latestFundamentalAsOf(date)?.totalAssets ?: return null
-    return if (totalAssets <= 0.0) null else grossProfit / totalAssets
+    if (totalAssets <= 0.0) return null
+    val ratio = grossProfit / totalAssets
+    // GP_TA_CEILING (ADR 0019): exclude an implausible GP/TA as an EODHD bad print so it can't rank top
+    // on garbage. Fail-closed (null), floor open (negative kept). Mirrors the Midgaard L2 SQL guard.
+    return if (ratio > GP_TA_CEILING) null else ratio
   }
 
-  /** Signed YoY operating-margin change, or null when either TTM window is undefined (< 8 filings). */
+  /**
+   * Signed YoY operating-margin change, or null when either TTM window is undefined (< 8 filings) or
+   * carries an implausible operating margin (`|opMargin| > OPMARGIN_CEILING`, an EODHD bad print — ADR
+   * 0019). A corrupted margin leg neutralises the trend z (fail-closed), so it can't rank top on garbage.
+   */
   private fun marginTrend(
     stock: Stock,
     date: LocalDate,
   ): Double? {
     val current = stock.operatingMarginTtmAsOf(date) ?: return null
     val priorYear = stock.operatingMarginTtmPriorYearAsOf(date) ?: return null
+    if (abs(current) > OPMARGIN_CEILING || abs(priorYear) > OPMARGIN_CEILING) return null
     return current - priorYear
   }
 
@@ -948,5 +958,17 @@ class FundamentalQualityRanker(
   companion object {
     /** Cross-sectional standard-deviation floor below which a leg has no usable spread → neutral. */
     private const val SPREAD_FLOOR = 1e-12
+
+    /**
+     * Fail-closed data-quality ceiling on `GP/TA` (ADR 0019; CONTEXT *Gross-profitability quality
+     * percentile*) — exclude `GP/TA > 5` as an EODHD bad print so a garbage value can't rank top.
+     * Pre-registered (real GP/TA p99.9 ≈ 3.85), never tuned. Must move in lockstep with the Midgaard
+     * L2 SQL `GP_TA_CEILING` in `midgaard/.../repository/QuoteRepository.kt` — there is no shared
+     * module asserting the two are equal.
+     */
+    private const val GP_TA_CEILING = 5.0
+
+    /** The same fail-closed ceiling for the operating-margin trend leg — drop a leg whose `|op-margin| > 5`. */
+    private const val OPMARGIN_CEILING = 5.0
   }
 }

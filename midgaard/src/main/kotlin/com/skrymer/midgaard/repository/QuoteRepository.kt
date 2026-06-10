@@ -329,6 +329,17 @@ class QuoteRepository(
         private const val RECOMPUTE_WORK_MEM = "1GB"
 
         /**
+         * Data-quality ceiling on gross profitability `GP/TA` (ADR 0019; CONTEXT *Gross-profitability quality
+         * percentile*) — a fail-closed definedness bound, the twin of `non-finite`: exclude `GP/TA > 5` as an
+         * EODHD bad print (real GP/TA tops out ~p99.9 ≈ 3.85; everything above ~5 is a garbage
+         * denominator/numerator or a foreign-filer intra-filing units mismatch). Pre-registered from the
+         * input distribution, never tuned to a backtest. The floor stays open (negative GP kept).
+         * Must move in lockstep with the Udgaard ranker `GP_TA_CEILING` in
+         * `udgaard/.../backtesting/strategy/StockRanker.kt` — there is no shared module asserting the two are equal.
+         */
+        const val GP_TA_CEILING = 5.0
+
+        /**
          * The quality-percentile cross-sectional pass (ADR 0019 L2). `events` forms, per filing, the TTM
          * gross-profit numerator (current + 3 prior filings by filing_date) and the point-in-time total-assets
          * denominator; `quality` keeps only defined filings (4 priors present, all 4 carry gross profit, total
@@ -356,6 +367,7 @@ class QuoteRepository(
                        ttm_gross_profit / total_assets AS quality_raw
                 FROM events
                 WHERE filing_rank >= 4 AND ttm_count = 4 AND total_assets > 0
+                  AND ttm_gross_profit / total_assets <= $GP_TA_CEILING
             ),
             metric AS (
                 SELECT q.symbol, q.quote_date, ql.quality_raw AS m

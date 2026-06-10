@@ -107,6 +107,22 @@ class QualityPercentileRecomputeE2ETest : AbstractIntegrationTest() {
     }
 
     @Test
+    fun `excludes a symbol whose gross profitability exceeds the data-quality ceiling`() {
+        // Given a bad-print-style symbol with GP/TA = 6 (> the 5.0 ceiling) alongside a normal one (0.08)
+        val d = LocalDate.of(2024, 3, 1)
+        quoteRepository.upsertQuotes(listOf(quote("QBAD", d), quote("QOK", d)))
+        fundamentalsRepository.upsert(fourQuarters("QBAD", ttmGrossProfit = 6000.0, totalAssets = 1000.0))
+        fundamentalsRepository.upsert(fourQuarters("QOK", ttmGrossProfit = 80.0, totalAssets = 1000.0))
+
+        // When
+        quoteRepository.recomputeQualityPercentiles(earliest, minPeers = 1, earliestDate = earliest)
+
+        // Then the implausible-GP/TA symbol fails closed (no percentile); the normal one is ranked alone
+        assertNull(qualityOn("QBAD", d))
+        assertEquals(100.0 * 0.5 / 1, qualityOn("QOK", d)!!, 1e-3)
+    }
+
+    @Test
     fun `ranks symbols by trailing-twelve-month gross profitability into midpoint percentiles`() {
         // Given three symbols whose TTM gross-profitability is QLOW 0.04 < QMID 0.08 < QHIGH 0.12,
         // all four quarters filed before the trading date
