@@ -5,11 +5,33 @@ import com.skrymer.midgaard.jooq.tables.references.QUOTES
 import com.skrymer.midgaard.model.IndicatorSource
 import com.skrymer.midgaard.model.Quote
 import org.jooq.DSLContext
+import org.jooq.Field
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 import java.time.LocalDate
 
+/**
+ * Freshness of a cross-sectional percentile (relative strength / quality) relative to the ingested
+ * quotes — drives the ingestion-page status. [latestPopulated] is the most-recent date the percentile
+ * is computed for; [latestQuote] the most-recent ingested bar. Stale means a re-ingest moved the quotes
+ * ahead of the last recompute. A max-vs-max probe: `current` means the latest dates are aligned, not that
+ * every interior bar is populated (dates failing the min-peer gate stay null and are not detected here).
+ */
+data class CrossSectionalStatus(
+    val populatedRows: Int,
+    val latestPopulated: LocalDate?,
+    val latestQuote: LocalDate?,
+) {
+    val missing: Boolean get() = populatedRows == 0
+    val stale: Boolean get() = !missing && latestPopulated != null && latestQuote != null && latestPopulated.isBefore(latestQuote)
+    val current: Boolean get() = !missing && !stale
+}
+
+// A data-access class: the function count tracks the number of distinct quote queries (load, upsert,
+// the cross-sectional recompute passes, freshness status), not class complexity.
+@Suppress("TooManyFunctions")
 @Repository
 class QuoteRepository(
     private val dsl: DSLContext,
@@ -103,6 +125,28 @@ class QuoteRepository(
     }
 
     fun getTotalQuoteCount(): Int = dsl.fetchCount(QUOTES)
+
+    /** Freshness of the relative-strength percentile vs the ingested quotes (drives the ingestion-page status). */
+    fun relativeStrengthStatus(): CrossSectionalStatus = crossSectionalStatus(QUOTES.RELATIVE_STRENGTH_PERCENTILE)
+
+    /** Freshness of the quality percentile vs the ingested quotes (drives the ingestion-page status). */
+    fun qualityPercentileStatus(): CrossSectionalStatus = crossSectionalStatus(QUOTES.QUALITY_PERCENTILE)
+
+    private fun crossSectionalStatus(field: Field<BigDecimal?>): CrossSectionalStatus {
+        val record =
+            dsl
+                .select(
+                    DSL.count(field),
+                    DSL.max(QUOTES.QUOTE_DATE).filterWhere(field.isNotNull),
+                    DSL.max(QUOTES.QUOTE_DATE),
+                ).from(QUOTES)
+                .fetchOne()
+        return CrossSectionalStatus(
+            populatedRows = record?.value1() ?: 0,
+            latestPopulated = record?.value2(),
+            latestQuote = record?.value3(),
+        )
+    }
 
     /**
      * Recomputes the market-relative strength percentile for every quote on or after [fromDate],

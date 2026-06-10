@@ -164,6 +164,21 @@
         cross-sectionally against the whole universe per day. A pure SQL pass over the quotes
         already stored — no OHLCV re-fetch. Run it after a re-ingest to repopulate the column.
       </p>
+
+      <div th:if="${relativeStrengthStatus.missing}" class="alert alert-danger py-2">
+        <span class="badge bg-danger">Missing</span>
+        <span class="ms-2">No percentile data populated yet — run the recompute.</span>
+      </div>
+      <div th:if="${relativeStrengthStatus.stale}" class="alert alert-warning py-2">
+        <span class="badge bg-warning text-dark">Stale</span>
+        <span class="ms-2">Populated through <strong th:text="${relativeStrengthStatus.latestPopulated}">—</strong>,
+          but quotes run to <strong th:text="${relativeStrengthStatus.latestQuote}">—</strong> — re-run to catch up.</span>
+      </div>
+      <div th:if="${relativeStrengthStatus.current}" class="mb-3">
+        <span class="badge bg-success">Current</span>
+        <span class="text-muted ms-2">Populated through <strong th:text="${relativeStrengthStatus.latestPopulated}">—</strong>.</span>
+      </div>
+
       <form method="post" action="/ingestion/recompute-relative-strength" class="d-inline"
             th:if="${!relativeStrengthActive}">
         <button type="submit" class="btn btn-primary">Recompute Relative Strength</button>
@@ -191,6 +206,21 @@
         per day. A pure SQL pass over the stored quotes + fundamentals — no re-fetch. Run it after a
         re-ingest to repopulate the column. Separate from the relative-strength pass.
       </p>
+
+      <div th:if="${qualityPercentileStatus.missing}" class="alert alert-danger py-2">
+        <span class="badge bg-danger">Missing</span>
+        <span class="ms-2">No percentile data populated yet — run the recompute.</span>
+      </div>
+      <div th:if="${qualityPercentileStatus.stale}" class="alert alert-warning py-2">
+        <span class="badge bg-warning text-dark">Stale</span>
+        <span class="ms-2">Populated through <strong th:text="${qualityPercentileStatus.latestPopulated}">—</strong>,
+          but quotes run to <strong th:text="${qualityPercentileStatus.latestQuote}">—</strong> — re-run to catch up.</span>
+      </div>
+      <div th:if="${qualityPercentileStatus.current}" class="mb-3">
+        <span class="badge bg-success">Current</span>
+        <span class="text-muted ms-2">Populated through <strong th:text="${qualityPercentileStatus.latestPopulated}">—</strong>.</span>
+      </div>
+
       <form method="post" action="/ingestion/recompute-quality-percentile" class="d-inline"
             th:if="${!qualityPercentileActive}">
         <button type="submit" class="btn btn-primary">Recompute Quality Percentile</button>
