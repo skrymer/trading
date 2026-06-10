@@ -15,26 +15,56 @@ import kotlin.test.assertTrue
  */
 class EodhdFundamentalsResponseTest {
     @Test
+    fun `toFundamentals parses EODHD's flat colon-delimited Financials filter keys`() {
+        // Given EODHD's ACTUAL response to filter=...,Financials::Income_Statement::quarterly,
+        // Financials::Balance_Sheet::quarterly — the nested paths come back as LITERAL flat top-level
+        // keys (no nested "Financials" object), each a map keyed by fiscal date.
+        val json =
+            """
+            {
+              "Financials::Income_Statement::quarterly": {
+                "2024-03-31": { "date": "2024-03-31", "filing_date": "2024-05-02",
+                  "grossProfit": "42000", "totalRevenue": "90000", "operatingIncome": "28000" }
+              },
+              "Financials::Balance_Sheet::quarterly": {
+                "2024-03-31": { "date": "2024-03-31", "filing_date": "2024-05-02", "totalAssets": "350000" }
+              }
+            }
+            """.trimIndent()
+
+        // When parsed and mapped
+        val response = jacksonObjectMapper().readValue(json, EodhdFundamentalsResponse::class.java)
+        val fundamentals = response.toFundamentals("AAPL")
+
+        // Then the flat keys are read and merged into one record
+        assertEquals(1, fundamentals.size)
+        val f = fundamentals.first()
+        assertEquals(LocalDate.of(2024, 3, 31), f.fiscalDateEnding)
+        assertEquals(LocalDate.of(2024, 5, 2), f.filingDate)
+        assertEquals(BigDecimal("42000"), f.grossProfit)
+        assertEquals(BigDecimal("90000"), f.totalRevenue)
+        assertEquals(BigDecimal("28000"), f.operatingIncome)
+        assertEquals(BigDecimal("350000"), f.totalAssets)
+    }
+
+    @Test
     fun `toFundamentals merges income-statement and balance-sheet quarters by fiscal date`() {
-        // Given a payload with one quarter present in both statements, filed after the fiscal-period end
+        // Given one quarter present in both statements, filed after the fiscal-period end
         val response =
             EodhdFundamentalsResponse(
-                financials =
-                    financials(
-                        income =
-                            mapOf(
-                                "2024-03-31" to
-                                    incomeEntry(
-                                        date = "2024-03-31",
-                                        filingDate = "2024-05-02",
-                                        grossProfit = "42000",
-                                        totalRevenue = "90000",
-                                        operatingIncome = "28000",
-                                    ),
+                incomeStatementQuarterly =
+                    mapOf(
+                        "2024-03-31" to
+                            incomeEntry(
+                                "2024-03-31",
+                                "2024-05-02",
+                                grossProfit = "42000",
+                                totalRevenue = "90000",
+                                operatingIncome = "28000",
                             ),
-                        balance =
-                            mapOf("2024-03-31" to balanceEntry(date = "2024-03-31", filingDate = "2024-05-02", totalAssets = "350000")),
                     ),
+                balanceSheetQuarterly =
+                    mapOf("2024-03-31" to balanceEntry("2024-03-31", "2024-05-02", totalAssets = "350000")),
             )
 
         // When
@@ -53,8 +83,8 @@ class EodhdFundamentalsResponseTest {
     }
 
     @Test
-    fun `toFundamentals returns empty when the Financials section is absent`() {
-        // Given a fundamentals response with no Financials block (e.g. an ETF, or a non-financials fetch)
+    fun `toFundamentals returns empty when the Financials keys are absent`() {
+        // Given a fundamentals response with no Financials keys (e.g. an ETF, or a non-financials fetch)
         val response = EodhdFundamentalsResponse()
 
         // When / Then
@@ -66,16 +96,7 @@ class EodhdFundamentalsResponseTest {
         // Given a fiscal date that appears in the income statement but not the balance sheet
         val response =
             EodhdFundamentalsResponse(
-                financials =
-                    EodhdFinancialsSection(
-                        incomeStatement =
-                            EodhdIncomeStatement(
-                                quarterly =
-                                    mapOf(
-                                        "2024-03-31" to incomeEntry("2024-03-31", "2024-05-02", grossProfit = "42000"),
-                                    ),
-                            ),
-                    ),
+                incomeStatementQuarterly = mapOf("2024-03-31" to incomeEntry("2024-03-31", "2024-05-02", grossProfit = "42000")),
             )
 
         // When
@@ -91,17 +112,8 @@ class EodhdFundamentalsResponseTest {
         // Given an income-statement quarter that omits operatingIncome
         val response =
             EodhdFundamentalsResponse(
-                financials =
-                    EodhdFinancialsSection(
-                        incomeStatement =
-                            EodhdIncomeStatement(
-                                quarterly =
-                                    mapOf(
-                                        "2024-03-31" to
-                                            incomeEntry("2024-03-31", "2024-05-02", grossProfit = "42000", operatingIncome = null),
-                                    ),
-                            ),
-                    ),
+                incomeStatementQuarterly =
+                    mapOf("2024-03-31" to incomeEntry("2024-03-31", "2024-05-02", grossProfit = "42000", operatingIncome = null)),
             )
 
         // When
@@ -117,17 +129,11 @@ class EodhdFundamentalsResponseTest {
         // Given three quarters in arbitrary map order
         val response =
             EodhdFundamentalsResponse(
-                financials =
-                    EodhdFinancialsSection(
-                        incomeStatement =
-                            EodhdIncomeStatement(
-                                quarterly =
-                                    mapOf(
-                                        "2024-03-31" to incomeEntry("2024-03-31", "2024-05-02"),
-                                        "2024-09-30" to incomeEntry("2024-09-30", "2024-10-31"),
-                                        "2024-06-30" to incomeEntry("2024-06-30", "2024-08-01"),
-                                    ),
-                            ),
+                incomeStatementQuarterly =
+                    mapOf(
+                        "2024-03-31" to incomeEntry("2024-03-31", "2024-05-02"),
+                        "2024-09-30" to incomeEntry("2024-09-30", "2024-10-31"),
+                        "2024-06-30" to incomeEntry("2024-06-30", "2024-08-01"),
                     ),
             )
 
@@ -142,25 +148,60 @@ class EodhdFundamentalsResponseTest {
     }
 
     @Test
-    fun `a NA Financials section deserializes to null instead of throwing`() {
-        // Given EODHD's literal "NA" string for a symbol with no statements (typical for ETFs)
-        val json = """{ "General": { "Sector": "Financial Services" }, "Financials": "NA" }"""
+    fun `NA Financials filter keys deserialize to null instead of throwing`() {
+        // Given EODHD's literal "NA" string for the flat Financials keys (an ETF with no statements)
+        val json =
+            """
+            { "General": { "Sector": "Financial Services" },
+              "Financials::Income_Statement::quarterly": "NA",
+              "Financials::Balance_Sheet::quarterly": "NA" }
+            """.trimIndent()
 
         // When the full payload is parsed
         val response = jacksonObjectMapper().readValue(json, EodhdFundamentalsResponse::class.java)
 
-        // Then the lenient deserializer drops Financials to null and the fetch survives
-        assertNull(response.financials)
+        // Then the lenient deserializers drop the "NA" keys to null and the (shared) fetch survives
+        assertNull(response.incomeStatementQuarterly)
+        assertNull(response.balanceSheetQuarterly)
         assertTrue(response.toFundamentals("SPY").isEmpty())
     }
 
-    private fun financials(
-        income: Map<String, EodhdIncomeStatementEntry> = emptyMap(),
-        balance: Map<String, EodhdBalanceSheetEntry> = emptyMap(),
-    ) = EodhdFinancialsSection(
-        incomeStatement = EodhdIncomeStatement(quarterly = income),
-        balanceSheet = EodhdBalanceSheet(quarterly = balance),
-    )
+    @Test
+    fun `a mix of NA and present flat keys parses the present one without cross-corruption`() {
+        // Given one flat key is "NA" (thinly-covered symbol) and the other is a real quarterly map
+        val json =
+            """
+            { "Financials::Income_Statement::quarterly": "NA",
+              "Financials::Balance_Sheet::quarterly": {
+                "2024-03-31": { "date": "2024-03-31", "filing_date": "2024-05-02", "totalAssets": "350000" }
+              } }
+            """.trimIndent()
+
+        // When parsed — the "NA" key's skipChildren must not corrupt the next key's position
+        val response = jacksonObjectMapper().readValue(json, EodhdFundamentalsResponse::class.java)
+        val f = response.toFundamentals("X").single()
+
+        // Then the present balance-sheet leg is read and the absent income leg is null
+        assertNull(f.grossProfit)
+        assertEquals(BigDecimal("350000"), f.totalAssets)
+    }
+
+    @Test
+    fun `numeric line items coerce to BigDecimal`() {
+        // Given EODHD sends a line item as a JSON number rather than a string
+        val json =
+            """
+            { "Financials::Income_Statement::quarterly": {
+                "2024-03-31": { "date": "2024-03-31", "filing_date": "2024-05-02", "grossProfit": 42000.5 }
+              } }
+            """.trimIndent()
+
+        // When parsed
+        val response = jacksonObjectMapper().readValue(json, EodhdFundamentalsResponse::class.java)
+
+        // Then Jackson coerces the number into BigDecimal (the KDoc's "strings or numbers" claim)
+        assertEquals(BigDecimal("42000.5"), response.toFundamentals("X").single().grossProfit)
+    }
 
     private fun incomeEntry(
         date: String?,
