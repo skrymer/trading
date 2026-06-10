@@ -1,11 +1,11 @@
 ---
 type: entity
 title: Quality / profitability tilt
-summary: Live candidate (in build, #150) — a cross-sectional gross-profitability gate + ranker; the first long premise whose killing regime (narrow leadership) is a TAILWIND, not a wall. Unproven; kill-test pending.
+summary: Live candidate (BUILT, PR #152) — cross-sectional gross-profitability gate + ranker; the long premise whose killing regime (narrow leadership) is a TAILWIND, not a wall. Unproven; kill-test pending.
 status: active
 tags: [candidate, fundamentals, quality, live]
-sources: ["docs/adr/0019-fundamentals-are-point-in-time-reference-data-and-quality-is-a-cross-sectional-percentile.md", "https://github.com/skrymer/trading/issues/150", "knowledge/wiki/sources/2026-06-10-quality-tilt-scoping-and-design-lock.md"]
-related: ["[[beta-delivery]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[the-funnel]]", "[[pead]]", "[[2026-06-10-quality-tilt-scoping-and-design-lock]]", "[[purpose]]"]
+sources: ["docs/adr/0019-fundamentals-are-point-in-time-reference-data-and-quality-is-a-cross-sectional-percentile.md", "docs/adr/0020-same-day-cohort-ranking-is-a-first-class-stockranker-capability.md", "https://github.com/skrymer/trading/issues/150", "https://github.com/skrymer/trading/pull/152", "knowledge/wiki/sources/2026-06-10-quality-tilt-scoping-and-design-lock.md", "knowledge/wiki/sources/2026-06-10-quality-tilt-build-complete.md"]
+related: ["[[beta-delivery]]", "[[participate-and-lose]]", "[[long-premise-in-narrow-leadership]]", "[[the-funnel]]", "[[pead]]", "[[2026-06-10-quality-tilt-scoping-and-design-lock]]", "[[2026-06-10-quality-tilt-build-complete]]", "[[purpose]]"]
 updated: 2026-06-10
 ---
 
@@ -41,7 +41,10 @@ names actually receiving the flow.^[inferred — quant mechanism, not yet measur
   ([[component-firewall]] sibling, ADR 0009). Eligibility = top-quintile (`qualityPercentile ≥ 80`),
   fail-closed on null. Single baked metric (iterate = re-run the pass).
 - **Ranker:** `FundamentalQualityRanker` = `0.5·z(GP/TA level) + 0.5·z(margin-trend YoY)`, intra-subset
-  (Udgaard, from raw `Stock.fundamentals`) — the gate-vs-ranker split of ADR 0009.
+  (Udgaard, from raw `Stock.fundamentals`) — the gate-vs-ranker split of ADR 0009. Being a *blended*
+  cross-sectional ranker, it needed a new engine capability — **`StockRanker.rankCohort`** (ADR 0020), a
+  same-day-cohort ranking mode (per-stock default keeps every existing ranker byte-identical). See
+  [[2026-06-10-quality-tilt-build-complete]] for why a single-leg cross-sectional z would have been a no-op.
 - **Point-in-time:** every fundamentals read gates on EODHD `filing_date ≤ tradingDate` (never
   `fiscalDateEnding`) — the earnings `reported_date` guard; restatement residual accepted + documented
   (CONTEXT.md *Point-in-time fundamentals*).
@@ -51,8 +54,12 @@ names actually receiving the flow.^[inferred — quant mechanism, not yet measur
 
 ## Status
 
-**IN BUILD (pre-screen) — unproven.** Architecture locked (`/grill-with-docs` → ADR 0019), signal locked
-(quant consult), EODHD feasibility verified (filing_date present, history to 1985). No backtest has run.
+**BUILT (pre-screen) — unproven.** Architecture locked (`/grill-with-docs` → ADR 0019), signal locked
+(quant consult), EODHD feasibility verified (filing_date present, history to 1985). The full build —
+L1 fundamentals + L2 quality-percentile pass + the gate/exit/SMA conditions + `FundamentalQualityRanker`
++ the ADR 0020 cohort hook — is **merged-pending in PR #152**, all gates green (207 Midgaard + 1433 Udgaard
+tests). **No backtest has run** — the kill-test below is still the next gate.
+See [[2026-06-10-quality-tilt-build-complete]].
 
 ## Pending kill-test (pre-registered)
 
