@@ -43,6 +43,21 @@ interface StockRanker {
    */
   fun warmupTradingDays(): Int = 0
 
+  /**
+   * Score a whole same-day cohort at once (ADR 0020) — returns scores aligned by index with [candidates].
+   *
+   * The default delegates to per-stock [score], so any ranker that does not override this is
+   * byte-identical (same scores → same tie-break jitter → same sort). A *cross-sectional* ranker — one
+   * that standardizes or blends across the day's candidates, where a per-stock score is structurally
+   * impossible — overrides this instead of [score]. The engine calls it at the single point where the
+   * full same-day cohort is co-resident (the day-by-day selection loop), never in the batched Pass-1
+   * scan. A ranker overrides at most one of [score] / [rankCohort].
+   */
+  fun rankCohort(
+    candidates: List<Pair<Stock, StockQuote>>,
+    context: BacktestContext,
+  ): List<Double> = candidates.map { (stock, quote) -> score(stock, quote, context) }
+
   companion object {
     /**
      * Tiny jitter added to ranking scores to randomly break ties between stocks with equal scores.
@@ -845,5 +860,93 @@ class MultiFactorResidualMomentumRanker(
 
     /** Degeneracy floor for the pivot magnitude and the residual stdev. */
     private const val EPSILON = 1e-12
+  }
+}
+
+/**
+ * Orders same-day entry candidates by gross-profitability quality (ADR 0019). A cross-sectional ranker:
+ * `score = levelWeight·z_level + trendWeight·z_trend`, where each leg is z-scored *intra-subset* — over
+ * the stocks firing the entry that day — so the two differently-scaled legs combine on a common scale
+ * (the standardization is the only reason the blend is meaningful; a single leg alone would be a
+ * rank-preserving no-op, ADR 0020). It therefore overrides [rankCohort], not [score].
+ *
+ * - `z_level` standardizes `grossProfit_TTM / totalAssets_asof` — how profitable-per-asset, read via the
+ *   canonical [Stock.grossProfitTtmAsOf] / [Stock.latestFundamentalAsOf] (same definition the Midgaard
+ *   gate uses, so gate and ranker never disagree about what "quality" means).
+ * - `z_trend` standardizes the signed YoY operating-margin change
+ *   `operatingMarginTtmAsOf(D) − operatingMarginTtmPriorYearAsOf(D)` (magnitude, not sign-only; the two
+ *   TTM windows are disjoint, so it needs eight visible filings).
+ *
+ * A leg's value is undefined for a name (e.g. fewer than eight filings for the trend) → that name is
+ * excluded from the leg's mean/stdev and assigned `z = 0.0` (neutral, never `−MAX` — a quality holding
+ * with a missing reading must not be deterministically sunk). A degenerate day (fewer than two defined
+ * values, or zero cross-sectional spread) yields `z = 0.0` for the whole leg. Reads point-in-time
+ * fundamentals, not trailing price bars, so [warmupTradingDays] is 0.
+ */
+class FundamentalQualityRanker(
+  private val levelWeight: Double = 0.5,
+  private val trendWeight: Double = 0.5,
+) : StockRanker {
+  // Required by the interface but never consulted for selection — the engine ranks this via rankCohort.
+  // A single-stock cohort has no cross-sectional spread, so the neutral score is 0.0 (ADR 0020).
+  override fun score(
+    stock: Stock,
+    entryQuote: StockQuote,
+  ): Double = 0.0
+
+  override fun rankCohort(
+    candidates: List<Pair<Stock, StockQuote>>,
+    context: BacktestContext,
+  ): List<Double> {
+    val levels = candidates.map { (stock, quote) -> qualityLevel(stock, quote.date) }
+    val trends = candidates.map { (stock, quote) -> marginTrend(stock, quote.date) }
+    val zLevels = zScores(levels)
+    val zTrends = zScores(trends)
+    return candidates.indices.map { i -> levelWeight * zLevels[i] + trendWeight * zTrends[i] }
+  }
+
+  /** Gross profitability `grossProfit_TTM / totalAssets_asof`, or null when undefined. */
+  private fun qualityLevel(
+    stock: Stock,
+    date: LocalDate,
+  ): Double? {
+    val grossProfit = stock.grossProfitTtmAsOf(date) ?: return null
+    val totalAssets = stock.latestFundamentalAsOf(date)?.totalAssets ?: return null
+    return if (totalAssets <= 0.0) null else grossProfit / totalAssets
+  }
+
+  /** Signed YoY operating-margin change, or null when either TTM window is undefined (< 8 filings). */
+  private fun marginTrend(
+    stock: Stock,
+    date: LocalDate,
+  ): Double? {
+    val current = stock.operatingMarginTtmAsOf(date) ?: return null
+    val priorYear = stock.operatingMarginTtmPriorYearAsOf(date) ?: return null
+    return current - priorYear
+  }
+
+  /**
+   * Intra-subset z-scores aligned by index with [values]. Sample stdev (n−1) over the defined values
+   * only; a null value is excluded from the mean/stdev and assigned 0.0 (neutral). Returns all-0.0 for a
+   * degenerate leg — fewer than two defined values, or a cross-sectional stdev below the spread floor.
+   */
+  private fun zScores(values: List<Double?>): List<Double> {
+    val present = values.filterNotNull()
+    if (present.size < 2) return List(values.size) { 0.0 }
+    val mean = present.average()
+    val variance = present.sumOf { (it - mean) * (it - mean) } / (present.size - 1)
+    val stdev = sqrt(variance)
+    if (stdev < SPREAD_FLOOR) return List(values.size) { 0.0 }
+    return values.map { value -> if (value == null) 0.0 else (value - mean) / stdev }
+  }
+
+  override fun description() =
+    "Fundamental quality (${"%.1f".format(levelWeight)}·z-level GP/TA + ${"%.1f".format(trendWeight)}·z-trend op-margin YoY)"
+
+  override fun warmupTradingDays() = 0
+
+  companion object {
+    /** Cross-sectional standard-deviation floor below which a leg has no usable spread → neutral. */
+    private const val SPREAD_FLOOR = 1e-12
   }
 }

@@ -8,6 +8,7 @@ import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -147,6 +148,7 @@ class StockIngestionService(
       val sortedQuotes = enrichedQuotes.sortedBy { it.date }
       val symbolInfo = midgaardClient.getSymbolInfo(symbol)
       val earnings = resolveEarnings(symbol)
+      val fundamentals = resolveFundamentals(symbol)
       val ovtlyrSignals = midgaardClient.getOvtlyrSignals(symbol) ?: emptyList()
       Stock(
         symbol = symbol,
@@ -155,6 +157,7 @@ class StockIngestionService(
         quotes = sortedQuotes,
         orderBlocks = orderBlocks.toMutableList(),
         earnings = earnings,
+        fundamentals = fundamentals,
         ovtlyrSignals = ovtlyrSignals,
         listingDate = sortedQuotes.firstOrNull()?.date,
         delistingDate = resolveDelistingDate(symbolInfo?.delistedAt, sortedQuotes.lastOrNull()?.date),
@@ -173,6 +176,15 @@ class StockIngestionService(
       .onFailure { logger.warn("Earnings fetch failed for $symbol, keeping existing rows: ${it.message}") }
       .getOrNull()
       ?: stockRepository.findEarnings(symbol)
+
+  // Same outage-resilience contract as resolveEarnings: a failed upstream fetch falls back to the
+  // last-known fundamentals rather than wiping them, so the quality gate doesn't silently lose its
+  // input (and admit no entries) across a provider blip. Stale-but-present beats empty-because-we-failed.
+  private fun resolveFundamentals(symbol: String): List<Fundamental> =
+    runCatching { stockProvider.getFundamentals(symbol) }
+      .onFailure { logger.warn("Fundamentals fetch failed for $symbol, keeping existing rows: ${it.message}") }
+      .getOrNull()
+      ?: stockRepository.findFundamentals(symbol)
 
   /**
    * Authoritative delisting date if the provider knows one (the symbol came in

@@ -5,6 +5,7 @@ import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.OvtlyrSignalType
@@ -283,6 +284,40 @@ class StockIngestionServiceTest {
   }
 
   @Test
+  fun `fetchAndBuildStock populates fundamentals from provider when fetch succeeds`() {
+    // Given the provider returns a non-empty fundamentals history for the symbol
+    stubSuccessfulFetch()
+    val fresh = listOf(fundamental("AAPL", LocalDate.of(2024, 3, 31)))
+    whenever(stockProvider.getFundamentals("AAPL")).thenReturn(fresh)
+
+    // When the stock is built
+    val result = service.fetchAndBuildStock("AAPL")
+
+    // Then fundamentals on the result come from the provider, and no DB fallback was needed
+    assertNotNull(result)
+    assertEquals(fresh, result!!.fundamentals)
+    verify(stockRepository, never()).findFundamentals(any())
+  }
+
+  @Test
+  fun `fetchAndBuildStock falls back to stored fundamentals when provider returns null`() {
+    // Given the provider returns null (outage / parse error)
+    stubSuccessfulFetch()
+    whenever(stockProvider.getFundamentals("AAPL")).thenReturn(null)
+    val stored = listOf(fundamental("AAPL", LocalDate.of(2023, 12, 31)))
+    whenever(stockRepository.findFundamentals("AAPL")).thenReturn(stored)
+
+    // When the stock is built
+    val result = service.fetchAndBuildStock("AAPL")
+
+    // Then the stock is still built with the last-known fundamentals — the quality gate keeps its
+    // input across a transient upstream failure rather than silently losing it
+    assertNotNull(result)
+    assertEquals(stored, result!!.fundamentals)
+    verify(stockRepository).findFundamentals(eq("AAPL"))
+  }
+
+  @Test
   fun `fetchAndBuildStock stamps the asset type from the Midgaard symbol info`() {
     // Given Midgaard classifies the symbol as a leveraged ETF
     stubSuccessfulFetch()
@@ -376,5 +411,14 @@ class StockIngestionServiceTest {
       surprise = 0.05,
       surprisePercentage = 3.45,
       reportTime = "AfterMarket",
+    )
+
+  private fun fundamental(symbol: String, fiscalDate: LocalDate): Fundamental =
+    Fundamental(
+      symbol = symbol,
+      fiscalDateEnding = fiscalDate,
+      filingDate = fiscalDate.plusDays(40),
+      grossProfit = 100.0,
+      totalAssets = 1000.0,
     )
 }

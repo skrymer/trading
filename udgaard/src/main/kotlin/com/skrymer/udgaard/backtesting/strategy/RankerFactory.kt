@@ -84,6 +84,17 @@ object RankerFactory {
         usesRandomTieBreaks = true,
       ),
       RankerMetadata(
+        type = "FundamentalQuality",
+        displayName = "Fundamental Quality",
+        description =
+          "Ranks same-day candidates by gross-profitability quality: a cross-sectional blend of " +
+            "0.5·z(grossProfit_TTM / totalAssets) + 0.5·z(operating-margin YoY change), each z-scored " +
+            "intra-subset over the day's firing cohort (ADR 0019/0020).",
+        parameters = emptyList(),
+        category = "Score-Based",
+        usesRandomTieBreaks = true,
+      ),
+      RankerMetadata(
         type = "SectorStrength",
         displayName = "Sector Strength",
         description = "Ranks stocks by their sector's current bull percentage.",
@@ -167,6 +178,7 @@ object RankerFactory {
       "marketresidualmomentum" -> MarketResidualMomentumRanker()
       "multifactorresidualmomentum" -> MultiFactorResidualMomentumRanker()
       "nearness52weekhigh" -> NearnessTo52WeekHighRanker()
+      "fundamentalquality" -> FundamentalQualityRanker()
       "sectoredge" -> {
         val ranking = rankerConfig?.sectorRanking
         if (ranking.isNullOrEmpty()) null else SectorEdgeRanker(ranking)

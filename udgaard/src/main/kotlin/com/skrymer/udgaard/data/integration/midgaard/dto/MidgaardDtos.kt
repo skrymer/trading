@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.data.integration.midgaard.dto
 
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import com.skrymer.udgaard.data.model.StockQuote
@@ -30,6 +31,7 @@ data class MidgaardQuoteDto(
   val high52Week: BigDecimal? = null,
   val low52Week: BigDecimal? = null,
   val relativeStrengthPercentile: BigDecimal? = null,
+  val qualityPercentile: BigDecimal? = null,
 ) {
   fun toStockQuote() = StockQuote(
     symbol = symbol,
@@ -56,6 +58,7 @@ data class MidgaardQuoteDto(
     high52Week = high52Week?.toDouble(),
     low52Week = low52Week?.toDouble(),
     relativeStrengthPercentile = relativeStrengthPercentile?.toDouble(),
+    qualityPercentile = qualityPercentile?.toDouble(),
   )
 }
 
@@ -110,6 +113,37 @@ data class MidgaardEarningDto(
       surprise = surprise,
       surprisePercentage = surprisePercentage,
       reportTime = reportTime,
+    )
+}
+
+data class MidgaardFundamentalDto(
+  val symbol: String,
+  val fiscalDateEnding: LocalDate,
+  val filingDate: LocalDate? = null,
+  val grossProfit: Double? = null,
+  val costOfRevenue: Double? = null,
+  val totalRevenue: Double? = null,
+  val operatingIncome: Double? = null,
+  val netIncome: Double? = null,
+  val totalAssets: Double? = null,
+  val totalStockholderEquity: Double? = null,
+  val totalCurrentAssets: Double? = null,
+  val totalCurrentLiabilities: Double? = null,
+) {
+  fun toFundamental(): Fundamental =
+    Fundamental(
+      symbol = symbol,
+      fiscalDateEnding = fiscalDateEnding,
+      filingDate = filingDate,
+      grossProfit = grossProfit,
+      costOfRevenue = costOfRevenue,
+      totalRevenue = totalRevenue,
+      operatingIncome = operatingIncome,
+      netIncome = netIncome,
+      totalAssets = totalAssets,
+      totalStockholderEquity = totalStockholderEquity,
+      totalCurrentAssets = totalCurrentAssets,
+      totalCurrentLiabilities = totalCurrentLiabilities,
     )
 }
 

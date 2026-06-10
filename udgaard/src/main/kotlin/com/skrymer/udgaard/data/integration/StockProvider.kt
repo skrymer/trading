@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.data.integration
 
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.boot.actuate.health.HealthIndicator
 import java.time.LocalDate
@@ -57,4 +58,13 @@ interface StockProvider : HealthIndicator {
    * filters like `noEarningsWithinDays`.
    */
   fun getEarnings(symbol: String): List<Earning>?
+
+  /**
+   * Get the full history of point-in-time quarterly fundamentals for a symbol (ADR 0019 L1).
+   *
+   * Returns an empty list when the symbol has no statements (e.g. an ETF). Returns `null` only when
+   * the call failed — outage, timeout, parse error. As with [getEarnings], consumers must treat `null`
+   * as "we don't know" and fall back to last-known-good data rather than as "no fundamentals".
+   */
+  fun getFundamentals(symbol: String): List<Fundamental>?
 }
