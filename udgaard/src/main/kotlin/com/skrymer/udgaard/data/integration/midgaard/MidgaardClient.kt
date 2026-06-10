@@ -4,12 +4,14 @@ import com.skrymer.udgaard.data.integration.LatestQuote
 import com.skrymer.udgaard.data.integration.StockProvider
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardEarningDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardExchangeRateDto
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardFundamentalDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardOvtlyrSignalDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardTreasuryYieldDto
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.StockQuote
 import kotlinx.coroutines.Dispatchers
@@ -164,6 +166,20 @@ class MidgaardClient(
       return response?.map { it.toEarning() } ?: emptyList()
     } catch (e: Exception) {
       logger.warn("Failed to fetch earnings from Midgaard for $symbol: ${e.message}")
+      return null
+    }
+  }
+
+  override fun getFundamentals(symbol: String): List<Fundamental>? {
+    try {
+      val response = restClient
+        .get()
+        .uri("/api/fundamentals/{symbol}", symbol)
+        .retrieve()
+        .body(object : ParameterizedTypeReference<List<MidgaardFundamentalDto>>() {})
+      return response?.map { it.toFundamental() } ?: emptyList()
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch fundamentals from Midgaard for $symbol: ${e.message}")
       return null
     }
   }

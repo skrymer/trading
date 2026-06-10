@@ -2,6 +2,7 @@ package com.skrymer.udgaard.data.mapper
 
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OrderBlock
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.OrderBlockType
@@ -10,6 +11,7 @@ import com.skrymer.udgaard.data.model.OvtlyrSignalType
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
+import com.skrymer.udgaard.jooq.tables.pojos.Fundamentals
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
 import com.skrymer.udgaard.jooq.tables.pojos.OvtlyrSignals
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
@@ -30,6 +32,7 @@ class StockMapper {
     quotes: List<StockQuotes>,
     orderBlocks: List<OrderBlocks>,
     earnings: List<Earnings>,
+    fundamentals: List<Fundamentals> = emptyList(),
     ovtlyrSignals: List<OvtlyrSignals> = emptyList(),
   ): Stock =
     Stock(
@@ -38,6 +41,7 @@ class StockMapper {
       quotes = quotes.map { toDomain(it) },
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },
+      fundamentals = fundamentals.map { toDomain(it) },
       ovtlyrSignals = ovtlyrSignals.map { toDomain(it) },
       listingDate = stock.listingDate,
       delistingDate = stock.delistingDate,
@@ -73,6 +77,7 @@ class StockMapper {
       high52Week = quote.high_52Week?.toDouble(),
       low52Week = quote.low_52Week?.toDouble(),
       relativeStrengthPercentile = quote.relativeStrengthPercentile?.toDouble(),
+      qualityPercentile = quote.qualityPercentile?.toDouble(),
     )
 
   /**
@@ -115,6 +120,25 @@ class StockMapper {
       surprise = earning.surprise?.toDouble(),
       surprisePercentage = earning.surprisePercentage?.toDouble(),
       reportTime = earning.reportTime,
+    )
+
+  /**
+   * Convert Fundamental jOOQ POJO to domain model
+   */
+  fun toDomain(fundamental: Fundamentals): Fundamental =
+    Fundamental(
+      symbol = fundamental.stockSymbol,
+      fiscalDateEnding = fundamental.fiscalDateEnding,
+      filingDate = fundamental.filingDate,
+      grossProfit = fundamental.grossProfit?.toDouble(),
+      costOfRevenue = fundamental.costOfRevenue?.toDouble(),
+      totalRevenue = fundamental.totalRevenue?.toDouble(),
+      operatingIncome = fundamental.operatingIncome?.toDouble(),
+      netIncome = fundamental.netIncome?.toDouble(),
+      totalAssets = fundamental.totalAssets?.toDouble(),
+      totalStockholderEquity = fundamental.totalStockholderEquity?.toDouble(),
+      totalCurrentAssets = fundamental.totalCurrentAssets?.toDouble(),
+      totalCurrentLiabilities = fundamental.totalCurrentLiabilities?.toDouble(),
     )
 
   /**
@@ -171,6 +195,7 @@ class StockMapper {
       high_52Week = quote.high52Week?.toBigDecimal(),
       low_52Week = quote.low52Week?.toBigDecimal(),
       relativeStrengthPercentile = quote.relativeStrengthPercentile?.toBigDecimal(),
+      qualityPercentile = quote.qualityPercentile?.toBigDecimal(),
       trend = quote.trend,
     )
 
@@ -219,6 +244,26 @@ class StockMapper {
       surprise = earning.surprise?.toBigDecimal(),
       surprisePercentage = earning.surprisePercentage?.toBigDecimal(),
       reportTime = earning.reportTime,
+    )
+
+  /**
+   * Convert domain model to jOOQ Fundamental POJO
+   */
+  fun toPojo(fundamental: Fundamental): Fundamentals =
+    Fundamentals(
+      id = null, // Let database generate ID
+      stockSymbol = fundamental.symbol,
+      fiscalDateEnding = fundamental.fiscalDateEnding,
+      filingDate = fundamental.filingDate,
+      grossProfit = fundamental.grossProfit?.toBigDecimal(),
+      costOfRevenue = fundamental.costOfRevenue?.toBigDecimal(),
+      totalRevenue = fundamental.totalRevenue?.toBigDecimal(),
+      operatingIncome = fundamental.operatingIncome?.toBigDecimal(),
+      netIncome = fundamental.netIncome?.toBigDecimal(),
+      totalAssets = fundamental.totalAssets?.toBigDecimal(),
+      totalStockholderEquity = fundamental.totalStockholderEquity?.toBigDecimal(),
+      totalCurrentAssets = fundamental.totalCurrentAssets?.toBigDecimal(),
+      totalCurrentLiabilities = fundamental.totalCurrentLiabilities?.toBigDecimal(),
     )
 
   /**

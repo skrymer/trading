@@ -2,6 +2,7 @@ package com.skrymer.midgaard.integration.alphavantage
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.FxProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
@@ -18,6 +19,7 @@ import com.skrymer.midgaard.integration.alphavantage.dto.AlphaVantageTimeSeriesD
 import com.skrymer.midgaard.integration.closestRateAtOrBefore
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
+import com.skrymer.midgaard.model.Fundamental
 import com.skrymer.midgaard.model.OptionContractDto
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.service.ApiKeyService
@@ -42,6 +44,7 @@ class AlphaVantageProvider(
     IndicatorProvider,
     EarningsProvider,
     CompanyInfoProvider,
+    FundamentalsProvider,
     FxProvider,
     OptionsProvider {
     private val apiKey: String get() = apiKeyService.getAlphaVantageApiKey()
@@ -178,6 +181,10 @@ class AlphaVantageProvider(
             }.onFailure { e -> SafeLogging.logFetchFailure(logger, "AlphaVantage", "company overview", symbol, e) }.getOrNull()
         }
     }
+
+    // AlphaVantage (retired) is not a source for the quality metric's quarterly financials; the
+    // FundamentalsProvider bean exists only so the alphavantage profile still boots. Null ⇒ no upsert.
+    override suspend fun getFundamentals(symbol: String): List<Fundamental>? = null
 
     override fun getHistoricalOptions(
         symbol: String,

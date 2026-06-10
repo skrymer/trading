@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
+import com.skrymer.midgaard.model.Fundamental
 import com.skrymer.midgaard.model.RawBar
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -167,14 +168,21 @@ class LenientEarningsDeserializer : JsonDeserializer<EodhdEarningsSection?>() {
     ): EodhdEarningsSection? = readSectionOrNull(p)
 }
 
-// ── Fundamentals (company info + earnings) ──
+class LenientFinancialsDeserializer : JsonDeserializer<EodhdFinancialsSection?>() {
+    override fun deserialize(
+        p: JsonParser,
+        ctx: DeserializationContext,
+    ): EodhdFinancialsSection? = readSectionOrNull(p)
+}
+
+// ── Fundamentals (company info + earnings + quarterly financials) ──
 
 /**
- * Wraps the fundamentals payload returned by `GET /api/fundamentals/{symbol}.US?filter=General,Highlights,Earnings`.
- *
- * EODHD nests data by section; we extract only what `CompanyInfo` and the
- * `Earning` model need. Filtered request keeps the response under ~50 KB even
- * for heavy symbols like AAPL, vs the unfiltered ~1+ MB payload.
+ * Wraps the filtered fundamentals payload from `GET /api/fundamentals/{symbol}.US` — the request asks
+ * for `General,Highlights,Earnings,Financials::Income_Statement::quarterly,Financials::Balance_Sheet::quarterly`
+ * only, which still excludes the bulk of the unfiltered ~1+ MB payload (yearly statements, cash-flow,
+ * outstanding shares, analyst data). EODHD nests data by section; we extract only what `CompanyInfo`,
+ * the `Earning` model, and the quality metric (`Fundamental`) need.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class EodhdFundamentalsResponse(
@@ -187,13 +195,16 @@ data class EodhdFundamentalsResponse(
     @param:JsonProperty("Earnings")
     @param:JsonDeserialize(using = LenientEarningsDeserializer::class)
     val earnings: EodhdEarningsSection? = null,
+    @param:JsonProperty("Financials")
+    @param:JsonDeserialize(using = LenientFinancialsDeserializer::class)
+    val financials: EodhdFinancialsSection? = null,
     @param:JsonProperty("error") val errorMessage: String? = null,
 ) : EodhdApiResponse {
     override fun hasError(): Boolean = errorMessage != null
 
     override fun getErrorDescription(): String = errorMessage ?: "Unknown error"
 
-    override fun isValid(): Boolean = general != null || highlights != null || earnings != null
+    override fun isValid(): Boolean = general != null || highlights != null || earnings != null || financials != null
 
     fun toCompanyInfo(): CompanyInfo =
         CompanyInfo(
@@ -208,7 +219,40 @@ data class EodhdFundamentalsResponse(
             ?.mapNotNull { it.toEarning(symbol) }
             ?.sortedByDescending { it.fiscalDateEnding }
             ?: emptyList()
+
+    /**
+     * Merges the income-statement and balance-sheet quarters into one [Fundamental] per fiscal period.
+     * The two statements share the fiscal-date key and the same `filing_date` (one 10-Q); a quarter
+     * present in only one statement still yields a record with the other statement's fields null.
+     * Entries without a parseable fiscal date are dropped — `fiscalDateEnding` is the record's identity.
+     */
+    fun toFundamentals(symbol: String): List<Fundamental> {
+        val income = financials?.incomeStatement?.quarterly.orEmpty()
+        val balance = financials?.balanceSheet?.quarterly.orEmpty()
+        return (income.keys + balance.keys)
+            .mapNotNull { key ->
+                val inc = income[key]
+                val bal = balance[key]
+                val fiscalEnd = parseEodhdDate(inc?.date ?: bal?.date ?: key) ?: return@mapNotNull null
+                Fundamental(
+                    symbol = symbol,
+                    fiscalDateEnding = fiscalEnd,
+                    filingDate = parseEodhdDate(inc?.filingDate ?: bal?.filingDate),
+                    grossProfit = inc?.grossProfit,
+                    costOfRevenue = inc?.costOfRevenue,
+                    totalRevenue = inc?.totalRevenue,
+                    operatingIncome = inc?.operatingIncome,
+                    netIncome = inc?.netIncome,
+                    totalAssets = bal?.totalAssets,
+                    totalStockholderEquity = bal?.totalStockholderEquity,
+                    totalCurrentAssets = bal?.totalCurrentAssets,
+                    totalCurrentLiabilities = bal?.totalCurrentLiabilities,
+                )
+            }.sortedByDescending { it.fiscalDateEnding }
+    }
 }
+
+private fun parseEodhdDate(value: String?): LocalDate? = value?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class EodhdGeneralSection(
@@ -268,6 +312,52 @@ data class EodhdEarningEntry(
 
     private fun parseDate(value: String?): LocalDate? = value?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 }
+
+// ── Financials (quarterly income statement + balance sheet) ──
+//
+// EODHD nests Financials by statement → period-class → fiscal-date. We request only the `quarterly`
+// maps of Income_Statement and Balance_Sheet (filter `Financials::Income_Statement::quarterly,
+// Financials::Balance_Sheet::quarterly`) and curate the line items the quality metric needs. Each
+// entry carries both `date` (fiscal-period end) and `filing_date` (when it became public) — the
+// point-in-time visibility key (ADR 0019). Line items arrive as JSON strings or numbers; Jackson
+// coerces both into BigDecimal.
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class EodhdFinancialsSection(
+    @param:JsonProperty("Balance_Sheet") val balanceSheet: EodhdBalanceSheet? = null,
+    @param:JsonProperty("Income_Statement") val incomeStatement: EodhdIncomeStatement? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class EodhdIncomeStatement(
+    @param:JsonProperty("quarterly") val quarterly: Map<String, EodhdIncomeStatementEntry>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class EodhdBalanceSheet(
+    @param:JsonProperty("quarterly") val quarterly: Map<String, EodhdBalanceSheetEntry>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class EodhdIncomeStatementEntry(
+    @param:JsonProperty("date") val date: String? = null,
+    @param:JsonProperty("filing_date") val filingDate: String? = null,
+    @param:JsonProperty("grossProfit") val grossProfit: BigDecimal? = null,
+    @param:JsonProperty("costOfRevenue") val costOfRevenue: BigDecimal? = null,
+    @param:JsonProperty("totalRevenue") val totalRevenue: BigDecimal? = null,
+    @param:JsonProperty("operatingIncome") val operatingIncome: BigDecimal? = null,
+    @param:JsonProperty("netIncome") val netIncome: BigDecimal? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class EodhdBalanceSheetEntry(
+    @param:JsonProperty("date") val date: String? = null,
+    @param:JsonProperty("filing_date") val filingDate: String? = null,
+    @param:JsonProperty("totalAssets") val totalAssets: BigDecimal? = null,
+    @param:JsonProperty("totalStockholderEquity") val totalStockholderEquity: BigDecimal? = null,
+    @param:JsonProperty("totalCurrentAssets") val totalCurrentAssets: BigDecimal? = null,
+    @param:JsonProperty("totalCurrentLiabilities") val totalCurrentLiabilities: BigDecimal? = null,
+)
 
 // ── End-of-Day OHLCV row ──
 

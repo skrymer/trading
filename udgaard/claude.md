@@ -87,8 +87,8 @@ udgaard/
 │   │       ├── CompositeEntryStrategy.kt
 │   │       ├── CompositeExitStrategy.kt
 │   │       ├── StrategyDsl.kt        # DSL builder
-│   │       ├── StockRanker.kt        # Ranking implementations + warmupTradingDays() (pre-window history a trailing ranker needs loaded; default 0, overridden by Trailing/MarketResidual/MultiFactorResidual; ADR 0018)
-│   │       ├── RankerFactory.kt     # Ranker creation + RankerMetadata catalog (served by /api/backtest/rankers)
+│   │       ├── StockRanker.kt        # Ranking implementations + warmupTradingDays() (pre-window history a trailing ranker needs loaded; default 0, overridden by Trailing/MarketResidual/MultiFactorResidual; ADR 0018) + rankCohort() (same-day cohort ranking hook for cross-sectional rankers e.g. FundamentalQualityRanker; default delegates to per-stock score → byte-identical; ADR 0020)
+│   │       ├── RankerFactory.kt     # Ranker creation + RankerMetadata catalog (served by /api/backtest/rankers); incl. fundamentalquality → FundamentalQualityRanker
 │   │       ├── RegisteredStrategy.kt # Auto-discovery annotation
 │   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
 │   │       ├── *ExitStrategy.kt
@@ -101,21 +101,22 @@ udgaard/
 │   │   │   ├── BreadthController.kt
 │   │   │   └── DataManagementController.kt
 │   │   ├── integration/              # External API integrations
-│   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes + earnings (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings); getEarnings returns null on provider failure (caller must fall back), empty list when symbol genuinely has none
-│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators + earnings + ovtlyr signals from Midgaard service (implements StockProvider)
-│   │   │   │   ├── MidgaardClient.kt  # incl. getOvtlyrSignals(symbol) — ovtlyr buy/sell calls (vendor-specific, not on StockProvider)
+│   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes + earnings + fundamentals (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings, getFundamentals); getEarnings/getFundamentals return null on provider failure (caller must fall back), empty list when symbol genuinely has none (ADR 0019)
+│   │   │   ├── midgaard/             # OHLCV + pre-computed indicators + earnings + fundamentals + ovtlyr signals from Midgaard service (implements StockProvider)
+│   │   │   │   ├── MidgaardClient.kt  # incl. getOvtlyrSignals(symbol) — ovtlyr buy/sell calls (vendor-specific, not on StockProvider) + getFundamentals(symbol) → point-in-time quarterly fundamentals (ADR 0019)
 │   │   │   │   ├── MidgaardHttpConfig.kt  # RestClientCustomizer with connect (5s) + read (30s) timeouts; bounded so a Midgaard outage fails fast instead of hanging on infinite socket reads
-│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto, MidgaardOvtlyrSignalDto
+│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto, MidgaardFundamentalDto, MidgaardOvtlyrSignalDto
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
 │   │   ├── mapper/                   # Data mappers
 │   │   │   └── StockMapper.kt
 │   │   ├── model/                    # Domain models
-│   │   │   ├── Stock.kt              # Includes ovtlyrSignals: List<OvtlyrSignal>
-│   │   │   ├── StockQuote.kt
+│   │   │   ├── Stock.kt              # Includes ovtlyrSignals + fundamentals: List<Fundamental>; point-in-time TTM accessors grossProfitTtmAsOf / operatingMarginTtmAsOf / operatingMarginTtmPriorYearAsOf / latestFundamentalAsOf (gated on filing_date, never fiscalDateEnding; ADR 0019)
+│   │   │   ├── StockQuote.kt         # Includes qualityPercentile: Double? (cross-sectional GP/TA percentile from Midgaard; ADR 0019)
 │   │   │   ├── OrderBlock.kt
 │   │   │   ├── Earning.kt
+│   │   │   ├── Fundamental.kt        # Point-in-time quarterly financial-statement line items (filingDate visibility key, isVisibleAsOf; loaded from Midgaard during ingestion; ADR 0019)
 │   │   │   ├── OvtlyrSignal.kt       # Ovtlyr buy/sell signal (loaded from Midgaard during ingestion)
 │   │   │   ├── AssetType.kt
 │   │   │   ├── MarketSymbol.kt
@@ -123,13 +124,13 @@ udgaard/
 │   │   │   ├── SectorBreadthDaily.kt
 │   │   │   └── EwReturnDaily.kt       # One day's equal-weight cross-section of trailing 20-bar returns (mean/stdev/contributingN) — the equal-weight leg of the leadership gap (issue #83)
 │   │   ├── repository/               # jOOQ repositories
-│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) used by ingestion fallback + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
+│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) + findFundamentals(symbol) used by ingestion fallback + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
 │   │   │   ├── LeadershipGapRepository.kt  # ewReturnByDate(): full-universe equal-weight 20-bar-return aggregate (mean/stdev/contributingN) over the point-in-time STOCK-or-null universe (same population as breadth, ADR 0011); feeds the leadership-gap regime (issue #83)
 │   │   │   ├── MarketBreadthRepository.kt
 │   │   │   └── SectorBreadthRepository.kt
 │   │   └── service/
 │   │       ├── StockService.kt       # Stock data management
-│   │       ├── StockIngestionService.kt  # Bulk data ingestion; loads ovtlyr signals via MidgaardClient.getOvtlyrSignals; resolveEarnings(symbol) helper falls back to stockRepository.findEarnings on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays silently invert)
+│   │       ├── StockIngestionService.kt  # Bulk data ingestion; loads ovtlyr signals via MidgaardClient.getOvtlyrSignals; resolveEarnings(symbol) + resolveFundamentals(symbol) helpers fall back to stockRepository.findEarnings/findFundamentals on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays / the quality gate silently invert; ADR 0019)
 │   │       ├── TechnicalIndicatorService.kt  # EMAs, ATR, Donchian
 │   │       ├── MarketBreadthService.kt
 │   │       ├── SectorBreadthService.kt
@@ -209,7 +210,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V28)
+│   └── db/migration/                 # Flyway migrations (V1-V30)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -237,7 +238,9 @@ udgaard/
 │       ├── V25__Add_leveraged_sector_basket_symbols.sql    # idempotent INSERTs adding 9 ETF/leveraged-ETF symbols to symbols table
 │       ├── V26__Add_sma_and_52week_indicators.sql          # Adds sma_50/150/200 + 52-week high/low columns to stock_quotes (ingested from Midgaard)
 │       ├── V27__Add_relative_strength_percentile.sql       # Adds relative_strength_percentile column to stock_quotes (ingested from Midgaard; ADR 0009)
-│       └── V28__Drop_symbols_table_move_asset_type_to_stocks.sql  # Drops the symbols catalogue; asset_type moves to stocks, backfilled in place (ADR 0011)
+│       ├── V28__Drop_symbols_table_move_asset_type_to_stocks.sql  # Drops the symbols catalogue; asset_type moves to stocks, backfilled in place (ADR 0011)
+│       ├── V29__Add_fundamentals.sql                       # fundamentals table (one row per (stock_symbol, fiscal_date_ending), filing_date visibility key + income-statement/balance-sheet line items, FK to stocks; mirrored from Midgaard; ADR 0019)
+│       └── V30__Add_quality_percentile.sql                 # Adds quality_percentile column to stock_quotes (ingested from Midgaard; ADR 0019)
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container
@@ -396,11 +399,14 @@ TrailingReturnRanker()          // 12-1 cross-sectional momentum (252d return en
 MarketResidualMomentumRanker()  // SPY-beta-stripped residual momentum (504d regression, 252-21d residual accum)
 MultiFactorResidualMomentumRanker() // market+sector residual momentum (504d regress on SPY + sector ETF, 252-21d accum)
 NearnessTo52WeekHighRanker()    // Nearness to own 52-week high (min(close / 52wk-high, 1.0), closer = better)
+FundamentalQualityRanker()      // Cross-sectional GP/TA quality: 0.5·z-level (GP/TA) + 0.5·z-trend (op-margin YoY), each z-scored intra-subset — overrides rankCohort, not score (ADR 0019/0020)
 SectorEdgeRanker()              // Rank by user-supplied sector priority order (Sector-Priority category)
 SectorEdgeWithTightnessRanker() // Sector edge + base-tightness (ATR/close) tie-breaker within a sector
 RandomRanker()                  // Random selection (baseline)
 AdaptiveRanker()                // Volatility in trends, DistanceFrom10Ema in chop
 ```
+
+`StockRanker` has two ranking modes (ADR 0020): the per-stock `score(stock, quote, context)` that most rankers override, and `rankCohort(candidates, context)` which scores the whole same-day cohort at once. The default `rankCohort` delegates to per-stock `score`, so every per-stock ranker is byte-identical; a *cross-sectional* ranker that standardizes or blends across the day's candidates (`FundamentalQualityRanker`) overrides `rankCohort` instead — a ranker overrides **at most one** of the two. The engine calls `rankCohort` at the single co-resident selection site in `BacktestService` (`resolvedEntries` for the current day), immediately before tie-break jitter + the capital-aware sort, never in the batched Pass-1 scan.
 
 ### 5. Cooldown Period Logic
 

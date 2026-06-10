@@ -18,6 +18,7 @@ data class Stock(
   val quotes: List<StockQuote> = emptyList(),
   val orderBlocks: List<OrderBlock> = emptyList(),
   val earnings: List<Earning> = emptyList(),
+  val fundamentals: List<Fundamental> = emptyList(),
   val ovtlyrSignals: List<OvtlyrSignal> = emptyList(),
   val listingDate: LocalDate? = null,
   val delistingDate: LocalDate? = null,
@@ -234,6 +235,75 @@ data class Stock(
    * @return Earning for that quarter, or null if not found
    */
   fun getEarningsByFiscalDate(fiscalDateEnding: LocalDate): Earning? = earnings.find { it.fiscalDateEnding == fiscalDateEnding }
+
+  /**
+   * The fundamentals public on [date] — those whose `filingDate` is on or before it — most-recent
+   * filing first (by `filingDate`, then `fiscalDateEnding`). This is the point-in-time peer order the
+   * TTM accessors and the quality ranker read from; the canonical definition the Midgaard L2 SQL pass
+   * mirrors (ADR 0019, CONTEXT *Gross-profitability quality percentile*).
+   */
+  fun visibleFundamentalsAsOf(date: LocalDate): List<Fundamental> =
+    fundamentals
+      .filter { it.isVisibleAsOf(date) }
+      .sortedWith(compareByDescending<Fundamental> { it.filingDate!! }.thenByDescending { it.fiscalDateEnding })
+
+  /**
+   * The single most-recent fundamental public on [date] — the source of the point-in-time balance-sheet
+   * values (e.g. total assets), which are stock quantities read as-of, never summed.
+   */
+  fun latestFundamentalAsOf(date: LocalDate): Fundamental? = visibleFundamentalsAsOf(date).firstOrNull()
+
+  /**
+   * Trailing-twelve-month gross profit as of [date] — the sum of `grossProfit` over the four most-recent
+   * filings visible by `filingDate` (a flow item, summed to de-seasonalise). Null (the metric is
+   * undefined, so the gate/ranker treats the name as having no quality reading) when fewer than four
+   * quarters are visible or any of the four omits gross profit. A negative sum is legitimate and kept.
+   */
+  fun grossProfitTtmAsOf(date: LocalDate): Double? = visibleFundamentalsAsOf(date).ttmSum { it.grossProfit }
+
+  /**
+   * Trailing-twelve-month operating margin as of [date] — `operatingIncome_TTM / totalRevenue_TTM`, each
+   * summed over the four most-recent visible filings. Null when fewer than four quarters are visible,
+   * any quarter omits operating income or revenue, or the revenue sum is zero.
+   */
+  fun operatingMarginTtmAsOf(date: LocalDate): Double? {
+    val visible = visibleFundamentalsAsOf(date)
+    val operatingIncome = visible.ttmSum { it.operatingIncome } ?: return null
+    val revenue = visible.ttmSum { it.totalRevenue } ?: return null
+    return if (revenue == 0.0) null else operatingIncome / revenue
+  }
+
+  /**
+   * Prior-year trailing-twelve-month operating margin as of [date] — the same ratio as
+   * [operatingMarginTtmAsOf] but over the fifth-to-eighth most-recent visible filings, the TTM window
+   * one year earlier. Requires at least eight visible filings so this window is *disjoint* from the
+   * current one (no shared quarter); the quality ranker's margin-trend leg is the signed YoY change
+   * `operatingMarginTtmAsOf(date) − operatingMarginTtmPriorYearAsOf(date)`. Null when fewer than eight
+   * quarters are visible, any of the prior-year four omits operating income or revenue, or that
+   * revenue sum is zero.
+   */
+  fun operatingMarginTtmPriorYearAsOf(date: LocalDate): Double? {
+    val visible = visibleFundamentalsAsOf(date)
+    if (visible.size < 8) return null
+    val priorYear = visible.subList(4, 8)
+    val operatingIncome = priorYear.ttmSum { it.operatingIncome } ?: return null
+    val revenue = priorYear.ttmSum { it.totalRevenue } ?: return null
+    return if (revenue == 0.0) null else operatingIncome / revenue
+  }
+
+  /**
+   * Sums [selector] over the four most-recent filings of this (already most-recent-first) list. Null
+   * unless there are at least four and all four carry the selected value — the "exactly four present
+   * quarters" rule the Midgaard pass enforces with `filing_rank >= 4 AND ttm_count = 4`.
+   */
+  private fun List<Fundamental>.ttmSum(selector: (Fundamental) -> Double?): Double? {
+    if (size < 4) return null
+    var sum = 0.0
+    for (i in 0 until 4) {
+      sum += selector(this[i]) ?: return null
+    }
+    return sum
+  }
 
   /**
    * The current Ovtlyr signal as of [asOf] — the most recent stored signal on or before that

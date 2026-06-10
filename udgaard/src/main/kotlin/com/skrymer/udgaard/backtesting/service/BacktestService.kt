@@ -1026,11 +1026,15 @@ class BacktestService(
           quoteIndexes,
         )
 
+        // Rank the full same-day cohort at once (ADR 0020): cross-sectional rankers (e.g. quality)
+        // standardize across the day's candidates here, where they are all co-resident; the default
+        // rankCohort delegates to per-stock score, so non-cross-sectional rankers are byte-identical.
+        val cohort = resolvedEntries.map { it.stockPair.strategyStock to it.strategyEntryQuote }
+        val cohortScores = ranker.rankCohort(cohort, context)
         val rankedEntries =
           resolvedEntries
-            .map { entry ->
-              val score = ranker.score(entry.stockPair.strategyStock, entry.strategyEntryQuote, context)
-              val jitteredScore = score + tieBreakRandom.nextDouble() * StockRanker.TIE_BREAK_JITTER
+            .mapIndexed { index, entry ->
+              val jitteredScore = cohortScores[index] + tieBreakRandom.nextDouble() * StockRanker.TIE_BREAK_JITTER
               RankedEntry(entry, jitteredScore)
             }.sortedByDescending { it.score }
 

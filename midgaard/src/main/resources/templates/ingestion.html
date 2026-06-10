@@ -181,6 +181,33 @@
     </div>
   </div>
 
+  <!-- Quality Percentile — cross-sectional, independent of OHLCV ingestion (ADR 0019) -->
+  <div class="card mt-4">
+    <div class="card-header"><strong>Quality Percentile</strong></div>
+    <div class="card-body">
+      <p class="text-muted mb-3">
+        Gross-profitability quality percentile (0–100): each stock's trailing-twelve-month
+        gross profit over total assets (GP/TA), ranked cross-sectionally against the whole universe
+        per day. A pure SQL pass over the stored quotes + fundamentals — no re-fetch. Run it after a
+        re-ingest to repopulate the column. Separate from the relative-strength pass.
+      </p>
+      <form method="post" action="/ingestion/recompute-quality-percentile" class="d-inline"
+            th:if="${!qualityPercentileActive}">
+        <button type="submit" class="btn btn-primary">Recompute Quality Percentile</button>
+      </form>
+      <div th:if="${qualityPercentileActive}" class="mt-2">
+        <span class="badge bg-info">Running…</span>
+        <span class="text-muted ms-2">Cross-sectional recompute in progress — this can take a few minutes.</span>
+        <script>setTimeout(function() { window.location.reload(); }, 5000);</script>
+      </div>
+      <div th:if="${!qualityPercentileActive and qualityPercentileLastRun != null}" class="mt-2">
+        <span class="badge bg-success">Complete</span>
+        <span class="text-muted ms-2">Last recompute populated
+          <strong th:text="${#numbers.formatInteger(qualityPercentileLastRun, 0, 'COMMA')}">0</strong> rows.</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Treasury Yields — the idle-cash short rate (ADR 0016), independent of OHLCV ingestion -->
   <div class="card mt-4">
     <div class="card-header"><strong>Treasury Yields</strong></div>

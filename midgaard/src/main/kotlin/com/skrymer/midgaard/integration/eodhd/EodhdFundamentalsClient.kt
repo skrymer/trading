@@ -69,8 +69,11 @@ class EodhdFundamentalsClient(
                         uriBuilder
                             .path("/fundamentals/{symbol}")
                             .queryParam("api_token", apiKey)
-                            .queryParam("filter", "General,Highlights,Earnings")
-                            .build(eodhdSymbol)
+                            .queryParam(
+                                "filter",
+                                "General,Highlights,Earnings," +
+                                    "Financials::Income_Statement::quarterly,Financials::Balance_Sheet::quarterly",
+                            ).build(eodhdSymbol)
                     }.retrieve()
                     .body(EodhdFundamentalsResponse::class.java)
             }.onFailure { e ->

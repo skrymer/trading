@@ -5,13 +5,16 @@ import com.skrymer.udgaard.data.dto.SymbolRecord
 import com.skrymer.udgaard.data.mapper.StockMapper
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
+import com.skrymer.udgaard.jooq.tables.pojos.Fundamentals
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
 import com.skrymer.udgaard.jooq.tables.pojos.OvtlyrSignals
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
 import com.skrymer.udgaard.jooq.tables.pojos.Stocks
 import com.skrymer.udgaard.jooq.tables.references.EARNINGS
+import com.skrymer.udgaard.jooq.tables.references.FUNDAMENTALS
 import com.skrymer.udgaard.jooq.tables.references.ORDER_BLOCKS
 import com.skrymer.udgaard.jooq.tables.references.OVTLYR_SIGNALS
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
@@ -82,6 +85,14 @@ class StockJooqRepository(
         .orderBy(EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
 
+    // Load fundamentals
+    val fundamentals =
+      dsl
+        .selectFrom(FUNDAMENTALS)
+        .where(FUNDAMENTALS.STOCK_SYMBOL.eq(symbol))
+        .orderBy(FUNDAMENTALS.FISCAL_DATE_ENDING.asc())
+        .fetchInto(Fundamentals::class.java)
+
     // Load Ovtlyr signals
     val ovtlyrSignals =
       dsl
@@ -90,7 +101,7 @@ class StockJooqRepository(
         .orderBy(OVTLYR_SIGNALS.SIGNAL_DATE.asc())
         .fetchInto(OvtlyrSignals::class.java)
 
-    return mapper.toDomain(stock, quotes, orderBlocks, earnings, ovtlyrSignals)
+    return mapper.toDomain(stock, quotes, orderBlocks, earnings, fundamentals, ovtlyrSignals)
   }
 
   /**
@@ -107,6 +118,21 @@ class StockJooqRepository(
       .where(EARNINGS.STOCK_SYMBOL.eq(symbol))
       .orderBy(EARNINGS.FISCAL_DATE_ENDING.asc())
       .fetchInto(Earnings::class.java)
+      .map { mapper.toDomain(it) }
+
+  /**
+   * Load fundamentals for a single symbol, ordered by fiscal date ascending.
+   *
+   * Like [findEarnings], used by the ingestion service to recover prior fundamentals when a fresh
+   * Midgaard fetch fails. An empty result is legitimate "no fundamentals"; the caller distinguishes
+   * that from "fetch failed upstream" (null) higher up the stack.
+   */
+  fun findFundamentals(symbol: String): List<Fundamental> =
+    dsl
+      .selectFrom(FUNDAMENTALS)
+      .where(FUNDAMENTALS.STOCK_SYMBOL.eq(symbol))
+      .orderBy(FUNDAMENTALS.FISCAL_DATE_ENDING.asc())
+      .fetchInto(Fundamentals::class.java)
       .map { mapper.toDomain(it) }
 
   /**
@@ -250,6 +276,14 @@ class StockJooqRepository(
         .orderBy(EARNINGS.STOCK_SYMBOL, EARNINGS.FISCAL_DATE_ENDING.asc())
         .fetchInto(Earnings::class.java)
 
+    // Load all fundamentals for these stocks
+    val fundamentals =
+      dsl
+        .selectFrom(FUNDAMENTALS)
+        .where(FUNDAMENTALS.STOCK_SYMBOL.`in`(symbols))
+        .orderBy(FUNDAMENTALS.STOCK_SYMBOL, FUNDAMENTALS.FISCAL_DATE_ENDING.asc())
+        .fetchInto(Fundamentals::class.java)
+
     // Load all Ovtlyr signals for these stocks
     val ovtlyrSignals =
       dsl
@@ -259,14 +293,15 @@ class StockJooqRepository(
         .fetchInto(OvtlyrSignals::class.java)
     logger.info(
       "Loaded ${stocks.size} stocks, ${orderBlocks.size} order blocks, " +
-        "${earnings.size} earnings, ${ovtlyrSignals.size} Ovtlyr signals " +
-        "in ${System.currentTimeMillis() - startTime}ms",
+        "${earnings.size} earnings, ${fundamentals.size} fundamentals, " +
+        "${ovtlyrSignals.size} Ovtlyr signals in ${System.currentTimeMillis() - startTime}ms",
     )
 
     // Group by symbol
     val quotesBySymbol = quotes.groupBy { it.stockSymbol }
     val orderBlocksBySymbol = orderBlocks.groupBy { it.stockSymbol }
     val earningsBySymbol = earnings.groupBy { it.stockSymbol }
+    val fundamentalsBySymbol = fundamentals.groupBy { it.stockSymbol }
     val ovtlyrSignalsBySymbol = ovtlyrSignals.groupBy { it.stockSymbol }
 
     // Map to domain models
@@ -276,6 +311,7 @@ class StockJooqRepository(
         quotes = quotesBySymbol[stock.symbol] ?: emptyList(),
         orderBlocks = orderBlocksBySymbol[stock.symbol] ?: emptyList(),
         earnings = earningsBySymbol[stock.symbol] ?: emptyList(),
+        fundamentals = fundamentalsBySymbol[stock.symbol] ?: emptyList(),
         ovtlyrSignals = ovtlyrSignalsBySymbol[stock.symbol] ?: emptyList(),
       )
     }
@@ -322,10 +358,11 @@ class StockJooqRepository(
         .set(STOCKS.DELISTING_DATE, stock.delistingDate)
         .execute()
 
-      // 2. Delete existing quotes, order blocks, earnings, and Ovtlyr signals (cascade delete)
+      // 2. Delete existing quotes, order blocks, earnings, fundamentals, and Ovtlyr signals (cascade delete)
       ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.eq(stock.symbol)).execute()
+      ctx.deleteFrom(FUNDAMENTALS).where(FUNDAMENTALS.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.eq(stock.symbol)).execute()
 
       // 3. Insert quotes
@@ -387,7 +424,31 @@ class StockJooqRepository(
         earningsBatch.execute()
       }
 
-      // 6. Insert Ovtlyr signals
+      // 6. Insert fundamentals
+      if (stock.fundamentals.isNotEmpty()) {
+        val fundamentalsBatch = ctx.batch(
+          stock.fundamentals.map { fundamental ->
+            val pojo = mapper.toPojo(fundamental)
+            ctx
+              .insertInto(FUNDAMENTALS)
+              .set(FUNDAMENTALS.STOCK_SYMBOL, stock.symbol)
+              .set(FUNDAMENTALS.FISCAL_DATE_ENDING, pojo.fiscalDateEnding)
+              .set(FUNDAMENTALS.FILING_DATE, pojo.filingDate)
+              .set(FUNDAMENTALS.GROSS_PROFIT, pojo.grossProfit)
+              .set(FUNDAMENTALS.COST_OF_REVENUE, pojo.costOfRevenue)
+              .set(FUNDAMENTALS.TOTAL_REVENUE, pojo.totalRevenue)
+              .set(FUNDAMENTALS.OPERATING_INCOME, pojo.operatingIncome)
+              .set(FUNDAMENTALS.NET_INCOME, pojo.netIncome)
+              .set(FUNDAMENTALS.TOTAL_ASSETS, pojo.totalAssets)
+              .set(FUNDAMENTALS.TOTAL_STOCKHOLDER_EQUITY, pojo.totalStockholderEquity)
+              .set(FUNDAMENTALS.TOTAL_CURRENT_ASSETS, pojo.totalCurrentAssets)
+              .set(FUNDAMENTALS.TOTAL_CURRENT_LIABILITIES, pojo.totalCurrentLiabilities)
+          },
+        )
+        fundamentalsBatch.execute()
+      }
+
+      // 7. Insert Ovtlyr signals
       if (stock.ovtlyrSignals.isNotEmpty()) {
         val ovtlyrSignalsBatch = ctx.batch(
           stock.ovtlyrSignals.map { ovtlyrSignal ->

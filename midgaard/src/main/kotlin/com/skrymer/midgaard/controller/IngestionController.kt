@@ -5,6 +5,7 @@ import com.skrymer.midgaard.model.IngestionStatus
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
+import com.skrymer.midgaard.service.QualityPercentileService
 import com.skrymer.midgaard.service.RelativeStrengthService
 import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
@@ -21,6 +22,7 @@ class IngestionController(
     private val delistedIngestionService: DelistedIngestionService,
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val relativeStrengthService: RelativeStrengthService,
+    private val qualityPercentileService: QualityPercentileService,
 ) {
     @GetMapping("/status")
     fun getIngestionStatus(): List<IngestionStatus> = ingestionStatusRepository.findAll()
@@ -63,6 +65,12 @@ class IngestionController(
     fun triggerRelativeStrengthRecompute(): ResponseEntity<Map<String, String>> {
         relativeStrengthService.recomputeAllAsync()
         return ResponseEntity.ok(mapOf("message" to "Relative-strength recompute started"))
+    }
+
+    @PostMapping("/recompute-quality-percentile")
+    fun triggerQualityPercentileRecompute(): ResponseEntity<Map<String, String>> {
+        qualityPercentileService.recomputeAllAsync()
+        return ResponseEntity.ok(mapOf("message" to "Quality-percentile recompute started"))
     }
 
     @PostMapping("/delisted/discover")

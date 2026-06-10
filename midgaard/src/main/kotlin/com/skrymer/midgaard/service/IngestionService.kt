@@ -2,6 +2,7 @@ package com.skrymer.midgaard.service
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integrity.DataIntegrityService
@@ -12,6 +13,7 @@ import com.skrymer.midgaard.model.Quote
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.model.SectorMapping
 import com.skrymer.midgaard.repository.EarningsRepository
+import com.skrymer.midgaard.repository.FundamentalsRepository
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.repository.MarketHolidayRepository
 import com.skrymer.midgaard.repository.QuoteRepository
@@ -53,9 +55,11 @@ class IngestionService(
     @param:Qualifier("indicators") private val indicators: IndicatorProvider,
     @param:Qualifier("earnings") private val earnings: EarningsProvider,
     @param:Qualifier("companyInfo") private val companyInfo: CompanyInfoProvider,
+    @param:Qualifier("fundamentals") private val fundamentals: FundamentalsProvider,
     private val indicatorCalculator: IndicatorCalculator,
     private val quoteRepository: QuoteRepository,
     private val earningsRepository: EarningsRepository,
+    private val fundamentalsRepository: FundamentalsRepository,
     private val symbolRepository: SymbolRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val marketHolidayRepository: MarketHolidayRepository,
@@ -300,6 +304,13 @@ class IngestionService(
         if (!earningsList.isNullOrEmpty()) {
             earningsRepository.upsertEarnings(earningsList)
             logger.info("Saved ${earningsList.size} earnings for $symbol")
+        }
+        // Quarterly financials come from the same EODHD fundamentals call as earnings (no extra quota).
+        // ETFs file no statements → empty list → no upsert, mirroring the earnings guard (ADR 0019).
+        val fundamentalsList = fundamentals.getFundamentals(symbol)
+        if (!fundamentalsList.isNullOrEmpty()) {
+            fundamentalsRepository.upsert(fundamentalsList)
+            logger.info("Saved ${fundamentalsList.size} fundamentals for $symbol")
         }
         val info = companyInfo.getCompanyInfo(symbol)
         val existing = symbolRepository.findBySymbol(symbol) ?: return

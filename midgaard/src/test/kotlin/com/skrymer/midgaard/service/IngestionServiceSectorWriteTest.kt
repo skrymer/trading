@@ -2,6 +2,7 @@ package com.skrymer.midgaard.service
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integrity.DataIntegrityService
@@ -215,9 +216,14 @@ class IngestionServiceSectorWriteTest {
                     stub { onBlocking { getEarnings(any()) }.doReturn(emptyList()) }
                 },
             companyInfo = companyInfo,
+            fundamentals =
+                mock<FundamentalsProvider>().apply {
+                    stub { onBlocking { getFundamentals(any()) }.doReturn(emptyList()) }
+                },
             indicatorCalculator = indicatorCalculator,
             quoteRepository = mock<QuoteRepository>(),
             earningsRepository = mock(),
+            fundamentalsRepository = mock(),
             symbolRepository = symbolRepository,
             ingestionStatusRepository = mock<IngestionStatusRepository>(),
             marketHolidayRepository =

@@ -156,4 +156,132 @@ class StockTest {
     // When / Then: no event on any date
     assertNull(stock.ovtlyrSignalOn(LocalDate.of(2026, 5, 4)))
   }
+
+  private fun fundamental(
+    fiscal: String,
+    filing: String,
+    grossProfit: Double? = null,
+    totalAssets: Double? = null,
+    operatingIncome: Double? = null,
+    totalRevenue: Double? = null,
+  ) = Fundamental(
+    symbol = "AAPL",
+    fiscalDateEnding = LocalDate.parse(fiscal),
+    filingDate = LocalDate.parse(filing),
+    grossProfit = grossProfit,
+    totalAssets = totalAssets,
+    operatingIncome = operatingIncome,
+    totalRevenue = totalRevenue,
+  )
+
+  // Four quarters filed before 2024-03-01, plus a fifth filed after it (2024-05-01) to prove the as-of gate.
+  private fun fiveQuarterStock() =
+    Stock(
+      symbol = "AAPL",
+      fundamentals =
+        listOf(
+          fundamental("2023-03-31", "2023-05-01", grossProfit = 10.0, totalAssets = 1000.0, operatingIncome = 5.0, totalRevenue = 50.0),
+          fundamental("2023-06-30", "2023-08-01", grossProfit = 11.0, totalAssets = 1100.0, operatingIncome = 6.0, totalRevenue = 50.0),
+          fundamental("2023-09-30", "2023-11-01", grossProfit = 12.0, totalAssets = 1200.0, operatingIncome = 7.0, totalRevenue = 50.0),
+          fundamental("2023-12-31", "2024-02-01", grossProfit = 13.0, totalAssets = 1300.0, operatingIncome = 8.0, totalRevenue = 50.0),
+          fundamental("2024-03-31", "2024-05-01", grossProfit = 99.0, totalAssets = 9999.0, operatingIncome = 99.0, totalRevenue = 50.0),
+        ),
+    )
+
+  @Test
+  fun `grossProfitTtmAsOf sums the four most-recent filings visible by filing date`() {
+    // Given five quarters, the latest filed after the as-of date
+    // When as of 2024-03-01 (the 2024-05-01 filing is not yet public)
+    val ttm = fiveQuarterStock().grossProfitTtmAsOf(LocalDate.of(2024, 3, 1))
+
+    // Then only the four visible quarters sum (10+11+12+13), the future filing excluded
+    assertEquals(46.0, ttm)
+  }
+
+  @Test
+  fun `latestFundamentalAsOf ignores a filing whose filing date is after the as-of date`() {
+    // When as of 2024-03-01
+    val latest = fiveQuarterStock().latestFundamentalAsOf(LocalDate.of(2024, 3, 1))
+
+    // Then the most-recent visible filing is the 2023-12-31 quarter, not the future 2024-03-31 one
+    assertEquals(LocalDate.of(2023, 12, 31), latest?.fiscalDateEnding)
+    assertEquals(1300.0, latest?.totalAssets)
+  }
+
+  @Test
+  fun `grossProfitTtmAsOf is null when fewer than four quarters are visible`() {
+    // Given a stock with only three filings before the as-of date
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        fundamentals =
+          listOf(
+            fundamental("2023-06-30", "2023-08-01", grossProfit = 11.0),
+            fundamental("2023-09-30", "2023-11-01", grossProfit = 12.0),
+            fundamental("2023-12-31", "2024-02-01", grossProfit = 13.0),
+          ),
+      )
+
+    // When / Then: no trailing-twelve-month window, fails closed
+    assertNull(stock.grossProfitTtmAsOf(LocalDate.of(2024, 3, 1)))
+  }
+
+  @Test
+  fun `grossProfitTtmAsOf is null when a quarter inside the window omits gross profit`() {
+    // Given four visible quarters, one missing gross profit
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        fundamentals =
+          listOf(
+            fundamental("2023-03-31", "2023-05-01", grossProfit = 10.0),
+            fundamental("2023-06-30", "2023-08-01", grossProfit = null),
+            fundamental("2023-09-30", "2023-11-01", grossProfit = 12.0),
+            fundamental("2023-12-31", "2024-02-01", grossProfit = 13.0),
+          ),
+      )
+
+    // When / Then: the incomplete window fails closed
+    assertNull(stock.grossProfitTtmAsOf(LocalDate.of(2024, 3, 1)))
+  }
+
+  @Test
+  fun `grossProfitTtmAsOf keeps a negative trailing sum`() {
+    // Given four loss-making quarters
+    val stock =
+      Stock(
+        symbol = "AAPL",
+        fundamentals =
+          listOf(
+            fundamental("2023-03-31", "2023-05-01", grossProfit = -10.0),
+            fundamental("2023-06-30", "2023-08-01", grossProfit = -10.0),
+            fundamental("2023-09-30", "2023-11-01", grossProfit = -10.0),
+            fundamental("2023-12-31", "2024-02-01", grossProfit = -10.0),
+          ),
+      )
+
+    // When / Then: the negative reading is a real, low-quality value — kept, not nulled
+    assertEquals(-40.0, stock.grossProfitTtmAsOf(LocalDate.of(2024, 3, 1)))
+  }
+
+  @Test
+  fun `operatingMarginTtmAsOf divides trailing operating income by trailing revenue`() {
+    // When as of 2024-03-01 (visible operating income 5+6+7+8 = 26 over revenue 50*4 = 200)
+    val margin = fiveQuarterStock().operatingMarginTtmAsOf(LocalDate.of(2024, 3, 1))
+
+    // Then 26 / 200 = 0.13
+    assertEquals(0.13, margin!!, 1e-9)
+  }
+
+  @Test
+  fun `isVisibleAsOf is false for a null filing date and for a filing date after the trading date`() {
+    val notFiled = Fundamental(symbol = "AAPL", fiscalDateEnding = LocalDate.of(2024, 3, 31), filingDate = null)
+    val futureFiling = Fundamental(symbol = "AAPL", fiscalDateEnding = LocalDate.of(2024, 3, 31), filingDate = LocalDate.of(2024, 5, 1))
+    val pastFiling = Fundamental(symbol = "AAPL", fiscalDateEnding = LocalDate.of(2024, 3, 31), filingDate = LocalDate.of(2024, 2, 1))
+
+    // A record with no filing date is never visible; one filed after the date is not yet public; one filed on/before is
+    assertEquals(false, notFiled.isVisibleAsOf(LocalDate.of(2024, 3, 1)))
+    assertEquals(false, futureFiling.isVisibleAsOf(LocalDate.of(2024, 3, 1)))
+    assertEquals(true, pastFiling.isVisibleAsOf(LocalDate.of(2024, 3, 1)))
+  }
 }

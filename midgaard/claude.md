@@ -44,15 +44,16 @@ midgaard/
 │   │   ├── OptionsController.kt           # GET /api/options/{symbol}, /api/options/{symbol}/find
 │   │   ├── ExchangeRateController.kt      # GET /api/fx/rate, /api/fx/rate/historical — depends on `@Qualifier("fx") FxProvider`, wraps suspend calls with `runBlocking`
 │   │   ├── StatusController.kt            # GET /api/status
-│   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}, /api/ingestion/recompute-relative-strength (async)
+│   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}, /api/ingestion/recompute-relative-strength (async), /api/ingestion/recompute-quality-percentile (async, ADR 0019)
+│   │   ├── FundamentalsController.kt      # GET /api/fundamentals/{symbol} — point-in-time quarterly fundamentals served to Udgaard (ADR 0019)
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
-│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute) + POST /ingestion/treasury-yields (trigger treasury-yield ingest, ADR 0016)
+│   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute) + POST /ingestion/recompute-quality-percentile (trigger async quality-percentile recompute, ADR 0019) + POST /ingestion/treasury-yields (trigger treasury-yield ingest, ADR 0016)
 │   ├── integration/
-│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, QuoteProvider, OptionsProvider)
+│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider, FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
 │   │   ├── FxCacheNames.kt                # Shared cache-name constants (`fxCurrent`, `fxHistoricalSeries`) + `closestRateAtOrBefore` walk-back-5-days helper used by both FX providers
 │   │   ├── alphavantage/
-│   │   │   ├── AlphaVantageProvider.kt    # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider, OptionsProvider; FX delegates to AlphaVantageFxClient
+│   │   │   ├── AlphaVantageProvider.kt    # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider (returns null — retired, not a quality-metric source), FxProvider, OptionsProvider; FX delegates to AlphaVantageFxClient
 │   │   │   ├── AlphaVantageFxClient.kt    # Sibling-class for cross-boundary @Cacheable interception; wraps CURRENCY_EXCHANGE_RATE + FX_DAILY?outputsize=full into series cache
 │   │   │   └── dto/
 │   │   ├── finnhub/
@@ -62,7 +63,8 @@ midgaard/
 │   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider impl; @Component registers with rate limiter but currently NOT wired into any @Bean (kept for future re-enable)
 │   │   │   └── dto/
 │   │   ├── eodhd/
-│   │   │   ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FxProvider; FX delegates to EodhdFxClient
+│   │   │   ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider, FxProvider; getFundamentals maps the cached EODHD fundamentals payload (Income_Statement + Balance_Sheet quarterly) → point-in-time Fundamental rows (ADR 0019); FX delegates to EodhdFxClient
+│   │   │   ├── EodhdFundamentalsClient.kt # Sibling-class @Cacheable (`eodhdFundamentals`) EODHD fundamentals fetch; toCompanyInfo() (sector/overview) + toFundamentals(symbol) (quarterly income-statement + balance-sheet line items, gated on filing_date, ADR 0019)
 │   │   │   ├── EodhdFxClient.kt           # Sibling-class for cross-boundary @Cacheable interception; wraps `/real-time/{pair}.FOREX` + `/eod/{pair}.FOREX` into series cache
 │   │   │   ├── EodhdGovBondClient.kt      # Fetches the gross gov-bond/T-bill yield series (US3M.GBOND) for idle-cash crediting (ADR 0016)
 │   │   │   ├── TreasuryYieldMapper.kt     # Maps raw EODHD gov-bond payload → TreasuryYield rows (gross, no haircut — ADR 0016 F4)
@@ -78,9 +80,10 @@ midgaard/
 │   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, OvtlyrSignal, OvtlyrSignalType, TreasuryYield (gross yield, ADR 0016), enums
 │   │   └── OptionContractDto.kt
 │   ├── repository/
-│   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count)
+│   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count); recomputeRelativeStrengthPercentiles + recomputeQualityPercentiles cross-sectional SQL passes (work_mem raised transaction-locally for the universe-wide sort; ADR 0009/0019)
 │   │   ├── SymbolRepository.kt            # Symbol reference data
 │   │   ├── EarningsRepository.kt          # Earnings data
+│   │   ├── FundamentalsRepository.kt      # Point-in-time quarterly fundamentals (upsert by (symbol, fiscal_date_ending), findBySymbol); raw data for the L2 quality pass (ADR 0019)
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
 │   │   ├── ProviderConfigRepository.kt    # Provider configuration data
 │   │   ├── OvtlyrSignalRepository.kt      # Sparse ovtlyr buy/sell signals (symbol + signal_date PK)
@@ -102,6 +105,7 @@ midgaard/
 │       ├── IndicatorsMode.kt              # LOCAL vs API enum for app.ingest.indicators knob
 │       ├── IndicatorCalculator.kt         # EMA, SMA, ATR, ADX, Donchian, 52-week high/low computation (used by LOCAL indicator mode)
 │       ├── RelativeStrengthService.kt      # Drives the cross-sectional relative-strength pass (ADR 0009): delegates the whole-universe sort/rank/write to one SQL window-function statement in QuoteRepository. Manual-only (decoupled from ingest); recomputeAllAsync() runs it off the request thread (@Synchronized, idempotent, returns Job); isRecomputeActive() for the UI
+│       ├── QualityPercentileService.kt     # Drives the cross-sectional gross-profitability quality pass (ADR 0019 L2): delegates the as-of join + TTM sum + rank/write to one SQL statement in QuoteRepository (MIN_PEERS=100, EARLIEST_DATE=2000-01-01 floor inherited from ADR 0009). Separate from RS so the quality metric re-runs without touching RS; recomputeAllAsync() off the request thread (@Synchronized, idempotent, returns Job); isRecomputeActive() / lastRunRowsWritten() for the UI
 │       ├── RateLimiterService.kt          # Token bucket per provider (providers self-acquire permits)
 │       ├── OvtlyrBackfillService.kt       # Async backfill of ovtlyr signals via OvtlyrClient into ovtlyr_signals — runBackfill() launches a background coroutine (returns Job), exposes OvtlyrBackfillProgress for /ingestion UI polling
 │       ├── TreasuryYieldIngestionService.kt # ingest() fetches the gross US3M yield series via EodhdGovBondClient and upserts TreasuryYield rows; triggered via POST /ingestion/treasury-yields (ADR 0016)
@@ -130,7 +134,9 @@ midgaard/
 │   │   ├── V17__Purge_invalid_symbols_post_reingest.sql         # One-time scrub: removes 139 invalid symbols (contaminated bad-print/split-adjustment data + EODHD-unavailable tickers) post re-ingestion. Same cascade pattern as V11/V12/V13.
 │   │   ├── V18__Add_relative_strength_percentile.sql            # Adds relative_strength_percentile column to quotes (cross-sectional market-relative strength, 0-100; ADR 0009)
 │   │   ├── V19__Add_RSP_etf.sql                                 # idempotent INSERT adding the RSP (equal-weight S&P 500) ETF symbol to the symbols catalogue
-│   │   └── V20__Add_treasury_yields.sql                         # treasury_yields table (maturity + yield_date PK), gross yield_pct stored (haircut applied once downstream in Udgaard); ADR 0016
+│   │   ├── V20__Add_treasury_yields.sql                         # treasury_yields table (maturity + yield_date PK), gross yield_pct stored (haircut applied once downstream in Udgaard); ADR 0016
+│   │   ├── V21__Add_fundamentals.sql                            # fundamentals table (one row per (symbol, fiscal_date_ending), filing_date visibility key + income-statement/balance-sheet line items) — point-in-time raw data for the quality metric (ADR 0019)
+│   │   └── V22__Add_quality_percentile.sql                      # Adds quality_percentile column to quotes (cross-sectional gross-profitability GP/TA, 0-100; null until the L2 pass runs; ADR 0019)
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -168,7 +174,9 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 1. **Initial Ingest**: OHLCV + ATR/ADX indicators from the active `ohlcv`/`indicators` provider (AlphaVantage or EODHD), local EMA/SMA/Donchian/52-week-high-low computation. Bars stamped to US market-holiday dates (per `market_holidays` table) and zero-volume synthetic-filler bars are dropped before persistence. (SMA + 52-week are computed only on the full initial-ingest path, not extended on daily updates — incrementally-appended bars carry null SMA/52-week until the next full recompute.)
 2. **Daily Update**: Same `ohlcv` provider as initial ingest — fetches recent bars and extends indicators from the 250-bar seed (no separate daily-update provider; the `dailyUpdateOhlcv` qualifier was removed). Same holiday + zero-volume filter is applied.
 3. **Relative-strength pass** (manual, decoupled from ingest): `RelativeStrengthService.recomputeAll()` runs one cross-sectional SQL statement in `QuoteRepository` — `LAG`-based trailing return + `rank()`/`count()` window percentile + a single `UPDATE … FROM`, with `work_mem` raised transaction-locally so the whole-universe sort stays in memory — writing `relative_strength_percentile` (0-100) back to the quotes. Triggered by the "Recompute Relative Strength" button / `POST /api/ingestion/recompute-relative-strength`, not by ingestion, so a fast re-ingest is never slowed by it (ADR 0009).
-4. **Serving**: REST API returns enriched quotes with all indicators pre-computed
+3a. **Fundamentals ingest** (mirrors earnings): the same EODHD fundamentals call that yields company info/earnings also yields quarterly income-statement + balance-sheet line items, mapped to point-in-time `Fundamental` rows (`filing_date` visibility key) and upserted into `fundamentals` by `IngestionService` during supplementary-data fetch. ETFs file no statements → empty list → no upsert (ADR 0019).
+3b. **Quality-percentile pass** (manual, decoupled from ingest, separate from RS): `QualityPercentileService.recomputeAll()` runs one cross-sectional SQL statement in `QuoteRepository` — an as-of join forward-filling each symbol's latest fundamental gated on `filing_date`, the TTM GP/TA metric, the midpoint `rank()`/`count()` percentile + a single `UPDATE … FROM`, with `work_mem` raised transaction-locally — writing `quality_percentile` (0-100) back to the quotes. `N_min=100` peer floor + 2000-01-01 floor inherited from ADR 0009; fail-closed (null) below the floors or with < 4 TTM filings. Triggered by `POST /api/ingestion/recompute-quality-percentile`, not by ingestion (ADR 0019).
+4. **Serving**: REST API returns enriched quotes with all indicators pre-computed; `GET /api/fundamentals/{symbol}` serves the point-in-time fundamentals to Udgaard
 5. **Ovtlyr signals**: `OvtlyrBackfillService` fetches ovtlyr.com buy/sell calls via `OvtlyrClient` (cookie-auth scrape) and persists them sparsely into `ovtlyr_signals`; served via `GET /api/ovtlyr-signals/{symbol}`. `runBackfill()` launches an async background coroutine (returns a `Job`) and publishes live `OvtlyrBackfillProgress` polled by the `/ingestion` admin page; triggered manually via `POST /ingestion/ovtlyr/backfill`. A re-run resumes rather than restarts — symbols already present in `ovtlyr_signals` (via `OvtlyrSignalRepository.findDistinctSymbols()`) are skipped so a partial/blocked backfill only fetches what's missing. Ovtlyr cookie credentials (`ovtlyr.cookies.userid`/`.token`, `ovtlyr.header.projectId`) are managed by `ApiKeyService` (DB-backed via `provider_config`, property fallback) and edited via `POST /providers/ovtlyr` on the admin UI.
 
 ### Provider Interfaces (`integration/Providers.kt`)
@@ -176,12 +184,13 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 - `OhlcvProvider` - Daily bars for both initial ingest and daily updates (AlphaVantage or EODHD via the `app.ingest.provider` toggle; single `ohlcv` bean serves both code paths)
 - `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle; only used when `app.ingest.indicators=API`)
 - `EarningsProvider` - Quarterly earnings (AlphaVantage or EODHD via the toggle)
+- `FundamentalsProvider` - Point-in-time quarterly financial-statement line items for the quality metric (EODHD only; the AlphaVantage impl returns null since it is retired — ADR 0019)
 - `CompanyInfoProvider` - Company overview + sector (AlphaVantage or EODHD via the toggle)
 - `FxProvider` - Currency exchange rates (current + historical), backs `ExchangeRateController`. Toggleable via `app.fx.provider` (defaults to `eodhd` via `matchIfMissing`); FX quota is operationally separate from OHLCV/indicator quota so it has its own toggle.
 - `QuoteProvider` - Live/latest quotes (Finnhub)
 - `OptionsProvider` - Historical options pricing (AlphaVantage)
 
-**Provider selection is centralized in `ProviderConfiguration`.** `IngestionService` injects bare interface beans (`@Bean("ohlcv")`, `@Bean("indicators")`, `@Bean("earnings")`, `@Bean("companyInfo")`) — no per-provider branching inside the service. `@ConditionalOnProperty` on each bean reads `app.ingest.provider` to pick the active implementation. When `app.ingest.provider=eodhd` is set, **all four** roles (OHLCV + indicators + earnings + company info) route to EODHD via its All-In-One plan; the same `ohlcv` bean handles both initial ingest and daily updates (the `dailyUpdateOhlcv` qualifier was removed, so Massive/Polygon is no longer wired into the daily-update path). Midgaard's in-process default (SpEL fallback in `ProviderConfiguration`) is `alphavantage`, but both `udgaard/compose.yaml` and `compose.prod.yaml` set `APP_INGEST_PROVIDER=eodhd` by default.
+**Provider selection is centralized in `ProviderConfiguration`.** `IngestionService` injects bare interface beans (`@Bean("ohlcv")`, `@Bean("indicators")`, `@Bean("earnings")`, `@Bean("companyInfo")`, `@Bean("fundamentals")`) — no per-provider branching inside the service. `@ConditionalOnProperty` on each bean reads `app.ingest.provider` to pick the active implementation. When `app.ingest.provider=eodhd` is set, **all five** roles (OHLCV + indicators + earnings + company info + fundamentals) route to EODHD via its All-In-One plan; the same `ohlcv` bean handles both initial ingest and daily updates (the `dailyUpdateOhlcv` qualifier was removed, so Massive/Polygon is no longer wired into the daily-update path). Midgaard's in-process default (SpEL fallback in `ProviderConfiguration`) is `alphavantage`, but both `udgaard/compose.yaml` and `compose.prod.yaml` set `APP_INGEST_PROVIDER=eodhd` by default.
 
 **Indicator computation mode.** `app.ingest.indicators=LOCAL` (default) recomputes ATR/ADX from raw OHLCV via `IndicatorCalculator`. Set `app.ingest.indicators=API` to call the indicator provider's API instead.
 

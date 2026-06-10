@@ -29,6 +29,7 @@ data class StockQuote(
   var high52Week: Double? = null,
   var low52Week: Double? = null,
   var relativeStrengthPercentile: Double? = null,
+  var qualityPercentile: Double? = null,
 ) {
   fun isInUptrend() = "Uptrend" == trend
 

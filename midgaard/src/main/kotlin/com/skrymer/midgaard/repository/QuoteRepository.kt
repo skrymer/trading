@@ -163,6 +163,44 @@ class QuoteRepository(
         )
     }
 
+    /**
+     * Recomputes the gross-profitability quality percentile for every quote on or after [fromDate], as a
+     * single cross-sectional SQL pass (ADR 0019 L2) — the as-of join, TTM sum, ranking and write all
+     * happen in Postgres, so there is no app-side memory footprint (the same reason the metric lives here
+     * and not in a backtest-context precompute).
+     *
+     * Metric `qualityRaw = grossProfit_TTM / totalAssets_asof` (CONTEXT *Gross-profitability quality
+     * percentile*). For each symbol the `events` CTE walks its filings in `filing_date` order and, at each
+     * filing, forms the trailing-twelve-month numerator (`SUM(gross_profit)` over the current + 3 prior
+     * filings) and the point-in-time denominator (the current filing's own `total_assets`, never summed).
+     * A filing is *defined* only when it has 4 prior filings (`filing_rank >= 4`), all 4 carry gross
+     * profit (`ttm_count = 4`), and `total_assets > 0`; otherwise its `quality_raw` is null and the date
+     * fails closed. Negative `grossProfit_TTM` is kept (ranks low). Each filing's quality holds from its
+     * `filing_date` until the next filing's (forward-filled, gated on `filing_date` ≤ the trading date —
+     * never `fiscal_date_ending`), joined to daily quotes by that half-open interval.
+     *
+     * Percentile is the midpoint plotting position `100·((rank−1) + ½·ties)/n` per date, ranked only when
+     * the qualifying-peer count `n ≥ minPeers` and the date is on/after [earliestDate] (the survivorship
+     * floor). Stale rows in range are nulled only where a value exists; work_mem is raised
+     * transaction-locally for the universe-wide sort, exactly as the relative-strength pass does.
+     *
+     * @return the number of (symbol, date) rows a percentile was written to.
+     */
+    @Transactional
+    fun recomputeQualityPercentiles(
+        fromDate: LocalDate,
+        minPeers: Int,
+        earliestDate: LocalDate,
+    ): Int {
+        dsl.fetch("SELECT set_config('work_mem', ?, true)", RECOMPUTE_WORK_MEM)
+        dsl.execute(
+            "UPDATE quotes SET quality_percentile = NULL " +
+                "WHERE quote_date >= ? AND quality_percentile IS NOT NULL",
+            fromDate,
+        )
+        return dsl.execute(QUALITY_PERCENTILE_RECOMPUTE_SQL, minPeers, earliestDate, fromDate)
+    }
+
     private fun upsertSingleQuote(
         dsl: DSLContext,
         quote: Quote,
@@ -193,6 +231,7 @@ class QuoteRepository(
                 high_52Week = quote.high52Week
                 low_52Week = quote.low52Week
                 relativeStrengthPercentile = quote.relativeStrengthPercentile
+                qualityPercentile = quote.qualityPercentile
                 indicatorSource = quote.indicatorSource.name
             }
         dsl
@@ -228,6 +267,7 @@ class QuoteRepository(
             high52Week = high_52Week,
             low52Week = low_52Week,
             relativeStrengthPercentile = relativeStrengthPercentile,
+            qualityPercentile = qualityPercentile,
             indicatorSource =
                 indicatorSource?.let { IndicatorSource.valueOf(it) }
                     ?: IndicatorSource.CALCULATED,
@@ -243,5 +283,56 @@ class QuoteRepository(
          * ample container headroom and the @Synchronized guarantee that no two recomputes overlap.
          */
         private const val RECOMPUTE_WORK_MEM = "1GB"
+
+        /**
+         * The quality-percentile cross-sectional pass (ADR 0019 L2). `events` forms, per filing, the TTM
+         * gross-profit numerator (current + 3 prior filings by filing_date) and the point-in-time total-assets
+         * denominator; `quality` keeps only defined filings (4 priors present, all 4 carry gross profit, total
+         * assets > 0) and the half-open `[filing_date, next_filing_date)` interval each value holds over;
+         * `metric` as-of-joins those intervals to daily quotes; `ranked` is the midpoint cross-section per date.
+         * Params: minPeers, earliestDate, fromDate.
+         */
+        private val QUALITY_PERCENTILE_RECOMPUTE_SQL =
+            """
+            WITH events AS (
+                SELECT symbol, filing_date, total_assets,
+                       sum(gross_profit) OVER w AS ttm_gross_profit,
+                       count(gross_profit) OVER w AS ttm_count,
+                       row_number() OVER ord AS filing_rank,
+                       lead(filing_date) OVER ord AS next_filing_date
+                FROM fundamentals
+                WHERE filing_date IS NOT NULL
+                WINDOW
+                    ord AS (PARTITION BY symbol ORDER BY filing_date, fiscal_date_ending),
+                    w AS (PARTITION BY symbol ORDER BY filing_date, fiscal_date_ending
+                          ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+            ),
+            quality AS (
+                SELECT symbol, filing_date AS effective_from, next_filing_date AS effective_to,
+                       ttm_gross_profit / total_assets AS quality_raw
+                FROM events
+                WHERE filing_rank >= 4 AND ttm_count = 4 AND total_assets > 0
+            ),
+            metric AS (
+                SELECT q.symbol, q.quote_date, ql.quality_raw AS m
+                FROM quotes q
+                JOIN quality ql
+                  ON ql.symbol = q.symbol
+                 AND q.quote_date >= ql.effective_from
+                 AND (ql.effective_to IS NULL OR q.quote_date < ql.effective_to)
+            ),
+            ranked AS (
+                SELECT symbol, quote_date,
+                       rank() OVER (PARTITION BY quote_date ORDER BY m) AS rnk,
+                       count(*) OVER (PARTITION BY quote_date) AS n,
+                       count(*) OVER (PARTITION BY quote_date, m) AS ties
+                FROM metric
+            )
+            UPDATE quotes q
+            SET quality_percentile = 100.0 * ((r.rnk - 1) + 0.5 * r.ties) / r.n
+            FROM ranked r
+            WHERE q.symbol = r.symbol AND q.quote_date = r.quote_date
+              AND r.n >= ? AND q.quote_date >= ? AND q.quote_date >= ?
+            """.trimIndent()
     }
 }
