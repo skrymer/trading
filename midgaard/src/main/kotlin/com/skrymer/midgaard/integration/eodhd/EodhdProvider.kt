@@ -2,6 +2,7 @@ package com.skrymer.midgaard.integration.eodhd
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.FxProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
@@ -17,6 +18,7 @@ import com.skrymer.midgaard.integration.eodhd.dto.EodhdBarDto
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdEodResponse
 import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
+import com.skrymer.midgaard.model.Fundamental
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.service.ApiKeyService
 import com.skrymer.midgaard.service.RateLimiterService
@@ -42,6 +44,7 @@ class EodhdProvider(
     IndicatorProvider,
     EarningsProvider,
     CompanyInfoProvider,
+    FundamentalsProvider,
     FxProvider {
     private val apiKey: String get() = apiKeyService.getEodhdApiKey()
 
@@ -135,6 +138,9 @@ class EodhdProvider(
 
     override suspend fun getCompanyInfo(symbol: String): CompanyInfo? =
         fundamentalsClient.fetch(symbol, symbol.toEodhdSymbol())?.toCompanyInfo()
+
+    override suspend fun getFundamentals(symbol: String): List<Fundamental>? =
+        fundamentalsClient.fetch(symbol, symbol.toEodhdSymbol())?.toFundamentals(symbol)
 
     override suspend fun getExchangeRate(
         from: String,

@@ -37,6 +37,7 @@ data class Quote(
     val high52Week: BigDecimal? = null,
     val low52Week: BigDecimal? = null,
     val relativeStrengthPercentile: BigDecimal? = null,
+    val qualityPercentile: BigDecimal? = null,
     val indicatorSource: IndicatorSource = IndicatorSource.CALCULATED,
 )
 
@@ -55,6 +56,28 @@ data class Earning(
     val surprise: BigDecimal? = null,
     val surprisePercentage: BigDecimal? = null,
     val reportTime: String? = null,
+)
+
+/**
+ * Point-in-time quarterly financial-statement line items for one fiscal period, the L1 reference data
+ * the cross-sectional quality percentile is built from (ADR 0019). One record per `(symbol,
+ * fiscalDateEnding)`; [filingDate] is the visibility key — a consumer may only see this record on a
+ * trading date `≥ filingDate`, never on `fiscalDateEnding` (CONTEXT *Point-in-time fundamentals*).
+ * Any line item may be null (the section was absent, or the provider omitted the field).
+ */
+data class Fundamental(
+    val symbol: String,
+    val fiscalDateEnding: LocalDate,
+    val filingDate: LocalDate? = null,
+    val grossProfit: BigDecimal? = null,
+    val costOfRevenue: BigDecimal? = null,
+    val totalRevenue: BigDecimal? = null,
+    val operatingIncome: BigDecimal? = null,
+    val netIncome: BigDecimal? = null,
+    val totalAssets: BigDecimal? = null,
+    val totalStockholderEquity: BigDecimal? = null,
+    val totalCurrentAssets: BigDecimal? = null,
+    val totalCurrentLiabilities: BigDecimal? = null,
 )
 
 data class Symbol(

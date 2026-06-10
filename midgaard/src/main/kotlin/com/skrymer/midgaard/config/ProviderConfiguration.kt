@@ -2,6 +2,7 @@ package com.skrymer.midgaard.config
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.FxProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
@@ -115,6 +116,14 @@ class ProviderConfiguration(
     @Bean("companyInfo")
     @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
     fun companyInfoFromAlphaVantage(): CompanyInfoProvider = alphaVantageProvider
+
+    @Bean("fundamentals")
+    @ConditionalOnProperty(name = ["app.ingest.provider"], havingValue = ProviderIds.EODHD)
+    fun fundamentalsFromEodhd(): FundamentalsProvider = eodhdProvider
+
+    @Bean("fundamentals")
+    @ConditionalOnExpression("'\${app.ingest.provider:alphavantage}' != 'eodhd'")
+    fun fundamentalsFromAlphaVantage(): FundamentalsProvider = alphaVantageProvider
 
     // ── FX: independent toggle (`app.fx.provider`) because FX quota is operationally
     //     separate from OHLCV/indicators quota. Defaults to EODHD via matchIfMissing —

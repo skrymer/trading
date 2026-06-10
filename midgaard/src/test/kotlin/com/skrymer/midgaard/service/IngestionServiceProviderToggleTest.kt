@@ -2,6 +2,7 @@ package com.skrymer.midgaard.service
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.model.RawBar
@@ -252,9 +253,11 @@ class IngestionServiceProviderToggleTest {
                 indicators = indicators,
                 earnings = earnings,
                 companyInfo = companyInfo,
+                fundamentals = mock<FundamentalsProvider>(),
                 indicatorCalculator = indicatorCalculator,
                 quoteRepository = quoteRepository,
                 earningsRepository = mock(),
+                fundamentalsRepository = mock(),
                 symbolRepository = mock(),
                 ingestionStatusRepository = mock(),
                 marketHolidayRepository =

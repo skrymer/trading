@@ -2,6 +2,7 @@ package com.skrymer.midgaard.service
 
 import com.skrymer.midgaard.integration.CompanyInfoProvider
 import com.skrymer.midgaard.integration.EarningsProvider
+import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.repository.IngestionStatusRepository
@@ -59,6 +60,7 @@ class IngestionServiceRetryNotCompleteTest {
             indicators = mock<IndicatorProvider>(),
             earnings = mock<EarningsProvider>(),
             companyInfo = mock<CompanyInfoProvider>(),
+            fundamentals = mock<FundamentalsProvider>(),
             indicatorCalculator =
                 mock<IndicatorCalculator> {
                     on { calculateAllEMAs(any()) } doReturn emptyMap()
@@ -68,6 +70,7 @@ class IngestionServiceRetryNotCompleteTest {
                 },
             quoteRepository = mock(),
             earningsRepository = mock(),
+            fundamentalsRepository = mock(),
             symbolRepository = mock(),
             ingestionStatusRepository = ingestionStatusRepository,
             marketHolidayRepository = mock(),

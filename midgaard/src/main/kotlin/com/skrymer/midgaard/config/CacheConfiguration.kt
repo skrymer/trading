@@ -13,9 +13,13 @@ import java.util.concurrent.TimeUnit
  * Spring Cache abstraction for in-process caches.
  *
  * - `eodhdFundamentals`: dedups EODHD `/api/fundamentals/{symbol}` calls between
- *   `getEarnings` and `getCompanyInfo` (10 weighted units per request → without
- *   dedup a 3,128-symbol bulk ingest blows EODHD's 100k/day cap). No TTL —
- *   cleared at the start of every bulk run by `IngestionService`.
+ *   `getEarnings`, `getCompanyInfo`, and `getFundamentals` (10 weighted units per
+ *   request → without dedup a 3,128-symbol bulk ingest blows EODHD's 100k/day cap).
+ *   No TTL, no in-code eviction: it is an in-process Caffeine cache, so a deploy
+ *   restarts the JVM and clears it. That restart is how the ADR 0019 cache-bust is
+ *   realized — a process running the current request filter can only ever have
+ *   cached responses for that same filter, so a wider filter (e.g. adding the
+ *   `Financials` sections) lands the moment the redeployed process re-ingests.
  * - `fxCurrent` (1h TTL): current FX rates. Portfolio-stats UI tolerates 1h-stale
  *   FX (USD/AUD doesn't move > 0.5% in an hour).
  * - `fxHistoricalSeries` (24h TTL): full historical FX series per (from, to) pair.
