@@ -13,6 +13,7 @@ import com.skrymer.midgaard.service.DelistedIngestionService
 import com.skrymer.midgaard.service.IngestionService
 import com.skrymer.midgaard.service.OvtlyrBackfillService
 import com.skrymer.midgaard.service.ProviderRateLimitStats
+import com.skrymer.midgaard.service.QualityPercentileService
 import com.skrymer.midgaard.service.RateLimiterService
 import com.skrymer.midgaard.service.RelativeStrengthService
 import com.skrymer.midgaard.service.TreasuryYieldIngestionService
@@ -46,6 +47,7 @@ class UiController(
     private val treasuryYieldIngestionService: TreasuryYieldIngestionService,
     private val treasuryYieldRepository: TreasuryYieldRepository,
     private val relativeStrengthService: RelativeStrengthService,
+    private val qualityPercentileService: QualityPercentileService,
     @param:Value("\${alphavantage.api.baseUrl}") private val avBaseUrl: String,
     @param:Value("\${massive.api.baseUrl:}") private val massiveBaseUrl: String,
     @param:Value("\${finnhub.api.baseUrl:https://finnhub.io}") private val finnhubBaseUrl: String,
@@ -136,6 +138,8 @@ class UiController(
         model.addAttribute("ovtlyrProgress", ovtlyrBackfillService.progress)
         model.addAttribute("relativeStrengthActive", relativeStrengthService.isRecomputeActive())
         model.addAttribute("relativeStrengthLastRun", relativeStrengthService.lastRunRowsWritten())
+        model.addAttribute("qualityPercentileActive", qualityPercentileService.isRecomputeActive())
+        model.addAttribute("qualityPercentileLastRun", qualityPercentileService.lastRunRowsWritten())
         model.addAttribute("treasuryYieldStatus", treasuryYieldRepository.status(TreasuryYieldIngestionService.MATURITY_US3M))
         return "ingestion"
     }
@@ -189,6 +193,12 @@ class UiController(
     @PostMapping("/ingestion/recompute-relative-strength")
     fun startRelativeStrengthRecompute(): String {
         relativeStrengthService.recomputeAllAsync()
+        return "redirect:/ingestion"
+    }
+
+    @PostMapping("/ingestion/recompute-quality-percentile")
+    fun startQualityPercentileRecompute(): String {
+        qualityPercentileService.recomputeAllAsync()
         return "redirect:/ingestion"
     }
 
