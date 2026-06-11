@@ -5,8 +5,8 @@ summary: Non-monotone pass/fail across a parameter neighborhood plus per-window 
 status: stable
 tags: [failure-mode]
 sources: ["feedback_aliased_regime_sensitivity"]
-related: ["[[parameter-robustness-g13]]", "[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[thrust-degenerates-to-level]]", "[[beta-delivery]]", "[[pead]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]"]
-updated: 2026-06-09
+related: ["[[parameter-robustness-g13]]", "[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[thrust-degenerates-to-level]]", "[[beta-delivery]]", "[[pead]]", "[[quality-profitability-tilt]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]", "[[2026-06-11-quality-tilt-condition-screen-killtest]]"]
+updated: 2026-06-11
 ---
 
 # Aliased Regime Sensitivity (ARS)
@@ -71,6 +71,20 @@ formal stable-firing ARS pass (firing not held within ±15% across cells — `re
 θ-swing ≪ 2× centre SE, so there is no *swing* to be fragile about because there is no edge). Three proxies,
 same structural verdict: the surprise dimension carries no robust drift edge on this premise (see [[pead]] —
 surprise-proxy axis exhausted).
+
+## Anti-ARS reference case — quality-tilt minPercentile sweep (2026-06-11)
+
+The contrast that calibrates the tell. `minPercentile` sweep {72, 80, 88} on the
+[[quality-profitability-tilt]] gate at `/condition-screen`, 20d post-entry lift: **72 → +0.20%, 80 → +0.27%,
+88 → +0.36%** — strictly positive and **monotone-increasing** in the threshold at every horizon. No
+sign-flip (signature clause 2 fails), pass/fail monotone (clause 3 fails), `swing/|center|` 0.60–0.76 (< 1.0,
+not even the lesser monotone-steep tell). Firing moves ±39%/−41% rel — a percentile threshold *is* a support
+cliff, so the stable-firing clause is unsatisfiable by construction, exactly as for the PEAD gap-size island
+above. **But the structural verdict is the opposite:** more-selective → more-lift is the right-signed
+dose-response a real selection variable shows. Recorded as **clean monotone, NOT fragility** — the reference
+case proving the firing-cliff caveat doesn't render every quantile-gate sweep unreadable: the *shape*
+(monotone-positive vs non-monotone-island) is what separates a real knob from an aliased one. See
+[[2026-06-11-quality-tilt-condition-screen-killtest]].
 
 ## Why it kills
 

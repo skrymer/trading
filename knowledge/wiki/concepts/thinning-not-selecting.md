@@ -5,8 +5,8 @@ summary: A rescue filter that removes trades uniformly without improving the kee
 status: stable
 tags: [failure-mode, methodology]
 sources: ["project_minervini_vcp_breakout_rejected", "feedback_ablation_metric_confound_capital_aware", "feedback_random_ranker_baseline_mandatory"]
-related: ["[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[regime-conditional-portfolio]]", "[[2026-05-27-strategy-screen-sweep]]", "[[r1-leadership-gap-breakout]]"]
-updated: 2026-06-09
+related: ["[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[regime-conditional-portfolio]]", "[[2026-05-27-strategy-screen-sweep]]", "[[r1-leadership-gap-breakout]]", "[[quality-profitability-tilt]]", "[[2026-06-11-quality-tilt-trend-leg-ablation]]"]
+updated: 2026-06-11
 ---
 
 # Thinning, Not Selecting
@@ -71,6 +71,20 @@ it must beat a **byte-identical Random-ranker baseline** on blended CAGR AND per
 positive-window count — *not* win-rate/WFE (a payoff-shape artifact). A permissive entry is a long-biased
 basket whose ~1% per-trade beta Random harvests for free. George (52-week-high anchoring ranker) lost to
 Random — its concentration was a *liability* (−14.3% GFC window vs Random's −2.1%).
+
+## The gap-invariance tell — an added entry filter that adds nothing (or is tail-harmful)
+
+[[quality-profitability-tilt]]'s trend-leg ablation (2026-06-11,
+[[2026-06-11-quality-tilt-trend-leg-ablation]]) supplies a clean *measurement* of whether an added entry
+filter helps, on a candidate whose ranker genuinely selects (it beats Random). Adding `priceAboveSma200` to
+the bare-gate Random-null **left the candidate-vs-Random edge gap invariant** (+0.168 → +0.160). **The tell:
+if an added filter complemented the ranker, the gap to a same-filter Random baseline would widen; an
+invariant gap proves the filter contributes nothing to *selection*.** Worse, here it was actively harmful —
+it halved trades, lowered CAGR in both arms, and **doubled aggregate max-DD while quadrupling the 2008 loss**
+(edge −0.79 → −3.56): a trend re-entry gate that *whipsaws into* the bear it's sold to dodge. So an added
+entry filter can be **strictly worse than a neutral thinner** (it adversely selects in the tail), and the
+gap-to-Random invariance is the cheap way to catch "adds nothing" before the drawdown math even matters.
+Drop it; keep the trend read on the *exit* side only.
 
 ## The level-gate corollary — a "thrust" that's really a level read
 

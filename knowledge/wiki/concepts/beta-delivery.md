@@ -5,8 +5,8 @@ summary: A long book whose risk-adjusted return is just the index's — profitab
 status: seed
 tags: [failure-mode, methodology]
 sources: ["docs/adr/0013-spy-buy-and-hold-is-a-binding-calmar-only-firewall-baseline.md", "knowledge/wiki/sources/2026-06-05-funnel-deepresearch-findings.md", "knowledge/wiki/sources/2026-06-08-george-random-revalidation-prereg.md"]
-related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[spy-trend-timing]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]", "[[2026-06-10-leverageable-calmar-spy-timing-screen]]"]
-updated: 2026-06-10
+related: ["[[component-firewall]]", "[[long-premise-in-narrow-leadership]]", "[[participate-and-lose]]", "[[the-funnel]]", "[[george]]", "[[mrm]]", "[[pead]]", "[[aliased-regime-sensitivity]]", "[[thinning-not-selecting]]", "[[spy-trend-timing]]", "[[2026-06-08-random-baseline-reproducibility-fix]]", "[[2026-06-08-mrm-screen-reject]]", "[[2026-06-09-pead-earnings-gap-screen-reject]]", "[[2026-06-09-pead-market-neutral-residual-screen-reject]]", "[[2026-06-09-pead-eps-gated-residual-screen-reject]]", "[[2026-06-10-leverageable-calmar-spy-timing-screen]]", "[[quality-profitability-tilt]]", "[[2026-06-11-quality-tilt-condition-screen-killtest]]", "[[2026-06-11-quality-tilt-random-null-screen]]", "[[2026-06-12-validate-quality-profitability-tilt]]"]
+updated: 2026-06-12
 ---
 
 # Beta-Delivery
@@ -159,10 +159,47 @@ remediation discipline — see [[the-funnel]]).^[inferred]
   survives both an OHLCV same-factor neutralisation *and* a price-independent fundamental gate. See
   [[2026-06-09-pead-eps-gated-residual-screen-reject]].
 
-_No G16-firewall instance yet._ G16 was implemented in #102 (ADR 0013); no candidate has been rejected by
-the **firewall** gate itself at the time of writing (2026-06-06). When one is, record it here with:
-block(s) failed, `strategyCalmar` vs `benchmarkCalmar`, whether it nonetheless cleared the absolute floors
-(G1/G2/G9/G15), and the regime in which its beta was sourced.
+### First DISCONFIRMING instance — the flat-tertile detector discriminates
+
+- **[[quality-profitability-tilt]]** (2026-06-11) — the first **negative** result for the flat-SPY-tertile
+  screen tell (3 prior confirming PEAD kills). The `fundamentalQualityPercentile` gate (≥80) was screened
+  alone and the flat tertile stayed **solidly positive** at every horizon (10d **+0.147%**, 20d **+0.205%**),
+  with **no regime sign-flip** and **balanced tertile firing** (down 16.35% / flat 17.20% / up 17.22%). The
+  gradient is `down > flat > up` (quality earns most in weak tape — flight-to-quality) but **never inverts** —
+  the opposite of PEAD's flat-negative / down-only signature. This is the detector's first **control case**:
+  it correctly stayed silent on a genuinely non-beta selector, so a flat-negative read is not an artifact of
+  an always-pessimistic tell. Mechanistic reading: a **non-price fundamental selector does not inherit SPY
+  through the entry** the way price-state premises ([[george]] / [[mrm]] / [[pead]]) do.
+  See [[2026-06-11-quality-tilt-condition-screen-killtest]].
+
+- **[[quality-profitability-tilt]] again** (2026-06-11) — the first **PASS of the random-ranker tell**.
+  Where [[george]], [[mrm]] and [[multifactor-residual-momentum]] all *lost* to a byte-identical Random
+  ranker (the cheaper-than-G16 beta-delivery detector), the `FundamentalQualityRanker` **beat** the Random
+  null at `/strategy-screen` (bare gate, 2005–2015): edge 0.802 vs 0.635, CAGR 19.0 vs 14.0, Sharpe 0.88 vs
+  0.69 on the medians — quant PASS-at-5 on the **variance-collapse signature** (candidate cloud 3.5× tighter
+  than Random, worst candidate seed above the Random median, equal drawdown envelope, so not a tail-risk or
+  turnover artifact). So the quality tilt has now cleared **both** cheap beta-delivery tells — the
+  flat-SPY-tertile (condition-screen) *and* the random-ranker (strategy-screen). The edge is not pure
+  entry-universe beta and not pure within-quality luck. Still screen-stage (2005–2015 excludes the
+  narrow-leadership regime); the G16-firewall instance + the 25y Random baseline remain ahead.
+  See [[2026-06-11-quality-tilt-random-null-screen]].
+
+### First G16-FIREWALL evaluation — a PASS on a REJECTED candidate (G16 discriminates)
+
+- **[[quality-profitability-tilt]]** (Block A, 2026-06-12) — the **first candidate to ever run a real Block A
+  firewall**, so the first time G16 was evaluated by the firewall itself. It **PASSED G16**:
+  `strategyCalmar 0.512` vs `benchmarkCalmar 0.164` (SPY 9.4% CAGR / 57.4% maxDD over the same OOS-stitched
+  support) — beats passive **3.1×**. Yet the candidate was **REJECTED** on G1 (CAGR 18.57% < 25%), G2/G3 (DD
+  36%/30%), G6 (2008 GFC edge −0.99%) and **G15 (absolute Calmar 0.512 < 1.5)**. So this is *not* a G16
+  rejection — it's the **first firewall confirmation that G16 discriminates**: a real-edge long book that
+  beats SPY-relative Calmar 3× clears G16 cleanly, and its rejection comes from the *absolute* floors (G15)
+  + crisis exposure (G6), not from delivering beta. G15 (absolute) and G16 (SPY-relative) bind independently
+  — this candidate is the worked example of "passes G16, fails G15." See [[2026-06-12-validate-quality-profitability-tilt]].
+
+_Still no G16 FAIL/rejection instance._ G16 was implemented in #102 (ADR 0013); no candidate has yet been
+**rejected by G16** (the one firewall G16 evaluation, above, PASSED). When the first G16 FAIL occurs, record
+it here with: block(s) failed, `strategyCalmar` vs `benchmarkCalmar`, whether it nonetheless cleared the
+absolute floors (G1/G2/G9/G15), and the regime in which its beta was sourced.
 
 ## Related
 

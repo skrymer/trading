@@ -5,8 +5,8 @@ summary: A long premise that stays fully deployed through the regime where its e
 status: stable
 tags: [failure-mode]
 sources: ["feedback_mean_reversion_pullback_known_weakness", "project_minervini_vcp_breakout_rejected", "knowledge/wiki/sources/2026-06-09-r1-leadership-gap-breakout-abandon.md"]
-related: ["[[thinning-not-selecting]]", "[[aliased-regime-sensitivity]]", "[[lottery-vs-signature]]", "[[minervini-vcp-breakout]]", "[[r1-leadership-gap-breakout]]"]
-updated: 2026-06-09
+related: ["[[thinning-not-selecting]]", "[[aliased-regime-sensitivity]]", "[[lottery-vs-signature]]", "[[minervini-vcp-breakout]]", "[[r1-leadership-gap-breakout]]", "[[quality-profitability-tilt]]", "[[gjallarhorn]]", "[[2026-06-12-levered-quality-lag-check-prereg]]"]
+updated: 2026-06-12
 ---
 
 # Participate-and-Lose
@@ -76,6 +76,23 @@ single OOS window).
   pre-registered gate deployed orthogonally to the edge (`corr(ON-fraction, annual edge)≈0`; ON 48–67% of
   2021/23/24), still bled in 2021 (−6.98%, deployed-and-bleeding), and left in-market Calmar 0.32 ≈ the
   ungated 0.42. Promotes the failure mode from *empirically observed* to *mechanistically explained*.
+
+### A distinct sub-type — *crisis-undefended* (gateable in principle, but no fast signal)
+
+- **[[quality-profitability-tilt]]** (REJECTED Block A 2026-06-12): the **crisis-undefended sub-type**, the
+  first instance whose participating loss is **not** narrow-leadership chop. Its only negative *money* window
+  is the 2008 GFC (edge −0.99%, −22% CAGR, 30% DD, 503 trades held through the crash); everything else is
+  positive (9/11 windows). The loss is an **outright calendar crisis, not a cross-sectional chop** — which
+  matters: a market-level veto **can** address a calendar crisis (it's a deploy/cash decision), unlike the
+  breakout/MR instances where the loss lives in the cross-section and a market gate is mechanistically dead.
+  So this premise is rescuable *in principle*. **But it's un-rescuable in practice:** the only available
+  crisis signal — the sustained-breadth-washout classifier — is a crisis-*bottom* detector that fires ~10
+  days into a crash at ~−19% DD, far too late to defend (and leverage, the only G1-lifting path, amplifies
+  the pre-trigger bleed past the caps — [[2026-06-12-levered-quality-lag-check-prereg]]). So: *crisis-
+  undefended* losses are gateable where *narrow-leadership-chop* losses are not — but only if a fast-enough
+  crisis-avoidance signal exists, and the current toolkit has only bottom-detectors ([[gjallarhorn]]).
+  Distinct also in that the unlevered edge is *real and SPY-beating* (G16 PASS) — the rejection is
+  crisis-exposure + return-floor, not the dead/beta edge of the chop instances.
 
 ## The shared root cause
 

@@ -1,0 +1,78 @@
+{
+  "assetTypes": [
+    "STOCK"
+  ],
+  "useUnderlyingAssets": false,
+  "entryStrategy": {
+    "type": "custom",
+    "conditions": [
+      {
+        "type": "minimumHistoryDays",
+        "parameters": {
+          "days": 365
+        }
+      },
+      {
+        "type": "averageDollarVolumeAbove",
+        "parameters": {
+          "thresholdUsd": 10000000,
+          "lookbackDays": 20
+        }
+      },
+      {
+        "type": "minimumPrice",
+        "parameters": {
+          "minimumPrice": 5
+        }
+      },
+      {
+        "type": "fundamentalQualityPercentile",
+        "parameters": {
+          "minPercentile": 80
+        }
+      }
+    ]
+  },
+  "exitStrategy": {
+    "type": "custom",
+    "conditions": [
+      {
+        "type": "fundamentalQualityDeterioration",
+        "parameters": {
+          "exitBelowPercentile": 60
+        }
+      },
+      {
+        "type": "script",
+        "parameters": {
+          "script": "quote.sma200 != null && quote.closePrice < quote.sma200!!"
+        }
+      },
+      {
+        "type": "trailingStopLoss",
+        "parameters": {
+          "atrMultiplier": 2.7
+        }
+      }
+    ]
+  },
+  "startDate": "2005-01-01",
+  "endDate": "2015-01-01",
+  "inSampleMonths": 36,
+  "outOfSampleMonths": 12,
+  "stepMonths": 12,
+  "maxPositions": 15,
+  "entryDelayDays": 1,
+  "ranker": "FundamentalQuality",
+  "randomSeed": 42,
+  "positionSizing": {
+    "startingCapital": 100000,
+    "sizer": {
+      "type": "atrRisk",
+      "riskPercentage": 1.25,
+      "nAtr": 2.7
+    },
+    "leverageRatio": 1.0
+  },
+  "riskFreeRatePct": 0.0
+}
