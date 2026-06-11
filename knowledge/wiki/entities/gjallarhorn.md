@@ -5,8 +5,8 @@ summary: Breadth-washout crisis-bottom timer; timing alpha CONFIRMED (NULL +22σ
 status: stable
 tags: [candidate, timing, overlay, shelved]
 sources: ["strategy_exploration/dossier/", "project_engine_flat_condition_stack_no_overlay", "project_regime_conditional_portfolio_framework"]
-related: ["[[lottery-vs-signature]]", "[[crisis-timer-cadence-ceiling]]", "[[participate-and-lose]]", "[[regime-conditional-portfolio]]", "[[2026-06-04-gjallarhorn-null]]"]
-updated: 2026-06-07
+related: ["[[lottery-vs-signature]]", "[[crisis-timer-cadence-ceiling]]", "[[participate-and-lose]]", "[[regime-conditional-portfolio]]", "[[quality-profitability-tilt]]", "[[2026-06-04-gjallarhorn-null]]", "[[2026-06-12-levered-quality-lag-check-prereg]]"]
+updated: 2026-06-12
 ---
 
 # Gjallarhorn
@@ -93,6 +93,16 @@ abandoned regime-portfolio program. **No iteration** (tuning sleeves/exits = IS-
   requirement, not a single low touch.**
 - The `marketBreadth*` condition family is **non-terminating under the `/condition-screen` auto-sweep**
   even on the reduced universe — surface firing rate via a single backtest instead.
+- **The sustained-washout classifier is a crisis-*bottom* detector, NOT a crisis-*avoidance* circuit-breaker
+  — and the same property is both** (lag-check 2026-06-12, [[2026-06-12-levered-quality-lag-check-prereg]]).
+  The `≤15% for ≥10 consecutive days` trigger fires ~10 trading days *into* a crash, **at ~−19% drawdown**
+  (2008-07-10 / 2020-03-09, SPY both ~−18.7/−18.9%). That late, near-bottom firing is exactly what makes it a
+  **+22σ bottom-timer** (Gjallarhorn's whole edge) — and exactly what makes it **useless as a top-exit** for a
+  deployed book: to defend you must be in cash *before* the −19%, not confirm it 10 days in. So the washout
+  classifier can re-deploy *into* a bottom but cannot get you *out before* one. Any future "crisis circuit-
+  breaker" needs a *fast* signal (vol-spike / gap / first-N-day breadth collapse), which the frozen washout
+  is structurally not — and re-tuning the frozen params toward speed is forbidden (data-snooping). Killed the
+  levered-[[quality-profitability-tilt]] pivot at a pre-build lag-check gate.
 
 ## Status / forward
 
