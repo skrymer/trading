@@ -5,8 +5,8 @@ summary: A long-only regime-conditional portfolio (specialist per up-tape, else 
 status: superseded
 tags: [program, abandoned, portfolio, methodology]
 sources: ["docs/adr/0010-crisis-defense-is-an-allocation-state-not-a-long-only-defender-component.md", "project_regime_conditional_portfolio_framework"]
-related: ["[[minervini-vcp-breakout]]", "[[gjallarhorn]]", "[[thinning-not-selecting]]", "[[participate-and-lose]]", "[[beta-delivery]]", "[[purpose]]", "[[r1-leadership-gap-breakout]]"]
-updated: 2026-06-09
+related: ["[[minervini-vcp-breakout]]", "[[gjallarhorn]]", "[[thinning-not-selecting]]", "[[participate-and-lose]]", "[[beta-delivery]]", "[[purpose]]", "[[r1-leadership-gap-breakout]]", "[[regime-read-out]]"]
+updated: 2026-06-12
 ---
 
 # The regime-conditional portfolio program (ABANDONED 2026-06-03)
@@ -70,9 +70,12 @@ components, not one uber-strategy." It fired no backtest — it was a strategic 
 - The **market-regime vocabulary** (THRUST / NARROW / GRIND / CHOP / CRISIS + the leadership-concentration
   gap) — kept as market-structure language in `CONTEXT.md`.
 - The **regime read-out design** — the quant-signed, pre-registered 3-axis classifier spec captured
-  below — **shelved**; revive only if regime-attribution is ever wanted as a research instrument (#83).
+  below — **REVIVED 2026-06-12** (ADR 0023): the revival clause was met when regime-attribution was
+  wanted as a research instrument for the [[strategy-assessment]] funnel. The *operative*, re-signed
+  spec (with frozen constants and the 5-label decision table) is [[regime-read-out]]; the section below
+  is its historical ancestor. The revival is the read-out only — **the program stays abandoned**.
 
-## The shelved regime read-out (3-axis classifier, quant-confirmed 2026-06-03)
+## The 2026-06-03 regime read-out spec (historical — superseded by [[regime-read-out]], ADR 0023)
 
 A **read-out the operator consults** (not an auto-switcher), classifying on three cheap orthogonal axes,
 all full-history to 2000. A single magnitude-only "dispersion" signal was **ruled out** — sign-blind,
