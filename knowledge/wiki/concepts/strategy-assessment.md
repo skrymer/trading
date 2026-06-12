@@ -66,8 +66,11 @@ block label — the spine's 2021–25 windows are the same leak surface.
 Honest: descriptive per-regime edge ± **date-clustered SE** + N over the spine's trades, labels from
 the strategy-blind [[regime-read-out]] (published/dwell-smoothed label; raw label as diagnostic
 column), hard **insufficient-N floor ~30 trades** ("insufficient — do not infer"; crisis/chop will
-almost always trip it, correctly). Legitimate use: *sizing/timing context for an already-validated
-strategy*.
+almost always trip it, correctly). Per the ADR 0024 trust grades: GRIND/NARROW/CHOP rows render only
+under the fixed reliability banner (below the axes' resolving power — treat as one
+uptrend/unclassified bucket), the THRUST row carries the recovery-suppression note, and the
+current-regime line reports CRISIS authoritatively while collapsing the fine-grain labels.
+Legitimate use: *sizing/timing context for an already-validated strategy*.
 
 Theater (refuse to enable): per-regime backtests or re-optimization; any per-regime number used to
 **select or redesign** ("add a grind gate") — that is [[aliased-regime-sensitivity]] and the rescue

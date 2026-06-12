@@ -19,7 +19,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[component-firewall]] — the binding 3-block + 25y validation layer; gates, interlocks, intent.
 - [[parameter-robustness-g13]] — a TRADABLE verdict must survive ±1 step / ±10% on every tunable.
 - [[strategy-assessment]] — the separate non-adjudicating report funnel (ADR 0022, to-build): full battery, no verdict, human decides; full C-span disclosure + eyeballed-C annotation; the regime table's honest/theater line.
-- [[regime-read-out]] — the quant-signed (2026-06-12) 5-label classifier pre-registration (ADR 0023, to-build): frozen constants, decision table, hysteresis, validation anchors; gate-able, rescue-forbidden.
+- [[regime-read-out]] — the v2 classifier, anchor-adjudicated ACCEPT-WITH-LIMITATIONS (ADR 0023/0024): CRISIS trustworthy + THRUST precision-only (gateable); GRIND/NARROW/CHOP below axis resolving power — descriptive-only, ungateable. No v3 by iteration.
 
 ## Concepts — failure modes
 
@@ -53,6 +53,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Sources — run summaries
 
+- [[2026-06-13-regime-readout-v1-fail-v2-adjudication]] — the full §5 revision loop: v1 anchor FAIL (18/19) → diagnostics (EW mean tail-contaminated, p1 −99%; −20% dd leg separates all consensus bears) → v2 (median leg, tercile bands p33/p67 read-once, dd-CRISIS, advisory guard, not-DOWN NARROW) → cycle-2 FAIL (12/19) → ACCEPT-WITH-LIMITATIONS. Durable: the drawdown-recovery blind spot; full-universe EW means unusable; grind/narrow/chop below 3-axis resolving power.
 - [[2026-06-12-strategy-assessment-design-and-regime-readout-prereg]] — design session → ADR 0022 (assessment funnel) + ADR 0023 (read-out revival); quant battery design (25y-WF spine + complements, C-coarse recommendation overruled with disclosure floor) + pre-reg v0→v1 SIGNED-OFF (stateless gap cut + ±2% direction band were blocking). No run.
 - [[2026-06-10-quality-tilt-scoping-and-design-lock]] — quant proposed a cross-sectional quality tilt (non-price selector; narrow leadership a tailwind); `/grill-with-docs` locked the architecture (ADR 0019), a 2nd consult locked the signal (GP/TA gate + ranker). Build = #150, arch = PR #151. No run.
 - [[2026-06-10-quality-tilt-build-complete]] — the #150 build landed (PR #152): L1 fundamentals + L2 quality-percentile pass + gate/exit/SMA conditions + `FundamentalQualityRanker` + the ADR 0020 `rankCohort` engine hook, all gates green. Records the reusable cohort-ranking finding (a single-leg cross-sectional z is a no-op; a blend needs the cohort). Still unproven — kill-test pending.
