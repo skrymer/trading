@@ -31,7 +31,7 @@ udgaard/
 │   │   │   ├── BacktestController.kt
 │   │   │   ├── BacktestReportController.kt  # GET /api/backtest/reports, DELETE /{id}, POST /batch-delete
 │   │   │   ├── MonteCarloController.kt
-│   │   │   └── RegimeController.kt       # GET /api/regime/readout?after=&before= (daily 5-label series) + GET /api/regime/current (latest read as of the NY trading day, 404 when none) + GET /api/regime/decomposition/{backtestId} (a stored backtest's trades bucketed by published regime at entry, 404 unknown id) + GET /api/regime/sector-matrix?after=&before= (strategy-blind regime×sector return matrix, 400 inverted window); read-out + descriptive decomposition/matrix, never a deploy/cash switch (ADR 0010/0023)
+│   │   │   └── RegimeController.kt       # GET /api/regime/readout?after=&before= (daily 5-label series + per-day axes readings) + GET /api/regime/current (latest read as of the NY trading day, 404 when none) + GET /api/regime/decomposition/{backtestId} (a stored backtest's trades bucketed by published regime at entry, 404 unknown id) + GET /api/regime/sector-matrix?after=&before= (strategy-blind regime×sector return matrix, 400 inverted window); read-out + descriptive decomposition/matrix, never a deploy/cash switch (ADR 0010/0023)
 │   │   ├── dto/                      # DTOs
 │   │   │   ├── StrategyConfigDto.kt     # BacktestRequest incl. costBps (net-by-default 10 bps; 0 = gross) + riskFreeRatePct + creditIdleCash (default-ON, ADR 0016); WalkForwardRequest also incl. creditIdleCash
 │   │   │   ├── MonteCarloRequestDto.kt
@@ -50,7 +50,7 @@ udgaard/
 │   │   │   ├── LeadershipRegimeDiagnostics.kt # In-window regime observability (onFraction, flipCount, spell lengths, onFractionByYear, untrustworthyDays, minContributingN) (issue #83)
 │   │   │   ├── LeadershipRegimeParams.kt # Frozen pre-registered gate spec (FROZEN); lookbackBars/emaPeriod/deadBand/washout*/trust thresholds — changing a value is a methodology change, not a config knob (issue #83)
 │   │   │   ├── RegimeLabel.kt        # The five canonical market-regime labels (THRUST/GRIND/NARROW/CHOP/CRISIS, CONTEXT.md "Market regimes"); a day with no defensible read carries no label (fail-closed null) (ADR 0023)
-│   │   │   ├── RegimeReadoutDaily.kt # One day's regime read: instantaneous rawLabel + dwell-debounced publishedLabel (both null on a fail-closed undefensible day) (ADR 0023)
+│   │   │   ├── RegimeReadoutDaily.kt # One day's regime read: instantaneous rawLabel + dwell-debounced publishedLabel (both null on a fail-closed undefensible day) + nested RegimeAxes (raw breadth/gap/vol/washout readings the label was decided on; observability only, never an input to a decision) (ADR 0023)
 │   │   │   ├── RegimeReadoutParams.kt # Frozen pre-registered read-out spec (FROZEN); breadth/slope/gap/vol bands + dwell + washout + trust thresholds — changing a value is a methodology change, not a config knob (ADR 0023)
 │   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling

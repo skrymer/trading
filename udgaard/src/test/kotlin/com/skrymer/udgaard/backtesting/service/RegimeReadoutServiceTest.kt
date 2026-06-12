@@ -46,6 +46,29 @@ class RegimeReadoutServiceTest {
     MarketBreadthDaily(quoteDate = date, breadthPercent = percent, ema10 = ema10)
 
   @Test
+  fun `each labeled day exposes its axis readings for diagnostics and the current-regime line`() {
+    // Given: the broad-thrust tape (flat SPY, equal-weight +2%/20 bars, breadth EMA10 = 55)
+    val days = dates(45)
+    val spyClose = days.associateWith { 100.0 }
+    val ewReturns = days.associateWith { ewOf(it, 0.02) }
+    val breadth = days.associateWith { breadthOf(it, 55.0) }
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
+
+    // Then: the last day carries the raw axis values the label was decided on
+    val axes = requireNotNull(series.getValue(days.last()).axes)
+    assertEquals(55.0, axes.breadthLevel!!, 1e-9)
+    assertEquals(0.0, axes.breadthSlope!!, 1e-9)
+    assertEquals(-0.02, axes.gapSmoothed!!, 1e-9)
+    assertEquals(300, axes.gapContributingN)
+    assertEquals(true, axes.gapTrustworthy)
+    assertEquals(0.0, axes.realizedVol!!, 1e-9)
+    assertEquals(0.0, axes.direction!!, 1e-9)
+    assertEquals(false, axes.washoutActive)
+  }
+
+  @Test
   fun `a broad-thrust tape - breadth high with equal-weight leading - labels THRUST`() {
     // Given: 45 days of flat SPY (20-bar return 0) while the equal-weight universe gains 2% per
     // 20 bars -> gap = -2% (equal-weight leads), with breadth participation high (EMA10 = 55 >= 50)

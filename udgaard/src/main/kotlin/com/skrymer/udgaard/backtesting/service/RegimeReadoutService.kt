@@ -1,5 +1,6 @@
 package com.skrymer.udgaard.backtesting.service
 
+import com.skrymer.udgaard.backtesting.model.RegimeAxes
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutDaily
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutParams
@@ -93,29 +94,41 @@ class RegimeReadoutService(
     val washoutIndex = WashoutIndex(breadthByDate, params)
     val breadthSlopeByDate = breadthSlopes(breadthByDate, params.slopeBars)
 
-    val rawLabels =
+    val axesByDay =
       gapDates.mapIndexed { index, date ->
-        val axes =
-          axesFor(
-            breadthLevel = breadthByDate[date]?.ema10,
-            slope = breadthSlopeByDate[date],
-            gapSmoothed = gapSmoothed[index],
-            // The EMA's first period-1 slots are seed placeholders, not real smoothed values — a
-            // gap axis read on them would be fabricated (0.0 sits inside the dead-band).
-            emaSeeded = index >= params.emaPeriod - 1,
-            direction = spyReturnByDate.getValue(date),
-            realizedVol = spyVolByDate[date],
-            ew = ewReturnByDate.getValue(date),
-            washoutActive = washoutIndex.activeAt(date),
-            params = params,
-          )
-        rawLabel(axes)
+        val ew = ewReturnByDate.getValue(date)
+        // Sample stdev (and thus the standard error of the mean) is undefined for fewer than two names.
+        val standardError =
+          if (ew.contributingN > 1) ew.crossSectionalStdev / sqrt(ew.contributingN.toDouble()) else null
+        RegimeAxes(
+          breadthLevel = breadthByDate[date]?.ema10,
+          breadthSlope = breadthSlopeByDate[date],
+          // The EMA's first period-1 slots are seed placeholders, not real smoothed values — a gap
+          // axis read on them would be fabricated (0.0 sits inside the dead-band).
+          gapSmoothed = if (index >= params.emaPeriod - 1) gapSmoothed[index] else null,
+          gapStandardError = standardError,
+          gapContributingN = ew.contributingN,
+          gapTrustworthy =
+            ew.contributingN >= params.minTrustworthyN &&
+              standardError != null &&
+              standardError < params.maxTrustworthyStandardError,
+          realizedVol = spyVolByDate[date],
+          direction = spyReturnByDate.getValue(date),
+          washoutActive = washoutIndex.activeAt(date),
+        )
       }
+    val rawLabels = axesByDay.map { rawLabel(decisionAxes(it, params)) }
 
     val publishedLabels = publish(rawLabels, params)
     val series = LinkedHashMap<LocalDate, RegimeReadoutDaily>(gapDates.size)
     gapDates.forEachIndexed { index, date ->
-      series[date] = RegimeReadoutDaily(quoteDate = date, rawLabel = rawLabels[index], publishedLabel = publishedLabels[index])
+      series[date] =
+        RegimeReadoutDaily(
+          quoteDate = date,
+          rawLabel = rawLabels[index],
+          publishedLabel = publishedLabels[index],
+          axes = axesByDay[index],
+        )
     }
     return series
   }
@@ -140,34 +153,27 @@ class RegimeReadoutService(
     val breadthAboveWeak: Boolean,
   )
 
-  private fun axesFor(
-    breadthLevel: Double?,
-    slope: Double?,
-    gapSmoothed: Double,
-    emaSeeded: Boolean,
-    direction: Double,
-    realizedVol: Double?,
-    ew: EwReturnDaily,
-    washoutActive: Boolean,
+  private fun decisionAxes(
+    readings: RegimeAxes,
     params: RegimeReadoutParams,
   ): DayAxes {
-    // Sample stdev (and thus the standard error of the mean) is undefined for fewer than two names.
-    val standardError =
-      if (ew.contributingN > 1) ew.crossSectionalStdev / sqrt(ew.contributingN.toDouble()) else Double.POSITIVE_INFINITY
-    val gapTrustworthy = ew.contributingN >= params.minTrustworthyN && standardError < params.maxTrustworthyStandardError
-    val gapNegative = gapSmoothed <= -params.gapDeadBand
-    val gapPositive = gapSmoothed >= params.gapDeadBand
+    val breadthLevel = readings.breadthLevel
+    val gapSmoothed = readings.gapSmoothed
+    val gapNegative = gapSmoothed != null && gapSmoothed <= -params.gapDeadBand
+    val gapPositive = gapSmoothed != null && gapSmoothed >= params.gapDeadBand
+    val slope = readings.breadthSlope
     val slopeRising = slope != null && slope >= params.slopeBand
     val slopeFalling = slope != null && slope <= -params.slopeBand
+    val direction = readings.direction
     return DayAxes(
-      defensible = gapTrustworthy && emaSeeded && breadthLevel != null,
-      washoutActive = washoutActive,
+      defensible = readings.gapTrustworthy == true && gapSmoothed != null && breadthLevel != null,
+      washoutActive = readings.washoutActive,
       gapNegative = gapNegative,
       gapPositive = gapPositive,
-      gapNeutral = !gapNegative && !gapPositive,
-      directionUp = direction >= params.directionDeadBand,
-      directionDown = direction <= -params.directionDeadBand,
-      volLow = realizedVol != null && realizedVol <= params.volLowBand,
+      gapNeutral = gapSmoothed != null && !gapNegative && !gapPositive,
+      directionUp = direction != null && direction >= params.directionDeadBand,
+      directionDown = direction != null && direction <= -params.directionDeadBand,
+      volLow = readings.realizedVol != null && readings.realizedVol <= params.volLowBand,
       slopeFalling = slopeFalling,
       breadthHighOrRising = breadthLevel != null && (breadthLevel >= params.breadthHighBand || slopeRising),
       breadthWeakOrFalling = breadthLevel != null && (breadthLevel <= params.breadthWeakBand || slopeFalling),
