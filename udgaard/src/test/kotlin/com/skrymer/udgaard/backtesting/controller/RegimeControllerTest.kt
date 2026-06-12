@@ -1,8 +1,16 @@
 package com.skrymer.udgaard.backtesting.controller
 
+import com.skrymer.udgaard.backtesting.model.BacktestReport
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutDaily
+import com.skrymer.udgaard.backtesting.model.Trade
+import com.skrymer.udgaard.backtesting.service.BacktestResultStore
+import com.skrymer.udgaard.backtesting.service.RegimeDecompositionService
 import com.skrymer.udgaard.backtesting.service.RegimeReadoutService
+import com.skrymer.udgaard.backtesting.service.RegimeSectorCell
+import com.skrymer.udgaard.backtesting.service.RegimeSectorMatrix
+import com.skrymer.udgaard.backtesting.service.RegimeSectorMatrixService
+import com.skrymer.udgaard.data.model.StockQuote
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -19,9 +27,12 @@ import java.time.ZoneId
 
 class RegimeControllerTest {
   private val regimeReadoutService: RegimeReadoutService = mock()
+  private val regimeSectorMatrixService: RegimeSectorMatrixService = mock()
+  private val backtestResultStore: BacktestResultStore = mock()
   private val newYork = ZoneId.of("America/New_York")
   private val clock = Clock.fixed(Instant.parse("2026-06-11T20:00:00Z"), newYork)
-  private val controller = RegimeController(regimeReadoutService, clock)
+  private val controller =
+    RegimeController(regimeReadoutService, RegimeDecompositionService(), regimeSectorMatrixService, backtestResultStore, clock)
 
   private fun day(date: LocalDate, label: RegimeLabel?) =
     RegimeReadoutDaily(quoteDate = date, rawLabel = label, publishedLabel = label)
@@ -92,4 +103,79 @@ class RegimeControllerTest {
     // When / Then
     assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, controller.getCurrent().statusCode)
   }
+
+  @Test
+  fun `the decomposition endpoint buckets a stored backtest's trades by regime at entry`() {
+    // Given: a stored backtest whose 30 winning trades entered on a THRUST day and whose 5 losers
+    // entered on a NARROW day
+    val thrustDay = LocalDate.of(2010, 3, 1)
+    val narrowDay = LocalDate.of(2023, 6, 1)
+    val report: BacktestReport = mock()
+    whenever(report.trades).thenReturn(
+      (0 until 30).map { tradeOn(thrustDay, profit = 2.0) } + (0 until 5).map { tradeOn(narrowDay, profit = -1.0) },
+    )
+    whenever(backtestResultStore.get(eq("bt-1"))).thenReturn(report)
+    whenever(regimeReadoutService.loadReadoutSeries(eq(thrustDay), eq(narrowDay), any()))
+      .thenReturn(
+        mapOf(
+          thrustDay to day(thrustDay, RegimeLabel.THRUST),
+          narrowDay to day(narrowDay, RegimeLabel.NARROW),
+        ),
+      )
+
+    // When
+    val response = controller.getDecomposition("bt-1")
+
+    // Then: the THRUST bucket is inferable (30 trades, +2% on a $100 entry), the NARROW one is not
+    val body = requireNotNull(response.body)
+    val thrustRow = body.rows.first { it.label == RegimeLabel.THRUST }
+    val narrowRow = body.rows.first { it.label == RegimeLabel.NARROW }
+    assertEquals(30, thrustRow.tradeCount)
+    assertEquals(2.0, thrustRow.edge!!, 1e-9)
+    assertEquals(true, narrowRow.insufficient)
+  }
+
+  @Test
+  fun `the decomposition endpoint returns 404 for an unknown backtest`() {
+    // Given
+    whenever(backtestResultStore.get(eq("missing"))).thenReturn(null)
+
+    // When / Then
+    assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, controller.getDecomposition("missing").statusCode)
+  }
+
+  @Test
+  fun `the sector-matrix endpoint returns the window's regime x sector matrix`() {
+    // Given
+    val after = LocalDate.of(2010, 1, 1)
+    val before = LocalDate.of(2010, 12, 31)
+    val matrix = RegimeSectorMatrix(
+      cells = listOf(
+        RegimeSectorCell(
+          label = RegimeLabel.THRUST,
+          sector = "XLK",
+          dayCount = 120,
+          spellCount = 4,
+          annualizedReturn = 0.21,
+          annualizedStandardError = 0.06,
+        ),
+      ),
+    )
+    whenever(regimeSectorMatrixService.loadMatrix(eq(after), eq(before))).thenReturn(matrix)
+
+    // When / Then: the matrix comes back, and an inverted window is rejected before loading
+    assertEquals(matrix, controller.getSectorMatrix(after, before).body)
+    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, controller.getSectorMatrix(before, after).statusCode)
+  }
+
+  private fun tradeOn(date: LocalDate, profit: Double) =
+    Trade(
+      stockSymbol = "AAPL",
+      entryQuote = StockQuote(symbol = "AAPL", date = date, closePrice = 100.0),
+      quotes = emptyList(),
+      exitReason = "test",
+      profit = profit,
+      startDate = date,
+      sector = "XLK",
+    )
 }
