@@ -41,7 +41,13 @@ class BacktestServiceDelistingTest {
     marketBreadthRepository = mock(MarketBreadthRepository::class.java)
     whenever(marketBreadthRepository.calculateBreadthByDate()).thenReturn(emptyMap())
     backtestService =
-      BacktestService(stockRepository, sectorBreadthRepository, marketBreadthRepository, mock(LeadershipRegimeService::class.java))
+      BacktestService(
+        stockRepository,
+        sectorBreadthRepository,
+        marketBreadthRepository,
+        mock(LeadershipRegimeService::class.java),
+        mock(RegimeReadoutService::class.java),
+      )
   }
 
   @Test

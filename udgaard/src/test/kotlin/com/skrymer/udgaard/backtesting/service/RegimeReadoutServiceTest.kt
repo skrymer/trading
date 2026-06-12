@@ -1,6 +1,14 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
+import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.ADXRangeCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryConditionGroup
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.RegimeLabelCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.EmaCrossExit
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.RegimeLabelExitCondition
 import com.skrymer.udgaard.data.model.EwReturnDaily
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.model.Stock
@@ -18,6 +26,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
@@ -320,6 +329,70 @@ class RegimeReadoutServiceTest {
     assertEquals(RegimeLabel.THRUST, series.getValue(days[49]).publishedLabel)
     assertEquals(null, series.getValue(days[50]).publishedLabel)
     assertEquals(RegimeLabel.THRUST, series.getValue(days[51]).publishedLabel)
+  }
+
+  @Test
+  fun `no read-out is loaded for a strategy that does not gate on a regime label`() {
+    // Given: an entry/exit pair with no regime-label condition anywhere
+    val entryStrategy = CompositeEntryStrategy(listOf(ADXRangeCondition()))
+    val exitStrategy = CompositeExitStrategy(listOf(EmaCrossExit()))
+
+    // When
+    val map = service.loadReadoutMapIfGated(entryStrategy, exitStrategy, LocalDate.of(2020, 6, 1), LocalDate.of(2020, 7, 1))
+
+    // Then: nothing is loaded — the read-out costs nothing unless a strategy consults it
+    assertTrue(map.isEmpty())
+    verifyNoInteractions(leadershipGapRepository, stockRepository, marketBreadthRepository)
+  }
+
+  @Test
+  fun `a regime-label condition nested inside a group still triggers the read-out load`() {
+    // Given: the regime gate sits inside an OR-group, not at the strategy's top level
+    val entryStrategy =
+      CompositeEntryStrategy(
+        listOf(
+          EntryConditionGroup(
+            LogicalOperator.OR,
+            listOf(ADXRangeCondition(), RegimeLabelCondition(setOf(RegimeLabel.THRUST))),
+          ),
+        ),
+      )
+    val exitStrategy = CompositeExitStrategy(listOf(EmaCrossExit()))
+    val after = LocalDate.of(2020, 6, 1)
+    val allDays = (0 until 200).map { after.minusDays(190).plusDays(it.toLong()) }
+    whenever(stockRepository.findBySymbol(eq("SPY"), anyOrNull()))
+      .thenReturn(Stock(quotes = allDays.map { StockQuote(symbol = "SPY", date = it, closePrice = 100.0) }))
+    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any()))
+      .thenReturn(allDays.associateWith { ewOf(it, 0.02) })
+    whenever(marketBreadthRepository.findAllAsMap())
+      .thenReturn(allDays.associateWith { breadthOf(it, 55.0) })
+
+    // When
+    val map = service.loadReadoutMapIfGated(entryStrategy, exitStrategy, after, LocalDate.of(2020, 6, 8))
+
+    // Then: the series is loaded for the gated strategy
+    assertTrue(map.isNotEmpty())
+  }
+
+  @Test
+  fun `an exit-only regime gate also triggers the read-out load`() {
+    // Given: the only regime condition in the whole strategy is the exit-on-CRISIS leg
+    val entryStrategy = CompositeEntryStrategy(listOf(ADXRangeCondition()))
+    val exitStrategy = CompositeExitStrategy(listOf(RegimeLabelExitCondition(setOf(RegimeLabel.CRISIS))))
+    val after = LocalDate.of(2020, 6, 1)
+    val allDays = (0 until 200).map { after.minusDays(190).plusDays(it.toLong()) }
+    whenever(stockRepository.findBySymbol(eq("SPY"), anyOrNull()))
+      .thenReturn(Stock(quotes = allDays.map { StockQuote(symbol = "SPY", date = it, closePrice = 100.0) }))
+    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any()))
+      .thenReturn(allDays.associateWith { ewOf(it, 0.02) })
+    whenever(marketBreadthRepository.findAllAsMap())
+      .thenReturn(allDays.associateWith { breadthOf(it, 55.0) })
+
+    // When
+    val map = service.loadReadoutMapIfGated(entryStrategy, exitStrategy, after, LocalDate.of(2020, 6, 8))
+
+    // Then
+    assertTrue(map.isNotEmpty())
   }
 
   @Test

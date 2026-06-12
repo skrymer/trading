@@ -22,6 +22,7 @@ class WalkForwardSpyBaselineTest {
     stockRepository = mock(),
     riskFreeRateService = mock(),
     leadershipRegimeService = mock(),
+    regimeReadoutService = mock(),
   )
 
   @Test

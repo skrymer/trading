@@ -3,6 +3,12 @@ package com.skrymer.udgaard.backtesting.service
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutDaily
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutParams
+import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
+import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.RegimeLabelCondition
+import com.skrymer.udgaard.backtesting.strategy.condition.exit.RegimeLabelExitCondition
 import com.skrymer.udgaard.data.model.EwReturnDaily
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
 import com.skrymer.udgaard.data.repository.LeadershipGapRepository
@@ -46,6 +52,25 @@ class RegimeReadoutService(
     val breadthByDate = marketBreadthRepository.findAllAsMap()
     return computeReadoutSeries(spyCloseByDate, ewReturnByDate, breadthByDate, params)
       .filterKeys { !it.isBefore(after) && !it.isAfter(before) }
+  }
+
+  /**
+   * The read-out series for a backtest, loaded only when the strategy actually gates on a regime
+   * label (entry or exit, including conditions nested in groups) — otherwise an empty map at zero
+   * cost. The backtest engines call this at context-build time.
+   */
+  fun loadReadoutMapIfGated(
+    entryStrategy: EntryStrategy,
+    exitStrategy: ExitStrategy,
+    after: LocalDate,
+    before: LocalDate,
+  ): Map<LocalDate, RegimeReadoutDaily> {
+    val entryGates =
+      (entryStrategy as? CompositeEntryStrategy)?.getConditions()?.any { it is RegimeLabelCondition } ?: false
+    val exitGates =
+      (exitStrategy as? CompositeExitStrategy)?.getConditions()?.any { it is RegimeLabelExitCondition } ?: false
+    if (!entryGates && !exitGates) return emptyMap()
+    return loadReadoutSeries(after, before)
   }
 
   /**
