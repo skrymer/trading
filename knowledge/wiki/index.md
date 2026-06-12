@@ -4,7 +4,7 @@ title: Index — content catalog
 summary: One-line catalog of every wiki page — read first on any query, then open the relevant pages.
 status: active
 tags: [index]
-updated: 2026-06-09
+updated: 2026-06-12
 ---
 
 # Index — read this first
@@ -18,6 +18,8 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[the-funnel]] — how an idea becomes tradable/rejected: the 5-stage funnel map.
 - [[component-firewall]] — the binding 3-block + 25y validation layer; gates, interlocks, intent.
 - [[parameter-robustness-g13]] — a TRADABLE verdict must survive ±1 step / ±10% on every tunable.
+- [[strategy-assessment]] — the separate non-adjudicating report funnel (ADR 0022, to-build): full battery, no verdict, human decides; full C-span disclosure + eyeballed-C annotation; the regime table's honest/theater line.
+- [[regime-read-out]] — the quant-signed (2026-06-12) 5-label classifier pre-registration (ADR 0023, to-build): frozen constants, decision table, hysteresis, validation anchors; gate-able, rescue-forbidden.
 
 ## Concepts — failure modes
 
@@ -51,6 +53,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Sources — run summaries
 
+- [[2026-06-12-strategy-assessment-design-and-regime-readout-prereg]] — design session → ADR 0022 (assessment funnel) + ADR 0023 (read-out revival); quant battery design (25y-WF spine + complements, C-coarse recommendation overruled with disclosure floor) + pre-reg v0→v1 SIGNED-OFF (stateless gap cut + ±2% direction band were blocking). No run.
 - [[2026-06-10-quality-tilt-scoping-and-design-lock]] — quant proposed a cross-sectional quality tilt (non-price selector; narrow leadership a tailwind); `/grill-with-docs` locked the architecture (ADR 0019), a 2nd consult locked the signal (GP/TA gate + ranker). Build = #150, arch = PR #151. No run.
 - [[2026-06-10-quality-tilt-build-complete]] — the #150 build landed (PR #152): L1 fundamentals + L2 quality-percentile pass + gate/exit/SMA conditions + `FundamentalQualityRanker` + the ADR 0020 `rankCohort` engine hook, all gates green. Records the reusable cohort-ranking finding (a single-leg cross-sectional z is a no-op; a blend needs the cohort). Still unproven — kill-test pending.
 - [[2026-06-11-quality-tilt-condition-screen-killtest]] — the quality gate's flat-SPY-tertile `/condition-screen` kill-test **PASSED** (300-sym sanity universe, 2000–2021): flat tertile positive at 10d/20d, no regime sign-flip, clean monotone ARS sweep, Jaccard vs RS70 ≤0.25. First long premise to clear the tell that killed PEAD ×3; beta-delivery pre-mortem disconfirmed. NOT validated — proceeds to the Random-ranker null at /strategy-screen.
