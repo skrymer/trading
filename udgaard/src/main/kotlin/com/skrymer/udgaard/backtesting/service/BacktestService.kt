@@ -69,6 +69,7 @@ class BacktestService(
   private val sectorBreadthRepository: SectorBreadthRepository,
   private val marketBreadthRepository: MarketBreadthRepository,
   private val leadershipRegimeService: LeadershipRegimeService,
+  private val regimeReadoutService: RegimeReadoutService,
 ) {
   /**
    * Holds indexed quotes for fast O(1) date lookups.
@@ -394,12 +395,14 @@ class BacktestService(
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
       val sectorEtfQuoteMap = loadSectorEtfQuoteMap(sectorBreadthMap.keys, loadAfter)
       val leadershipRegimeMap = loadLeadershipRegimeMap(entryStrategy, after, before, breadthByDate, logger)
+      val regimeReadoutMap = regimeReadoutService.loadReadoutMapIfGated(entryStrategy, exitStrategy, after, before)
       BacktestContext(
         sectorBreadthMap,
         marketBreadthMap,
         spyQuoteMap,
         sectorEtfQuoteMap = sectorEtfQuoteMap,
         leadershipRegimeMap = leadershipRegimeMap,
+        regimeReadoutMap = regimeReadoutMap,
         costBps = costBps,
       ).also {
         logger.info(

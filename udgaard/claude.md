@@ -30,7 +30,8 @@ udgaard/
 │   │   ├── controller/               # REST endpoints
 │   │   │   ├── BacktestController.kt
 │   │   │   ├── BacktestReportController.kt  # GET /api/backtest/reports, DELETE /{id}, POST /batch-delete
-│   │   │   └── MonteCarloController.kt
+│   │   │   ├── MonteCarloController.kt
+│   │   │   └── RegimeController.kt       # GET /api/regime/readout?after=&before= (daily 5-label series) + GET /api/regime/current (latest read as of the NY trading day, 404 when none) + GET /api/regime/decomposition/{backtestId} (a stored backtest's trades bucketed by published regime at entry, 404 unknown id) + GET /api/regime/sector-matrix?after=&before= (strategy-blind regime×sector return matrix, 400 inverted window); read-out + descriptive decomposition/matrix, never a deploy/cash switch (ADR 0010/0023)
 │   │   ├── dto/                      # DTOs
 │   │   │   ├── StrategyConfigDto.kt     # BacktestRequest incl. costBps (net-by-default 10 bps; 0 = gross) + riskFreeRatePct + creditIdleCash (default-ON, ADR 0016); WalkForwardRequest also incl. creditIdleCash
 │   │   │   ├── MonteCarloRequestDto.kt
@@ -44,10 +45,13 @@ udgaard/
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio
 │   │   │   ├── BenchmarkComparison.kt  # benchmarkSymbol, correlation, beta, activeReturnVsBenchmark (NOT Jensen's alpha) + benchmarkCagr/MaxDrawdownPct/Calmar/Sharpe (benchmark's standalone metrics; diagnostic leg of the SPY baseline gate, ADR 0013)
 │   │   │   ├── DrawdownEpisode.kt      # peak/trough/recoveryDate, maxDrawdownPct, declineDays/recoveryDays/totalDays
-│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016) + sectorEtfQuoteMap (sector-ETF factor series for multi-factor residual rankers, warmup-loaded; ADR 0018) + leadershipRegimeMap + getLeadershipRegimeOn(date) (leadership-gap deploy/cash gate, missing date → cash; empty unless gated on; issue #83)
+│   │   │   ├── BacktestContext.kt    # incl. costBps (round-trip transaction cost in bps; net-by-default 10, 0 = gross) + creditIdleCash + idleCashExpensePct (~0.10% SGOV haircut, subtracted once; ADR 0016) + sectorEtfQuoteMap (sector-ETF factor series for multi-factor residual rankers, warmup-loaded; ADR 0018) + leadershipRegimeMap + getLeadershipRegimeOn(date) (leadership-gap deploy/cash gate, missing date → cash; empty unless gated on; issue #83) + regimeReadoutMap + getRegimeLabel(date) (ADR 0023 5-label read-out, published label, null/missing → fail-closed; empty unless a strategy gates on a regime label)
 │   │   │   ├── LeadershipRegimeDaily.kt # One day's leadership-gap read: gap/gapSmoothed/schmittOn/washoutActive/regimeOn + contributingN/standardError/trustworthy observability (issue #83)
 │   │   │   ├── LeadershipRegimeDiagnostics.kt # In-window regime observability (onFraction, flipCount, spell lengths, onFractionByYear, untrustworthyDays, minContributingN) (issue #83)
 │   │   │   ├── LeadershipRegimeParams.kt # Frozen pre-registered gate spec (FROZEN); lookbackBars/emaPeriod/deadBand/washout*/trust thresholds — changing a value is a methodology change, not a config knob (issue #83)
+│   │   │   ├── RegimeLabel.kt        # The five canonical market-regime labels (THRUST/GRIND/NARROW/CHOP/CRISIS, CONTEXT.md "Market regimes"); a day with no defensible read carries no label (fail-closed null) (ADR 0023)
+│   │   │   ├── RegimeReadoutDaily.kt # One day's regime read: instantaneous rawLabel + dwell-debounced publishedLabel (both null on a fail-closed undefensible day) (ADR 0023)
+│   │   │   ├── RegimeReadoutParams.kt # Frozen pre-registered read-out spec (FROZEN); breadth/slope/gap/vol bands + dwell + washout + trust thresholds — changing a value is a methodology change, not a config knob (ADR 0023)
 │   │   │   ├── Trade.kt              # Trade (w/ costPerShare netted out of profit) + EntryDecisionContext (cash/notional/cohort snapshot at decision time)
 │   │   │   ├── PositionSizingConfig.kt  # startingCapital, sizer: SizerConfig, leverageRatio, drawdownScaling
 │   │   │   ├── WalkForwardResult.kt    # WalkForwardWindow.outOfSampleStatsByEntryMonth: Map<"yyyy-MM", TradeStatsSummary> for sub-window regime gates (ADR 0006); spyBaselineComparison: SpyBaselineComparison? — SPY buy-and-hold Calmar baseline gate verdict (ADR 0013)
@@ -76,6 +80,9 @@ udgaard/
 │   │   │   │   └── LeverageCap.kt           # Portfolio-level leverage cap (applied outside sizer)
 │   │   │   ├── WalkForwardService.kt    # Walk-forward validation (IS/OOS windows); bucketByEntryMonth() builds per-window OOS monthly TradeStatsSummary buckets (ADR 0006); computeSpyBaseline() stitches a SPY buy-and-hold curve through the identical OOS path (ADR 0013/0005) → spyBaselineComparison (Calmar-only gate); shares one window-independent leadership-gap regime series across all windows
 │   │   │   ├── LeadershipRegimeService.kt # Pre-computes the leadership-gap regime (issue #83, ADR 0010 cash read-out): pure computeRegimeSeries (GAP = SPY 20-bar return − equal-weight universe mean, EMA10, Schmitt ±0.5% dead-band, sustained-washout crisis veto → regimeOn) + impure loadRegimeMap (warmup-loads SPY + LeadershipGapRepository over ~180 calendar days so EMA/Schmitt/washout seed before the window); only built when a strategy gates on it; diagnostics() summarises the in-window series
+│   │   │   ├── RegimeReadoutService.kt   # Pre-registered 5-label regime read-out (ADR 0023): pure computeReadoutSeries (breadth level+slope / leadership-gap / SPY realized-vol decision table + sustained-washout CRISIS classifier → RegimeLabel; dwell-debounced publishedLabel; fail-closed null when undefensible) + impure loadReadoutSeries (warmup-loads SPY + equal-weight aggregate + breadth over ~180 calendar days) + loadReadoutMapIfGated(entry, exit, after, before) (loads the BacktestContext.regimeReadoutMap only when a strategy gates on a regime label via getConditions() — recurses into nested condition groups — else empty at zero cost; BacktestService + WalkForwardService call it at context-build time, WF shares one window-independent series); strategy-blind market classifier, never an engine-level deploy/cash switch — strategies opt in via the regimeLabelIn/regimeLabelExit conditions + RegimeController surfaces it over REST (ADR 0010)
+│   │   │   ├── RegimeDecompositionService.kt # Descriptive-only per-regime decomposition of a stored backtest's closed trades (ADR 0023): published-label bucketing at entry date, per-bucket edge (mean per-trade % return, net of cost) + entry-month-clustered CR0 SE, 30-trade insufficient-N floor (stats nulled + flagged), unlabeled bucket, raw-vs-published divergence count, per-sector drill-down cells with per-cell floor; DTOs RegimeTradeSample/RegimeDecomposition(Row)/SectorCell; never a gate
+│   │   │   ├── RegimeSectorMatrixService.kt # Strategy-blind regime×sector return matrix (ADR 0023): each sector ETF's daily returns bucketed by published label, annualized mean ×252, spell-clustered CR0 SE + spellCount; impure loadMatrix(after, before) over the sector-breadth-map universe; pure matrix(); never a gate
 │   │   │   ├── BacktestResultStore.kt    # Backtest result store (backtest_reports table); gzip-compresses the report into a bytea column (high-candidate backtests overflow Postgres's ~256 MB jsonb cap), decompresses on read
 │   │   │   ├── ConditionRegistry.kt     # Indexes Spring-discovered conditions by getMetadata().type; routes ConditionConfig to per-condition parseConfig
 │   │   │   ├── ConditionConfigParsing.kt # numberOr/intOr/stringOr helpers used by every condition's parseConfig override
@@ -93,8 +100,8 @@ udgaard/
 │   │       ├── *EntryStrategy.kt     # Strategy implementations (discoverable via API)
 │   │       ├── *ExitStrategy.kt
 │   │       └── condition/            # Entry/exit conditions
-│   │           ├── entry/            # Entry conditions (discoverable via getAvailableConditions MCP tool)
-│   │           └── exit/             # Exit conditions
+│   │           ├── entry/            # Entry conditions (discoverable via getAvailableConditions MCP tool); incl. RegimeLabelCondition (type regimeLabelIn, labels: stringList, category Market — permits entries only when the published 5-label read-out labels the day in the allowed set, fail-closed on unlabeled days; ADR 0023)
+│   │           └── exit/             # Exit conditions; incl. RegimeLabelExitCondition (type regimeLabelExit, labels: stringList, category Signal — exits when the published label is in the exit set, holds on unlabeled days; ADR 0023)
 │   ├── data/                         # Data domain
 │   │   ├── controller/
 │   │   │   ├── StockController.kt

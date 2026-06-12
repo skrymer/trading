@@ -47,6 +47,7 @@ class WalkForwardService(
   private val stockRepository: StockJooqRepository,
   private val riskFreeRateService: RiskFreeRateService,
   private val leadershipRegimeService: LeadershipRegimeService,
+  private val regimeReadoutService: RegimeReadoutService,
 ) {
   private val logger = LoggerFactory.getLogger(WalkForwardService::class.java)
 
@@ -73,11 +74,14 @@ class WalkForwardService(
     )
 
     val sharedBreadthByDate = marketBreadthRepository.calculateBreadthByDate()
-    // The leadership-gap regime series is shared across all windows (window-independent), computed once.
+    // The leadership-gap regime series and the 5-label read-out are shared across all windows
+    // (window-independent), computed once.
     val sharedContext = BacktestContext(
       sectorBreadthMap = sectorBreadthRepository.findAllAsMap(),
       marketBreadthMap = marketBreadthRepository.findAllAsMap(),
       leadershipRegimeMap = sharedLeadershipRegimeMap(entryStrategy, config, sharedBreadthByDate),
+      regimeReadoutMap =
+        regimeReadoutService.loadReadoutMapIfGated(entryStrategy, exitStrategy, config.startDate, config.endDate),
     )
     // SPY closes for the buy-and-hold Calmar baseline (ADR 0013). Loaded once; each window's SPY
     // curve is aligned to that window's strategy OOS support. Absent SPY data → null gate (non-fatal).

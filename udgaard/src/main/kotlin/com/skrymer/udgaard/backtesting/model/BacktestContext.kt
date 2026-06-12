@@ -20,6 +20,10 @@ data class BacktestContext(
   // Pre-computed leadership-gap regime series (issue #83): per date, whether the equal-weight universe
   // is leading (deploy) or a thin tape is carrying the index (cash). Empty unless a strategy uses the gate.
   val leadershipRegimeMap: Map<LocalDate, LeadershipRegimeDaily> = emptyMap(),
+  // Pre-computed 5-label regime read-out series (ADR 0023). Empty unless a strategy gates on a
+  // regime label. Conditions consume the published (dwell-debounced) label — what an operator
+  // consulting the read-out live would have seen.
+  val regimeReadoutMap: Map<LocalDate, RegimeReadoutDaily> = emptyMap(),
   // Round-trip transaction cost in basis points (commission + slippage), netted into per-share
   // Trade.profit at trade close. Default 10 = net-by-default; 0 reproduces gross perfect-fill runs.
   val costBps: Double = 10.0,
@@ -43,6 +47,13 @@ data class BacktestContext(
    */
   fun getLeadershipRegimeOn(date: LocalDate): Boolean =
     leadershipRegimeMap[date]?.regimeOn ?: false
+
+  /**
+   * The published regime label for [date], or null when the day is unlabeled or has no read at all
+   * — a gate referencing it then fails closed (a missing read cannot confirm a regime).
+   */
+  fun getRegimeLabel(date: LocalDate): RegimeLabel? =
+    regimeReadoutMap[date]?.publishedLabel
 
   companion object {
     /** SGOV's expense ratio (~0.10%), the standard idle-cash haircut. Subtracted once (F4, ADR 0016). */
