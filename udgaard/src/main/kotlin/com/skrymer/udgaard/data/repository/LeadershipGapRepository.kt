@@ -24,11 +24,71 @@ import java.time.LocalDate
 class LeadershipGapRepository(
   private val dsl: DSLContext,
 ) {
+  /**
+   * [includePercentiles] adds the median/p25/p75 aggregates the regime read-out's gap leg needs.
+   * They force a sort-based group aggregate over the multi-million-row per-name intermediate, so
+   * the leadership deploy gate (which reads only the mean) opts out by default.
+   */
   fun ewReturnByDate(
     loadAfter: LocalDate,
     before: LocalDate,
     lookbackBars: Int = 20,
+    includePercentiles: Boolean = false,
   ): Map<LocalDate, EwReturnDaily> {
+    val perName = perNameReturns(loadAfter, before, lookbackBars)
+    val date = perName.field("d", LocalDate::class.java)!!
+    val ret = perName.field("ret", BigDecimal::class.java)!!
+    val meanReturn = DSL.avg(ret)
+    val crossSectionalStdev = DSL.stddevSamp(ret)
+    val contributingN = DSL.count(ret)
+
+    if (!includePercentiles) {
+      return dsl
+        .select(date, meanReturn, crossSectionalStdev, contributingN)
+        .from(perName)
+        .where(date.ge(loadAfter))
+        .groupBy(date)
+        .having(contributingN.gt(0))
+        .orderBy(date)
+        .fetch { record ->
+          EwReturnDaily(
+            quoteDate = record[date]!!,
+            meanReturn = record[meanReturn]?.toDouble() ?: 0.0,
+            crossSectionalStdev = record[crossSectionalStdev]?.toDouble() ?: 0.0,
+            contributingN = record[contributingN] ?: 0,
+          )
+        }.associateBy { it.quoteDate }
+    }
+
+    val medianReturn = DSL.percentileCont(BigDecimal.valueOf(0.5)).withinGroupOrderBy(ret)
+    val p25 = DSL.percentileCont(BigDecimal.valueOf(0.25)).withinGroupOrderBy(ret)
+    val p75 = DSL.percentileCont(BigDecimal.valueOf(0.75)).withinGroupOrderBy(ret)
+
+    return dsl
+      .select(date, meanReturn, crossSectionalStdev, contributingN, medianReturn, p25, p75)
+      .from(perName)
+      .where(date.ge(loadAfter))
+      .groupBy(date)
+      .having(contributingN.gt(0))
+      .orderBy(date)
+      .fetch { record ->
+        EwReturnDaily(
+          quoteDate = record[date]!!,
+          meanReturn = record[meanReturn]?.toDouble() ?: 0.0,
+          crossSectionalStdev = record[crossSectionalStdev]?.toDouble() ?: 0.0,
+          contributingN = record[contributingN] ?: 0,
+          medianReturn = record[medianReturn]?.toDouble() ?: 0.0,
+          iqr = (record[p75]?.toDouble() ?: 0.0) - (record[p25]?.toDouble() ?: 0.0),
+        )
+      }.associateBy { it.quoteDate }
+  }
+
+  /** The per-name trailing-return cross-section the daily aggregates are computed over. */
+  private fun perNameReturns(
+    loadAfter: LocalDate,
+    before: LocalDate,
+    lookbackBars: Int,
+  ): org.jooq.Table<*> {
     val priorClose =
       DSL
         .lag(STOCK_QUOTES.CLOSE_PRICE, lookbackBars)
@@ -42,42 +102,19 @@ class LeadershipGapRepository(
         .`when`(priorClose.gt(BigDecimal.ZERO), STOCK_QUOTES.CLOSE_PRICE.div(priorClose).minus(BigDecimal.ONE))
         .otherwise(DSL.castNull(BigDecimal::class.java))
 
-    val perName =
-      dsl
-        .select(STOCK_QUOTES.QUOTE_DATE.`as`("d"), perNameReturn.`as`("ret"))
-        .from(STOCK_QUOTES)
-        .join(STOCKS)
-        .on(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
-        // null asset_type (lookup failed at ingestion) defaults to STOCK, matching breadth + the
-        // stocks-derived universe read path (StockJooqRepository.findAllSymbolRecords).
-        .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name).or(STOCKS.ASSET_TYPE.isNull))
-        .and(STOCK_QUOTES.QUOTE_DATE.le(before))
-        // Bound the LAG scan below the requested window: floor a few bars below loadAfter so the
-        // trailing return is still defined at loadAfter, but Postgres needn't sort each symbol's
-        // entire pre-window history. Output over [loadAfter, before] is unchanged.
-        .and(STOCK_QUOTES.QUOTE_DATE.ge(loadAfter.minusDays(lookbackBars.toLong() * 3)))
-        .asTable("per_name")
-
-    val date = perName.field("d", LocalDate::class.java)!!
-    val ret = perName.field("ret", BigDecimal::class.java)!!
-    val meanReturn = DSL.avg(ret)
-    val crossSectionalStdev = DSL.stddevSamp(ret)
-    val contributingN = DSL.count(ret)
-
     return dsl
-      .select(date, meanReturn, crossSectionalStdev, contributingN)
-      .from(perName)
-      .where(date.ge(loadAfter))
-      .groupBy(date)
-      .having(contributingN.gt(0))
-      .orderBy(date)
-      .fetch { record ->
-        EwReturnDaily(
-          quoteDate = record[date]!!,
-          meanReturn = record[meanReturn]?.toDouble() ?: 0.0,
-          crossSectionalStdev = record[crossSectionalStdev]?.toDouble() ?: 0.0,
-          contributingN = record[contributingN] ?: 0,
-        )
-      }.associateBy { it.quoteDate }
+      .select(STOCK_QUOTES.QUOTE_DATE.`as`("d"), perNameReturn.`as`("ret"))
+      .from(STOCK_QUOTES)
+      .join(STOCKS)
+      .on(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
+      // null asset_type (lookup failed at ingestion) defaults to STOCK, matching breadth + the
+      // stocks-derived universe read path (StockJooqRepository.findAllSymbolRecords).
+      .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name).or(STOCKS.ASSET_TYPE.isNull))
+      .and(STOCK_QUOTES.QUOTE_DATE.le(before))
+      // Bound the LAG scan below the requested window: floor a few bars below loadAfter so the
+      // trailing return is still defined at loadAfter, but Postgres needn't sort each symbol's
+      // entire pre-window history. Output over [loadAfter, before] is unchanged.
+      .and(STOCK_QUOTES.QUOTE_DATE.ge(loadAfter.minusDays(lookbackBars.toLong() * 3)))
+      .asTable("per_name")
   }
 }

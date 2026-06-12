@@ -1,1 +1,10 @@
-{"verdict": "FAIL", "date": "2026-06-12", "detail": "first compute: 18/19 anchor spans below 60% coverage; median spell 5d (floor 15); 24.2 flips/yr (cap 12); CHOP D-FLAT 40% (floor 70%). Spec revision + re-freeze required (pre-registration §5)."}
+{
+  "verdict": "ACCEPT_WITH_LIMITATIONS",
+  "date": "2026-06-13",
+  "cycle": 2,
+  "labels": {"CRISIS": "A", "THRUST": "B-precision-only", "GRIND": "D", "NARROW": "D", "CHOP": "D-residual"},
+  "gateable": ["CRISIS", "THRUST"],
+  "frozen": true,
+  "no_v3_by_iteration": true,
+  "detail": "Cycle-2 anchor run: 12/19 spans <60%, structurally diagnosed. CRISIS validated (5/7; both misses are anchor-vs-definition artifacts — the topping lag). THRUST precision-only (the dd-recovery precedence blind spot: suppressed ~12 months after any crisis). GRIND/NARROW/CHOP below the three axes' resolving power — descriptive-only, gating rejected at build time. 2000-09 recorded as caveated FAIL (frozen, not amended). Stability near-miss (spell 13/15, flips 13/12, CHOP D-FLAT 36/70). v2 params frozen; no v3 by iteration — only a from-scratch new pre-registration (new axis, external/held-out ground truth)."
+}

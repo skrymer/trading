@@ -35,6 +35,17 @@ class RegimeLabelExitConditionTest {
   }
 
   @Test
+  fun `exiting on an unvalidated label is rejected loudly at build time`() {
+    // Given the cycle-2 adjudication: GRIND/NARROW/CHOP are descriptive-only, never gateable
+    org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+      RegimeLabelExitCondition(setOf(RegimeLabel.CHOP))
+    }
+    org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException::class.java) {
+      RegimeLabelExitCondition().parseConfig(mapOf("labels" to listOf("narrow")))
+    }
+  }
+
+  @Test
   fun `holds on a day with no defensible regime read`() {
     // Given: an exit-on-CRISIS condition on an unlabeled day and a day with no read at all —
     // an exit fires only on a confirmed regime, never on a data gap

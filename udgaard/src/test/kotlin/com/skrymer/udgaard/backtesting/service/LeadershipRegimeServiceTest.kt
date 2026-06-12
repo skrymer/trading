@@ -291,7 +291,7 @@ class LeadershipRegimeServiceTest {
     val after = LocalDate.of(2020, 6, 1)
     val before = LocalDate.of(2020, 7, 1)
     whenever(stockRepository.findBySymbol(eq("SPY"), anyOrNull())).thenReturn(Stock())
-    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any())).thenReturn(emptyMap())
+    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any(), any())).thenReturn(emptyMap())
 
     // When
     service.loadRegimeMap(after, before, emptyMap())
@@ -299,7 +299,7 @@ class LeadershipRegimeServiceTest {
     // Then: both legs are loaded from well before the window (>= 60 trading days, ~>= 84 calendar days)
     // so the EMA/Schmitt and the washout veto have seeded by the time it opens.
     val loadAfter = argumentCaptor<LocalDate>()
-    verify(leadershipGapRepository).ewReturnByDate(loadAfter.capture(), eq(before), eq(20))
+    verify(leadershipGapRepository).ewReturnByDate(loadAfter.capture(), eq(before), eq(20), eq(false))
     assertTrue(loadAfter.firstValue <= after.minusDays(84))
     verify(stockRepository).findBySymbol(eq("SPY"), anyOrNull())
   }

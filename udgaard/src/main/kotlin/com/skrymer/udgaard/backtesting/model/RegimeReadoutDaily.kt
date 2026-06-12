@@ -28,7 +28,10 @@ data class RegimeAxes(
   val gapStandardError: Double?,
   val gapContributingN: Int?,
   val gapTrustworthy: Boolean?,
+  val ewMedianReturn: Double?,
+  val ewIqr: Double?,
   val realizedVol: Double?,
   val direction: Double?,
   val washoutActive: Boolean,
+  val drawdownFrom252High: Double?,
 )

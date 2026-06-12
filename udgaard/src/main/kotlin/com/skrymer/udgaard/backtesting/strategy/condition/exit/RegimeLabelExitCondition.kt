@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.dto.ConditionMetadata
 import com.skrymer.udgaard.backtesting.dto.ParameterMetadata
 import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
+import com.skrymer.udgaard.backtesting.strategy.condition.entry.RegimeLabelCondition
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import org.springframework.stereotype.Component
@@ -19,6 +20,10 @@ import org.springframework.stereotype.Component
 class RegimeLabelExitCondition(
   private val exitLabels: Set<RegimeLabel> = setOf(RegimeLabel.CRISIS),
 ) : ExitCondition {
+  init {
+    RegimeLabelCondition.requireGateable(exitLabels)
+  }
+
   override fun shouldExit(
     stock: Stock,
     entryQuote: StockQuote?,
@@ -55,6 +60,7 @@ class RegimeLabelExitCondition(
             displayName = "Exit labels",
             type = "stringList",
             defaultValue = exitLabels.sorted().map { it.name },
+            options = RegimeLabelCondition.GATEABLE_LABELS.sorted().map { it.name },
           ),
         ),
       category = "Signal",

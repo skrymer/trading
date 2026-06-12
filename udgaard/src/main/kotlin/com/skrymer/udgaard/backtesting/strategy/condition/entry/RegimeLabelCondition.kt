@@ -14,11 +14,21 @@ import org.springframework.stereotype.Component
  * pre-registered 5-label read-out, ADR 0023) is one of the allowed labels. The read-out itself
  * carries one frozen canonical parameterisation — this condition selects labels, never tunes the
  * classifier. An unlabeled day fails closed (no read cannot confirm a regime).
+ *
+ * Only the validated labels are gateable (the cycle-2 anchor adjudication): CRISIS (trustworthy)
+ * and THRUST (precision-only — structurally suppressed for ~12 months after a crisis by the
+ * drawdown leg's precedence). GRIND/NARROW/CHOP sit below the axes' resolving power and are
+ * descriptive-only; a gate on them is noise the rescue-forbidden boundary would lock in, so it is
+ * rejected loudly at build time.
  */
 @Component
 class RegimeLabelCondition(
   private val allowedLabels: Set<RegimeLabel> = setOf(RegimeLabel.THRUST),
 ) : EntryCondition {
+  init {
+    requireGateable(allowedLabels)
+  }
+
   override fun evaluate(
     stock: Stock,
     quote: StockQuote,
@@ -45,6 +55,7 @@ class RegimeLabelCondition(
             displayName = "Allowed labels",
             type = "stringList",
             defaultValue = allowedLabels.sorted().map { it.name },
+            options = GATEABLE_LABELS.sorted().map { it.name },
           ),
         ),
       category = "Market",
@@ -78,5 +89,19 @@ class RegimeLabelCondition(
         ?.mapNotNull { raw -> RegimeLabel.entries.firstOrNull { it.name.equals(raw.toString(), ignoreCase = true) } }
         ?.toSet()
     return if (labels.isNullOrEmpty()) this else RegimeLabelCondition(labels)
+  }
+
+  companion object {
+    /** The labels the cycle-2 anchor adjudication validated for gating. */
+    val GATEABLE_LABELS = setOf(RegimeLabel.CRISIS, RegimeLabel.THRUST)
+
+    fun requireGateable(labels: Set<RegimeLabel>) {
+      val ungateable = labels - GATEABLE_LABELS
+      require(ungateable.isEmpty()) {
+        "Regime label(s) ${ungateable.joinToString(", ")} are not gateable: GRIND/NARROW/CHOP are " +
+          "below the read-out's resolving power (cycle-2 anchor adjudication, ADR 0024) — " +
+          "descriptive-only, never a strategy gate. Gateable labels: ${GATEABLE_LABELS.joinToString(", ")}"
+      }
+    }
   }
 }

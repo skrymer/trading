@@ -1,111 +1,68 @@
 ---
 type: concept
-title: Regime read-out — the signed 5-label classifier pre-registration
-summary: Quant-signed (2026-06-12) pre-registration of the 3-axis daily classifier (THRUST/GRIND/NARROW/CHOP/CRISIS) — frozen constants, decision table, hysteresis, validation anchors. To-build.
+title: Regime read-out — the v2 classifier, accepted with limitations
+summary: The frozen v2 classifier (ADR 0023/0024) — CRISIS trustworthy + THRUST precision-only (gateable); GRIND/NARROW/CHOP below axis resolving power, descriptive-only, ungateable. No v3 by iteration.
 status: stable
 tags: [methodology, regime, pre-registration, classifier]
-sources: ["docs/adr/0023-regime-read-out-revived-as-pre-registered-gate-able-series.md", "knowledge/wiki/sources/2026-06-12-strategy-assessment-design-and-regime-readout-prereg.md", "udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/model/LeadershipRegimeParams.kt"]
+sources: ["docs/adr/0023-regime-read-out-revived-as-pre-registered-gate-able-series.md", "docs/adr/0024-regime-read-out-v2-accepted-with-limitations.md", "knowledge/wiki/sources/2026-06-13-regime-readout-v1-fail-v2-adjudication.md", "udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/model/RegimeReadoutParams.kt"]
 related: ["[[strategy-assessment]]", "[[regime-conditional-portfolio]]", "[[aliased-regime-sensitivity]]", "[[component-firewall]]"]
-updated: 2026-06-12
+updated: 2026-06-13
 ---
 
-# Regime read-out — pre-registration v1 (quant-signed 2026-06-12)
+# Regime read-out — v2, accepted with limitations (ADR 0024)
 
-The operative spec for the to-build 5-label daily regime classifier (ADR 0023). This page is the
-methodology home per the quant's placement ruling; the binding numeric constants additionally land in
-code as `RegimeReadoutParams.FROZEN` (mirroring `LeadershipRegimeParams.FROZEN`) at build time. The
-shelved 2026-06-03 ancestor spec lives in [[regime-conditional-portfolio]] — its revival clause
-("revive only if regime-attribution is ever wanted as a research instrument") is met by ADR 0023.
+The built, frozen 5-label daily classifier (`RegimeReadoutService`, `RegimeReadoutParams.FROZEN`).
+v1 failed its first-compute anchors (18/19); the §5 revision loop produced v2, which the cycle-2
+anchors adjudicated **ACCEPT-WITH-LIMITATIONS** — the full arc and durable findings live in
+[[2026-06-13-regime-readout-v1-fail-v2-adjudication]]. A **research instrument, not an
+auto-switcher**; the regime-conditional portfolio program stays abandoned.
 
-## Purpose & boundary
+## What it is, honestly compressed
 
-A pre-registered, market-defined, **strategy-blind** daily classifier assigning each NYSE trading day
-from 2000-01-01 one of: **THRUST / GRIND / NARROW / CHOP / CRISIS** (CONTEXT.md canonical definitions).
-A read-out the operator consults plus a frozen condition palette — **never an auto-switcher**; the
-regime-conditional portfolio program remains abandoned. Changing any value is a methodology change, not
-a config knob. Never fit to any strategy's good/bad years ([[aliased-regime-sensitivity]] discipline).
-Uses: the [[strategy-assessment]] regime table, the current-regime line, frozen-param conditions under
-ADR 0023's **rescue-forbidden** boundary, and the regime×sector consumers (below).
+**A −20%-drawdown/washout CRISIS detector with a precision-only THRUST; the GRIND/NARROW/CHOP
+trichotomy is below the resolving power of three cheap daily axes and is research-descriptive
+only.** Consume the stream as CRISIS-vs-not plus a precision-only THRUST — never as a clean
+five-state series.
 
-## Axes (daily inputs; all smoothing is input-stage EMA10 already present in the platform)
+## Per-label trust grades (the consumer permission matrix)
 
-**A1 — Breadth participation** (breadth only; MUST NOT reference SPY price):
-`L(t) = MarketBreadthDaily.ema10`. Bands: **HIGH if L ≥ 50; WEAK if L ≤ 35; else MID**
-(anchor: breadthPercent mean ≈ 42; 50 ≈ majority-of-universe participation).
-`S(t) = L(t) − L(t−5 bars)`. **RISING if S ≥ +3.0; FALLING if S ≤ −3.0; else FLAT**
-(anchor: ±3 pts/week on the EMA10 level clears the smoother's sub-point daily noise floor).
+| Label | Grade | Gateable? | Caveat |
+|---|---|---|---|
+| CRISIS | A — trustworthy (5/7 anchors) | **Yes** | A *confirmation* of "in or recovering from a ≥20% drawdown / sustained washout" — never an early warning; it lags topping phases (the 2000-09 caveated FAIL) |
+| THRUST | B — precision-only (real where unmasked: 2003 71%) | Yes, author-beware | **The drawdown-recovery blind spot**: structurally suppressed ~12 months post-crash (2009-Q2/Q3 published CRISIS at 0% THRUST). Deploy-in-uptrend intent belongs to the leadership-gap regime (ADR 0010), not THRUST |
+| GRIND | D — unreliable (0–29%) | **No — rejected at build time** | Not separable from chop on these axes |
+| NARROW | D — unreliable (29–48%) | **No — rejected at build time** | Not separable from chop on these axes |
+| CHOP | D — residual | **No — rejected at build time** | Means "unclassified" (49% of days, 36% direction-flat), never "the tape is choppy" |
 
-**A2 — Leadership-concentration gap**: the existing frozen pipeline **verbatim** (20-bar SPY return −
-EW-universe mean, EMA10-smoothed, trust guards minN=200 / maxSE=0.005). **Stateless** three-way cut on
-`gapSmoothed`: **NEG ≤ −0.005; POS ≥ +0.005; else NEUTRAL**. The Schmitt latch (`schmittOn`) is NOT
-used — no axis-stage hysteresis (using the latch would collapse NEUTRAL and make NARROW/GRIND
-unreachable — the v0 blocking defect).
+The fence lives at the consumer boundary (`RegimeLabelCondition.GATEABLE_LABELS` — construction and
+config parsing throw on D-grade labels); the producer keeps emitting all five labels + axes for
+diagnostics and the descriptive table. In the [[strategy-assessment]]: D-grade rows render only
+under the fixed reliability banner; the current-regime line reports CRISIS authoritatively, THRUST
+with its caveat, and collapses the rest to "uptrend — fine-grain label unreliable".
 
-**A3 — Realized vol**: `σ(t) = stdev(SPY daily simple returns, 20 bars) × √252`. **LOW ≤ 12%;
-HIGH ≥ 22%; else MID** (anchors: sub-12% = the documented low-vol-grind floor — 2013/2017/2019-H1;
-≥22% isolates genuine stress windows; sanity-checked against SPY percentiles on the design-safe window
-**2000–2014, Block A only**, at freeze time; never re-read on Block B/C data).
+## The frozen v2 spec (params in `RegimeReadoutParams.FROZEN` — no further iteration)
 
-**A4 — Direction**: `D(t) = SPY 20-bar simple return`. **UP ≥ +2%; DOWN ≤ −2%; else FLAT** (a 0%
-dead-band flips on noise and starves FLAT — the other v0 blocking defect). A4 is the *direction* axis,
-deliberately distinct from A1 *participation*; D never back-confirms A1. All multi-week reads share the
-20-bar horizon (no cross-horizon aliasing).
+- **Gap leg**: SPY 20-bar return − **median** per-name 20-bar return (full STOCK universe; the mean
+  is tail-contaminated and drift-non-stationary), EMA10-smoothed; validated at 80.7% sign-agreement
+  vs SPY−RSP. Cut at asymmetric terciles frozen from the clean Block-A distribution:
+  **NEG ≤ −0.007746 (p33), POS ≥ +0.003167 (p67)** — read once by a pre-registered rule, never re-read.
+- **CRISIS** = sustained washout (breadth ≤ 15 for ≥ 10 consecutive days in trailing 40; immediate
+  publication) **OR** close-basis drawdown ≤ −20% from the trailing 252-bar high (dwell-debounced
+  entry). Warmup 400 calendar days (the drawdown leg needs a year of SPY history on day 1).
+- **THRUST** = (breadth HIGH ≥50 OR slope RISING ≥+3/5 bars) AND gap NEG.
+- **NARROW** = direction not-DOWN AND gap POS AND breadth (WEAK ≤35 OR FALLING) — `not-DOWN` rather
+  than strict-up: melt-ups grind inside the ±2% band, while the not-DOWN guard refuses the
+  bear-masquerade (mega-caps falling less than the median stock in a declining tape).
+- **GRIND** = gap NEUTRAL AND vol LOW (≤12%) AND breadth > WEAK AND not-falling AND not-DOWN.
+- **CHOP** = residual. Dwell 5 days; fail-closed unlabeled only for genuinely-undefined days
+  (un-seeded gap EMA, missing breadth). The dispersion trust guard is an **advisory thin-N flag**
+  (N < 200) — fail-closed it was fail-blind.
 
-## Label decision table (raw daily label; precedence top-down, first match wins)
+## The no-v3 line
 
-Mutually exclusive at the gap backbone (NEG/POS/NEUTRAL):
-
-1. **CRISIS** — sustained breadth washout, verbatim the frozen veto: `breadthPercent ≤ 15.0 for ≥ 10
-   consecutive days within trailing 40`. Washout-only — no vol/direction OR-leg (each new leg = a fresh
-   ARS surface); cadence ~0.65 episodes/yr is correct for correlated risk-off.
-2. **THRUST** — `(L HIGH OR S RISING) AND gap NEG`. The inner OR catches early thrust off a washout
-   (rising-not-yet-high breadth); gap NEG is the mandatory thrust/narrow discriminator.
-3. **NARROW** — `D UP AND gap POS AND (L WEAK OR S FALLING)`.
-4. **GRIND** — `gap NEUTRAL AND σ LOW AND (L MID OR HIGH) AND S ≠ FALLING AND D ≠ DOWN`.
-5. **CHOP** — residual. Diagnostic (validation-stage, not a label rule): log the fraction of CHOP days
-   with D = FLAT; if < 70% the residual is silently a miscellaneous-decline bucket → revise the SPEC
-   before any strategy is scored.
-
-## Hysteresis / stability (exactly one debounce stage)
-
-Published label = raw label debounced by a **5-consecutive-raw-day dwell**, EXCEPT entry into CRISIS
-(publishes immediately; exit from CRISIS honors the dwell). No other latches anywhere. Stability
-validation targets (read once after first compute, never tuned per strategy): median published-spell
-≥ 15 trading days; ≤ 12 published label-changes/year.
-
-## Undefined / trust (fail-closed)
-
-Null label ("unlabeled") when: date < 2000-01-01 (breadth trust floor); 180-calendar-day warmup
-unseeded; A2 trust guards breached; A3 window < 20 bars; any input series missing. Trades entering on
-null-label days bucket as "unlabeled" in the assessment regime table.
-
-## Validation anchors (fixed ex ante; market-consensus dates, never from where the classifier fires, never from any strategy's P&L)
-
-Pass requires expected-label coverage **≥ 60%** of days in each span:
-
-- **CRISIS** ⊇ {2000-09→2001-03, 2002-06→2002-10, 2008-09→2009-03, 2011-08, 2018-12,
-  2020-02-20→2020-04-15, 2022-H1 leg}
-- **THRUST** ⊇ {2003-Q2→Q4, 2009-Q2→Q3, 2020-04→2020-08}
-- **GRIND** ⊇ {2013, 2017, 2019-H1}
-- **NARROW** ⊇ {2021-H2, 2023, 2024}
-- **CHOP** ⊇ {2011-H1, 2015-H1, 2015-H2→2016-Q1}
-
-Plus the CHOP D-FLAT diagnostic (≥70%) and the stability targets. If any check fails, the SPEC is
-revised and re-frozen BEFORE any strategy is ever scored against it (legal: no strategy has seen it).
-The 2021–25 anchors label **market data only** — outside ADR 0007's leak surface.
-
-## Implementation (informational)
-
-Udgaard `RegimeReadoutService` mirroring `LeadershipRegimeService` (pure `computeSeries` + impure
-loader); daily-series + current-label endpoint; frozen-param entry/exit conditions; regime-decomposition
-endpoint (per-regime edge ± date-clustered SE, insufficient-N floor ~30 trades, **published-label**
-bucketing with a raw-label diagnostic column). Scope additions (label consumers, no re-freeze):
-market-scoped **regime×sector return matrix** endpoint (spell-clustered SEs, spell-count caveat printed)
-and a **sector×regime drill-down** in the assessment decomposition (insufficient-N floor per cell —
-expect mostly-grey tables at 11 sectors × 5 regimes).
-
-## Sign-off
-
-Quant-signed 2026-06-12 (v0 → CHANGES-REQUIRED → v1 SIGNED-OFF; consult record:
-[[2026-06-12-strategy-assessment-design-and-regime-readout-prereg]]). Params freeze at this spec;
-operator approved persistence the same day.
+Shifting bands, dwell, precedence, or adding sub-filters to chase the failing labels is IS-fitting
+to anchors now seen — forbidden permanently ([[aliased-regime-sensitivity]] discipline). A
+legitimate v3 is a **from-scratch new pre-registration**: a structurally new axis (cross-sectional
+dispersion/correlation, sector participation, vol term-structure), parameters fixed before any
+coverage is computed, validated on **uncontaminated ground truth** — the 19 anchor spans are burned
+as a primary acceptance gate.

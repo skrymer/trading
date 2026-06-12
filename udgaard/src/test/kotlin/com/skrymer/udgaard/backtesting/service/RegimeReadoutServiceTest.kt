@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
+import com.skrymer.udgaard.backtesting.model.RegimeReadoutParams
 import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
@@ -40,7 +41,7 @@ class RegimeReadoutServiceTest {
   private fun dates(n: Int) = (0 until n).map { LocalDate.of(2010, 1, 1).plusDays(it.toLong()) }
 
   private fun ewOf(date: LocalDate, mean: Double) =
-    EwReturnDaily(quoteDate = date, meanReturn = mean, crossSectionalStdev = 0.05, contributingN = 300)
+    EwReturnDaily(quoteDate = date, meanReturn = mean, crossSectionalStdev = 0.05, contributingN = 300, medianReturn = mean)
 
   private fun breadthOf(date: LocalDate, percent: Double, ema10: Double = percent) =
     MarketBreadthDaily(quoteDate = date, breadthPercent = percent, ema10 = ema10)
@@ -66,6 +67,34 @@ class RegimeReadoutServiceTest {
     assertEquals(0.0, axes.realizedVol!!, 1e-9)
     assertEquals(0.0, axes.direction!!, 1e-9)
     assertEquals(false, axes.washoutActive)
+  }
+
+  @Test
+  fun `the gap follows the median equal-weight return, immune to a contaminated mean`() {
+    // Given: flat SPY while the equal-weight MEAN screams +50% per 20 bars (micro-cap moonshots /
+    // bad prints) but the MEDIAN name is at +2% — the mean-gap would read -50% (manufactured
+    // THRUST); the median-gap reads -2%... here the median says equal-weight genuinely leads only
+    // mildly, and with the median at -2% on the other side: use median = -0.02 -> gap = +0.02 (POS)
+    val days = dates(45)
+    val spyClose = days.associateWith { 100.0 }
+    val ewReturns =
+      days.associateWith {
+        EwReturnDaily(
+          quoteDate = it,
+          meanReturn = 0.50,
+          crossSectionalStdev = 0.05,
+          contributingN = 300,
+          medianReturn = -0.02,
+        )
+      }
+    val breadth = days.associateWith { breadthOf(it, 55.0) }
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
+
+    // Then: the gap reads POS off the median (+2%) — not THRUST off the contaminated mean (-50%);
+    // with breadth HIGH the day falls through to CHOP
+    assertEquals(RegimeLabel.CHOP, series.getValue(days.last()).rawLabel)
   }
 
   @Test
@@ -207,22 +236,57 @@ class RegimeReadoutServiceTest {
   }
 
   @Test
-  fun `a day whose equal-weight cross-section is too thin to trust carries no label`() {
-    // Given: a thrust-shaped tape, but the equal-weight mean rests on only 50 contributing names —
-    // below the trust floor, so the gap read is not defensible.
+  fun `a thin equal-weight cross-section still labels - the trust read is advisory, not a gate`() {
+    // Given: a thrust-shaped tape whose equal-weight read rests on only 50 contributing names.
+    // Blanking such days proved fail-blind in v1 (the guard breached ~30% of every year and
+    // concentrated in crashes/recoveries) — the read now labels, with the thinness surfaced as a flag.
     val days = dates(45)
     val spyClose = days.associateWith { 100.0 }
     val ewReturns =
       days.associateWith {
-        EwReturnDaily(quoteDate = it, meanReturn = 0.02, crossSectionalStdev = 0.05, contributingN = 50)
+        EwReturnDaily(
+          quoteDate = it,
+          meanReturn = 0.02,
+          crossSectionalStdev = 0.05,
+          contributingN = 50,
+          medianReturn = 0.02,
+        )
       }
     val breadth = days.associateWith { breadthOf(it, 55.0) }
 
     // When
     val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
 
-    // Then: the day is unlabeled (fail-closed), not guessed into a regime
-    assertEquals(null, series.getValue(days.last()).rawLabel)
+    // Then: the day labels normally and the advisory flag marks the thin cross-section
+    val day = series.getValue(days.last())
+    assertEquals(RegimeLabel.THRUST, day.rawLabel)
+    assertEquals(false, day.axes!!.gapTrustworthy)
+  }
+
+  @Test
+  fun `wide dispersion alone no longer marks a read untrustworthy - the flag is thin-N only`() {
+    // Given: a deep cross-section (300 names) with explosive dispersion — the recovery/crash shape
+    // that made the v1 SE ceiling fail-blind. The median gap leg is dispersion-robust, so only a
+    // genuinely thin cross-section warrants the advisory flag.
+    val days = dates(45)
+    val spyClose = days.associateWith { 100.0 }
+    val ewReturns =
+      days.associateWith {
+        EwReturnDaily(
+          quoteDate = it,
+          meanReturn = 0.02,
+          crossSectionalStdev = 0.50,
+          contributingN = 300,
+          medianReturn = 0.02,
+        )
+      }
+    val breadth = days.associateWith { breadthOf(it, 55.0) }
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
+
+    // Then
+    assertEquals(true, series.getValue(days.last()).axes!!.gapTrustworthy)
   }
 
   @Test
@@ -293,6 +357,80 @@ class RegimeReadoutServiceTest {
   }
 
   @Test
+  fun `the gap cut respects asymmetric NEG and POS bands`() {
+    // Given: a steady gap of -2% under bands frozen at NEG <= -3% / POS >= +0.1% — the gap sits in
+    // the (asymmetric) NEUTRAL zone, so the quiet tape reads GRIND rather than THRUST
+    val days = dates(45)
+    val spyClose = days.associateWith { 100.0 }
+    val ewReturns = days.associateWith { ewOf(it, 0.02) }
+    val breadth = days.associateWith { breadthOf(it, 55.0) }
+    val params = RegimeReadoutParams.FROZEN.copy(gapNegBand = -0.03, gapPosBand = 0.001)
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth, params)
+
+    // Then
+    assertEquals(RegimeLabel.GRIND, series.getValue(days.last()).rawLabel)
+  }
+
+  @Test
+  fun `a flat melt-up on weak breadth with cap-weight leading labels NARROW`() {
+    // Given: SPY grinding inside the +-2% direction dead-band (the melt-up shape that starved
+    // NARROW in v1's strict D-UP rule) while the median stock loses 3% per 20 bars -> gap POS,
+    // and breadth participation weak (30)
+    val days = dates(45)
+    val spyClose = days.mapIndexed { i, d -> d to 100.0 * Math.pow(1.0002, i.toDouble()) }.toMap()
+    val ewReturns = days.associateWith { ewOf(it, -0.03) }
+    val breadth = days.associateWith { breadthOf(it, 30.0) }
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
+
+    // Then: NARROW no longer demands a +2% index move — only that the tape is not falling
+    assertEquals(RegimeLabel.NARROW, series.getValue(days.last()).rawLabel)
+  }
+
+  @Test
+  fun `a falling tape where mega-caps merely fall less is not NARROW`() {
+    // Given: a shallow decline (SPY -0.3%/day, 20-bar ~ -5.8%, drawdown well above the crisis line)
+    // where the median stock falls harder (-10% per 20 bars) -> gap POS + breadth weak — the
+    // bear-masquerade shape: cap-weight "leading" downward must not read as an up-tape regime
+    val days = dates(45)
+    val spyClose = days.mapIndexed { i, d -> d to 100.0 * Math.pow(0.997, i.toDouble()) }.toMap()
+    val ewReturns = days.associateWith { ewOf(it, -0.10) }
+    val breadth = days.associateWith { breadthOf(it, 30.0) }
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
+
+    // Then: a genuinely falling tape falls to CHOP, never NARROW
+    assertEquals(RegimeLabel.CHOP, series.getValue(days.last()).rawLabel)
+  }
+
+  @Test
+  fun `a slow grinding bear reads CRISIS via the drawdown leg and dwells into publication`() {
+    // Given: 270 flat days then a -1%-a-day grind with breadth weak (25) but never near the washout
+    // floor — the 2000/2022 shape the washout structurally misses. The close-basis drawdown from the
+    // trailing 252-day high crosses -20% on decline day 23 (0.99^23 ~ 0.794).
+    val days = dates(320)
+    val spyClose = days.mapIndexed { i, d -> d to if (i < 270) 100.0 else 100.0 * Math.pow(0.99, (i - 269).toDouble()) }.toMap()
+    val ewReturns = days.associateWith { ewOf(it, 0.005) }
+    val breadth = days.associateWith { breadthOf(it, 25.0) }
+
+    // When
+    val series = service.computeReadoutSeries(spyClose, ewReturns, breadth)
+
+    // Then: the raw label flips to CRISIS on the day the drawdown crosses -20% (day 292) with the
+    // axis exposed; publication honors the 5-day dwell (unlike washout-CRISIS, which is already a
+    // sustained condition and publishes immediately).
+    assertEquals(RegimeLabel.CHOP, series.getValue(days[291]).rawLabel)
+    assertEquals(RegimeLabel.CRISIS, series.getValue(days[292]).rawLabel)
+    assertTrue(series.getValue(days[292]).axes!!.drawdownFrom252High!! <= -0.20)
+    assertEquals(RegimeLabel.CHOP, series.getValue(days[295]).publishedLabel)
+    assertEquals(RegimeLabel.CRISIS, series.getValue(days[296]).publishedLabel)
+  }
+
+  @Test
   fun `loadReadoutSeries loads every leg from a warm-up buffer and returns only the requested window`() {
     // Given: a thrust-shaped market spanning the warm-up buffer and a one-week window
     val after = LocalDate.of(2020, 6, 1)
@@ -300,7 +438,7 @@ class RegimeReadoutServiceTest {
     val allDays = (0 until 200).map { after.minusDays(190).plusDays(it.toLong()) }
     whenever(stockRepository.findBySymbol(eq("SPY"), anyOrNull()))
       .thenReturn(Stock(quotes = allDays.map { StockQuote(symbol = "SPY", date = it, closePrice = 100.0) }))
-    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any()))
+    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any(), any()))
       .thenReturn(allDays.associateWith { ewOf(it, 0.02) })
     whenever(marketBreadthRepository.findAllAsMap())
       .thenReturn(allDays.associateWith { breadthOf(it, 55.0) })
@@ -308,11 +446,12 @@ class RegimeReadoutServiceTest {
     // When
     val series = service.loadReadoutSeries(after, before)
 
-    // Then: the equal-weight leg is loaded from well before the window (so the gap EMA has seeded),
-    // the published series covers only [after, before], and the in-window read is fully seeded.
+    // Then: the legs are loaded from a year-plus buffer before the window (the drawdown leg needs a
+    // full trailing 252-bar high on day 1; the gap EMA and washout need far less), the published
+    // series covers only [after, before], and the in-window read is fully seeded.
     val loadAfter = argumentCaptor<LocalDate>()
-    verify(leadershipGapRepository).ewReturnByDate(loadAfter.capture(), eq(before), eq(20))
-    assertTrue(loadAfter.firstValue <= after.minusDays(84))
+    verify(leadershipGapRepository).ewReturnByDate(loadAfter.capture(), eq(before), eq(20), eq(true))
+    assertTrue(loadAfter.firstValue <= after.minusDays(370))
     assertTrue(series.keys.all { !it.isBefore(after) && !it.isAfter(before) })
     assertEquals(RegimeLabel.THRUST, series.getValue(LocalDate.of(2020, 6, 3)).publishedLabel)
   }
@@ -385,7 +524,7 @@ class RegimeReadoutServiceTest {
     val allDays = (0 until 200).map { after.minusDays(190).plusDays(it.toLong()) }
     whenever(stockRepository.findBySymbol(eq("SPY"), anyOrNull()))
       .thenReturn(Stock(quotes = allDays.map { StockQuote(symbol = "SPY", date = it, closePrice = 100.0) }))
-    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any()))
+    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any(), any()))
       .thenReturn(allDays.associateWith { ewOf(it, 0.02) })
     whenever(marketBreadthRepository.findAllAsMap())
       .thenReturn(allDays.associateWith { breadthOf(it, 55.0) })
@@ -406,7 +545,7 @@ class RegimeReadoutServiceTest {
     val allDays = (0 until 200).map { after.minusDays(190).plusDays(it.toLong()) }
     whenever(stockRepository.findBySymbol(eq("SPY"), anyOrNull()))
       .thenReturn(Stock(quotes = allDays.map { StockQuote(symbol = "SPY", date = it, closePrice = 100.0) }))
-    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any()))
+    whenever(leadershipGapRepository.ewReturnByDate(any(), any(), any(), any()))
       .thenReturn(allDays.associateWith { ewOf(it, 0.02) })
     whenever(marketBreadthRepository.findAllAsMap())
       .thenReturn(allDays.associateWith { breadthOf(it, 55.0) })
@@ -420,10 +559,14 @@ class RegimeReadoutServiceTest {
 
   @Test
   fun `each day's read is unchanged by future bars (no lookahead)`() {
-    // Given: a 50-day thrust series, and the same series extended with 10 future days whose values
-    // (cap-weight leadership + a breadth collapse) would flip the earlier reads if they leaked backward.
+    // Given: a 50-day series whose SPY declines into the drawdown-CRISIS zone from day 30 (so the
+    // drawdown leg participates in the guard), extended with 10 future days of deeper collapse
+    // (cap-weight leadership + a breadth washout + new lows) that would flip the earlier reads —
+    // including the trailing-high drawdowns — if any leaked backward.
     val allDays = dates(60)
     val baseDays = allDays.take(50)
+
+    fun spyCloseOn(i: Int) = if (i < 30) 100.0 else 100.0 * Math.pow(0.985, (i - 29).toDouble())
 
     fun ewMeanOn(i: Int) = if (i < 50) 0.02 else -0.05
 
@@ -431,19 +574,20 @@ class RegimeReadoutServiceTest {
 
     val baseSeries =
       service.computeReadoutSeries(
-        baseDays.associateWith { 100.0 },
+        baseDays.mapIndexed { i, d -> d to spyCloseOn(i) }.toMap(),
         baseDays.mapIndexed { i, d -> d to ewOf(d, ewMeanOn(i)) }.toMap(),
         baseDays.mapIndexed { i, d -> d to breadthOf(d, breadthPercentOn(i)) }.toMap(),
       )
     val extendedSeries =
       service.computeReadoutSeries(
-        allDays.associateWith { 100.0 },
+        allDays.mapIndexed { i, d -> d to spyCloseOn(i) }.toMap(),
         allDays.mapIndexed { i, d -> d to ewOf(d, ewMeanOn(i)) }.toMap(),
         allDays.mapIndexed { i, d -> d to breadthOf(d, breadthPercentOn(i)) }.toMap(),
       )
 
-    // Then: every overlapping day's full read (raw and published) is identical — causal EMA,
-    // past-only washout, trailing vol/slope, forward-only dwell.
+    // Then: every overlapping day's full read (raw, published, and axes incl. the drawdown) is
+    // identical — causal EMA, past-only washout, trailing vol/slope/drawdown, forward-only dwell.
     assertTrue(baseDays.filter { baseSeries.containsKey(it) }.all { extendedSeries.getValue(it) == baseSeries.getValue(it) })
+    assertTrue(baseSeries.values.any { (it.axes?.drawdownFrom252High ?: 0.0) <= -0.20 })
   }
 }

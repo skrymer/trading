@@ -49,7 +49,8 @@ class RegimeReadoutService(
         ?.quotes
         ?.associate { it.date to it.closePrice }
         ?: emptyMap()
-    val ewReturnByDate = leadershipGapRepository.ewReturnByDate(loadAfter, before, params.lookbackBars)
+    val ewReturnByDate =
+      leadershipGapRepository.ewReturnByDate(loadAfter, before, params.lookbackBars, includePercentiles = true)
     val breadthByDate = marketBreadthRepository.findAllAsMap()
     return computeReadoutSeries(spyCloseByDate, ewReturnByDate, breadthByDate, params)
       .filterKeys { !it.isBefore(after) && !it.isAfter(before) }
@@ -86,10 +87,13 @@ class RegimeReadoutService(
   ): Map<LocalDate, RegimeReadoutDaily> {
     val spyReturnByDate = nBarReturns(spyCloseByDate, params.lookbackBars)
     val spyVolByDate = annualizedRealizedVol(spyCloseByDate, params.lookbackBars)
+    val drawdownByDate = drawdownFromTrailingHigh(spyCloseByDate, params.ddLookbackBars)
     val gapDates = spyReturnByDate.keys.intersect(ewReturnByDate.keys).sorted()
     if (gapDates.isEmpty()) return emptyMap()
 
-    val gaps = gapDates.map { spyReturnByDate.getValue(it) - ewReturnByDate.getValue(it).meanReturn }
+    // The equal-weight leg is the MEDIAN per-name return: immune to the micro-cap moonshots/bad
+    // prints that contaminate the mean, and stationary across year-over-year tail-quality drift.
+    val gaps = gapDates.map { spyReturnByDate.getValue(it) - ewReturnByDate.getValue(it).medianReturn }
     val gapSmoothed = technicalIndicatorService.calculateEMA(gaps, params.emaPeriod)
     val washoutIndex = WashoutIndex(breadthByDate, params)
     val breadthSlopeByDate = breadthSlopes(breadthByDate, params.slopeBars)
@@ -108,18 +112,21 @@ class RegimeReadoutService(
           gapSmoothed = if (index >= params.emaPeriod - 1) gapSmoothed[index] else null,
           gapStandardError = standardError,
           gapContributingN = ew.contributingN,
-          gapTrustworthy =
-            ew.contributingN >= params.minTrustworthyN &&
-              standardError != null &&
-              standardError < params.maxTrustworthyStandardError,
+          // Thin-N only — a dispersion ceiling proved fail-blind (dispersion explodes in exactly
+          // the crash/recovery tape the read-out must label), and the median gap leg is
+          // dispersion-robust anyway. The raw IQR is exposed for the analyst.
+          gapTrustworthy = ew.contributingN >= params.minTrustworthyN,
+          ewMedianReturn = ew.medianReturn,
+          ewIqr = ew.iqr,
           realizedVol = spyVolByDate[date],
           direction = spyReturnByDate.getValue(date),
           washoutActive = washoutIndex.activeAt(date),
+          drawdownFrom252High = drawdownByDate[date],
         )
       }
     val rawLabels = axesByDay.map { rawLabel(decisionAxes(it, params)) }
 
-    val publishedLabels = publish(rawLabels, params)
+    val publishedLabels = publish(rawLabels, axesByDay.map { it.washoutActive }, params)
     val series = LinkedHashMap<LocalDate, RegimeReadoutDaily>(gapDates.size)
     gapDates.forEachIndexed { index, date ->
       series[date] =
@@ -141,10 +148,10 @@ class RegimeReadoutService(
   private data class DayAxes(
     val defensible: Boolean,
     val washoutActive: Boolean,
+    val ddCrisis: Boolean,
     val gapNegative: Boolean,
     val gapPositive: Boolean,
     val gapNeutral: Boolean,
-    val directionUp: Boolean,
     val directionDown: Boolean,
     val volLow: Boolean,
     val slopeFalling: Boolean,
@@ -159,19 +166,24 @@ class RegimeReadoutService(
   ): DayAxes {
     val breadthLevel = readings.breadthLevel
     val gapSmoothed = readings.gapSmoothed
-    val gapNegative = gapSmoothed != null && gapSmoothed <= -params.gapDeadBand
-    val gapPositive = gapSmoothed != null && gapSmoothed >= params.gapDeadBand
+    val gapNegative = gapSmoothed != null && gapSmoothed <= params.gapNegBand
+    val gapPositive = gapSmoothed != null && gapSmoothed >= params.gapPosBand
     val slope = readings.breadthSlope
     val slopeRising = slope != null && slope >= params.slopeBand
     val slopeFalling = slope != null && slope <= -params.slopeBand
     val direction = readings.direction
     return DayAxes(
-      defensible = readings.gapTrustworthy == true && gapSmoothed != null && breadthLevel != null,
+      // gapTrustworthy is advisory only — a fail-closed dispersion guard proved fail-blind in v1
+      // (it breached ~30% of every year, concentrated in crashes/recoveries). Null label remains
+      // for the genuinely-undefined cases: un-seeded gap EMA, missing breadth.
+      defensible = gapSmoothed != null && breadthLevel != null,
       washoutActive = readings.washoutActive,
+      ddCrisis =
+        readings.drawdownFrom252High != null &&
+          readings.drawdownFrom252High <= params.ddCrisisThreshold,
       gapNegative = gapNegative,
       gapPositive = gapPositive,
       gapNeutral = gapSmoothed != null && !gapNegative && !gapPositive,
-      directionUp = direction != null && direction >= params.directionDeadBand,
       directionDown = direction != null && direction <= -params.directionDeadBand,
       volLow = readings.realizedVol != null && readings.realizedVol <= params.volLowBand,
       slopeFalling = slopeFalling,
@@ -185,36 +197,43 @@ class RegimeReadoutService(
   private fun rawLabel(axes: DayAxes): RegimeLabel? =
     when {
       !axes.defensible -> null
-      axes.washoutActive -> RegimeLabel.CRISIS
+      // Two CRISIS legs: the washout senses crash velocity; the drawdown senses slow correlated
+      // attrition (2000, 2022) the washout structurally misses.
+      axes.washoutActive || axes.ddCrisis -> RegimeLabel.CRISIS
       axes.breadthHighOrRising && axes.gapNegative -> RegimeLabel.THRUST
-      axes.directionUp && axes.gapPositive && axes.breadthWeakOrFalling -> RegimeLabel.NARROW
+      // "Not falling" rather than "up": a strict +2% leg starves NARROW in melt-ups that grind
+      // inside the direction dead-band, while the not-DOWN guard still refuses the bear-masquerade
+      // (mega-caps falling less than the median stock reads gap POS in a declining tape).
+      !axes.directionDown && axes.gapPositive && axes.breadthWeakOrFalling -> RegimeLabel.NARROW
       axes.gapNeutral && axes.volLow && axes.breadthAboveWeak && !axes.slopeFalling && !axes.directionDown -> RegimeLabel.GRIND
       else -> RegimeLabel.CHOP
     }
 
   /**
    * Debounce raw labels into published ones: a new label must persist [RegimeReadoutParams.dwellDays]
-   * consecutive raw days before the published label switches — except entry into CRISIS, which
-   * publishes immediately (a crisis is the one regime where a reporting lag is severe; the washout
-   * is already a sustained condition, so it needs no further debounce). An unlabeled day publishes
+   * consecutive raw days before the published label switches — except entry into washout-CRISIS,
+   * which publishes immediately (the washout is already a sustained condition needing no further
+   * debounce, and a crash is where reporting lag hurts most). Drawdown-CRISIS dwells like any other
+   * label: a single-day -20% touch must not flip the published stream. An unlabeled day publishes
    * nothing and breaks any pending streak (fail-closed); the first defensible label publishes
    * immediately.
    */
   private fun publish(
     rawLabels: List<RegimeLabel?>,
+    washoutByDay: List<Boolean>,
     params: RegimeReadoutParams,
   ): List<RegimeLabel?> {
     var published: RegimeLabel? = null
     var pending: RegimeLabel? = null
     var pendingCount = 0
-    return rawLabels.map { raw ->
+    return rawLabels.mapIndexed { index, raw ->
       when {
         raw == null -> {
           published = null
           pending = null
           pendingCount = 0
         }
-        raw == RegimeLabel.CRISIS || published == null || raw == published -> {
+        (raw == RegimeLabel.CRISIS && washoutByDay[index]) || published == null || raw == published -> {
           published = raw
           pending = null
           pendingCount = 0
@@ -286,6 +305,32 @@ class RegimeReadoutService(
   }
 
   /**
+   * Close-basis drawdown from the trailing [lookback]-bar high (including the current bar):
+   * `close[t] / max(close[t-lookback+1 .. t]) - 1`. A partial early window uses the bars available —
+   * the leg only ever ADDS crises, so an early under-stated high can never blank a day, and the
+   * production warm-up loads a full year before the window anyway.
+   */
+  private fun drawdownFromTrailingHigh(
+    closeByDate: Map<LocalDate, Double>,
+    lookback: Int,
+  ): Map<LocalDate, Double> {
+    val sortedDates = closeByDate.keys.sorted()
+    val closes = sortedDates.map { closeByDate.getValue(it) }
+    val result = LinkedHashMap<LocalDate, Double>(sortedDates.size)
+    for (index in sortedDates.indices) {
+      // Mirror the other legs' bad-print guard: a non-positive current close cannot price a drawdown.
+      if (closes[index] <= 0.0) continue
+      val windowStart = maxOf(0, index - lookback + 1)
+      var high = 0.0
+      for (i in windowStart..index) {
+        if (closes[i] > high) high = closes[i]
+      }
+      if (high > 0.0) result[sortedDates[index]] = closes[index] / high - 1.0
+    }
+    return result
+  }
+
+  /**
    * Annualized realized volatility: sample stdev of the trailing [lookback] daily simple returns,
    * scaled by sqrt(252). Defined only once [lookback] daily returns exist (i.e. [lookback] + 1 closes).
    */
@@ -336,9 +381,10 @@ class RegimeReadoutService(
     const val MARKET_BENCHMARK_SYMBOL = "SPY"
 
     /**
-     * Calendar days of warm-up loaded before the window: ~20 bars (returns/vol) + ~10 bars (EMA
-     * seed) + the 40-reading washout window + the dwell, with a comfortable seeded buffer.
+     * Calendar days of warm-up loaded before the window: the drawdown leg needs a full trailing
+     * 252-bar (~365 calendar-day) high on the window's first day; the gap EMA, vol window, washout
+     * window, and dwell all seed well inside that.
      */
-    const val WARMUP_CALENDAR_DAYS = 180L
+    const val WARMUP_CALENDAR_DAYS = 400L
   }
 }

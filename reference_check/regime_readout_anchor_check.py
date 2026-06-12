@@ -35,7 +35,10 @@ ANCHORS = {
         ("2011-08-01", "2011-08-31"),
         ("2018-12-01", "2018-12-31"),
         ("2020-02-20", "2020-04-15"),
-        ("2022-01-01", "2022-06-30"),
+        # Span amended at v2 (quant-adjudicated ground-truth fix, the sole anchor amendment): the
+        # consensus bear ran from the -20% close on 2022-06-13 to the 2022-10-12 cycle low;
+        # Jan-Apr 2022 was a -10..-14% correction, not a bear. Never amend a span for coverage.
+        ("2022-06-01", "2022-10-31"),
     ],
     "THRUST": [
         ("2003-04-01", "2003-12-31"),
