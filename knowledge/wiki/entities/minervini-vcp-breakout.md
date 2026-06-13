@@ -1,12 +1,12 @@
 ---
 type: entity
 title: Minervini VCP Breakout
-summary: Breakout-in-uptrend candidate; REJECTED at Component Firewall 2026-06-03 (participate-and-lose in narrow-leadership chop). Edge is REAL in broad-thrust tape — shelved as a risk-on building block.
+summary: Breakout candidate; REJECTED as all-weather (firewall 2026-06-03; PRD-confirmed 2026-06-13, OOS 12.9%). Real in broad-thrust — could be tradable as a THRUST-regime specialist (hypothesis, not a verdict).
 status: stable
-tags: [candidate, breakout, momentum, rejected, shelved]
-sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/"]
-related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]"]
-updated: 2026-06-09
+tags: [candidate, breakout, momentum, rejected, shelved, regime-specialist]
+sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/", "strategy_exploration/assessments/minervini-vcp-breakout/"]
+related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]"]
+updated: 2026-06-13
 ---
 
 # Minervini VCP Breakout
@@ -40,6 +40,48 @@ project state, not stated in the candidate docs]
 > but only as a risk-on leg for a host whose own alpha is **market-timing-level** (e.g. pairing with
 > [[gjallarhorn]]) — **not** as a breakout fed by a market-state ON/OFF gate. Any future regime read must
 > be a *direct, low-frequency concentration* signal, not a `SPY − equal-weight` return-gap (earned-dead).
+
+## Assessment 2026-06-13 — PRD clean-data re-run · **could be tradable as a THRUST-regime specialist**
+
+First `/assess-strategy` battery (ADR 0022, non-adjudicating; `config_hash 81a1d38ee0a6`). A 2026-06-12
+run on the **dev** universe was **invalidated**: dev's DB carried un-caught bad prints (VPI $65k / LAF
+$26.4k split-adjustment failures; midgaard flagged ~166 symbols) that inflated the per-trade edge ~24×
+(3.7→90.9), lifted CAGR ~25 pts (12.9%→37.7%), and *spuriously passed* the SPY baseline. PRD is clean
+(1 irrelevant violation — the ERX leveraged ETF, outside the STOCK universe), so the PRD re-run
+reproduces the firewall record: OOS CAGR **12.9%** (≈ the documented 9.6% in-market / 12.7% blended),
+edge **3.66/trade**, Sharpe 0.49, Calmar 0.34, maxDD ~44%, **9/22 negative windows, SPY-baseline FAIL**
+as an all-weather book.
+
+**As an all-weather strategy it stays REJECTED** — the firewall verdict is unchanged and remains the
+only road to TRADABLE. But the clean **regime decomposition** quantifies the long-documented "edge is
+real in broad-thrust tape" claim on the same trade population:
+
+| Published regime at entry | edge/trade (PRD clean) | trust grade (ADR 0024) |
+|---|---|---|
+| **THRUST** | **+7.45** | B — gateable, precision-only |
+| CRISIS | **−3.05** | A — gateable (loses in crisis) |
+| GRIND / NARROW / CHOP | +4.4 / +2.1 / +3.6 — **uncitable** | D — descriptive-only |
+
+> **Label — could be tradable as a THRUST-regime specialist (operator hypothesis 2026-06-13, NOT a
+> verdict).** Fits the operator's regime-specialist thesis: stop hunting an all-weather strategy; build
+> a stable of per-regime specialists routed by a regime classifier, with this candidate the **THRUST
+> leg**. The +7.45 THRUST edge corroborates the Block-B "real in broad-thrust" finding — but it is
+> **descriptive-only**: confirming a THRUST specialist requires a *regime-conditional firewall
+> validation* with a within-THRUST conditional null (draws from the comparable THRUST population, per
+> the conditional-within-regime-null rule), **never** gating this config to THRUST after the fact —
+> that is the rescue-forbidden / [[aliased-regime-sensitivity]] trap. ^[inferred — the specialist
+> framing is the operator's direction + Claude's synthesis; the THRUST edge sign/magnitude is measured]
+>
+> **Open dependency for the stable:** a reliable proxy for the *non*-CRISIS/non-THRUST regimes. ADR 0024
+> found the three cheap daily axes cannot separate GRIND/NARROW/CHOP (Grade D), so routing currently
+> resolves only CRISIS (A) and THRUST (B, precision-only — the dd-recovery blind spot suppresses THRUST
+> ~12 months post-crash). A regime-specialist stable that must *know it is in THRUST* therefore still
+> needs a from-scratch v3 classifier axis (cross-sectional dispersion / sector participation / vol
+> term-structure) for the remaining regimes.
+
+Path-risk (sized MC, clean): drawdown distribution centers ~33% maxDD, P(>40%)≈15%; the realized ~46%
+path sat in the worst ~15% of trade orderings. The MC *return* envelope is unusable (full-reinvestment
+compounding). Deflated-Sharpe AMBER, with `nEff` understated (minervini predates the dossier register).
 
 ## Funnel history
 
