@@ -62,6 +62,48 @@ class AssessmentLedger(unittest.TestCase):
         ledger.record_decision(self.root, "loki", "redesign", "edge concentrated in THRUST")
         self.assertTrue(ledger.family_eyeballed_c(self.root, "loki"))
 
+    def test_ratings_are_recorded_as_a_separate_event_from_the_decision(self):
+        # Given an open assessment with applicability ratings along the three dimensions
+        ledger.record_draft(self.root, "loki", "abc123", {})
+        ratings = [
+            {"dimension": "broad", "label": "adverse", "evidence": "OOS CAGR 12.9%, SPY-FAIL"},
+            {"dimension": "regime:THRUST", "label": "neutral", "evidence": "+7.45 ± 3.80, t=1.96"},
+            {"dimension": "sector", "label": "unrateable", "reason": "pending-instrumentation #167"},
+        ]
+
+        # When the ratings are recorded
+        ledger.record_ratings(self.root, "loki", "abc123", ratings)
+
+        # Then they land as a RATINGS event, distinct from any DECISION
+        events = ledger.read_events(ledger.ledger_path(self.root, "loki"))
+        self.assertEqual(
+            {"ev": "RATINGS", "candidate": "loki", "hash": "abc123", "ratings": ratings},
+            events[-1],
+        )
+
+    def test_a_rating_outside_the_four_value_scale_is_rejected(self):
+        # Given an open assessment
+        ledger.record_draft(self.root, "loki", "abc123", {})
+
+        # When a rating carries an off-scale label, Then it raises rather than polluting the ledger
+        with self.assertRaises(ValueError):
+            ledger.record_ratings(self.root, "loki", "abc123", [{"dimension": "broad", "label": "great"}])
+
+    def test_a_decision_can_name_the_dimension_it_targets(self):
+        # Given an open assessment whose ratings split broad-vs-regime
+        ledger.record_draft(self.root, "loki", "abc123", {})
+
+        # When the operator decides and names the targeted dimension
+        ledger.record_decision(self.root, "loki", "redesign", "pursue THRUST specialist", dimension="regime:THRUST")
+
+        # Then the DECISION event carries the dimension
+        events = ledger.read_events(ledger.ledger_path(self.root, "loki"))
+        self.assertEqual(
+            {"ev": "DECISION", "candidate": "loki", "decision": "redesign",
+             "why": "pursue THRUST specialist", "dimension": "regime:THRUST"},
+            events[-1],
+        )
+
     def test_a_decision_outside_the_recorded_vocabulary_is_rejected(self):
         # Given an open assessment
         ledger.record_draft(self.root, "loki", "abc123", {})
