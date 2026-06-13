@@ -10,7 +10,9 @@ Three peer dimensions, each a structured block `{label, evidence (edge ± date-c
 
 - **Broad** — all-weather, all-sector application (the firewall's domain; the assessment characterizes it, the firewall adjudicates it).
 - **Regime** — per **gateable** regime only: CRISIS and THRUST. GRIND / NARROW / CHOP are `unrateable` by construction (below the read-out's resolving power — ADR 0024).
-- **Sector** — per sector, from the continuous run's `sectorStats`.
+- **Sector** — per sector, from the continuous run's `sectorStats`. The **regime×sector cross is
+  `unrateable` by construction** (conditioning sector on regime fractures N below the floor) — those
+  joint cells are raw observability only, never a rating.
 
 Scale: **favourable** (positive edge clearing the bar — *a deployment hypothesis carrying its confirm-path*) · **neutral** (edge present but not reliably directional) · **adverse** (edge negative or inverted) · **unrateable** (below the evidence floor — the common case). `unrateable` is never collapsed into `neutral`: "we cannot say" (thin-N, a Grade-D regime, contamination) is distinct from "we looked and it is flat."
 

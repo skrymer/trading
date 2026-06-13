@@ -54,7 +54,7 @@ decision; the firewall stays the only road to TRADABLE.
       wide the sign is indeterminate.
    2. `adverse` — `edge < −k·SE`.
    3. `favourable` — `edge > +k·SE` AND premise-consistent AND its mandatory caveats attached. Semantics:
-      *descriptive-positive, regime/sector beta NOT excluded* — a hypothesis, never an attribution.
+      *descriptive-positive, regime/sector beta NOT excluded* — a hypothesis, never an attribution or validation.
    4. `neutral` — `|edge| ≤ k·SE`.
    `k = 2` for the regime family, **`k = 2.5` for the 11-cell sector family**; run the test on a
    **trimmed / robust edge**, never the raw mean (a tail must never carry a label). Flag multiplicity
@@ -71,7 +71,9 @@ decision; the firewall stays the only road to TRADABLE.
    - **Sector** (per sector) — evidence: §8 `sectorStats`. **Currently `unrateable-pending-instrumentation`
      for every cell**: the bar's sector test needs per-sector clustered SE + trimmed edge + max-single-
      trade share, which `sectorStats` does not yet emit (issue #167). Until #167 lands, rate every sector
-     cell `unrateable-pending` and say why; never improvise a rating from the bare edge.
+     cell `unrateable-pending` and say why; never improvise a rating from the bare edge. The
+     **regime×sector cross is `unrateable` by construction** — conditioning sector on regime fractures N
+     below the floor; surface those joint cells (§7) as raw observability only, never a rating.
    Every `favourable`'s **confirm-path** names the within-condition null as a **fresh, distinct,
    regime-/sector-scoped candidate** run through the firewall — **never** a gate or prune of *this* config
    (rescue-forbidden / ARS, ADR 0023). Where cheap, add the **within-strategy baseline contrast** (bucket
