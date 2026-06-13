@@ -73,6 +73,25 @@ def inline_scripts(strategy_node):
     return scripts
 
 
+def known_condition_types(payload):
+    """Lowercase condition type ids from the /backtest/conditions discovery payload.
+
+    The endpoint returns {"entryConditions": [...], "exitConditions": [...]}; both legs are the
+    universe of known types. A flat list is also accepted for robustness.
+    """
+    if isinstance(payload, dict):
+        items = (payload.get("entryConditions") or []) + (payload.get("exitConditions") or [])
+    else:
+        items = payload or []
+    return [c.get("type", "").lower() for c in items if isinstance(c, dict)]
+
+
+def known_ranker_types(payload):
+    """Lowercase ranker type ids from the /backtest/rankers discovery payload (a flat list of {type,...})."""
+    items = payload.get("rankers", []) if isinstance(payload, dict) else (payload or [])
+    return [r.get("type", r.get("name", "")).lower() for r in items if isinstance(r, dict)]
+
+
 def check(request, known_conditions, known_rankers, anchor_status=None, dead_hashes=frozenset(), config_hash=None):
     """Run every pre-flight check. Pure: all platform state arrives as arguments.
 
@@ -162,8 +181,8 @@ def main():
         with open(sys.argv[4]) as f:
             anchor_status = json.load(f)
 
-    known_conditions = [c.get("type", "").lower() for c in conditions_payload if isinstance(c, dict)]
-    known_rankers = [r.get("type", r.get("name", "")).lower() for r in rankers_payload if isinstance(r, dict)]
+    known_conditions = known_condition_types(conditions_payload)
+    known_rankers = known_ranker_types(rankers_payload)
     report = check(request, known_conditions, known_rankers, anchor_status)
     print(json.dumps(report, indent=2))
     sys.exit(1 if report["blockers"] else 0)

@@ -77,9 +77,20 @@ you propose, the operator commits).
    not attach a per-bucket edge. Under every regime table print the standing warning: *"Descriptive only.
    Adding a regime gate because of this table is regime-overfitting (ARS); it informs deployment, never
    design."*
-7. **C-span stamp** — every section showing 2021–2025 numbers carries:
+7. **Per-sector performance (unconditional)** — from the continuous run's `sectorStats`
+   (`/tmp/assess-<candidate>-continuous.json`): a league table by sector — N (trades), win rate,
+   edge (avg per-trade % net of cost), avg win% / avg loss%, total profit %, max drawdown, edge
+   consistency. This is the **marginal** sector view (across all regimes) — distinct from the
+   regime×sector cells in §6, which condition sector on regime; the two answer different questions
+   ("which sectors does the strategy win in" vs. "does a sector tilt explain the regime edge"). Rank
+   by trade count so the operator sees where the strategy actually concentrated, and name both the
+   sectors that carry it and the ones it barely touched. Respect the same insufficient-N floor the
+   regime decomposition uses (30 trades): below it print "insufficient — do not infer", never an edge
+   number. Under the table print the standing warning: *"Descriptive only. Pruning to the winning
+   sectors after seeing this table is sector-overfitting; it informs understanding, never design."*
+8. **C-span stamp** — every section showing 2021–2025 numbers carries:
    *"⚠ operator-eyeballed-C: this family's firewall Block C verdict is decorative from here (ADR 0022)."*
-8. **Decision support** — lay out the five recorded decisions (`redesign` / `send-to-firewall` /
+9. **Decision support** — lay out the five recorded decisions (`redesign` / `send-to-firewall` /
    `paper-trade` / `deploy-at-own-risk` / `shelve`) with the evidence for and against each. You may
    recommend one with reasoning; the operator decides and the skill records it.
 
