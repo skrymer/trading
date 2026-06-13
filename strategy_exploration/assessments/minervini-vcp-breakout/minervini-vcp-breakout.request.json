@@ -1,0 +1,117 @@
+{
+  "assetTypes": [
+    "STOCK"
+  ],
+  "stockSymbols": [],
+  "startDate": "2000-01-01",
+  "endDate": "2025-01-01",
+  "inSampleMonths": 36,
+  "outOfSampleMonths": 12,
+  "stepMonths": 12,
+  "entryDelayDays": 1,
+  "randomSeed": 42,
+  "riskFreeRatePct": 0.0,
+  "maxPositions": 10,
+  "useUnderlyingAssets": false,
+  "ranker": "SectorStrengthMomentum",
+  "positionSizing": {
+    "startingCapital": 100000,
+    "sizer": {
+      "type": "atrRisk",
+      "riskPercentage": 1.25,
+      "nAtr": 2.0
+    },
+    "leverageRatio": 1.0
+  },
+  "entryStrategy": {
+    "type": "custom",
+    "operator": "AND",
+    "conditions": [
+      {
+        "type": "spyTrendUp",
+        "parameters": {}
+      },
+      {
+        "type": "movingAverageStack",
+        "parameters": {
+          "maType": "SMA",
+          "fastPeriod": 50,
+          "midPeriod": 150,
+          "slowPeriod": 200,
+          "requirePriceAboveFast": true
+        }
+      },
+      {
+        "type": "movingAverageRising",
+        "parameters": {
+          "maType": "SMA",
+          "period": 200,
+          "lookbackBars": 30
+        }
+      },
+      {
+        "type": "percentFrom52WeekHigh",
+        "parameters": {
+          "maxPercentBelowHigh": 25.0
+        }
+      },
+      {
+        "type": "percentFrom52WeekLow",
+        "parameters": {
+          "minPercentAboveLow": 30.0
+        }
+      },
+      {
+        "type": "relativeStrengthPercentile",
+        "parameters": {
+          "minPercentile": 70.0
+        }
+      },
+      {
+        "type": "narrowingRange",
+        "parameters": {
+          "stepWindow": 10
+        }
+      },
+      {
+        "type": "volumeDryUp",
+        "parameters": {
+          "dryupWindow": 10,
+          "baseWindow": 50,
+          "dryupRatio": 0.7
+        }
+      },
+      {
+        "type": "priceNearDonchianHigh",
+        "parameters": {
+          "maxDistancePercent": 1.5
+        }
+      },
+      {
+        "type": "volumeAboveAverage",
+        "parameters": {
+          "multiplier": 1.3,
+          "lookbackDays": 20
+        }
+      }
+    ]
+  },
+  "exitStrategy": {
+    "type": "custom",
+    "operator": "OR",
+    "conditions": [
+      {
+        "type": "stopLoss",
+        "parameters": {
+          "atrMultiplier": 2.0
+        }
+      },
+      {
+        "type": "priceBelowEma",
+        "parameters": {
+          "emaPeriod": 50
+        }
+      }
+    ]
+  }
+}
