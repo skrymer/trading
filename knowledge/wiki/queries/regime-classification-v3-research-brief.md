@@ -1,17 +1,24 @@
 ---
 type: query
 title: Regime classification v3 — deep-research brief (how to determine THRUST/CRISIS/GRIND/NARROW/CHOP)
-summary: A pending /deep-research brief for a pre-registrable classifier that resolves all five market regimes — esp. the GRIND/NARROW/CHOP trichotomy the v2 daily axes could not separate (ADR 0024). Not yet run.
-status: seed
+summary: /deep-research brief for a pre-registrable classifier resolving all five regimes — esp. the GRIND/NARROW/CHOP trichotomy v2's daily axes couldn't separate (ADR 0024). Answered 2026-06-14.
+status: active
 tags: [methodology, regime, pre-registration, classifier, research-brief, deep-research]
 sources: ["docs/adr/0024-regime-read-out-v2-accepted-with-limitations.md", "docs/adr/0025-strategy-assessment-emits-applicability-ratings-and-the-decision-names-its-dimension.md"]
-related: ["[[regime-read-out]]", "[[strategy-assessment]]", "[[minervini-vcp-breakout]]", "[[aliased-regime-sensitivity]]"]
-updated: 2026-06-13
+related: ["[[2026-06-14-regime-classification-v3-research]]", "[[regime-read-out]]", "[[strategy-assessment]]", "[[minervini-vcp-breakout]]", "[[aliased-regime-sensitivity]]"]
+updated: 2026-06-14
 ---
 
 # Regime classification v3 — deep-research brief
 
-**Status: a research brief, not an answer.** This is the prompt to feed `/deep-research` when we open the
+> **ANSWERED 2026-06-14 →** [[2026-06-14-regime-classification-v3-research]] (20 adversarially-verified
+> claims; 5 refuted; 20 sources). Build tracked as **issue #168**. Headline: a return+vol classifier
+> *structurally cannot* resolve GRIND/NARROW/CHOP (no breadth channel) — resolve them with a
+> cross-sectional **concentration** axis (NARROW) + a **multi-week trend-efficiency** axis (GRIND/CHOP)
+> layered over the CRISIS/THRUST backbone, validated vs a random-walk surrogate + frozen-parameter OOS.
+> The prompt below is retained verbatim as the canonical research question.
+
+**Status: answered 2026-06-14 — see the callout above.** This was the prompt fed to `/deep-research` for the
 v3-regime-classifier work (the ADR 0024 "from-scratch new pre-registration on a new axis" path). It is the
 open dependency the [[strategy-assessment]] regime/sector **applicability ratings** (ADR 0025) and any
 regime-specialist *stable* hang on: today only CRISIS (Grade A) and THRUST (Grade B) are gateable —

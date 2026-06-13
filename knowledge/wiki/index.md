@@ -53,6 +53,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 ## Sources — run summaries
 
+- [[2026-06-14-regime-classification-v3-research]] — deep-research answer to the v3 brief (#168): return+vol classifiers *structurally* can't resolve GRIND/NARROW/CHOP (no breadth channel); split them with a cross-sectional concentration axis (NARROW) + a multi-week trend-efficiency axis (GRIND/CHOP) over the CRISIS/THRUST backbone, validated vs RW-surrogate + frozen-OOS. 20 adversarially-verified claims.
 - [[2026-06-13-regime-readout-v1-fail-v2-adjudication]] — the full §5 revision loop: v1 anchor FAIL (18/19) → diagnostics (EW mean tail-contaminated, p1 −99%; −20% dd leg separates all consensus bears) → v2 (median leg, tercile bands p33/p67 read-once, dd-CRISIS, advisory guard, not-DOWN NARROW) → cycle-2 FAIL (12/19) → ACCEPT-WITH-LIMITATIONS. Durable: the drawdown-recovery blind spot; full-universe EW means unusable; grind/narrow/chop below 3-axis resolving power.
 - [[2026-06-12-strategy-assessment-design-and-regime-readout-prereg]] — design session → ADR 0022 (assessment funnel) + ADR 0023 (read-out revival); quant battery design (25y-WF spine + complements, C-coarse recommendation overruled with disclosure floor) + pre-reg v0→v1 SIGNED-OFF (stateless gap cut + ±2% direction band were blocking). No run.
 - [[2026-06-10-quality-tilt-scoping-and-design-lock]] — quant proposed a cross-sectional quality tilt (non-price selector; narrow leadership a tailwind); `/grill-with-docs` locked the architecture (ADR 0019), a 2nd consult locked the signal (GP/TA gate + ranker). Build = #150, arch = PR #151. No run.
@@ -90,6 +91,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 ## Queries
 
 - [[README]] (queries/) — how good answers get filed back to compound.
+- [[regime-classification-v3-research-brief]] — the v3 regime-classifier research question; ANSWERED 2026-06-14 → [[2026-06-14-regime-classification-v3-research]] (#168).
 
 ---
 
