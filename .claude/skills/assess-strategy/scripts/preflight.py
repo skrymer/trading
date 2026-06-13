@@ -21,9 +21,12 @@ import sys
 # (Ovtlyr/Forseti 2026-06-04). Extend as new limited-history signals are ingested.
 LIMITED_HISTORY_CONDITION_PREFIXES = ("ovtlyr",)
 
-# Regime-label gates may only be assessed once the read-out's first-compute anchor check passed
-# (the classifier must be validated before anything consumes it).
+# Regime-label gates may only be assessed once the read-out's anchor check accepted the classifier
+# — PASS or ACCEPT_WITH_LIMITATIONS (ADR 0024: v2 is accepted with limitations, and gating is
+# permitted on the gateable labels). Which labels are legal is enforced downstream by
+# RegimeLabelCondition.GATEABLE_LABELS, not here; the pre-flight only confirms acceptance.
 REGIME_CONDITION_TYPES = {"regimelabelin", "regimelabelexit"}
+ACCEPTED_ANCHOR_VERDICTS = {"PASS", "ACCEPT_WITH_LIMITATIONS"}
 
 # Inline-script shapes that historically smell of lookahead. A hit is an advisory, not proof —
 # static scanning flags, /create-condition discipline + G14 + engine tests prove.
@@ -104,10 +107,11 @@ def check(request, known_conditions, known_rankers, anchor_status=None, dead_has
 
     if any(t in REGIME_CONDITION_TYPES for t in all_types):
         verdict = (anchor_status or {}).get("verdict")
-        if verdict != "PASS":
+        if verdict not in ACCEPTED_ANCHOR_VERDICTS:
             blockers.append(
-                "strategy gates on the regime read-out but the anchor acceptance check has not PASSED — "
-                "the classifier must be validated before anything consumes it (ADR 0023 first-compute gate)"
+                "strategy gates on the regime read-out but the anchor acceptance check has not been "
+                "accepted (PASS or ACCEPT_WITH_LIMITATIONS) — the classifier must be validated before "
+                "anything consumes it (ADR 0023 first-compute gate / ADR 0024 acceptance)"
             )
 
     # --- Battery shaping: change what gets run, not whether ---

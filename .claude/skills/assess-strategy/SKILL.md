@@ -21,7 +21,8 @@ the user's actual candidate/config everywhere.
      strategy_exploration/assessments/anchor-status.json
    ```
    - **Blockers** (exit 1): unknown condition/ranker types, span-disqualified signals, regime gates
-     without a PASSED anchor check → **stop, do not fire**
+     without an accepted anchor check (PASS or ACCEPT_WITH_LIMITATIONS — ADR 0024; only the gateable
+     CRISIS/THRUST labels are legal, enforced downstream) → **stop, do not fire**
    - **Battery shaping**: Random ranker → multi-seed sweep; selecting ranker → Random-baseline arm
      (confirm entry permissiveness with the operator); missing `randomSeed` → pin one
    - **Advisories**: inline scripts (promotion/G14 reminder + lookahead smells), firewall-DEAD config

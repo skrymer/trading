@@ -40,15 +40,21 @@ class PreflightBlockers(unittest.TestCase):
         report = preflight.check(request, KNOWN_CONDITIONS, KNOWN_RANKERS)
         self.assertTrue(any("span" in b for b in report["blockers"]))
 
-    def test_a_regime_gate_requires_a_passed_anchor_check(self):
-        # Given a regime-gated strategy and no recorded anchor PASS
+    def test_a_regime_gate_requires_an_accepted_anchor_check(self):
+        # Given a regime-gated strategy and no recorded anchor acceptance
         request = request_with([{"type": "regimeLabelIn"}])
 
-        # When / Then: blocked without the PASS, clear with it
+        # When / Then: blocked without acceptance, clear on PASS or ACCEPT_WITH_LIMITATIONS
+        # (ACCEPT_WITH_LIMITATIONS is an acceptance — the gateable-label fence lives in
+        # RegimeLabelCondition.GATEABLE_LABELS, not here; ADR 0024).
         blocked = preflight.check(request, KNOWN_CONDITIONS, KNOWN_RANKERS, anchor_status=None)
         self.assertTrue(any("anchor" in b for b in blocked["blockers"]))
-        cleared = preflight.check(request, KNOWN_CONDITIONS, KNOWN_RANKERS, anchor_status={"verdict": "PASS"})
-        self.assertEqual([], cleared["blockers"])
+        passed = preflight.check(request, KNOWN_CONDITIONS, KNOWN_RANKERS, anchor_status={"verdict": "PASS"})
+        self.assertEqual([], passed["blockers"])
+        accepted = preflight.check(
+            request, KNOWN_CONDITIONS, KNOWN_RANKERS, anchor_status={"verdict": "ACCEPT_WITH_LIMITATIONS"}
+        )
+        self.assertEqual([], accepted["blockers"])
 
     def test_a_nested_group_condition_is_still_seen(self):
         # Given the unknown condition hidden inside an OR-group

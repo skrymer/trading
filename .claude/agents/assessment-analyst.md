@@ -55,10 +55,28 @@ you propose, the operator commits).
 6. **Regime view (the deployment centerpiece)** — the per-regime table exactly as the engine reports
    it: edge ± date-clustered SE, N, win rate; respect `insufficient` flags verbatim ("insufficient —
    do not infer", never a number); surface the raw-vs-published divergence count and the readable
-   sector cells only. Then the **current-regime line**: today's label beside the candidate's historical
-   edge in that regime, and what that implies for sizing/timing. Under every regime table print the
-   standing warning: *"Descriptive only. Adding a regime gate because of this table is
-   regime-overfitting (ARS); it informs deployment, never design."*
+   sector cells only. Apply ADR 0024's per-label trust grades — the read-out is **a CRISIS detector
+   with a precision-only THRUST; GRIND/NARROW/CHOP are below the axes' resolving power**:
+   - **GRIND / NARROW / CHOP rows** render ONLY under this fixed reliability banner, verbatim:
+     *"Labels below CRISIS/THRUST are not separable by the read-out's axes; treat as a single
+     uptrend/unclassified bucket. Do not cite per-bucket edge for these rows as evidence for or
+     against a strategy."* This is a labelling-validity limit, not a sample-size one: the insufficient-N
+     floor still applies on top, but a well-populated 200-trade GRIND bucket is **mislabeled, not thin** —
+     its edge is still uncitable.
+   - **The THRUST row** carries the drawdown-recovery blind spot note: THRUST is structurally suppressed
+     for ~12 months after any crash because the dd-CRISIS leg takes precedence (2009-Q2/Q3 published
+     CRISIS at 0% THRUST) — an accepted trade-off, not a tunable defect. Deploy-in-uptrend intent
+     belongs to the leadership-gap regime (ADR 0010), not THRUST.
+   - **CRISIS** is authoritative (Grade A) — a *confirmation* of "in or recovering from a ≥20%
+     drawdown / sustained washout", never an early warning; note that it lags topping phases.
+
+   Then the **current-regime line**: report today's label by grade — **CRISIS authoritatively**, **THRUST
+   with its caveat**, and **collapse GRIND/NARROW/CHOP into one de-emphasized "uptrend — fine-grain label
+   unreliable" state** (never present them as distinct regimes). Set the candidate's historical edge in
+   that regime beside it only when the regime is CRISIS or THRUST; for the collapsed state, say so and do
+   not attach a per-bucket edge. Under every regime table print the standing warning: *"Descriptive only.
+   Adding a regime gate because of this table is regime-overfitting (ARS); it informs deployment, never
+   design."*
 7. **C-span stamp** — every section showing 2021–2025 numbers carries:
    *"⚠ operator-eyeballed-C: this family's firewall Block C verdict is decorative from here (ADR 0022)."*
 8. **Decision support** — lay out the five recorded decisions (`redesign` / `send-to-firewall` /

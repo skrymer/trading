@@ -101,9 +101,10 @@ verbatim. State in the report that it covers the continuous run's trades, not th
 
 ```
 strategy_exploration/assessments/
-  anchor-status.json                  # {"verdict": "PASS"|"FAIL", "date": "YYYY-MM-DD"} — recorded
-                                      # after running reference_check/regime_readout_anchor_check.py;
-                                      # the pre-flight's regime-gate prerequisite reads it
+  anchor-status.json                  # {"verdict": "PASS"|"ACCEPT_WITH_LIMITATIONS"|"FAIL", "date": …} —
+                                      # recorded after reference_check/regime_readout_anchor_check.py;
+                                      # the pre-flight's regime-gate prerequisite reads it (PASS or
+                                      # ACCEPT_WITH_LIMITATIONS clears the gate; ADR 0024)
   <candidate>/
     <candidate>.request.json          # the exact validated request (ADR 0017)
     ledger.jsonl                      # append-only events
