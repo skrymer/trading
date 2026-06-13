@@ -1,15 +1,15 @@
 ---
 type: concept
 title: Strategy assessment — the non-adjudicating report funnel
-summary: The separate /assess-strategy funnel (ADR 0022, to-build) — full battery, no verdict, human decides; full C-span disclosure with eyeballed-C annotation; what the analyst may and may not read into it.
+summary: The /assess-strategy funnel (ADR 0022) — pre-flight, full battery, no verdict, human decides; full C-span disclosure with eyeballed-C annotation; what the analyst may and may not read into it.
 status: stable
 tags: [methodology, assessment, funnel, reporting]
-sources: ["docs/adr/0022-strategy-assessment-is-a-separate-non-adjudicating-funnel.md", "knowledge/wiki/sources/2026-06-12-strategy-assessment-design-and-regime-readout-prereg.md", "CONTEXT.md"]
+sources: ["docs/adr/0022-strategy-assessment-is-a-separate-non-adjudicating-funnel.md", "knowledge/wiki/sources/2026-06-12-strategy-assessment-design-and-regime-readout-prereg.md", "CONTEXT.md", ".claude/skills/assess-strategy/SKILL.md"]
 related: ["[[regime-read-out]]", "[[component-firewall]]", "[[the-funnel]]", "[[aliased-regime-sensitivity]]", "[[beta-delivery]]"]
 updated: 2026-06-12
 ---
 
-# Strategy assessment — the non-adjudicating report funnel (ADR 0022, to-build)
+# Strategy assessment — the non-adjudicating report funnel (ADR 0022)
 
 The complement to [[component-firewall]]: where the validation funnel short-circuits at the first
 failing binding layer and adjudicates, the assessment funnel (`/assess-strategy`) runs **everything**,
@@ -27,10 +27,31 @@ This page holds what the future assessment-analyst needs that neither states.
 It accepts any config — dead, settled, or fresh. It never resurrects, settles, or kills; the only road
 to TRADABLE remains the firewall.
 
+## The pre-flight (Step 0) — blocks only on impossibility
+
+A mechanical check before the battery fires (`.claude/skills/assess-strategy/scripts/preflight.py`).
+Its contract: **block only when the report would be garbage or wasted compute, shape the battery for
+known config classes, advise on everything else** — never judge strategy quality (that is the
+firewall's job).
+
+- **Blockers**: unknown condition/ranker types; span-disqualified signals (a ~5y signal under a 25y
+  spine is silently empty for 20 years — the recurring funnel-disqualification tell); regime-label
+  gates before the [[regime-read-out]] anchor check has PASSED (the classifier must be validated
+  before anything consumes it).
+- **Battery shaping**: Random ranker → multi-seed sweep (one run is one draw); selecting ranker →
+  the byte-identical Random-baseline arm (the [[beta-delivery]] guard); missing `randomSeed` → pin one
+  (tie-break jitter makes reruns non-reproducible).
+- **Advisories** (stamped into the report): inline `script` conditions (promotion + G14 reminder,
+  static lookahead smells — a flag, not proof); firewall-DEAD config → autopsy framing, never refusal.
+- **Cadence probe**: one small early-window + late-window backtest pair before the expensive spine —
+  catches never-fires, span gaps the static check missed, and the full-universe OOM class.
+
 ## The battery, and why it is shaped this way
 
 One expensive spine + cheap complements (~55–65 min): **25y walk-forward** (spine) + **continuous 25y
-backtest** + **Monte Carlo** + **deflated-Sharpe flag**; **Random-ranker baseline only for
+backtest** + **Monte Carlo** (interim: on the continuous run's trades, an IS-inclusive deviation from
+ADR 0022's stitched-OOS prescription pending issue #161 — the report carries the stamp) +
+**deflated-Sharpe flag**; **Random-ranker baseline only for
 permissive-entry + ranker-selects candidates** (without it such a report can be pure entry-universe
 beta — see [[beta-delivery]]).
 

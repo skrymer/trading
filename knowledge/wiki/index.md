@@ -18,7 +18,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[the-funnel]] — how an idea becomes tradable/rejected: the 5-stage funnel map.
 - [[component-firewall]] — the binding 3-block + 25y validation layer; gates, interlocks, intent.
 - [[parameter-robustness-g13]] — a TRADABLE verdict must survive ±1 step / ±10% on every tunable.
-- [[strategy-assessment]] — the separate non-adjudicating report funnel (ADR 0022, to-build): full battery, no verdict, human decides; full C-span disclosure + eyeballed-C annotation; the regime table's honest/theater line.
+- [[strategy-assessment]] — the separate non-adjudicating report funnel (ADR 0022): full battery, no verdict, human decides; full C-span disclosure + eyeballed-C annotation; the regime table's honest/theater line.
 - [[regime-read-out]] — the v2 classifier, anchor-adjudicated ACCEPT-WITH-LIMITATIONS (ADR 0023/0024): CRISIS trustworthy + THRUST precision-only (gateable); GRIND/NARROW/CHOP below axis resolving power — descriptive-only, ungateable. No v3 by iteration.
 
 ## Concepts — failure modes
