@@ -92,6 +92,25 @@ class PreflightShaping(unittest.TestCase):
         self.assertTrue(any("randomSeed" in s for s in report["battery_shaping"]))
 
 
+class PreflightPayloadParsing(unittest.TestCase):
+    def test_condition_types_are_read_from_the_entry_and_exit_legs(self):
+        # Given the discovery endpoint's real shape: {entryConditions, exitConditions}, not a flat list
+        payload = {
+            "entryConditions": [{"type": "AdxRange"}, {"type": "SpyTrendUp"}],
+            "exitConditions": [{"type": "StopLoss"}],
+        }
+
+        # When / Then: every leg's types are surfaced, lowercased
+        self.assertEqual(["adxrange", "spytrendup", "stoploss"], preflight.known_condition_types(payload))
+
+    def test_ranker_types_are_read_from_the_flat_list(self):
+        # Given the discovery endpoint's ranker shape: a flat list of {type, ...}
+        payload = [{"type": "Random"}, {"type": "FundamentalQuality"}]
+
+        # When / Then
+        self.assertEqual(["random", "fundamentalquality"], preflight.known_ranker_types(payload))
+
+
 class PreflightAdvisories(unittest.TestCase):
     def test_an_inline_script_with_a_series_tail_read_is_flagged(self):
         # Given an inline script reading the tail of the quote series
