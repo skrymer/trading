@@ -5,8 +5,8 @@ summary: The frozen v2 classifier (ADR 0023/0024) — CRISIS trustworthy + THRUS
 status: stable
 tags: [methodology, regime, pre-registration, classifier]
 sources: ["docs/adr/0023-regime-read-out-revived-as-pre-registered-gate-able-series.md", "docs/adr/0024-regime-read-out-v2-accepted-with-limitations.md", "knowledge/wiki/sources/2026-06-13-regime-readout-v1-fail-v2-adjudication.md", "udgaard/src/main/kotlin/com/skrymer/udgaard/backtesting/model/RegimeReadoutParams.kt"]
-related: ["[[strategy-assessment]]", "[[regime-conditional-portfolio]]", "[[aliased-regime-sensitivity]]", "[[component-firewall]]"]
-updated: 2026-06-13
+related: ["[[strategy-assessment]]", "[[regime-conditional-portfolio]]", "[[aliased-regime-sensitivity]]", "[[component-firewall]]", "[[2026-06-14-regime-classification-v3-research]]"]
+updated: 2026-06-14
 ---
 
 # Regime read-out — v2, accepted with limitations (ADR 0024)
@@ -66,3 +66,14 @@ legitimate v3 is a **from-scratch new pre-registration**: a structurally new axi
 dispersion/correlation, sector participation, vol term-structure), parameters fixed before any
 coverage is computed, validated on **uncontaminated ground truth** — the 19 anchor spans are burned
 as a primary acceptance gate.
+
+**The v3 research is done** (deep-research 2026-06-14, [[2026-06-14-regime-classification-v3-research]],
+tracked as issue #168). Its decisive finding *corroborates* this page: a return+vol classifier
+(HMM/HSMM/Markov-switching) is **structurally incapable** of resolving the GRIND/NARROW/CHOP trichotomy —
+NARROW is a cross-sectional/breadth fact an index-return model has no channel to see. The pre-registrable
+path is **two orthogonal strategy-blind axes layered over the CRISIS/THRUST backbone**: a cross-sectional
+**concentration** axis (top/bottom-half return dispersion, built from constituent prices) for NARROW, and
+a **multi-week trend-efficiency** axis (Kaufman Efficiency Ratio / Choppiness Index — never daily; daily
+Hurst is white noise) for GRIND-vs-CHOP. Validate against a random-walk surrogate + frozen-parameter OOS
+on label stability + external Bry-Boschan/Lunde-Timmermann dating; GRIND/NARROW/CHOP stay
+descriptive-only until those axes clear validation. Axis/threshold/window choices are quant-domain.

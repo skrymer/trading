@@ -5,8 +5,8 @@ summary: The /assess-strategy funnel (ADR 0022) — pre-flight, full battery, no
 status: stable
 tags: [methodology, assessment, funnel, reporting]
 sources: ["docs/adr/0022-strategy-assessment-is-a-separate-non-adjudicating-funnel.md", "knowledge/wiki/sources/2026-06-12-strategy-assessment-design-and-regime-readout-prereg.md", "CONTEXT.md", ".claude/skills/assess-strategy/SKILL.md"]
-related: ["[[regime-read-out]]", "[[component-firewall]]", "[[the-funnel]]", "[[aliased-regime-sensitivity]]", "[[beta-delivery]]"]
-updated: 2026-06-12
+related: ["[[regime-read-out]]", "[[component-firewall]]", "[[the-funnel]]", "[[aliased-regime-sensitivity]]", "[[beta-delivery]]", "[[2026-06-14-regime-classification-v3-research]]"]
+updated: 2026-06-14
 ---
 
 # Strategy assessment — the non-adjudicating report funnel (ADR 0022)
@@ -91,7 +91,9 @@ almost always trip it, correctly). Per the ADR 0024 trust grades: GRIND/NARROW/C
 under the fixed reliability banner (below the axes' resolving power — treat as one
 uptrend/unclassified bucket), the THRUST row carries the recovery-suppression note, and the
 current-regime line reports CRISIS authoritatively while collapsing the fine-grain labels.
-Legitimate use: *sizing/timing context for an already-validated strategy*.
+Legitimate use: *sizing/timing context for an already-validated strategy*. The descriptive-only ceiling
+on GRIND/NARROW/CHOP is the v2 axes' resolving power; the from-scratch v3 path to making those rows
+gateable (and the regime applicability ratings rateable) is [[2026-06-14-regime-classification-v3-research]] (#168).
 
 Theater (refuse to enable): per-regime backtests or re-optimization; any per-regime number used to
 **select or redesign** ("add a grind gate") — that is [[aliased-regime-sensitivity]] and the rescue

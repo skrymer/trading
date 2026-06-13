@@ -4,7 +4,7 @@
 One assessment directory per candidate under `strategy_exploration/assessments/<candidate>/`:
   - `<candidate>.request.json` — the exact validated request (ADR 0017 discipline)
   - `ledger.jsonl`             — append-only events (DRAFT, PREFLIGHT, FIRED, RUN_RECORDED,
-                                 C_EYEBALLED, DECISION)
+                                 C_EYEBALLED, RATINGS, DECISION)
   - `assessment.md`            — the analyst's report (written by the assessment-analyst)
 
 The ledger is the assessment funnel's machine record. It never adjudicates: there is no verdict
@@ -69,15 +69,33 @@ def record_c_eyeballed(assessments_root, candidate, config_hash):
     )
 
 
-def record_decision(assessments_root, candidate, decision, why):
-    """The operator's post-report decision — the ledger's only terminal event kind."""
+def record_ratings(assessments_root, candidate, config_hash, ratings):
+    """Record the assessment's descriptive applicability ratings (ADR 0025) — a separate event from the
+    DECISION. `ratings` is a list of per-dimension blocks (`{"dimension", "label", evidence/caveat/...}`).
+    Descriptive, never a verdict; the DECISION stays the only terminal event.
+    """
+    allowed = {"favourable", "neutral", "adverse", "unrateable"}
+    for rating in ratings:
+        label = rating.get("label")
+        if label not in allowed:
+            raise ValueError(f"rating label must be one of {sorted(allowed)}, got {label!r}")
+    append(
+        ledger_path(assessments_root, candidate),
+        {"ev": "RATINGS", "candidate": candidate, "hash": config_hash, "ratings": ratings},
+    )
+
+
+def record_decision(assessments_root, candidate, decision, why, dimension=None):
+    """The operator's post-report decision — the ledger's only terminal event kind. `dimension` (optional)
+    names the deploy-targeting axis it targets (e.g. "broad", "regime:THRUST", "sector:XLK") so a
+    `shelve`-broad + `redesign`-toward-a-regime-specialist intent is not collapsed (ADR 0025)."""
     allowed = {"redesign", "send-to-firewall", "paper-trade", "deploy-at-own-risk", "shelve"}
     if decision not in allowed:
         raise ValueError(f"decision must be one of {sorted(allowed)}, got {decision!r}")
-    append(
-        ledger_path(assessments_root, candidate),
-        {"ev": "DECISION", "candidate": candidate, "decision": decision, "why": why},
-    )
+    event = {"ev": "DECISION", "candidate": candidate, "decision": decision, "why": why}
+    if dimension is not None:
+        event["dimension"] = dimension
+    append(ledger_path(assessments_root, candidate), event)
 
 
 def collect_assessment_trials(assessments_root):
