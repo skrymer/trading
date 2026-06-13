@@ -98,9 +98,14 @@ Theater (refuse to enable): per-regime backtests or re-optimization; any per-reg
 path ADR 0023 forbids; crisis/chop point estimates; "current regime → expected edge" point forecasts.
 The standing warning prints under every regime table.
 
-Sector dimension: a market-scoped **regime×sector matrix** (strategy-blind, spell-clustered SEs) plus a
-per-candidate **sector×regime drill-down** (insufficient-N per cell; expect mostly-grey tables —
-readable cells only for the dominant sectors × dominant regimes).
+Sector dimension, three views answering different questions: an unconditional **per-sector
+performance league table** (the candidate's own trades by sector — N, win rate, edge, maxDD — from
+the continuous run's `sectorStats`, 30-trade insufficient-N floor; "which sectors does the strategy
+win in"); a market-scoped **regime×sector matrix** (strategy-blind, spell-clustered SEs; "how does
+each sector behave per regime, independent of the strategy"); and a per-candidate **sector×regime
+drill-down** (insufficient-N per cell; expect mostly-grey tables — readable cells only for the
+dominant sectors × dominant regimes; "does a sector tilt explain the regime edge"). All descriptive —
+pruning to winning sectors after the fact is sector-overfitting, the same ARS trap as the regime table.
 
 ## Persistence
 
