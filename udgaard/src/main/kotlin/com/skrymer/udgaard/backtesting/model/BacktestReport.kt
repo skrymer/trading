@@ -18,6 +18,15 @@ data class SectorStats(
   val averageLossPercent: Double,
   val totalProfitPercentage: Double,
   val maxDrawdown: Double,
+  // Entry-month-clustered CR0 standard error of [edge] — the directional test the assessment
+  // Sector applicability rating runs is edge > k*SE. Same estimator as the regime decomposition.
+  val edgeStandardError: Double,
+  // Per-trade edge with the tail removed so no single trade can carry a label; the rating requires
+  // sign(edge) == sign(trimmedEdge) for a cell to be rateable.
+  val trimmedEdge: Double,
+  // Largest single trade's |P&L| as a share of the sector's total |P&L| — the concentration guard;
+  // a cell with a dominant single trade (> ~0.40) is held unrateable.
+  val maxSingleTradeProfitShare: Double,
   val trades: List<Trade>,
   val edgeConsistency: EdgeConsistencyScore?,
 )
@@ -361,11 +370,44 @@ class BacktestReport(
             averageLossPercent = sectorAvgLossPercent,
             totalProfitPercentage = totalProfitPercentage,
             maxDrawdown = maxDrawdown,
+            edgeStandardError =
+              entryMonthClusteredStandardError(sectorTrades, { it.entryQuote.date }, { it.profitPercentage }),
+            trimmedEdge = trimmedEdge(sectorTrades),
+            maxSingleTradeProfitShare = maxSingleTradeProfitShare(sectorTrades),
             trades = sectorTrades,
             edgeConsistency = edgeConsistency,
           )
         }.sortedByDescending { it.edge }
     }
+
+  /**
+   * Robust per-trade edge with the tail removed so a single trade can't carry a label. Trims the
+   * top/bottom 5% by signed return; when 5% rounds to zero (small N) drops the single largest-|P&L|
+   * trade. Falls back to the untrimmed mean only if trimming would empty the bucket.
+   */
+  private fun trimmedEdge(trades: List<Trade>): Double {
+    if (trades.isEmpty()) return 0.0
+    val perTail = (0.05 * trades.size).toInt()
+    val remaining =
+      if (perTail == 0) {
+        trades.sortedByDescending { abs(it.profitPercentage) }.drop(1)
+      } else {
+        trades.sortedBy { it.profitPercentage }.drop(perTail).dropLast(perTail)
+      }
+    val kept = remaining.ifEmpty { trades }
+    return kept.map { it.profitPercentage }.average()
+  }
+
+  /**
+   * Largest single trade's |P&L| as a share of the sector's total |P&L| — the concentration guard.
+   * 1.0 when one trade is the whole sector, 1/N when N trades carry equal magnitude. 0.0 when the
+   * sector's trades are all flat (no concentration to measure).
+   */
+  private fun maxSingleTradeProfitShare(trades: List<Trade>): Double {
+    val absSum = trades.sumOf { abs(it.profitPercentage) }
+    if (absSum == 0.0) return 0.0
+    return trades.maxOf { abs(it.profitPercentage) } / absSum
+  }
 
   /**
    * Calculate maximum drawdown for a list of trades
@@ -573,6 +615,9 @@ private fun buildSectorStatsDto(sectorStats: List<SectorStats>): List<SectorStat
       averageLossPercent = it.averageLossPercent,
       totalProfitPercentage = it.totalProfitPercentage,
       maxDrawdown = it.maxDrawdown,
+      edgeStandardError = it.edgeStandardError,
+      trimmedEdge = it.trimmedEdge,
+      maxSingleTradeProfitShare = it.maxSingleTradeProfitShare,
       edgeConsistency = it.edgeConsistency,
     )
   }

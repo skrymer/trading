@@ -39,7 +39,8 @@ udgaard/
 │   │   │   ├── ConditionEvaluationResult.kt
 │   │   │   └── StockWithSignals.kt
 │   │   ├── model/                    # Domain models
-│   │   │   ├── BacktestReport.kt        # Persisted gzip-compressed in a bytea column; additive-only schema evolution
+│   │   │   ├── BacktestReport.kt        # Persisted gzip-compressed in a bytea column; additive-only schema evolution. SectorStats carries the ADR 0025 Sector-rating inputs: edgeStandardError (entry-month-clustered CR0 SE), trimmedEdge, maxSingleTradeProfitShare (#167)
+│   │   │   ├── ClusteredStandardError.kt # entryMonthClusteredStandardError(): shared CR0 SE-of-the-mean estimator clustered by entry month; used by the per-regime decomposition and the per-sector SectorStats (#167)
 │   │   │   ├── BacktestReportMetadata.kt # Metadata + Summary + ListItem for backtest_reports table
 │   │   │   ├── BacktestResponseDto.kt  # API response — adds riskMetrics, benchmarkComparison, cagr, drawdownEpisodes (populated when sized); grossMinusNetEdgeSpread (avg round-trip cost in return terms, 0 on a gross run); leadershipRegimeDiagnostics (null unless the strategy gates on the leadership-gap regime, issue #83)
 │   │   │   ├── RiskMetrics.kt          # sharpeRatio, sortinoRatio, calmarRatio, sqn, tailRatio

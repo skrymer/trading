@@ -68,6 +68,15 @@ data class SectorStatsDto(
   val averageLossPercent: Double,
   val totalProfitPercentage: Double,
   val maxDrawdown: Double,
+  // Entry-month-clustered CR0 standard error of [edge] (issue #167) — load-bearing for the
+  // assessment Sector applicability rating's directional test (edge > k*SE).
+  val edgeStandardError: Double,
+  // Per-trade edge with the tail removed (issue #167) — the rating requires sign agreement with
+  // [edge] before a cell is rateable, so a single tail trade can't carry a label.
+  val trimmedEdge: Double,
+  // Largest single trade's |P&L| as a share of the sector's total |P&L| (issue #167) — the
+  // concentration guard; a cell with a dominant single trade is held unrateable.
+  val maxSingleTradeProfitShare: Double,
   val edgeConsistency: EdgeConsistencyScore?,
 )
 
