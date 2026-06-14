@@ -130,7 +130,8 @@ udgaard/
 │   │   │   ├── MarketSymbol.kt
 │   │   │   ├── MarketBreadthDaily.kt
 │   │   │   ├── SectorBreadthDaily.kt
-│   │   │   └── EwReturnDaily.kt       # One day's equal-weight cross-section of trailing 20-bar returns (mean/stdev/contributingN) — the equal-weight leg of the leadership gap (issue #83)
+│   │   │   ├── EwReturnDaily.kt       # One day's equal-weight cross-section of trailing 20-bar returns (mean/stdev/contributingN) — the equal-weight leg of the leadership gap (issue #83)
+│   │   │   └── LiquidityFilterParams.kt  # Frozen pre-registered tradable-universe thresholds (FROZEN: close>=$5, 20d-median dollar-vol>=$1M, 252-bar min; STRESS_5M = $5M A/B sensitivity variant) — ADR 0026; not yet wired into the engine
 │   │   ├── repository/               # jOOQ repositories
 │   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) + findFundamentals(symbol) used by ingestion fallback + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
 │   │   │   ├── LeadershipGapRepository.kt  # ewReturnByDate(): full-universe equal-weight 20-bar-return aggregate (mean/stdev/contributingN) over the point-in-time STOCK-or-null universe (same population as breadth, ADR 0011); feeds the leadership-gap regime (issue #83)
@@ -145,7 +146,8 @@ udgaard/
 │   │       ├── OrderBlockCalculator.kt
 │   │       ├── SymbolService.kt
 │   │       ├── DataStatsService.kt
-│   │       └── ScheduledRefreshService.kt  # Scheduled automatic data refresh
+│   │       ├── ScheduledRefreshService.kt  # Scheduled automatic data refresh
+│   │       └── TradableUniverseFilter.kt  # Point-in-time isEligible(stock, asOf) tradable-universe gate (price/liquidity/age) over FROZEN LiquidityFilterParams; asset-type/ETF opt-in stays with the caller's assetTypes — ADR 0026; the #173 unit landed ahead of its BacktestService/scanner wiring (deferred follow-up), not yet called
 │   ├── portfolio/                    # Portfolio domain
 │   │   ├── controller/
 │   │   │   ├── PortfolioController.kt
