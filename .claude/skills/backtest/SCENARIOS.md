@@ -56,6 +56,8 @@ Always include `leverageRatio: 1.0` for stocks unless the user explicitly enable
 
 `creditIdleCash` (top-level on the request, optional, **default ON**) credits uninvested cash the historical short rate per ADR 0016 — Sharpe-neutral by construction, but it **raises CAGR/Calmar for cash-heavy strategies** (the cash leg earns the T-bill coupon at no extra drawdown). Leave it on for realistic CAGR/Calmar; set `creditIdleCash: false` only to reproduce old 0%-cash results.
 
+`applyLiquidityFilter` (top-level on the request, optional, **default ON**, ADR 0026) gates entries to the realistically-fillable *tradable universe* — close ≥ $5, trailing-20-bar median dollar-volume ≥ $1M, ≥ 252 bars of history, judged point-in-time per bar. Identical constants in backtest and scanner. A default run already trades the gated universe; set `applyLiquidityFilter: false` only to reproduce pre-#173 unfiltered-universe runs.
+
 ## 3. Ranking
 
 Ranking only matters when `maxPositions` is set (scenario 2). On any bar where more entry signals fire than open slots, the ranker decides which ones get taken. In an unlimited backtest every signal is taken, so the ranker is unused.

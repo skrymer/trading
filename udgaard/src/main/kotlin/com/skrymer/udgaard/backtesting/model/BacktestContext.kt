@@ -31,6 +31,9 @@ data class BacktestContext(
   val creditIdleCash: Boolean = true,
   // SGOV expense haircut (percent) subtracted once from the gross treasury yield to get the net idle rate.
   val idleCashExpensePct: Double = DEFAULT_IDLE_CASH_EXPENSE_PCT,
+  // Gate entries to the tradable universe (point-in-time price/liquidity/age, ADR 0026). Default on;
+  // false reproduces the pre-#173 unfiltered-universe runs.
+  val applyLiquidityFilter: Boolean = true,
 ) {
   fun getSectorBreadth(sectorSymbol: String?, date: LocalDate): SectorBreadthDaily? =
     sectorSymbol?.let { sectorBreadthMap[it]?.get(date) }

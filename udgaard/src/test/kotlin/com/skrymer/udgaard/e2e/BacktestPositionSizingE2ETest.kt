@@ -487,6 +487,7 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
     endDate = "2024-03-29",
     useUnderlyingAssets = false,
     costBps = 0.0, // these tests pin gross sizing math; cost-netting is covered in BacktestServiceCostTest
+    applyLiquidityFilter = false,
   )
 
   private fun postBacktest(request: BacktestRequest): ResponseEntity<BacktestResponseDto> =

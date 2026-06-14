@@ -269,6 +269,7 @@ class MonteCarloE2ETest : AbstractIntegrationTest() {
         sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
         leverageRatio = 1.0,
       ),
+      applyLiquidityFilter = false,
     )
     val response = restTemplate.exchange(
       "/api/backtest",

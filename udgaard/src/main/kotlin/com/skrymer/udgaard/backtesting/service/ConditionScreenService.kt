@@ -20,15 +20,18 @@ import com.skrymer.udgaard.backtesting.model.BacktestContext
 import com.skrymer.udgaard.backtesting.strategy.condition.LogicalOperator
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.EntryCondition
 import com.skrymer.udgaard.data.model.AssetType
+import com.skrymer.udgaard.data.model.LiquidityFilterParams
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.data.service.SymbolService
+import com.skrymer.udgaard.data.service.TradableUniverseFilter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import kotlin.math.ceil
 
 /**
  * Diagnostic, design-time pre-screen of an entry condition stack — `POST /api/conditions/screen`.
@@ -47,6 +50,11 @@ class ConditionScreenService(
   private val conditionRegistry: ConditionRegistry,
 ) {
   private val logger = LoggerFactory.getLogger(ConditionScreenService::class.java)
+  private val tradableUniverseFilter = TradableUniverseFilter()
+
+  /** True when the bar is in the tradable universe, or the filter is off (ADR 0026). */
+  private fun isTradable(stock: Stock, date: LocalDate, applyLiquidityFilter: Boolean): Boolean =
+    !applyLiquidityFilter || tradableUniverseFilter.isEligible(stock, date)
 
   fun screen(request: ConditionScreenRequest): ConditionScreenReport {
     require(request.conditions.isNotEmpty()) { "At least one condition is required" }
@@ -67,10 +75,17 @@ class ConditionScreenService(
 
     val context = buildContext(start)
     val notes = mutableListOf<String>()
-    val prepared = prepareUniverse(symbols, start, end)
+    // Load minBars of pre-window history when gating so the liquidity age gate judges a name on its real
+    // bars-of-history, not the window-truncated load (ADR 0026); warmup bars feed the gate, never the stats.
+    val loadAfter = if (request.applyLiquidityFilter) liquidityWarmupDate(start) else start
+    val prepared = prepareUniverse(symbols, start, end, loadAfter)
+
+    // Firings and the all-bars baseline are restricted to the same tradable-bar population so firing rate
+    // and forward-return lift are measured over the realistically-fillable opportunity set (ADR 0026).
+    val tradable: (Stock, LocalDate) -> Boolean = { stock, date -> isTradable(stock, date, request.applyLiquidityFilter) }
 
     // The all-bars baseline is invariant across the condition and every sweep cell — compute it once.
-    val universe = buildUniverse(prepared, request.entryDelayDays, request.horizons)
+    val universe = buildUniverse(prepared, request.entryDelayDays, request.horizons, tradable)
     val universeCount = universe.size
     if (universe.isEmpty()) notes += "No eligible bars in the window — universe baseline is empty."
 
@@ -78,7 +93,7 @@ class ConditionScreenService(
     // base run substitutes each sweep's centre value to get the actual condition under test.
     val baseConfigs = materializeBaseConfigs(request)
     val (conditionSignals, conditionFirings) =
-      conditionArm(prepared, baseConfigs, request.operator, context, request.entryDelayDays, request.horizons)
+      conditionArm(prepared, baseConfigs, request.operator, context, request.entryDelayDays, request.horizons, tradable)
 
     return ConditionScreenReport(
       diagnosticNotice = DIAGNOSTIC_NOTICE,
@@ -88,20 +103,26 @@ class ConditionScreenService(
       forwardReturns = forwardReturnReports(conditionSignals, universe, request.horizons),
       signalToFillGap = gapReport(conditionSignals),
       spyRegime = spyRegimeReports(context, conditionSignals, universe, request.horizons),
-      parameterSweep = computeSweep(request, prepared, universe, context, universeCount, notes),
-      jaccard = computeJaccard(request.referenceConditions, conditionFirings, prepared, context, notes),
+      parameterSweep = computeSweep(request, prepared, universe, context, universeCount, notes, tradable),
+      jaccard = computeJaccard(request.referenceConditions, conditionFirings, prepared, context, notes, tradable),
       notes = notes,
     )
   }
 
-  /** Load, window-filter and sort each symbol's quotes once; every downstream pass reuses the result. */
+  /**
+   * Load, window-filter and sort each symbol's quotes once; every downstream pass reuses the result.
+   * Stocks load from [loadAfter] (<= [start], to seed the liquidity age gate), but the returned per-symbol
+   * list is the in-window `[start, end]` slice the screen evaluates. The gate reads the Stock's full
+   * loaded series via `indexAfter`, so pre-[start] warmup bars count toward history but are never scored.
+   */
   private fun prepareUniverse(
     symbols: List<String>,
     start: LocalDate,
     end: LocalDate,
+    loadAfter: LocalDate,
   ): List<Pair<Stock, List<StockQuote>>> =
-    stockRepository.findBySymbols(symbols, quotesAfter = start).map { stock ->
-      stock to stock.quotes.filter { !it.date.isAfter(end) }.sortedBy { it.date }
+    stockRepository.findBySymbols(symbols, quotesAfter = loadAfter).map { stock ->
+      stock to stock.quotes.filter { !it.date.isBefore(start) && !it.date.isAfter(end) }.sortedBy { it.date }
     }
 
   /**
@@ -116,6 +137,7 @@ class ConditionScreenService(
     context: BacktestContext,
     entryDelayDays: Int,
     horizons: List<Int>,
+    tradable: (Stock, LocalDate) -> Boolean,
   ): Pair<List<SignalForwardReturn>, Set<SignalKey>> {
     val conditions = configs.map { conditionRegistry.buildEntryCondition(it) }
     val op = resolveOperator(operator)
@@ -123,6 +145,7 @@ class ConditionScreenService(
     val firings = mutableSetOf<SignalKey>()
     for ((stock, quotes) in prepared) {
       for (i in quotes.indices) {
+        if (!tradable(stock, quotes[i].date)) continue
         if (matches(conditions, op, stock, quotes[i], context)) {
           signals += ConditionScreenStats.signalForwardReturn(quotes, i, entryDelayDays, horizons)
           firings += SignalKey(stock.symbol, quotes[i].date)
@@ -144,6 +167,7 @@ class ConditionScreenService(
     context: BacktestContext,
     universeCount: Int,
     notes: MutableList<String>,
+    tradable: (Stock, LocalDate) -> Boolean,
   ): List<SweptParameter> {
     val targets = sweepTargets(request, notes)
     val capped = targets.take(MAX_SWEPT_PARAMS)
@@ -154,7 +178,7 @@ class ConditionScreenService(
       val cells =
         target.variantValues.map { value ->
           val (cellSignals, _) =
-            conditionArm(prepared, target.renderCell(value), request.operator, context, request.entryDelayDays, request.horizons)
+            conditionArm(prepared, target.renderCell(value), request.operator, context, request.entryDelayDays, request.horizons, tradable)
           sweepCell(value, target.center, cellSignals, universe, universeCount, request.horizons)
         }
       SweptParameter(target.source, target.parameterName, target.center, cells)
@@ -264,6 +288,7 @@ class ConditionScreenService(
     prepared: List<Pair<Stock, List<StockQuote>>>,
     context: BacktestContext,
     notes: MutableList<String>,
+    tradable: (Stock, LocalDate) -> Boolean,
   ): List<ReferenceOverlapReport> {
     if (references.isEmpty()) {
       notes += "No reference conditions supplied — symbol-date overlap (Jaccard) is N/A."
@@ -271,7 +296,8 @@ class ConditionScreenService(
     }
     return references.map { ref ->
       // Only the firing set matters for overlap; reuse the condition arm and discard its forward returns.
-      val (_, refFirings) = conditionArm(prepared, ref.conditions, ref.operator, context, entryDelayDays = 0, horizons = emptyList())
+      val (_, refFirings) =
+        conditionArm(prepared, ref.conditions, ref.operator, context, entryDelayDays = 0, horizons = emptyList(), tradable)
       val overlap = ConditionScreenStats.jaccardOverlap(conditionFirings, refFirings)
       ReferenceOverlapReport(ref.label, overlap.byYear, overlap.pooled)
     }
@@ -281,6 +307,16 @@ class ConditionScreenService(
     request.symbols?.takeIf { it.isNotEmpty() }?.let { return it.map(String::uppercase) }
     val assetTypeEnums = request.assetTypes.map { AssetType.valueOf(it) }.toSet()
     return symbolService.getAll().filter { it.assetType in assetTypeEnums }.map { it.symbol }
+  }
+
+  /**
+   * Back up [LiquidityFilterParams.FROZEN.minBars] trading bars (as calendar days, over-loaded by
+   * [WARMUP_MARGIN]) before [start] so the liquidity age gate sees real pre-window history. Mirrors the
+   * backtest engine's warmup-load conversion (ADR 0026).
+   */
+  private fun liquidityWarmupDate(start: LocalDate): LocalDate {
+    val calendarDays = ceil(LiquidityFilterParams.FROZEN.minBars * CALENDAR_DAYS_PER_TRADING_DAY * WARMUP_MARGIN).toLong()
+    return start.minusDays(calendarDays)
   }
 
   private fun buildContext(start: LocalDate): BacktestContext {
@@ -298,6 +334,8 @@ class ConditionScreenService(
     val DEFAULT_START: LocalDate = LocalDate.of(2000, 1, 1)
     val BLOCK_C_START: LocalDate = LocalDate.of(2021, 1, 1)
     const val MAX_SWEPT_PARAMS = 8
+    private const val CALENDAR_DAYS_PER_TRADING_DAY = 365.0 / 252.0
+    private const val WARMUP_MARGIN = 1.10
     private const val DIAGNOSTIC_NOTICE =
       "This is diagnostic, not predictive. A condition that passes /condition-screen is NOT validated. " +
         "A condition that fails /condition-screen is rejected without further work."
@@ -307,14 +345,21 @@ class ConditionScreenService(
 private const val SPY_REGIME_LOOKBACK = 20
 private const val CENTER_EPSILON = 1e-9
 
-/** The all-bars forward-return baseline: one [SignalForwardReturn] per bar across the prepared universe. */
+/**
+ * The all-bars forward-return baseline: one [SignalForwardReturn] per tradable bar across the prepared
+ * universe. The forward return is still measured over the full consecutive window slice — only which bars
+ * count toward the baseline is gated, so it stays the same eligible-bar population as the firings.
+ */
 private fun buildUniverse(
   prepared: List<Pair<Stock, List<StockQuote>>>,
   entryDelayDays: Int,
   horizons: List<Int>,
+  tradable: (Stock, LocalDate) -> Boolean,
 ): List<SignalForwardReturn> =
-  prepared.flatMap { (_, quotes) ->
-    quotes.indices.map { i -> ConditionScreenStats.signalForwardReturn(quotes, i, entryDelayDays, horizons) }
+  prepared.flatMap { (stock, quotes) ->
+    quotes.indices
+      .filter { tradable(stock, quotes[it].date) }
+      .map { i -> ConditionScreenStats.signalForwardReturn(quotes, i, entryDelayDays, horizons) }
   }
 
 private fun firingReport(

@@ -23,6 +23,9 @@ data class ConditionScreenRequest(
   val horizons: List<Int> = listOf(5, 10, 20),
   val scriptSweeps: List<ScriptSweepSpec> = emptyList(),
   val referenceConditions: List<ReferenceConditionSpec> = emptyList(),
+  // Restrict the screen (firings AND the all-bars baseline) to the tradable universe (point-in-time
+  // price/liquidity/age, ADR 0026). Default ON; false reproduces the pre-#173 full-universe screen.
+  val applyLiquidityFilter: Boolean = true,
 )
 
 /**

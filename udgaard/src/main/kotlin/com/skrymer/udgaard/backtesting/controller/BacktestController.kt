@@ -263,20 +263,7 @@ class BacktestController(
       }
     }
 
-    val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
-    val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
-
-    val inSampleMonths = request.inSampleMonths ?: (request.inSampleYears * MONTHS_PER_YEAR)
-    val outOfSampleMonths = request.outOfSampleMonths ?: (request.outOfSampleYears * MONTHS_PER_YEAR)
-    val stepMonths = request.stepMonths ?: (request.stepYears * MONTHS_PER_YEAR)
-
-    val config = WalkForwardConfig(
-      inSampleMonths = inSampleMonths,
-      outOfSampleMonths = outOfSampleMonths,
-      stepMonths = stepMonths,
-      startDate = start,
-      endDate = end,
-    )
+    val config = buildWalkForwardConfig(request)
 
     logger.info(
       "Running walk-forward: IS={}mo, OOS={}mo, step={}mo, ranker={}, randomSeed={}, positionSized={}",
@@ -304,6 +291,7 @@ class BacktestController(
       positionSizingConfig = request.positionSizing,
       riskFreeRatePct = request.riskFreeRatePct ?: 0.0,
       creditIdleCash = request.creditIdleCash ?: true,
+      applyLiquidityFilter = request.applyLiquidityFilter,
     )
 
     logger.info(
@@ -312,6 +300,23 @@ class BacktestController(
     )
 
     return ResponseEntity.ok(result)
+  }
+
+  private fun buildWalkForwardConfig(request: WalkForwardRequest): WalkForwardConfig {
+    val start = request.startDate?.let { LocalDate.parse(it) } ?: LocalDate.parse("2016-01-01")
+    val end = request.endDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
+
+    val inSampleMonths = request.inSampleMonths ?: (request.inSampleYears * MONTHS_PER_YEAR)
+    val outOfSampleMonths = request.outOfSampleMonths ?: (request.outOfSampleYears * MONTHS_PER_YEAR)
+    val stepMonths = request.stepMonths ?: (request.stepYears * MONTHS_PER_YEAR)
+
+    return WalkForwardConfig(
+      inSampleMonths = inSampleMonths,
+      outOfSampleMonths = outOfSampleMonths,
+      stepMonths = stepMonths,
+      startDate = start,
+      endDate = end,
+    )
   }
 
   private fun resolveSymbols(request: WalkForwardRequest): List<String>? =
@@ -405,6 +410,7 @@ class BacktestController(
         randomSeed = request.randomSeed,
         positionSizingConfig = request.positionSizing,
         costBps = request.costBps,
+        applyLiquidityFilter = request.applyLiquidityFilter,
       )
 
     logger.info(

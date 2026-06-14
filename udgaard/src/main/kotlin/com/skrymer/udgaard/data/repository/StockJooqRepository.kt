@@ -146,19 +146,21 @@ class StockJooqRepository(
       .filterNotNull()
 
   /**
-   * The trading universe as (symbol, asset type) pairs — the stocks table is the catalogue
-   * (ADR 0011). A null asset_type (a stock ingested before the column existed and not yet
-   * re-ingested) defaults to STOCK, the overwhelming majority.
+   * The trading universe as (symbol, asset type) pairs — the stocks table is the catalogue (ADR 0011).
+   * Returns every classified asset type (callers filter by type); a null/unclassified asset_type is held
+   * out (fail-closed, ADR 0026) — the shared invariant with the measurement breadth/gap series, so a
+   * future enum-drift can't silently land in the STOCK universe here while being excluded there.
    */
   fun findAllSymbolRecords(): List<SymbolRecord> =
     dsl
       .select(STOCKS.SYMBOL, STOCKS.ASSET_TYPE)
       .from(STOCKS)
+      .where(STOCKS.ASSET_TYPE.isNotNull)
       .orderBy(STOCKS.SYMBOL.asc())
       .fetch { record ->
         SymbolRecord(
           symbol = record[STOCKS.SYMBOL]!!,
-          assetType = record[STOCKS.ASSET_TYPE]?.let { AssetType.valueOf(it) } ?: AssetType.STOCK,
+          assetType = AssetType.valueOf(record[STOCKS.ASSET_TYPE]!!),
         )
       }
 

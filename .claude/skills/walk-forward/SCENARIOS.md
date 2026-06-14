@@ -87,6 +87,8 @@ See `/backtest` SCENARIOS.md §2 for sizer options. Position-sized walk-forward 
 
 `creditIdleCash` (optional, **default ON**) credits uninvested cash the historical short rate within each window's OOS span per ADR 0016 — accrual is bounded per-window so it never crosses the stitched IS gaps (F7), and the SPY baseline earns zero idle credit (always fully invested, F2). Sharpe-neutral by construction; raises CAGR/Calmar for cash-heavy candidates. Set `creditIdleCash: false` only to reproduce old 0%-cash results.
 
+`applyLiquidityFilter` (optional, **default ON**, ADR 0026) gates entries to the realistically-fillable *tradable universe* (close ≥ $5, trailing-20-bar median dollar-volume ≥ $1M, ≥ 252 bars of history), point-in-time per bar, applied identically across every IS and OOS window. A default run already validates over the gated universe; set `applyLiquidityFilter: false` only to reproduce pre-#173 unfiltered-universe runs.
+
 ## 4. Ranking
 
 Ranking only matters when `maxPositions` is set (scenario 3). The `ranker` + `rankerConfig` you supply is applied **independently in each IS and OOS sub-backtest** — same ranker drives both halves of every window.

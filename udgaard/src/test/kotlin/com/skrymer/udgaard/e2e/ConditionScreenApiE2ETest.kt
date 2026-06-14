@@ -58,6 +58,9 @@ class ConditionScreenApiE2ETest : AbstractIntegrationTest() {
         startDate = seedStart,
         endDate = seedEnd,
         horizons = listOf(5, 10, 20),
+        // This test pins screen mechanics (firing/lift/sweep) over the full seeded 2018-2020 universe;
+        // the tradable-universe gate is exercised separately by the gate test below.
+        applyLiquidityFilter = false,
       )
 
     // When
@@ -101,6 +104,40 @@ class ConditionScreenApiE2ETest : AbstractIntegrationTest() {
   }
 
   @Test
+  fun `default-on liquidity filter restricts the screen to the tradable universe (firings and baseline)`() {
+    // Given an early window — the first ~125 trading bars of the fixture, where no name yet has the
+    // 252 bars of history the age gate requires (and the warmup load reaches before the fixture, so
+    // there is no real history to find).
+    val earlyEnd = LocalDate.of(2018, 6, 30)
+    val filtered = requireNotNull(post(screenRequest(seedStart, earlyEnd, applyLiquidityFilter = true)).body)
+    val unfiltered = requireNotNull(post(screenRequest(seedStart, earlyEnd, applyLiquidityFilter = false)).body)
+
+    // Then the gate empties the baseline entirely (every bar fails the age gate), while the unfiltered
+    // screen sees the full universe — proving the gate actually excludes and the off-switch bypasses it.
+    assertEquals(0, filtered.universe.totalEligibleBars, "age gate must exclude every under-252-bar bar")
+    assertTrue(unfiltered.universe.totalEligibleBars > 0, "unfiltered screen sees the early-window bars")
+
+    // And over the full 2018-2020 window the gate drops the under-aged early bars rather than nothing:
+    // filtered eligible bars are a strict, non-empty subset of the unfiltered baseline.
+    val onFull = requireNotNull(post(screenRequest(seedStart, seedEnd, applyLiquidityFilter = true)).body)
+    val offFull = requireNotNull(post(screenRequest(seedStart, seedEnd, applyLiquidityFilter = false)).body)
+    assertTrue(onFull.universe.totalEligibleBars > 0, "fully-aged bars remain tradable")
+    assertTrue(
+      onFull.universe.totalEligibleBars < offFull.universe.totalEligibleBars,
+      "gate must drop the under-aged bars: on=${onFull.universe.totalEligibleBars} off=${offFull.universe.totalEligibleBars}",
+    )
+  }
+
+  private fun screenRequest(start: LocalDate, end: LocalDate, applyLiquidityFilter: Boolean) =
+    ConditionScreenRequest(
+      conditions = listOf(ConditionConfig(type = "priceAboveEma", parameters = mapOf("emaPeriod" to 10))),
+      startDate = start,
+      endDate = end,
+      horizons = listOf(5),
+      applyLiquidityFilter = applyLiquidityFilter,
+    )
+
+  @Test
   fun `POST screen rejects an end date past Block C to prevent leakage`() {
     // Given a request whose window extends into Block C (past 2021-01-01)
     val request =
@@ -132,6 +169,7 @@ class ConditionScreenApiE2ETest : AbstractIntegrationTest() {
         startDate = seedStart,
         endDate = seedEnd,
         scriptSweeps = listOf(ScriptSweepSpec(name = "factor", center = 1.0, step = 0.1)),
+        applyLiquidityFilter = false,
       )
 
     // When

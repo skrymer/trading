@@ -201,13 +201,14 @@ class StockIngestionService(
 
   // Map Midgaard's asset-type string onto Udgaard's enum. An unknown value (the two enums
   // live in separate deployables and can drift) is logged loudly and stored as null rather
-  // than thrown — a single unrecognised type must not silently drop the symbol from ingestion.
-  // Null is treated as STOCK downstream (the overwhelming majority).
+  // than thrown — a single unrecognised type must not silently drop the symbol from ingestion
+  // (its quotes/data are still stored). A null asset_type is held OUT of the STOCK universe
+  // downstream (fail-closed, ADR 0026) until the new type is added to the enum and re-ingested.
   private fun resolveAssetType(rawAssetType: String?, symbol: String): AssetType? {
     if (rawAssetType == null) return null
     return runCatching { AssetType.valueOf(rawAssetType) }
       .getOrElse {
-        logger.warn("Unknown asset type '$rawAssetType' from provider for $symbol; storing null (treated as STOCK)")
+        logger.warn("Unknown asset type '$rawAssetType' from provider for $symbol; storing null (held out of the STOCK universe)")
         null
       }
   }

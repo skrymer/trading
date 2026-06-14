@@ -66,6 +66,7 @@ class WalkForwardService(
     positionSizingConfig: PositionSizingConfig? = null,
     riskFreeRatePct: Double = RAW_RISK_FREE_RATE,
     creditIdleCash: Boolean = true,
+    applyLiquidityFilter: Boolean = true,
   ): WalkForwardResult {
     val windows = generateWindows(config)
     logger.info(
@@ -112,6 +113,7 @@ class WalkForwardService(
       positionSizingConfig = positionSizingConfig,
       riskFreeRatePct = riskFreeRatePct,
       creditIdleCash = creditIdleCash,
+      applyLiquidityFilter = applyLiquidityFilter,
       rfProvider = rfProvider,
       tradingCalendar = spyCalendar,
     )
@@ -355,6 +357,7 @@ class WalkForwardService(
     sharedBreadthByDate = sharedBreadthByDate,
     randomSeed = params.randomSeed,
     positionSizingConfig = params.positionSizingConfig,
+    applyLiquidityFilter = params.applyLiquidityFilter,
   )
 
   internal fun aggregateResults(
@@ -663,6 +666,7 @@ class WalkForwardService(
     val positionSizingConfig: PositionSizingConfig?,
     val riskFreeRatePct: Double,
     val creditIdleCash: Boolean,
+    val applyLiquidityFilter: Boolean,
     val rfProvider: RiskFreeRateProvider,
     val tradingCalendar: List<LocalDate>,
   )

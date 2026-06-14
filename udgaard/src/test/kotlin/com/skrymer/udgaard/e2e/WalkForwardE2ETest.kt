@@ -395,6 +395,8 @@ class WalkForwardE2ETest : AbstractIntegrationTest() {
     startDate = fixtureStart.toString(),
     endDate = fixtureEnd.toString(),
     useUnderlyingAssets = false,
+    // These tests pin window/aggregate mechanics, not liquidity — run over the unfiltered universe.
+    applyLiquidityFilter = false,
   )
 
   private fun postWalkForward(request: WalkForwardRequest): ResponseEntity<WalkForwardResult> =

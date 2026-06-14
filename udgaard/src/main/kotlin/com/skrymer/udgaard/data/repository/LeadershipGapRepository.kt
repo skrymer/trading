@@ -13,8 +13,8 @@ import java.time.LocalDate
 /**
  * Full-universe equal-weight return aggregate feeding the leadership-gap regime (issue #83).
  *
- * For every trading day in `[loadAfter, before]` over the point-in-time STOCK-or-null universe (the
- * same population as market breadth, ADR 0011), computes the equal-weight mean, cross-sectional
+ * For every trading day in `[loadAfter, before]` over the point-in-time STOCK universe (null/unclassified
+ * asset_type held out, fail-closed — the same population as market breadth, ADR 0011/0026), computes the equal-weight mean, cross-sectional
  * sample stdev, and contributing count of per-name trailing `lookbackBars`-bar simple returns. The
  * trailing return is `close / LAG(close, lookbackBars) - 1`, counted in trading bars (rows) per symbol;
  * a non-positive prior close is guarded out, and a name without `lookbackBars` of prior history simply
@@ -107,9 +107,10 @@ class LeadershipGapRepository(
       .from(STOCK_QUOTES)
       .join(STOCKS)
       .on(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
-      // null asset_type (lookup failed at ingestion) defaults to STOCK, matching breadth + the
-      // stocks-derived universe read path (StockJooqRepository.findAllSymbolRecords).
-      .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name).or(STOCKS.ASSET_TYPE.isNull))
+      // Strict STOCK only — a null/unclassified asset_type is held out of the measurement universe
+      // (fail-closed), matching breadth, so a future enum-drift can't silently contaminate the frozen
+      // leadership-gap series (ADR 0026; a no-op on current data — zero null asset_type rows audited).
+      .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name))
       .and(STOCK_QUOTES.QUOTE_DATE.le(before))
       // Bound the LAG scan below the requested window: floor a few bars below loadAfter so the
       // trailing return is still defined at loadAfter, but Postgres needn't sort each symbol's

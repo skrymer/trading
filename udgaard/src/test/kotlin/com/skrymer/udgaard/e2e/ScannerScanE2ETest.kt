@@ -22,9 +22,11 @@ import kotlin.test.assertTrue
  * `DetailedEntryStrategy` (populated near-miss list + failure-summary aggregation), plus 400 on
  * unknown entry strategy via GlobalExceptionHandler.
  *
- * Test data is populated with a *recent* date range — `scan` filters quotes with
- * `quotesAfter = today.minusDays(90)`, so historic fixtures (e.g., the default
- * 2024-01-02..2024-03-29 range used by BacktestApiE2ETest) would be invisible.
+ * Test data is populated with a *recent* date range ending yesterday — `scan` filters quotes with
+ * `quotesAfter = scanDate.minusDays(SCAN_LOOKBACK_DAYS)`, so historic fixtures (e.g., the default
+ * 2024-01-02..2024-03-29 range used by BacktestApiE2ETest) would be invisible. The range spans
+ * >252 trading bars so every name clears the tradable-universe age gate (ADR 0026) — this also
+ * exercises the always-on scanner liquidity gate end-to-end (the realistic fixtures pass it).
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ScannerScanE2ETest : AbstractIntegrationTest() {
@@ -32,7 +34,9 @@ class ScannerScanE2ETest : AbstractIntegrationTest() {
   private lateinit var dsl: DSLContext
 
   private val today = LocalDate.now()
-  private val populateStart = today.minusDays(60)
+
+  // Span >252 trading bars (the liquidity-filter age gate, ADR 0026) within the scan's load window.
+  private val populateStart = today.minusDays(420)
   private val populateEnd = today.minusDays(1)
   private val expectedLastDate = generateSequence(populateEnd) { it.minusDays(1) }
     .first { it.dayOfWeek != DayOfWeek.SATURDAY && it.dayOfWeek != DayOfWeek.SUNDAY }

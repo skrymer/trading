@@ -50,6 +50,10 @@ Secondary (non-ARS) tells worth printing: **monotone-but-steep** (`|lift(P+1)−
 
 **Advisory bands (analyst, uncalibrated):** max per-year Jaccard **> 0.5** → "likely substantial redundancy"; **> 0.7** → "almost certainly a near-clone, justify why it's not." These flag wasted compute (don't firewall a clone) and hidden correlation (don't stack two near-identical clauses thinking you've diversified) — not rejection. High overlap with a *good* condition can be a fine refinement.
 
+## Tradable-universe gate (default ON)
+
+By default the screen measures over the **tradable universe** (ADR 0026): both the condition firings and the all-bars baseline are restricted to bars that, point-in-time, clear close ≥ $5, trailing-20-bar median dollar-volume ≥ $1M, and ≥ 252 bars of history. So the lift you read is the lift over the realistically-fillable opportunity set, not the full data set — under-aged early-window bars and penny/thin names are excluded from both numerator and baseline. The history needed for the age gate is warmup-loaded before `startDate`, so a long-lived name is judged on its real history. Pass `applyLiquidityFilter: false` only to reproduce the pre-#173 full-universe screen.
+
 ## Library sanity-sweep mode (reduced universe)
 
 **The default universe is the full `STOCK` set (~3,900 symbols), and that is correct for a normal single-condition design-time screen — it's cheap and faithful. Do not reach for the reduced universe for those.**

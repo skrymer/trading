@@ -130,9 +130,10 @@ class MarketBreadthRepository(
             ).from(STOCK_QUOTES)
             .join(STOCKS)
             .on(STOCK_QUOTES.STOCK_SYMBOL.eq(STOCKS.SYMBOL))
-            // null asset_type (lookup failed at ingestion) defaults to STOCK, matching the
-            // stocks-derived universe read path (StockJooqRepository.findAllSymbolRecords).
-            .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name).or(STOCKS.ASSET_TYPE.isNull))
+            // Strict STOCK only — a null/unclassified asset_type is held out of the measurement
+            // universe (fail-closed), so a future enum-drift can't silently contaminate the frozen
+            // breadth series (ADR 0026; a no-op on current data — zero null asset_type rows audited).
+            .where(STOCKS.ASSET_TYPE.eq(AssetType.STOCK.name))
             .groupBy(STOCK_QUOTES.QUOTE_DATE),
         ).execute()
     }

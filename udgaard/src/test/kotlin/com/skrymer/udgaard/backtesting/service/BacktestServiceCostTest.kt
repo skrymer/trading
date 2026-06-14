@@ -109,6 +109,7 @@ class BacktestServiceCostTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        applyLiquidityFilter = false,
       )
 
     // Then per-share profit is netted: $5.00 - (50 + 55) * 0.0005 = $4.9475
@@ -133,6 +134,7 @@ class BacktestServiceCostTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         costBps = 0.0,
+        applyLiquidityFilter = false,
       )
 
     // Then profit is the untouched gross $5.00/share
@@ -157,6 +159,7 @@ class BacktestServiceCostTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         costBps = 20.0,
+        applyLiquidityFilter = false,
       )
 
     // Then the charge doubles: $5.00 - (50 + 55) * 0.001 = $4.895/share
@@ -181,6 +184,7 @@ class BacktestServiceCostTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        applyLiquidityFilter = false,
       )
 
     // Then the trade is a loss, not a win — friction consumed the gross gain
@@ -209,6 +213,7 @@ class BacktestServiceCostTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         costBps = costBps,
+        applyLiquidityFilter = false,
       )
 
     val gross = runWith(0.0)
@@ -239,6 +244,7 @@ class BacktestServiceCostTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        applyLiquidityFilter = false,
       )
 
     // Then the reported spread is the round-trip cost in return terms:
@@ -265,6 +271,7 @@ class BacktestServiceCostTest {
         listOf("DEAD"),
         entryDay,
         entryDay.plusDays(10),
+        applyLiquidityFilter = false,
       )
 
     // Then the force-closed loss is netted: -30.0 - (100 + 70) * 0.0005 = -30.085/share

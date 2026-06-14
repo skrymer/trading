@@ -190,6 +190,8 @@ class BacktestInvariantsE2ETest : AbstractIntegrationTest() {
       inSampleMonths = 6,
       outOfSampleMonths = 3,
       stepMonths = 3,
+      // Match the standalone IS backtests below (both unfiltered) so the ranking invariant compares like with like.
+      applyLiquidityFilter = false,
     )
     val wf = postWalkForward(wfRequest).body!!
     assertTrue(wf.windows.isNotEmpty(), "WF must produce at least one window for this test")
@@ -204,6 +206,7 @@ class BacktestInvariantsE2ETest : AbstractIntegrationTest() {
           startDate = window.inSampleStart.toString(),
           endDate = window.inSampleEnd.toString(),
           useUnderlyingAssets = false,
+          applyLiquidityFilter = false,
         ),
       ).body!!
 
@@ -239,6 +242,7 @@ class BacktestInvariantsE2ETest : AbstractIntegrationTest() {
     startDate = "2024-01-02",
     endDate = "2024-03-29",
     useUnderlyingAssets = false,
+    applyLiquidityFilter = false,
   )
 
   private fun postBacktest(request: BacktestRequest): ResponseEntity<BacktestResponseDto> =

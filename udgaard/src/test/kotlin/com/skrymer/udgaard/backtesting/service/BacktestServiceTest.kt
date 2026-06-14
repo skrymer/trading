@@ -152,6 +152,7 @@ class BacktestServiceTest {
       maxPositions = 1,
       ranker = trailingRanker(252),
       costBps = 0.0,
+      applyLiquidityFilter = false,
     )
 
     // Then stocks were loaded from a warmup-buffered date strictly before the window start...
@@ -170,50 +171,29 @@ class BacktestServiceTest {
 
   @Test
   fun `should calculate report results`() {
-    // given some stock quotes
-    val quote1 = StockQuote(closePrice = 99.9, date = LocalDate.of(2025, 7, 1))
-    // Trade 1 win 3$ 3%
-    val quote2 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 2))
-    val quote3 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 3))
-    val quote4 = StockQuote(closePrice = 103.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 4))
-    // Trade 2 loss 2$ 2%
-    val quote5 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 8))
-    val quote6 = StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 9))
-    val quote7 = StockQuote(closePrice = 98.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 10))
-    // Trade 3 win 5$ 5%
-    val quote8 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 11))
-    val quote9 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 14))
-    val quote10 = StockQuote(closePrice = 105.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 15))
-    // Trade 4 loss 4$ 4%
-    val quote11 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 16))
-    val quote12 = StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 17))
-    val quote13 = StockQuote(closePrice = 96.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 18))
-    // Trade 5 win 8$ 8%
-    val quote14 = StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 21))
-    val quote15 = StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 22))
-    val quote16 = StockQuote(closePrice = 108.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 23))
-
+    // given some stock quotes (Trade 1 win 3$/3%, Trade 2 loss 2$/2%, Trade 3 win 5$/5%,
+    // Trade 4 loss 4$/4%, Trade 5 win 8$/8%)
     val stock =
       Stock(
         "TEST",
         "TEST_SECTOR",
         quotes = listOf(
-          quote1,
-          quote2,
-          quote3,
-          quote4,
-          quote5,
-          quote6,
-          quote7,
-          quote8,
-          quote9,
-          quote10,
-          quote11,
-          quote12,
-          quote13,
-          quote14,
-          quote15,
-          quote16,
+          StockQuote(closePrice = 99.9, date = LocalDate.of(2025, 7, 1)),
+          StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 2)),
+          StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 3)),
+          StockQuote(closePrice = 103.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 4)),
+          StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 8)),
+          StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 9)),
+          StockQuote(closePrice = 98.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 10)),
+          StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 11)),
+          StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 14)),
+          StockQuote(closePrice = 105.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 15)),
+          StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 16)),
+          StockQuote(closePrice = 101.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 17)),
+          StockQuote(closePrice = 96.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 18)),
+          StockQuote(closePrice = 100.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 21)),
+          StockQuote(closePrice = 102.0, openPrice = 100.0, date = LocalDate.of(2025, 7, 22)),
+          StockQuote(closePrice = 108.0, openPrice = 99.9, date = LocalDate.of(2025, 7, 23)),
         )
       )
 
@@ -226,6 +206,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         costBps = 0.0, // pins gross edge/win amounts; cost-netting is covered in BacktestServiceCostTest
+        applyLiquidityFilter = false,
       )
     Assertions.assertEquals(3, report.numberOfWinningTrades)
     Assertions.assertEquals(0.6, report.winRate)
@@ -258,6 +239,7 @@ class BacktestServiceTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1), // Should include quote1
         LocalDate.of(2024, 12, 31), // Should include quote3
+        applyLiquidityFilter = false,
       )
 
     // Should have 2 trades (one starting on 2024-01-01, one on 2024-12-31)
@@ -297,6 +279,7 @@ class BacktestServiceTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(1, report.numberOfWinningTrades)
@@ -341,6 +324,7 @@ class BacktestServiceTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(0, report.numberOfWinningTrades)
@@ -369,6 +353,7 @@ class BacktestServiceTest {
         listOf("TEST"),
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
+        applyLiquidityFilter = false,
       )
 
     // Should only have 1 trade (enters on quote1, exits on quote3)
@@ -413,6 +398,7 @@ class BacktestServiceTest {
         useUnderlyingAssets = true,
         customUnderlyingMap = customMap,
         costBps = 0.0, // pins gross TQQQ-priced profit; cost-netting is covered in BacktestServiceCostTest
+        applyLiquidityFilter = false,
       )
 
     // Verify we got exactly 1 trade
@@ -450,6 +436,7 @@ class BacktestServiceTest {
         LocalDate.now(),
         useUnderlyingAssets = false, // Disabled
         customUnderlyingMap = mapOf("TQQQ" to "QQQ"), // Should be ignored
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(1, report.totalTrades)
@@ -484,6 +471,7 @@ class BacktestServiceTest {
           LocalDate.now(),
           useUnderlyingAssets = true,
           customUnderlyingMap = customMap,
+          applyLiquidityFilter = false,
         )
       }
 
@@ -524,6 +512,7 @@ class BacktestServiceTest {
         LocalDate.now(),
         useUnderlyingAssets = true,
         customUnderlyingMap = customMap,
+        applyLiquidityFilter = false,
       )
 
     // Should have 1 trade (AAPL only, TQQQ doesn't enter because QQQ < 100)
@@ -563,6 +552,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 0, // Cooldown disabled
+        applyLiquidityFilter = false,
       )
 
     // Should have 2 trades (both entries allowed)
@@ -610,6 +600,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 5, // 5 TRADING day cooldown (not inclusive)
+        applyLiquidityFilter = false,
       )
 
     // Should have 2 trades:
@@ -659,6 +650,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 3,
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(2, report.totalTrades)
@@ -720,6 +712,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 3,
+        applyLiquidityFilter = false,
       )
 
     // Total should be 3 trades:
@@ -773,6 +766,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 5,
+        applyLiquidityFilter = false,
       )
 
     // Should have 3 trades
@@ -860,6 +854,7 @@ class BacktestServiceTest {
         LocalDate.now(),
         maxPositions = 1, // Only 1 position at a time
         cooldownDays = 5,
+        applyLiquidityFilter = false,
       )
 
     // Should have 2 trades (both Stock A — higher ATR gives it a higher ranker score):
@@ -898,6 +893,7 @@ class BacktestServiceTest {
             LocalDate.of(2024, 1, 1),
             LocalDate.now(),
             maxPositions = 1,
+            applyLiquidityFilter = false,
           )
         report.trades.first().stockSymbol
       }.toSet()
@@ -947,6 +943,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1,
+        applyLiquidityFilter = false,
       )
 
     // Only Stock A should trade - Stock B is blocked because Stock A is still open on Jan 3
@@ -978,6 +975,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1,
+        applyLiquidityFilter = false,
       )
 
     // Both trades should execute - Stock A exits before Stock B enters
@@ -1029,6 +1027,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 2,
+        applyLiquidityFilter = false,
       )
 
     // Stock A and B should trade, Stock C should be blocked on Jan 3 (2 positions already open)
@@ -1066,6 +1065,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = null, // Unlimited
+        applyLiquidityFilter = false,
       )
 
     // All 3 stocks should trade simultaneously
@@ -1111,6 +1111,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 2,
+        applyLiquidityFilter = false,
       )
 
     // All 3 stocks should trade:
@@ -1151,6 +1152,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         maxPositions = 1,
+        applyLiquidityFilter = false,
       )
 
     // Stock A trades, Stock B is missed
@@ -1183,6 +1185,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 10, // Long cooldown
+        applyLiquidityFilter = false,
       )
 
     // Should have 1 trade (first entry allowed, second blocked by cooldown)
@@ -1230,6 +1233,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         cooldownDays = 5, // 5 TRADING days (not inclusive)
+        applyLiquidityFilter = false,
       )
 
     // Should have 2 trades
@@ -1283,6 +1287,7 @@ class BacktestServiceTest {
       listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(1, report.totalTrades)
@@ -1318,6 +1323,7 @@ class BacktestServiceTest {
       listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(1, report.totalTrades)
@@ -1363,6 +1369,7 @@ class BacktestServiceTest {
       listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(2, report.totalTrades)
@@ -1389,6 +1396,7 @@ class BacktestServiceTest {
       listOf("TEST"),
       LocalDate.of(2024, 1, 1),
       LocalDate.now(),
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(1, report.totalTrades)
@@ -1421,6 +1429,7 @@ class BacktestServiceTest {
         LocalDate.now(),
         entryDelayDays = 1,
         costBps = 0.0, // pins gross delayed-entry profit; cost-netting is covered in BacktestServiceCostTest
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(1, report.totalTrades, "Should have 1 trade")
@@ -1452,6 +1461,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         entryDelayDays = 1,
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(0, report.totalTrades, "Should have no trades when delayed date is out of bounds")
@@ -1485,6 +1495,7 @@ class BacktestServiceTest {
         LocalDate.now(),
         maxPositions = 1,
         entryDelayDays = 1,
+        applyLiquidityFilter = false,
       )
 
     // Only 1 trade due to position limit, entry on Day 2 (delayed)
@@ -1513,6 +1524,7 @@ class BacktestServiceTest {
         LocalDate.of(2024, 1, 1),
         LocalDate.now(),
         entryDelayDays = 0,
+        applyLiquidityFilter = false,
       )
 
     Assertions.assertEquals(1, report.totalTrades)
@@ -1566,6 +1578,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 2,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     // CHEAP should be taken, EXPENSIVE should be missed
@@ -1598,6 +1611,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 1,
       positionSizingConfig = null,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(1, report.totalTrades, "Should take 1 trade without capital gate")
@@ -1634,6 +1648,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 5,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(0, report.totalTrades, "Should take no trades when capital is insufficient")
@@ -1685,6 +1700,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 2,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(2, report.totalTrades, "Should take 2 trades after capital is released from exit")
@@ -1720,6 +1736,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 5,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(0, report.totalTrades, "Should take no trades")
@@ -1774,6 +1791,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 5,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(1, report.totalTrades, "Should only take 1 trade — second depletes budget")
@@ -1811,6 +1829,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 5,
       positionSizingConfig = configTooSmall,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(0, report.totalTrades, "Should skip when ATR sizing gives 0 shares even without leverage cap")
@@ -1846,6 +1865,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 5,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(0, report.totalTrades, "Zero ATR should give 0 shares and be skipped")
@@ -1904,6 +1924,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 5,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     Assertions.assertEquals(1, report.totalTrades, "Should only take LOSER — loss reduces capital blocking STOCK_B")
@@ -1949,6 +1970,7 @@ class BacktestServiceTest {
       LocalDate.now(),
       maxPositions = 2,
       positionSizingConfig = config,
+      applyLiquidityFilter = false,
     )
 
     val taken = report.trades[0]
