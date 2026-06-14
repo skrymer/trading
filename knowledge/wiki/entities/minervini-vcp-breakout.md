@@ -76,8 +76,9 @@ real in broad-thrust tape" claim on the same trade population:
 > found the three cheap daily axes cannot separate GRIND/NARROW/CHOP (Grade D), so routing currently
 > resolves only CRISIS (A) and THRUST (B, precision-only — the dd-recovery blind spot suppresses THRUST
 > ~12 months post-crash). A regime-specialist stable that must *know it is in THRUST* therefore still
-> needs a from-scratch v3 classifier axis (cross-sectional dispersion / sector participation / vol
-> term-structure) for the remaining regimes.
+> needs a from-scratch v3 classifier axis for the remaining regimes — a **multi-week SPY trend-efficiency**
+> axis for GRIND/CHOP + a **cap-weighted top-N concentration** axis for NARROW (**not** cross-sectional
+> dispersion, which is cap-blind — see [[2026-06-14-regime-v3-dispersion-overturned]]; needs market cap, #174).
 
 Path-risk (sized MC, clean): drawdown distribution centers ~33% maxDD, P(>40%)≈15%; the realized ~46%
 path sat in the worst ~15% of trade orderings. The MC *return* envelope is unusable (full-reinvestment

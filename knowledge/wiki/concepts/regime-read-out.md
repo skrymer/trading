@@ -62,18 +62,31 @@ with its caveat, and collapses the rest to "uptrend — fine-grain label unrelia
 
 Shifting bands, dwell, precedence, or adding sub-filters to chase the failing labels is IS-fitting
 to anchors now seen — forbidden permanently ([[aliased-regime-sensitivity]] discipline). A
-legitimate v3 is a **from-scratch new pre-registration**: a structurally new axis (cross-sectional
-dispersion/correlation, sector participation, vol term-structure), parameters fixed before any
-coverage is computed, validated on **uncontaminated ground truth** — the 19 anchor spans are burned
-as a primary acceptance gate.
+legitimate v3 is a **from-scratch new pre-registration**: a structurally new axis (multi-week
+trend-efficiency, cap-weighted concentration, cross-sectional correlation, sector participation, vol
+term-structure — **not** bare cross-sectional *dispersion*, which is cap-blind for NARROW, see
+[[2026-06-14-regime-v3-dispersion-overturned]]), parameters fixed before any coverage is computed,
+validated on **uncontaminated ground truth** — the 19 anchor spans are burned as a primary acceptance gate.
 
 **The v3 research is done** (deep-research 2026-06-14, [[2026-06-14-regime-classification-v3-research]],
-tracked as issue #168). Its decisive finding *corroborates* this page: a return+vol classifier
-(HMM/HSMM/Markov-switching) is **structurally incapable** of resolving the GRIND/NARROW/CHOP trichotomy —
-NARROW is a cross-sectional/breadth fact an index-return model has no channel to see. The pre-registrable
-path is **two orthogonal strategy-blind axes layered over the CRISIS/THRUST backbone**: a cross-sectional
-**concentration** axis (top/bottom-half return dispersion, built from constituent prices) for NARROW, and
-a **multi-week trend-efficiency** axis (Kaufman Efficiency Ratio / Choppiness Index — never daily; daily
-Hurst is white noise) for GRIND-vs-CHOP. Validate against a random-walk surrogate + frozen-parameter OOS
-on label stability + external Bry-Boschan/Lunde-Timmermann dating; GRIND/NARROW/CHOP stay
-descriptive-only until those axes clear validation. Axis/threshold/window choices are quant-domain.
+tracked as issue #168) — but its *recommended* design was **corrected on quant review** (`/grill-with-docs`
++ 3 independent quant reads, 2026-06-14). The research's load-bearing premise ("a return+vol classifier
+can't see NARROW") attacked a **strawman**: v2 is not return-only — it already carries breadth **and** a
+signed concentration gap, and NARROW still graded D. The research's proposed NARROW axis — **cross-sectional
+dispersion (top/bottom-half return)** — is **rejected**: it is the 2026-06-03 "ruled-out" cross-sectional
+spread relabeled (cap-blind, ~1.60σ-collinear with the ruled-out stdev, and already shown *fail-blind* on
+our own data — v1's dispersion guard fired symmetrically in crashes **and** recoveries). The corrected v3:
+
+- **GRIND-vs-CHOP** — a **multi-week SPY trend-efficiency** axis (Choppiness Index / Kaufman ER; frozen
+  20–60d window; SPY-close only; never daily — daily Hurst is white noise). The genuine missing channel;
+  **zero new data**. The clean v3 core.
+- **NARROW** — a **cap-weighted top-N return-concentration** axis (top-N share / Herfindahl of cap-weighted
+  return contribution, conditioned on index-up + breadth-deteriorating) over a point-in-time **top-N-by-cap**
+  universe — **not** cross-sectional dispersion. The blocker is the *universe*: a count-equal ~5,098-name
+  pool (median name ≈ rank 2,549) is structurally blind to mega-cap concentration on any axis. Needs the
+  computed market-cap primitive (`close × shares_outstanding`) of issue #174; spun out with the
+  three-population universe redesign (issue #173).
+
+Both axes stay descriptive-only until they clear a random-walk surrogate + frozen-parameter OOS on label
+stability + the 19 anchor spans; the NARROW axis is a **clean new pre-registration**, never "fixing v2's
+NARROW label". Axis/threshold/window choices are quant-domain.
