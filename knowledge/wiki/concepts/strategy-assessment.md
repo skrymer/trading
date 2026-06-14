@@ -5,7 +5,7 @@ summary: The /assess-strategy funnel (ADR 0022) — pre-flight, full battery, no
 status: stable
 tags: [methodology, assessment, funnel, reporting]
 sources: ["docs/adr/0022-strategy-assessment-is-a-separate-non-adjudicating-funnel.md", "knowledge/wiki/sources/2026-06-12-strategy-assessment-design-and-regime-readout-prereg.md", "CONTEXT.md", ".claude/skills/assess-strategy/SKILL.md"]
-related: ["[[regime-read-out]]", "[[component-firewall]]", "[[the-funnel]]", "[[aliased-regime-sensitivity]]", "[[beta-delivery]]", "[[2026-06-14-regime-classification-v3-research]]"]
+related: ["[[regime-read-out]]", "[[component-firewall]]", "[[the-funnel]]", "[[aliased-regime-sensitivity]]", "[[beta-delivery]]", "[[2026-06-14-regime-classification-v3-research]]", "[[2026-06-14-minervini-sector-rerate]]"]
 updated: 2026-06-14
 ---
 
@@ -108,6 +108,20 @@ each sector behave per regime, independent of the strategy"); and a per-candidat
 drill-down** (insufficient-N per cell; expect mostly-grey tables — readable cells only for the
 dominant sectors × dominant regimes; "does a sector tilt explain the regime edge"). All descriptive —
 pruning to winning sectors after the fact is sector-overfitting, the same ARS trap as the regime table.
+
+**The Sector applicability rating is live (ADR 0025, issue #167, 2026-06-14).** `sectorStats` now emits
+per-cell `edgeStandardError` (entry-month-clustered CR0 SE), `trimmedEdge`, and `maxSingleTradeProfitShare`,
+so the league table's cells carry ratings: **rateable** iff `N ≥ 30` AND `edgeStandardError > 0` AND
+`maxSingleTradeProfitShare ≤ 0.40` AND `sign(edge) == sign(trimmedEdge)`; then `favourable`/`adverse` iff
+**`trimmedEdge`** clears `±2.5·SE` (**k = 2.5** for the ~11-cell family — higher than the regime family's
+k=2 because the look-elsewhere multiplicity bites across 11 simultaneous cells, flagged-not-corrected),
+else `neutral`. Three rateability guards are mandatory because **sector is more fragile than regime**
+(thin N + bad-print/tail contamination): a 1–2-trade tail must never read `favourable`. The
+`edgeStandardError > 0` guard catches a single-entry-month cell (its clustered SE collapses to 0, making
+the directional test trivially true). First worked example: [[2026-06-14-minervini-sector-rerate]] — net
+`neutral`, the trim/concentration/sign guards held minervini's two thin "winner" sectors (XLU 8.51/N=32,
+XLP 7.94/N=52, both tail-carried) off a label, and 5 mid-cyclical cells flipped sign once trimmed →
+`unrateable`. The regime×sector and sector×regime cross views stay `unrateable` by construction (N fractures).
 
 ## Persistence
 
