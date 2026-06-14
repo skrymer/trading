@@ -18,6 +18,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 - [[the-funnel]] — how an idea becomes tradable/rejected: the 5-stage funnel map.
 - [[component-firewall]] — the binding 3-block + 25y validation layer; gates, interlocks, intent.
 - [[parameter-robustness-g13]] — a TRADABLE verdict must survive ±1 step / ±10% on every tunable.
+- [[universe-epoch]] — a global, one-time universe change (ADR 0026, #173) supersedes prior firewall verdicts without resetting the dead-config brake; re-fire a corpse only with a structural-interaction judgment; re-validate only what has a reason to flip.
 - [[strategy-assessment]] — the separate non-adjudicating report funnel (ADR 0022): full battery, no verdict, human decides; full C-span disclosure + eyeballed-C annotation; the regime table's honest/theater line.
 - [[regime-read-out]] — the v2 classifier, anchor-adjudicated ACCEPT-WITH-LIMITATIONS (ADR 0023/0024): CRISIS trustworthy + THRUST precision-only (gateable); GRIND/NARROW/CHOP below axis resolving power — descriptive-only, ungateable. No v3 by iteration.
 

@@ -34,6 +34,20 @@ The line between metrics that are **net of transaction cost** and those that are
 **Idle-cash interest**:
 Interest the backtest credits on **uninvested** cash — `idle = max(0, cash − openNotional)`, accrued daily at the **historical short rate** (the 3-month T-bill series SGOV tracks, net of ~0.10% expense; *not* a flat constant, which would over-credit the ZIRP era and flatter cash-heavy timers). The accrual base subtracts deployed capital at **cost basis** (it already earns the equity return via unrealized P&L — crediting full cash would double-count); negative idle (a levered margin borrow) is clamped to zero in v1 (borrow cost is a separate future feature). Accrued calendar-day ACT/360 on a full daily spine. **Sharpe-neutral by construction**: the *same* per-day `rf_step(t)` series is both credited to cash and subtracted as the Sharpe/Sortino risk-free rate, so the idle leg nets to zero excess (risk-free cash earns no risk-adjusted edge) — only the risky leg's excess survives. But it **raises CAGR and therefore Calmar** for cash-heavy strategies (CAGR takes no rf subtraction) — correct and intended: holding powder in T-bills is real return at no incremental drawdown, so the *Calmar floor* and the *SPY buy-and-hold baseline* are modestly easier for high-cash candidates once it lands. Default on; `creditIdleCash = false` reproduces the old 0%-cash results. Rate series ingested via the active provider as reference data. See ADR 0016.
 
+### Trading universe
+
+**Tradable universe**:
+The point-in-time subset of symbols a strategy may actually *enter* on a bar — the realistically fillable opportunity set, not every symbol the platform holds data for. A name is tradable on date D only if, **as of D**, it is common stock (`asset_type = STOCK`; index/sector ETFs opt-in per config, leveraged/inverse never) and clears a frozen **liquidity / price / age floor** (a minimum close, a minimum trailing-median dollar-volume, a minimum bars-of-history) — so a name drifts in and out of tradability over its life exactly as it really did, survivorship-honestly. Applied by default and **identical in backtest and scanner**, so the backtest faithfully predicts live fills. Thresholds are frozen pre-registered constants, not per-backtest knobs (ADR 0026). Distinct from the *measurement universe*: you trade a narrow, liquid set but *measure* market structure on the broad set.
+_Avoid_: treating the full ingested `stocks` table as tradable (it includes sub-$5 / illiquid names where the modelled *transaction cost* is fiction).
+
+**Measurement universe**:
+The broad, **count-equal, all-cap** population over which market-structure aggregates are computed — *market & sector breadth*, the *leadership-concentration gap*, and the *regime read-out*. Deliberately **broader than the tradable universe**: breadth and the gap's equal-weight leg derive their meaning from the small-cap mass (EW-beats-CW *requires* broad participation), so a liquidity floor must **not** be applied here. Common stock only (ETFs are derivatives of the market, never constituents of its breadth). Survivorship-honest; trustworthy only from the **2000 trust floor**.
+_Avoid_: applying tradable liquidity/price floors to breadth/gap/regime inputs; conflating with the *tradable universe* — the error that makes a backtest trade fill-fiction *or* makes breadth go blind.
+
+**Benchmark-factor universe**:
+The small, explicit set of cap-weighted **reference series** — SPY (market benchmark, the gap's cap-weight leg, the regime backbone), the 11 sector SPDRs (sector factors/benchmarks), RSP (equal-weight S&P cross-check, 2003+). Pure series: **never** constituents of the measurement universe and **not** default-tradable (an index-timing strategy may opt them into the *tradable universe* via `assetTypes`).
+_Avoid_: letting an ETF leak into breadth/the cross-section; treating a sector ETF as a tradable single-name.
+
 ### Technical indicators
 
 **Simple moving average (SMA)**:
