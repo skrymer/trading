@@ -46,6 +46,8 @@ The operator's decision stays a **single terminal act** in the existing five-buc
 
 The bar's sector test needs per-sector statistics the engine does not yet emit (`sectorStats` has no SE, no trimmed edge, no max-single-trade share). Until issue #167 adds them, the **entire Sector dimension is rated `unrateable-pending-instrumentation`** — the honest state, not a blocker on shipping the redesign. Broad and Regime are fully live now.
 
+> **Update (2026-06-14, #167 landed):** `sectorStats` now emits `edgeStandardError` (entry-month-clustered CR0 SE), `trimmedEdge`, and `maxSingleTradeProfitShare`. The Sector dimension is **live** under the rule above — the analyst applies it per cell; `unrateable-pending-instrumentation` no longer applies.
+
 ## Considered options
 
 - *Ratings replace the operator decision* — rejected: re-introduces an adjudicator and removes the operator's terminal act, contra ADR 0022.

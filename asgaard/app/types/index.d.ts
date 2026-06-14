@@ -70,6 +70,9 @@ export interface SectorStats {
   averageLossPercent: number
   totalProfitPercentage: number
   maxDrawdown: number
+  edgeStandardError: number
+  trimmedEdge: number
+  maxSingleTradeProfitShare: number
 }
 
 export interface EquityCurvePoint {

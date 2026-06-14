@@ -294,6 +294,60 @@ class BacktestReportSectorStatsTest {
     assertEquals(expectedAvgLoss, techStats!!.averageLossPercent, 0.001, "Average loss should be positive (absolute value)")
   }
 
+  @Test
+  fun `should report sector edge standard error clustered by entry month`() {
+    // Given: one sector's 40 trades split across two months — 20 at +2% in March, 20 at 0% in June.
+    // Two clusters, deviation sums +-20 around the +1% mean: CR0 variance = (20^2 + 20^2) / 40^2 = 0.5
+    // -> SE = sqrt(0.5) ~ 0.7071. (An iid SE would be ~0.16 — five times too confident.) Same
+    // estimator as the per-regime decomposition, applied to a sector bucket.
+    val march = (1..20).map { createTrade("TECH$it", "Technology", 2.0, LocalDate.of(2024, 3, it)) }
+    val june = (1..20).map { createTrade("TCH$it", "Technology", 0.0, LocalDate.of(2024, 6, it)) }
+
+    // When
+    val report = BacktestReport(winningTrades = march, losingTrades = june)
+    val techStats = report.sectorStats.find { it.sector == "Technology" }
+
+    // Then
+    assertNotNull(techStats)
+    assertEquals(kotlin.math.sqrt(0.5), techStats!!.edgeStandardError, 1e-9)
+  }
+
+  @Test
+  fun `trimmed edge drops the tail so a single trade cannot carry the sector edge`() {
+    // Given: 9 trades at -1% and one +50% monster. The raw edge is positive (+4.1%) only because
+    // of the monster; with the single largest-|P&L| trade dropped the sector is a -1% loser.
+    val losers = (1..9).map { createTrade("L$it", "Technology", -1.0, LocalDate.of(2024, 1, it)) }
+    val monster = createTrade("MON", "Technology", 50.0, LocalDate.of(2024, 1, 10))
+
+    // When
+    val report = BacktestReport(winningTrades = listOf(monster), losingTrades = losers)
+    val techStats = report.sectorStats.find { it.sector == "Technology" }
+
+    // Then
+    assertNotNull(techStats)
+    assertEquals(4.1, techStats!!.edge, 1e-9, "Raw edge is positive only because of the monster")
+    assertEquals(-1.0, techStats.trimmedEdge, 1e-9, "Trimmed edge drops the monster and is a loser")
+  }
+
+  @Test
+  fun `max single trade profit share is 1 for a single-trade sector and 1 over N when evenly split`() {
+    // Given: a one-trade sector (that trade is 100% of the sector's |P&L|) and a four-trade sector
+    // with equal-magnitude returns (each trade is a quarter of the |P&L|)
+    val solo = createTrade("SOLO", "Energy", 7.0, LocalDate.of(2024, 1, 1))
+    val even = (1..4).map { createTrade("EV$it", "Technology", 5.0, LocalDate.of(2024, 1, it)) }
+
+    // When
+    val report = BacktestReport(winningTrades = listOf(solo) + even, losingTrades = emptyList())
+
+    // Then
+    val energy = report.sectorStats.find { it.sector == "Energy" }
+    val tech = report.sectorStats.find { it.sector == "Technology" }
+    assertNotNull(energy)
+    assertNotNull(tech)
+    assertEquals(1.0, energy!!.maxSingleTradeProfitShare, 1e-9, "Single-trade sector is fully concentrated")
+    assertEquals(0.25, tech!!.maxSingleTradeProfitShare, 1e-9, "Four equal trades each carry a quarter")
+  }
+
   // Helper method to create test trades
   private fun createTrade(
     symbol: String,

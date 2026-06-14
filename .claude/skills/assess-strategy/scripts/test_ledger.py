@@ -68,7 +68,7 @@ class AssessmentLedger(unittest.TestCase):
         ratings = [
             {"dimension": "broad", "label": "adverse", "evidence": "OOS CAGR 12.9%, SPY-FAIL"},
             {"dimension": "regime:THRUST", "label": "neutral", "evidence": "+7.45 ± 3.80, t=1.96"},
-            {"dimension": "sector", "label": "unrateable", "reason": "pending-instrumentation #167"},
+            {"dimension": "sector", "label": "unrateable", "reason": "XLU concentration 0.62 > 0.40"},
         ]
 
         # When the ratings are recorded

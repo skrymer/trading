@@ -68,12 +68,19 @@ decision; the firewall stays the only road to TRADABLE.
      recovery). **CRISIS is premise-gated**: `favourable` only if the premise *is* crisis-entry; for a
      long / breakout premise default `adverse` / `unrateable`, and auto-demote a favourable-CRISIS-on-a-
      trend-long to `neutral` + survivorship flag.
-   - **Sector** (per sector) — evidence: §8 `sectorStats`. **Currently `unrateable-pending-instrumentation`
-     for every cell**: the bar's sector test needs per-sector clustered SE + trimmed edge + max-single-
-     trade share, which `sectorStats` does not yet emit (issue #167). Until #167 lands, rate every sector
-     cell `unrateable-pending` and say why; never improvise a rating from the bare edge. The
-     **regime×sector cross is `unrateable` by construction** — conditioning sector on regime fractures N
-     below the floor; surface those joint cells (§7) as raw observability only, never a rating.
+   - **Sector** (per sector) — evidence: §8 `sectorStats`, which now emits per-cell entry-month-clustered
+     SE (`edgeStandardError`), `trimmedEdge`, and `maxSingleTradeProfitShare` (issue #167). A cell is
+     **rateable** only if `N ≥ 30` AND `edgeStandardError > 0` AND `maxSingleTradeProfitShare ≤ 0.40` AND
+     `sign(edge) == sign(trimmedEdge)` — an `edgeStandardError` of exactly 0 means the cell's trades fall in
+     a single entry-month cluster (the clustered SE collapses to 0, making the directional `k·SE` test
+     trivially true), and the concentration + robust-sign guards stop a 1–2-trade tail from carrying a
+     label. Then (evaluated in order) `adverse` iff `trimmedEdge < −2.5·SE`, `favourable` iff `trimmedEdge >
+     +2.5·SE` (**k = 2.5** for the 11-cell sector family — premise-consistent, caveats attached), else
+     `neutral`; a cell failing any rateability guard is `unrateable` (name the guard). **Sector is more
+     fragile than regime** (thin N + bad-print contamination) — when in doubt, `unrateable`; never let a
+     1–2-trade tail read `favourable`. The **regime×sector cross is `unrateable` by construction** —
+     conditioning sector on regime fractures N below the floor; surface those joint cells (§7) as raw
+     observability only, never a rating.
    Every `favourable`'s **confirm-path** names the within-condition null as a **fresh, distinct,
    regime-/sector-scoped candidate** run through the firewall — **never** a gate or prune of *this* config
    (rescue-forbidden / ARS, ADR 0023). Where cheap, add the **within-strategy baseline contrast** (bucket
@@ -130,12 +137,12 @@ decision; the firewall stays the only road to TRADABLE.
    by trade count so the operator sees where the strategy actually concentrated, and name both the
    sectors that carry it and the ones it barely touched. Respect the same insufficient-N floor the
    regime decomposition uses (30 trades): below it print "insufficient — do not infer", never an edge
-   number. **The Sector *rating* is `unrateable-pending` until issue #167** adds per-sector clustered SE +
-   trimmed edge + max-single-trade share (the directional `k·SE` test, the trimmed-edge sign check, and
-   the ≤40% concentration guard are impossible without them) — so this table is descriptive evidence only,
-   not yet a rateable dimension. Under the table print the standing warning: *"Descriptive only. Pruning to
-   the winning sectors after seeing this table is sector-overfitting; it informs understanding, never
-   design."*
+   number. Each cell additionally carries the **Sector-rating inputs** (issue #167): the entry-month-
+   clustered SE of the edge (`edgeStandardError`), the `trimmedEdge`, and `maxSingleTradeProfitShare` —
+   the directional `trimmedEdge > k·SE` test, the trimmed-edge sign check, and the ≤40% concentration
+   guard the §2 Sector rule runs per cell. Apply that rule here to produce the per-cell ratings. Under the
+   table print the standing warning: *"Descriptive only. Pruning to the winning sectors after seeing this
+   table is sector-overfitting; it informs understanding, never design."*
 9. **C-span stamp** — every section showing 2021–2025 numbers carries:
    *"⚠ operator-eyeballed-C: this family's firewall Block C verdict is decorative from here (ADR 0022)."*
 10. **Decision support** — lay out the five recorded decisions (`redesign` / `send-to-firewall` /
@@ -152,8 +159,9 @@ decision; the firewall stays the only road to TRADABLE.
   hypothesis with a confirm-path, never a go/deploy signal.
 - Don't assign `favourable` without clearing the bar (trimmed `edge > k·SE`, `N ≥ 30`, premise-consistent,
   caveats attached) — default `unrateable` in doubt.
-- Don't rate a Grade-D regime (GRIND/NARROW/CHOP), and don't improvise a Sector rating before #167 — both
-  are `unrateable`. Never collapse `unrateable` into `neutral`.
+- Don't rate a Grade-D regime (GRIND/NARROW/CHOP) — it is `unrateable` (ADR 0024). Don't rate a Sector cell
+  that fails a rateability guard (`N < 30`, `edgeStandardError == 0` (single-cluster SE), `maxSingleTradeProfitShare > 0.40`,
+  or edge/trimmed-edge sign disagreement) — it too is `unrateable`. Never collapse `unrateable` into `neutral`.
 - Don't suggest rescuing by gating out the regime the table shows losing, or pruning to the winning
   sector — that successor is a disguised re-run the lineage DISTINCT gate will refuse (ADR 0023
   rescue-forbidden); a favourable regime/sector rating points at a *fresh* conditional candidate, never a

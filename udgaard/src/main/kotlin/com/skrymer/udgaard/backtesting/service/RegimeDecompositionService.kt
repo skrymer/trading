@@ -2,9 +2,9 @@ package com.skrymer.udgaard.backtesting.service
 
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutDaily
+import com.skrymer.udgaard.backtesting.model.entryMonthClusteredStandardError
 import org.springframework.stereotype.Service
 import java.time.LocalDate
-import kotlin.math.sqrt
 
 /**
  * One closed trade reduced to what the regime decomposition consumes: when it entered, what it
@@ -106,18 +106,10 @@ class RegimeDecompositionService {
   /**
    * Cluster-robust (CR0) standard error of the bucket's mean return, clustered by entry month —
    * trades entered in the same regime spell share the same tape and are not independent draws, so
-   * an iid SE would be several times too confident. `V = (1/N^2) * sum_g (sum_{i in g}(x_i - mean))^2`.
+   * an iid SE would be several times too confident.
    */
-  private fun clusteredStandardError(bucket: List<RegimeTradeSample>): Double {
-    val mean = bucket.map { it.returnPct }.average()
-    val clusterDeviationSums =
-      bucket
-        .groupBy { it.entryDate.withDayOfMonth(1) }
-        .values
-        .map { cluster -> cluster.sumOf { it.returnPct - mean } }
-    val variance = clusterDeviationSums.sumOf { it * it } / (bucket.size.toDouble() * bucket.size)
-    return sqrt(variance)
-  }
+  private fun clusteredStandardError(bucket: List<RegimeTradeSample>): Double =
+    entryMonthClusteredStandardError(bucket, { it.entryDate }, { it.returnPct })
 
   companion object {
     /** The G8 rationale applied per bucket: below ~30 trades a slice's statistics are noise. */

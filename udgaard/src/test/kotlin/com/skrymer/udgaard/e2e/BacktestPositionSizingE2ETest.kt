@@ -9,11 +9,15 @@ import com.skrymer.udgaard.backtesting.model.PositionSizingConfig
 import com.skrymer.udgaard.backtesting.model.PositionSizingResult
 import com.skrymer.udgaard.backtesting.model.Trade
 import com.skrymer.udgaard.backtesting.service.sizer.AtrRiskSizerConfig
+import com.skrymer.udgaard.data.integration.midgaard.MidgaardClient
 import org.jooq.DSLContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
@@ -22,6 +26,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -39,9 +44,22 @@ class BacktestPositionSizingE2ETest : AbstractIntegrationTest() {
   @Autowired
   private lateinit var dsl: DSLContext
 
+  // Midgaard is the one external integration a position-sizing backtest reaches at request time:
+  // the treasury-yield series feeding idle-cash crediting (ADR 0016, default-ON). Stub it absent so
+  // the suite is hermetic — a reachable local Midgaard must not perturb the pinned results. With the
+  // series null the real RiskFreeRateService falls back to 0%, idle cash earns nothing, and the
+  // capital assertions below hold regardless of environment.
+  @MockitoBean
+  private lateinit var midgaardClient: MidgaardClient
+
   @BeforeAll
   fun setupTestData() {
     BacktestTestDataGenerator.populate(dsl)
+  }
+
+  @BeforeEach
+  fun stubTreasuryYieldsAbsent() {
+    whenever(midgaardClient.getTreasuryYields(any())).thenReturn(null)
   }
 
   // ===== POSITION SIZING =====
