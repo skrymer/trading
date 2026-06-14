@@ -1,12 +1,12 @@
 ---
 type: entity
 title: Minervini VCP Breakout
-summary: Breakout candidate; REJECTED as all-weather (firewall 2026-06-03; PRD-confirmed 2026-06-13, OOS 12.9%). Real in broad-thrust — could be tradable as a THRUST-regime specialist (hypothesis, not a verdict).
+summary: Breakout; REJECTED as all-weather (firewall 2026-06-03; PRD-confirmed 12.9% OOS). Real in broad-thrust — could be a THRUST-regime specialist (hypothesis). Sector dim re-rated neutral (#167).
 status: stable
 tags: [candidate, breakout, momentum, rejected, shelved, regime-specialist]
 sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/", "strategy_exploration/assessments/minervini-vcp-breakout/"]
-related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]"]
-updated: 2026-06-13
+related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]", "[[2026-06-14-minervini-sector-rerate]]"]
+updated: 2026-06-14
 ---
 
 # Minervini VCP Breakout
@@ -82,6 +82,22 @@ real in broad-thrust tape" claim on the same trade population:
 Path-risk (sized MC, clean): drawdown distribution centers ~33% maxDD, P(>40%)≈15%; the realized ~46%
 path sat in the worst ~15% of trade orderings. The MC *return* envelope is unusable (full-reinvestment
 compounding). Deflated-Sharpe AMBER, with `nEff` understated (minervini predates the dossier register).
+
+### Sector dimension — re-rated live 2026-06-14 (#167) → `neutral` (hypothesis-thin)
+
+The 2026-06-13 battery shipped Sector as `unrateable-pending-instrumentation`: the rating bar needs
+per-cell clustered SE / trimmed edge / max-single-trade share the engine didn't emit. **#167 (PR #171)
+added them**, and the dimension was re-rated on the **same continuous run** (`239232fb`, 1043 trades,
+PRD udgaard 1.0.94) — full per-cell table + the rule in [[2026-06-14-minervini-sector-rerate]].
+
+**Net Sector → `neutral`, 0 favourable** (5/11 cells rateable + flat: XLF/XLV/XLB/XLRE/XLU, all
+`|trimmedEdge| ≤ 2.5·SE`; 6/11 `unrateable`: XLK/XLI/XLY/XLC/XLE on raw-vs-trimmed **sign-flip**, XLP on
+**concentration** maxShare 0.53). The two highest *raw* edges sat in the thinnest cells (XLU 8.51/N=32,
+XLP 7.94/N=52) — the tail-carried pattern the guards now neutralize numerically (XLP raw 7.94 → trim 0.47).
+The dimension carries **no deployment hypothesis** and reinforces the Broad-`adverse` read: minervini's
+sector "edges" are **tail-dependent, not broad-based**. ^[inferred — the tail-dependence synthesis; the
+per-cell sign flips are measured]. **Decision unchanged** (`shelve(broad)`); a new RATINGS ledger event
+records the live read, Broad/Regime carried forward.
 
 ## Funnel history
 
