@@ -12,11 +12,14 @@ updated: 2026-06-14
 # Regime classification v3 — deep-research brief
 
 > **ANSWERED 2026-06-14 →** [[2026-06-14-regime-classification-v3-research]] (20 adversarially-verified
-> claims; 5 refuted; 20 sources). Build tracked as **issue #168**. Headline: a return+vol classifier
-> *structurally cannot* resolve GRIND/NARROW/CHOP (no breadth channel) — resolve them with a
-> cross-sectional **concentration** axis (NARROW) + a **multi-week trend-efficiency** axis (GRIND/CHOP)
-> layered over the CRISIS/THRUST backbone, validated vs a random-walk surrogate + frozen-parameter OOS.
-> The prompt below is retained verbatim as the canonical research question.
+> claims; 5 refuted; 20 sources), then **CORRECTED on quant review → [[2026-06-14-regime-v3-dispersion-overturned]]**.
+> Build tracked as **issue #168**. Headline: a return+vol classifier *structurally cannot* resolve
+> GRIND/NARROW/CHOP. The **GRIND/CHOP** fix stands — a **multi-week trend-efficiency** axis (Choppiness /
+> Kaufman ER, frozen 20–60d). The deep-research's **NARROW** recommendation (cross-sectional **dispersion**)
+> was **overturned** (cap-blind / ~1.60σ-collinear with the ruled-out stdev / fail-blind on our data); the
+> real NARROW axis is a **cap-weighted top-N concentration** over a point-in-time top-N-by-cap universe
+> (needs computed market cap, #174) — because a count-equal universe is structurally blind to mega-cap
+> concentration. The prompt below is retained verbatim as the canonical research question.
 
 **Status: answered 2026-06-14 — see the callout above.** This was the prompt fed to `/deep-research` for the
 v3-regime-classifier work (the ADR 0024 "from-scratch new pre-registration on a new axis" path). It is the

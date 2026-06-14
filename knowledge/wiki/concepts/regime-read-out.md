@@ -62,10 +62,11 @@ with its caveat, and collapses the rest to "uptrend — fine-grain label unrelia
 
 Shifting bands, dwell, precedence, or adding sub-filters to chase the failing labels is IS-fitting
 to anchors now seen — forbidden permanently ([[aliased-regime-sensitivity]] discipline). A
-legitimate v3 is a **from-scratch new pre-registration**: a structurally new axis (cross-sectional
-dispersion/correlation, sector participation, vol term-structure), parameters fixed before any
-coverage is computed, validated on **uncontaminated ground truth** — the 19 anchor spans are burned
-as a primary acceptance gate.
+legitimate v3 is a **from-scratch new pre-registration**: a structurally new axis (multi-week
+trend-efficiency, cap-weighted concentration, cross-sectional correlation, sector participation, vol
+term-structure — **not** bare cross-sectional *dispersion*, which is cap-blind for NARROW, see
+[[2026-06-14-regime-v3-dispersion-overturned]]), parameters fixed before any coverage is computed,
+validated on **uncontaminated ground truth** — the 19 anchor spans are burned as a primary acceptance gate.
 
 **The v3 research is done** (deep-research 2026-06-14, [[2026-06-14-regime-classification-v3-research]],
 tracked as issue #168) — but its *recommended* design was **corrected on quant review** (`/grill-with-docs`
