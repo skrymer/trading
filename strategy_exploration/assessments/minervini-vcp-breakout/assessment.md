@@ -75,7 +75,7 @@ not excluded"* — a hypothesis carrying its confirm-path, **never** an attribut
 | **Regime — THRUST** | **`neutral`** | edge **+7.45** ± 3.80, N=169 → **t ≈ 1.96**, a hair under the k=2 bar | **1.96** |
 | **Regime — CRISIS** | **`adverse`** | edge **−3.05** ± 1.20, N=68 → t ≈ −2.54, reliably negative, premise-consistent | **−2.54** |
 | **Regime — GRIND / NARROW / CHOP** | **`unrateable`** | Grade-D — below the read-out's axis resolving power (ADR 0024); not a thin-N problem | n/a |
-| **Sector** (all 11 cells) | **`unrateable-pending`** | the bar's sector test needs SE / trimmed edge / max-single-trade-share that `sectorStats` does not emit (issue #167) | n/a |
+| **Sector** (net, 11 cells) | **`neutral`** (hypothesis-thin) | **live read (#167, 2026-06-14)** — 5/11 cells rateable + uniformly flat (XLF/XLV/XLB/XLRE/XLU, all \|trimmedEdge\| ≤ 2.5·SE); 6/11 unrateable (XLK/XLI/XLY/XLC/XLE raw-vs-trimmed sign-flip; XLP concentration 0.53>0.40). 0 favourable, 0 adverse | n/a (no cell clears k=2.5) |
 
 ### Broad — `adverse`
 
@@ -139,14 +139,24 @@ the three cheap daily axes cannot separate these labels. `unrateable` is **never
 `neutral`** — "we cannot say" (a Grade-D label) is distinct from "we looked and it is flat." See the §7
 banner.
 
-### Sector — `unrateable-pending` (all cells)
+### Sector — `neutral` (hypothesis-thin) · re-rated live 2026-06-14 (#167)
 
-The bar's sector test requires per-sector statistics the engine does not yet emit — `sectorStats` has
-**no clustered SE, no trimmed/robust edge, and no max-single-trade-share** (the concentration guard's
-input). Without them the bar's sector rule (k=2.5, concentration ≤~40% of cell P&L, robust-sign
-agreement) cannot run, so the **entire Sector dimension is rated `unrateable-pending-instrumentation`**
-(issue #167) — the honest state, not a blocker on shipping the redesign. The §8 league table is shown
-**descriptively** (the bad-print audit lens), but no sector cell is rated.
+Issue #167 landed: `sectorStats` now emits the **entry-month-clustered SE, the trimmed/robust edge, and
+the max-single-trade share**, so the bar's sector rule (rateable iff `N ≥ 30` AND `edgeStandardError > 0`
+AND `maxSingleTradeProfitShare ≤ 0.40` AND `sign(edge) == sign(trimmedEdge)`; then `favourable`/`adverse`
+iff `trimmedEdge` clears `±2.5·SE`, k=2.5) now runs on every cell. Re-rated on the same continuous run
+(backtestId `239232fb`, 1043 trades, PRD udgaard 1.0.94 — the per-cell table is now §8 below).
+
+**Net: `neutral`, hypothesis-thin — 0 favourable, 0 adverse.** Where the dimension is rateable it is flat:
+all 5 cells clearing every guard (XLF, XLV, XLB, XLRE, XLU — the three largest by N among them) have
+`|trimmedEdge| ≤ 2.5·SE`. The other 6 are `unrateable`: five mid-cyclical cells (XLK, XLI, XLY, XLC, XLE)
+carry a positive *raw* mean entirely from a handful of multi-baggers that goes **negative once trimmed**
+→ raw-vs-trimmed **sign disagreement**; XLP trips the **concentration guard** (one trade = 53% of cell
+P&L). The two highest *raw* edges sit in the thinnest cells — XLU (8.51, N=32) and XLP (7.94, N=52) —
+exactly the tail-carried pattern the trim/concentration guards exist to neutralize; neither carries a
+label. The dimension thus offers **no deployment hypothesis** and reinforces the Broad-`adverse` read:
+the strategy's sector "edges" are tail-dependent, not broad-based. Descriptive only; ~11-cell
+multiplicity flagged, not corrected; the regime×sector cross stays `unrateable` by construction.
 
 ---
 
@@ -418,38 +428,45 @@ POS, not NEUTRAL) → falls through to CHOP.
 
 ---
 
-## 8. Per-sector performance (unconditional) — descriptive; dimension rated `unrateable-pending`
+## 8. Per-sector performance (unconditional) — live ratings (#167, re-rated 2026-06-14)
 
-From the continuous run's `sectorStats` — the **marginal** sector view across *all* regimes (distinct
-from §7's regime×sector cells, which condition sector on regime). League by trade count. The 30-trade
-insufficient-N floor is met by every sector. Sector totals sum to 1043 (full trade set).
+From the continuous run's `sectorStats` (backtestId `239232fb`, 1043 trades, PRD udgaard 1.0.94) — the
+**marginal** sector view across *all* regimes (distinct from §7's regime×sector cells, which condition
+sector on regime). League by trade count. The 30-trade insufficient-N floor is met by every sector.
+Sector totals sum to 1043 (full trade set).
 
-> **The Sector applicability dimension is `unrateable-pending-instrumentation` (§2, issue #167).** The
-> bar's sector test needs **clustered SE, a trimmed/robust edge, and the max-single-trade share** that
-> `sectorStats` does not emit. The table below is therefore an **observational / audit lens only** — no
-> cell is rated, and the raw `edge` column must not be read as a directional signal (it is the raw mean,
-> exactly what the bar refuses to trust on a per-cell basis).
+> **The Sector dimension is now live (§2, issue #167 landed).** `sectorStats` emits the **entry-month-
+> clustered SE (`edgeStandardError`), the trimmed/robust edge (`trimmedEdge`), and the max-single-trade
+> share (`maxSingleTradeProfitShare`)**, so the bar's per-cell rule runs: rateable iff `N ≥ 30` AND
+> `SE > 0` AND `maxShare ≤ 0.40` AND `sign(edge) == sign(trimmedEdge)`; then `favourable`/`adverse` iff
+> `trimmedEdge` clears `±2.5·SE` (k=2.5 for the 11-cell family), else `neutral`. The directional test runs
+> on **`trimmedEdge`**, never the raw `edge` column.
 
-| Sector | N | win % | edge/trade (raw) | avg win % | avg loss % | total profit % | maxDD % | edge consistency |
+| Sector | N | edge (raw) | trimEdge | SE | 2.5·SE | maxShare | total profit % | **Rating** (decider) |
 |---|---|---|---|---|---|---|---|---|
-| XLF (financials) | 171 | 33.9 | 3.75 | 18.7 | 4.0 | 640.7 | 69.5 | 46.6 |
-| XLK (tech) | 139 | 25.9 | 3.12 | 29.7 | 6.2 | 433.9 | 145.8 | 24.0 |
-| XLV (health) | 127 | 43.3 | 4.52 | 18.4 | 6.1 | 574.2 | 86.2 | 56.4 |
-| XLI (industrials) | 127 | 34.6 | 2.39 | 17.2 | 5.5 | 303.4 | 137.3 | 40.4 |
-| XLY (cons. disc.) | 125 | 28.0 | 2.81 | 25.2 | 5.9 | 351.4 | 158.6 | 22.6 |
-| XLB (materials) | 82 | 39.0 | 5.84 | 24.2 | 5.9 | 479.2 | 49.6 | 45.0 |
-| XLC (comms) | 70 | 30.0 | 1.25 | 15.0 | 4.7 | 87.8 | 134.1 | 25.7 |
-| XLE (energy) | 70 | 28.6 | 1.18 | 17.1 | 5.2 | 82.5 | 61.0 | 27.4 |
-| XLP (staples) | 52 | 30.8 | 7.94 | 35.8 | 4.4 | 413.0 | 43.7 | 29.6 |
-| XLRE (real estate) | 48 | 41.7 | 3.61 | 13.8 | 3.7 | 173.3 | 22.8 | 41.5 |
-| XLU (utilities) | 32 | 34.4 | 8.51 | 32.5 | 4.0 | 272.3 | 21.3 | 32.4 |
+| XLF (financials) | 171 | 3.75 | 1.77 | 1.27 | 3.18 | 0.05 | 640.7 | **neutral** (\|trim\| ≤ 2.5·SE) |
+| XLK (tech) | 139 | 3.12 | **−1.50** | 2.57 | — | 0.13 | 433.9 | **unrateable** (sign-flip) |
+| XLV (health) | 127 | 4.52 | 2.76 | 1.79 | 4.47 | 0.07 | 574.2 | **neutral** (\|trim\| ≤ 2.5·SE) |
+| XLI (industrials) | 127 | 2.39 | **−1.34** | 2.28 | — | 0.21 | 303.4 | **unrateable** (sign-flip) |
+| XLY (cons. disc.) | 125 | 2.81 | **−1.64** | 2.43 | — | 0.12 | 351.4 | **unrateable** (sign-flip) |
+| XLB (materials) | 82 | 5.84 | 2.50 | 2.61 | 6.53 | 0.12 | 479.2 | **neutral** (\|trim\| ≤ 2.5·SE) |
+| XLC (comms) | 70 | 1.25 | **−0.54** | 1.86 | — | 0.16 | 87.8 | **unrateable** (sign-flip) |
+| XLE (energy) | 70 | 1.18 | **−1.22** | 2.03 | — | 0.18 | 82.5 | **unrateable** (sign-flip) |
+| XLP (staples) | 52 | 7.94 | 0.47 | 7.29 | — | **0.53** | 413.0 | **unrateable** (concentration >0.40) |
+| XLRE (real estate) | 48 | 3.61 | 1.63 | 2.12 | 5.30 | 0.19 | 173.3 | **neutral** (\|trim\| ≤ 2.5·SE) |
+| XLU (utilities) | 32 | 8.51 | 5.03 | 5.34 | 13.35 | 0.31 | 272.3 | **neutral** (\|trim\| ≤ 2.5·SE) |
+
+Tally: **5 neutral · 6 unrateable · 0 favourable · 0 adverse** → net Sector **`neutral`** (hypothesis-thin, §2).
 
 **Where the strategy concentrated:** the book is **broad, not narrow** — its three largest buckets are
 XLF (171), XLK (139), XLV (127), and the top five sectors each carry >120 trades. No single sector
 dominates; the breakout stack fires across the whole cyclical/defensive spectrum. The thinnest
-participation is XLU (32) and XLRE (48) — both above the floor. Note the highest *raw* edges sit in the
-thinnest cells (XLU 8.51 on 32 trades, XLP 7.94 on 52) — exactly the tail-carried-mean pattern the
-missing trimmed-edge/concentration guard (#167) exists to neutralize, and the reason no cell is rated.
+participation is XLU (32) and XLRE (48) — both above the floor. The instrumentation now confirms in
+numbers what the prior report could only assert in prose: the highest *raw* edges sit in the thinnest
+cells (XLU 8.51/N=32, XLP 7.94/N=52), and the trim/concentration guards resolve them to neutral /
+unrateable — neither carries a label. The five **sign-flip** cells (XLK, XLI, XLY, XLC, XLE) expose the
+same tail-dependence at the dimension level: a positive raw mean carried entirely by a few multi-baggers
+that goes negative once trimmed.
 
 **Clean-data confirmation (the dev-contamination audit).** Every sector row is positive on total profit
 and every per-trade edge is in the **single digits** (max 8.51, XLU). There is **no monster row** — the
@@ -458,8 +475,8 @@ per-sector league is precisely the lens that exposes the dev artifact: a blended
 $65k VPI / $26.4k LAF print across hundreds of trades and hides it, whereas the sector (and per-stock)
 breakdown localizes it to two symbols. Top per-stock profits are all plausible multi-baggers — CALM
 +389%, TGISQ +248%, ALVU +214% — none contamination. **This view is the durable audit tool the
-supersession rests on** (and the instrumentation #167 would add — clustered SE + trimmed edge +
-max-single-trade-share — is the same audit, formalized into the rating bar).
+supersession rests on** — and #167 has now formalized that audit into the rating bar (the clustered SE +
+trimmed edge + max-single-trade-share columns above), so the bad-print lens is no longer prose-only.
 
 > **Descriptive only. Pruning to the winning sectors after seeing this table is sector-overfitting; it
 > informs understanding, never design.**
@@ -494,7 +511,8 @@ may recommend; **the operator decides and the skill records it** — this report
   named confirm-path is a within-THRUST conditional null on a *fresh* THRUST-scoped candidate.
 - **Regime CRISIS → `adverse`** (t ≈ −2.54, premise-consistent, lags-topping/survivorship caveat).
 - **Regime GRIND/NARROW/CHOP → `unrateable`** (Grade-D, below resolving power).
-- **Sector → `unrateable-pending`** (instrumentation #167).
+- **Sector → `neutral`** (hypothesis-thin; re-rated live 2026-06-14 under #167 — 5/11 cells flat-rateable,
+  6/11 unrateable on sign-flip/concentration, 0 favourable; tail-dependent, no deployment hypothesis).
 
 ### The five recorded decisions
 
