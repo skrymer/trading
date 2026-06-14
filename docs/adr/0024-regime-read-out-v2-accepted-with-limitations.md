@@ -15,3 +15,12 @@ Stability is a near-miss (median spell 13d vs 15 floor; 13.0 flips/yr vs 12) and
 ## No v3 by iteration
 
 Shifting bands, retuning the dwell, re-ordering the dd/THRUST precedence, or adding sub-filters to chase the failing labels is IS-fitting to anchors now seen — forbidden, permanently. A legitimate v3 is a **new pre-registration from scratch**: a structurally new axis (e.g. cross-sectional dispersion/correlation, sector-participation, vol term-structure), parameters derived by a rule fixed before any coverage is computed, validated against **uncontaminated ground truth** (held-out spans or an externally-defined series — the 19 anchor spans are burned as a primary gate), under the same unrelaxed acceptance protocol.
+
+## Amendment 2026-06-14 — the "cross-sectional dispersion" example is superseded for NARROW
+
+The v2 decision above is unchanged. This clarifies one illustrative item in *"No v3 by iteration"*: the example list of structurally-new axes names *"cross-sectional dispersion/correlation"*. A `/grill-with-docs` session with three independent quant reads (issue #168) found **cross-sectional return dispersion is the wrong axis for NARROW** and should not be read as a sanctioned v3 path:
+
+- Top−bottom (and full-universe) cross-sectional **dispersion is cap-blind** — a small-cap surge and a mega-cap surge produce identical dispersion but opposite regimes; cap-identity *is* the NARROW signal. It is also ~1.60σ-collinear with the full-universe stdev that CONTEXT.md ("Market regimes") already **ruled out** (2026-06-03), and was already shown *fail-blind* on our own data (v1's dispersion guard fired symmetrically in crashes and recoveries — demoted to the advisory thin-N flag).
+- The genuine missing channel is **multi-week trend-efficiency** (Choppiness Index / Kaufman ER on SPY, frozen window) for **GRIND-vs-CHOP**; **NARROW** requires a **cap-weighted** concentration construct over a point-in-time **top-N-by-cap** universe (the count-equal STOCK universe is structurally blind to mega-cap concentration), which needs a new market-cap primitive (issues #173 / #174).
+
+So the v3 NARROW axis is **cap-weighted return-concentration**, not cross-sectional dispersion. *"Correlation"* (cross-name co-movement) and *"sector-participation"* remain legitimate illustrative examples; bare *"dispersion"* does not. Everything else in this ADR — v2 frozen, no-v3-by-iteration, the from-scratch + uncontaminated-ground-truth protocol — stands.

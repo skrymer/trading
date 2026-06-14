@@ -38,6 +38,19 @@ Headline numbers: 20 confirmed claims · 5 adversarially refuted · 20 sources (
 <a name="synthesis"></a>
 ## Synthesis: pre-registrable five-state regime classification (GRIND/NARROW/CHOP is the binding problem) `^[inferred]`
 
+> ⚠ **CORRECTION 2026-06-14 (post-grill, 3 quant reads) — Design 1's "Axis A" is overturned.** The
+> recommendation below to resolve **NARROW** with a cross-sectional **dispersion** axis (top−bottom-half
+> return) does **not** survive review and must not be built. It is cap-blind (a small-cap surge and a
+> mega-cap surge give identical dispersion but opposite regimes — cap-identity *is* the NARROW signal),
+> ~1.60σ-collinear with the full-universe stdev CONTEXT.md ruled out 2026-06-03 (a finding this report
+> never engaged), and already shown *fail-blind* on our own data. The synthesis's other half — the
+> **multi-week trend-efficiency axis** (Choppiness/Kaufman ER) for **GRIND-vs-CHOP** — stands and is the
+> v3 core. **NARROW** instead needs a **cap-weighted top-N return-concentration** axis over a point-in-time
+> **top-N-by-cap** universe (the count-equal STOCK universe is structurally blind to mega-cap concentration);
+> it depends on a new market-cap primitive (issues #173 / #174). See the corrected design on issue #168 and
+> in [[regime-read-out]]. The appendix claims (cap-blindness aside) are unaffected — the error is in the
+> *inference* that dispersion isolates NARROW, not in the underlying source claims.
+
 The decisive finding across the evidence base: **CRISIS and THRUST are a solved problem** (return+vol
 separates them — MDPI JRFM 13/12/311, LSEG market-regime-detection), and **the entire research risk
 lives in the GRIND/NARROW/CHOP trichotomy**, which no single axis resolves. The trichotomy is not
