@@ -8,6 +8,7 @@ import com.skrymer.udgaard.data.model.OrderBlockSensitivity
 import com.skrymer.udgaard.data.model.OrderBlockType
 import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.OvtlyrSignalType
+import com.skrymer.udgaard.data.model.Split
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
@@ -15,6 +16,7 @@ import com.skrymer.udgaard.jooq.tables.pojos.Fundamentals
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
 import com.skrymer.udgaard.jooq.tables.pojos.OvtlyrSignals
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
+import com.skrymer.udgaard.jooq.tables.pojos.StockSplits
 import com.skrymer.udgaard.jooq.tables.pojos.Stocks
 import org.springframework.stereotype.Component
 
@@ -34,6 +36,7 @@ class StockMapper {
     earnings: List<Earnings>,
     fundamentals: List<Fundamentals> = emptyList(),
     ovtlyrSignals: List<OvtlyrSignals> = emptyList(),
+    splits: List<StockSplits> = emptyList(),
   ): Stock =
     Stock(
       symbol = stock.symbol,
@@ -42,6 +45,7 @@ class StockMapper {
       orderBlocks = orderBlocks.map { toDomain(it) },
       earnings = earnings.map { toDomain(it) },
       fundamentals = fundamentals.map { toDomain(it) },
+      splits = splits.map { toDomain(it) },
       ovtlyrSignals = ovtlyrSignals.map { toDomain(it) },
       listingDate = stock.listingDate,
       delistingDate = stock.delistingDate,
@@ -56,6 +60,8 @@ class StockMapper {
       symbol = quote.stockSymbol,
       date = quote.quoteDate,
       closePrice = quote.closePrice?.toDouble() ?: 0.0,
+      // Null-preserving: a bar with no raw close (pre-re-store) has no point-in-time cap, never a 0.0 one.
+      rawClose = quote.rawClose?.toDouble(),
       openPrice = quote.openPrice?.toDouble() ?: 0.0,
       high = quote.highPrice?.toDouble() ?: 0.0,
       low = quote.lowPrice?.toDouble() ?: 0.0,
@@ -139,6 +145,17 @@ class StockMapper {
       totalStockholderEquity = fundamental.totalStockholderEquity?.toDouble(),
       totalCurrentAssets = fundamental.totalCurrentAssets?.toDouble(),
       totalCurrentLiabilities = fundamental.totalCurrentLiabilities?.toDouble(),
+      sharesOutstanding = fundamental.sharesOutstanding,
+    )
+
+  /**
+   * Convert Split jOOQ POJO to domain model
+   */
+  fun toDomain(split: StockSplits): Split =
+    Split(
+      symbol = split.stockSymbol,
+      exDate = split.exDate,
+      ratio = split.ratio,
     )
 
   /**
@@ -170,6 +187,7 @@ class StockMapper {
       quoteDate = quote.date,
       openPrice = quote.openPrice.toBigDecimal(),
       closePrice = quote.closePrice.toBigDecimal(),
+      rawClose = quote.rawClose?.toBigDecimal(),
       highPrice = quote.high.toBigDecimal(),
       lowPrice = quote.low.toBigDecimal(),
       volume = quote.volume,
@@ -264,6 +282,7 @@ class StockMapper {
       totalStockholderEquity = fundamental.totalStockholderEquity?.toBigDecimal(),
       totalCurrentAssets = fundamental.totalCurrentAssets?.toBigDecimal(),
       totalCurrentLiabilities = fundamental.totalCurrentLiabilities?.toBigDecimal(),
+      sharesOutstanding = fundamental.sharesOutstanding,
     )
 
   /**

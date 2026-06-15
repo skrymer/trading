@@ -25,6 +25,10 @@ data class Fundamental(
   val totalStockholderEquity: Double? = null,
   val totalCurrentAssets: Double? = null,
   val totalCurrentLiabilities: Double? = null,
+  // Split-adjusted (current-basis) common shares outstanding, the share leg of the point-in-time market
+  // cap (ADR 0027). EODHD reports this back-adjusted through every split, so it must be paired with a
+  // split-only-adjusted close (raw close / k(t)), never the raw close directly. Null when not reported.
+  val sharesOutstanding: Long? = null,
 ) {
   /**
    * Whether this record is public knowledge on [date] — true only once its [filingDate] is set and on

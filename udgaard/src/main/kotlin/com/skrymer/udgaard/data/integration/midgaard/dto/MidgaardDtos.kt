@@ -4,6 +4,7 @@ import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OvtlyrSignal
 import com.skrymer.udgaard.data.model.OvtlyrSignalType
+import com.skrymer.udgaard.data.model.Split
 import com.skrymer.udgaard.data.model.StockQuote
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -15,6 +16,7 @@ data class MidgaardQuoteDto(
   val high: BigDecimal,
   val low: BigDecimal,
   val close: BigDecimal,
+  val rawClose: BigDecimal? = null,
   val volume: Long,
   val atr: BigDecimal?,
   val adx: BigDecimal?,
@@ -37,6 +39,8 @@ data class MidgaardQuoteDto(
     symbol = symbol,
     date = date,
     closePrice = close.toDouble(),
+    // Null-preserving: a bar with no raw close has no point-in-time market cap (ADR 0027), never a 0.0 one.
+    rawClose = rawClose?.toDouble(),
     openPrice = open.toDouble(),
     high = high.toDouble(),
     low = low.toDouble(),
@@ -129,6 +133,7 @@ data class MidgaardFundamentalDto(
   val totalStockholderEquity: Double? = null,
   val totalCurrentAssets: Double? = null,
   val totalCurrentLiabilities: Double? = null,
+  val sharesOutstanding: Long? = null,
 ) {
   fun toFundamental(): Fundamental =
     Fundamental(
@@ -144,7 +149,17 @@ data class MidgaardFundamentalDto(
       totalStockholderEquity = totalStockholderEquity,
       totalCurrentAssets = totalCurrentAssets,
       totalCurrentLiabilities = totalCurrentLiabilities,
+      sharesOutstanding = sharesOutstanding,
     )
+}
+
+/** One split served by Midgaard — new-shares-per-old [ratio], the leg of the cumulative split factor k(t) (ADR 0027). */
+data class MidgaardSplitDto(
+  val symbol: String,
+  val exDate: LocalDate,
+  val ratio: Double,
+) {
+  fun toSplit(): Split = Split(symbol = symbol, exDate = exDate, ratio = ratio)
 }
 
 data class MidgaardOvtlyrSignalDto(

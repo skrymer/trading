@@ -30,6 +30,7 @@ class FundamentalsRepository(
                     totalStockholderEquity = record.totalStockholderEquity,
                     totalCurrentAssets = record.totalCurrentAssets,
                     totalCurrentLiabilities = record.totalCurrentLiabilities,
+                    sharesOutstanding = record.sharesOutstanding,
                 )
             }
 
@@ -54,6 +55,7 @@ class FundamentalsRepository(
                     .set(FUNDAMENTALS.TOTAL_STOCKHOLDER_EQUITY, f.totalStockholderEquity)
                     .set(FUNDAMENTALS.TOTAL_CURRENT_ASSETS, f.totalCurrentAssets)
                     .set(FUNDAMENTALS.TOTAL_CURRENT_LIABILITIES, f.totalCurrentLiabilities)
+                    .set(FUNDAMENTALS.SHARES_OUTSTANDING, f.sharesOutstanding)
                     .onConflict(FUNDAMENTALS.SYMBOL, FUNDAMENTALS.FISCAL_DATE_ENDING)
                     .doUpdate()
                     .set(FUNDAMENTALS.FILING_DATE, f.filingDate)
@@ -66,6 +68,7 @@ class FundamentalsRepository(
                     .set(FUNDAMENTALS.TOTAL_STOCKHOLDER_EQUITY, f.totalStockholderEquity)
                     .set(FUNDAMENTALS.TOTAL_CURRENT_ASSETS, f.totalCurrentAssets)
                     .set(FUNDAMENTALS.TOTAL_CURRENT_LIABILITIES, f.totalCurrentLiabilities)
+                    .set(FUNDAMENTALS.SHARES_OUTSTANDING, f.sharesOutstanding)
                     .execute()
             }
         }

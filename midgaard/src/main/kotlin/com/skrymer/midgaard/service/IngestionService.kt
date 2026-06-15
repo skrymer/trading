@@ -5,6 +5,7 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integration.SplitsProvider
 import com.skrymer.midgaard.integrity.DataIntegrityService
 import com.skrymer.midgaard.model.IndicatorSource
 import com.skrymer.midgaard.model.IngestionResult
@@ -17,6 +18,7 @@ import com.skrymer.midgaard.repository.FundamentalsRepository
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import com.skrymer.midgaard.repository.MarketHolidayRepository
 import com.skrymer.midgaard.repository.QuoteRepository
+import com.skrymer.midgaard.repository.SplitRepository
 import com.skrymer.midgaard.repository.SymbolRepository
 import com.skrymer.midgaard.service.IndicatorCalculator.Companion.toBigDecimal4
 import com.skrymer.midgaard.service.sector.SectorNormalizer
@@ -56,10 +58,12 @@ class IngestionService(
     @param:Qualifier("earnings") private val earnings: EarningsProvider,
     @param:Qualifier("companyInfo") private val companyInfo: CompanyInfoProvider,
     @param:Qualifier("fundamentals") private val fundamentals: FundamentalsProvider,
+    @param:Qualifier("splits") private val splits: SplitsProvider,
     private val indicatorCalculator: IndicatorCalculator,
     private val quoteRepository: QuoteRepository,
     private val earningsRepository: EarningsRepository,
     private val fundamentalsRepository: FundamentalsRepository,
+    private val splitRepository: SplitRepository,
     private val symbolRepository: SymbolRepository,
     private val ingestionStatusRepository: IngestionStatusRepository,
     private val marketHolidayRepository: MarketHolidayRepository,
@@ -312,6 +316,14 @@ class IngestionService(
             fundamentalsRepository.upsert(fundamentalsList)
             logger.info("Saved ${fundamentalsList.size} fundamentals for $symbol")
         }
+        // Split history feeds the cumulative split factor k(t) of the point-in-time market cap (ADR 0027).
+        // A null fetch (provider failure) is left alone; a non-null result — including an empty list for a
+        // never-split name — replaces wholesale so a re-ingest reflects the provider's current set.
+        val splitsList = splits.getSplits(symbol)
+        if (splitsList != null) {
+            splitRepository.replaceForSymbol(symbol, splitsList)
+            if (splitsList.isNotEmpty()) logger.info("Saved ${splitsList.size} splits for $symbol")
+        }
         val info = companyInfo.getCompanyInfo(symbol)
         val existing = symbolRepository.findBySymbol(symbol) ?: return
 
@@ -413,6 +425,7 @@ class IngestionService(
             high = bar.high.toBigDecimal4(),
             low = bar.low.toBigDecimal4(),
             close = bar.close.toBigDecimal4(),
+            rawClose = bar.rawClose.toBigDecimal4(),
             volume = bar.volume,
             atr = atr?.toBigDecimal4(),
             adx = adx?.toBigDecimal4(),
@@ -461,7 +474,19 @@ class IngestionService(
             200 to (ema200?.toDouble() ?: 0.0),
         )
 
-    private fun Quote.toRawBar(): RawBar = RawBar(symbol, date, open.toDouble(), high.toDouble(), low.toDouble(), close.toDouble(), volume)
+    private fun Quote.toRawBar(): RawBar =
+        RawBar(
+            symbol = symbol,
+            date = date,
+            open = open.toDouble(),
+            high = high.toDouble(),
+            low = low.toDouble(),
+            close = close.toDouble(),
+            // Seed bars feed only the stateless EMA/ATR/Donchian extend (which read OHLC, not rawClose),
+            // so fall back to the adjusted close when an older seed bar predates the raw-close re-store.
+            rawClose = (rawClose ?: close).toDouble(),
+            volume = volume,
+        )
 
     private fun updateStatus(
         symbol: String,

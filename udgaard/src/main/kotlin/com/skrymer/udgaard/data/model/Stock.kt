@@ -19,6 +19,7 @@ data class Stock(
   val orderBlocks: List<OrderBlock> = emptyList(),
   val earnings: List<Earning> = emptyList(),
   val fundamentals: List<Fundamental> = emptyList(),
+  val splits: List<Split> = emptyList(),
   val ovtlyrSignals: List<OvtlyrSignal> = emptyList(),
   val listingDate: LocalDate? = null,
   val delistingDate: LocalDate? = null,
@@ -303,6 +304,40 @@ data class Stock(
       sum += selector(this[i]) ?: return null
     }
     return sum
+  }
+
+  /**
+   * Point-in-time market cap as of [date] = `(rawClose(date) / k(date)) × sharesOutstanding`, where the
+   * raw close is the most recent un-adjusted close on or before [date], `k(date)` the cumulative split
+   * factor ([splitFactorAsOf]), and shares the split-adjusted count from the latest fundamental visible
+   * by `filingDate`. Dividing the raw close by `k` puts it on the same split-adjusted basis as the share
+   * count, so the product is split-invariant and free of the dividend bias the stored close carries
+   * (ADR 0027). Null — the name is simply absent from any top-N — when no raw close exists on or before
+   * [date], or no visible fundamental reports shares.
+   */
+  fun marketCapAsOf(date: LocalDate): Double? {
+    val rawClose = rawCloseAsOf(date) ?: return null
+    val shares = latestFundamentalAsOf(date)?.sharesOutstanding ?: return null
+    return (rawClose / splitFactorAsOf(date)) * shares.toDouble()
+  }
+
+  /**
+   * The cumulative split factor `k(date)` — the product of split ratios over every split whose `exDate`
+   * is strictly after [date]. 1.0 when no such split exists. A split on [date] itself is excluded: the
+   * raw close already trades on the post-split basis that day (ADR 0027).
+   */
+  fun splitFactorAsOf(date: LocalDate): Double =
+    splits
+      .filter { it.exDate.isAfter(date) }
+      .fold(1.0) { acc, split -> acc * split.ratio }
+
+  /**
+   * The most recent raw (un-adjusted) close on or before [date], or null when no bar on or before [date]
+   * carries one (a name with no raw close has no point-in-time cap).
+   */
+  private fun rawCloseAsOf(date: LocalDate): Double? {
+    val idx = indexAfter(date) - 1
+    return if (idx >= 0) quotes[idx].rawClose else null
   }
 
   /**

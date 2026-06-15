@@ -259,6 +259,7 @@ class QuoteRepository(
                 highPrice = quote.high
                 lowPrice = quote.low
                 closePrice = quote.close
+                rawClose = quote.rawClose
                 volume = quote.volume
                 atr = quote.atr
                 adx = quote.adx
@@ -295,6 +296,7 @@ class QuoteRepository(
             high = highPrice,
             low = lowPrice,
             close = closePrice,
+            rawClose = rawClose,
             volume = volume ?: 0L,
             atr = atr,
             adx = adx,

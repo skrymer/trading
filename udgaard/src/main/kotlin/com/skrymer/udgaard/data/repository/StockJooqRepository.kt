@@ -6,12 +6,14 @@ import com.skrymer.udgaard.data.mapper.StockMapper
 import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Fundamental
+import com.skrymer.udgaard.data.model.Split
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.jooq.tables.pojos.Earnings
 import com.skrymer.udgaard.jooq.tables.pojos.Fundamentals
 import com.skrymer.udgaard.jooq.tables.pojos.OrderBlocks
 import com.skrymer.udgaard.jooq.tables.pojos.OvtlyrSignals
 import com.skrymer.udgaard.jooq.tables.pojos.StockQuotes
+import com.skrymer.udgaard.jooq.tables.pojos.StockSplits
 import com.skrymer.udgaard.jooq.tables.pojos.Stocks
 import com.skrymer.udgaard.jooq.tables.references.EARNINGS
 import com.skrymer.udgaard.jooq.tables.references.FUNDAMENTALS
@@ -19,6 +21,7 @@ import com.skrymer.udgaard.jooq.tables.references.ORDER_BLOCKS
 import com.skrymer.udgaard.jooq.tables.references.OVTLYR_SIGNALS
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
+import com.skrymer.udgaard.jooq.tables.references.STOCK_SPLITS
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
@@ -101,8 +104,29 @@ class StockJooqRepository(
         .orderBy(OVTLYR_SIGNALS.SIGNAL_DATE.asc())
         .fetchInto(OvtlyrSignals::class.java)
 
-    return mapper.toDomain(stock, quotes, orderBlocks, earnings, fundamentals, ovtlyrSignals)
+    // Load splits (the cumulative split factor k(t) of the point-in-time market cap, ADR 0027)
+    val splits =
+      dsl
+        .selectFrom(STOCK_SPLITS)
+        .where(STOCK_SPLITS.STOCK_SYMBOL.eq(symbol))
+        .orderBy(STOCK_SPLITS.EX_DATE.asc())
+        .fetchInto(StockSplits::class.java)
+
+    return mapper.toDomain(stock, quotes, orderBlocks, earnings, fundamentals, ovtlyrSignals, splits)
   }
+
+  /**
+   * Load splits for a single symbol, ordered by ex-date ascending. Like [findFundamentals], used by the
+   * ingestion service to recover prior splits when a fresh Midgaard fetch fails — an empty result is
+   * legitimate "never split", which the caller distinguishes from "fetch failed upstream" (null).
+   */
+  fun findSplits(symbol: String): List<Split> =
+    dsl
+      .selectFrom(STOCK_SPLITS)
+      .where(STOCK_SPLITS.STOCK_SYMBOL.eq(symbol))
+      .orderBy(STOCK_SPLITS.EX_DATE.asc())
+      .fetchInto(StockSplits::class.java)
+      .map { mapper.toDomain(it) }
 
   /**
    * Load earnings for a single symbol, ordered by fiscal date ascending.
@@ -293,6 +317,14 @@ class StockJooqRepository(
         .where(OVTLYR_SIGNALS.STOCK_SYMBOL.`in`(symbols))
         .orderBy(OVTLYR_SIGNALS.STOCK_SYMBOL, OVTLYR_SIGNALS.SIGNAL_DATE.asc())
         .fetchInto(OvtlyrSignals::class.java)
+
+    // Load all splits for these stocks (the point-in-time market-cap k(t), ADR 0027)
+    val splits =
+      dsl
+        .selectFrom(STOCK_SPLITS)
+        .where(STOCK_SPLITS.STOCK_SYMBOL.`in`(symbols))
+        .orderBy(STOCK_SPLITS.STOCK_SYMBOL, STOCK_SPLITS.EX_DATE.asc())
+        .fetchInto(StockSplits::class.java)
     logger.info(
       "Loaded ${stocks.size} stocks, ${orderBlocks.size} order blocks, " +
         "${earnings.size} earnings, ${fundamentals.size} fundamentals, " +
@@ -305,6 +337,7 @@ class StockJooqRepository(
     val earningsBySymbol = earnings.groupBy { it.stockSymbol }
     val fundamentalsBySymbol = fundamentals.groupBy { it.stockSymbol }
     val ovtlyrSignalsBySymbol = ovtlyrSignals.groupBy { it.stockSymbol }
+    val splitsBySymbol = splits.groupBy { it.stockSymbol }
 
     // Map to domain models
     return stocks.map { stock ->
@@ -315,6 +348,7 @@ class StockJooqRepository(
         earnings = earningsBySymbol[stock.symbol] ?: emptyList(),
         fundamentals = fundamentalsBySymbol[stock.symbol] ?: emptyList(),
         ovtlyrSignals = ovtlyrSignalsBySymbol[stock.symbol] ?: emptyList(),
+        splits = splitsBySymbol[stock.symbol] ?: emptyList(),
       )
     }
   }
@@ -366,6 +400,7 @@ class StockJooqRepository(
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(FUNDAMENTALS).where(FUNDAMENTALS.STOCK_SYMBOL.eq(stock.symbol)).execute()
       ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.eq(stock.symbol)).execute()
+      ctx.deleteFrom(STOCK_SPLITS).where(STOCK_SPLITS.STOCK_SYMBOL.eq(stock.symbol)).execute()
 
       // 3. Insert quotes
       if (stock.quotes.isNotEmpty()) {
@@ -445,12 +480,27 @@ class StockJooqRepository(
               .set(FUNDAMENTALS.TOTAL_STOCKHOLDER_EQUITY, pojo.totalStockholderEquity)
               .set(FUNDAMENTALS.TOTAL_CURRENT_ASSETS, pojo.totalCurrentAssets)
               .set(FUNDAMENTALS.TOTAL_CURRENT_LIABILITIES, pojo.totalCurrentLiabilities)
+              .set(FUNDAMENTALS.SHARES_OUTSTANDING, pojo.sharesOutstanding)
           },
         )
         fundamentalsBatch.execute()
       }
 
-      // 7. Insert Ovtlyr signals
+      // 7. Insert splits
+      if (stock.splits.isNotEmpty()) {
+        val splitsBatch = ctx.batch(
+          stock.splits.map { split ->
+            ctx
+              .insertInto(STOCK_SPLITS)
+              .set(STOCK_SPLITS.STOCK_SYMBOL, stock.symbol)
+              .set(STOCK_SPLITS.EX_DATE, split.exDate)
+              .set(STOCK_SPLITS.RATIO, split.ratio)
+          },
+        )
+        splitsBatch.execute()
+      }
+
+      // 8. Insert Ovtlyr signals
       if (stock.ovtlyrSignals.isNotEmpty()) {
         val ovtlyrSignalsBatch = ctx.batch(
           stock.ovtlyrSignals.map { ovtlyrSignal ->
@@ -591,6 +641,8 @@ class StockJooqRepository(
       ctx.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(ORDER_BLOCKS).where(ORDER_BLOCKS.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(EARNINGS).where(EARNINGS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(FUNDAMENTALS).where(FUNDAMENTALS.STOCK_SYMBOL.`in`(symbols)).execute()
+      ctx.deleteFrom(STOCK_SPLITS).where(STOCK_SPLITS.STOCK_SYMBOL.`in`(symbols)).execute()
       ctx.deleteFrom(OVTLYR_SIGNALS).where(OVTLYR_SIGNALS.STOCK_SYMBOL.`in`(symbols)).execute()
 
       // 3. Insert all child records
@@ -637,6 +689,8 @@ class StockJooqRepository(
     batchInsertQuotes(ctx, stocks)
     batchInsertOrderBlocks(ctx, stocks)
     batchInsertEarnings(ctx, stocks)
+    batchInsertFundamentals(ctx, stocks)
+    batchInsertSplits(ctx, stocks)
     batchInsertOvtlyrSignals(ctx, stocks)
   }
 
@@ -784,6 +838,91 @@ class StockJooqRepository(
         symbol,
         pojo.signalDate,
         pojo.signal,
+      )
+    }
+    batch.execute()
+  }
+
+  private fun batchInsertFundamentals(ctx: DSLContext, stocks: List<Stock>) {
+    val allFundamentals = stocks.flatMap { stock -> stock.fundamentals.map { stock.symbol to it } }
+    if (allFundamentals.isEmpty()) return
+
+    val batch = ctx.batch(
+      ctx
+        .insertInto(
+          FUNDAMENTALS,
+          FUNDAMENTALS.STOCK_SYMBOL,
+          FUNDAMENTALS.FISCAL_DATE_ENDING,
+          FUNDAMENTALS.FILING_DATE,
+          FUNDAMENTALS.GROSS_PROFIT,
+          FUNDAMENTALS.COST_OF_REVENUE,
+          FUNDAMENTALS.TOTAL_REVENUE,
+          FUNDAMENTALS.OPERATING_INCOME,
+          FUNDAMENTALS.NET_INCOME,
+          FUNDAMENTALS.TOTAL_ASSETS,
+          FUNDAMENTALS.TOTAL_STOCKHOLDER_EQUITY,
+          FUNDAMENTALS.TOTAL_CURRENT_ASSETS,
+          FUNDAMENTALS.TOTAL_CURRENT_LIABILITIES,
+          FUNDAMENTALS.SHARES_OUTSTANDING,
+        ).values(
+          null as String?,
+          null as LocalDate?,
+          null as LocalDate?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as java.math.BigDecimal?,
+          null as Long?,
+        ),
+    )
+    allFundamentals.forEach { (symbol, fundamental) ->
+      val pojo = mapper.toPojo(fundamental)
+      batch.bind(
+        symbol,
+        pojo.fiscalDateEnding,
+        pojo.filingDate,
+        pojo.grossProfit,
+        pojo.costOfRevenue,
+        pojo.totalRevenue,
+        pojo.operatingIncome,
+        pojo.netIncome,
+        pojo.totalAssets,
+        pojo.totalStockholderEquity,
+        pojo.totalCurrentAssets,
+        pojo.totalCurrentLiabilities,
+        pojo.sharesOutstanding,
+      )
+    }
+    batch.execute()
+  }
+
+  private fun batchInsertSplits(ctx: DSLContext, stocks: List<Stock>) {
+    val allSplits = stocks.flatMap { stock -> stock.splits.map { stock.symbol to it } }
+    if (allSplits.isEmpty()) return
+
+    val batch = ctx.batch(
+      ctx
+        .insertInto(
+          STOCK_SPLITS,
+          STOCK_SPLITS.STOCK_SYMBOL,
+          STOCK_SPLITS.EX_DATE,
+          STOCK_SPLITS.RATIO,
+        ).values(
+          null as String?,
+          null as LocalDate?,
+          null as Double?,
+        ),
+    )
+    allSplits.forEach { (symbol, split) ->
+      batch.bind(
+        symbol,
+        split.exDate,
+        split.ratio,
       )
     }
     batch.execute()

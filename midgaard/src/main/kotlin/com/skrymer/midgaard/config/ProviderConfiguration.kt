@@ -9,6 +9,7 @@ import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.OptionsProvider
 import com.skrymer.midgaard.integration.ProviderIds
 import com.skrymer.midgaard.integration.QuoteProvider
+import com.skrymer.midgaard.integration.SplitsProvider
 import com.skrymer.midgaard.integration.alphavantage.AlphaVantageProvider
 import com.skrymer.midgaard.integration.eodhd.EodhdProvider
 import com.skrymer.midgaard.integration.finnhub.FinnhubProvider
@@ -40,7 +41,7 @@ import org.springframework.context.annotation.Configuration
  * matching `@ConditionalOnProperty` blocks if/when those become toggleable.
  */
 @Configuration
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "TooManyFunctions")
 class ProviderConfiguration(
     private val alphaVantageProvider: AlphaVantageProvider,
     private val finnhubProvider: FinnhubProvider,
@@ -139,6 +140,11 @@ class ProviderConfiguration(
     fun fxFromAlphaVantage(): FxProvider = alphaVantageProvider
 
     // ── Non-toggleable: orthogonal concerns, kept under their own qualifiers.
+
+    // Splits come only from EODHD (the cap-primitive corporate-action source, ADR 0027); AlphaVantage
+    // has no split feed. Named "splits" to match the IngestionService constructor parameter.
+    @Bean("splits")
+    fun splitsFromEodhd(): SplitsProvider = eodhdProvider
 
     @Bean
     fun optionsProvider(): OptionsProvider = alphaVantageProvider

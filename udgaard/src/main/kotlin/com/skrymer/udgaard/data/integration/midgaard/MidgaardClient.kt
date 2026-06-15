@@ -8,11 +8,13 @@ import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardFundamentalDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardLatestQuoteDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardOvtlyrSignalDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardQuoteDto
+import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSplitDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardSymbolDto
 import com.skrymer.udgaard.data.integration.midgaard.dto.MidgaardTreasuryYieldDto
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OvtlyrSignal
+import com.skrymer.udgaard.data.model.Split
 import com.skrymer.udgaard.data.model.StockQuote
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -180,6 +182,25 @@ class MidgaardClient(
       return response?.map { it.toFundamental() } ?: emptyList()
     } catch (e: Exception) {
       logger.warn("Failed to fetch fundamentals from Midgaard for $symbol: ${e.message}")
+      return null
+    }
+  }
+
+  /**
+   * A symbol's split history — the corporate actions the point-in-time market cap's cumulative split
+   * factor k(t) is built from (ADR 0027). Returns null on failure so the ingestion service can fall back
+   * to the last-known stored splits rather than wiping them (the resolveFundamentals contract).
+   */
+  fun getSplits(symbol: String): List<Split>? {
+    try {
+      val response = restClient
+        .get()
+        .uri("/api/splits/{symbol}", symbol)
+        .retrieve()
+        .body(object : ParameterizedTypeReference<List<MidgaardSplitDto>>() {})
+      return response?.map { it.toSplit() }
+    } catch (e: Exception) {
+      logger.warn("Failed to fetch splits from Midgaard for $symbol: ${e.message}")
       return null
     }
   }

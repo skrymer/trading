@@ -10,6 +10,7 @@ import com.skrymer.udgaard.data.model.AssetType
 import com.skrymer.udgaard.data.model.Earning
 import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.OrderBlockSensitivity
+import com.skrymer.udgaard.data.model.Split
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
@@ -149,6 +150,7 @@ class StockIngestionService(
       val symbolInfo = midgaardClient.getSymbolInfo(symbol)
       val earnings = resolveEarnings(symbol)
       val fundamentals = resolveFundamentals(symbol)
+      val splits = resolveSplits(symbol)
       val ovtlyrSignals = midgaardClient.getOvtlyrSignals(symbol) ?: emptyList()
       Stock(
         symbol = symbol,
@@ -158,6 +160,7 @@ class StockIngestionService(
         orderBlocks = orderBlocks.toMutableList(),
         earnings = earnings,
         fundamentals = fundamentals,
+        splits = splits,
         ovtlyrSignals = ovtlyrSignals,
         listingDate = sortedQuotes.firstOrNull()?.date,
         delistingDate = resolveDelistingDate(symbolInfo?.delistedAt, sortedQuotes.lastOrNull()?.date),
@@ -185,6 +188,15 @@ class StockIngestionService(
       .onFailure { logger.warn("Fundamentals fetch failed for $symbol, keeping existing rows: ${it.message}") }
       .getOrNull()
       ?: stockRepository.findFundamentals(symbol)
+
+  // Same outage-resilience contract as resolveFundamentals: a failed splits fetch falls back to the
+  // last-known stored splits rather than wiping them, so the point-in-time market cap's split factor
+  // k(t) (ADR 0027) doesn't silently collapse to 1 (re-introducing the split error) across a blip.
+  private fun resolveSplits(symbol: String): List<Split> =
+    runCatching { midgaardClient.getSplits(symbol) }
+      .onFailure { logger.warn("Splits fetch failed for $symbol, keeping existing rows: ${it.message}") }
+      .getOrNull()
+      ?: stockRepository.findSplits(symbol)
 
   /**
    * Authoritative delisting date if the provider knows one (the symbol came in

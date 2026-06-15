@@ -6,6 +6,7 @@ import com.skrymer.midgaard.model.Fundamental
 import com.skrymer.midgaard.model.LatestQuote
 import com.skrymer.midgaard.model.OptionContractDto
 import com.skrymer.midgaard.model.RawBar
+import com.skrymer.midgaard.model.Split
 import java.time.LocalDate
 
 interface OhlcvProvider {
@@ -38,6 +39,10 @@ interface CompanyInfoProvider {
 
 interface FundamentalsProvider {
     suspend fun getFundamentals(symbol: String): List<Fundamental>?
+}
+
+interface SplitsProvider {
+    suspend fun getSplits(symbol: String): List<Split>?
 }
 
 interface QuoteProvider {

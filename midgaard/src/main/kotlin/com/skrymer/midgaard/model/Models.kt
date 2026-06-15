@@ -10,7 +10,11 @@ data class RawBar(
     val open: Double,
     val high: Double,
     val low: Double,
+    // The adjusted close (split AND dividend adjusted). OHLC are scaled to this basis.
     val close: Double,
+    // The un-adjusted provider close — the absolute price level the point-in-time market cap reads,
+    // since [close] carries the dividend adjustment that would bias an absolute-level product (ADR 0027).
+    val rawClose: Double,
     val volume: Long,
 )
 
@@ -21,6 +25,9 @@ data class Quote(
     val high: BigDecimal,
     val low: BigDecimal,
     val close: BigDecimal,
+    // Un-adjusted provider close (ADR 0027). [close] is the split+dividend adjusted price; absolute-level
+    // consumers (point-in-time market cap) read this. Null on bars stored before the raw-close re-store.
+    val rawClose: BigDecimal? = null,
     val volume: Long,
     val atr: BigDecimal? = null,
     val adx: BigDecimal? = null,
@@ -78,6 +85,21 @@ data class Fundamental(
     val totalStockholderEquity: BigDecimal? = null,
     val totalCurrentAssets: BigDecimal? = null,
     val totalCurrentLiabilities: BigDecimal? = null,
+    // Split-adjusted (current-basis) common shares outstanding — the share leg of the point-in-time
+    // market cap (ADR 0027). EODHD reports this back-adjusted through every split. Null when not reported.
+    val sharesOutstanding: Long? = null,
+)
+
+/**
+ * One stock split for a symbol. [ratio] is new-shares-per-old (numerator / denominator of EODHD's
+ * `"4.000000/1.000000"`): 4.0 for a 4:1 forward split, 0.125 for a 1:8 reverse. [exDate] is the first
+ * session the price trades on the post-split basis. Feeds the cumulative split factor k(t) the
+ * point-in-time market cap divides the raw close by (ADR 0027).
+ */
+data class Split(
+    val symbol: String,
+    val exDate: LocalDate,
+    val ratio: Double,
 )
 
 data class Symbol(

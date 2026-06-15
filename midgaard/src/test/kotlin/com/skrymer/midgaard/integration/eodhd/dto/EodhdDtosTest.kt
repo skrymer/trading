@@ -65,6 +65,23 @@ class EodhdDtosTest {
     }
 
     @Test
+    fun `toRawBars carries the un-adjusted close in rawClose alongside the adjusted close`() {
+        // Given: a bar whose adjusted_close (100) differs from the raw close (200)
+        val response =
+            EodhdEodResponse(
+                bars = listOf(bar(date = "2025-01-02", close = 200.0, adjustedClose = 100.0)),
+            )
+
+        // When
+        val bars = response.toRawBars("TEST", LocalDate.of(2025, 1, 1))
+
+        // Then: close is the split+dividend adjusted value, rawClose the un-adjusted provider close —
+        // the absolute-level price the point-in-time market cap reads (ADR 0027)
+        assertEquals(100.0, bars[0].close)
+        assertEquals(200.0, bars[0].rawClose)
+    }
+
+    @Test
     fun `toRawBars skips bars with missing or non-positive close fields`() {
         // Given: a mix of malformed bars and one well-formed bar
         val response =
