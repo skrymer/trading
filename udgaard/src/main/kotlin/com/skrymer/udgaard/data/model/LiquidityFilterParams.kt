@@ -11,12 +11,17 @@ package com.skrymer.udgaard.data.model
  *   above which the liquidity floor passes — the retail-book fill scale.
  * @param lookbackBars trailing bars over which the median dollar-volume is taken.
  * @param minBars bars of history a name must have as of the decision bar before it is tradable.
+ * @param minMarketCap point-in-time market cap at or above which the cap floor passes — the micro/small
+ *   boundary. Fail-open: a name whose cap is unmeasurable (`marketCapAsOf` null — no raw close on/before
+ *   the bar, or no visible shares fundamental) is NOT excluded by this floor, only one whose cap is
+ *   positively below it (ADR 0026 Phase 2).
  */
 data class LiquidityFilterParams(
   val minClose: Double = 5.0,
   val minMedianDollarVolume: Double = 1_000_000.0,
   val lookbackBars: Int = 20,
   val minBars: Int = 252,
+  val minMarketCap: Double = 300_000_000.0,
 ) {
   companion object {
     /** The canonical frozen parameterisation (ADR 0026). */

@@ -132,7 +132,7 @@ udgaard/
 │   │   │   ├── MarketBreadthDaily.kt
 │   │   │   ├── SectorBreadthDaily.kt
 │   │   │   ├── EwReturnDaily.kt       # One day's equal-weight cross-section of trailing 20-bar returns (mean/stdev/contributingN) — the equal-weight leg of the leadership gap (issue #83)
-│   │   │   └── LiquidityFilterParams.kt  # Frozen pre-registered tradable-universe thresholds (FROZEN: close>=$5, 20d-median dollar-vol>=$1M, 252-bar min; STRESS_5M = $5M A/B sensitivity variant) — ADR 0026; wired into the engine (default-on applyLiquidityFilter) + scanner (always-on), #173
+│   │   │   └── LiquidityFilterParams.kt  # Frozen pre-registered tradable-universe thresholds (FROZEN: close>=$5, 20d-median dollar-vol>=$1M, 252-bar min, $300M point-in-time market-cap floor (Phase 2, fail-open on a null cap — ADR 0027); STRESS_5M = $5M A/B sensitivity variant) — ADR 0026; wired into the engine (default-on applyLiquidityFilter) + scanner (always-on), #173
 │   │   ├── repository/               # jOOQ repositories
 │   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) + findFundamentals(symbol) + findSplits(symbol) used by ingestion fallback (+ batchInsertFundamentals/batchInsertSplits on the bulk path, raw_close + shares_outstanding persisted) + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
 │   │   │   ├── LeadershipGapRepository.kt  # ewReturnByDate(): full-universe equal-weight 20-bar-return aggregate (mean/stdev/contributingN) over the point-in-time STOCK-or-null universe (same population as breadth, ADR 0011); feeds the leadership-gap regime (issue #83)
@@ -148,7 +148,7 @@ udgaard/
 │   │       ├── SymbolService.kt
 │   │       ├── DataStatsService.kt
 │   │       ├── ScheduledRefreshService.kt  # Scheduled automatic data refresh
-│   │       └── TradableUniverseFilter.kt  # Point-in-time isEligible(stock, asOf) tradable-universe gate (price/liquidity/age) over FROZEN LiquidityFilterParams; asset-type/ETF opt-in stays with the caller's assetTypes — ADR 0026; wired into BacktestService (3 co-resident entry sites) + WalkForwardService + ScannerService (live, always-on) via the default-on applyLiquidityFilter flag, #173
+│   │       └── TradableUniverseFilter.kt  # Point-in-time isEligible(stock, asOf) tradable-universe gate (price/liquidity/age/cap, cap leg fail-open on a null marketCapAsOf per ADR 0027) over FROZEN LiquidityFilterParams; asset-type/ETF opt-in stays with the caller's assetTypes — ADR 0026; wired into BacktestService (3 co-resident entry sites) + WalkForwardService + ScannerService (live, always-on) via the default-on applyLiquidityFilter flag, #173
 │   ├── portfolio/                    # Portfolio domain
 │   │   ├── controller/
 │   │   │   ├── PortfolioController.kt
