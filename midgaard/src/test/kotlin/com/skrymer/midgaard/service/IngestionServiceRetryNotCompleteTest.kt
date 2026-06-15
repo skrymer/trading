@@ -5,6 +5,7 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integration.SplitsProvider
 import com.skrymer.midgaard.repository.IngestionStatusRepository
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -61,6 +62,7 @@ class IngestionServiceRetryNotCompleteTest {
             earnings = mock<EarningsProvider>(),
             companyInfo = mock<CompanyInfoProvider>(),
             fundamentals = mock<FundamentalsProvider>(),
+            splits = mock<SplitsProvider>(),
             indicatorCalculator =
                 mock<IndicatorCalculator> {
                     on { calculateAllEMAs(any()) } doReturn emptyMap()
@@ -71,6 +73,7 @@ class IngestionServiceRetryNotCompleteTest {
             quoteRepository = mock(),
             earningsRepository = mock(),
             fundamentalsRepository = mock(),
+            splitRepository = mock(),
             symbolRepository = mock(),
             ingestionStatusRepository = ingestionStatusRepository,
             marketHolidayRepository = mock(),

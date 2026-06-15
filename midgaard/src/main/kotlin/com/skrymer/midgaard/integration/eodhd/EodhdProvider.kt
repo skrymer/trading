@@ -8,6 +8,7 @@ import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
 import com.skrymer.midgaard.integration.ProviderIds
 import com.skrymer.midgaard.integration.SafeLogging
+import com.skrymer.midgaard.integration.SplitsProvider
 import com.skrymer.midgaard.integration.closestRateAtOrBefore
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAdxResponse
 import com.skrymer.midgaard.integration.eodhd.dto.EodhdAdxRowDto
@@ -20,6 +21,7 @@ import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.Fundamental
 import com.skrymer.midgaard.model.RawBar
+import com.skrymer.midgaard.model.Split
 import com.skrymer.midgaard.service.ApiKeyService
 import com.skrymer.midgaard.service.RateLimiterService
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,7 @@ class EodhdProvider(
     private val apiKeyService: ApiKeyService,
     private val rateLimiterService: RateLimiterService,
     private val fundamentalsClient: EodhdFundamentalsClient,
+    private val splitsClient: EodhdSplitsClient,
     private val fxClient: EodhdFxClient,
     @param:Value("\${eodhd.api.baseUrl}") private val baseUrl: String,
 ) : OhlcvProvider,
@@ -45,6 +48,7 @@ class EodhdProvider(
     EarningsProvider,
     CompanyInfoProvider,
     FundamentalsProvider,
+    SplitsProvider,
     FxProvider {
     private val apiKey: String get() = apiKeyService.getEodhdApiKey()
 
@@ -141,6 +145,8 @@ class EodhdProvider(
 
     override suspend fun getFundamentals(symbol: String): List<Fundamental>? =
         fundamentalsClient.fetch(symbol, symbol.toEodhdSymbol())?.toFundamentals(symbol)
+
+    override suspend fun getSplits(symbol: String): List<Split>? = splitsClient.fetch(symbol, symbol.toEodhdSymbol())
 
     override suspend fun getExchangeRate(
         from: String,

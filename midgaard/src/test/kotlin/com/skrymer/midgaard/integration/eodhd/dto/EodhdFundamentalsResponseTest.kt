@@ -83,6 +83,68 @@ class EodhdFundamentalsResponseTest {
     }
 
     @Test
+    fun `toFundamentals reads split-adjusted shares outstanding from the balance sheet`() {
+        // Given a balance-sheet quarter carrying commonStockSharesOutstanding (16B, current/split-adjusted basis)
+        val response =
+            EodhdFundamentalsResponse(
+                balanceSheetQuarterly =
+                    mapOf(
+                        "2024-03-31" to
+                            balanceEntry(
+                                "2024-03-31",
+                                "2024-05-02",
+                                commonStockSharesOutstanding = "16000000000",
+                            ),
+                    ),
+            )
+
+        // When mapped
+        val f = response.toFundamentals("AAPL").single()
+
+        // Then the share count is carried onto the fundamental, the share leg of the point-in-time cap (ADR 0027)
+        assertEquals(16_000_000_000L, f.sharesOutstanding)
+    }
+
+    @Test
+    fun `toFundamentals leaves shares outstanding null when the balance sheet omits it`() {
+        // Given a balance-sheet quarter with no commonStockSharesOutstanding field
+        val response =
+            EodhdFundamentalsResponse(
+                balanceSheetQuarterly =
+                    mapOf("2024-03-31" to balanceEntry("2024-03-31", "2024-05-02", totalAssets = "350000")),
+            )
+
+        // When mapped
+        val f = response.toFundamentals("AAPL").single()
+
+        // Then shares outstanding is null — the name simply has no cap reading
+        assertNull(f.sharesOutstanding)
+    }
+
+    @Test
+    fun `toFundamentals rounds the EODHD share-count float artifact to a whole share`() {
+        // Given EODHD's float-precision artifact for ~17.11B shares (note the trailing ...999998)
+        val response =
+            EodhdFundamentalsResponse(
+                balanceSheetQuarterly =
+                    mapOf(
+                        "2024-03-31" to
+                            balanceEntry(
+                                "2024-03-31",
+                                "2024-05-02",
+                                commonStockSharesOutstanding = "17113687999.999998",
+                            ),
+                    ),
+            )
+
+        // When mapped
+        val f = response.toFundamentals("AAPL").single()
+
+        // Then it is rounded to the nearest whole share, not truncated or stored fractionally
+        assertEquals(17_113_688_000L, f.sharesOutstanding)
+    }
+
+    @Test
     fun `toFundamentals returns empty when the Financials keys are absent`() {
         // Given a fundamentals response with no Financials keys (e.g. an ETF, or a non-financials fetch)
         val response = EodhdFundamentalsResponse()
@@ -229,6 +291,7 @@ class EodhdFundamentalsResponseTest {
         totalStockholderEquity: String? = null,
         totalCurrentAssets: String? = null,
         totalCurrentLiabilities: String? = null,
+        commonStockSharesOutstanding: String? = null,
     ): EodhdBalanceSheetEntry =
         EodhdBalanceSheetEntry(
             date = date,
@@ -237,5 +300,6 @@ class EodhdFundamentalsResponseTest {
             totalStockholderEquity = totalStockholderEquity?.let { BigDecimal(it) },
             totalCurrentAssets = totalCurrentAssets?.let { BigDecimal(it) },
             totalCurrentLiabilities = totalCurrentLiabilities?.let { BigDecimal(it) },
+            commonStockSharesOutstanding = commonStockSharesOutstanding?.let { BigDecimal(it) },
         )
 }

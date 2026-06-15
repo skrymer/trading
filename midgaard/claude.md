@@ -46,10 +46,11 @@ midgaard/
 │   │   ├── StatusController.kt            # GET /api/status
 │   │   ├── IngestionController.kt         # POST /api/ingestion/initial|update/{symbol|all}, /api/ingestion/recompute-relative-strength (async), /api/ingestion/recompute-quality-percentile (async, ADR 0019)
 │   │   ├── FundamentalsController.kt      # GET /api/fundamentals/{symbol} — point-in-time quarterly fundamentals served to Udgaard (ADR 0019)
+│   │   ├── SplitsController.kt            # GET /api/splits/{symbol} — split history served to Udgaard for the point-in-time market-cap k(t) (ADR 0027)
 │   │   ├── IntegrityController.kt         # POST /api/integrity/validate, GET /api/integrity/violations
 │   │   └── UiController.kt               # Thymeleaf admin UI (@ConditionalOnProperty app.ui.enabled) — adds /integrity page + violation badge on /ingestion; POST /providers/ovtlyr (save cookie creds) + POST /ingestion/ovtlyr/backfill (trigger async backfill) + POST /ingestion/recompute-relative-strength (trigger async relative-strength recompute) + POST /ingestion/recompute-quality-percentile (trigger async quality-percentile recompute, ADR 0019) + POST /ingestion/treasury-yields (trigger treasury-yield ingest, ADR 0016)
 │   ├── integration/
-│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider, FxProvider, QuoteProvider, OptionsProvider)
+│   │   ├── Providers.kt                   # Provider interfaces (OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider, SplitsProvider (ADR 0027), FxProvider, QuoteProvider, OptionsProvider)
 │   │   ├── ProviderIds.kt                 # Shared provider ID constants ("alphavantage", "eodhd", "massive", "finnhub")
 │   │   ├── FxCacheNames.kt                # Shared cache-name constants (`fxCurrent`, `fxHistoricalSeries`) + `closestRateAtOrBefore` walk-back-5-days helper used by both FX providers
 │   │   ├── alphavantage/
@@ -63,8 +64,9 @@ midgaard/
 │   │   │   ├── MassiveProvider.kt         # Polygon API - OhlcvProvider impl; @Component registers with rate limiter but currently NOT wired into any @Bean (kept for future re-enable)
 │   │   │   └── dto/
 │   │   ├── eodhd/
-│   │   │   ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider, FxProvider; getFundamentals maps the cached EODHD fundamentals payload (Income_Statement + Balance_Sheet quarterly) → point-in-time Fundamental rows (ADR 0019); FX delegates to EodhdFxClient
-│   │   │   ├── EodhdFundamentalsClient.kt # Sibling-class @Cacheable (`eodhdFundamentals`) EODHD fundamentals fetch; toCompanyInfo() (sector/overview) + toFundamentals(symbol) (quarterly income-statement + balance-sheet line items, gated on filing_date, ADR 0019)
+│   │   │   ├── EodhdProvider.kt           # Implements OhlcvProvider, IndicatorProvider, EarningsProvider, CompanyInfoProvider, FundamentalsProvider, SplitsProvider, FxProvider; getFundamentals maps the cached EODHD fundamentals payload (Income_Statement + Balance_Sheet quarterly) → point-in-time Fundamental rows (ADR 0019); getSplits delegates to EodhdSplitsClient (ADR 0027); FX delegates to EodhdFxClient
+│   │   │   ├── EodhdFundamentalsClient.kt # Sibling-class @Cacheable (`eodhdFundamentals`) EODHD fundamentals fetch; toCompanyInfo() (sector/overview) + toFundamentals(symbol) (quarterly income-statement + balance-sheet line items incl. commonStockSharesOutstanding rounded to a whole Long, gated on filing_date, ADR 0019/0027)
+│   │   │   ├── EodhdSplitsClient.kt       # GET /splits/{symbol} → domain Split rows; parses EODHD "num/den" ratio strings, drops unusable/pre-2000 rows, sorts by ex-date; null on failure (ADR 0027)
 │   │   │   ├── EodhdFxClient.kt           # Sibling-class for cross-boundary @Cacheable interception; wraps `/real-time/{pair}.FOREX` + `/eod/{pair}.FOREX` into series cache
 │   │   │   ├── EodhdGovBondClient.kt      # Fetches the gross gov-bond/T-bill yield series (US3M.GBOND) for idle-cash crediting (ADR 0016)
 │   │   │   ├── TreasuryYieldMapper.kt     # Maps raw EODHD gov-bond payload → TreasuryYield rows (gross, no haircut — ADR 0016 F4)
@@ -77,13 +79,14 @@ midgaard/
 │   │       ├── OvtlyrPayloadDto.kt        # Raw ovtlyr response shape
 │   │       └── OvtlyrPayloadMapper.kt     # Maps raw payload → OvtlyrSignal domain rows
 │   ├── model/
-│   │   ├── Models.kt                      # Quote, Symbol, Earning, RawBar, IngestionStatus, MarketHoliday, OvtlyrSignal, OvtlyrSignalType, TreasuryYield (gross yield, ADR 0016), enums
+│   │   ├── Models.kt                      # Quote (w/ rawClose), Symbol, Earning, Fundamental (w/ sharesOutstanding), Split (symbol/exDate/ratio, ADR 0027), RawBar (w/ rawClose — un-adjusted close vs the split+dividend-adjusted close, ADR 0027), IngestionStatus, MarketHoliday, OvtlyrSignal, OvtlyrSignalType, TreasuryYield (gross yield, ADR 0016), enums
 │   │   └── OptionContractDto.kt
 │   ├── repository/
-│   │   ├── QuoteRepository.kt             # OHLCV + indicators (upsert, find, count); recomputeRelativeStrengthPercentiles + recomputeQualityPercentiles cross-sectional SQL passes (work_mem raised transaction-locally for the universe-wide sort; ADR 0009/0019); relativeStrengthStatus()/qualityPercentileStatus()→CrossSectionalStatus (missing/stale/current vs latest ingested quote) for the /ingestion page badges
+│   │   ├── QuoteRepository.kt             # OHLCV + indicators + raw_close (ADR 0027) (upsert, find, count); recomputeRelativeStrengthPercentiles + recomputeQualityPercentiles cross-sectional SQL passes (work_mem raised transaction-locally for the universe-wide sort; ADR 0009/0019); relativeStrengthStatus()/qualityPercentileStatus()→CrossSectionalStatus (missing/stale/current vs latest ingested quote) for the /ingestion page badges
 │   │   ├── SymbolRepository.kt            # Symbol reference data
 │   │   ├── EarningsRepository.kt          # Earnings data
-│   │   ├── FundamentalsRepository.kt      # Point-in-time quarterly fundamentals (upsert by (symbol, fiscal_date_ending), findBySymbol); raw data for the L2 quality pass (ADR 0019)
+│   │   ├── FundamentalsRepository.kt      # Point-in-time quarterly fundamentals (upsert by (symbol, fiscal_date_ending) incl. shares_outstanding, findBySymbol); raw data for the L2 quality pass + the market-cap share leg (ADR 0019/0027)
+│   │   ├── SplitRepository.kt             # Split history (findBySymbol, replaceForSymbol delete-then-insert per symbol) — the market-cap k(t) source (ADR 0027)
 │   │   ├── IngestionStatusRepository.kt   # Ingestion tracking
 │   │   ├── ProviderConfigRepository.kt    # Provider configuration data
 │   │   ├── OvtlyrSignalRepository.kt      # Sparse ovtlyr buy/sell signals (symbol + signal_date PK)
@@ -97,7 +100,7 @@ midgaard/
 │   │   ├── DataIntegrityService.kt        # runAll() = fresh snapshot of all validators + truncate-and-replace persistence
 │   │   └── ViolationRepository.kt         # jOOQ; findAll() ordered by severity asc; truncate-all on replace
 │   └── service/
-│       ├── IngestionService.kt            # Provider-agnostic orchestrator; **delisted-immutable rule** (skip sector update when delistedAt != null) + SectorNormalizer for active rows + drift warn-log
+│       ├── IngestionService.kt            # Provider-agnostic orchestrator; **delisted-immutable rule** (skip sector update when delistedAt != null) + SectorNormalizer for active rows + drift warn-log; persists raw_close per bar + splits (replaced wholesale per symbol via SplitRepository, null fetch left alone) for the market-cap primitive (ADR 0027)
 │       ├── DelistedIngestionService.kt    # V6 baseline service; defensively normalizes via SectorNormalizer.canonicalize before storing
 │       ├── sector/
 │       │   ├── SectorNormalizer.kt        # Canonicalize raw provider sector → 1 of 11 UPPERCASE GICS names OR null. VARIANTS map: Financials/Financial → FINANCIAL SERVICES, Materials → BASIC MATERIALS. UNCLASSIFIED: Other/NONE/empty → null
@@ -137,7 +140,8 @@ midgaard/
 │   │   ├── V20__Add_treasury_yields.sql                         # treasury_yields table (maturity + yield_date PK), gross yield_pct stored (haircut applied once downstream in Udgaard); ADR 0016
 │   │   ├── V21__Add_fundamentals.sql                            # fundamentals table (one row per (symbol, fiscal_date_ending), filing_date visibility key + income-statement/balance-sheet line items) — point-in-time raw data for the quality metric (ADR 0019)
 │   │   ├── V22__Add_quality_percentile.sql                      # Adds quality_percentile column to quotes (cross-sectional gross-profitability GP/TA, 0-100; null until the L2 pass runs; ADR 0019)
-│   │   └── V23__Widen_fundamentals_numeric_columns.sql          # Widens fundamentals line-item columns DECIMAL(19,4)→(38,4) to tolerate EODHD bad prints (~1e16) without aborting the symbol's batch upsert (ADR 0019)
+│   │   ├── V23__Widen_fundamentals_numeric_columns.sql          # Widens fundamentals line-item columns DECIMAL(19,4)→(38,4) to tolerate EODHD bad prints (~1e16) without aborting the symbol's batch upsert (ADR 0019)
+│   │   └── V24__Add_market_cap_primitive.sql                    # quotes.raw_close (DECIMAL(19,4), un-adjusted close) + fundamentals.shares_outstanding (BIGINT) + splits table (symbol + ex_date PK, ratio) — the point-in-time market-cap inputs (ADR 0027)
 │   └── templates/                         # Thymeleaf admin UI (7 templates incl. integrity.html)
 ├── compose.yaml                           # PostgreSQL + Midgaard app
 ├── Dockerfile                             # Runtime image (eclipse-temurin:25-jre-alpine)
@@ -186,6 +190,7 @@ docker compose up -d postgres   # Start PostgreSQL on port 5433
 - `IndicatorProvider` - ATR, ADX (AlphaVantage or EODHD via the toggle; only used when `app.ingest.indicators=API`)
 - `EarningsProvider` - Quarterly earnings (AlphaVantage or EODHD via the toggle)
 - `FundamentalsProvider` - Point-in-time quarterly financial-statement line items for the quality metric (EODHD only; the AlphaVantage impl returns null since it is retired — ADR 0019)
+- `SplitsProvider` - Symbol split history for the point-in-time market-cap k(t) (EODHD only, non-toggleable — AlphaVantage has no split feed; ADR 0027)
 - `CompanyInfoProvider` - Company overview + sector (AlphaVantage or EODHD via the toggle)
 - `FxProvider` - Currency exchange rates (current + historical), backs `ExchangeRateController`. Toggleable via `app.fx.provider` (defaults to `eodhd` via `matchIfMissing`); FX quota is operationally separate from OHLCV/indicator quota so it has its own toggle.
 - `QuoteProvider` - Live/latest quotes (Finnhub)
@@ -237,6 +242,7 @@ Token bucket per provider with per-second, per-minute, and per-day limits. Corou
 - **ingestion_status**: Per-symbol tracking (bar_count, last_bar_date, status)
 - **market_holidays** (V7): US exchange holiday calendar (exchange + holiday_date PK), 349 rows for 1995-2030 sourced from EODHD `/exchange-details/US`. Static seed; revisit before 2030. `IngestionService` filters out provider bars stamped to these dates (initial ingest + daily update) to avoid phantom rows skewing breadth queries.
 - **ovtlyr_signals** (V10): Third-party ovtlyr.com buy/sell calls (symbol + signal_date PK). Sparse by design — one row per (symbol, date) only when ovtlyr emitted a BUY or SELL; days with no call have no row.
+- **splits** (V24): Corporate-action split history (symbol + ex_date PK, ratio = new-shares-per-old) — the cumulative split factor k(t) source for the point-in-time market cap. Replaced wholesale per symbol on ingest. `quotes.raw_close` (V24) holds the un-adjusted close and `fundamentals.shares_outstanding` (V24) the split-adjusted share leg; together the three are the ADR 0027 cap primitive `(raw_close / k(t)) × shares_outstanding`.
 
 ### jOOQ Codegen
 

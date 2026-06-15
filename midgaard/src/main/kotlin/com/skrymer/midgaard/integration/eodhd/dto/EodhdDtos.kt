@@ -12,7 +12,9 @@ import com.skrymer.midgaard.model.CompanyInfo
 import com.skrymer.midgaard.model.Earning
 import com.skrymer.midgaard.model.Fundamental
 import com.skrymer.midgaard.model.RawBar
+import com.skrymer.midgaard.model.Split
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
 
 // ── Common API response contract ──
@@ -281,6 +283,8 @@ data class EodhdFundamentalsResponse(
                     totalStockholderEquity = bal?.totalStockholderEquity,
                     totalCurrentAssets = bal?.totalCurrentAssets,
                     totalCurrentLiabilities = bal?.totalCurrentLiabilities,
+                    // Round the share-count float artifact to a whole share (ADR 0027).
+                    sharesOutstanding = bal?.commonStockSharesOutstanding?.setScale(0, RoundingMode.HALF_UP)?.toLong(),
                 )
             }.sortedByDescending { it.fiscalDateEnding }
     }
@@ -374,7 +378,42 @@ data class EodhdBalanceSheetEntry(
     @param:JsonProperty("totalStockholderEquity") val totalStockholderEquity: BigDecimal? = null,
     @param:JsonProperty("totalCurrentAssets") val totalCurrentAssets: BigDecimal? = null,
     @param:JsonProperty("totalCurrentLiabilities") val totalCurrentLiabilities: BigDecimal? = null,
+    // Split-adjusted (current-basis) common shares; EODHD returns it as a float artifact
+    // (e.g. 1.7113687999999998E10 for ~17.11B), so it is rounded to a whole Long in [toFundamentals].
+    @param:JsonProperty("commonStockSharesOutstanding") val commonStockSharesOutstanding: BigDecimal? = null,
 )
+
+// ── Corporate actions: splits ──
+//
+// `GET /api/splits/{symbol}.US` returns an array of `{date, split}` rows, where `split` is a
+// `"numerator/denominator"` string (e.g. `"4.000000/1.000000"`). The cap primitive (ADR 0027) needs the
+// numeric new-shares-per-old ratio and the ex-date; everything else in the payload is ignored.
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class EodhdSplitDto(
+    @param:JsonProperty("date") val date: String? = null,
+    @param:JsonProperty("split") val split: String? = null,
+) {
+    /**
+     * Maps to a domain [Split], or null when the row is unusable — unparseable date, an ex-date before
+     * [minDate], or a malformed/zero-denominator ratio (a bad row is dropped, never crashes the fetch).
+     */
+    fun toSplit(
+        symbol: String,
+        minDate: LocalDate,
+    ): Split? {
+        val exDate = parseEodhdDate(date)?.takeIf { !it.isBefore(minDate) } ?: return null
+        val ratio = parseSplitRatio(split) ?: return null
+        return Split(symbol = symbol, exDate = exDate, ratio = ratio)
+    }
+
+    private fun parseSplitRatio(raw: String?): Double? {
+        val parts = raw?.split("/")?.takeIf { it.size == 2 } ?: return null
+        val numerator = parts[0].trim().toDoubleOrNull()?.takeIf { it > 0.0 }
+        val denominator = parts[1].trim().toDoubleOrNull()?.takeIf { it > 0.0 }
+        return if (numerator != null && denominator != null) numerator / denominator else null
+    }
+}
 
 // ── End-of-Day OHLCV row ──
 
@@ -401,6 +440,7 @@ data class EodhdBarDto(
             high = (high ?: 0.0) * factor,
             low = (low ?: 0.0) * factor,
             close = validated.adjClose,
+            rawClose = validated.rawClose,
             volume = volume ?: 0L,
         )
     }

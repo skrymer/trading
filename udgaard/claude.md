@@ -111,35 +111,36 @@ udgaard/
 │   │   ├── integration/              # External API integrations
 │   │   │   ├── StockProvider.kt      # Interface for OHLCV data + live quotes + earnings + fundamentals (LatestQuote, getLatestQuote, getLatestQuotes, getEarnings, getFundamentals); getEarnings/getFundamentals return null on provider failure (caller must fall back), empty list when symbol genuinely has none (ADR 0019)
 │   │   │   ├── midgaard/             # OHLCV + pre-computed indicators + earnings + fundamentals + ovtlyr signals from Midgaard service (implements StockProvider)
-│   │   │   │   ├── MidgaardClient.kt  # incl. getOvtlyrSignals(symbol) — ovtlyr buy/sell calls (vendor-specific, not on StockProvider) + getFundamentals(symbol) → point-in-time quarterly fundamentals (ADR 0019)
+│   │   │   │   ├── MidgaardClient.kt  # incl. getOvtlyrSignals(symbol) — ovtlyr buy/sell calls (vendor-specific, not on StockProvider) + getFundamentals(symbol) → point-in-time quarterly fundamentals (ADR 0019) + getSplits(symbol) → split history for the point-in-time market-cap k(t), null on failure for the ingestion fallback (ADR 0027)
 │   │   │   │   ├── MidgaardHttpConfig.kt  # RestClientCustomizer with connect (5s) + read (30s) timeouts; bounded so a Midgaard outage fails fast instead of hanging on infinite socket reads
-│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto, MidgaardFundamentalDto, MidgaardOvtlyrSignalDto
+│   │   │   │   └── dto/              # MidgaardDtos.kt includes MidgaardEarningDto, MidgaardFundamentalDto (w/ sharesOutstanding), MidgaardSplitDto (ADR 0027), MidgaardOvtlyrSignalDto, MidgaardQuoteDto (w/ rawClose, null-preserving)
 │   │   │   └── ovtlyr/              # Legacy (being removed)
 │   │   │       ├── OvtlyrClient.kt
 │   │   │       └── dto/
 │   │   ├── mapper/                   # Data mappers
 │   │   │   └── StockMapper.kt
 │   │   ├── model/                    # Domain models
-│   │   │   ├── Stock.kt              # Includes ovtlyrSignals + fundamentals: List<Fundamental>; point-in-time TTM accessors grossProfitTtmAsOf / operatingMarginTtmAsOf / operatingMarginTtmPriorYearAsOf / latestFundamentalAsOf (gated on filing_date, never fiscalDateEnding; ADR 0019)
-│   │   │   ├── StockQuote.kt         # Includes qualityPercentile: Double? (cross-sectional GP/TA percentile from Midgaard; ADR 0019)
+│   │   │   ├── Stock.kt              # Includes ovtlyrSignals + fundamentals: List<Fundamental> + splits: List<Split>; point-in-time TTM accessors grossProfitTtmAsOf / operatingMarginTtmAsOf / operatingMarginTtmPriorYearAsOf / latestFundamentalAsOf (gated on filing_date, never fiscalDateEnding; ADR 0019); point-in-time market-cap accessors marketCapAsOf(date) = (rawCloseAsOf/splitFactorAsOf) × sharesOutstanding + splitFactorAsOf(date) = product of ratios over splits with exDate > date (ADR 0027)
+│   │   │   ├── StockQuote.kt         # Includes qualityPercentile: Double? (cross-sectional GP/TA percentile from Midgaard; ADR 0019) + rawClose: Double? (un-adjusted provider close; closePrice is the split+dividend-adjusted close, so absolute-level products use rawClose — ADR 0027 landmine)
 │   │   │   ├── OrderBlock.kt
 │   │   │   ├── Earning.kt
-│   │   │   ├── Fundamental.kt        # Point-in-time quarterly financial-statement line items (filingDate visibility key, isVisibleAsOf; loaded from Midgaard during ingestion; ADR 0019)
+│   │   │   ├── Fundamental.kt        # Point-in-time quarterly financial-statement line items (filingDate visibility key, isVisibleAsOf; loaded from Midgaard during ingestion; ADR 0019) + sharesOutstanding: Long? (split-adjusted shares, the market-cap share leg; ADR 0027)
+│   │   │   ├── Split.kt              # One stock split (symbol/exDate/ratio, new-shares-per-old) — the k(t) cumulative-split-factor leg of the point-in-time market cap (ADR 0027)
 │   │   │   ├── OvtlyrSignal.kt       # Ovtlyr buy/sell signal (loaded from Midgaard during ingestion)
 │   │   │   ├── AssetType.kt
 │   │   │   ├── MarketSymbol.kt
 │   │   │   ├── MarketBreadthDaily.kt
 │   │   │   ├── SectorBreadthDaily.kt
 │   │   │   ├── EwReturnDaily.kt       # One day's equal-weight cross-section of trailing 20-bar returns (mean/stdev/contributingN) — the equal-weight leg of the leadership gap (issue #83)
-│   │   │   └── LiquidityFilterParams.kt  # Frozen pre-registered tradable-universe thresholds (FROZEN: close>=$5, 20d-median dollar-vol>=$1M, 252-bar min; STRESS_5M = $5M A/B sensitivity variant) — ADR 0026; not yet wired into the engine
+│   │   │   └── LiquidityFilterParams.kt  # Frozen pre-registered tradable-universe thresholds (FROZEN: close>=$5, 20d-median dollar-vol>=$1M, 252-bar min; STRESS_5M = $5M A/B sensitivity variant) — ADR 0026; wired into the engine (default-on applyLiquidityFilter) + scanner (always-on), #173
 │   │   ├── repository/               # jOOQ repositories
-│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) + findFundamentals(symbol) used by ingestion fallback + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
+│   │   │   ├── StockJooqRepository.kt  # Includes findEarnings(symbol) + findFundamentals(symbol) + findSplits(symbol) used by ingestion fallback (+ batchInsertFundamentals/batchInsertSplits on the bulk path, raw_close + shares_outstanding persisted) + findAllSymbolRecords() (the stocks-derived universe, ADR 0011)
 │   │   │   ├── LeadershipGapRepository.kt  # ewReturnByDate(): full-universe equal-weight 20-bar-return aggregate (mean/stdev/contributingN) over the point-in-time STOCK-or-null universe (same population as breadth, ADR 0011); feeds the leadership-gap regime (issue #83)
 │   │   │   ├── MarketBreadthRepository.kt
 │   │   │   └── SectorBreadthRepository.kt
 │   │   └── service/
 │   │       ├── StockService.kt       # Stock data management
-│   │       ├── StockIngestionService.kt  # Bulk data ingestion; loads ovtlyr signals via MidgaardClient.getOvtlyrSignals; resolveEarnings(symbol) + resolveFundamentals(symbol) helpers fall back to stockRepository.findEarnings/findFundamentals on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays / the quality gate silently invert; ADR 0019)
+│   │       ├── StockIngestionService.kt  # Bulk data ingestion; loads ovtlyr signals via MidgaardClient.getOvtlyrSignals; resolveEarnings(symbol) + resolveFundamentals(symbol) + resolveSplits(symbol) helpers fall back to stockRepository.findEarnings/findFundamentals/findSplits on provider failure (stale-but-present beats empty-because-we-failed; otherwise filters like noEarningsWithinDays / the quality gate silently invert, or the cap k(t) collapses to 1; ADR 0019/0027)
 │   │       ├── TechnicalIndicatorService.kt  # EMAs, ATR, Donchian
 │   │       ├── MarketBreadthService.kt
 │   │       ├── SectorBreadthService.kt
@@ -147,7 +148,7 @@ udgaard/
 │   │       ├── SymbolService.kt
 │   │       ├── DataStatsService.kt
 │   │       ├── ScheduledRefreshService.kt  # Scheduled automatic data refresh
-│   │       └── TradableUniverseFilter.kt  # Point-in-time isEligible(stock, asOf) tradable-universe gate (price/liquidity/age) over FROZEN LiquidityFilterParams; asset-type/ETF opt-in stays with the caller's assetTypes — ADR 0026; the #173 unit landed ahead of its BacktestService/scanner wiring (deferred follow-up), not yet called
+│   │       └── TradableUniverseFilter.kt  # Point-in-time isEligible(stock, asOf) tradable-universe gate (price/liquidity/age) over FROZEN LiquidityFilterParams; asset-type/ETF opt-in stays with the caller's assetTypes — ADR 0026; wired into BacktestService (3 co-resident entry sites) + WalkForwardService + ScannerService (live, always-on) via the default-on applyLiquidityFilter flag, #173
 │   ├── portfolio/                    # Portfolio domain
 │   │   ├── controller/
 │   │   │   ├── PortfolioController.kt
@@ -220,7 +221,7 @@ udgaard/
 ├── src/main/resources/
 │   ├── application.properties        # Configuration
 │   ├── secure.properties             # Credentials (not in git)
-│   └── db/migration/                 # Flyway migrations (V1-V31)
+│   └── db/migration/                 # Flyway migrations (V1-V32)
 │       ├── V1__initial_schema.sql
 │       ├── V2__Populate_symbols.sql
 │       ├── V3__Add_sector_symbols.sql
@@ -251,7 +252,8 @@ udgaard/
 │       ├── V28__Drop_symbols_table_move_asset_type_to_stocks.sql  # Drops the symbols catalogue; asset_type moves to stocks, backfilled in place (ADR 0011)
 │       ├── V29__Add_fundamentals.sql                       # fundamentals table (one row per (stock_symbol, fiscal_date_ending), filing_date visibility key + income-statement/balance-sheet line items, FK to stocks; mirrored from Midgaard; ADR 0019)
 │       ├── V30__Add_quality_percentile.sql                 # Adds quality_percentile column to stock_quotes (ingested from Midgaard; ADR 0019)
-│       └── V31__Widen_fundamentals_numeric_columns.sql     # Widens fundamentals line-item columns DECIMAL(19,4)→(38,4) to tolerate EODHD bad prints (~1e16) without aborting the symbol's batch upsert (mirrors Midgaard V23; ADR 0019)
+│       ├── V31__Widen_fundamentals_numeric_columns.sql     # Widens fundamentals line-item columns DECIMAL(19,4)→(38,4) to tolerate EODHD bad prints (~1e16) without aborting the symbol's batch upsert (mirrors Midgaard V23; ADR 0019)
+│       └── V32__Add_market_cap_primitive.sql               # stock_quotes.raw_close (un-adjusted close) + fundamentals.shares_outstanding (BIGINT) + stock_splits table (FK to stocks ON DELETE CASCADE, UNIQUE(stock_symbol, ex_date)) — the point-in-time market-cap inputs, mirrored from Midgaard V24 (ADR 0027)
 ├── src/test/kotlin/                  # Unit + E2E tests
 │   └── e2e/                          # E2E tests (TestContainers)
 │       ├── AbstractIntegrationTest.kt  # Shared PostgreSQL container

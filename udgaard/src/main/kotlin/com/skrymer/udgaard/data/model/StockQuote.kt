@@ -9,6 +9,10 @@ data class StockQuote(
   val symbol: String = "",
   val date: LocalDate = LocalDate.now(),
   val closePrice: Double = 0.0,
+  // The un-adjusted provider close. [closePrice] is EODHD `adjusted_close` (split AND dividend adjusted);
+  // absolute-level products like market cap must use this raw close, not [closePrice] (ADR 0027 landmine).
+  // Null on bars predating the raw-close re-store — a name with no raw close has no point-in-time cap.
+  val rawClose: Double? = null,
   val openPrice: Double = 0.0,
   val high: Double = 0.0,
   val low: Double = 0.0,

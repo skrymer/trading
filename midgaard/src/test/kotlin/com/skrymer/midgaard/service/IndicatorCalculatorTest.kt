@@ -18,6 +18,7 @@ class IndicatorCalculatorTest {
                 high = high,
                 low = low,
                 close = low,
+                rawClose = low,
                 volume = 0L,
             )
         }

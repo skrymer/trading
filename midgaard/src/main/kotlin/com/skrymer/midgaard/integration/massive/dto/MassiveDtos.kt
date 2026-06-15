@@ -44,7 +44,9 @@ data class MassiveAggregatesResponse(
                     open = bar.open,
                     high = bar.high,
                     low = bar.low,
+                    // Massive returns unadjusted bars, so the close is already the raw close.
                     close = bar.close,
+                    rawClose = bar.close,
                     volume = bar.volume,
                 )
             }?.sortedBy { it.date } ?: emptyList()

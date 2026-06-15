@@ -5,6 +5,7 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integration.SplitsProvider
 import com.skrymer.midgaard.integrity.DataIntegrityService
 import com.skrymer.midgaard.model.AssetType
 import com.skrymer.midgaard.model.CompanyInfo
@@ -181,6 +182,7 @@ class IngestionServiceSectorWriteTest {
                                 high = 102.0,
                                 low = 99.0,
                                 close = 101.0,
+                                rawClose = 101.0,
                                 volume = 1_000_000L,
                             ),
                         ),
@@ -220,10 +222,12 @@ class IngestionServiceSectorWriteTest {
                 mock<FundamentalsProvider>().apply {
                     stub { onBlocking { getFundamentals(any()) }.doReturn(emptyList()) }
                 },
+            splits = mock<SplitsProvider>(),
             indicatorCalculator = indicatorCalculator,
             quoteRepository = mock<QuoteRepository>(),
             earningsRepository = mock(),
             fundamentalsRepository = mock(),
+            splitRepository = mock(),
             symbolRepository = symbolRepository,
             ingestionStatusRepository = mock<IngestionStatusRepository>(),
             marketHolidayRepository =

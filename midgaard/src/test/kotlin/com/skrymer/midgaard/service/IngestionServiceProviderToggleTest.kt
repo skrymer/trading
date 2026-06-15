@@ -5,6 +5,7 @@ import com.skrymer.midgaard.integration.EarningsProvider
 import com.skrymer.midgaard.integration.FundamentalsProvider
 import com.skrymer.midgaard.integration.IndicatorProvider
 import com.skrymer.midgaard.integration.OhlcvProvider
+import com.skrymer.midgaard.integration.SplitsProvider
 import com.skrymer.midgaard.model.RawBar
 import com.skrymer.midgaard.repository.MarketHolidayRepository
 import com.skrymer.midgaard.repository.QuoteRepository
@@ -182,6 +183,7 @@ class IngestionServiceProviderToggleTest {
             high = 102.0,
             low = 99.0,
             close = 101.0,
+            rawClose = 101.0,
             volume = 1_000_000L,
         )
 
@@ -218,6 +220,7 @@ class IngestionServiceProviderToggleTest {
                     high = 102.0,
                     low = 99.0,
                     close = 101.0,
+                    rawClose = 101.0,
                     volume = 1_000_000L,
                 ),
             ),
@@ -254,10 +257,12 @@ class IngestionServiceProviderToggleTest {
                 earnings = earnings,
                 companyInfo = companyInfo,
                 fundamentals = mock<FundamentalsProvider>(),
+                splits = mock<SplitsProvider>(),
                 indicatorCalculator = indicatorCalculator,
                 quoteRepository = quoteRepository,
                 earningsRepository = mock(),
                 fundamentalsRepository = mock(),
+                splitRepository = mock(),
                 symbolRepository = mock(),
                 ingestionStatusRepository = mock(),
                 marketHolidayRepository =

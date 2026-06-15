@@ -70,6 +70,7 @@ data class AlphaVantageTimeSeriesDailyAdjusted(
             high = (data.high.toDoubleOrNull() ?: 0.0) * adjustmentFactor,
             low = (data.low.toDoubleOrNull() ?: 0.0) * adjustmentFactor,
             close = adjustedClose,
+            rawClose = rawClose,
             volume = data.volume.toLongOrNull() ?: 0L,
         )
     }
