@@ -95,6 +95,7 @@ pages. Keep it in sync on every ingest. Governance: [`../CLAUDE.md`](../CLAUDE.m
 
 - [[README]] (queries/) — how good answers get filed back to compound.
 - [[regime-classification-v3-research-brief]] — the v3 regime-classifier research question; ANSWERED 2026-06-14 → [[2026-06-14-regime-classification-v3-research]] (#168).
+- [[thrust-specialist-design-priming]] — #83 THRUST-gated-breakout design priming: rejection cause, within-regime null + primary metric, the premise-vs-P&L-rescue boundary (sharpened by the cross-sectional-loss tension), THRUST gateability/sparsity.
 
 ---
 
