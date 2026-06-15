@@ -30,11 +30,13 @@ import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.ExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.StockRanker
 import com.skrymer.udgaard.backtesting.strategy.condition.entry.LeadershipGapRegimeOnCondition
+import com.skrymer.udgaard.data.model.LiquidityFilterParams
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.SectorBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
+import com.skrymer.udgaard.data.service.TradableUniverseFilter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -71,6 +73,12 @@ class BacktestService(
   private val leadershipRegimeService: LeadershipRegimeService,
   private val regimeReadoutService: RegimeReadoutService,
 ) {
+  private val tradableUniverseFilter = TradableUniverseFilter()
+
+  /** True when the liquidity filter is on and [stock] is not tradable as of [date] (ADR 0026). */
+  private fun liquidityRejects(stock: Stock, date: LocalDate, context: BacktestContext): Boolean =
+    context.applyLiquidityFilter && !tradableUniverseFilter.isEligible(stock, date)
+
   /**
    * Holds indexed quotes for fast O(1) date lookups.
    */
@@ -362,6 +370,7 @@ class BacktestService(
     randomSeed: Long? = null,
     positionSizingConfig: PositionSizingConfig? = null,
     costBps: Double = 10.0,
+    applyLiquidityFilter: Boolean = true,
   ): BacktestReport {
     val logger = LoggerFactory.getLogger("Backtest")
     val backtestStartTime = System.currentTimeMillis()
@@ -371,7 +380,7 @@ class BacktestService(
     // date. Warmup bars are visible to ranker scoring ONLY — entry/trade/stat logic stays gated to
     // [after, before] (the date guards in collectEntrySignals / the trade loops). 0-warmup rankers
     // (precomputed-indicator readers) load exactly from `after` as before.
-    val loadAfter = warmupLoadDate(after, ranker)
+    val loadAfter = warmupLoadDate(after, ranker, applyLiquidityFilter)
 
     // Load SPY for market condition tracking + the market factor (warmup-buffered for trailing rankers)
     val spyStock = stockRepository.findBySymbol("SPY", quotesAfter = loadAfter)
@@ -388,7 +397,12 @@ class BacktestService(
       // Re-use shared context but refresh the warmup-buffered factor series for this window
       val spyQuoteMap = spyStock?.quotes?.associateBy { it.date } ?: emptyMap()
       val sectorEtfQuoteMap = loadSectorEtfQuoteMap(sharedContext.sectorBreadthMap.keys, loadAfter)
-      sharedContext.copy(spyQuoteMap = spyQuoteMap, sectorEtfQuoteMap = sectorEtfQuoteMap, costBps = costBps)
+      sharedContext.copy(
+        spyQuoteMap = spyQuoteMap,
+        sectorEtfQuoteMap = sectorEtfQuoteMap,
+        costBps = costBps,
+        applyLiquidityFilter = applyLiquidityFilter,
+      )
     } else {
       val sectorBreadthMap = sectorBreadthRepository.findAllAsMap()
       val marketBreadthMap = marketBreadthRepository.findAllAsMap()
@@ -404,6 +418,7 @@ class BacktestService(
         leadershipRegimeMap = leadershipRegimeMap,
         regimeReadoutMap = regimeReadoutMap,
         costBps = costBps,
+        applyLiquidityFilter = applyLiquidityFilter,
       ).also {
         logger.info(
           "Loaded backtest context: ${sectorBreadthMap.size} sectors, " +
@@ -427,6 +442,7 @@ class BacktestService(
         backtestBatchedParallel(
           symbols,
           after,
+          loadAfter,
           before,
           entryStrategy,
           exitStrategy,
@@ -536,6 +552,7 @@ class BacktestService(
   private fun backtestBatchedParallel(
     symbols: List<String>,
     after: LocalDate,
+    loadAfter: LocalDate,
     before: LocalDate,
     entryStrategy: EntryStrategy,
     exitStrategy: ExitStrategy,
@@ -553,7 +570,7 @@ class BacktestService(
 
       val (tradingStocks, allStocksMap) = loadBatchWithUnderlying(
         batch,
-        after,
+        loadAfter,
         useUnderlyingAssets,
         customUnderlyingMap,
       )
@@ -719,6 +736,7 @@ class BacktestService(
           if (stockPair.tradingStock.listingDate?.isAfter(date) == true) continue
           if (stockPair.tradingStock.delistingDate?.isBefore(date) == true) continue
           tradingIndex.getQuote(date) ?: continue
+          if (liquidityRejects(stockPair.tradingStock, date, context)) continue
 
           if (entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) {
             val score = ranker.score(stockPair.strategyStock, strategyQuote, context)
@@ -917,6 +935,7 @@ class BacktestService(
 
       val strategyQuote = quoteIndexes[stockPair.strategyStock]?.getQuote(currentDate) ?: continue
       val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate) ?: continue
+      if (liquidityRejects(stockPair.tradingStock, currentDate, context)) continue
 
       if (!entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) continue
 
@@ -1108,6 +1127,7 @@ class BacktestService(
       val tradingQuote = quoteIndexes[stockPair.tradingStock]?.getQuote(currentDate) ?: return@mapNotNull null
 
       if (isInCooldown(currentDate, lastExitDate, tradingDateIndex, cooldownDays)) return@mapNotNull null
+      if (liquidityRejects(stockPair.tradingStock, currentDate, context)) return@mapNotNull null
       if (!entryStrategy.test(stockPair.strategyStock, strategyQuote, context)) return@mapNotNull null
 
       PotentialEntry(stockPair, strategyQuote, tradingQuote)
@@ -1791,8 +1811,14 @@ class BacktestService(
   internal fun warmupLoadDate(
     after: LocalDate,
     ranker: StockRanker,
+    applyLiquidityFilter: Boolean = false,
   ): LocalDate {
-    val warmupTradingDays = ranker.warmupTradingDays()
+    // The liquidity filter's age gate judges a name on its REAL bars-of-history as of the decision bar;
+    // without minBars of pre-window history loaded, a long-lived name looks freshly-listed at the window
+    // start and is wrongly skipped for the first ~minBars bars of every window. Load that warmup too
+    // (visible to the gate + ranker scoring only — trades stay gated to [after, before]). ADR 0026.
+    val liquidityWarmup = if (applyLiquidityFilter) LiquidityFilterParams.FROZEN.minBars else 0
+    val warmupTradingDays = maxOf(ranker.warmupTradingDays(), liquidityWarmup)
     if (warmupTradingDays <= 0) return after
     val calendarDays = ceil(warmupTradingDays * CALENDAR_DAYS_PER_TRADING_DAY * WARMUP_MARGIN).toLong()
     return after.minusDays(calendarDays)

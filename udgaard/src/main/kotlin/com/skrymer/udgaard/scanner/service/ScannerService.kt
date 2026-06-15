@@ -22,6 +22,7 @@ import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.data.service.StockService
 import com.skrymer.udgaard.data.service.SymbolService
 import com.skrymer.udgaard.data.service.TechnicalIndicatorService
+import com.skrymer.udgaard.data.service.TradableUniverseFilter
 import com.skrymer.udgaard.portfolio.model.InstrumentType
 import com.skrymer.udgaard.portfolio.model.OptionType
 import com.skrymer.udgaard.scanner.dto.AddScannerTradeRequest
@@ -143,6 +144,11 @@ class ScannerService(
 ) {
   private val logger = LoggerFactory.getLogger(ScannerService::class.java)
 
+  // Live trading never surfaces un-fillable names, so the tradable-universe gate is always on here
+  // (no override) — same FROZEN price/liquidity/age constants as the backtest, the backtest=scanner
+  // invariant (ADR 0026).
+  private val tradableUniverseFilter = TradableUniverseFilter()
+
   /**
    * Run a scan for entry signals across all matching stocks.
    */
@@ -258,7 +264,7 @@ class ScannerService(
     strategyName: String,
     currentMarketDate: LocalDate?,
   ): ScanEvaluation {
-    val quotesAfter = scanDate.minusDays(90)
+    val quotesAfter = scanDate.minusDays(SCAN_LOOKBACK_DAYS)
     val matched = mutableListOf<EvalResult>()
     val nearMisses = mutableListOf<EvalResult>()
     val failed = mutableListOf<List<ConditionEvaluationResult>>()
@@ -290,7 +296,10 @@ class ScannerService(
     currentMarketDate: LocalDate?,
   ): EvalResult {
     val quote = stock.quotes.lastOrNull() ?: return EvalResult(null, null, null, null, null)
-    if (currentMarketDate != null && quote.date != currentMarketDate) return EvalResult(null, null, null, null, null)
+    val dateMismatch = currentMarketDate != null && quote.date != currentMarketDate
+    if (dateMismatch || !tradableUniverseFilter.isEligible(stock, quote.date)) {
+      return EvalResult(null, null, null, null, null)
+    }
 
     if (entryStrategy is DetailedEntryStrategy) {
       val details = entryStrategy
@@ -984,6 +993,11 @@ class ScannerService(
     private const val MAX_VALIDATE_SYMBOLS = 30
     private const val ATR_PERIOD = 14
     private const val DONCHIAN_PERIOD = 5
+
+    // Scan load window. Must cover the tradable-universe filter's 252-bar age gate (ADR 0026); 400
+    // calendar days clears 252 trading bars after weekend/holiday gaps. A name with fewer real bars
+    // than minBars stays ineligible by design (no track record), not because we under-loaded.
+    private const val SCAN_LOOKBACK_DAYS = 400L
 
     // Window for the signal-snapshot recompute load. Must cover the longest strategy
     // indicator lookback (EMA200 needs ~200 trading days; cushion to 300 calendar days

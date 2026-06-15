@@ -106,6 +106,7 @@ class BacktestServiceDelistingTest {
         after = entryDay,
         before = entryDay.plusDays(10),
         costBps = 0.0, // pins the gross force-close loss; cost-netting is covered in BacktestServiceCostTest
+        applyLiquidityFilter = false,
       )
 
     // Then: the trade exists with the delisted exit reason and a real loss

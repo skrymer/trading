@@ -129,6 +129,7 @@ class BacktestRiskMetricsE2ETest : AbstractIntegrationTest() {
       sizer = AtrRiskSizerConfig(riskPercentage = 1.5, nAtr = 2.0),
       leverageRatio = 1.0,
     ),
+    applyLiquidityFilter = false,
   )
 
   private fun postBacktest(request: BacktestRequest): ResponseEntity<BacktestResponseDto> =

@@ -69,6 +69,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
         endDate = "2024-03-29",
         useUnderlyingAssets = false,
         // costBps omitted — exercises the DTO default reaching the engine end to end
+        applyLiquidityFilter = false,
       ),
     )
 
@@ -108,6 +109,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       startDate = "2024-01-02",
       endDate = "2024-03-29",
       useUnderlyingAssets = false,
+      applyLiquidityFilter = false,
     )
 
     val response = postBacktest(request)
@@ -147,6 +149,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       startDate = "2024-01-02",
       endDate = "2024-03-29",
       useUnderlyingAssets = false,
+      applyLiquidityFilter = false,
     )
 
     val response = postBacktest(request)
@@ -169,6 +172,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       maxPositions = maxPositions,
       ranker = "Adaptive",
       useUnderlyingAssets = false,
+      applyLiquidityFilter = false,
     )
 
     val response = postBacktest(request)
@@ -219,6 +223,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       startDate = "2024-01-02",
       endDate = "2024-03-29",
       useUnderlyingAssets = false,
+      applyLiquidityFilter = false,
     )
 
     val response = postBacktest(request)
@@ -252,6 +257,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       startDate = "2024-01-02",
       endDate = "2024-03-29",
       useUnderlyingAssets = false,
+      applyLiquidityFilter = false,
     )
 
     val response = postBacktest(request)
@@ -380,6 +386,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       endDate = "2024-03-29",
       cooldownDays = 5,
       useUnderlyingAssets = false,
+      applyLiquidityFilter = false,
     )
 
     val response = postBacktest(request)
@@ -398,6 +405,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
       exitStrategy = PredefinedStrategyConfig(name = "TestExit"),
       startDate = "2024-01-02",
       endDate = "2024-03-29",
+      applyLiquidityFilter = false,
     )
 
     val response = restTemplate.exchange(
@@ -419,6 +427,7 @@ class BacktestApiE2ETest : AbstractIntegrationTest() {
     endDate = "2024-03-29",
     useUnderlyingAssets = false,
     costBps = 0.0, // assertTradeMetrics pins gross numbers; net-by-default is covered by its own test below
+    applyLiquidityFilter = false,
   )
 
   private fun postBacktest(request: BacktestRequest): ResponseEntity<BacktestResponseDto> =

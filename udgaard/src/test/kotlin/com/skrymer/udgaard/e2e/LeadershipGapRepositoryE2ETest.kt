@@ -4,6 +4,7 @@ import com.skrymer.udgaard.data.repository.LeadershipGapRepository
 import com.skrymer.udgaard.jooq.tables.references.STOCKS
 import com.skrymer.udgaard.jooq.tables.references.STOCK_QUOTES
 import org.jooq.DSLContext
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -15,9 +16,9 @@ import kotlin.test.assertEquals
 
 /**
  * Confirms the full-universe equal-weight 20-bar-return aggregate: equal-weight mean, cross-sectional
- * sample stdev, and contributing count per date, over the point-in-time STOCK-or-null universe, with a
- * `LAG(close, n)` trailing return. Uses a small lookback (2) on unique far-future dates so the fixtures
- * stay tiny and don't perturb the shared container.
+ * sample stdev, and contributing count per date, over the point-in-time STOCK universe (null/unclassified
+ * asset_type held out, fail-closed — ADR 0026), with a `LAG(close, n)` trailing return. Uses a small
+ * lookback (2) on unique far-future dates so the fixtures stay tiny and don't perturb the shared container.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LeadershipGapRepositoryE2ETest : AbstractIntegrationTest() {
@@ -37,10 +38,20 @@ class LeadershipGapRepositoryE2ETest : AbstractIntegrationTest() {
     insertSeries("EWRA", "STOCK", mathStart, listOf(100.0, 100.0, 120.0))
     insertSeries("EWRB", "STOCK", mathStart, listOf(100.0, 100.0, 80.0))
 
-    // Filter fixture: a STOCK and a null-asset_type name (both counted), plus an ETF (excluded).
+    // Filter fixture: a STOCK (counted), plus a null-asset_type name and an ETF (both excluded).
     insertSeries("EWRC", "STOCK", filterStart, listOf(100.0, 100.0, 110.0))
     insertSeries("EWRN", null, filterStart, listOf(100.0, 100.0, 90.0))
     insertSeries("EWRE", "ETF", filterStart, listOf(100.0, 100.0, 600.0))
+  }
+
+  @AfterAll
+  fun cleanup() {
+    // These far-future quotes would otherwise be materialised into breadth rows by any later test that
+    // calls refreshBreadthDaily() in the shared container, making a future date the max breadth date and
+    // poisoning currentMarketDate for downstream tests (e.g. ScannerScanE2ETest). Clean up after ourselves.
+    val symbols = listOf("EWRA", "EWRB", "EWRC", "EWRN", "EWRE")
+    dsl.deleteFrom(STOCK_QUOTES).where(STOCK_QUOTES.STOCK_SYMBOL.`in`(symbols)).execute()
+    dsl.deleteFrom(STOCKS).where(STOCKS.SYMBOL.`in`(symbols)).execute()
   }
 
   @Test
@@ -58,15 +69,15 @@ class LeadershipGapRepositoryE2ETest : AbstractIntegrationTest() {
   }
 
   @Test
-  fun `counts STOCK and null asset types but excludes other asset types`() {
+  fun `counts only STOCK asset types, excluding null and other asset types`() {
     // When
     val series = repository.ewReturnByDate(filterStart, filterStart.plusDays(2), lookbackBars = 2)
 
-    // Then: only the STOCK (+10%) and the null-asset_type name (-10%) contribute -> mean 0, N=2; the
-    // ETF (+500%) is excluded (had it leaked, N would be 3 and the mean far from zero).
+    // Then: only the STOCK (+10%) contributes -> mean +0.10, N=1. The null-asset_type name (-10%) is
+    // held out (fail-closed) and the ETF (+500%) is excluded; had either leaked, N and the mean would shift.
     val last = series.getValue(filterStart.plusDays(2))
-    assertEquals(2, last.contributingN)
-    assertEquals(0.0, last.meanReturn, 1e-9)
+    assertEquals(1, last.contributingN)
+    assertEquals(0.10, last.meanReturn, 1e-9)
   }
 
   private fun insertSeries(symbol: String, assetType: String?, start: LocalDate, closes: List<Double>) {

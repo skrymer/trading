@@ -34,6 +34,9 @@ data class BacktestRequest(
   val costBps: Double = 10.0,
   // Credit idle (uninvested) cash the historical short rate (ADR 0016). Null = default ON; false reproduces 0%-cash.
   val creditIdleCash: Boolean? = null,
+  // Gate entries to the tradable universe (point-in-time price/liquidity/age, ADR 0026). Default ON;
+  // false reproduces the pre-#173 unfiltered-universe runs.
+  val applyLiquidityFilter: Boolean = true,
 )
 
 /**
@@ -159,4 +162,7 @@ data class WalkForwardRequest(
   val riskFreeRatePct: Double? = null,
   // Credit idle cash the historical short rate within each OOS window (ADR 0016). Null = default ON.
   val creditIdleCash: Boolean? = null,
+  // Gate entries to the tradable universe (point-in-time price/liquidity/age, ADR 0026). Default ON;
+  // false reproduces the pre-#173 unfiltered-universe runs.
+  val applyLiquidityFilter: Boolean = true,
 )

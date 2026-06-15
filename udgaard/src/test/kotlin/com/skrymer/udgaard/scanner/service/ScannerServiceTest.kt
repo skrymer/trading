@@ -110,7 +110,7 @@ class ScannerServiceTest {
 
     val today = LocalDate.now()
     val quote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
-    val stock = Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(quote))
+    val stock = withTradableHistory(Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(quote)))
 
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
@@ -136,9 +136,11 @@ class ScannerServiceTest {
     val entryStrategy: EntryStrategy = mock()
     whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     val today = LocalDate.now()
-    val stock = Stock(
-      symbol = "AAPL",
-      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    val stock = withTradableHistory(
+      Stock(
+        symbol = "AAPL",
+        quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+      ),
     )
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
@@ -160,9 +162,11 @@ class ScannerServiceTest {
     whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     whenever(entryStrategy.preferredRanker()).thenReturn(null)
     val today = LocalDate.now()
-    val stock = Stock(
-      symbol = "AAPL",
-      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    val stock = withTradableHistory(
+      Stock(
+        symbol = "AAPL",
+        quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+      ),
     )
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
@@ -181,9 +185,11 @@ class ScannerServiceTest {
     val entryStrategy: EntryStrategy = mock()
     whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
     val today = LocalDate.now()
-    val stock = Stock(
-      symbol = "AAPL",
-      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    val stock = withTradableHistory(
+      Stock(
+        symbol = "AAPL",
+        quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+      ),
     )
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
@@ -238,7 +244,7 @@ class ScannerServiceTest {
     val entryStrategy: EntryStrategy = mock()
     whenever(strategyRegistry.createEntryStrategy("TestEntry2")).thenReturn(entryStrategy)
     val quote = StockQuote(symbol = "AAPL", date = marketDate, closePrice = 175.5, atr = 3.5, trend = "Uptrend")
-    val stock = Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(quote))
+    val stock = withTradableHistory(Stock(symbol = "AAPL", sectorSymbol = "XLK", quotes = listOf(quote)))
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
     whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
@@ -276,9 +282,11 @@ class ScannerServiceTest {
     val entryStrategy: DetailedEntryStrategy = mock()
     whenever(strategyRegistry.createEntryStrategy("TestEntry2")).thenReturn(entryStrategy)
     val today = LocalDate.now()
-    val stock = Stock(
-      symbol = "AAPL",
-      quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+    val stock = withTradableHistory(
+      Stock(
+        symbol = "AAPL",
+        quotes = listOf(StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5)),
+      ),
     )
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(stock))
@@ -331,8 +339,8 @@ class ScannerServiceTest {
     val today = LocalDate.now()
     val matchingQuote = StockQuote(symbol = "AAPL", date = today, closePrice = 150.0, atr = 3.5, trend = "Uptrend")
     val nonMatchingQuote = StockQuote(symbol = "MSFT", date = today, closePrice = 300.0, atr = 5.0, trend = "Downtrend")
-    val matchingStock = Stock(symbol = "AAPL", quotes = listOf(matchingQuote))
-    val nonMatchingStock = Stock(symbol = "MSFT", quotes = listOf(nonMatchingQuote))
+    val matchingStock = withTradableHistory(Stock(symbol = "AAPL", quotes = listOf(matchingQuote)))
+    val nonMatchingStock = withTradableHistory(Stock(symbol = "MSFT", quotes = listOf(nonMatchingQuote)))
 
     whenever(stockRepository.findAllSymbols()).thenReturn(listOf("AAPL", "MSFT"))
     whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(matchingStock, nonMatchingStock))
@@ -352,6 +360,58 @@ class ScannerServiceTest {
     assertEquals(1, response.results.size)
     assertEquals("AAPL", response.results[0].symbol)
     assertEquals(2, response.totalStocksScanned)
+  }
+
+  @Test
+  fun `scan skips names outside the tradable universe (thin dollar-volume)`() {
+    // Given: two names that both fire the entry and share the latest market bar, differing only in
+    // dollar-volume — LIQUID clears the $1M floor, THIN does not (ADR 0026).
+    val marketDate = LocalDate.of(2026, 5, 18)
+    whenever(marketBreadthRepository.findAllAsMap()).thenReturn(
+      mapOf(marketDate to MarketBreadthDaily(quoteDate = marketDate, breadthPercent = 50.0)),
+    )
+    val entryStrategy: EntryStrategy = mock()
+    whenever(strategyRegistry.createEntryStrategy("TestEntry")).thenReturn(entryStrategy)
+    val liquid = stockWithDailyVolume("LIQUID", marketDate, dailyVolume = 100_000)
+    val thin = stockWithDailyVolume("THIN", marketDate, dailyVolume = 50)
+    whenever(stockRepository.findAllSymbols()).thenReturn(listOf("LIQUID", "THIN"))
+    whenever(stockRepository.findBySymbols(any(), anyOrNull())).thenReturn(listOf(liquid, thin))
+    whenever(entryStrategy.test(any<Stock>(), any<StockQuote>(), any<BacktestContext>())).thenReturn(true)
+
+    // When
+    val response = service.scan(ScanRequest(entryStrategyName = "TestEntry", exitStrategyName = "TestExit"))
+
+    // Then: only the liquid name surfaces; the thin one is gated out of the live universe
+    assertEquals(listOf("LIQUID"), response.results.map { it.symbol })
+  }
+
+  /**
+   * A name with >=252 bars ending on [lastDate], each closing at $100 with [dailyVolume] shares — so
+   * dollar-volume ($100 x volume) alone decides whether it clears the tradable-universe floor.
+   */
+  private fun stockWithDailyVolume(
+    symbol: String,
+    lastDate: LocalDate,
+    dailyVolume: Long,
+    sectorSymbol: String = "XLK",
+  ): Stock {
+    val quotes = (0 until 252).map { i ->
+      StockQuote(symbol = symbol, date = lastDate.minusDays((251 - i).toLong()), closePrice = 100.0, volume = dailyVolume)
+    }
+    return Stock(symbol = symbol, sectorSymbol = sectorSymbol, quotes = quotes)
+  }
+
+  /**
+   * Prepends 251 liquid history bars so [stock]'s latest quote lands at the 252nd bar and clears the
+   * tradable-universe age + dollar-volume floors (ADR 0026), leaving the asserted latest bar untouched.
+   * Used to keep tests of unrelated scan mechanics green under the default-on liquidity gate.
+   */
+  private fun withTradableHistory(stock: Stock): Stock {
+    val firstDate = stock.quotes.first().date
+    val history = (1..251).map { i ->
+      StockQuote(symbol = stock.symbol, date = firstDate.minusDays((252 - i).toLong()), closePrice = 100.0, volume = 100_000)
+    }
+    return stock.copy(quotes = history + stock.quotes)
   }
 
   @Test
