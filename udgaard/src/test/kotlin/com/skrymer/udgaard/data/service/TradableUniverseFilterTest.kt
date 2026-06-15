@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.data.service
 
 import com.skrymer.udgaard.data.model.AssetType
+import com.skrymer.udgaard.data.model.Fundamental
 import com.skrymer.udgaard.data.model.LiquidityFilterParams
 import com.skrymer.udgaard.data.model.Stock
 import com.skrymer.udgaard.data.model.StockQuote
@@ -14,7 +15,9 @@ class TradableUniverseFilterTest {
 
   /**
    * A stock of [bars] consecutive daily quotes ending at [lastDate], every bar at [close] and [volume].
-   * Day spacing is irrelevant to the filter (it counts bars, not calendar days).
+   * Day spacing is irrelevant to the filter (it counts bars, not calendar days). When [rawClose] and
+   * [sharesOutstanding] are both given the stock carries a point-in-time market cap (one fundamental
+   * filed a month before [lastDate]); leaving either null leaves the cap unmeasurable.
    */
   private fun stockWith(
     symbol: String = "TEST",
@@ -23,6 +26,8 @@ class TradableUniverseFilterTest {
     close: Double,
     volume: Long,
     lastDate: LocalDate = LocalDate.of(2011, 1, 14),
+    rawClose: Double? = null,
+    sharesOutstanding: Long? = null,
   ): Stock {
     val quotes =
       (0 until bars).map { i ->
@@ -31,9 +36,21 @@ class TradableUniverseFilterTest {
           date = lastDate.minusDays((bars - 1 - i).toLong()),
           closePrice = close,
           volume = volume,
+          rawClose = rawClose,
         )
       }
-    return Stock(symbol = symbol, assetType = assetType, quotes = quotes)
+    val fundamentals =
+      sharesOutstanding?.let {
+        listOf(
+          Fundamental(
+            symbol = symbol,
+            fiscalDateEnding = lastDate.minusMonths(3),
+            filingDate = lastDate.minusMonths(1),
+            sharesOutstanding = it,
+          ),
+        )
+      } ?: emptyList()
+    return Stock(symbol = symbol, assetType = assetType, quotes = quotes, fundamentals = fundamentals)
   }
 
   @Test
@@ -148,6 +165,91 @@ class TradableUniverseFilterTest {
     // When/Then: one bar short is out; exactly at the floor is in.
     assertFalse(filter.isEligible(justUnder, asOf))
     assertTrue(filter.isEligible(exactly, asOf))
+  }
+
+  @Test
+  fun `a name whose point-in-time market cap is below the floor as of the bar is not tradable`() {
+    // Given: a liquid, priced STOCK with ample history whose cap is a provable $200M — raw close $20 x
+    // 10,000,000 shares (no splits, so k(t) = 1) — below the $300M micro/small floor.
+    val asOf = LocalDate.of(2011, 1, 14)
+    val stock =
+      stockWith(
+        bars = 260,
+        close = 20.0,
+        volume = 200_000,
+        lastDate = asOf,
+        rawClose = 20.0,
+        sharesOutstanding = 10_000_000,
+      )
+
+    // When: eligibility is checked as of the latest bar
+    val eligible = filter.isEligible(stock, asOf)
+
+    // Then: the cap floor rejects it despite clearing price, liquidity and history
+    assertFalse(eligible)
+  }
+
+  @Test
+  fun `a liquid, priced name whose market cap clears the floor is tradable`() {
+    // Given: a STOCK clearing every floor incl. cap — raw close $20 x 20,000,000 shares = $400M (>= $300M).
+    val asOf = LocalDate.of(2011, 1, 14)
+    val stock =
+      stockWith(
+        bars = 260,
+        close = 20.0,
+        volume = 200_000,
+        lastDate = asOf,
+        rawClose = 20.0,
+        sharesOutstanding = 20_000_000,
+      )
+
+    // When: eligibility is checked as of the latest bar
+    val eligible = filter.isEligible(stock, asOf)
+
+    // Then: it is in the tradable universe — the cap floor does not over-reject above the boundary
+    assertTrue(eligible)
+  }
+
+  @Test
+  fun `a liquid, priced name with no visible shares fundamental passes the cap floor — fail-open`() {
+    // Given: a liquid, priced STOCK with ample history and a raw close, but no shares fundamental — so
+    // its point-in-time cap is unmeasurable (the early-era / delisted vendor coverage gap, e.g. 2003
+    // Alcoa). Fail-open: an unknown cap must NOT be treated as a sub-threshold cap.
+    val asOf = LocalDate.of(2011, 1, 14)
+    val stock =
+      stockWith(
+        bars = 260,
+        close = 20.0,
+        volume = 200_000,
+        lastDate = asOf,
+        rawClose = 20.0,
+        sharesOutstanding = null,
+      )
+
+    // When: eligibility is checked as of the latest bar
+    val eligible = filter.isEligible(stock, asOf)
+
+    // Then: the cap floor does not exclude it — fillability is carried by the price/volume/age legs
+    assertTrue(eligible)
+  }
+
+  @Test
+  fun `the cap floor is inclusive — a name exactly at the boundary is tradable`() {
+    // Given: a liquid, priced STOCK whose cap sits exactly on the $300M boundary — raw close $30 x
+    // 10,000,000 shares.
+    val asOf = LocalDate.of(2011, 1, 14)
+    val stock =
+      stockWith(
+        bars = 260,
+        close = 30.0,
+        volume = 200_000,
+        lastDate = asOf,
+        rawClose = 30.0,
+        sharesOutstanding = 10_000_000,
+      )
+
+    // When/Then: exactly at the floor is in (the gate is `>=`, not `>`)
+    assertTrue(filter.isEligible(stock, asOf))
   }
 
   @Test

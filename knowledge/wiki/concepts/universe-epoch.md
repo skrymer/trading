@@ -4,9 +4,9 @@ title: Universe epoch — a global universe change supersedes verdicts without r
 summary: A global one-time universe change (ADR 0026) marks prior firewall verdicts stale-but-not-erased without resetting the dead-config brake; re-fire a corpse only with a structural-interaction judgment.
 status: stable
 tags: [methodology, firewall, universe, data-mining, anti-snooping]
-sources: ["docs/adr/0026-tradable-universe-is-liquidity-gated-and-universe-changes-open-an-epoch.md", "docs/adr/0008-strategy-exploration-orchestrator-is-a-non-executing-data-mining-brake.md", "CONTEXT.md"]
+sources: ["docs/adr/0026-tradable-universe-is-liquidity-gated-and-universe-changes-open-an-epoch.md", "docs/adr/0027-point-in-time-market-cap-is-split-only-adjusted-close-times-split-adjusted-shares.md", "docs/adr/0008-strategy-exploration-orchestrator-is-a-non-executing-data-mining-brake.md", "CONTEXT.md"]
 related: ["[[component-firewall]]", "[[aliased-regime-sensitivity]]", "[[the-funnel]]"]
-updated: 2026-06-14
+updated: 2026-06-15
 ---
 
 # Universe epoch (ADR 0026)
@@ -65,6 +65,18 @@ When a universe epoch opens, do **not** mass-re-run. Classify each candidate by 
 
 - **#173 tradable-universe liquidity filter** (ADR 0026) — the first universe epoch. Default-on price /
   liquidity / age gate; supersedes all pre-#173 verdicts; re-validate-nothing policy applied.
+- **#173 Phase-2 `$300M` market-cap floor** (ADR 0026 §1 — wired in #173 Phase 2, enabled by the
+  #174/ADR 0027 cap primitive, 2026-06-15) — the second universe epoch. Adds a point-in-time `marketCapAsOf(D) ≥ $300M` clause; removes the
+  provably-sub-$300M tail (~1–6% of liquid names, era-stable). Supersedes verdicts earned on the
+  post-#173 (price/liquidity/age-only) universe; funnel still empty → re-validate-nothing again.
+  **Fail-open** on a `null` cap, by quant-adjudicated pre-registration: the share-count coverage gap is
+  era-correlated (~19% of liquid names in 2003 → ~0.2% in 2025 — a *vendor coverage artifact*, the 2003
+  null-cap set being real large/mid-caps like the pre-2016 Alcoa, verified against the vendor API), so
+  fail-*closed* would make the tradable population non-stationary across the firewall blocks (Block A
+  systematically smaller for a coverage reason unrelated to size) — re-injecting the exact bias the epoch
+  exists to remove. Landmine recorded: shares must never be back-filled across a **ticker-reuse** boundary
+  (`AA` = pre-2016 Alcoa vs the 2016 Alcoa Corp spin-off; the `filing_date ≤ D` gate correctly returns
+  null pre-reuse).
 
 ## Related
 

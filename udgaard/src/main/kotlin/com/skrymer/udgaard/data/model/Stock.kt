@@ -250,9 +250,15 @@ data class Stock(
 
   /**
    * The single most-recent fundamental public on [date] — the source of the point-in-time balance-sheet
-   * values (e.g. total assets), which are stock quantities read as-of, never summed.
+   * values (e.g. total assets), which are stock quantities read as-of, never summed. A single-pass max
+   * (not `visibleFundamentalsAsOf().firstOrNull()`): the tradable-universe cap floor calls this per liquid
+   * name per bar (ADR 0026 Phase 2), so it avoids the eager filtered-list + full sort on that hot path.
    */
-  fun latestFundamentalAsOf(date: LocalDate): Fundamental? = visibleFundamentalsAsOf(date).firstOrNull()
+  fun latestFundamentalAsOf(date: LocalDate): Fundamental? =
+    fundamentals
+      .asSequence()
+      .filter { it.isVisibleAsOf(date) }
+      .maxWithOrNull(compareBy<Fundamental>({ it.filingDate!! }, { it.fiscalDateEnding }))
 
   /**
    * Trailing-twelve-month gross profit as of [date] — the sum of `grossProfit` over the four most-recent
