@@ -1,12 +1,12 @@
 ---
 type: entity
 title: Minervini VCP Breakout
-summary: Breakout; REJECTED as all-weather (firewall 2026-06-03; PRD-confirmed 12.9% OOS). Real in broad-thrust — could be a THRUST-regime specialist (hypothesis). Sector dim re-rated neutral (#167).
+summary: Breakout; REJECTED as all-weather (firewall 2026-06-03; PRD-confirmed 12.9% OOS). Real in broad-thrust, but the THRUST-specialist path is CLOSED (2026-06-16, mechanistic — same death as R1). Sector dim neutral (#167).
 status: stable
 tags: [candidate, breakout, momentum, rejected, shelved, regime-specialist]
 sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/", "strategy_exploration/assessments/minervini-vcp-breakout/"]
-related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]", "[[2026-06-14-minervini-sector-rerate]]"]
-updated: 2026-06-14
+related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]", "[[2026-06-14-minervini-sector-rerate]]", "[[2026-06-16-thrust-specialist-abandon]]"]
+updated: 2026-06-16
 ---
 
 # Minervini VCP Breakout
@@ -41,6 +41,19 @@ project state, not stated in the candidate docs]
 > [[gjallarhorn]]) — **not** as a breakout fed by a market-state ON/OFF gate. Any future regime read must
 > be a *direct, low-frequency concentration* signal, not a `SPY − equal-weight` return-gap (earned-dead).
 
+> **Update 2026-06-16 — the THRUST-specialist path is CLOSED** (quant adjudication, no backtest, under the
+> operator's improve-or-abandon rule — [[2026-06-16-thrust-specialist-abandon]]). The 2026-06-13 "could be
+> tradable as a THRUST-regime specialist" hypothesis below is **REFUTED**, for two mechanistic reasons:
+> (1) a *published-THRUST* gate is itself a market-level calendar gate built from R1's **earned-dead**
+> `SPY − equal-weight` gap-sign (the `gap NEG` leg) AND-ed with the `breadthEma10Above50` level the Track-2
+> fix already failed worse — so it inherits R1's death, the same `SPY − equal-weight` signal this very page
+> warned against one paragraph up; (2) the frozen read-out **suppresses THRUST ~12 months post-crash**, so a
+> published-THRUST gate **discards** the breakout's best tape (the post-washout recovery, which publishes
+> CRISIS) and keeps only the quieter mid-cycle thrusts — the +7.45 THRUST bucket is the *weaker* half, the
+> recovery alpha sits in the −3.05 CRISIS bucket. Gating to THRUST cannot improve on the dead config → ABANDON.
+> The legitimate heir is a **per-name cross-sectional participation entry premise** in a higher-cadence
+> composite (a new lineage, `/condition-screen` from scratch), never a label gate on this stack.
+
 ## Assessment 2026-06-13 — PRD clean-data re-run · **could be tradable as a THRUST-regime specialist**
 
 First `/assess-strategy` battery (ADR 0022, non-adjudicating; `config_hash 81a1d38ee0a6`). A 2026-06-12
@@ -63,7 +76,8 @@ real in broad-thrust tape" claim on the same trade population:
 | GRIND / NARROW / CHOP | +4.4 / +2.1 / +3.6 — **uncitable** | D — descriptive-only |
 
 > **Label — could be tradable as a THRUST-regime specialist (operator hypothesis 2026-06-13, NOT a
-> verdict).** Fits the operator's regime-specialist thesis: stop hunting an all-weather strategy; build
+> verdict). ⚠ REFUTED 2026-06-16 — see the Status update above ([[2026-06-16-thrust-specialist-abandon]]);
+> retained for the record.** Fits the operator's regime-specialist thesis: stop hunting an all-weather strategy; build
 > a stable of per-regime specialists routed by a regime classifier, with this candidate the **THRUST
 > leg**. The +7.45 THRUST edge corroborates the Block-B "real in broad-thrust" finding — but it is
 > **descriptive-only**: confirming a THRUST specialist requires a *regime-conditional firewall
