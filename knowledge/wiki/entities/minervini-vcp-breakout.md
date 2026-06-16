@@ -5,7 +5,7 @@ summary: Breakout; REJECTED as all-weather (firewall 2026-06-03; PRD-confirmed 1
 status: stable
 tags: [candidate, breakout, momentum, rejected, shelved, regime-specialist]
 sources: ["project_minervini_vcp_breakout_rejected", "strategy_exploration/dossier/", "strategy_exploration/assessments/minervini-vcp-breakout/"]
-related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]", "[[2026-06-14-minervini-sector-rerate]]", "[[2026-06-16-thrust-specialist-abandon]]"]
+related: ["[[component-firewall]]", "[[participate-and-lose]]", "[[thinning-not-selecting]]", "[[long-premise-in-narrow-leadership]]", "[[gjallarhorn]]", "[[parameter-robustness-g13]]", "[[regime-conditional-portfolio]]", "[[r1-leadership-gap-breakout]]", "[[strategy-assessment]]", "[[regime-read-out]]", "[[2026-06-14-minervini-sector-rerate]]", "[[2026-06-16-thrust-specialist-abandon]]", "[[2026-06-16-tradable-filter-impact-ab]]"]
 updated: 2026-06-16
 ---
 
@@ -205,6 +205,13 @@ while PF craters toward 1.0/0.7 — the filters concentrate a tail they don't ge
 - **Population-bias audit clean:** the universe is survivorship-free (delisted names included through
   delisting, force-closed as real losses), no pre-liquidity truncation in this stack — so the
   concentration / breadth / discrimination findings are NOT survivorship artifacts.
+- **The apparent edge was illiquid-tail-carried** ([[2026-06-16-tradable-filter-impact-ab]]): a full-25y
+  PRD A/B, identical config except `applyLiquidityFilter`, cut ~22% of trades but **~73% of the per-trade
+  edge** (3.94→1.06) and **~79% of CAGR** (14.9→3.2). The removed names are the sub-$5 / illiquid
+  single-trade-lottery tail (`TGISQ` +248% on one trade at ~1,850 sh/day; `MGIC` median close $3.09). The
+  realistically-tradable edge is poor — reconfirms REJECTED, and makes minervini the *inverse* of a
+  filter-rescuable corpse (the gate makes it **more** dead). A worked instance of the [[universe-epoch]]
+  supersede rule: its pre-#173 verdict overstated tradable edge.
 - **Design principles for any future breakout candidate** (typed hypotheses, re-tested via fresh
   screen, never inherited as fact): a breakout-event trigger + SPY-regime crash filter are
   load-bearing for trade quality; ADX-as-a-gate is contraindicated for tail-edge premises (cuts the
