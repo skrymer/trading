@@ -5,8 +5,8 @@ summary: A rescue filter that removes trades uniformly without improving the kee
 status: stable
 tags: [failure-mode, methodology]
 sources: ["project_minervini_vcp_breakout_rejected", "feedback_ablation_metric_confound_capital_aware", "feedback_random_ranker_baseline_mandatory"]
-related: ["[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[regime-conditional-portfolio]]", "[[2026-05-27-strategy-screen-sweep]]", "[[r1-leadership-gap-breakout]]", "[[quality-profitability-tilt]]", "[[2026-06-11-quality-tilt-trend-leg-ablation]]"]
-updated: 2026-06-11
+related: ["[[participate-and-lose]]", "[[lottery-vs-signature]]", "[[regime-conditional-portfolio]]", "[[2026-05-27-strategy-screen-sweep]]", "[[r1-leadership-gap-breakout]]", "[[quality-profitability-tilt]]", "[[2026-06-11-quality-tilt-trend-leg-ablation]]", "[[2026-06-16-thrust-specialist-abandon]]"]
+updated: 2026-06-16
 ---
 
 # Thinning, Not Selecting
@@ -51,6 +51,12 @@ edge) ≈ 0`, identical deploy fraction in winning and losing years, in-market C
 0.42. A market-level gate has **zero cross-sectional resolution** by construction, so even a clean,
 correctly-implemented, non-overfit one only thins — the durable law holds whether the gate is a post-hoc
 patch or a pre-registered candidate.
+
+The law also rules out the **published-regime-label** form of the gate ([[2026-06-16-thrust-specialist-abandon]]):
+the read-out's gateable labels (CRISIS/THRUST) are themselves one-number-per-day market aggregates, so
+gating the breakout to **THRUST** has the same zero cross-sectional resolution — and worse, published-THRUST
+is *literally* R1's earned-dead `SPY − equal-weight` gap-sign AND-ed with the `breadthEma10Above50` level
+this page already records as failing worse. A gateable regime label is a calendar gate; it cannot select.
 
 ## The ablation-metric corollary (why you can't shortcut this)
 

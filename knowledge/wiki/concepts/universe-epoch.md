@@ -5,8 +5,8 @@ summary: A global one-time universe change (ADR 0026) marks prior firewall verdi
 status: stable
 tags: [methodology, firewall, universe, data-mining, anti-snooping]
 sources: ["docs/adr/0026-tradable-universe-is-liquidity-gated-and-universe-changes-open-an-epoch.md", "docs/adr/0027-point-in-time-market-cap-is-split-only-adjusted-close-times-split-adjusted-shares.md", "docs/adr/0008-strategy-exploration-orchestrator-is-a-non-executing-data-mining-brake.md", "CONTEXT.md"]
-related: ["[[component-firewall]]", "[[aliased-regime-sensitivity]]", "[[the-funnel]]"]
-updated: 2026-06-15
+related: ["[[component-firewall]]", "[[aliased-regime-sensitivity]]", "[[the-funnel]]", "[[2026-06-16-tradable-filter-impact-ab]]", "[[minervini-vcp-breakout]]"]
+updated: 2026-06-16
 ---
 
 # Universe epoch (ADR 0026)
@@ -60,6 +60,26 @@ When a universe epoch opens, do **not** mass-re-run. Classify each candidate by 
 - **Corroborating tell:** the cheap-name-driven corpses (DV1, MR3 have on-record `minPrice≥5` re-fires
   that *collapsed* their CAGR) get **more** dead under the gate — direct evidence the change is a
   *correctness fix*, not a corpse-revival lever.
+
+## Quantified filter impact — the first A/B (2026-06-16)
+
+[[2026-06-16-tradable-filter-impact-ab]] is the first **measured** answer to "how much does the filter
+actually move tradable edge." The [[minervini-vcp-breakout]] base, full 25y PRD, identical config except
+`applyLiquidityFilter` (true vs false):
+
+| | filtered (tradable) | unfiltered (pre-#173) |
+|---|---|---|
+| per-trade edge | **+1.06%** | +3.94% |
+| CAGR | **3.2%** | 14.9% |
+| Calmar | 0.05 | 0.37 |
+
+Cutting ~22% of trades erased ~73% of the per-trade edge — because a **majority of the apparent edge lived
+in the illiquid / sub-$5 single-trade-lottery tail the filter removes** (e.g. `TGISQ` +248% on one trade at
+~1,850 sh/day; `MGIC` median close $3.09). This is the empirical force behind the supersede rule: a verdict
+earned on the unfiltered universe is **not a tradable verdict** — pre-#173 backtests systematically overstate
+tradable edge. It also corroborates the "correctness fix, not a revival lever" point: minervini's edge being
+illiquid-tail-carried makes it *more* dead under the gate (cf. DV1/MR3's `minPrice≥5` collapses), the inverse
+of a filter-rescuable corpse. ^[inferred — the generalization beyond minervini is synthesis; the deltas are measured]
 
 ## Instances
 

@@ -50,7 +50,7 @@ abandoned (no viable second long component decorrelated from the first).
 premise — each failed for a documented, reproducible reason, not bad luck:
 
 1. **Long-pullback mean-reversion** (VZ3, MR3, Idunn) — [[participate-and-lose]] + [[aliased-regime-sensitivity]].
-2. **Breakout-in-uptrend** (Minervini VCP breakout) — [[participate-and-lose]]; no regime selector fixed it ([[thinning-not-selecting]]). The #83 breadth-confirmed regime-rescue ([[r1-leadership-gap-breakout]]) was built, run, and **ABANDONED 2026-06-09**: a market-level gate can't rescue this premise (loss is cross-sectional, gate acts on the calendar) — now *mechanistically* proven, not just observed. The `SPY − equal-weight` trailing-return-gap as a regime signal is itself **earned-dead** (horizon-aliases a multi-quarter regime with a multi-week instrument). A *direct, low-frequency concentration* signal stays open — but only on a market-timing premise, never a breakout.
+2. **Breakout-in-uptrend** (Minervini VCP breakout) — [[participate-and-lose]]; no regime selector fixed it ([[thinning-not-selecting]]). The #83 breadth-confirmed regime-rescue ([[r1-leadership-gap-breakout]]) was built, run, and **ABANDONED 2026-06-09**: a market-level gate can't rescue this premise (loss is cross-sectional, gate acts on the calendar) — now *mechanistically* proven, not just observed. The `SPY − equal-weight` trailing-return-gap as a regime signal is itself **earned-dead** (horizon-aliases a multi-quarter regime with a multi-week instrument). The **THRUST-regime-LABEL rescue is also closed** (2026-06-16, [[2026-06-16-thrust-specialist-abandon]]): a published-THRUST gate IS that same earned-dead `SPY − equal-weight` gap-sign + the failed breadth level (inherits R1's death), and the read-out's post-crash THRUST suppression discards the recovery alpha → keeps the weaker half. A *direct, low-frequency concentration* signal stays open — but only on a market-timing premise, never a breakout; and a real breakout specialist needs a **per-name cross-sectional participation axis**, never a market-level label gate.
 3. **Leveraged-ETF timing** — data-span disqualified (post-2009) + regime fragility.
 4. **Cross-sectional RS-momentum rotation** — ✅ **EARNED-DEAD (2026-06-09, resolved).** Three flavours
    now ruled out on real runs: [[george]] (52-week-high anchoring — lost to Random), [[mrm]] (single-factor
@@ -127,7 +127,15 @@ premise — each failed for a documented, reproducible reason, not bad luck:
 - The breakout edge is **shelved** as a real risk-on building block (Block B earned it); the #83
   regime-layer rescue was built + run + **ABANDONED 2026-06-09** ([[r1-leadership-gap-breakout]]) — a
   market-level gate can't rescue a participate-and-lose entry, so the breakout can only host on a
-  market-timing-level partner (e.g. [[gjallarhorn]]), never a breakout fed by a market-state gate.
+  market-timing-level partner (e.g. [[gjallarhorn]]), never a breakout fed by a market-state gate. Gating
+  the breakout to the **current published-THRUST label** was adjudicated dead too (2026-06-16,
+  [[2026-06-16-thrust-specialist-abandon]]): that label is the same earned-dead gap-sign + failed breadth
+  level (Kill 1 — a market-level gate only thins a cross-sectional loss, true even with a perfect detector),
+  and its post-crash suppression discards the recovery alpha (Kill 2 — a detector limitation). **Scope:**
+  this closes the *breakout-via-market-label candidate* only — **not** the goal of detecting a THRUST regime
+  / the four regime states (the live [[2026-06-14-regime-v3-dispersion-overturned|#168 v3]] work), nor the
+  regime-specialist program in general. For *this* premise a real specialist needs a per-name cross-sectional
+  participation axis, not a market label.
 - **Leverageable-Calmar reframe explored (2026-06-10) — quant ADOPT-NARROW; SPY-timing first candidate
   REJECTED.** Since Calmar is ~leverage-invariant, the hunt *could* target high unlevered Calmar
   (leverageable to 25%) instead of raw CAGR — but leverage **degrades** Calmar after costs (need unlevered

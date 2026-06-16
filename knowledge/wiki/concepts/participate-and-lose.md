@@ -5,8 +5,8 @@ summary: A long premise that stays fully deployed through the regime where its e
 status: stable
 tags: [failure-mode]
 sources: ["feedback_mean_reversion_pullback_known_weakness", "project_minervini_vcp_breakout_rejected", "knowledge/wiki/sources/2026-06-09-r1-leadership-gap-breakout-abandon.md"]
-related: ["[[thinning-not-selecting]]", "[[aliased-regime-sensitivity]]", "[[lottery-vs-signature]]", "[[minervini-vcp-breakout]]", "[[r1-leadership-gap-breakout]]", "[[quality-profitability-tilt]]", "[[gjallarhorn]]", "[[2026-06-12-levered-quality-lag-check-prereg]]"]
-updated: 2026-06-12
+related: ["[[thinning-not-selecting]]", "[[aliased-regime-sensitivity]]", "[[lottery-vs-signature]]", "[[minervini-vcp-breakout]]", "[[r1-leadership-gap-breakout]]", "[[quality-profitability-tilt]]", "[[gjallarhorn]]", "[[2026-06-12-levered-quality-lag-check-prereg]]", "[[2026-06-16-thrust-specialist-abandon]]"]
+updated: 2026-06-16
 ---
 
 # Participate-and-Lose
@@ -54,6 +54,15 @@ of the narrow 2021/23/24 years) and left in-market Calmar at 0.32 ≈ the ungate
 structurally different ENTRY premise** with genuine cross-sectional resolution in thin tape — never a
 market-level regime overlay (a post-hoc patch on the rejected config is additionally IS-fitting to the
 single OOS window).
+
+**The regime-LABEL form of the overlay is dead for the same reason** ([[2026-06-16-thrust-specialist-abandon]],
+quant adjudication). The frozen read-out's only gateable labels (CRISIS, THRUST) are *market aggregates —
+one number per day, identical for all names* — so gating a participate-and-lose breakout to **THRUST** is
+just R1 again: published-THRUST's `gap NEG` leg **is** the earned-dead `SPY − equal-weight` gap-sign, AND-ed
+with the `breadthEma10Above50` level the breakout's own Track-2 fix already failed worse on. A *gateable
+published regime label cannot host a specialist whose loss is cross-sectional* — the durable corollary. A
+real regime specialist for such a premise needs a **from-scratch per-name cross-sectional axis**, not a
+label gate.
 
 ## Instances
 
