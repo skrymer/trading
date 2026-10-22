@@ -1,6 +1,7 @@
 package com.skrymer.udgaard.backtesting.controller
 
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutDaily
+import com.skrymer.udgaard.backtesting.model.RegimeReadoutVersion
 import com.skrymer.udgaard.backtesting.service.BacktestResultStore
 import com.skrymer.udgaard.backtesting.service.RegimeDecomposition
 import com.skrymer.udgaard.backtesting.service.RegimeDecompositionService
@@ -22,7 +23,9 @@ import java.time.LocalDate
  * REST API for the pre-registered 5-label regime read-out (ADR 0023).
  *
  * Endpoints:
- * - GET /api/regime/readout?after=&before= — the daily label series over a window
+ * - GET /api/regime/readout?after=&before=&version= — the daily label series over a window; version
+ *   defaults to the frozen-and-live V2 (ADR 0024), V3 serves the provisional trend-efficiency
+ *   candidate (ADR 0028) for validation only — transitional, removed once v3 is resolved
  * - GET /api/regime/current — the latest available read as of the NY trading day
  * - GET /api/regime/decomposition/{backtestId} — a stored backtest's trades bucketed by regime at entry
  * - GET /api/regime/sector-matrix?after=&before= — the strategy-blind regime x sector return matrix
@@ -40,9 +43,18 @@ class RegimeController(
   fun getReadout(
     @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) after: LocalDate,
     @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) before: LocalDate,
+    @RequestParam(defaultValue = "V2") version: String = "V2",
   ): ResponseEntity<List<RegimeReadoutDaily>> {
     if (after.isAfter(before)) return ResponseEntity.badRequest().build()
-    val series = regimeReadoutService.loadReadoutSeries(after, before)
+    // Parse case-insensitively so a manual ?version=v3 binds (the default enum converter is strict).
+    val readoutVersion =
+      runCatching { RegimeReadoutVersion.valueOf(version.trim().uppercase()) }
+        .getOrElse { return ResponseEntity.badRequest().build() }
+    val series =
+      when (readoutVersion) {
+        RegimeReadoutVersion.V2 -> regimeReadoutService.loadReadoutSeries(after, before)
+        RegimeReadoutVersion.V3 -> regimeReadoutService.loadReadoutSeriesV3(after, before)
+      }
     return ResponseEntity.ok(series.values.sortedBy { it.quoteDate })
   }
 

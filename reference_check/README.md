@@ -59,3 +59,32 @@ Important semantics the script mirrors from the engine:
 - **No pre-backtest warmup.** `BacktestService` loads `stock.quotes` with `quotesAfter = startDate` — rolling averages (volume, volatility) don't see pre-`startDate` bars. The script clips its Midgaard data the same way so condition inputs match. Consequence: volume lookback falls below 20 bars during the first ~10 trading days of any backtest, matching the engine's cold-start behavior.
 
 Exits 0 when every trade passes every verified condition, non-zero otherwise.
+
+### Regime read-out v3 trend-efficiency acceptance (ADR 0028)
+
+Operator-run validation of the v3 trend-efficiency overlay (issue #180) — run once, after the
+pre-registration freeze, against a udgaard serving `version=V3`. The trio is descriptive evidence for
+the trader's report; none of them promotes a label to gateable.
+
+```bash
+python3 regime_readout_anchor_check.py --version V3 --base-url http://localhost:8080/udgaard   # 1. anchors
+python3 regime_readout_rw_surrogate.py --base-url http://localhost:8080/udgaard                # 2. RW surrogate
+python3 regime_readout_frozen_oos.py   --base-url http://localhost:8080/udgaard                # 3. frozen-OOS
+```
+
+- **`regime_readout_anchor_check.py --version V3`** — the primary acceptance check. Verifies GRIND and
+  CHOP each clear 60% on their frozen anchor spans WITHOUT regressing the byte-identical CRISIS/THRUST
+  backbone, plus stability and the unchanged CHOP D-FLAT ≥70%. Also prints the report-only
+  GRIND-demotion rate (a near-zero rate is a recordable "axis inert" negative result) and the per-spell
+  Choppiness band histogram. Without `--version` it runs the frozen v2 production check unchanged.
+- **`regime_readout_rw_surrogate.py`** — does the Choppiness axis separate GRIND from CHOP beyond a
+  calibrated random walk? Stationary block bootstrap (L=5, K=1000, frozen seed) of SPY's
+  (log-return, high/close, low/close) bars; passes when the real GRIND-vs-CHOP Choppiness gap exceeds
+  the surrogate p95 (one-sided p < 0.05).
+- **`regime_readout_frozen_oos.py`** — efficiency-axis stationarity across the frozen 2014-12-31 cutoff
+  (GRIND-survival-rate + surviving-vs-demoted Choppiness, IS vs OOS). Binds only on the already-frozen
+  stability floors OOS; the IS-vs-OOS stationarity reads are reported for operator/quant judgment, not
+  auto-gated on an invented tolerance.
+
+A failed anchor or surrogate is a **recorded negative result, never a retry** at another window or
+threshold (ADR 0028 one-shot / no-sweep).

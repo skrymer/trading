@@ -34,4 +34,9 @@ data class RegimeAxes(
   val direction: Double?,
   val washoutActive: Boolean,
   val drawdownFrom252High: Double?,
+  // The v3 trend-efficiency leg (ADR 0028) — null on the v2 production read-out, populated only on
+  // the v3 candidate series. [choppinessIndex30] drives the GRIND-demotion overlay; [efficiencyRatio30]
+  // (Kaufman ER) is advisory observability only, never an input to a label.
+  val choppinessIndex30: Double? = null,
+  val efficiencyRatio30: Double? = null,
 )

@@ -72,6 +72,51 @@ class RegimeControllerTest {
   }
 
   @Test
+  fun `the readout endpoint serves the v3 trend-efficiency series for a case-insensitive version`() {
+    // Given: a v3 candidate series loaded for the window
+    val after = LocalDate.of(2026, 1, 5)
+    val before = LocalDate.of(2026, 1, 7)
+    whenever(regimeReadoutService.loadReadoutSeriesV3(eq(after), eq(before), any(), any()))
+      .thenReturn(mapOf(LocalDate.of(2026, 1, 6) to day(LocalDate.of(2026, 1, 6), RegimeLabel.CHOP)))
+
+    // When a lowercase version is passed (an operator typing ?version=v3)
+    val response = controller.getReadout(after, before, "v3")
+
+    // Then: it still routes to the v3 loader (not the v2 production read-out)
+    assertEquals(RegimeLabel.CHOP, requireNotNull(response.body).single().publishedLabel)
+    verify(regimeReadoutService).loadReadoutSeriesV3(eq(after), eq(before), any(), any())
+  }
+
+  @Test
+  fun `the readout endpoint rejects an unknown version`() {
+    // Given an unrecognised version string
+    val after = LocalDate.of(2026, 1, 5)
+    val before = LocalDate.of(2026, 1, 7)
+
+    // When called, Then 400 rather than loading anything
+    val response = controller.getReadout(after, before, "v9")
+    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, response.statusCode)
+    verify(regimeReadoutService, org.mockito.kotlin.never()).loadReadoutSeries(any(), any(), any())
+    verify(regimeReadoutService, org.mockito.kotlin.never()).loadReadoutSeriesV3(any(), any(), any(), any())
+  }
+
+  @Test
+  fun `the readout endpoint defaults to the v2 production read-out`() {
+    // Given: a v2 series for the window
+    val after = LocalDate.of(2026, 1, 5)
+    val before = LocalDate.of(2026, 1, 7)
+    whenever(regimeReadoutService.loadReadoutSeries(eq(after), eq(before), any()))
+      .thenReturn(mapOf(LocalDate.of(2026, 1, 6) to day(LocalDate.of(2026, 1, 6), RegimeLabel.THRUST)))
+
+    // When the version is omitted
+    val response = controller.getReadout(after, before)
+
+    // Then: the v2 loader is used, and the v3 path is never touched
+    assertEquals(RegimeLabel.THRUST, requireNotNull(response.body).single().publishedLabel)
+    verify(regimeReadoutService).loadReadoutSeries(eq(after), eq(before), any())
+  }
+
+  @Test
   fun `the current endpoint returns the latest available read as of the NY trading day`() {
     // Given: the clock reads 2026-06-11 in New York, and the latest available read lags a day
     val today = LocalDate.of(2026, 6, 11)

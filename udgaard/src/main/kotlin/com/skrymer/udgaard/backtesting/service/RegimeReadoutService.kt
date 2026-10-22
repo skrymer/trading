@@ -4,6 +4,7 @@ import com.skrymer.udgaard.backtesting.model.RegimeAxes
 import com.skrymer.udgaard.backtesting.model.RegimeLabel
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutDaily
 import com.skrymer.udgaard.backtesting.model.RegimeReadoutParams
+import com.skrymer.udgaard.backtesting.model.RegimeReadoutParamsV3
 import com.skrymer.udgaard.backtesting.strategy.CompositeEntryStrategy
 import com.skrymer.udgaard.backtesting.strategy.CompositeExitStrategy
 import com.skrymer.udgaard.backtesting.strategy.EntryStrategy
@@ -12,12 +13,15 @@ import com.skrymer.udgaard.backtesting.strategy.condition.entry.RegimeLabelCondi
 import com.skrymer.udgaard.backtesting.strategy.condition.exit.RegimeLabelExitCondition
 import com.skrymer.udgaard.data.model.EwReturnDaily
 import com.skrymer.udgaard.data.model.MarketBreadthDaily
+import com.skrymer.udgaard.data.model.StockQuote
 import com.skrymer.udgaard.data.repository.LeadershipGapRepository
 import com.skrymer.udgaard.data.repository.MarketBreadthRepository
 import com.skrymer.udgaard.data.repository.StockJooqRepository
 import com.skrymer.udgaard.data.service.TechnicalIndicatorService
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import kotlin.math.abs
+import kotlin.math.log10
 import kotlin.math.sqrt
 
 /**
@@ -57,6 +61,26 @@ class RegimeReadoutService(
   }
 
   /**
+   * The v3 trend-efficiency series (ADR 0028) over `[after, before]`, warm-up-buffered like
+   * [loadReadoutSeries] but keeping the full SPY OHLC quotes the Choppiness leg needs. Provisional
+   * candidate, exposed only for validation — never the production read-out.
+   */
+  fun loadReadoutSeriesV3(
+    after: LocalDate,
+    before: LocalDate,
+    v2Params: RegimeReadoutParams = RegimeReadoutParams.FROZEN,
+    v3Params: RegimeReadoutParamsV3 = RegimeReadoutParamsV3.FROZEN,
+  ): Map<LocalDate, RegimeReadoutDaily> {
+    val loadAfter = after.minusDays(WARMUP_CALENDAR_DAYS)
+    val spyQuotes = stockRepository.findBySymbol(MARKET_BENCHMARK_SYMBOL, quotesAfter = loadAfter)?.quotes ?: emptyList()
+    val ewReturnByDate =
+      leadershipGapRepository.ewReturnByDate(loadAfter, before, v2Params.lookbackBars, includePercentiles = true)
+    val breadthByDate = marketBreadthRepository.findAllAsMap()
+    return computeReadoutSeriesV3(spyQuotes, ewReturnByDate, breadthByDate, v2Params, v3Params)
+      .filterKeys { !it.isBefore(after) && !it.isAfter(before) }
+  }
+
+  /**
    * The read-out series for a backtest, loaded only when the strategy actually gates on a regime
    * label (entry or exit, including conditions nested in groups) — otherwise an empty map at zero
    * cost. The backtest engines call this at context-build time.
@@ -73,6 +97,130 @@ class RegimeReadoutService(
       (exitStrategy as? CompositeExitStrategy)?.getConditions()?.any { it is RegimeLabelExitCondition } ?: false
     if (!entryGates && !exitGates) return emptyMap()
     return loadReadoutSeries(after, before)
+  }
+
+  /**
+   * The multi-week SPY Choppiness Index (ADR 0028, the v3 trend-efficiency leg): per day,
+   * `100 · log10(Σ trueRange / (max high − min low)) / log10(window)` over the trailing [window]
+   * SPY bars. 0 = a perfectly efficient trend (path length equals net distance); 100 = a perfectly
+   * choppy range (path length is [window]× the net distance). Computed on the split+dividend-adjusted
+   * `(high, low, closePrice)` — all on one basis. A day is omitted (undefined, treated as not-efficient
+   * by the overlay) until a full window has seeded, or when a bad print makes a bar non-positive or
+   * collapses the window's high-low span to zero.
+   */
+  fun choppinessIndexByDate(
+    spyQuotes: List<StockQuote>,
+    window: Int = RegimeReadoutParamsV3.FROZEN.efficiencyWindowBars,
+  ): Map<LocalDate, Double> {
+    require(window > 1) { "Choppiness window must be > 1 (log10(window) is the denominator), got $window" }
+    val sorted = spyQuotes.sortedBy { it.date }
+    val result = LinkedHashMap<LocalDate, Double>()
+    for (index in window until sorted.size) {
+      val chop = choppinessForWindow(sorted, index, window) ?: continue
+      result[sorted[index].date] = chop
+    }
+    return result
+  }
+
+  /**
+   * The Choppiness Index for the single trailing [window] ending at [index] (inclusive), or null
+   * when the window has not seeded into a defined value — a non-positive high/low/prior-close bad
+   * print (the prior close enters the true range, so it is guarded like the other legs), or a
+   * collapsed (non-positive) high-low span.
+   */
+  private fun choppinessForWindow(
+    sorted: List<StockQuote>,
+    index: Int,
+    window: Int,
+  ): Double? {
+    var trueRangeSum = 0.0
+    var maxHigh = Double.NEGATIVE_INFINITY
+    var minLow = Double.POSITIVE_INFINITY
+    for (i in (index - window + 1)..index) {
+      val bar = sorted[i]
+      val priorClose = sorted[i - 1].closePrice
+      if (bar.high <= 0.0 || bar.low <= 0.0 || priorClose <= 0.0) return null
+      trueRangeSum += maxOf(bar.high - bar.low, abs(bar.high - priorClose), abs(bar.low - priorClose))
+      if (bar.high > maxHigh) maxHigh = bar.high
+      if (bar.low < minLow) minLow = bar.low
+    }
+    val span = maxHigh - minLow
+    if (span <= 0.0) return null
+    return 100.0 * log10(trueRangeSum / span) / log10(window.toDouble())
+  }
+
+  /**
+   * The Kaufman Efficiency Ratio (ADR 0028, advisory only): `|close[t] − close[t−window]| /
+   * Σ|close[i] − close[i−1]|` over the trailing [window] SPY bars — net distance over total path,
+   * 1 = a perfectly efficient trend, 0 = a directionless whipsaw. Surfaced for observability beside
+   * the Choppiness Index; never an input to a label (the overlay keys only on Choppiness). A day is
+   * omitted until the window has seeded, on a non-positive close, or on a zero total path.
+   */
+  fun kaufmanEfficiencyRatioByDate(
+    spyQuotes: List<StockQuote>,
+    window: Int = RegimeReadoutParamsV3.FROZEN.efficiencyWindowBars,
+  ): Map<LocalDate, Double> {
+    require(window > 1) { "Efficiency-ratio window must be > 1, got $window" }
+    val sorted = spyQuotes.sortedBy { it.date }
+    val result = LinkedHashMap<LocalDate, Double>()
+    for (index in window until sorted.size) {
+      var pathSum = 0.0
+      var badPrint = false
+      for (i in (index - window + 1)..index) {
+        val close = sorted[i].closePrice
+        val priorClose = sorted[i - 1].closePrice
+        if (close <= 0.0 || priorClose <= 0.0) {
+          badPrint = true
+          break
+        }
+        pathSum += abs(close - priorClose)
+      }
+      if (badPrint || pathSum <= 0.0) continue
+      result[sorted[index].date] = abs(sorted[index].closePrice - sorted[index - window].closePrice) / pathSum
+    }
+    return result
+  }
+
+  /**
+   * The v3 trend-efficiency overlay (ADR 0028): demote whole low-efficiency v2-GRIND spells to CHOP.
+   * Walks the published-label sequence (ordered by date, parallel to [efficient]); for each maximal
+   * run of consecutive GRIND days it keeps GRIND only when the efficient fraction is a strict
+   * majority (`> majorityThreshold` — ties demote), otherwise relabels the whole run to CHOP. Every
+   * other label is copied verbatim, so the CRISIS/THRUST/NARROW backbone is byte-identical and the
+   * result satisfies `v3-GRIND ⊆ v2-GRIND`. Operates on the published stream, never the raw labels —
+   * efficiency only filters the up-tape GRIND the v2 directional legs already claimed.
+   *
+   * NON-CAUSAL by design: a spell's first day is relabeled on the whole spell's efficiency, so the
+   * demoted stream is retrospective, not point-in-time. This is sound for the descriptive read-out
+   * and its anchor/surrogate/OOS validation, but it is why v3 must NOT be wired to anything that
+   * consumes the published label as-of an entry date (the per-trade decomposition, regime gating)
+   * without first converting the overlay to a causal as-of rule (ADR 0028 — descriptive-only).
+   */
+  fun demoteInefficientGrindSpells(
+    publishedLabels: List<RegimeLabel?>,
+    efficient: List<Boolean>,
+    majorityThreshold: Double = RegimeReadoutParamsV3.FROZEN.grindMajorityThreshold,
+  ): List<RegimeLabel?> {
+    require(efficient.size == publishedLabels.size) {
+      "efficient (${efficient.size}) must be parallel to publishedLabels (${publishedLabels.size})"
+    }
+    val result = publishedLabels.toMutableList()
+    var runStart = 0
+    while (runStart < publishedLabels.size) {
+      if (publishedLabels[runStart] != RegimeLabel.GRIND) {
+        runStart++
+        continue
+      }
+      var runEnd = runStart
+      while (runEnd + 1 < publishedLabels.size && publishedLabels[runEnd + 1] == RegimeLabel.GRIND) runEnd++
+      val length = runEnd - runStart + 1
+      val efficientCount = (runStart..runEnd).count { efficient[it] }
+      if (efficientCount.toDouble() / length <= majorityThreshold) {
+        for (index in runStart..runEnd) result[index] = RegimeLabel.CHOP
+      }
+      runStart = runEnd + 1
+    }
+    return result
   }
 
   /**
@@ -135,6 +283,45 @@ class RegimeReadoutService(
           rawLabel = rawLabels[index],
           publishedLabel = publishedLabels[index],
           axes = axesByDay[index],
+        )
+    }
+    return series
+  }
+
+  /**
+   * The v3 trend-efficiency read-out (ADR 0028): the frozen v2 series, post-processed so that whole
+   * low-efficiency GRIND spells read CHOP. Runs the entire v2 pipeline byte-identically, computes the
+   * SPY Choppiness Index, and demotes via [demoteInefficientGrindSpells]; the CRISIS/THRUST/NARROW
+   * backbone and every raw label are copied verbatim. Provisional candidate, never the production
+   * read-out — exposed only for validation (the `version=V3` read). The demoted published stream is
+   * retrospective (see [demoteInefficientGrindSpells]) — descriptive-only, not an as-of signal.
+   */
+  fun computeReadoutSeriesV3(
+    spyQuotes: List<StockQuote>,
+    ewReturnByDate: Map<LocalDate, EwReturnDaily>,
+    breadthByDate: Map<LocalDate, MarketBreadthDaily>,
+    v2Params: RegimeReadoutParams = RegimeReadoutParams.FROZEN,
+    v3Params: RegimeReadoutParamsV3 = RegimeReadoutParamsV3.FROZEN,
+  ): Map<LocalDate, RegimeReadoutDaily> {
+    val spyCloseByDate = spyQuotes.associate { it.date to it.closePrice }
+    val v2Series = computeReadoutSeries(spyCloseByDate, ewReturnByDate, breadthByDate, v2Params)
+    val choppiness = choppinessIndexByDate(spyQuotes, v3Params.efficiencyWindowBars)
+    val efficiencyRatio = kaufmanEfficiencyRatioByDate(spyQuotes, v3Params.efficiencyWindowBars)
+    val orderedDates = v2Series.keys.toList()
+    val publishedV2 = orderedDates.map { v2Series.getValue(it).publishedLabel }
+    val efficientFlags =
+      orderedDates.map { date ->
+        val ci = choppiness[date]
+        ci != null && ci <= v3Params.choppinessEfficientBand
+      }
+    val publishedV3 = demoteInefficientGrindSpells(publishedV2, efficientFlags, v3Params.grindMajorityThreshold)
+    val series = LinkedHashMap<LocalDate, RegimeReadoutDaily>(orderedDates.size)
+    orderedDates.forEachIndexed { index, date ->
+      val v2Daily = v2Series.getValue(date)
+      series[date] =
+        v2Daily.copy(
+          publishedLabel = publishedV3[index],
+          axes = v2Daily.axes?.copy(choppinessIndex30 = choppiness[date], efficiencyRatio30 = efficiencyRatio[date]),
         )
     }
     return series
