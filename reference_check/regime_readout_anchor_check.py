@@ -152,14 +152,108 @@ def check_chop_d_flat(series, spy_closes_by_date):
     return failures, lines
 
 
+CHOPPINESS_EFFICIENT_BAND = 38.2  # ADR 0028 — <= efficient, >= 61.8 choppy, between indeterminate
+CHOPPINESS_CHOPPY_BAND = 61.8
+BACKBONE_LABELS = ("CRISIS", "THRUST", "NARROW")  # v3 leaves these byte-identical to v2 by construction
+
+
+def grind_spells(label_by_date):
+    """Maximal runs of consecutive GRIND days, each a chronological list of dates."""
+    spells, current = [], []
+    for day in sorted(label_by_date):
+        if label_by_date[day] == "GRIND":
+            current.append(day)
+        elif current:
+            spells.append(current)
+            current = []
+    if current:
+        spells.append(current)
+    return spells
+
+
+def choppiness_band(value):
+    if value <= CHOPPINESS_EFFICIENT_BAND:
+        return f"efficient(<={CHOPPINESS_EFFICIENT_BAND})"
+    if value >= CHOPPINESS_CHOPPY_BAND:
+        return f"choppy(>={CHOPPINESS_CHOPPY_BAND})"
+    return "indeterminate"
+
+
+def coverage_by_label(series):
+    """Per-anchor-span coverage (covered, total) keyed by (label, start, end)."""
+    label_by_date = {row["quoteDate"]: row["publishedLabel"] for row in series}
+    result = {}
+    for label, spans in ANCHORS.items():
+        for start, end in spans:
+            days = [d for d in label_by_date if start <= d <= end]
+            covered = sum(1 for d in days if label_by_date[d] == label)
+            result[(label, start, end)] = (covered, len(days))
+    return result
+
+
+def v3_diagnostics(v3_series, v2_series):
+    """The v3 trend-efficiency report (ADR 0028). The binding #180 question — did GRIND and CHOP
+    each clear 60% WITHOUT regressing the byte-identical CRISIS/THRUST backbone — plus two report-only
+    reads: the GRIND-demotion rate (a near-zero rate is a recordable 'axis inert' negative result) and
+    the per-spell Choppiness band histogram. The demotion rate and histogram never pass/fail."""
+    v2_labels = {row["quoteDate"]: row["publishedLabel"] for row in v2_series}
+    v3_labels = {row["quoteDate"]: row["publishedLabel"] for row in v3_series}
+    choppiness = {
+        row["quoteDate"]: (row.get("axes") or {}).get("choppinessIndex30")
+        for row in v3_series
+        if (row.get("axes") or {}).get("choppinessIndex30") is not None
+    }
+    lines, failures = [], []
+
+    # 1. Backbone byte-identical on real data: v3 CRISIS/THRUST/NARROW coverage must equal v2's exactly.
+    v2_cov, v3_cov = coverage_by_label(v2_series), coverage_by_label(v3_series)
+    regressions = [key for key in v2_cov if key[0] in BACKBONE_LABELS and v2_cov[key] != v3_cov[key]]
+    if regressions:
+        failures.append(f"backbone regressed on {len(regressions)} span(s) — v3 must leave CRISIS/THRUST/NARROW byte-identical")
+    lines.append(f"  backbone byte-identical (CRISIS/THRUST/NARROW): {'OK' if not regressions else 'REGRESSED'}")
+
+    # 2. The binding #180 read: GRIND and CHOP coverage vs v2, did each clear 60%.
+    for label in ("GRIND", "CHOP"):
+        for start, end in ANCHORS[label]:
+            v2c, v2n = v2_cov[(label, start, end)]
+            v3c, v3n = v3_cov[(label, start, end)]
+            v2pct = v2c / v2n if v2n else 0.0
+            v3pct = v3c / v3n if v3n else 0.0
+            status = "PASS" if v3pct >= MIN_COVERAGE else "FAIL"
+            if status == "FAIL":
+                failures.append(f"{label} {start}->{end}: v3 {v3pct:.0%} < {MIN_COVERAGE:.0%}")
+            lines.append(f"  [{status}] {label:5s} {start} -> {end}  v2 {v2pct:5.0%} -> v3 {v3pct:5.0%}")
+
+    # 3. Report-only: GRIND-demotion rate.
+    v2_spells = grind_spells(v2_labels)
+    demoted = [s for s in v2_spells if all(v3_labels.get(d) == "CHOP" for d in s)]
+    rate = len(demoted) / len(v2_spells) if v2_spells else 0.0
+    lines.append(f"  GRIND-demotion rate (report-only): {len(demoted)}/{len(v2_spells)} spells ({rate:.0%})")
+    if v2_spells and not demoted:
+        lines.append("    -> axis inert: no v2-GRIND spell was demoted; record as a reasoned negative result")
+
+    # 4. Report-only: Choppiness band histogram over v2-GRIND days, split by v3 outcome.
+    for name, keep in (("surviving GRIND", "GRIND"), ("demoted CHOP", "CHOP")):
+        days = [d for s in v2_spells for d in s if v3_labels.get(d) == keep and d in choppiness]
+        hist = {}
+        for d in days:
+            band = choppiness_band(choppiness[d])
+            hist[band] = hist.get(band, 0) + 1
+        lines.append(f"  {name} days by Choppiness band (report-only): {hist or '{}'}")
+
+    return failures, lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8080/udgaard")
     parser.add_argument("--api-key", default=None)
+    parser.add_argument("--version", default="V2", help="read-out spec: V2 (frozen production) or V3 (trend-efficiency candidate, ADR 0028)")
     args = parser.parse_args()
+    version = args.version.upper()
 
-    print(f"Loading read-out series {SPAN_START} -> {SPAN_END} ...")
-    series = fetch(args.base_url, f"/api/regime/readout?after={SPAN_START}&before={SPAN_END}", args.api_key)
+    print(f"Loading {version} read-out series {SPAN_START} -> {SPAN_END} ...")
+    series = fetch(args.base_url, f"/api/regime/readout?after={SPAN_START}&before={SPAN_END}&version={version}", args.api_key)
     print(f"  {len(series)} days loaded")
     print("Loading SPY closes for the D-FLAT diagnostic ...")
     spy = fetch(args.base_url, "/api/stocks/SPY", args.api_key)
@@ -167,10 +261,24 @@ def main():
     print(f"  {len(spy_closes)} SPY closes loaded\n")
 
     all_failures = []
-    print("== 1. Anchor coverage (>= 60% per span) ==")
-    failures, lines = check_anchor_coverage(series)
-    print("\n".join(lines))
-    all_failures += failures
+    if version == "V3":
+        # The #180 binding read is GRIND/CHOP >= 60% + the byte-identical backbone, NOT the full
+        # 19-span tally (CRISIS/THRUST are inherited verbatim from v2, so their v2 misses are not a
+        # v3 failure). The full table is printed for context only.
+        print("Loading V2 series for the byte-identical + demotion diagnostics ...")
+        v2_series = fetch(args.base_url, f"/api/regime/readout?after={SPAN_START}&before={SPAN_END}&version=V2", args.api_key)
+        print("\n== 1. v3 trend-efficiency: backbone + GRIND/CHOP coverage + diagnostics ==")
+        failures, lines = v3_diagnostics(series, v2_series)
+        print("\n".join(lines))
+        all_failures += failures
+        print("\n-- full anchor coverage (context; CRISIS/THRUST/NARROW inherited from v2) --")
+        _, cov_lines = check_anchor_coverage(series)
+        print("\n".join(cov_lines))
+    else:
+        print("== 1. Anchor coverage (>= 60% per span) ==")
+        failures, lines = check_anchor_coverage(series)
+        print("\n".join(lines))
+        all_failures += failures
 
     print("\n== 2. Stability targets ==")
     failures, lines = check_stability(series)
@@ -183,13 +291,17 @@ def main():
     all_failures += failures
 
     print("\n" + "=" * 60)
+    scope = "v3 trend-efficiency overlay (GRIND/CHOP + backbone + stability + D-FLAT)" if version == "V3" else "the frozen classifier"
     if all_failures:
-        print(f"VERDICT: FAIL ({len(all_failures)} check(s) failed)")
+        print(f"VERDICT: FAIL ({len(all_failures)} binding check(s) failed) — {scope}")
         for failure in all_failures:
             print(f"  - {failure}")
-        print("The SPEC must be revised and re-frozen before any strategy is scored against it.")
+        if version == "V3":
+            print("Per ADR 0028 one-shot/no-sweep: record this as a reasoned negative result; do NOT retry at another N/threshold.")
+        else:
+            print("The SPEC must be revised and re-frozen before any strategy is scored against it.")
         sys.exit(1)
-    print("VERDICT: PASS — the frozen classifier reproduces the pre-registered anchors.")
+    print(f"VERDICT: PASS — {scope} reproduces the pre-registered anchors.")
     sys.exit(0)
 
 
