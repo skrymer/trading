@@ -1,5 +1,7 @@
 # External data provider abstractions
 
+> **Amended by [ADR 0029](0029-sharadar-cutover-table-feed-split-adjusted-signal-price-and-filing-vintages.md)** — vendor-specific catalogs give way to one domain-typed table-oriented `ReferenceDataFeed` for securities, bars, corporate actions and fundamentals.
+
 External data flowing into Udgaard is fetched through **domain-scoped provider interfaces**. Each interface represents one coherent data domain (equity time series, options chains, FX rates) — *not* one vendor.
 
 Services and tests depend on the interfaces. Concrete provider classes (`MidgaardClient` today) implement one or more provider interfaces and may additionally expose vendor-specific capabilities that don't fit a shared abstraction.

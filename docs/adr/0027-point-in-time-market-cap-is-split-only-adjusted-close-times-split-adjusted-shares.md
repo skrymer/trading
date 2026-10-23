@@ -1,5 +1,7 @@
 # Point-in-time market cap = split-only-adjusted close × split-adjusted shares — the stored close is split-AND-dividend adjusted, shares are split-only, so the naive product carries a dividend bias
 
+> **Amended by [ADR 0029](0029-sharadar-cutover-table-feed-split-adjusted-signal-price-and-filing-vintages.md)** — the stored close becomes split-only adjusted (dividends live in a separate total-return index); the market-cap construct is unchanged.
+
 The regime read-out v3 NARROW axis (#168) needs a **point-in-time market cap** per name back to the 2000 trust floor, to build a cap-weighted top-N return-concentration signal (mega-cap concentration). The cap primitive is delivered by #174 as a `Stock.marketCapAsOf(date)` accessor (ADR-0019 pattern). The obvious construct — `stored_close(t) × sharesOutstanding(t)` — is **wrong**, in a way that silently corrupts exactly the signal it feeds. This ADR records the correct construct, the algebra behind it, and an undocumented data-semantics landmine it exposed.
 
 ## Verified data facts (real AAPL probe, EODHD, 2026-06-15)

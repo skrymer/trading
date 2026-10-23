@@ -1,5 +1,7 @@
 # SPY buy-and-hold is a binding Calmar-only firewall baseline
 
+> **Amended by [ADR 0029](0029-sharadar-cutover-table-feed-split-adjusted-signal-price-and-filing-vintages.md)** — the SPY baseline (like strategy P&L) reads the total-return index, not the price-only close.
+
 The refined firewall (`/validate-candidate`) adds a binding gate requiring a candidate to beat **buy-and-hold SPY on Calmar**, computed by the engine over the **same out-of-sample-stitched support** as the strategy. A long-only book that cannot beat just holding the index, risk-adjusted, is delivering beta — this gate makes that explicit. This ADR locks in the metric, the baseline construction, and the binding scope. It is the continuation of ADR 0005, which built the OOS-stitched aggregate and deferred benchmark comparison "until a caller needs it" — this gate is that caller.
 
 ## The choice

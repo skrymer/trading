@@ -1,5 +1,7 @@
 # The tradable universe is a frozen-threshold, point-in-time liquidity-gated population; a global universe change opens an epoch that supersedes verdicts without resetting the dead-config brake
 
+> **Amended by [ADR 0030](0030-canonical-liquid-1500-universe-survivorship-completeness-and-delisting-return.md)** — the tradable gate now applies within the canonical Liquid 1500; the cap-floor fail-open is re-decided on SF1 coverage; the `$5` leg reads the raw close (ADR 0029).
+
 The platform ran **one unfiltered ~5,098-name count-equal pool for three different jobs** — the tradable opportunity set, the market-structure measurement population (breadth / the leadership-concentration gap / the regime read-out), and the benchmark-factor series. `BacktestService.resolveSymbols` applied **no price / cap / dollar-volume / listing-age filter**: ~31% of names last-close under $10 and ~48% under $20 — exactly the sub-$10 / thin tail where the modelled round-trip *transaction cost* (10 bps, ADR-0007 boundary) is fiction. The three populations want different definitions (see CONTEXT.md *Trading universe*). This ADR records the **tradable-universe** decision and how a deliberate global change to it interacts with the ADR-0008 dead-config brake. Implemented in issue #173. The **$300M cap floor (Phase 2)** — deferred until the #174 point-in-time market-cap primitive (ADR 0027) shipped — is now **built and active**, opening a second universe epoch (§3).
 
 ## Decision
