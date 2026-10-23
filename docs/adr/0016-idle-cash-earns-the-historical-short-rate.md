@@ -1,5 +1,7 @@
 # Idle cash earns the historical short rate
 
+> **Amended by [ADR 0029](0029-sharadar-cutover-table-feed-split-adjusted-signal-price-and-filing-vintages.md)** — the 3-month T-bill series comes from FRED `DGS3MO` instead of EODHD `US3M.GBOND`.
+
 The backtest engine credited idle (uninvested) cash **0%**; reality is the short T-bill rate (~3% recently, where the operator parks cash in SGOV). For a part-in-cash long-only strategy this understated CAGR/Calmar in proportion to time-in-cash — biting hardest on heavy-cash years. This ADR adds idle-cash interest at the **historical** short rate, wired so it is **Sharpe-neutral and Calmar-additive** by construction. Deferred from ADR 0013; resolves deep-research audit follow-up; issue #103.
 
 ## The accrual base

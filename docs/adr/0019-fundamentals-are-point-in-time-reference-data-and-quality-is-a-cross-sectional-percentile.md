@@ -1,5 +1,7 @@
 # Fundamentals are point-in-time reference data gated on `filing_date`; quality is a cross-sectional percentile mirroring ADR 0009
 
+> **Amended by [ADR 0029](0029-sharadar-cutover-table-feed-split-adjusted-signal-price-and-filing-vintages.md)** — fundamentals are SF1 ARQ with every filing vintage kept (key `(symbol, fiscal_date_ending, filing_date)`); the accepted restatement residual is gone.
+
 To build a cross-sectional quality/profitability long premise — the one factor whose edge plausibly *survives* narrow-leadership tape rather than participating-and-losing or delivering beta (`knowledge/purpose.md`) — we add two layers, each mirroring an existing precedent rather than inventing a new shape. **L1:** Midgaard ingests EODHD quarterly Income-Statement + Balance-Sheet line items as **point-in-time reference data** — one record per `(symbol, fiscalDateEnding)` stamped with its **`filing_date`** — shipped to Udgaard as `Stock.fundamentals` exactly like **earnings**, with visibility gated on `filing_date ≤ tradingDate` (never `fiscalDateEnding`). **L2:** Midgaard computes a **market-wide, survivorship-free quality percentile** in a separate operator-triggered cross-sectional pass, persisted per quote row and read by a fail-closed condition — exactly mirroring **ADR 0009** (the market-relative-strength percentile). See CONTEXT.md *Point-in-time fundamentals* for the term.
 
 ## Why
